@@ -168,6 +168,41 @@ public interface BillingONCHeader1Dao extends AbstractDao<BillingONCHeader1> {
     public List<io.github.carlos_emr.carlos.billings.ca.on.dto.BillingOnNewReportBilledRow>
     findBillingOnNewReportBilledRows(String providerNo, String startDate, String endDate);
 
+    /**
+     * The Billing Report Center's "Billed" list: the provider's open claims (not deleted, settled or
+     * submitted) billed in the date range, with a patient, newest first (#5061).
+     *
+     * @param providerNo the billing provider's number
+     * @param from first billing date, inclusive
+     * @param to last billing date, inclusive
+     * @return the claim headers; their items are not loaded
+     */
+    List<BillingONCHeader1> findReportCenterOpenClaims(String providerNo, Date from, Date to);
+
+    /**
+     * The Billing Report Center's "Unsettled" list: the provider's claims submitted to OHIP and not yet
+     * settled (status {@code B}) billed in the date range, with a patient, newest first (#5061).
+     *
+     * @param providerNo the billing provider's number
+     * @param from first billing date, inclusive
+     * @param to last billing date, inclusive
+     * @return the claim headers; their items are not loaded
+     */
+    List<BillingONCHeader1> findReportCenterSubmittedClaims(String providerNo, Date from, Date to);
+
+    /**
+     * The provider's claims (not deleted) billed in the date range that hold a live item with one of the
+     * service codes, newest first: the Billing Report Center's "OB" list (#5061).
+     *
+     * @param providerNo the billing provider's number
+     * @param from first billing date, inclusive
+     * @param to last billing date, inclusive
+     * @param serviceCodes the service codes; empty finds nothing
+     * @return the claim headers, each once; their items are not loaded
+     */
+    List<BillingONCHeader1> findReportCenterClaimsWithServiceCodes(String providerNo, Date from, Date to,
+                                                                   List<String> serviceCodes);
+
     public List<BillingONCHeader1> findAllByPayProgram(String payProgram, int startIndex, int limit);
 
     /**

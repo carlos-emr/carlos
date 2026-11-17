@@ -384,6 +384,129 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(saved.getValue().getRegionalIdentifier()).isNullOrEmpty();
     }
 
+    @ParameterizedTest(name = "{0} -> {1}")
+    @CsvSource({"PENICILLINS, J01C", "SULFONAMIDES, J01E"})
+    @DisplayName("should file a class shortcut allergy under its ATC class with no DrugRef id (#4576)")
+    void shouldStoreAtcClass_whenClassShortcutPostsItsCode(String name, String atc) throws Exception {
+        mockRequest.setParameter("type", "8");
+        mockRequest.setParameter("ID", "");
+        mockRequest.setParameter("name", name);
+        mockRequest.setParameter("atc", atc);
+
+        try (MockedConstruction<RxDrugData> drugData = mockConstruction(RxDrugData.class)) {
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            // A class has no product to look up.
+            assertThat(drugData.constructed()).isEmpty();
+        }
+
+        org.mockito.ArgumentCaptor<Allergy> saved = org.mockito.ArgumentCaptor.forClass(Allergy.class);
+        verify(mockRxPatient).addAllergy(any(), saved.capture());
+        assertThat(saved.getValue().getTypeCode()).isEqualTo(8);
+        assertThat(saved.getValue().getAtc()).isEqualTo(atc);
+        assertThat(saved.getValue().getDescription()).isEqualTo(name);
+        assertThat(saved.getValue().getDrugrefId()).isNull();
+        // A class has no DIN; the getter reads an unset one as empty.
+        assertThat(saved.getValue().getRegionalIdentifier()).isEmpty();
+        assertThat(action.isIdentifiersUnresolved()).isFalse();
+    }
+
+    @ParameterizedTest(name = "{0}/{1} -> {2}")
+    @CsvSource({"44452, PENICILLINS, J01C", "44159, SULFONAMIDES, J01E"})
+    @DisplayName("should file the identity an old shortcut posts under the shortcut's ATC class (#4576)")
+    void shouldStoreAtcClass_whenOldShortcutIdentityIsPosted(String id, String name, String atc) throws Exception {
+        // A page loaded before the fix still posts the fixed DrugRef id, which names another product.
+        mockRequest.setParameter("type", "10");
+        mockRequest.setParameter("ID", id);
+        mockRequest.setParameter("name", name);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        org.mockito.ArgumentCaptor<Allergy> saved = org.mockito.ArgumentCaptor.forClass(Allergy.class);
+        verify(mockRxPatient).addAllergy(any(), saved.capture());
+        assertThat(saved.getValue().getTypeCode()).isEqualTo(8);
+        assertThat(saved.getValue().getAtc()).isEqualTo(atc);
+        assertThat(saved.getValue().getDrugrefId()).isNull();
+    }
+
+    @Test
+    @DisplayName("should save the amendment of an old shortcut's allergy under the ATC class (#4576)")
+    void shouldStoreAtcClass_whenOldShortcutAllergyIsAmended() throws Exception {
+        Allergy original = new Allergy();
+        original.setDrugrefId("44452");
+        original.setTypeCode(10);
+        original.setDescription("PENICILLINS");
+        when(mockRxPatient.getAllergy(42)).thenReturn(original);
+        when(mockRxPatient.amendActiveAllergy(any(), any(), eq(42))).thenReturn(true);
+        // What the amendment form posts: the stored identity, and the class AddReaction2.jsp read from it.
+        mockRequest.setParameter("allergyToArchive", "42");
+        mockRequest.setParameter("type", "10");
+        mockRequest.setParameter("ID", "44452");
+        mockRequest.setParameter("name", "PENICILLINS");
+        mockRequest.setParameter("atc", "J01C");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        org.mockito.ArgumentCaptor<Allergy> replacement = org.mockito.ArgumentCaptor.forClass(Allergy.class);
+        verify(mockRxPatient).amendActiveAllergy(any(), replacement.capture(), eq(42));
+        assertThat(replacement.getValue().getTypeCode()).isEqualTo(8);
+        assertThat(replacement.getValue().getAtc()).isEqualTo("J01C");
+        assertThat(replacement.getValue().getDrugrefId()).isNull();
+    }
+
+    @Test
+    @DisplayName("should store a posted ATC code only for an ATC class allergen")
+    void shouldNotStoreAtc_forOtherAllergenTypes() throws Exception {
+        mockRequest.setParameter("type", "11");
+        mockRequest.setParameter("ID", "39007");
+        mockRequest.setParameter("name", "AMOXICILLIN");
+        mockRequest.setParameter("atc", "J01C");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        org.mockito.ArgumentCaptor<Allergy> saved = org.mockito.ArgumentCaptor.forClass(Allergy.class);
+        verify(mockRxPatient).addAllergy(any(), saved.capture());
+        assertThat(saved.getValue().getAtc()).isEmpty();
+        assertThat(saved.getValue().getTypeCode()).isEqualTo(11);
+        assertThat(saved.getValue().getDrugrefId()).isEqualTo("39007");
+    }
+
+    @ParameterizedTest(name = "atc={0}")
+    @ValueSource(strings = {"J", "J01", "j01c", "J01CA0", "J01C'--", "<b>J01C</b>"})
+    @DisplayName("should reject an ATC code that is not a class code, without burning the saveToken")
+    void shouldRejectSave_whenAtcIsNotAClassCode(String atc) throws Exception {
+        mockRequest.setParameter("saveToken", "11111111-2222-3333-4444-555555555555");
+        mockRequest.setParameter("type", "8");
+        mockRequest.setParameter("ID", "");
+        mockRequest.setParameter("name", "PENICILLINS");
+        mockRequest.setParameter("atc", atc);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        logActionMock.verifyNoInteractions();
+
+        mockRequest.setParameter("atc", "J01C");
+        assertThat(new RxAddAllergy2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockRxPatient, times(1)).addAllergy(any(), any());
+    }
+
+    @Test
+    @DisplayName("should refuse a retry whose ATC class changed after the token was used")
+    void shouldRejectRetry_whenAtcChangedForUsedToken() throws Exception {
+        mockRequest.setParameter("saveToken", "11111111-2222-3333-4444-555555555555");
+        mockRequest.setParameter("type", "8");
+        mockRequest.setParameter("ID", "");
+        mockRequest.setParameter("name", "PENICILLINS");
+        mockRequest.setParameter("atc", "J01C");
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        mockRequest.setParameter("atc", "J01E");
+        assertThat(new RxAddAllergy2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        verify(mockRxPatient, times(1)).addAllergy(any(), any());
+    }
+
     @Test
     @DisplayName("should store the ATC code and DIN when a brand allergen resolves")
     void shouldStoreIdentifiers_whenBrandAllergenResolves() throws Exception {

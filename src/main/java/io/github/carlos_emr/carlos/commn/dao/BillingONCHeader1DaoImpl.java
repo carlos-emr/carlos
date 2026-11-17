@@ -792,6 +792,54 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return rows;
     }
 
+    /** One provider's claims with a patient billed in a date range, newest first; the status clause follows. */
+    private static final String REPORT_CENTER_CLAIMS = "SELECT h FROM BillingONCHeader1 h WHERE h.providerNo = ?1"
+            + " AND h.billingDate >= ?2 AND h.billingDate <= ?3 AND h.demographicNo <> 0 AND ";
+    private static final String REPORT_CENTER_ORDER = " ORDER BY h.billingDate DESC, h.billingTime DESC, h.id DESC";
+    private static final String REPORT_CENTER_OPEN_CLAIMS =
+            REPORT_CENTER_CLAIMS + "h.status NOT IN ('D', 'S', 'B')" + REPORT_CENTER_ORDER;
+    private static final String REPORT_CENTER_SUBMITTED_CLAIMS =
+            REPORT_CENTER_CLAIMS + "h.status = 'B'" + REPORT_CENTER_ORDER;
+
+    @Override
+    public List<BillingONCHeader1> findReportCenterOpenClaims(String providerNo, Date from, Date to) {
+        return findReportCenterClaims(REPORT_CENTER_OPEN_CLAIMS, providerNo, from, to);
+    }
+
+    @Override
+    public List<BillingONCHeader1> findReportCenterSubmittedClaims(String providerNo, Date from, Date to) {
+        return findReportCenterClaims(REPORT_CENTER_SUBMITTED_CLAIMS, providerNo, from, to);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<BillingONCHeader1> findReportCenterClaims(String jpql, String providerNo, Date from, Date to) {
+        Query query = entityManager.createQuery(jpql);
+        query.setParameter(1, providerNo);
+        // billing_date is mapped as a String; compare it as the yyyy-MM-dd text the column holds.
+        query.setParameter(2, new SimpleDateFormat("yyyy-MM-dd").format(from));
+        query.setParameter(3, new SimpleDateFormat("yyyy-MM-dd").format(to));
+        return query.getResultList();
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<BillingONCHeader1> findReportCenterClaimsWithServiceCodes(String providerNo, Date from, Date to,
+                                                                          List<String> serviceCodes) {
+        if (serviceCodes == null || serviceCodes.isEmpty()) {
+            return new ArrayList<>();
+        }
+        Query query = entityManager.createQuery("SELECT h FROM BillingONCHeader1 h WHERE h.providerNo = ?1"
+                + " AND h.billingDate >= ?2 AND h.billingDate <= ?3 AND h.status <> 'D'"
+                + " AND EXISTS (SELECT i.id FROM BillingONItem i WHERE i.ch1Id = h.id AND i.serviceCode IN (?4)"
+                + " AND (i.status IS NULL OR i.status <> 'D'))"
+                + REPORT_CENTER_ORDER);
+        query.setParameter(1, providerNo);
+        query.setParameter(2, new SimpleDateFormat("yyyy-MM-dd").format(from));
+        query.setParameter(3, new SimpleDateFormat("yyyy-MM-dd").format(to));
+        query.setParameter(4, serviceCodes);
+        return query.getResultList();
+    }
+
     @Override
     public List<BillingONCHeader1> findAllByPayProgram(String payProgram, int startIndex, int limit) {
         String sql = "select b FROM BillingONCHeader1 b where b.payProgram=?1 order by b.id ASC";

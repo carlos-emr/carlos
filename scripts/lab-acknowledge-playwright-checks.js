@@ -66,10 +66,11 @@
  *   asserts each names the rendered segment.
  *
  * FIXTURE AND CLEANUP. The demo dataset routes every lab to provider 0, so no
- * provider has a reviewable inbox item. This check copies ONE demo lab into a lab of its
- * own (a new lab number and accession: the message, the info row, the patient link and
- * the provider-0 routing row, so the copy reads exactly like the demo lab), routes the
- * copy to the test provider, reviews it, and in a finally removes the copy and every row
+ * provider has a reviewable inbox item. This check copies a demo lab into THREE owned
+ * versions sharing a new accession (the messages, info rows, patient links and
+ * provider-0 routing rows), routes the chain to the test provider, and acknowledges
+ * the latest version. An older acknowledgement must keep its status, comment and timestamp;
+ * the intervening NEW version must still be filed (#3879). Finally it removes the copies and every row
  * the review wrote for it (routing, the routing lock, the table_modification row the
  * application files when it deletes the provider-0 routing row), asserted by key.
  * It never acknowledges a demo lab: acknowledging one deleted the demo's provider-0
@@ -82,6 +83,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -262,6 +264,38 @@ function resolveSegment() {
 // The owned copy of a demo lab (lib/owned-lab.js): cloneLab() makes it and returns its number, removeOwnedLab() removes it and
 // every row the review wrote for it, by its own keys, and asserts it gone.
 const { cloneLab, removeOwnedLab } = createOwnedLab({ sql, sqlRows, lockNotShared: LOCK_NOT_SHARED });
+const olderOwnedLabs = [];
+let olderVersions = [];
+let olderAcknowledgement = null;
+
+/** Own every version so the regression never changes a demo report's review history. */
+function seedOlderVersions(template) {
+  for (let index = 0; index < 2; index++) {
+    const owned = createOwnedLab({ sql, sqlRows, lockNotShared: LOCK_NOT_SHARED });
+    olderOwnedLabs.push(owned);
+    olderVersions.push(owned.cloneLab(template));
+  }
+  const accession = sql(`SELECT accessionNum FROM hl7TextInfo WHERE lab_no=${Number(segmentId)}`);
+  [...olderVersions, segmentId].forEach((id, index) => {
+    sql(`UPDATE hl7TextInfo SET accessionNum='${escapeSql(accession)}', final_result_count=${index}
+      WHERE lab_no=${Number(id)}`);
+  });
+}
+
+function earlierReviewSnapshot() {
+  return sqlRows(`SELECT id, status, HEX(comment), HEX(timestamp) FROM providerLabRouting
+    WHERE provider_no='${escapeSql(providerNo)}' AND lab_type='HL7'
+    AND lab_no=${Number(olderVersions[0])} ORDER BY id`);
+}
+
+function seedEarlierAcknowledgement() {
+  sql(`UPDATE providerLabRouting SET status='A', comment='Earlier review [literal] $1',
+    timestamp='2009-02-13 23:31:30' WHERE provider_no='${escapeSql(providerNo)}'
+    AND lab_type='HL7' AND lab_no=${Number(olderVersions[0])}`);
+  olderAcknowledgement = earlierReviewSnapshot();
+  assert(olderAcknowledgement.length > 0 && olderAcknowledgement.every(row => row[1] === 'A'),
+    'the older acknowledged version was not seeded');
+}
 
 function routingRow() {
   const row = sqlRows(
@@ -371,7 +405,7 @@ function seedShowLatestRouting(probe) {
 function cleanupFixture() {
   const failures = [];
   for (const cleanup of [() => showLatestRoutingFixture?.cleanup(), cleanupQueueLink,
-    () => routingFixture?.cleanup(), removeOwnedLab]) {
+    () => routingFixture?.cleanup(), removeOwnedLab, ...olderOwnedLabs.map(owned => () => owned.removeOwnedLab())]) {
     try { cleanup(); } catch (error) { failures.push(error); }
   }
   if (failures.length) throw new AggregateError(failures, 'Lab acknowledgement fixture cleanup failed');
@@ -545,14 +579,26 @@ async function acknowledgeLab(popup) {
 async function checkCumulativeValues(context) {
   const page = await context.newPage();
   wirePage(page, 'cumulative-labs', recorder);
-  const response = await gotoApp(page, config.baseUrl,
-    `/lab/ViewCumulativeLabValues?demographicNo=${encodeURIComponent(demographicNo)}`);
-  assert(response.status() < 400, `ViewCumulativeLabValues returned HTTP ${response.status()}`);
-  await page.waitForLoadState('networkidle', { timeout: 45000 }).catch(() => {});
-  await assertNotErrorPage(page, 'cumulative lab values');
-  const text = await page.locator('body').innerText().catch(() => '');
-  await page.close().catch(() => {});
-  return text;
+  try {
+    const names = sqlRows(`SELECT last_name,first_name FROM demographic WHERE demographic_no=${Number(demographicNo)}`);
+    assert(names.length === 1 && names[0].length === 2 && names[0].every(name => name.trim()),
+      'cumulative lab fixture must resolve one patient with a complete name');
+    const response = await gotoApp(page, config.baseUrl,
+      `/lab/ViewCumulativeLabValues?demographic_no=${encodeURIComponent(demographicNo)}`);
+    assert(response.status() < 400, `ViewCumulativeLabValues returned HTTP ${response.status()}`);
+    await page.waitForLoadState('networkidle', { timeout: 45000 }).catch(() => {});
+    await assertNotErrorPage(page, 'cumulative lab values');
+    // A generic cumulative-labs shell also renders for a missing patient parameter.
+    // Require the actual tag's patient header, rather than accepting that shell as patient data.
+    const normalize = text => text.trim().replace(/\s+/g, ' ');
+    const expectedName = normalize(`${names[0][0]}, ${names[0][1]}`);
+    const header = normalize(await page.locator('.TopStatusBar td').first().innerText());
+    assert(header.startsWith(expectedName + ' '),
+      'cumulative lab values must show the selected patient in the rendered header');
+    return await page.locator('body').innerText();
+  } finally {
+    await page.close().catch(() => {});
+  }
 }
 
 (async () => {
@@ -565,13 +611,15 @@ async function checkCumulativeValues(context) {
   try {
     const resolved = resolveSegment();
     demographicNo = resolved.demographicNo;
-    // The demo lab is only the template: the lab that is routed, opened and acknowledged is the copy this run owns.
+    // Only owned copies are routed and reviewed; the demonstration report remains a template.
     segmentId = cloneLab(resolved.segmentId);
+    seedOlderVersions(resolved.segmentId);
     seedRouting();
+    seedEarlierAcknowledgement();
     seedQueueLink();
 
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
-    context = await browser.newContext({ ignoreHTTPSErrors: true });
+    context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
 
     await login(context, config, recorder);
 
@@ -598,6 +646,12 @@ async function checkCumulativeValues(context) {
 
     const acknowledged = await acknowledgeLab(popup);
     pass(`acknowledging lab ${segmentId} persisted routing status ${acknowledged.status}`);
+    assert(JSON.stringify(earlierReviewSnapshot()) === JSON.stringify(olderAcknowledgement),
+      'acknowledging a newer version changed the older acknowledgement status, comment or timestamp');
+    assert(sql(`SELECT status FROM providerLabRouting WHERE provider_no='${escapeSql(providerNo)}'
+      AND lab_type='HL7' AND lab_no=${Number(olderVersions[1])}`) === 'F',
+    'the unreviewed version after the older acknowledgement was not filed');
+    pass('the older acknowledgement audit is unchanged and the following unreviewed version is filed');
 
     const unreviewed = sql(
       `SELECT COUNT(*) FROM providerLabRouting WHERE provider_no='${escapeSql(providerNo)}'`

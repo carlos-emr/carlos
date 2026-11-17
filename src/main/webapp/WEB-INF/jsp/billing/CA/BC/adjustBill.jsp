@@ -265,12 +265,16 @@
 
 
         //
+        // #4427: some of these blocks (the submit button of an unsettled bill) are not rendered for every
+        // bill; a missing one used to throw here and stop the page's onLoad handlers after it.
         function HideElementById(ele) {
-            document.getElementById(ele).style.display = 'none';
+            var el = document.getElementById(ele);
+            if (el) el.style.display = 'none';
         }
 
         function ShowElementById(ele) {
-            document.getElementById(ele).style.display = '';
+            var el = document.getElementById(ele);
+            if (el) el.style.display = '';
         }
 
 

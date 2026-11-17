@@ -16,6 +16,7 @@ const { chromium } = require('playwright');
 const { execFileSync } = require('node:child_process');
 const { randomUUID } = require('node:crypto');
 const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { appUrl, assert, assertNotErrorPage, buildFailureDetails, createRecorder,
   getLaunchOptions, gotoApp, login, validateBaseUrl, wirePage } = require('./eform-local-playwright-utils');
 
@@ -153,7 +154,7 @@ async function assertResendFooters(compose) {
       const [freshId, staleId] = ids;
       browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), handleSIGINT: false, handleSIGTERM: false });
       cancellation.throwIfCancelled();
-      const context = await browser.newContext({ ignoreHTTPSErrors: isLoopback });
+      const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl) });
       const page = await login(context, config, recorder);
       page.removeAllListeners('dialog');
       page.on('dialog', async dialog => {

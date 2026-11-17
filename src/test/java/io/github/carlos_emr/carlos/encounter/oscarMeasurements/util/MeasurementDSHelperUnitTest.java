@@ -134,4 +134,80 @@ class MeasurementDSHelperUnitTest {
             assertThat(helper.isInRange()).isTrue();
         }
     }
+
+    /**
+     * A1C fraction normalisation (issue #4614): some labs file A1C as 0.095 rather than 9.5.
+     * Rules and flagging must see percent; stored data is untouched.
+     */
+    @Nested
+    @DisplayName("A1C fraction normalisation")
+    class A1cFractionNormalisation {
+
+        private MeasurementDSHelper helperFor(String type, String value) {
+            io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBean bean =
+                    new io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBean();
+            bean.setType(type);
+            bean.setDataField(value);
+            MeasurementDSHelper helper = new MeasurementDSHelper();
+            helper.mdb = bean;
+            return helper;
+        }
+
+        @Test
+        void shouldReturnPercent_whenA1cStoredAsFraction() {
+            assertThat(helperFor("A1C", "0.095").getDataAsDouble()).isEqualTo(9.5);
+            assertThat(helperFor("A1C", "0.071").getDataAsDouble()).isEqualTo(7.1);
+        }
+
+        @Test
+        void shouldReturnValueUnchanged_whenA1cStoredAsPercent() {
+            assertThat(helperFor("A1C", "8.4").getDataAsDouble()).isEqualTo(8.4);
+            assertThat(helperFor("A1C", "6.3").getDataAsDouble()).isEqualTo(6.3);
+        }
+
+        @Test
+        void shouldNotScale_forOtherMeasurementTypes() {
+            assertThat(helperFor("BMI", "0.5").getDataAsDouble()).isEqualTo(0.5);
+        }
+
+        @Test
+        void shouldFlagFractionA1cAboveTarget_andNotFractionWithinTarget() throws Exception {
+            io.github.carlos_emr.carlos.drools.RuleBaseFactory.flushAllCached();
+            // Same rule the shipped flowsheet XML generates for 'getDataAsDouble > 7'.
+            String drl = new RuleBaseCreator().getRule("a1cAbove7", MeasurementDSHelper.class.getName(),
+                    java.util.List.of(new DSCondition("getDataAsDouble", "", ">", "7")),
+                    "m.setIndicationColor(\"HIGH\");");
+            org.kie.api.KieBase kieBase = new RuleBaseCreator().getRuleBase("a1cFractionTest",
+                    java.util.List.of(drl));
+
+            assertThat(colourAfterFiring(kieBase, helperFor("A1C", "0.095"))).isEqualTo("HIGH");
+            assertThat(colourAfterFiring(kieBase, helperFor("A1C", "8.4"))).isEqualTo("HIGH");
+            assertThat(colourAfterFiring(kieBase, helperFor("A1C", "0.063"))).isNull();
+            assertThat(colourAfterFiring(kieBase, helperFor("A1C", "6.3"))).isNull();
+        }
+
+        @Test
+        void shouldFlagShippedDrlOnlyAboveTarget_forFractionAndPercent() throws Exception {
+            org.kie.api.KieBase kieBase = io.github.carlos_emr.carlos.drools.DroolsHelper
+                    .loadMeasurementRuleBase("diab-A1C.drl", io.github.carlos_emr.carlos.drools.DroolsHelper.class);
+
+            assertThat(colourAfterFiring(kieBase, helperFor("A1C", "0.075"))).isEqualTo("HIGH");
+            assertThat(colourAfterFiring(kieBase, helperFor("A1C", "7.5"))).isEqualTo("HIGH");
+            // Exactly at the 7.0% target is not above it, as a fraction or a percent.
+            assertThat(colourAfterFiring(kieBase, helperFor("A1C", "0.07"))).isNull();
+            assertThat(colourAfterFiring(kieBase, helperFor("A1C", "7.0"))).isNull();
+            assertThat(colourAfterFiring(kieBase, helperFor("A1C", "0.063"))).isNull();
+        }
+
+        private String colourAfterFiring(org.kie.api.KieBase kieBase, MeasurementDSHelper helper) {
+            org.kie.api.runtime.KieSession session = kieBase.newKieSession();
+            try {
+                session.insert(helper);
+                session.fireAllRules();
+            } finally {
+                session.dispose();
+            }
+            return helper.mdb.getIndicationColour();
+        }
+    }
 }

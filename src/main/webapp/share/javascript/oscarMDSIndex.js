@@ -2219,7 +2219,16 @@ function serverClearedCount(responseBody) {
     }
 }
 
-function updateStatus(formid) {//acknowledge
+function confirmedLabAcknowledgement(responseBody) {
+    try {
+        const parsed = typeof responseBody === 'string' ? JSON.parse(responseBody) : responseBody;
+        return !!parsed && Number.isInteger(parsed.clearedCount) && parsed.clearedCount >= 0;
+    } catch (error) {
+        return false;
+    }
+}
+
+function updateStatus(formid, requireConfirmation) {//acknowledge
     const num = formid.split("_");
     const doclabid = num[1];
     if (doclabid) {
@@ -2279,8 +2288,17 @@ function updateStatus(formid) {//acknowledge
                     updateGlobalDataAndSideNav(doclabid, null);
                 }
             }
-            if (data.labType === 'DOC') window.CarlosDocumentMetadata.acknowledge(formid, acknowledged);
-            else jQuery.post(url, data).done(acknowledged);
+            if (data.labType === 'DOC') return window.CarlosDocumentMetadata.acknowledge(formid, acknowledged);
+            return jQuery.post(url, data).then(function (responseBody) {
+                // Combined filing must not advertise success for an error page or the legacy
+                // HTTP-200 failure response. Other callers retain the older count fallback.
+                if ((requireConfirmation === true && !confirmedLabAcknowledgement(responseBody))
+                        || (typeof responseBody === 'string' && responseBody.trim() === 'failure')) {
+                    throw new Error('Lab acknowledgement was not confirmed');
+                }
+                acknowledged(responseBody);
+                return true;
+            });
         }
     }
 }
@@ -2654,66 +2672,57 @@ function handleDocSave(docid, action) {
 }
 
 
-function addDocComment(docId, providerNo) {
+/**
+ * The reviewing provider's own saved comment on a document, from the acknowledge form's hidden field
+ * (showDocument.jsp fills it from that provider's routing row). The visible comment is not used: for a
+ * document with no comment it shows the translated "No comment" placeholder, which would otherwise
+ * become the prompt's text and, on OK, the saved comment.
+ */
+function storedDocComment(docId) {
+    const input = document.getElementById("comment_" + docId);
+    return input ? input.value : "";
+}
 
-    let ret = true;
-    let comment = "";
-    const text = jQuery("#comment_" + docId + "_" + providerNo);
-    if (text.length > 0) {
-        comment = jQuery("#comment_" + docId + "_" + providerNo).text();
-        if (comment == null || comment == "no comment") {
-            comment = "";
-        }
-    }
+function addDocComment(docId, providerNo) {
+    const comment = storedDocComment(docId);
     const commentVal = prompt("Please enter a comment (max. 255 characters)", comment);
 
     if (commentVal == null) {
-        ret = false;
-    } else if (commentVal != null && commentVal.length > 0)
-        jQuery("#" + "comment_" + docId).val(commentVal);
-    else
-        jQuery("#" + "comment_" + docId).val(comment);
-
-    if (ret) {
-        const statusEl = document.getElementById("status_" + docId);
-        if (statusEl) statusEl.value = 'N';
-        const url = ctx + "/oscarMDS/UpdateStatus";
-        const formid = "acknowledgeForm_" + docId;
-        let data = serializeForm(formid);
-        data += "&method=addComment";
-
-        postForm(url, data)
-        .then(response => response.json())
-        .then(json => {
-            if (json != null) {
-                const date = json.date;
-                const timestampEl = document.getElementById("timestamp_" + docId + "_" + providerNo);
-                if (timestampEl) timestampEl.textContent = date;
-            }
-            const statusEl2 = document.getElementById("status_" + docId);
-            if (statusEl2) statusEl2.value = "A";
-            const commentDisplayEl = document.getElementById("comment_" + docId + "_" + providerNo);
-            const commentInputEl = document.getElementById("comment_" + docId);
-            if (commentDisplayEl && commentInputEl) {
-                commentDisplayEl.textContent = commentInputEl.value;
-                commentInputEl.value = "";
-            }
-        })
-        .catch(error => console.error('Error:', error));
+        return;
     }
+
+    const submittedComment = commentVal.length > 0 ? commentVal : comment;
+    const url = ctx + "/oscarMDS/UpdateStatus";
+    const formid = "acknowledgeForm_" + docId;
+    const data = new URLSearchParams(serializeForm(formid));
+    data.set("comment", submittedComment);
+    data.set("status", "N");
+    data.set("method", "addComment");
+
+    // Keep the form's saved comment and acknowledgement status until the server confirms
+    // the write. Otherwise a refused request becomes the next prompt's "saved" default.
+    return postForm(url, data.toString())
+    .then(response => {
+        if (!response.ok) throw new Error("Comment save refused");
+        return response.json();
+    })
+    .then(json => {
+        if (!json || typeof json.date !== "string" || !json.date) throw new Error("Comment save not confirmed");
+        const timestampEl = document.getElementById("timestamp_" + docId + "_" + providerNo);
+        if (timestampEl) timestampEl.textContent = json.date;
+        const commentDisplayEl = document.getElementById("comment_" + docId + "_" + providerNo);
+        const commentInputEl = document.getElementById("comment_" + docId);
+        // The hidden field keeps the saved comment: it is what the next Comment or Acknowledge offers.
+        if (commentInputEl) commentInputEl.value = submittedComment;
+        if (commentDisplayEl) commentDisplayEl.textContent = submittedComment;
+    })
+    .catch(() => alert("The comment could not be saved. Please try again."));
 }
 
 function getDocComment(docId, providerNo, inQueueB) {
 
     let ret = true;
-    let comment = "";
-    const text = jQuery("#comment_" + docId + "_" + providerNo);
-    if (text.length > 0) {
-        comment = jQuery("#comment_" + docId + "_" + providerNo).text();
-        if (comment == null || comment == "no comment") {
-            comment = "";
-        }
-    }
+    const comment = storedDocComment(docId);
     const commentVal = prompt("Please enter a comment (max. 255 characters)", comment);
 
     if (commentVal == null) {

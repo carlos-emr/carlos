@@ -45,7 +45,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.Base64;
 import java.util.concurrent.*;
@@ -140,6 +139,86 @@ class FaxImporterCriticalGapsUnitTest extends CarlosUnitTestBase {
         saveToIncomingMethod.setAccessible(true);
     }
 
+    @Nested
+    @DisplayName("Streamed spool ownership and quarantine publication")
+    class StreamedSpoolTests {
+        @Test
+        void shouldConsumeSpool_whenPdfIsValid() throws Exception {
+            Path incoming = initializeFaxIncomingDir();
+            Path spool = createValidPdf(2).toPath();
+            byte[] expected = Files.readAllBytes(spool);
+            FaxJob downloaded = new FaxJob();
+            downloaded.setDocumentPath(spool);
+            Path saved = null;
+            try {
+                saved = (Path) saveToIncomingMethod.invoke(faxImporter, createFaxConfig(), createReceivedFax(), downloaded);
+                assertThat(saved).isNotNull();
+                assertThat(Files.readAllBytes(saved)).isEqualTo(expected);
+                assertThat(spool).doesNotExist();
+                assertThat(downloaded.getDocumentPath()).isNull();
+            } finally {
+                Files.deleteIfExists(spool);
+                if (saved != null) Files.deleteIfExists(saved);
+                Files.deleteIfExists(incoming.resolve(String.valueOf(createFaxConfig().getId())));
+                Files.deleteIfExists(incoming);
+            }
+        }
+
+        @Test
+        void shouldDeleteSpool_whenPdfIsRejected() throws Exception {
+            Path incoming = initializeFaxIncomingDir();
+            Path spool = Files.createTempFile("carlos-fax-rejected-", ".pdf");
+            Files.writeString(spool, "not a PDF");
+            FaxJob downloaded = new FaxJob();
+            downloaded.setDocumentPath(spool);
+            FaxJob metadata = createReceivedFax();
+            try {
+                assertThat(saveToIncomingMethod.invoke(faxImporter, createFaxConfig(), metadata, downloaded)).isNull();
+                assertThat(metadata.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+                assertThat(spool).doesNotExist();
+                assertThat(downloaded.getDocumentPath()).isNull();
+                try (var files = Files.list(incoming.resolve(String.valueOf(createFaxConfig().getId())))) {
+                    assertThat(files.toList()).isEmpty();
+                }
+            } finally {
+                Files.deleteIfExists(spool);
+                Files.deleteIfExists(incoming.resolve(String.valueOf(createFaxConfig().getId())));
+                Files.deleteIfExists(incoming);
+            }
+        }
+
+        @Test
+        void shouldHidePartialCopy_whenCrossFilesystemStagingFails() throws Exception {
+            Path spool = createValidPdf(1).toPath();
+            faxImporter = new FaxImporter(faxConfigDao, faxJobDao, queueDocumentLinkDao,
+                    providerLabRoutingDao, faxProviderClientFactory, null) {
+                @Override
+                void moveFile(Path source, Path target) throws IOException {
+                    assertThat(source).isEqualTo(spool);
+                    assertThat(target.getFileName().toString()).startsWith("fax-tmp-");
+                    Files.writeString(target, "%PDF partial copy");
+                    throw new IOException("Synthetic disk failure during cross-filesystem copy");
+                }
+            };
+            Path incoming = initializeFaxIncomingDir();
+            FaxJob downloaded = new FaxJob();
+            downloaded.setDocumentPath(spool);
+            FaxJob metadata = createReceivedFax();
+            try {
+                assertThat(saveToIncomingMethod.invoke(faxImporter, createFaxConfig(), metadata, downloaded)).isNull();
+                assertThat(metadata.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+                assertThat(spool).doesNotExist();
+                try (var files = Files.list(incoming.resolve(String.valueOf(createFaxConfig().getId())))) {
+                    assertThat(files.toList()).isEmpty();
+                }
+            } finally {
+                Files.deleteIfExists(spool);
+                Files.deleteIfExists(incoming.resolve(String.valueOf(createFaxConfig().getId())));
+                Files.deleteIfExists(incoming);
+            }
+        }
+    }
+
     /**
      * Tests for collision-free filename generation (Priority 10).
      *
@@ -174,10 +253,7 @@ class FaxImporterCriticalGapsUnitTest extends CarlosUnitTestBase {
             // Then: All filenames must be unique (no collisions)
             assertThat(generatedFilenames)
                     .as("All generated filenames must be unique - no collisions allowed")
-                    .hasSize(numberOfFaxes);
-
-            // Then: All filenames should contain the original filename
-            assertThat(generatedFilenames)
+                    .hasSize(numberOfFaxes)
                     .allSatisfy(filename -> assertThat(filename).contains("referral.pdf"));
 
             // Then: All filenames should follow the pattern: yyyyMMdd-HHmmss-NNNNN-original.pdf
@@ -276,10 +352,8 @@ class FaxImporterCriticalGapsUnitTest extends CarlosUnitTestBase {
 
             // Then: Should not contain path traversal or dangerous filesystem characters
             assertThat(sanitized)
-                    .doesNotContain("..", "|", "\\", "/", ":", "*", "?", "\"", "<", ">");
-
-            // Then: Should still be a valid PDF filename
-            assertThat(sanitized).endsWith(".pdf");
+                    .doesNotContain("..", "|", "\\", "/", ":", "*", "?", "\"", "<", ">")
+                    .endsWith(".pdf");
         }
     }
 
@@ -590,9 +664,6 @@ class FaxImporterCriticalGapsUnitTest extends CarlosUnitTestBase {
             // When: Call saveToIncoming with corrupted data
             saveToIncomingMethod.invoke(faxImporter, faxConfig, receivedFax, faxFile);
 
-            // Give filesystem time to sync
-            Thread.sleep(100);
-
             // Then: No temp files should be leaked
             long tempFilesAfter = countTempFilesInDir(configDir);
             assertThat(tempFilesAfter)
@@ -826,26 +897,6 @@ class FaxImporterCriticalGapsUnitTest extends CarlosUnitTestBase {
 
         document.close();
         return tempFile;
-    }
-
-    /**
-     * Counts temporary fax files matching the {@code fax-*.pdf} naming pattern in the
-     * specified directory. Similar to {@link #countTempFilesInDir(Path)} but with a
-     * broader filename prefix match.
-     *
-     * @param directory the directory to scan
-     * @return the number of matching files, or 0 if the directory does not exist
-     * @throws IOException if the directory listing fails
-     */
-    private long countTempFiles(Path directory) throws IOException {
-        if (!Files.exists(directory)) {
-            return 0;
-        }
-
-        return Files.list(directory)
-                .filter(p -> p.getFileName().toString().startsWith("fax-"))
-                .filter(p -> p.getFileName().toString().endsWith(".pdf"))
-                .count();
     }
 
     /**

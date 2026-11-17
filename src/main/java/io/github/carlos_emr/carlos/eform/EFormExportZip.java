@@ -273,7 +273,18 @@ public class EFormExportZip {
             try (ZipInputStream zis = new ZipInputStream(importInputStream)) {
                 ZipEntry ze = null;
                 while ((ze = zis.getNextEntry()) != null) {
+                    // The path is validated BEFORE anything is skipped: an absolute or traversal name
+                    // must still fail the whole import, even when it hides under a metadata folder.
                     File zipEntryFile = PathValidationUtils.validateZipEntryPath(ze, imageTempFolderDir);
+                    if (ze.isDirectory() || isArchiverMetadataEntry(ze.getName())) {
+                        // Directory entries have no content, and archiver metadata is not part of the
+                        // form. Both used to break imports: a folder entry was "extracted" as an empty
+                        // file and published into the shared eForm image directory under the folder's
+                        // name, and Finder's __MACOSX/._<name> AppleDouble entries failed the hidden-
+                        // component check below, refusing the whole package with a 403.
+                        _log.debug("Skipping non-content eForm import zip entry: {}", LogSafe.sanitize(ze.getName()));
+                        continue;
+                    }
                     String zipEntryFileName = PathValidationUtils.validatePathComponent(zipEntryFile.getName(), "eform import zip entry");
                     _log.info("Unzipping..." + LogSafe.sanitize(zipEntryFileName));
                     if (zipEntryFileName.equalsIgnoreCase("eform.properties")) {
@@ -362,6 +373,29 @@ public class EFormExportZip {
             deleteDirectory(imageTempFolderDir);
         }
         return errors;
+    }
+
+    /**
+     * True for the metadata macOS writes into ZIP archives: the {@code __MACOSX/} tree that
+     * Finder's "Compress" adds, AppleDouble {@code ._<name>} resource-fork companions (also written
+     * beside the real file by command-line archivers on a Mac), and Finder's {@code .DS_Store}.
+     * Many published eForm packages were zipped on a Mac and carry these entries.
+     *
+     * <p>Skipping them only ever writes LESS than before: the dot-named ones were never importable
+     * (the hidden-component check refuses a leading dot), and nothing under {@code __MACOSX/} is eForm
+     * content. Every other hidden name, {@code .htaccess} for example, is still refused and still
+     * fails the import.</p>
+     *
+     * @param entryName raw ZIP entry name, already path-validated by the caller
+     * @return {@code true} when the entry is archiver metadata rather than eForm content
+     */
+    static boolean isArchiverMetadataEntry(String entryName) {
+        String normalized = entryName.replace('\\', '/');
+        if (normalized.startsWith("__MACOSX/")) {
+            return true;
+        }
+        String baseName = normalized.substring(normalized.lastIndexOf('/') + 1);
+        return baseName.startsWith("._") || ".DS_Store".equals(baseName);
     }
 
     private void deleteDirectory(File directory) {

@@ -70,10 +70,11 @@ public class QuickListDaoImpl extends AbstractDaoImpl<QuickList> implements Quic
     @SuppressWarnings("unchecked")
     @Override
     public List<QuickList> findByNameResearchCodeAndCodingSystem(String quickListName, String researchCode, String codingSystem) {
-        Query query = entityManager.createQuery("from QuickList q where q.quickListName = ?1 AND q.dxResearchCode = ?2 AND q.codingSystem = ?3");
+        // A row stored under an older name of the coding system is the same item (#4989).
+        Query query = entityManager.createQuery("from QuickList q where q.quickListName = ?1 AND q.dxResearchCode = ?2 AND q.codingSystem IN (?3)");
         query.setParameter(1, quickListName);
         query.setParameter(2, researchCode);
-        query.setParameter(3, codingSystem);
+        query.setParameter(3, QuickListCodingSystem.storedNames(codingSystem));
         return query.getResultList();
     }
 
@@ -82,8 +83,8 @@ public class QuickListDaoImpl extends AbstractDaoImpl<QuickList> implements Quic
     public List<QuickList> findByCodingSystem(String codingSystem) {
         Query query;
         if (codingSystem != null) {
-            query = entityManager.createQuery("select ql from QuickList ql WHERE ql.codingSystem = ?1 AND ql.id IN (SELECT MIN(ql2.id) FROM QuickList ql2 WHERE ql2.codingSystem = ?1 GROUP BY ql2.quickListName)");
-            query.setParameter(1, codingSystem);
+            query = entityManager.createQuery("select ql from QuickList ql WHERE ql.codingSystem IN (?1) AND ql.id IN (SELECT MIN(ql2.id) FROM QuickList ql2 WHERE ql2.codingSystem IN (?1) GROUP BY ql2.quickListName)");
+            query.setParameter(1, QuickListCodingSystem.storedNames(codingSystem));
         } else {
             query = entityManager.createQuery("select ql from QuickList ql WHERE ql.id IN (SELECT MIN(ql2.id) FROM QuickList ql2 GROUP BY ql2.quickListName)");
         }
@@ -111,14 +112,17 @@ public class QuickListDaoImpl extends AbstractDaoImpl<QuickList> implements Quic
                 return new ArrayList<>();
             }
             
-            // Build SQL with validated table name and parameterized values for user input
-            String sql = "Select q.dxResearchCode, c.description FROM quickList q, " + codingSystem 
-                       + " c where q.codingSystem = ?1"
+            // Build SQL with validated table name and parameterized values for user input. A row stored under an
+            // older name of the coding system (the seeded lists' "ichppc") is read too (#4989).
+            List<String> storedNames = QuickListCodingSystem.storedNames(codingSystem);
+            String sql = "Select q.dxResearchCode, c.description FROM quickList q, " + codingSystem
+                       + " c where q.codingSystem IN (?1, ?3)"
                        + " and q.quickListName = ?2 AND c." + codingSystem
                        + " = q.dxResearchCode order by c.description";
             Query query = entityManager.createNativeQuery(sql);
-            query.setParameter(1, codingSystem);
+            query.setParameter(1, storedNames.get(0));
             query.setParameter(2, quickListName);
+            query.setParameter(3, storedNames.get(storedNames.size() - 1));
             return query.getResultList();
         } catch (Exception e) {
             // TODO replace when test ignores are merged

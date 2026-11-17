@@ -181,7 +181,7 @@
                     %>
                     <tr style="background-color: <%=colour%>">
                         <td><a
-                                href="<%=flow.getLink(""+h.get("demographic_no"),""+h.get("ID"))%>"
+                                href="<carlos:encode value='<%= request.getContextPath() + flow.getLink(""+h.get("demographic_no"),""+h.get("ID")) %>' context="htmlAttribute"/>"
                                 target="_blank"><%=h.get("workflow_type")%>
                         </a></td>
                         <td><%=h.get("create_date_time")%>

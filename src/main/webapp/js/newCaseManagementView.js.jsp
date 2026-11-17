@@ -48,18 +48,36 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:message var="noteSavingLabel" key="web.record.details.saving"/>
+<fmt:message var="noteEditorLabel" key="encounter.noteBrowser.encounterNote"/>
+<fmt:message var="invalidObservationDateLabel" key="encounter.observationDateInvalid.msg"/>
+<fmt:message var="draftSavingLabel" key="encounter.draftSaving.msg"/>
+<fmt:message var="draftSaveFailedLabel" key="encounter.draftSaveFailed.msg"/>
+<fmt:message var="draftSaveConflictLabel" key="encounter.draftSaveConflict.msg"/>
+    var invalidObservationDateError = "${carlos:forJavaScriptBlock(invalidObservationDateLabel)}";
+
+    var noteEditorLabel = "${carlos:forJavaScriptBlock(noteEditorLabel)}";
 
     var ctx;        //url context
     var providerNo;
     var demographicNo;
     var case_program_id;
+    // Captured once by the containing chart. AJAX fragments must never replace it with
+    // the most recently opened window's context for the same patient.
+    var chartContext = window.carlosChartContext || '';
+
+    function chartActionUrl(path) {
+        var url = ctx + path;
+        if (!chartContext) return url;
+        var query = url.indexOf('?');
+        return query === -1
+            ? url + '?chartContext=' + encodeURIComponent(chartContext)
+            : url.substring(0, query + 1) + 'chartContext=' + encodeURIComponent(chartContext)
+                + '&' + url.substring(query + 1);
+    }
+
     var caisiEnabled = false;
     var requireIssue = true;
     var requireObsDate = true;
-    var makeIssue;
-    var defaultDiv;
-    var changeIssueFunc;
-    var addIssueFunc;
     var needToReleaseLock = true;
 
     var X = 10;
@@ -201,10 +219,11 @@
                 measurementWindows[idx].parentChanged = true;
         }
 
-        if (needToReleaseLock) {
+        var editor = document.forms['caseManagementEntryForm'];
+        if (needToReleaseLock && editor && editor.noteId) {
             //release lock on note via sendBeacon (reliable on page unload)
-            var url = ctx + "/CaseManagementEntry";
-            var nId = document.forms['caseManagementEntryForm'].noteId.value;
+            var url = chartActionUrl("/CaseManagementEntry");
+            var nId = editor.noteId.value;
             var params = "method=releaseNoteLock&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&noteId=" + nId;
             var csrfToken = CarlosAjax.getCsrfToken();
             if (csrfToken) {
@@ -415,7 +434,7 @@
     var fullChart = "false";
     function viewFullChart(displayFullChart) {
 
-        var url = ctx + "/CaseManagementEntry";
+        var url = chartActionUrl("/CaseManagementEntry");
         var params = assembleMainChartParams(displayFullChart);
 
         if (displayFullChart) {
@@ -424,6 +443,7 @@
             fullChart = "false";
         }
 
+        destroyNoteIssueAutocomplete();
         $("notCPP").update("Loading...");
         CarlosAjax.request(
             url,
@@ -432,6 +452,7 @@
                 postBody: params,
                 evalScripts: true,
                 onSuccess: function (request) {
+                    destroyNoteIssueAutocomplete();
                     $("notCPP").update(request.responseText);
                     var qc = $("quickChart");
                     if (displayFullChart) {
@@ -471,10 +492,10 @@
 */
     function showIssueNotes() {
         issueNoteUrls = {
-            divR1I1: ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=SocHistory&title=" + socHistoryLabel + "&cmd=divR1I1",
-            divR1I2: ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=MedHistory&title=" + medHistoryLabel + "&cmd=divR1I2",
-            divR2I1: ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Concerns&title=" + onGoingLabel + "&cmd=divR2I1",
-            divR2I2: ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Reminders&title=" + remindersLabel + "&cmd=divR2I2"
+            divR1I1: chartActionUrl("/CaseManagementView?hc=996633&method=listNotes&providerNo=") + providerNo + "&demographicNo=" + demographicNo + "&issue_code=SocHistory&title=" + socHistoryLabel + "&cmd=divR1I1",
+            divR1I2: chartActionUrl("/CaseManagementView?hc=996633&method=listNotes&providerNo=") + providerNo + "&demographicNo=" + demographicNo + "&issue_code=MedHistory&title=" + medHistoryLabel + "&cmd=divR1I2",
+            divR2I1: chartActionUrl("/CaseManagementView?hc=996633&method=listNotes&providerNo=") + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Concerns&title=" + onGoingLabel + "&cmd=divR2I1",
+            divR2I2: chartActionUrl("/CaseManagementView?hc=996633&method=listNotes&providerNo=") + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Reminders&title=" + remindersLabel + "&cmd=divR2I2"
         };
         var limit = 5;
 
@@ -491,16 +512,16 @@
 
         // If any position variable is empty, it means that the corresponding issue is hidden
         if (socialHistoryPositon) {
-            issueNoteUrls[socialHistoryPositon] = ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=SocHistory&title=" + socHistoryLabel + "&cmd=div" + socialHistoryPositon;
+            issueNoteUrls[socialHistoryPositon] = chartActionUrl("/CaseManagementView?hc=996633&method=listNotes&providerNo=") + providerNo + "&demographicNo=" + demographicNo + "&issue_code=SocHistory&title=" + socHistoryLabel + "&cmd=div" + socialHistoryPositon;
         }
         if (medicalHistoryPosition) {
-            issueNoteUrls[medicalHistoryPosition] = ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=MedHistory&title=" + medHistoryLabel + "&cmd=div" + medicalHistoryPosition;
+            issueNoteUrls[medicalHistoryPosition] = chartActionUrl("/CaseManagementView?hc=996633&method=listNotes&providerNo=") + providerNo + "&demographicNo=" + demographicNo + "&issue_code=MedHistory&title=" + medHistoryLabel + "&cmd=div" + medicalHistoryPosition;
         }
         if (ongoingConcernsPosition) {
-            issueNoteUrls[ongoingConcernsPosition] = ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Concerns&title=" + onGoingLabel + "&cmd=div" + ongoingConcernsPosition;
+            issueNoteUrls[ongoingConcernsPosition] = chartActionUrl("/CaseManagementView?hc=996633&method=listNotes&providerNo=") + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Concerns&title=" + onGoingLabel + "&cmd=div" + ongoingConcernsPosition;
         }
         if (remindersPosition) {
-            issueNoteUrls[remindersPosition] = ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Reminders&title=" + remindersLabel + "&cmd=div" + remindersPosition;
+            issueNoteUrls[remindersPosition] = chartActionUrl("/CaseManagementView?hc=996633&method=listNotes&providerNo=") + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Reminders&title=" + remindersLabel + "&cmd=div" + remindersPosition;
         }
 
         var limit = 5;
@@ -799,7 +820,7 @@
         // the chart as if it were a note. A failed fetch renders nothing; the indicator
         // below is what the clinician sees instead (issue #3609).
         CarlosAjax.updater({success: notesContainer},
-            ctx + "/CaseManagementView",
+            chartActionUrl("/CaseManagementView"),
             {
                 method: 'post',
                 postBody: params,
@@ -905,6 +926,11 @@
     function requestNavbarColumn(url, div, params, column) {
         var state = window.carlosNavbarLoadState;
         if (!state) return;
+        // Every window owns its patient and appointment, including popup-triggered reloads.
+        // A login-wide session bean cannot identify which chart issued this request.
+        params = (params ? params + "&" : "") + "demographicNo=" + encodeURIComponent(demographicNo)
+            + "&appointmentNo=" + encodeURIComponent(typeof appointmentNo === "undefined" || appointmentNo == null ? "0" : appointmentNo)
+            + (chartContext ? "&chartContext=" + encodeURIComponent(chartContext) : "");
         var previous = state.modules[div];
         var module = {column: column || (previous && previous.column), status: "loading"};
         if (module.column !== "leftNavBar" && module.column !== "rightNavBar") {
@@ -1002,11 +1028,11 @@
             }
             var rightNavBar = [
                 ctx + "/encounter/displayDisease?hC=" + Colour.disease,
-                ctx + "/CaseManagementView?hc=" + Colour.familyHistory + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=FamHistory&title=" + famHistoryLabel + "&cmd=FamHistory" + "&appointment_no=" + appointmentNo,
+                chartActionUrl("/CaseManagementView?hc=") + Colour.familyHistory + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=FamHistory&title=" + famHistoryLabel + "&cmd=FamHistory" + "&appointment_no=" + appointmentNo,
                 ctx + "/encounter/displayAllergy?hC=" + Colour.allergy,
                 ctx + "/encounter/displayRx?hC=" + Colour.rx + "&numToDisplay=12",
-                ctx + "/CaseManagementView?hc=" + Colour.omed + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=OMeds&title=" + oMedsLabel + "&cmd=OMeds" + "&appointment_no=" + appointmentNo,
-                ctx + "/CaseManagementView?hc=" + Colour.riskFactors + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=RiskFactors&title=" + riskFactorsLabel + "&cmd=RiskFactors" + "&appointment_no=" + appointmentNo,
+                chartActionUrl("/CaseManagementView?hc=") + Colour.omed + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=OMeds&title=" + oMedsLabel + "&cmd=OMeds" + "&appointment_no=" + appointmentNo,
+                chartActionUrl("/CaseManagementView?hc=") + Colour.riskFactors + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=RiskFactors&title=" + riskFactorsLabel + "&cmd=RiskFactors" + "&appointment_no=" + appointmentNo,
                 ctx + "/encounter/displayIssues?hC=" + Colour.unresolvedIssues,
                 ctx + "/encounter/displayResolvedIssues?hC=" + Colour.resolvedIssues,
                 ctx + "/encounter/displayDecisionSupportAlerts?hC=" + Colour.contacts + "&providerNo=" + providerNo + "&demographicNo=" + demographicNo,
@@ -1168,14 +1194,14 @@
             var cppDisplay = "";
             for (idx = 0, rows = 0; idx < issueArray.length; idx += 3, ++rows) {
                 if (rows % 2 === 0) {
-                    noteIssueUl += "<li><input type='checkbox' id='issueId' name='issue_id' checked value='" + issueArray[idx] + "'>" + issueArray[idx + 2];
+                    noteIssueUl += "<li><label><input type='checkbox' name='issue_id' checked value='" + escapeNoteText(issueArray[idx]) + "'>" + escapeNoteText(issueArray[idx + 2]) + "</label>";
                 } else {
-                    noteIssueUl += "&nbsp; <input type='checkbox' id='issueId' name='issue_id' checked value='" + issueArray[idx] + "'>" + issueArray[idx + 2] + "</li>";
+                    noteIssueUl += "&nbsp; <label><input type='checkbox' name='issue_id' checked value='" + escapeNoteText(issueArray[idx]) + "'>" + escapeNoteText(issueArray[idx + 2]) + "</label></li>";
                 }
                 if (cppDisplay == "") cppDisplay = getCPP(issueArray[idx + 1]);
             }
 
-            if (rows % 2 === 0) {
+            if (rows % 2 !== 0) {
                 noteIssueUl += "</li>";
             }
         }
@@ -1356,7 +1382,7 @@ function updateCPPNote() {
         if ($('channel')) $('channel').style.visibility = 'visible';
         $('showEditNote').style.display = 'none';
 
-        var curItems = document.forms["frmIssueNotes"].elements["issueId"];
+        var curItems = document.forms["frmIssueNotes"].querySelectorAll('input[name="issue_id"]');
         if (curItems != null && typeof curItems.length != "undefined") {
             size = curItems.length;
 
@@ -1382,15 +1408,18 @@ function updateCPPNote() {
                     if (request.responseText.length > 0) {
                         $(div).update(request.responseText);
                     }
-                    if ($("issueChange").value == "true") {
-                        ajaxUpdateIssues("edit", sigId);
-                        $("issueChange").value = false;
-                    }
+                    // A CPP save can create a patient issue even when every checkbox
+                    // stays checked. Refresh the note fields and Unresolved Issues
+                    // after every successful save, independently of issueChange.
+                    ajaxUpdateIssues("edit", sigId, true);
+                    $("issueChange").value = false;
 
                     if (typeof notifyDivLoaded === 'function') notifyDivLoaded($(div).id);
                 },
                 onFailure: function (request) {
-                    $(div).update("<h3>" + div + "<\/h3>Error: " + request.status);
+                    $('showEditNote').style.display = 'block';
+                    if ($('channel')) $('channel').style.visibility = 'hidden';
+                    alert(savingNoteError + " " + request.status);
                 }
             }
         );
@@ -1414,6 +1443,11 @@ function updateCPPNote() {
             url,
             {
                 method: 'post',
+                // ChartNotes.jsp's standalone route loads this script without the chart layout's
+                // appointmentNo global; an undeclared name must mean "no appointment", not a ReferenceError.
+                postBody: 'demographicNo=' + encodeURIComponent(demographicNo)
+                    + '&appointmentNo=' + encodeURIComponent(typeof appointmentNo === 'undefined' || appointmentNo == null ? '0' : appointmentNo)
+                    + (chartContext ? '&chartContext=' + encodeURIComponent(chartContext) : ''),
                 evalScripts: true,
                 onSuccess: function (request) {
                     $(div).update(request.responseText);
@@ -1762,7 +1796,9 @@ function updateCPPNote() {
     function removeLock(id) {
         var regEx = /\d+/;
         var nId = regEx.exec(id);
-        var url = ctx + "/CaseManagementEntry";
+        // New editor DOM counters (01, 0.1) all represent the persisted lock0.
+        if (nId && nId[0].charAt(0) === '0') nId = '0';
+        var url = chartActionUrl("/CaseManagementEntry");
         params = "method=releaseNoteLock&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&noteId=" + nId + "&force=true";
 
         CarlosAjax.request(
@@ -1775,6 +1811,7 @@ function updateCPPNote() {
     }
 
 
+    var noteIssuesChanged = false;
     var updatedNoteId = -1;  //used to store id of ajax saved note used below
     var selectBoxes = new Object();
     var unsavedNoteWarning;
@@ -1792,7 +1829,7 @@ function updateCPPNote() {
         // check if case note has been changed
         // if so, warn user that changes will be lost if not saved
 
-        if (origCaseNote != $F(id) || origObservationDate != $("observationDate").value) {
+        if (origCaseNote != $F(id) || origObservationDate != $("observationDate").value || noteIssuesChanged) {
             if (!confirm(unsavedNoteWarning))
                 return false;
             else {
@@ -1809,13 +1846,25 @@ function updateCPPNote() {
     }
 
     function finishChangeToView(id, saving, tmp) {
+        noteIssuesChanged = false;
         // The save response can rename the note container to its new database ID.
         var parent = $(id).parentNode.id;
         var nId = parent.substr(1);
         var sig = 'sig' + nId;
 
+        // These inputs sit outside noteIssues and belong only to this editor.
+        // Leaving them in the retired signature duplicates the next editor's
+        // field names and IDs, so validation and Save can read another note's time.
+        var signature = document.getElementById(sig);
+        if (signature) {
+            signature.querySelectorAll('input[name="hourOfEncounterTime"], input[name="minuteOfEncounterTime"], '
+                    + 'input[name="hourOfEncTransportationTime"], input[name="minuteOfEncTransportationTime"]').forEach(function (field) {
+                field.parentNode.replaceChild(document.createTextNode(field.value), field);
+            });
+        }
+
         // remove lock from note
-        removeLock(id);
+        removeLock(parent);
 
         //clear auto save
         clearTimeout(autoSaveTimer);
@@ -1848,6 +1897,7 @@ function updateCPPNote() {
         if ($("autosaveTime") != null)
             Element.remove("autosaveTime");
 
+        destroyNoteIssueAutocomplete();
         if ($("noteIssues") != null)
             Element.remove("noteIssues");
 
@@ -1871,8 +1921,6 @@ function updateCPPNote() {
             $(encTypeId).update(encType);
 
         }
-        //we can stop listening for add issue here
-        if ($("asgnIssues")) { Element.stopObserving('asgnIssues', 'click', addIssueFunc); }
         if (tmp.length == 0)
             tmp = "&nbsp;";
 
@@ -1987,6 +2035,14 @@ function updateCPPNote() {
 
     }
 
+    // The Maximize image of a note folded onto one line, and the click handler that expands the note through
+    // xpandView, which removes the image again. minView and minStaleNoteView both fold a note this way; the
+    // markup is here once so the two cannot drift apart or give a note the same image id twice.
+    function addExpandImage(txt, nId) {
+        $(txt).insertAdjacentHTML('afterbegin', "<img title='Maximize Display' alt='Maximize Display' id='xpImg" + nId + "' name='expandViewTrigger' onclick='xpandView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/triangle_down.gif'>");
+        Element.observe(txt, 'click', xpandView);
+    }
+
     function minView(e) {
         var divHeight = "1.1em";
         var txt = Event.element(e).parentNode.id;
@@ -2040,9 +2096,39 @@ function updateCPPNote() {
         $(print).insertAdjacentHTML('afterend', anchor);
 
 
-        img = "<img title='Maximize Display' alt='Maximize Display' id='xpImg" + nId + "' name='expandViewTrigger' onclick='xpandView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/triangle_down.gif'>";
-        $(txt).insertAdjacentHTML('afterbegin', img);
-        Element.observe(txt, 'click', xpandView);
+        addExpandImage(txt, nId);
+    }
+
+    // Folds a shortened (stale) note onto one line with its date, as minView folds a note shown in full,
+    // for the provider's single-line stale-note format (ChartNotesAjax.jsp). The note's full text is loaded
+    // first, as fullView loads it, so expanding the folded note (xpandView) shows all of it.
+    function minStaleNoteView(nId) {
+        var txt = "n" + nId;
+        if ($(txt) == null) return;
+        // The shortened note expands when clicked (ChartNotesAjax.jsp); folded, it expands through xpandView.
+        $(txt).removeEventListener('click', fullView);
+        var trigger = $("quitImg" + nId);
+        if (trigger != null) Element.remove(trigger);
+
+        CarlosAjax.request(chartActionUrl("/CaseManagementView"), {
+            method: 'post',
+            postBody: "method=viewNote&raw=false&noteId=" + nId + "&demographicNo=" + encodeURIComponent(demographicNo),
+            evalScripts: true,
+            onSuccess: function (response) {
+                $("txt" + nId).update(response.responseText.trim());
+                $("full" + nId).value = "true";
+            }
+        });
+
+        var dateValue = $("obs" + nId) != null ? $("obs" + nId).innerHTML : "";
+        dateValue = dateValue.substring(0, dateValue.indexOf(" "));
+        var line = $("txt" + nId).innerHTML.substr(0, 90).replace(/<br>/g, " ");
+        $(txt).style.overflow = "hidden";
+        $(txt).setStyle('height', '14px');
+        $("txt" + nId).hide();
+        if ($("sig" + nId) != null) $("sig" + nId).hide();
+        $(txt).insertAdjacentHTML('afterbegin', "<div id='d" + nId + "' style='width:10%;'><b>" + dateValue + "<\/b><\/div><div id='c" + nId + "' style='float:left; width:70%;'>" + line + "<\/div>");
+        addExpandImage(txt, nId);
     }
 
     var idHeight;
@@ -2057,8 +2143,14 @@ function updateCPPNote() {
 
 // this func fires only if maximize button is clicked after fullView
     function xpandView(e) {
-        var id = Event.element(e).id;
-        xpandViewById(id);
+        // Expand the note whose div (n<id>) holds the click. The click can land on a child with no id of its
+        // own, such as the bold date of a folded note, whose id would name no note.
+        var note = Event.element(e);
+        while (note != null && !(note.id && /^n\d+$/.test(note.id))) {
+            note = note.parentNode;
+        }
+        if (note == null) return;
+        xpandViewById(note.id);
         Event.stop(e);
     }
 
@@ -2087,9 +2179,9 @@ function updateCPPNote() {
     }
 
     function fetchNote(nId) {
-        var url = ctx + "/CaseManagementView";
+        var url = chartActionUrl("/CaseManagementView");
         var fullId = "full" + nId;
-        var params = "method=viewNote&raw=true&noteId=" + nId;
+        var params = "method=viewNote&raw=true&noteId=" + nId + "&demographicNo=" + encodeURIComponent(demographicNo);
         var noteTxtArea = "caseNote_note" + nId;
 
         CarlosAjax.request(
@@ -2136,7 +2228,7 @@ function updateCPPNote() {
     }
 
     function fullViewById(id) {
-        var url = ctx + "/CaseManagementView";
+        var url = chartActionUrl("/CaseManagementView");
 
         var regEx = /\d+/;
         var nId = regEx.exec(id);
@@ -2145,7 +2237,7 @@ function updateCPPNote() {
         var txt = "n" + nId;
         var img = "fullImg" + nId;
         var fullId = "full" + nId;
-        var params = "method=viewNote&raw=false&noteId=" + nId;
+        var params = "method=viewNote&raw=false&noteId=" + nId + "&demographicNo=" + encodeURIComponent(demographicNo);
         var noteTxtId = "txt" + nId;
         Element.stopObserving(txt, 'click', fullView);
 
@@ -2233,7 +2325,7 @@ function updateCPPNote() {
     function NoteisLocked(nId) {
 
         var noteIsLocked = "";
-        var url = ctx + "/CaseManagementEntry";
+        var url = chartActionUrl("/CaseManagementEntry");
         params = "method=isNoteEdited&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&noteId=" + nId;
 
         CarlosAjax.request(
@@ -2272,6 +2364,23 @@ function updateCPPNote() {
         return clone.textContent !== undefined ? clone.textContent : clone.innerText;
     }
 
+    // Assign raw note text through the DOM so leading newlines and literal markup
+    // survive without an HTML parsing/serialization round trip.
+    function createNoteTextarea(id, value, editing) {
+        var input = document.createElement("textarea");
+        input.id = id;
+        input.name = "caseNote_note";
+        input.cols = 84;
+        input.rows = editing ? 10 : 1;
+        input.className = "txtArea boxsizingBorder" + (editing ? " edit-textarea" : "");
+        input.style.lineHeight = editing ? "1.1em" : "1.0em";
+        input.setAttribute("aria-label", noteEditorLabel);
+        // Only clinician-entered line breaks may reach the saved note (#3955).
+        input.wrap = "soft";
+        input.value = value;
+        return input;
+    }
+
     function editNote(e) {
         Event.stop(e);
         // Defer the entire switch, including locks and editor teardown, until issue fields settle.
@@ -2293,14 +2402,14 @@ function updateCPPNote() {
                 var params = "method=releaseNoteLock&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&noteId=" + oldNoteId + "&force=true";
                 jQuery.ajax({
                     type: "POST",
-                    url: ctx + "/CaseManagementEntry",
+                    url: chartActionUrl("/CaseManagementEntry"),
                     data: params
                 });
 
                 params = "method=updateNoteLock&demographicNo=" + demographicNo + "&noteId=" + nId;
                 jQuery.ajax({
                     type: "POST",
-                    url: ctx + "/CaseManagementEntry",
+                    url: chartActionUrl("/CaseManagementEntry"),
                     data: params
                 });
             } else {
@@ -2366,19 +2475,8 @@ function updateCPPNote() {
         Element.remove(txtId);
         caseNote = "caseNote_note" + nId;
 
-        // The decoded text goes back through HTML: a textarea's content is RCDATA, so the
-        // entities decode into the editor unchanged, while a note holding a closing textarea
-        // tag or an image element with an onerror handler cannot close the element or
-        // become markup.
-        payload = escapeNoteText(payload);
-        // wrap='soft', never 'hard': a hard-wrapped textarea submits a CRLF at every visual
-        // wrap point (Firefox 145+ does so for scripted submissions too), and the server
-        // stores those breaks as part of the note (#3955).
-        // tabindex 7 is the note editor's slot in the encounter page's tab order: ChartNotesAjax.jsp's
-        // server-rendered editors also use 7, and the encounter-time fields follow at 11-14. A 0 here
-        // would put this editor after every positive tabindex, so Tab from it would skip those fields.
-        var input = "<textarea tabindex='7' cols='84' rows='10' wrap='soft' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='" + caseNote + "'>" + payload + "<\/textarea>"; <%-- NOSONAR Web:S6841 -- see the comment above --%>
-        $(txt).insertAdjacentHTML('afterbegin', input);
+        var input = createNoteTextarea(caseNote, payload, true);
+        $(txt).insertBefore(input, $(txt).firstChild);
         var printimg = "<div class='tool-button print-button'><img title='Print' id='print" + nId + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/printer.png'></div>";
 
         var strNid = "" + nId;
@@ -2426,14 +2524,12 @@ function updateCPPNote() {
         //cache existing signature so we can recreate it if ajax call aborted
         sigCache = $(divId).innerHTML;
         ajaxUpdateIssues('edit', divId);
-        addIssueFunc = updateIssues.bindAsEventListener(obj, makeIssue, divId);
-        if ($("asgnIssues")) { Element.observe('asgnIssues', 'click', addIssueFunc); }
 
         $(txt).style.height = "auto";
 
 
         //AutoCompleter for Issues
-        <%--var issueURL = ctx + "/CaseManagementEntry?method=issueList&demographicNo=" + demographicNo + "&providerNo=" + providerNo;--%>
+        <%--var issueURL = chartActionUrl("/CaseManagementEntry?method=issueList&demographicNo=") + demographicNo + "&providerNo=" + providerNo;--%>
         <%--issueAutoCompleter = new Ajax.Autocompleter("issueAutocomplete", "issueAutocompleteList", issueURL, {minChars: 4, indicator: 'busy', afterUpdateElement: saveIssueId, onShow: autoCompleteShowMenu, onHide: autoCompleteHideMenu});--%>
 
         //if note is already signed, remove save button to force edits to be signed
@@ -2551,19 +2647,22 @@ function updateCPPNote() {
 
     var filterError;
 
-    function resetInputElements(element) {
-        if (Object.prototype.toString.call(element) == "[object NodeList]") {
-            var size = element.length;
-            for (var i = 0; i < size; i++) {
-                element[i].checked = false;
-            }
+    function resetInputElements(elements) {
+        if (!elements) return;
+        // Named form controls can be a single input or a RadioNodeList.
+        if (typeof elements.length === 'number' && !elements.tagName) {
+            Array.from(elements).forEach(function (element) { element.checked = false; });
         } else {
-            element.checked = false;
+            elements.checked = false;
         }
     }
 
-    function filter(reset) {
-        var url = ctx + "/CaseManagementEntry";
+    function filter(reset, clearIssues) {
+        if (deferNoteSaveUntilIssues(function () { filter(reset, clearIssues); })) return false;
+        // A filter reload replaces the editor just like opening another note.
+        // Preserve unsaved text and assignments, and honor cancel/save failures.
+        if (!changeToView(caseNote, function () { filter(reset, clearIssues); })) return false;
+        var url = chartActionUrl("/CaseManagementEntry");
         var params = "ajaxview=ajaxView&fullChart=" + fullChart;
         document.forms["caseManagementEntryForm"].method.value = "edit";
         document.forms["caseManagementEntryForm"].note_edit.value = "new";
@@ -2574,15 +2673,26 @@ function updateCPPNote() {
         document.forms["caseManagementViewForm"].method.value = "view";
         document.forms["caseManagementViewForm"].resetFilter.value = reset;
 
+        // Heading clicks clear only issue constraints, after navigation can proceed.
+        if (reset || clearIssues) {
+            var checkIssue = document.getElementById('check_issue');
+            if (checkIssue) checkIssue.value = '';
+            resetInputElements(document.forms["caseManagementViewForm"].issues);
+        }
         if (reset) {
             resetInputElements(document.forms["caseManagementViewForm"].filter_providers);
             resetInputElements(document.forms["caseManagementViewForm"].filter_roles);
             resetInputElements(document.forms["caseManagementViewForm"].note_sort);
-            resetInputElements(document.forms["caseManagementViewForm"].issues);
         }
 
         var caseMgtEntryfrm = document.forms["caseManagementEntryForm"];
         var caseMgtViewfrm = document.forms["caseManagementViewForm"];
+        var filterNames = ['filter_providers', 'filter_roles', 'note_sort', 'issues'];
+        var selectedFilters = Array.from(caseMgtViewfrm.elements).filter(function (control) {
+            return control.checked && filterNames.indexOf(control.name) !== -1;
+        }).map(function (control) { return {name: control.name, value: control.value}; });
+        var legacyIssueControl = document.getElementById('check_issue');
+        var selectedLegacyIssue = legacyIssueControl ? legacyIssueControl.value : '';
 
         // Serialize caseMgtEntryfrm excluding demographicNo field, this is to avoid duplicate demographicNo
         var clonedForm = caseMgtEntryfrm.cloneNode(true);
@@ -2603,6 +2713,20 @@ function updateCPPNote() {
                 evalScripts: true,
                 onSuccess: function (request) {
                     $("notCPP").update(request.responseText);
+                    // The response replaces the form with unchecked controls. Restore the
+                    // applied state before the deferred initial note load, including an empty Reset.
+                    var refreshedForm = document.forms["caseManagementViewForm"];
+                    if (refreshedForm) {
+                        Array.from(refreshedForm.elements).forEach(function (control) {
+                            if (filterNames.indexOf(control.name) !== -1) {
+                                control.checked = selectedFilters.some(function (selected) {
+                                    return selected.name === control.name && selected.value === control.value;
+                                });
+                            }
+                        });
+                    }
+                    var refreshedIssueControl = document.getElementById('check_issue');
+                    if (refreshedIssueControl) refreshedIssueControl.value = selectedLegacyIssue;
                 },
                 onFailure: function (request) {
                     $("notCPP").update("Error: " + request.status);
@@ -2625,7 +2749,10 @@ function updateCPPNote() {
             }
         }
 
-        return -1;
+        // The Edit fragment renders the encounter date with English months whatever the interface
+        // language (NoteObservationDate, issue #4711); only the localized calendar writes the
+        // month[] labels' language. Both have to be read.
+        return ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].indexOf(mnth);
     }
 
 // make sure observation date is in the past
@@ -2637,6 +2764,9 @@ function updateCPPNote() {
         mnth = mnth.indexOf(".") != -1 ? mnth.substring(0, mnth.indexOf(".")) : mnth;
         mnth = mnth.toLowerCase();
         var mnthIdx = getMonthIdx(mnth);
+        // A month this cannot read would become setMonth(-1), December of the year before, and be
+        // judged on that. Leave it to the save, which refuses an unreadable date with a message.
+        if (mnthIdx < 0) return true;
         var year = strDate.substring(strDate.lastIndexOf("-") + 1, strDate.indexOf(" "));
         var time = strDate.substr(strDate.indexOf(" ") + 1);
         var timeArr = time.split(":");
@@ -2749,7 +2879,7 @@ function updateCPPNote() {
         var demoNo = demographicNo;
         var encType = "encTypeSelect" + noteId;
         var caseMgtEntryfrm = document.forms["caseManagementEntryForm"];
-        var url = ctx + "/CaseManagementEntry";
+        var url = chartActionUrl("/CaseManagementEntry");
         // encodeURIComponent, not encodeURI: encodeURI leaves & = + intact, so a note
         // containing "H&P" or a pasted link with "&cmd=" was cut off at the first "&"
         // on the server (ajaxsave() reads noteTxt, and the rest became stray
@@ -2790,6 +2920,8 @@ function updateCPPNote() {
                     if (request.status == 409) {
                         lostNoteLock = true;
                         alert(noteLockLostError);
+                    } else if (request.status == 400) {
+                        alert(invalidObservationDateError);
                     } else if (request.status == 403) {
                         alert(sessionExpiredError);
                     } else {
@@ -2884,7 +3016,7 @@ function updateCPPNote() {
         var params = Form.serialize(caseMgtEntryfrm);
         params += "&ajaxview=ajaxView&fullChart=" + fullChart;
 
-        var url = ctx + "/CaseManagementEntry";
+        var url = chartActionUrl("/CaseManagementEntry");
 
         // Keep the editor and typed text until the server confirms a new notes pane.
         var restoreControls = beginNoteSwitchSave();
@@ -2903,6 +3035,7 @@ function updateCPPNote() {
                         return;
                     }
                     saveConfirmed = true;
+                    destroyNoteIssueAutocomplete();
                     $("notCPP").update(request.responseText);
                     var qc = $("quickChart");
                     if (fullChart == "true") {
@@ -3029,57 +3162,28 @@ function updateCPPNote() {
 
     var changeIssueMsg;
     function changeDiagnosis(issueId) {
-        var methodArg = "ajaxChangeDiagnosis";
-        var divIdArg = $("noteIssues").up().id;
-        var thisObj = {};
-        changeIssueFunc = updateIssues.bindAsEventListener(thisObj, methodArg, divIdArg);
-
         document.forms['caseManagementEntryForm'].change_diagnosis_id.value = issueId;
-        if ($("asgnIssues")) {
-            $("asgnIssues").value = changeIssueMsg;
-            Element.stopObserving('asgnIssues', 'click', addIssueFunc);
-            Element.observe('asgnIssues', 'click', changeIssueFunc);
+        var button = document.getElementById('asgnIssues');
+        if (button) {
+            button.value = changeIssueMsg;
+            button.setAttribute('data-issue-method', 'ajaxChangeDiagnosis');
         }
-        if ($("issueAutocomplete")) { $("issueAutocomplete").focus(); }
+        if ($("issueAutocomplete")) $("issueAutocomplete").focus();
         return false;
     }
 
     function changeDiagnosisResolved(issueId) {
-        var methodArg = "ajaxChangeDiagnosis";
-        var divIdArg = $("noteIssues-resolved").up().id;
-        var thisObj = {};
-        changeIssueFunc = updateIssues.bindAsEventListener(thisObj, methodArg, divIdArg);
-
-        document.forms['caseManagementEntryForm'].change_diagnosis_id.value = issueId;
-        if ($("asgnIssues")) {
-            $("asgnIssues").value = changeIssueMsg;
-            Element.stopObserving('asgnIssues', 'click', addIssueFunc);
-            Element.observe('asgnIssues', 'click', changeIssueFunc);
-        }
-        if ($("issueAutocomplete")) { $("issueAutocomplete").focus(); }
-        return false;
+        return changeDiagnosis(issueId);
     }
 
     function changeDiagnosisUnresolved(issueId) {
-        var methodArg = "ajaxChangeDiagnosis";
-        var divIdArg = $("noteIssues-unresolved").up().id;
-        var thisObj = {};
-        changeIssueFunc = updateIssues.bindAsEventListener(thisObj, methodArg, divIdArg);
-
-        document.forms['caseManagementEntryForm'].change_diagnosis_id.value = issueId;
-        if ($("asgnIssues")) {
-            $("asgnIssues").value = changeIssueMsg;
-            Element.stopObserving('asgnIssues', 'click', addIssueFunc);
-            Element.observe('asgnIssues', 'click', changeIssueFunc);
-        }
-        if ($("issueAutocomplete")) { $("issueAutocomplete").focus(); }
-        return false;
+        return changeDiagnosis(issueId);
     }
 
     var closeWithoutSaveMsg;
     function closeEnc(e) {
         Event.stop(e);
-        if (!lostNoteLock && (origCaseNote != $F(caseNote) || origObservationDate != $("observationDate").value)) {
+        if (!lostNoteLock && (origCaseNote != $F(caseNote) || origObservationDate != $("observationDate").value || noteIssuesChanged)) {
             if (confirm(closeWithoutSaveMsg)) {
                 clearAutoSaveTimer();
                 window.close();
@@ -3092,64 +3196,147 @@ function updateCPPNote() {
         return false;
     }
 
-    function addIssue2CPP(txtField, listItem) {
+    // Bind each newly rendered editor once. AJAX replaces the note controls, while
+    // the CPP dialog keeps its own form throughout the chart's lifetime.
+    var disposeNoteIssueSearch = null;
+    function destroyNoteIssueAutocomplete() {
+        if (disposeNoteIssueSearch) {
+            disposeNoteIssueSearch();
+            disposeNoteIssueSearch = null;
+        }
+    }
 
-        var nodeId = listItem.id;
-        var size = 0;
-        var found = false;
-        var curItems = document.forms["frmIssueNotes"].elements["issueId"];
-
-        if (typeof curItems.length != "undefined") {
-            size = curItems.length;
-
-            for (var idx = 0; idx < size; ++idx) {
-                if (curItems[idx].value == nodeId) {
-                    found = true;
-                    break;
-                }
+    function initializeIssueAutocomplete(root) {
+        jQuery(root).find('.issueAutocomplete').each(function () {
+            var input = this;
+            var form = input.form;
+            if (!form || (form.name !== 'caseManagementEntryForm' && form.id !== 'frmIssueNotes')) return;
+            var search = jQuery(input);
+            if (search.autocomplete('instance')) return;
+            if (form.name === 'caseManagementEntryForm') {
+                destroyNoteIssueAutocomplete();
+                input.disabled = issueUpdatesPending > 0;
+                var assign = document.getElementById('asgnIssues');
+                if (assign) assign.disabled = input.disabled;
+                form.elements.newIssueId.value = '';
+                form.elements.newIssueName.value = '';
+                submitIssues = false;
             }
+            var pendingSearch;
+            var disposed = false;
+            search.autocomplete({
+                source: function (request, response) {
+                    if (pendingSearch) pendingSearch.abort();
+                    pendingSearch = jQuery.ajax({
+                        url: chartActionUrl('/CaseManagementEntry'),
+                        method: 'GET',
+                        dataType: 'json',
+                        data: {method: 'issueList', demographicNo: demographicNo,
+                            providerNo: providerNo, term: request.term}
+                    }).done(function (data) {
+                        if (disposed || input.isConnected === false) return;
+                        if (!Array.isArray(data)) {
+                            response([]);
+                            return;
+                        }
+                        response(jQuery.map(data, function (item) {
+                            if (!item || typeof item.description !== 'string') return null;
+                            var description = item.description.trim();
+                            return {label: description + ' (' + item.code + ')',
+                                value: description, id: item.id};
+                        }));
+                    }).fail(function () { if (!disposed) response([]); });
+                },
+                delay: 100,
+                minLength: 3,
+                select: function (event, ui) {
+                    if (form.id === 'frmIssueNotes') {
+                        addIssue2CPP(input, {id: ui.item.id, textContent: ui.item.value});
+                    } else {
+                        saveIssueId(input, {id: ui.item.id, textContent: ui.item.value});
+                    }
+                    return false;
+                }
+            });
+            if (form.name === 'caseManagementEntryForm') {
+                disposeNoteIssueSearch = function () {
+                    disposed = true;
+                    if (pendingSearch) pendingSearch.abort();
+                    search.autocomplete('destroy');
+                    search.off('.issueSelection');
+                };
+            }
+            search.on('input.issueSelection', function () {
+                if (form.name === 'caseManagementEntryForm') {
+                    form.elements.newIssueId.value = '';
+                    form.elements.newIssueName.value = '';
+                    submitIssues = false;
+                }
+            });
+        });
+    }
+
+    function addIssue2CPP(txtField, listItem) {
+        var form = txtField.form;
+        var nodeId = String(listItem.id);
+        if (!form || form.id !== 'frmIssueNotes' || !/^[1-9]\d*$/.test(nodeId)) return;
+        var list = form.querySelector('#issueIdList');
+        if (!list) return;
+        var existing = Array.from(form.querySelectorAll('input[name="issue_id"]')).find(function (input) {
+            return input.value === nodeId;
+        });
+        if (existing) {
+            existing.checked = true;
         } else {
-            found = curItems.value == nodeId;
+            var node = document.createElement('li');
+            var label = document.createElement('label');
+            var checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.name = 'issue_id';
+            checkbox.value = nodeId;
+            checkbox.checked = true;
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(listItem.textContent));
+            node.appendChild(label);
+            list.appendChild(node);
         }
-
-        if (!found) {
-            var node = document.createElement("LI");
-
-            var html = "<input type='checkbox' id='issueId' name='issue_id' checked value='" + nodeId + "'>" + listItem.textContent;
-            $(node).insertAdjacentHTML('afterbegin', html);
-
-            $("issueIdList").appendChild(node);
-            $("issueAutocompleteCPP").value = "";
-
-        }
-
-        $("issueChange").value = true;
+        txtField.value = '';
+        form.elements.issueChange.value = 'true';
     }
 
     function saveIssueId(txtField, listItem) {
-        $("newIssueId").value = listItem.id;
-        $("newIssueName").value = listItem.innerHTML;
-
+        var form = txtField.form;
+        var id = String(listItem.id);
+        if (!form || form.name !== 'caseManagementEntryForm' || !/^[1-9]\d*$/.test(id)) return;
+        form.elements.newIssueId.value = id;
+        form.elements.newIssueName.value = listItem.textContent;
+        txtField.value = listItem.textContent;
         submitIssues = true;
+    }
+
+    function assignNoteIssue(event) {
+        var issues = document.getElementById('noteIssues');
+        var button = document.getElementById('asgnIssues');
+        var signature = issues ? issues.closest('.sig') : null;
+        if (!signature || !button) return false;
+        return updateIssues(event, button.getAttribute('data-issue-method') || 'makeIssue', signature.id);
     }
 
     var pickIssueMsg;
     var assignIssueMsg;
-    function updateIssues(e) {
-        var args = $A(arguments);
-        args.shift();
-
-        if ($("newIssueId").value.length === 0 || ($("issueAutocomplete") && $("issueAutocomplete").value !== $("newIssueName").value))
+    function updateIssues(event, method, div) {
+        Event.stop(event);
+        var form = document.forms['caseManagementEntryForm'];
+        var search = form.querySelector('#issueAutocomplete');
+        if (!search || !/^[1-9]\d*$/.test(form.elements.newIssueId.value)
+                || search.value !== form.elements.newIssueName.value) {
             alert(pickIssueMsg);
-        else
-            ajaxUpdateIssues(args[0], args[1]);
-
-        if ($("asgnIssues") && $F("asgnIssues") !== assignIssueMsg) {
-            $("asgnIssues").value = assignIssueMsg;
-            Element.stopObserving('asgnIssues', 'click', changeIssueFunc);
-            Element.observe('asgnIssues', 'click', addIssueFunc);
+            return false;
         }
-        Event.stop(e);
+        // Repeated clicks must not race two replacements of the same issue fragment.
+        if (issueUpdatesPending > 0) return false;
+        noteIssuesChanged = true;
+        ajaxUpdateIssues(method, div);
         submitIssues = false;
         return false;
     }
@@ -3198,9 +3385,15 @@ function updateCPPNote() {
         return false;
     }
 
+    function setNoteIssueControlsBusy(busy) {
+        if ($("issueAutocomplete")) $("issueAutocomplete").disabled = busy;
+        if ($("asgnIssues")) $("asgnIssues").disabled = busy;
+    }
+
     function finishIssueUpdate(succeeded) {
         issueUpdateFailed = issueUpdateFailed || !succeeded;
         issueUpdatesPending -= 1;
+        setNoteIssueControlsBusy(issueUpdatesPending > 0);
         if (issueUpdatesPending === 0 && queuedNoteSave != null) {
             var queued = queuedNoteSave;
             queuedNoteSave = null;
@@ -3211,7 +3404,7 @@ function updateCPPNote() {
         }
     }
 
-    function ajaxUpdateIssues(method, div) {
+    function ajaxUpdateIssues(method, div, preserveSelections) {
         if (noteSwitchSavePending) {
             alert(noteSavingMessage);
             return false;
@@ -3220,16 +3413,35 @@ function updateCPPNote() {
         frm.method.value = method;
         frm.ajax.value = true;
 
-        var url = ctx + "/CaseManagementEntry";
+        var url = chartActionUrl("/CaseManagementEntry");
         var p = Form.serialize(frm);
         if (issueUpdatesPending === 0) issueUpdateFailed = false;
         issueUpdatesPending += 1;
+        setNoteIssueControlsBusy(true);
+        var selectedIssues;
         ajaxRequest = CarlosAjax.updater({success: div}, url, {
             evalScripts: true, postBody: p,
+            // The updater calls onSuccess before replacing the fragment. Capture
+            // the latest unsaved choices by patient-issue id, since edit rebuilds
+            // the checklist from the persisted note and may reorder its indexes.
+            onSuccess: function () {
+                if (!preserveSelections) return;
+                selectedIssues = new Map();
+                frm.querySelectorAll('input[type="checkbox"][data-issue-id]').forEach(function (checkbox) {
+                    selectedIssues.set(checkbox.getAttribute('data-issue-id'), checkbox.checked);
+                });
+            },
             // onComplete runs after the updater installs the new issue fields.
             onComplete: function (response) {
-                if (response.status >= 200 && response.status < 300) onIssueUpdate(finishIssueUpdate);
-                else finishIssueUpdate(false);
+                if (response.status >= 200 && response.status < 300) {
+                    if (selectedIssues) {
+                        frm.querySelectorAll('input[type="checkbox"][data-issue-id]').forEach(function (checkbox) {
+                            var id = checkbox.getAttribute('data-issue-id');
+                            if (selectedIssues.has(id)) checkbox.checked = selectedIssues.get(id);
+                        });
+                    }
+                    onIssueUpdate(finishIssueUpdate);
+                } else finishIssueUpdate(false);
             },
             onFailure: function (response) {
                 alert(response.status + " " + updateIssueError);
@@ -3242,6 +3454,7 @@ function updateCPPNote() {
     function onIssueUpdate(complete) {
         if ($("issueAutocomplete")) $("issueAutocomplete").value = "";
         if ($("newIssueId")) $("newIssueId").value = "";
+        if ($("newIssueName")) $("newIssueName").value = "";
 
         // demographicNo is module state; the form does not always render an element
         // with that id. Wait for this second refresh before resuming a queued save.
@@ -3266,15 +3479,18 @@ function updateCPPNote() {
 
 
 
-    var filterShows = false;
     function showFilter() {
+        var panel = document.getElementById('filter');
+        var toggle = document.getElementById('notesFilterToggle');
+        if (!panel || !toggle) return false;
+        var showing = panel.style.display === 'none';
+        panel.style.display = showing ? 'block' : 'none';
+        toggle.setAttribute('aria-expanded', String(showing));
+        return false;
+    }
 
-        if (filterShows)
-            $('filter').classList.add('carlos-collapsed');
-        else
-            $('filter').classList.remove('carlos-collapsed');
-
-        filterShows = !filterShows;
+    function clearIssueFilter() {
+        return filter(false, true);
     }
 
     function filterCheckBox(checkbox) {
@@ -3340,17 +3556,10 @@ function updateCPPNote() {
         var id = "nc" + safeNewNoteIdx;
         var sigId = "sig" + safeNewNoteIdx;
         var safeSigId = sigId.replace(/[^A-Za-z0-9\-_:.]/g, "");
-        // reason is the appointment reason as typed (ChartNotesAjax.jsp hands it over as a
-        // JavaScript string), spliced into markup here: escape it like every other note text.
-        // wrap='soft' for the same reason as editNote(): only line breaks the clinician types
-        // may reach the saved note (#3955).
-        // tabindex 7 is the note editor's slot in the encounter page's tab order: ChartNotesAjax.jsp's
-        // server-rendered editors also use 7, and the encounter-time fields follow at 11-14. A 0 here
-        // would put this editor after every positive tabindex, so Tab from it would skip those fields.
-        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='soft' class='txtArea boxsizingBorder' style='line-height:1.0em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='caseNote_note" + safeNoteIdSuffix + "'>" + escapeNoteText(reason) + "<\/textarea>"; <%-- NOSONAR Web:S6841 -- see the comment above --%>
+        var input = createNoteTextarea("caseNote_note" + safeNoteIdSuffix, reason, false);
         // the extra BR NBSP at the ends are for IE fix for selection box is out of scrolling pane view.
         var div = "<div id='" + id + "' class='newNote'><input type='hidden' id='signed" + safeNewNoteIdx + "' value='false'><input type='hidden' id='editWarn" + safeNewNoteIdx + "' value='false'><div id='n" + safeNewNoteIdx + "'><input type='hidden' id='full" + safeNewNoteIdx + "' value='true'>" +
-            "<input type='hidden' id='bgColour" + safeNewNoteIdx + "' value='color:white;background-color:#CCCCFF;'>" + input + "<div class='sig' style='display:inline;' id='" + safeSigId + "'><\/div><\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";
+            "<input type='hidden' id='bgColour" + safeNewNoteIdx + "' value='color:white;background-color:#CCCCFF;'><div class='sig' style='display:inline;' id='" + safeSigId + "'><\/div><\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";
 
 
         if (changeToView(caseNote, function () { newNote(null); })) {
@@ -3360,6 +3569,7 @@ function updateCPPNote() {
             document.forms["caseManagementEntryForm"].noteId.value = "0";
             document.forms["caseManagementEntryForm"].newNoteIdx.value = newNoteIdx;
             document.getElementById("encMainDiv").insertAdjacentHTML('beforeend', div);
+            $(safeSigId).parentNode.insertBefore(input, $(safeSigId));
             $(safeSigId).addClassName("sig");
             <%--Rounded("div#"+id,"all","transparent","#CCCCCC","big border #000000");--%>
             $(caseNote).focus();
@@ -3379,8 +3589,6 @@ function updateCPPNote() {
 
             origCaseNote = $F(caseNote);
             ajaxUpdateIssues("edit", safeSigId);
-            addIssueFunc = updateIssues.bindAsEventListener(obj, makeIssue, safeSigId);
-            if ($("asgnIssues")) { Element.observe('asgnIssues', 'click', addIssueFunc); }
 
             //AutoCompleter for Issues
             <%--var issueURL = "/CaseManagementEntry?method=issueList&demographicNo=" + demographicNo + "&providerNo=" + providerNo;--%>
@@ -3404,7 +3612,7 @@ function updateCPPNote() {
     }
 
     function deleteAutoSave() {
-        var url = ctx + "/CaseManagementEntry";
+        var url = chartActionUrl("/CaseManagementEntry");
         var frm = document.forms["caseManagementEntryForm"];
         frm.method.value = "cancel";
 
@@ -3418,21 +3626,94 @@ var month=new Array(12);
 var msgDraftSaved;
 var lostNoteLock = false;
 var autoSaveXhr = null;
+var autoSaveOperation = null;
+// A successful draft may differ from origCaseNote, which still represents the last
+// explicit save. Keep each actual editor's acknowledged draft separately so reverting
+// to its original (including empty) text also replaces an earlier nonempty draft.
+var acknowledgedDrafts = new WeakMap();
+var draftSavingMessage = "${carlos:forJavaScriptBlock(draftSavingLabel)}";
+var draftSaveFailedMessage = "${carlos:forJavaScriptBlock(draftSaveFailedLabel)}";
+var draftSaveConflictMessage = "${carlos:forJavaScriptBlock(draftSaveConflictLabel)}";
+
+function showAutosaveStatus(state, text) {
+    var statusEl = $("autosaveTime");
+    if (!statusEl) return;
+    statusEl.setAttribute("data-autosave-state", state);
+    statusEl.textContent = text;
+}
+
+function autosaveAcknowledged(response, requestUrl) {
+    if (!(response.status >= 200 && response.status < 300)
+            || typeof response.responseText !== "string" || response.responseText.trim() !== "") return false;
+    if (!response.responseURL) return true;
+    try {
+        var expected = new URL(requestUrl, window.location.href);
+        var actual = new URL(response.responseURL, window.location.href);
+        return actual.origin === expected.origin && actual.pathname === expected.pathname && actual.search === expected.search;
+    } catch (invalidUrl) {
+        return false;
+    }
+}
+
 function autoSave() {
+    if (autoSaveOperation || lostNoteLock) return;
     sanitizeElementByPattern(document.getElementById(caseNote), CONTROL_CHAR_PATTERN_2);
-    var url = ctx + "/CaseManagementEntry";
+    var url = chartActionUrl("/CaseManagementEntry");
     var programId = case_program_id;
     var demoNo = demographicNo;
     var cmeFrm = document.forms["caseManagementEntryForm"];
     var nId = cmeFrm.noteId.value < 0 ? 0 : cmeFrm.noteId.value;
-    var params = "method=autosave&demographicNo=" + demoNo + "&programId=" + programId + "&note_id=" + nId + "&note=" + encodeURIComponent($F(caseNote));
+    var submittedText = $F(caseNote);
+    var params = "method=autosave&demographicNo=" + demoNo + "&programId=" + programId + "&note_id=" + nId + "&note=" + encodeURIComponent(submittedText);
+    var editor = document.getElementById(caseNote);
+    var operation = { cancelled: false };
+    autoSaveOperation = operation;
+    function currentEditor() {
+        return !operation.cancelled && autoSaveOperation === operation
+            && editor === document.getElementById(caseNote) && cmeFrm === document.forms["caseManagementEntryForm"]
+            && String(cmeFrm.noteId.value < 0 ? 0 : cmeFrm.noteId.value) === String(nId);
+    }
+    function autosaveFailed(req, unexpectedResponse) {
+        if (!currentEditor()) return;
+        if (req.status == 409 && !unexpectedResponse) {
+            lostNoteLock = true;
+            showAutosaveStatus("conflict", draftSaveConflictMessage);
+            return;
+        }
+        // A network failure also has status zero. Only an explicit cancellation
+        // may be ignored; a previous success timestamp must not hide a failed save.
+        var previous = acknowledgedDrafts.get(editor);
+        if (!previous || previous.noteId !== String(nId)) previous = { noteId: String(nId) };
+        // A failed response can follow a committed request. Retry even if the
+        // clinician has meanwhile reverted to the original empty note.
+        previous.needsRetry = true;
+        acknowledgedDrafts.set(editor, previous);
+        showAutosaveStatus("failed", draftSaveFailedMessage);
+        if (typeof console !== "undefined" && console.error) {
+            console.error("CaseManagement autoSave failed", req.status,
+                unexpectedResponse ? "Unexpected autosave response" : req.statusText);
+        }
+    }
+    function autosaveComplete() {
+        if (autoSaveOperation === operation) {
+            autoSaveXhr = null;
+            autoSaveOperation = null;
+        }
+    }
+    showAutosaveStatus("pending", draftSavingMessage);
 
         autoSaveXhr = CarlosAjax.request(url, {
                 method: 'post',
                 postBody: params,
                 onSuccess: function (req) {
-                    var statusEl = $("autosaveTime");
-                    if (!statusEl) { return; }
+                    if (!currentEditor()) return;
+                    // Session expiry may redirect this POST to a login page answering200.
+                    // Only this action's empty acknowledgment confirms a persisted draft.
+                    if (!autosaveAcknowledged(req, url)) {
+                        autosaveFailed(req, true);
+                        return;
+                    }
+                    acknowledgedDrafts.set(editor, { noteId: String(nId), text: submittedText, needsRetry: false });
                     var d = new Date();
                     var min = d.getMinutes();
                     min = min < 10 ? "0" + min : min;
@@ -3440,38 +3721,40 @@ function autoSave() {
                     var seconds = d.getSeconds();
                     seconds = seconds < 10 ? "0" + seconds : seconds;
 
-                    var fmtDate = "<i>" + msgDraftSaved + " " + d.getDate() + "-" + month[d.getMonth()] + "-" + d.getFullYear() + " " + d.getHours() + ":" + min + ":" + seconds + "<\/i>";
-                    statusEl.update(fmtDate);
+                    var fmtDate = msgDraftSaved + " " + d.getDate() + "-" + month[d.getMonth()] + "-" + d.getFullYear() + " " + d.getHours() + ":" + min + ":" + seconds;
+                    showAutosaveStatus("saved", fmtDate);
                 },
                 onFailure: function (req) {
-                    // status 0 = aborted by clearAutoSaveTimer during window close; not an error
-                    if (req.status === 0) { return; }
-                    if (req.status == 409) {
-                        lostNoteLock = true;
-                        var lockEl = $("autosaveTime");
-                        if (lockEl) {
-                            lockEl.update("<i>Autosave cancelled due to note being edited in another window</i>");
-                        }
-                        return;
-                    }
-                    // Non-409 failures were previously silently swallowed. Log so they
-                    // surface in browser consoles and remote logging (Sentry, etc.).
-                    if (typeof console !== "undefined" && console.error) {
-                        console.error("CaseManagement autoSave failed", req.status, req.statusText);
-                    }
+                    autosaveFailed(req, false);
                 },
-                onComplete: function () {
-                    autoSaveXhr = null;
-                }
+                onComplete: autosaveComplete
             }
         );
-
+        // CarlosAjax returns the real asynchronous XHR. Bound this one clinical
+        // request directly: a stalled POST must release the serialization guard
+        // and allow the next backup to retry without changing other AJAX callers.
+        if (autoSaveOperation === operation && autoSaveXhr) {
+            autoSaveXhr.timeout = 45000;
+            autoSaveXhr.ontimeout = function () {
+                try {
+                    autosaveFailed({ status: 0, statusText: "Request timed out" }, false);
+                } finally {
+                    autosaveComplete();
+                }
+            };
+        }
     }
 
 
     function backup() {
-
-        if (origCaseNote != $(caseNote).value || origObservationDate != $("observationDate").value) {
+        var editor = $(caseNote);
+        if (!editor) return;
+        var form = document.forms["caseManagementEntryForm"];
+        var nId = form.noteId.value < 0 ? 0 : form.noteId.value;
+        var acknowledged = acknowledgedDrafts.get(editor);
+        var draftChanged = acknowledged && acknowledged.noteId === String(nId)
+            && (acknowledged.needsRetry || acknowledged.text !== editor.value);
+        if (draftChanged || origCaseNote != editor.value || origObservationDate != $("observationDate").value) {
             autoSave();
         }
 
@@ -3491,8 +3774,10 @@ function autoSave() {
         // the user never consented to (e.g., firing at T=4999ms then window.close()
         // at T=5000ms). See carlos-emr/carlos#1890.
         if (autoSaveXhr && typeof autoSaveXhr.abort === "function") {
+            if (autoSaveOperation) autoSaveOperation.cancelled = true;
             try { autoSaveXhr.abort(); } catch (ignored) { /* already done */ }
             autoSaveXhr = null;
+            autoSaveOperation = null;
         }
     }
 
@@ -3509,7 +3794,7 @@ function autoSave() {
         Event.stop(event);
         var rnd = Math.round(Math.random() * 1000);
         win = "win" + rnd;
-        var url = ctx + "/CaseManagementEntry?method=notehistory&noteId=" + encodeURIComponent(noteId)
+        var url = chartActionUrl("/CaseManagementEntry?method=notehistory&noteId=") + encodeURIComponent(noteId)
             + "&demographicNo=" + encodeURIComponent(demographicNo);
         window.open(url, win, "scrollbars=yes, location=no, width=647, height=600", "");
         return false;
@@ -3521,7 +3806,7 @@ function autoSave() {
     function showIssueHistory(demoNo, issueIds) {
         var rnd = Math.round(Math.random() * 1000);
         win = "win" + rnd;
-        var url = ctx + "/CaseManagementEntry?method=issuehistory&demographicNo=" + demoNo + "&issueIds=" + issueIds;
+        var url = chartActionUrl("/CaseManagementEntry?method=issuehistory&demographicNo=") + demoNo + "&issueIds=" + issueIds;
         window.open(url, win, "scrollbars=yes, location=no, width=647, height=600", "");
         return false;
     }
@@ -3541,8 +3826,7 @@ function autoSave() {
 
         //if we have lost the lock on the note alert the user
         if (lostNoteLock) {
-            var openAgain = confirm("You have saved/edited this note in another window\nPlease reopen the Chart if you wish to continue editing this note" +
-                "\n Do you wish to reopen the chart now?");
+            var openAgain = confirm(draftSaveConflictMessage + "\n Do you wish to reopen the chart now?");
 
             if (openAgain) {
                 window.location.reload(true);
@@ -3889,7 +4173,7 @@ function autoSave() {
             return false;
         }
 
-        var url = ctx + "/CaseManagementEntry";
+        var url = chartActionUrl("/CaseManagementEntry");
         var frm = document.forms["caseManagementEntryForm"];
 
         frm.method.value = "print";
@@ -3898,17 +4182,21 @@ function autoSave() {
         frm.pEndDate.value = $F("printEndDate");
         frm.pType.value = $F("printopDates");
 
-        // The print is a top-level form submit whose response is a PDF download, and the
-        // browser fires pagehide for that navigation even though this document stays. The
-        // pagehide handler then released this window's note lock, so every draft autosave
-        // after a print answered 409 and the chart reported "edited in another window" for
-        // the rest of the encounter. Hold the lock across the submit; restore the release
-        // once the download has had time to start and this document is still here. If the
-        // response is not a download (an error page), the document is gone by then and the
-        // lock is left for the next open of this note by the same user to reclaim.
-        needToReleaseLock = false;
-        frm.submit();
-        setTimeout(function () { needToReleaseLock = true; }, 3000);
+        // A PDF download must not navigate this editor: its unload handlers release
+        // the note lock. A timed suppression races with later prints and slow
+        // responses. Use a separate browsing context so errors remain visible there
+        // and this editor retains both its lock and its normal close behavior.
+        var previousTarget = frm.getAttribute("target");
+        frm.setAttribute("target", "_blank");
+        try {
+            frm.submit();
+        } finally {
+            if (previousTarget === null) {
+                frm.removeAttribute("target");
+            } else {
+                frm.setAttribute("target", previousTarget);
+            }
+        }
 
         return false;
     }
@@ -4018,7 +4306,9 @@ function autoSave() {
 
     function selectGroup(programId, demographicNo) {
         var noteId = document.forms["caseManagementEntryForm"].noteId.value;
-        var url = 'groupNoteSelect.jsp?programId=' + programId + '&demographicNo=' + demographicNo;
+        var url = ctx + '/casemgmt/ViewGroupNoteSelect?programId=' + encodeURIComponent(programId)
+            + '&demographicNo=' + encodeURIComponent(demographicNo) + '&noteId=' + encodeURIComponent(noteId)
+            + (chartContext ? '&chartContext=' + encodeURIComponent(chartContext) : '');
         popupPage(600, 700, 'group', url);
 
     }
@@ -4088,6 +4378,7 @@ function autoSave() {
             if ($("autosaveTime") != null)
                 Element.remove("autosaveTime");
 
+            destroyNoteIssueAutocomplete();
             if ($("noteIssues") != null)
                 Element.remove("noteIssues");
 
@@ -4111,8 +4402,6 @@ function autoSave() {
                 $(encTypeId).update(encType);
 
             }
-            //we can stop listening for add issue here
-            if ($("asgnIssues")) { Element.stopObserving('asgnIssues', 'click', addIssueFunc); }
             if (tmp.length == 0)
                 tmp = "&nbsp;";
 
@@ -4158,6 +4447,7 @@ function autoSave() {
         }//else{
         var noteId = document.forms["caseManagementEntryForm"].noteId.value;
         var url = '<%=request.getContextPath()%>/PMmodule/ClientSearch2?programId=' + programId + '&noteId=' + noteId + '&method=attachForm&demographicNo=' + demographicNo;
+        if (chartContext) url += '&sourceChartContext=' + encodeURIComponent(chartContext);
         popupPage(600, 700, 'group', url);
         //}
     }
@@ -4165,7 +4455,7 @@ function autoSave() {
     function setIssueCheckbox(val) {
         jQuery("input[name='issues']").each(function () {
             if (jQuery(this).val() == val)
-                jQuery(this).attr("checked", "checked");
+                jQuery(this).prop("checked", true);
         });
     }
 
@@ -4236,8 +4526,9 @@ function autoSave() {
         var params = Form.serialize(caseMgtEntryfrm);
         params += "&ajaxview=ajaxView&fullChart=" + fullChart;
 
-        var url = ctx + "/CaseManagementEntry";
+        var url = chartActionUrl("/CaseManagementEntry");
 
+        destroyNoteIssueAutocomplete();
         $("notCPP").update("Loading...");
 
         CarlosAjax.request(

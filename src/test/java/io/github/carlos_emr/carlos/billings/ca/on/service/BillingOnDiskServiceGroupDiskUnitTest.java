@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidOhipProviderFieldsException;
 import io.github.carlos_emr.carlos.commn.dao.BillCenterDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderBillCenterDao;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -425,6 +426,88 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRejectMalformedProviderFields_beforeAnySoloOrGroupWriteForAllProviders() {
+        // The batch header is fixed width. A five-digit OHIP number or a one-digit
+        // specialty code stopped the run on that provider after its disk had been
+        // allocated, while the simulation (which substitutes 00 for the specialty)
+        // still rendered. Every provider of the run is now checked first.
+        BillingProviderDto solo = provider("101");
+        solo.setBillingGroupNo("0000");
+        solo.setOhipNo("12345");
+        BillingProviderDto member = provider("102");
+        member.setSpecialtyCode("8");
+        when(diskCreationService.getCurSoloProvider()).thenReturn(List.of(solo));
+        givenGroupMembers(provider("103"), member);
+
+        assertThatThrownBy(() -> service.generateNewDisk(allProvidersRequest()))
+                .isInstanceOfSatisfying(InvalidOhipProviderFieldsException.class, rejected ->
+                        assertThat(rejected.getProblems()).containsExactly(
+                                "Provider 101: the OHIP billing number must be exactly 6 digits.",
+                                "Provider 102: the specialty code must be exactly 2 digits."));
+
+        verify(diskCreationService, never()).createNewSoloDiskName(anyString(), anyString());
+        verify(diskCreationService, never()).createNewGrpDiskName(anyList(), anyList(), anyString(), anyString());
+        org.mockito.Mockito.verifyNoInteractions(claimFileFactory, transactionService);
+    }
+
+    @Test
+    void shouldNotRepeatStoredValues_whenReportingMalformedProviderFields() {
+        BillingProviderDto member = provider("102");
+        member.setOhipNo("98765X1");
+        member.setSpecialtyCode("XYZ");
+        givenGroupMembers(member);
+
+        assertThatThrownBy(() -> service.generateNewDisk(allProvidersRequest()))
+                .isInstanceOfSatisfying(InvalidOhipProviderFieldsException.class, rejected -> {
+                    assertThat(rejected.getProblems()).hasSize(2).allSatisfy(problem ->
+                            assertThat(problem).startsWith("Provider 102: ")
+                                    .doesNotContain("98765X1").doesNotContain("XYZ"));
+                    assertThat(rejected.getMessage()).doesNotContain("98765X1").doesNotContain("XYZ");
+                });
+    }
+
+    @Test
+    void shouldGenerateSelectedProvider_whenAnUnselectedMemberHasMalformedOhipNumber() {
+        BillingProviderDto other = provider("102");
+        other.setOhipNo("1234567");
+        givenGroupMembers(provider("101"), other);
+        var selected = mock(io.github.carlos_emr.carlos.commn.model.Provider.class);
+        when(selected.getComments()).thenReturn("<xml_p_billinggroup_no>1234</xml_p_billinggroup_no>");
+        when(providerDao.getProvider("101")).thenReturn(selected);
+        var request = allProvidersRequest();
+        request.setParameter("providers", "101");
+        var member = memberWriter("selected-body", BigDecimal.TEN, 1);
+        var output = mock(OhipClaimFileService.class);
+        when(claimFileFactory.getObject()).thenReturn(member, output);
+
+        service.generateNewDisk(request);
+
+        verify(diskCreationService).createNewGrpDiskName(
+                List.of("101"), List.of("010100"), GROUP_NO, CURRENT_USER);
+        verify(output).writeFile("selected-body");
+    }
+
+    @Test
+    void shouldRejectSelectedGroupMember_whenItsSpecialtyCodeIsMalformed() {
+        BillingProviderDto member = provider("101");
+        member.setSpecialtyCode("008");
+        givenGroupMembers(member);
+        var selected = mock(io.github.carlos_emr.carlos.commn.model.Provider.class);
+        when(selected.getComments()).thenReturn("<xml_p_billinggroup_no>1234</xml_p_billinggroup_no>");
+        when(providerDao.getProvider("101")).thenReturn(selected);
+        var request = allProvidersRequest();
+        request.setParameter("providers", "101");
+
+        assertThatThrownBy(() -> service.generateNewDisk(request))
+                .isInstanceOfSatisfying(InvalidOhipProviderFieldsException.class, rejected ->
+                        assertThat(rejected.getProblems()).containsExactly(
+                                "Provider 101: the specialty code must be exactly 2 digits."));
+
+        verify(diskCreationService, never()).createNewGrpDiskName(anyList(), anyList(), anyString(), anyString());
+        org.mockito.Mockito.verifyNoInteractions(claimFileFactory, transactionService);
+    }
+
+    @Test
     void shouldTreatShortNumericGroup_asThatGroupZeroPadded() {
         // The provider record says "123"; the lookup service hands the disk flow
         // the normalized 0123 and the solo/group decision agrees with it.
@@ -497,6 +580,8 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
         BillingProviderDto provider = new BillingProviderDto();
         provider.setProviderNo(providerNo);
         provider.setOhipNo("0" + providerNo + "00");
+        // The lookup service defaults a blank specialty to 00, so a real DTO always has one.
+        provider.setSpecialtyCode("00");
         provider.setBillingGroupNo(GROUP_NO);
         return provider;
     }

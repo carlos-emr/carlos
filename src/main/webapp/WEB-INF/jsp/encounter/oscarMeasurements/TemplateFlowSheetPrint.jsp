@@ -120,7 +120,8 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
     if (elesToPrint != null) {
         for (String toPrint : elesToPrint) {
             String printStyle = request.getParameter("printStyle" + toPrint);
-            if (printStyle != null && printStyle.equals("all")) {
+            // Prevention checkboxes have no print-style selector; include every value by default.
+            if (printStyle == null || printStyle.equals("all")) {
                 forPrint.put(toPrint, "all");
             } else if (printStyle != null && printStyle.equals("num")) {
                 String numEle = request.getParameter("numEle" + toPrint);

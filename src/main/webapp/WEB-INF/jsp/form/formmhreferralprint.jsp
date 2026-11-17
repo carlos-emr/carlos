@@ -53,17 +53,22 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.util.EctFileUtil" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <html>
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <script type="text/javascript" src="<%= SafeEncode.forHtmlAttribute(request.getContextPath()) %>/js/global.js"></script>
         <title><fmt:message key="form.formmhreferralprint.title"/></title>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+        <base href="<%= SafeEncode.forHtmlAttribute(request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/") %>">
         <link rel="stylesheet" type="text/css" media="print" href="form/print.css">
         <link rel="stylesheet" type="text/css" media="screen"
               href="form/mhStyles.css">
+        <style>
+            /* Comments comes from a textarea: keep its line breaks on screen and on paper. */
+            .mhRefComments { white-space: pre-wrap; }
+        </style>
 
         <%
             Properties props = new Properties();
@@ -115,31 +120,31 @@
                        class="tableWithBorder">
                     <tr>
                         <td><fmt:message key="form.formmhreferralprint.label.name"/></td>
-                        <td align="left"><%= props.getProperty("c_pName", "") %>&nbsp;</td>
+                        <td align="left"><%= SafeEncode.forHtmlContent(props.getProperty("c_pName", "")) %>&nbsp;</td>
                     </tr>
                     <tr>
                         <td><fmt:message key="form.formmhreferralprint.label.sex"/></td>
-                        <td align="left"><%= props.getProperty("c_sex", "") %>&nbsp;</td>
+                        <td align="left"><%= SafeEncode.forHtmlContent(props.getProperty("c_sex", "")) %>&nbsp;</td>
                     </tr>
         </tr>
         <td><fmt:message key="form.formmhreferralprint.label.address"/></td>
-        <td align="left"><%= props.getProperty("c_address", "") %>&nbsp;</td>
+        <td align="left"><%= SafeEncode.forHtmlContent(props.getProperty("c_address", "")) %>&nbsp;</td>
         </tr>
         <tr>
             <td><fmt:message key="form.formmhreferralprint.label.homePhone"/></td>
-            <td align="left"><%= props.getProperty("c_homePhone", "") %>&nbsp;</td>
+            <td align="left"><%= SafeEncode.forHtmlContent(props.getProperty("c_homePhone", "")) %>&nbsp;</td>
         </tr>
         <tr>
             <td><fmt:message key="form.formmhreferralprint.label.birthDate"/> <small><fmt:message key="form.formmhreferralprint.label.dateFormat"/></small>:</td>
-            <td align="left"><%= props.getProperty("c_birthDate", "") %>&nbsp;</td>
+            <td align="left"><%= SafeEncode.forHtmlContent(props.getProperty("c_birthDate", "")) %>&nbsp;</td>
         </tr>
         <tr>
             <td><fmt:message key="form.formmhreferralprint.label.referralDate"/><small><fmt:message key="form.formmhreferralprint.label.dateFormat"/></small>:</td>
-            <td align="left"><%= props.getProperty("c_referralDate", "") %>&nbsp;</td>
+            <td align="left"><%= SafeEncode.forHtmlContent(props.getProperty("c_referralDate", "")) %>&nbsp;</td>
         </tr>
         <tr>
             <td><fmt:message key="form.formmhreferralprint.label.referredBy"/></td>
-            <td align="left"><%= props.getProperty("c_referredBy", "") %>&nbsp;</td>
+            <td align="left"><%= SafeEncode.forHtmlContent(props.getProperty("c_referredBy", "")) %>&nbsp;</td>
         </tr>
     </table>
     </td>
@@ -151,13 +156,13 @@
                     <td class="mhSelect"><fmt:message key="form.formmhreferralprint.section.psychSymptoms"/><br>
                         <%String[] rps = list.loadData("mhReferral/PsychiatricSymptoms.txt", projecthome, path);%>
                         1.
-                        <b><%=props.getProperty("r_rps1", "---").equals("") ? "" : rps[Integer.parseInt(props.getProperty("r_rps1", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("r_rps1", "---").equals("") ? "" : rps[Integer.parseInt(props.getProperty("r_rps1", "---")) - 1]) %>
                         </b><br>
                         2.
-                        <b><%=props.getProperty("r_rps2", "---").equals("") ? "" : rps[Integer.parseInt(props.getProperty("r_rps2", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("r_rps2", "---").equals("") ? "" : rps[Integer.parseInt(props.getProperty("r_rps2", "---")) - 1]) %>
                         </b><br>
                         3.
-                        <b><%=props.getProperty("r_rps3", "---").equals("") ? "" : rps[Integer.parseInt(props.getProperty("r_rps3", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("r_rps3", "---").equals("") ? "" : rps[Integer.parseInt(props.getProperty("r_rps3", "---")) - 1]) %>
                         </b>
                     </td>
                 </tr>
@@ -165,13 +170,13 @@
                     <td class="mhSelect"><fmt:message key="form.formmhreferralprint.section.psychosocialIssues"/><br>
                         <% String[] rpi = list.loadData("mhReferral/PsychosocialIssues.txt", projecthome, path);%>
                         1.
-                        <b><%=props.getProperty("r_rpi1", "---").equals("") ? "" : rpi[Integer.parseInt(props.getProperty("r_rpi1", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("r_rpi1", "---").equals("") ? "" : rpi[Integer.parseInt(props.getProperty("r_rpi1", "---")) - 1]) %>
                         </b><br>
                         2.
-                        <b><%=props.getProperty("r_rpi2", "---").equals("") ? "" : rpi[Integer.parseInt(props.getProperty("r_rpi2", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("r_rpi2", "---").equals("") ? "" : rpi[Integer.parseInt(props.getProperty("r_rpi2", "---")) - 1]) %>
                         </b><br>
                         3.
-                        <b><%=props.getProperty("r_rpi3", "---").equals("") ? "" : rpi[Integer.parseInt(props.getProperty("r_rpi3", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("r_rpi3", "---").equals("") ? "" : rpi[Integer.parseInt(props.getProperty("r_rpi3", "---")) - 1]) %>
                         </b>
                     </td>
                 </tr>
@@ -179,13 +184,13 @@
                     <td class="mhSelect"><fmt:message key="form.formmhreferralprint.section.medPhyIssues"/><br>
                         <% String[] rmpi = list.loadData("mhReferral/MedPhyIssues.txt", projecthome, path);%>
                         1.
-                        <b><%=props.getProperty("r_rmpi1", "---").equals("") ? "" : rmpi[Integer.parseInt(props.getProperty("r_rmpi1", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("r_rmpi1", "---").equals("") ? "" : rmpi[Integer.parseInt(props.getProperty("r_rmpi1", "---")) - 1]) %>
                         </b><br>
                         2.
-                        <b><%=props.getProperty("r_rmpi2", "---").equals("") ? "" : rmpi[Integer.parseInt(props.getProperty("r_rmpi2", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("r_rmpi2", "---").equals("") ? "" : rmpi[Integer.parseInt(props.getProperty("r_rmpi2", "---")) - 1]) %>
                         </b><br>
                         3.
-                        <b><%=props.getProperty("r_rmpi3", "---").equals("") ? "" : rmpi[Integer.parseInt(props.getProperty("r_rmpi3", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("r_rmpi3", "---").equals("") ? "" : rmpi[Integer.parseInt(props.getProperty("r_rmpi3", "---")) - 1]) %>
                         </b>
                     </td>
                 </tr>
@@ -193,13 +198,13 @@
                     <td class="mhSelect"><fmt:message key="form.formmhreferralprint.section.interventionsRequested"/><br>
                         <% String[] ir = list.loadData("mhReferral/InterventionsRequested.txt", projecthome, path); %>
                         1.
-                        <b><%=props.getProperty("r_ir1", "---").equals("") ? "" : ir[Integer.parseInt(props.getProperty("r_ir1", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("r_ir1", "---").equals("") ? "" : ir[Integer.parseInt(props.getProperty("r_ir1", "---")) - 1]) %>
                         </b><br>
                         2.
-                        <b><%=props.getProperty("r_ir2", "---").equals("") ? "" : ir[Integer.parseInt(props.getProperty("r_ir2", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("r_ir2", "---").equals("") ? "" : ir[Integer.parseInt(props.getProperty("r_ir2", "---")) - 1]) %>
                         </b><br>
                         3.
-                        <b><%=props.getProperty("r_ir3", "---").equals("") ? "" : ir[Integer.parseInt(props.getProperty("r_ir3", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("r_ir3", "---").equals("") ? "" : ir[Integer.parseInt(props.getProperty("r_ir3", "---")) - 1]) %>
                         </b>
                     </td>
                 </tr>
@@ -207,19 +212,19 @@
                     <td class="mhSelect"><fmt:message key="form.formmhreferralprint.section.adviceRegardingManagement"/><br>
                         <% String[] arm = list.loadData("mhReferral/AdviceRegardingManagement.txt", projecthome, path); %>
                         1.
-                        <b><%=props.getProperty("r_arm1", "---").equals("") ? "" : arm[Integer.parseInt(props.getProperty("r_arm1", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("r_arm1", "---").equals("") ? "" : arm[Integer.parseInt(props.getProperty("r_arm1", "---")) - 1]) %>
                         </b><br>
                         2.
-                        <b><%=props.getProperty("r_arm2", "---").equals("") ? "" : arm[Integer.parseInt(props.getProperty("r_arm2", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("r_arm2", "---").equals("") ? "" : arm[Integer.parseInt(props.getProperty("r_arm2", "---")) - 1]) %>
                         </b><br>
                         3.
-                        <b><%=props.getProperty("r_arm3", "---").equals("") ? "" : arm[Integer.parseInt(props.getProperty("r_arm3", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("r_arm3", "---").equals("") ? "" : arm[Integer.parseInt(props.getProperty("r_arm3", "---")) - 1]) %>
                         </b>
                     </td>
                 </tr>
                 <tr>
                     <td class="mhSelect"><fmt:message key="form.formmhreferralprint.section.comments"/><br>
-                        <%= props.getProperty("r_refComments", "")%>
+                        <span class="mhRefComments"><%= SafeEncode.forHtmlContent(props.getProperty("r_refComments", "")) %></span>
                     </td>
                 </tr>
             </table>

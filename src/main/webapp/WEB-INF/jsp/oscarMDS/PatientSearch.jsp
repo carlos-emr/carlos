@@ -104,7 +104,7 @@
     String labPatientSex       = "", labPatientAddress   = "", labPatientCity    = "";
     String labPatientProvince  = "", labPatientPostal    = "", labPatientPhone   = "";
     String labPatientHin       = "", labPatientHinVer    = "";
-    if (!p_labNo.isEmpty()) {
+    if (!p_labNo.isEmpty() && "HL7".equals(p_labType)) {
         try {
             MessageHandler labHandler = Factory.getHandler(p_labNo);
             labPatientFirstName = StringUtils.noNull(labHandler.getFirstName());

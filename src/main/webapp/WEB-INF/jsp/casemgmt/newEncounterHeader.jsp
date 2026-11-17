@@ -43,11 +43,14 @@
   chart's record reference instead of including age or sex in the header URL, and
   there is exactly one entry point to it -- a second link to the same page, differing
   only in how it passed the patient's attributes, was reported as a duplicate control.
-  Parameters: EctSessionBean and the authenticated session supply the encounter
-  and provider context; there are no direct request parameters for this fragment.
-  i18n: every label here resolves against the BROWSER locale. Labels are ordinary <fmt:message>
-  tags; JSTL and the Java-formatted age both receive the negotiated bundle locale explicitly because
-  the JVM default and LocaleContextHolder both report the server's language on this request path. The
+  Parameters: demographicNo (or demographic_no), inherited from the including chart
+  request, names the patient; the authenticated session supplies the provider context.
+  The banner never reads the login-wide EctSessionBean: that bean belongs to whichever
+  chart was opened last in any window, so a reload of an earlier chart would otherwise
+  identify the wrong patient (issue #4556).
+  i18n: every label here resolves against the BROWSER locale. JSTL and the Java-rendered
+  identity block both receive the negotiated bundle locale explicitly (see Demographic#getStandardIdentificationHtml) because the JVM default
+  and LocaleContextHolder both report the server's language on this request path. The
   negotiated language is published as the lang attribute of #header-top-row (and of the chart
   page's <html>, see newEncounterLayout.jsp) so a rendered page states which language the
   server resolved for that request; LocaleUtils logs the same at DEBUG with the raw
@@ -73,23 +76,28 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferences" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.display.EchartHeaderViewModel" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.display.EchartHeaderViewModelAssembler" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%@ page import="java.util.Locale" %>
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-    EctSessionBean bean = null;
-    if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
+    // Identify the chart this window requested. Another window may have opened a different
+    // patient since, and the session bean follows that window, not this one.
+    String demoNo;
+    try {
+        demoNo = EncounterPatientContext.requireDemographicNo(request);
+    } catch (IllegalArgumentException invalidPatient) {
         response.sendRedirect(request.getContextPath() + "/casemgmt/ViewError");
         return;
     }
 
-    String demoNo = bean.demographicNo;
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-    Demographic demographic = demographicManager.getDemographicWithExt(loggedInInfo, Integer.parseInt(demoNo));
-
-    if (demographic == null ){
+    // getDemographic enforces the caller's patient-level _demographic read privilege.
+    Demographic demographic = demographicManager.getDemographicWithExt(loggedInInfo, Integer.valueOf(demoNo));
+    if (demographic == null) {
         response.sendRedirect(request.getContextPath() + "/casemgmt/ViewError");
         return;
     }
@@ -97,8 +105,8 @@
     // this is accessed in the newEncounterLayout after this header is included.
     String privateConsentEnabledProperty = CarlosProperties.getInstance().getProperty("privateConsentEnabled");
     boolean privateConsentEnabled = privateConsentEnabledProperty != null && privateConsentEnabledProperty.equals("true");
-    String popupPatientSex = bean == null || bean.patientSex == null ? "" : bean.patientSex;
-    String popupPatientAge = demographic == null ? "" : String.valueOf(demographic.getAge());
+    String popupPatientSex = demographic.getSex() == null ? "" : demographic.getSex();
+    String popupPatientAge = String.valueOf(demographic.getAge());
     pageContext.setAttribute("popupPatientSex", popupPatientSex);
     pageContext.setAttribute("popupPatientAge", popupPatientAge);
     pageContext.setAttribute("popupDemographicNo", demoNo);
@@ -268,7 +276,7 @@ function fallbackCopy(text) {
       </span>
       <% if (CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
       <span class="echart-header-item echart-header-link">
-        <a href="javascript:void(0);" onClick="popupPage(600,175,'Calculators','${carlos:forJavaScript(ctx)}/commons/omdDiseaseList.jsp?sex=${carlos:forUriComponent(popupPatientSex)}&age=${carlos:forUriComponent(popupPatientAge)}'); return false;"><fmt:message key="encounter.Header.OntMD"/></a>
+        <a href="javascript:void(0);" onClick="popupPage(600,175,'Calculators','${carlos:forJavaScriptAttribute(ctx)}/common/omdDiseaseList?sex=${carlos:forUriComponent(popupPatientSex)}&age=${carlos:forUriComponent(popupPatientAge)}'); return false;"><fmt:message key="encounter.Header.OntMD"/></a>
       </span>
       <%}%>
       <span class="echart-header-item echart-header-link"><%=getEChartLinks() %></span>

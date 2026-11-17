@@ -42,6 +42,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -130,7 +131,7 @@ function sqlValue(value) {
       assert(Number(specialistId) !== Number(requestId), 'Fixture needs distinct request and specialist identifiers');
       sql(`UPDATE consultationRequests SET providerNo=NULL, urgency=NULL, specId=${specialistId}, demographicContactId=NULL WHERE requestId=${requestId}`);
 
-      const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
+      const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
       const schedulePage = await login(context, config, recorder);
 
       // User path: the schedule banner's Consultations link opens the list.

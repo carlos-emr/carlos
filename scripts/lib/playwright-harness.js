@@ -165,6 +165,52 @@ function isLocalTlsTarget(baseUrl) {
   return first === 172 && second >= 16 && second <= 31;
 }
 
+/**
+ * The one TLS-verification policy for every browser context in the suite
+ * (issue #3598): certificate errors are ignored only for a local target, or
+ * when the operator names ALLOW_UNVERIFIED_TLS=true.
+ *
+ * ALLOW_NON_LOCAL_BASE_URL is deliberately NOT enough. It is the routing
+ * opt-in ("yes, hit staging"); folding certificate verification into it meant
+ * one flag bought two unrelated concessions while TEST_PASSWORD was being
+ * posted. A staging box with a self-signed certificate needs both variables.
+ *
+ * `baseUrl` may be a URL, a string or omitted, in which case BASE_URL is read
+ * from `env` with the suite's loopback default, which is what every check
+ * resolves its own target from. An unparseable value fails closed.
+ */
+function shouldIgnoreHttpsErrors(baseUrl, env = process.env) {
+  let target = baseUrl === undefined || baseUrl === null
+    ? (env.BASE_URL || 'http://127.0.0.1:8080/carlos')
+    : baseUrl;
+  if (typeof target === 'string') {
+    try {
+      target = new URL(target);
+    } catch (error) {
+      return false;
+    }
+  }
+  return isLocalTlsTarget(target) || env.ALLOW_UNVERIFIED_TLS === 'true';
+}
+
+const CERTIFICATE_ERROR_RE = /net::ERR_CERT_|net::ERR_SSL_|SELF[_ ]SIGNED/i;
+
+/**
+ * Turns a certificate failure against a non-local target into an error that
+ * names the variable to set, instead of a bare browser handshake message.
+ * Anything that is not a certificate failure is returned untouched.
+ */
+function explainTlsFailure(error, baseUrl, env = process.env) {
+  if (!error || !CERTIFICATE_ERROR_RE.test(String(error.message || ''))
+      || shouldIgnoreHttpsErrors(baseUrl, env)) {
+    return error;
+  }
+  const host = baseUrl && baseUrl.hostname ? baseUrl.hostname : String(baseUrl || '');
+  return new Error(`TLS certificate verification failed for non-local target ${host}. `
+    + 'Install a trusted certificate, or set ALLOW_UNVERIFIED_TLS=true to run against a self-signed '
+    + `certificate on purpose (credentials are posted to that host). Cause: ${error.message}`);
+}
+
 function appUrl(baseUrl, appPath) {
   if (!appPath.startsWith('/') || appPath.startsWith('//')) {
     throw new Error(`Application path must be root-relative, got ${appPath}`);
@@ -208,8 +254,8 @@ function readConfig(options = {}) {
       database: env.MYSQL_DATABASE || 'carlos',
     },
   };
-  // Never unconditionally: see isLocalTlsTarget.
-  config.ignoreHTTPSErrors = isLocalTlsTarget(baseUrl);
+  // Never unconditionally: see shouldIgnoreHttpsErrors.
+  config.ignoreHTTPSErrors = shouldIgnoreHttpsErrors(baseUrl, env);
   for (const name of options.require || []) {
     if (!env[name]) {
       throw new SkipCheck(`${name} is not set; this check needs it (see scripts/playwright-suite.json)`);
@@ -269,6 +315,9 @@ function parseMysqlBatchOutput(stdout) {
  * text it carried, first through stderr and then through the thrown message
  * runCheck logs), and dispose() removes the option file even when the check
  * throws. 35 scripts each reimplemented a piece of this.
+ * value/rows/execute accept an optional parameter array: SQL placeholders are
+ * bound by server-side PREPARE/EXECUTE in the same connection. Bound calls must
+ * contain one statement; strings are transferred as UTF-8 independently of SQL mode.
  */
 function createSqlRunner(mysqlConfig, options = {}) {
   // Full schema/reference catalogs exceed Node's 1MiB default. Keep both captured
@@ -285,14 +334,37 @@ function createSqlRunner(mysqlConfig, options = {}) {
   const quoted = String(password).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   (options.writeFile || fs.writeFileSync)(optionFile, `[client]\npassword="${quoted}"\n`, { mode: 0o600 });
 
-  function run(query) {
+  function run(query, parameters) {
+    let statement = query;
+    if (parameters !== undefined) {
+      assert(typeof query === 'string' && Array.isArray(parameters), 'Bound SQL requires a query string and a parameter array');
+      const text = value => `CONVERT(X'${Buffer.from(value, 'utf8').toString('hex')}' USING utf8mb4)`;
+      const values = parameters.map(value => {
+        if (value === null) return 'NULL';
+        if (typeof value === 'string') return text(value);
+        if (typeof value === 'boolean') return value ? '1' : '0';
+        if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+        throw new Error('Bound SQL values must be strings, finite numbers, booleans or null');
+      });
+      // Each CLI call owns a connection. PREPARE keeps placeholders in the SQL;
+      // EXECUTE binds separate session variables, without text substitution.
+      // Hex-encoded UTF-8 makes initialization independent of SQL escaping modes.
+      const variables = values.map((_, index) => `@carlos_pw_arg_${index}`);
+      statement = [
+        `SET @carlos_pw_query=${text(query)}`,
+        'PREPARE carlos_pw_statement FROM @carlos_pw_query',
+        ...values.map((value, index) => `SET ${variables[index]}=${value}`),
+        `EXECUTE carlos_pw_statement${variables.length ? ` USING ${variables.join(',')}` : ''}`,
+        'DEALLOCATE PREPARE carlos_pw_statement',
+      ].join('; ');
+    }
     try {
       return exec('mysql', [
         `--defaults-extra-file=${optionFile}`,
         '-h', host,
         '-u', mysqlConfig.user || 'root',
         mysqlConfig.database || 'carlos',
-        '-N', '-B', '-e', query,
+        '-N', '-B', '-e', statement,
       ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000, maxBuffer });
     } catch (error) {
       // CAPTURING stderr IS NOT ENOUGH. execFileSync folds the captured stderr
@@ -317,17 +389,17 @@ function createSqlRunner(mysqlConfig, options = {}) {
 
   return {
     /** One scalar, unescaped. Empty string when the query returned no row. */
-    value(query) {
-      const rows = parseMysqlBatchOutput(run(query));
+    value(query, parameters) {
+      const rows = parseMysqlBatchOutput(run(query, parameters));
       return rows.length ? rows[0][0] : '';
     },
     /** Every row as an array of unescaped column values. */
-    rows(query) {
-      return parseMysqlBatchOutput(run(query));
+    rows(query, parameters) {
+      return parseMysqlBatchOutput(run(query, parameters));
     },
     /** For INSERT/UPDATE/DELETE, where the output is not interesting. */
-    execute(query) {
-      run(query);
+    execute(query, parameters) {
+      run(query, parameters);
     },
     dispose() {
       (options.rm || fs.rmSync)(directory, { recursive: true, force: true, maxRetries: 2, retryDelay: 50 });
@@ -615,6 +687,13 @@ function wireStrictPage(page, label, recorder, options = {}) {
     if (!strictSignals) {
       return;
     }
+    // The teardown logout (logoutOnClose) broadcasts the logout to every open page, and each one
+    // moves to the login page 500 ms later (LogoutBroadcastFilter); closing the context then abandons
+    // those loads. That is the harness ending the session, not the check: a teardown must never turn
+    // a passing check red. Only request failures are excused, and only once the close has begun.
+    if (isTearingDown(page)) {
+      return;
+    }
     const failure = request.failure();
     const url = request.url();
     if (isExpectedMissingAsset(404, url)) {
@@ -884,13 +963,156 @@ function recordBrowserVersion(browser) {
   return launchedBrowserVersion;
 }
 
-/** Lazy so the harness stays require()-able in CI, which has no browser binary. */
-async function launchBrowser(config) {
+/** How long a teardown logout may take before it is given up with a warning. */
+const TEARDOWN_LOGOUT_TIMEOUT_MS = 10000;
+
+/**
+ * End one context's CARLOS session through the app's own logout, best-effort.
+ *
+ * WHY. A chart holds a note lock (casemgmt_note_lock) for its session and releases it on pagehide.
+ * A check that ends with a chart still open -- a failed assertion, a timeout -- closes the browser
+ * without pagehide, so the lock lives on with the session (session-timeout, 120 minutes), and every
+ * later check that opens the same chart as the same user is asked to continue an edit "in another
+ * window", is answered Cancel by the harness, and gets a blank page. Logging out invalidates the
+ * session, and OscarSessionListener then drops every lock it held, whatever state the pages are in.
+ *
+ * HOW. The way a user logs out: GET /logoutPage, whose page POSTs its own form to /logout (Logout2Action
+ * refuses a GET). A context that never signed in has no session cookie and is left alone. Any failure
+ * is logged as a warning and swallowed: a teardown must never turn a passing check red.
+ *
+ * @returns {Promise<boolean>} whether /logout answered below 400
+ */
+async function logoutContext(context, config, { log = console, timeout = TEARDOWN_LOGOUT_TIMEOUT_MS, closePage = true } = {}) {
+  let page;
+  let posted;
+  try {
+    const baseUrl = config.baseUrl instanceof URL ? config.baseUrl : new URL(String(config.baseUrl));
+    const cookies = await context.cookies(baseUrl.href);
+    if (!cookies.some((cookie) => cookie.name === 'JSESSIONID')) return false;
+    page = await context.newPage();
+    posted = page.waitForResponse((response) => response.request().method() === 'POST'
+      && new URL(response.url()).pathname.endsWith('/logout'), { timeout });
+    posted.catch(() => {});
+    await gotoApp(page, baseUrl, '/logoutPage');
+    const response = await posted;
+    if (response.status() >= 400) throw new Error(`/logout answered HTTP ${response.status()}`);
+    return true;
+  } catch (error) {
+    log.warn(`WARN teardown logout did not complete: ${String((error && error.message) || error).split('\n')[0]}`);
+    return false;
+  } finally {
+    if (page && closePage) await page.close().catch(() => {});
+  }
+}
+
+/** Contexts whose session must outlive their close (keepSessionOnClose); never logged out on close. */
+const SESSIONS_KEPT_ON_CLOSE = new WeakSet();
+
+/** Contexts whose close (teardown logout, then close) has begun; see isTearingDown. */
+const CONTEXTS_TEARING_DOWN = new WeakSet();
+
+/** Whether the page belongs to a context that logoutOnClose has started to tear down. */
+function isTearingDown(page) {
+  try {
+    const context = typeof page.context === 'function' ? page.context() : null;
+    return Boolean(context) && CONTEXTS_TEARING_DOWN.has(context);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Keep this context's session alive when it is closed: no teardown logout for it.
+ *
+ * For a check that closes a context to stand in for a crashed window and then asserts what that
+ * session left behind (echart-note-draft-recovery's stale note lock). The session then lives on until
+ * it times out, so the check's own cleanup must remove what the session held.
+ *
+ * @returns the same context
+ */
+function keepSessionOnClose(context) {
+  SESSIONS_KEPT_ON_CLOSE.add(context);
+  return context;
+}
+
+/**
+ * Make closing a context, or the browser, log its sessions out first (see logoutContext).
+ *
+ * Wraps browser.newContext() so each context's own close() logs it out, and browser.close() so any
+ * context still open is logged out before the browser goes. Each context is logged out at most once.
+ * The check's own cleanup runs first and keeps its session for as long as its pages are open.
+ *
+ * A context made from another one's storageState carries the same session. Closing it must not end
+ * the session the other context is still using, so a session is logged out only by the last open
+ * context that holds it.
+ */
+function logoutOnClose(browser, config, { log = console, logout = logoutContext } = {}) {
+  const done = new WeakSet();
+  const sessionOf = async (context) => {
+    const baseUrl = config.baseUrl instanceof URL ? config.baseUrl : new URL(String(config.baseUrl));
+    const cookie = (await context.cookies(baseUrl.href)).find((entry) => entry.name === 'JSESSIONID');
+    return cookie ? cookie.value : null;
+  };
+  /** Whether a context not yet closing still holds this context's session. */
+  const sessionStillHeld = async (context) => {
+    const session = await sessionOf(context);
+    if (!session || typeof browser.contexts !== 'function') return false;
+    for (const other of browser.contexts()) {
+      if (other !== context && !done.has(other) && await sessionOf(other) === session) return true;
+    }
+    return false;
+  };
+  const logoutOnce = async (context) => {
+    if (done.has(context) || SESSIONS_KEPT_ON_CLOSE.has(context)) return;
+    done.add(context);
+    try {
+      if (await sessionStillHeld(context)) return;
+      // The enclosing close will dispose this temporary page with the context.
+      // Closing it separately can stall Chromium after the logout redirect and
+      // prevent the enclosing browser/context close from ever being reached.
+      await logout(context, config, { log, closePage: false });
+    } catch (error) {
+      log.warn(`WARN teardown logout did not complete: ${String((error && error.message) || error).split('\n')[0]}`);
+    }
+  };
+  if (typeof browser.newContext === 'function') {
+    const newContext = browser.newContext.bind(browser);
+    browser.newContext = async (...args) => {
+      const context = await newContext(...args);
+      const closeContext = context.close.bind(context);
+      context.close = async (...closeArgs) => {
+        CONTEXTS_TEARING_DOWN.add(context);
+        await logoutOnce(context);
+        return closeContext(...closeArgs);
+      };
+      return context;
+    };
+  }
+  if (typeof browser.close === 'function') {
+    const closeBrowser = browser.close.bind(browser);
+    browser.close = async (...args) => {
+      const open = typeof browser.contexts === 'function' ? browser.contexts() : [];
+      for (const context of open) CONTEXTS_TEARING_DOWN.add(context);
+      for (const context of open) await logoutOnce(context);
+      return closeBrowser(...args);
+    };
+  }
+  return browser;
+}
+
+/**
+ * Lazy so the harness stays require()-able in CI, which has no browser binary.
+ *
+ * Closing the browser or one of its contexts logs its sessions out first (logoutOnClose). A check that
+ * needs every session to outlive the browser passes `{ logoutOnClose: false }` (none does today); one that
+ * needs a single context's session kept marks it with keepSessionOnClose(context).
+ */
+async function launchBrowser(config, { logoutOnClose: logout = true } = {}) {
   // Deliberately not a top-level require: see the module header.
   const { chromium } = require('playwright');
   const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), headless: config.headless !== false });
   recordBrowserVersion(browser);
-  return browser;
+  return logout && config.baseUrl ? logoutOnClose(browser, config) : browser;
 }
 
 /**
@@ -907,7 +1129,7 @@ async function newContext(browser, config, options = {}) {
 }
 
 async function gotoApp(page, baseUrl, appPath, waitUntil = 'domcontentloaded') {
-  return page.goto(appUrl(baseUrl, appPath), { waitUntil, timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback by default
+  return page.goto(appUrl(baseUrl, appPath), { waitUntil, timeout: 30000 }).catch((error) => { throw explainTlsFailure(error, baseUrl); }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback by default
 }
 
 async function assertNotErrorPage(page, label, options = {}) {
@@ -1411,6 +1633,7 @@ module.exports = {
   assertNotErrorPage,
   assertRefused,
   isApplicationErrorPage,
+  isSecurityErrorBody,
   assertStrictPage,
   buildArtifactPath,
   buildFailureDetails,
@@ -1424,9 +1647,13 @@ module.exports = {
   installCleanupSignalHandlers,
   NO_PLAYWRIGHT_SIGNAL_HANDLING,
   insertId,
+  explainTlsFailure,
   isLocalTlsTarget,
   isWafPage,
+  keepSessionOnClose,
   launchBrowser,
+  logoutContext,
+  logoutOnClose,
   describeBrowserVersion,
   recordBrowserVersion,
   loadConsoleBaseline,
@@ -1437,6 +1664,7 @@ module.exports = {
   readConfig,
   runCheck,
   screenshot,
+  shouldIgnoreHttpsErrors,
   sqlString,
   unescapeMysqlBatchValue,
   validateBaseUrl,

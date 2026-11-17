@@ -83,6 +83,16 @@ public class CaseManagementNoteLinkDAOImpl extends AbstractJpaDao implements Cas
     }
 
     @Override
+    public List<CaseManagementNoteLink> getLinkByNoteForUpdate(Long noteId) {
+        return entityManager().createQuery(
+                "from CaseManagementNoteLink l where l.noteId = :noteId order by l.id",
+                CaseManagementNoteLink.class)
+                .setParameter("noteId", noteId)
+                .setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+                .getResultList();
+    }
+
+    @Override
     public CaseManagementNoteLink getLastLinkByTableId(Integer tableName, Long tableId, String otherId) {
         return getLast(getLinkByTableId(tableName, tableId, otherId));
     }

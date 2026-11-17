@@ -38,6 +38,7 @@
   @since 2026-09-17
 --%>
 <%@page import="java.net.URLEncoder" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -187,14 +188,14 @@
         %>
 
         <tr>
-            <td title="<%=curimage%>">
+            <td title="<%=SafeEncode.forHtmlAttribute(curimage)%>">
                 <a href="#" class="viewImage"
-                   onclick="showImage('<%=fileURL%>', '<%="image" + i%>'); return false;"><%=curimage%>
+                   onclick="showImage('<%=SafeEncode.forJavaScriptAttribute(fileURL)%>', '<%="image" + i%>'); return false;"><%=SafeEncode.forHtmlContent(curimage)%>
                 </a>
             </td>
 
             <td>
-                <a href="javascript:void(0);" onclick="deleteImg('<carlos:encode value='<%= curimage %>' context="javaScriptAttribute"/>');"
+                <a href="javascript:void(0);" onclick="deleteImg('<%=SafeEncode.forJavaScriptAttribute(curimage)%>');"
                    class="contentLink"><fmt:message key="eform.uploadimages.btnDelete"/></a>
             </td>
         </tr>

@@ -32,10 +32,12 @@ import java.util.Date;
 import java.util.List;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.LockModeType;
 
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
+import io.github.carlos_emr.carlos.commn.model.SecObjectName;
 import org.springframework.stereotype.Repository;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -90,6 +92,28 @@ public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> imple
 
         List<BillingService> list = query.getResultList();
         return list;
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public boolean persistPrivateCodeIfAbsent(BillingService code) {
+        if (code.getServiceCode() == null || !code.getServiceCode().startsWith("_")) {
+            throw new IllegalArgumentException("A private billing code is required");
+        }
+        // This seeded object is a stable coordination row even before the first private code exists.
+        // Its database lock spans the lookup, insert and commit, including on other application servers.
+        if (entityManager.find(SecObjectName.class, "_admin.billing", LockModeType.PESSIMISTIC_WRITE) == null) {
+            throw new IllegalStateException("Private billing code coordination row is missing");
+        }
+        // Use a current locking read. A stale-snapshot refusal propagates for rollback and HTTP 409.
+        boolean exists = !entityManager.createQuery(
+                        "SELECT b FROM BillingService b WHERE b.serviceCode = :code", BillingService.class)
+                .setParameter("code", code.getServiceCode()).setMaxResults(1)
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList().isEmpty();
+        if (exists) return false;
+        persist(code);
+        return true;
     }
 
     public List<BillingService> findByServiceCodeAndDate(String code, Date date) {

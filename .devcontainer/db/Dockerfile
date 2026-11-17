@@ -25,6 +25,8 @@ COPY ./.devcontainer/db/scripts/demo-issue-codes.sql /scripts/demo-issue-codes.s
 COPY ./.devcontainer/db/scripts/demo-hrm-report.sql /scripts/demo-hrm-report.sql
 COPY ./.devcontainer/db/scripts/admin_test_data.sql /scripts/admin_test_data.sql
 COPY ./.devcontainer/db/scripts/admin_test_account.sql /scripts/admin_test_account.sql
+# The Query by Example reporting-account grant list: the copy the WAR ships (issue #3372).
+COPY ./src/main/resources/db/reporting/carlos_report_grants.sql /scripts/carlos_report_grants.sql
 COPY ./database /database
 COPY ./.devcontainer/development/config/shared/my.cnf /etc/mysql/my.cnf
 

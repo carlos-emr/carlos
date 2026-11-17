@@ -22,7 +22,7 @@
  */
 
 const { chromium } = require('playwright');
-const { createSqlRunner, readConfig } = require('./lib/playwright-harness');
+const { createSqlRunner, readConfig, shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { markEformInstances, removeEformInstancesSince } = require('./lib/eform-instance-residue');
 const {
   assert,
@@ -58,7 +58,7 @@ const config = {
   const instanceMark = markEformInstances(sql);
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   try {
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
     const landingPage = await login(context, config, recorder);
     await landingPage.close();
 

@@ -193,9 +193,12 @@
                     <td>
                         <form method="post" action="<%= request.getContextPath() %>/eforms/delGroup" style="display:inline;"><%= groupListContextFields %>
                             <input type="hidden" name="group_name" value="<carlos:encode value='<%= groupName %>' context="htmlAttribute"/>"/>
+                            <%-- data-confirm holds markup that efmFooter.jspf renders with .html(): the browser
+                                 decodes the attribute first, so the group name is HTML-encoded and then
+                                 attribute-encoded, or .html() would parse a stored name as markup (#4184). --%>
                             <a href="javascript:void(0);"
                                class="btn btn-sm btn-secondary" title="delete this group"
-                               data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to delete group: <strong><carlos:encode value='<%= groupName %>' context="htmlAttribute"/></strong>?"
+                               data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to delete group: <strong><carlos:encode value='<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(groupName) %>' context="htmlAttribute"/></strong>?"
 ><i
                                     class="fa-solid fa-trash"></i></a>
                         </form></td>

@@ -21,11 +21,10 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -34,81 +33,178 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
 import org.mockito.MockedStatic;
-import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockHttpSession;
+
+import io.github.carlos_emr.carlos.billings.ca.bc.decisionSupport.BillingGuidelines;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 /**
- * Regression coverage for the acting user recorded on the BC billing session bean.
+ * BC billing setup opens each bill under its own key and resumes only the bill a request names,
+ * so a bill opened in one window is never shown in another (issue #4673).
  *
- * <p>The billing setup page used to hand {@code user_no} to this action and the
- * action stored it as the session creator, which let a caller name someone else
- * as the author of the billing they were starting. The creator must come from
- * the logged-in provider instead.</p>
+ * @since 2026-10-16
  */
-@DisplayName("BillingBCSetup2Action creator")
 @Tag("unit")
-@Tag("security")
+@Tag("billing")
+@DisplayName("BC billing setup opens and resumes bills by key")
 class BillingBCSetup2ActionUnitTest extends CarlosUnitTestBase {
 
-    private AutoCloseable mockitoCloseable;
+    private final MockHttpSession session = new MockHttpSession();
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
-
-    @Mock private SecurityInfoManager securityInfoManager;
-    @Mock private LoggedInInfo loggedInInfo;
-
+    private MockedStatic<BillingGuidelines> guidelinesMock;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
 
     @BeforeEach
     void setUp() {
-        mockitoCloseable = MockitoAnnotations.openMocks(this);
-        registerMock(SecurityInfoManager.class, securityInfoManager);
-        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("r"), isNull()))
-                .thenReturn(true);
-        request = new MockHttpServletRequest("POST", "/billing/CA/BC/billingSetup");
-        response = new MockHttpServletResponse();
-        servletActionContextMock = mockStatic(ServletActionContext.class);
-        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
-        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("r"), isNull())).thenReturn(true);
 
+        servletActionContextMock = mockStatic(ServletActionContext.class);
+        servletActionContextMock.when(ServletActionContext::getRequest).thenAnswer(invocation -> request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenAnswer(invocation -> response);
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
+        BillingGuidelines guidelines = mock(BillingGuidelines.class);
+        when(guidelines.evaluateAndGetConsequences(any(), anyString(), anyString())).thenReturn(List.of());
+        guidelinesMock = mockStatic(BillingGuidelines.class);
+        guidelinesMock.when(BillingGuidelines::getInstance).thenReturn(guidelines);
+        newRequest();
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        if (loggedInInfoMock != null) loggedInInfoMock.close();
-        if (servletActionContextMock != null) servletActionContextMock.close();
-        if (mockitoCloseable != null) mockitoCloseable.close();
+    void tearDown() {
+        guidelinesMock.close();
+        loggedInInfoMock.close();
+        servletActionContextMock.close();
     }
 
     @Test
-    @DisplayName("should store the session provider as creator and ignore user_no")
-    void shouldStoreSessionProvider_asCreator() throws Exception {
-        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
-        request.addParameter("user_no", "spoofed");
-        request.addParameter("apptProvider_no", "999997");
-        request.addParameter("demographic_no", "42");
-        request.addParameter("appointment_no", "7");
+    void shouldKeepEachWindowsBill_whenTwoPatientsBillsAreOpened() throws Exception {
+        String keyA = openBill("101", "11");
+        BillingSessionBean billA = (BillingSessionBean) request.getAttribute(BcBillStaging.BEAN_ATTRIBUTE);
+        newRequest();
+        String keyB = openBill("202", "22");
+
+        assertThat(keyA).isNotEqualTo(keyB);
+        assertThat(billA.getPatientNo()).isEqualTo("101");
+        // Window A returns to its bill form (a validation failure or Go Back names its key).
+        newRequest();
+        request.setParameter(BcBillStaging.KEY_PARAMETER, keyA);
 
         assertThat(new BillingBCSetup2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
 
-        BillingSessionBean bean = (BillingSessionBean) request.getSession()
-                .getAttribute("billingSessionBean");
-        assertThat(bean).isNotNull();
-        assertThat(bean.getCreator()).isEqualTo("999998");
-        assertThat(bean.getApptProviderNo()).isEqualTo("999997");
+        BillingSessionBean shown = (BillingSessionBean) request.getAttribute(BcBillStaging.BEAN_ATTRIBUTE);
+        assertThat(shown.getPatientNo()).isEqualTo("101");
+        assertThat(shown.getApptNo()).isEqualTo("11");
+        assertThat(request.getAttribute(BcBillStaging.KEY_ATTRIBUTE)).isEqualTo(keyA);
+        // Nothing login-wide for a later request to fall back to.
+        assertThat(session.getAttribute("billingSessionBean")).isNull();
+    }
+
+    @Test
+    void shouldRefuseTheForm_whenTheRequestNamesNoOpenBill() throws Exception {
+        openBill("202", "22");
+        newRequest();
+
+        assertThat(new BillingBCSetup2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        // Told why, as the save step tells it, rather than a bare status.
+        assertThat(response.getContentType()).isEqualTo("text/plain;charset=UTF-8");
+        assertThat(response.getContentAsString()).isEqualTo("Billing session expired.");
+        assertThat(request.getAttribute(BcBillStaging.BEAN_ATTRIBUTE)).isNull();
+    }
+
+    @Test
+    void shouldKeepTheWindowsBill_whenTheFormReRendersInPlaceRepeatedly() throws Exception {
+        String key = openBill("101", "11");
+        // Changing the provider, bill type or form reloads the form's patient bar and code table in
+        // place (a jQuery load of the same page, an XMLHttpRequest), more often than bills are kept.
+        for (int i = 0; i <= BcBillStaging.MAX_ENTRIES; i++) {
+            newRequest();
+            request.addHeader("X-Requested-With", "XMLHttpRequest");
+            assertThat(openBill("101", "11")).isNull();
+            assertThat(((BillingSessionBean) request.getAttribute(BcBillStaging.BEAN_ATTRIBUTE)).getPatientNo())
+                    .isEqualTo("101");
+        }
+
+        // Continue, a validation failure or Go Back still finds the bill the form opened with.
+        newRequest();
+        request.setParameter(BcBillStaging.KEY_PARAMETER, key);
+
+        assertThat(new BillingBCSetup2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute(BcBillStaging.KEY_ATTRIBUTE)).isEqualTo(key);
+    }
+
+    @Test
+    void shouldResumeTheForwardedBill_whenTheEncounterSaveAndBillForwardsHere() throws Exception {
+        BillingSessionBean fromEncounter = new BillingSessionBean();
+        fromEncounter.setPatientNo("303");
+        BcBillStaging.open(request, fromEncounter);
+
+        // The forward keeps this request: no parameters, the key in its attributes.
+        assertThat(new BillingBCSetup2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(request.getAttribute(BcBillStaging.BEAN_ATTRIBUTE)).isSameAs(fromEncounter);
+        assertThat(session.getAttribute("billingSessionBean")).isNull();
+    }
+
+    @Test
+    @DisplayName("should show a refused Continue's reasons on the form it returns to, once")
+    void shouldShowRefusalReasonsOnce_whenContinueReturnsToTheForm() throws Exception {
+        String key = openBill("101", "11");
+        BillingSessionBean bill = (BillingSessionBean) request.getAttribute(BcBillStaging.BEAN_ATTRIBUTE);
+        bill.holdRefusal(List.of("Service code: FAKE1 doesn't exist in database"),
+                List.of("oscar.billing.CA.BC.billingBC.wcb.error.enterfee"));
+
+        newRequest();
+        request.setParameter(BcBillStaging.KEY_PARAMETER, key);
+        BillingBCSetup2Action returned = new BillingBCSetup2Action();
+        assertThat(returned.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(returned.getActionErrors()).containsExactly("Service code: FAKE1 doesn't exist in database");
+        assertThat(request.getAttribute("WCBFormNeeds"))
+                .isEqualTo(List.of("oscar.billing.CA.BC.billingBC.wcb.error.enterfee"));
+
+        // A reload of that form, or a later Go Back, does not show them again.
+        newRequest();
+        request.setParameter(BcBillStaging.KEY_PARAMETER, key);
+        BillingBCSetup2Action reloaded = new BillingBCSetup2Action();
+        assertThat(reloaded.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(reloaded.getActionErrors()).isEmpty();
+        assertThat(request.getAttribute("WCBFormNeeds")).isNull();
+    }
+
+    private String openBill(String demographicNo, String appointmentNo) throws Exception {
+        request.setParameter("demographic_no", demographicNo);
+        request.setParameter("appointment_no", appointmentNo);
+        assertThat(new BillingBCSetup2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        return (String) request.getAttribute(BcBillStaging.KEY_ATTRIBUTE);
+    }
+
+    private void newRequest() {
+        request = new MockHttpServletRequest("GET", "/carlos/billing");
+        request.setSession(session);
+        response = new MockHttpServletResponse();
     }
 }

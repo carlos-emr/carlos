@@ -70,6 +70,31 @@ public final class ViewClinical2Action extends ActionSupport {
         if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", null)) {
             throw new SecurityException("missing required sec object (_eChart)");
         }
+        Integer patient = requestedPatient(request);
+        if (patient != null && !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, patient)) {
+            throw new SecurityException("Patient record access denied");
+        }
         return SUCCESS;
+    }
+    private static Integer requestedPatient(HttpServletRequest request) {
+        Integer selected = null;
+        for (String alias : new String[]{"demographic_no", "demographicNo", "demographicId", "demographicID", "demoNo"}) {
+            String[] values = request.getParameterValues(alias);
+            if (values == null) continue;
+            for (String value : values) {
+                final int patient;
+                try {
+                    if (value == null || !value.matches("[0-9]+")) throw new NumberFormatException();
+                    patient = Integer.parseInt(value);
+                } catch (NumberFormatException invalid) {
+                    throw new SecurityException("Invalid patient scope");
+                }
+                if (patient <= 0 || (selected != null && selected != patient)) {
+                    throw new SecurityException("Conflicting patient scope");
+                }
+                selected = patient;
+            }
+        }
+        return selected;
     }
 }

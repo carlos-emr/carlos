@@ -50,8 +50,8 @@ import org.junit.jupiter.params.provider.MethodSource;
  * note out through iText phrases, which reflow on their own.
  *
  * <p>This is a source-pattern guard over the shipping JSP sources: it finds every
- * {@code caseNote_note} textarea, including the ones {@code newCaseManagementView.js.jsp}
- * builds as JavaScript strings, and requires {@code wrap} to be soft. The browser behaviour
+ * {@code caseNote_note} textarea and checks the shared DOM builder used by
+ * {@code newCaseManagementView.js.jsp}, requiring {@code wrap} to be soft. The browser behaviour
  * (the submitted form value equals what the clinician typed, and the saved note carries no
  * inserted breaks) is asserted by {@code scripts/echart-note-soft-wrap-playwright-checks.js}.
  *
@@ -75,8 +75,7 @@ class CaseNoteTextareaWrapRegressionTest {
     /**
      * A textarea element up to its closing tag, whether written as JSP markup or inside a
      * JavaScript string ({@code <\/textarea>}). The span runs to the closing tag rather than
-     * the first {@code >} because the JavaScript-built editors carry a nested
-     * {@code <fmt:message .../>} in their aria-label, ahead of the name attribute.
+     * the first {@code >} to allow nested JSP tags in attributes before the name attribute.
      */
     private static final Pattern TEXTAREA_ELEMENT =
             Pattern.compile("<textarea\\b.*?<\\\\?/textarea>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
@@ -91,7 +90,17 @@ class CaseNoteTextareaWrapRegressionTest {
     @MethodSource("noteEditorSources")
     @DisplayName("should soft wrap every case note textarea for each note editor source")
     void shouldSoftWrapEveryCaseNoteTextarea_forEachNoteEditorSource(Path source) throws IOException {
-        List<String> tags = caseNoteTextareaTags(Files.readString(source, StandardCharsets.UTF_8));
+        String contents = Files.readString(source, StandardCharsets.UTF_8);
+        if (source.equals(NEW_CASE_MANAGEMENT_VIEW_JS)) {
+            int builderStart = contents.indexOf("function createNoteTextarea(id, value, editing)");
+            int builderEnd = contents.indexOf("function editNote(e)", builderStart);
+            assertThat(builderStart).as("shared DOM editor builder").isGreaterThanOrEqualTo(0);
+            assertThat(builderEnd).as("end of the DOM editor builder").isGreaterThan(builderStart);
+            assertThat(contents.substring(builderStart, builderEnd))
+                    .contains("input.name = \"caseNote_note\";", "input.wrap = \"soft\";");
+            return;
+        }
+        List<String> tags = caseNoteTextareaTags(contents);
 
         assertThat(tags).as("caseNote_note textareas in %s", source).isNotEmpty();
         for (String tag : tags) {
@@ -109,8 +118,11 @@ class CaseNoteTextareaWrapRegressionTest {
         String js = Files.readString(NEW_CASE_MANAGEMENT_VIEW_JS, StandardCharsets.UTF_8);
 
         // editNote() and newNote() are the two editors the eChart builds client-side.
-        assertThat(caseNoteTextareaTags(js)).hasSize(2);
-        assertThat(js).doesNotContainPattern("(?i)wrap\\s*=\\s*['\"]?hard");
+        assertThat(js)
+                .contains("createNoteTextarea(caseNote, payload, true)")
+                .contains("createNoteTextarea(\"caseNote_note\" + safeNoteIdSuffix, reason, false)")
+                .doesNotContainPattern("(?i)wrap\\s*=\\s*['\"]?hard");
+        assertThat(caseNoteTextareaTags(js)).as("both editors use the checked DOM builder").isEmpty();
     }
 
     @Test
@@ -142,11 +154,14 @@ class CaseNoteTextareaWrapRegressionTest {
     }
 
     @Test
-    @DisplayName("should encode recovery text and handle absent encounter sessions")
+    @DisplayName("should encode the refused save's own text and handle a page opened without one")
     void shouldEncodeRecoveredNote_whenRenderingConcurrencyError() throws IOException {
         String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/encounter/concurrencyError.jsp"));
-        assertThat(jsp).contains("bean == null ? \"\" : bean.encounter", "context=\"htmlContent\"")
-                .doesNotContain("<%=bean.encounter%>");
+        // Issue #4673: the text is the refused request's own, never the login-wide session bean's.
+        assertThat(jsp).contains("unsaved instanceof String ? (String) unsaved : \"\"",
+                        "<carlos:encode value='<%= unsavedEncounter %>' context=\"htmlContent\"/>")
+                .doesNotContain("<%=bean.encounter%>")
+                .doesNotContain("getAttribute(\"EctSessionBean\")");
     }
 
     private static List<String> caseNoteTextareaTags(String source) {

@@ -32,6 +32,9 @@
     AJAX issue-list fragment for the active note, including encounter type and clinical flags.
     Uses demographicNo and newNoteIdx request parameters and caseManagementEntryForm
     (request model or patient-specific session fallback). Refresh must finish before saving.
+    The encounter date (observation_date) is rendered by NoteObservationDate in its fixed English
+    form, never by fmt:formatDate: that formats in the browser's language and, for a language with
+    no date format, prints the raw java.sql.Timestamp, which the save could not read (issue #4711).
     @since 2026-09-27 (soft-wrap and save-order documentation)
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -40,6 +43,7 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteObservationDate" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
@@ -63,13 +67,15 @@
     String noteIndex = "";
     String encSelect = "encTypeSelect";
     String demoNo = request.getParameter("demographicNo");
-    String caseMgmtEntryFrm = "caseManagementEntryForm" + demoNo;
+    String caseMgmtEntryFrm = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, demoNo);
     CaseManagementEntryFormBean frm = (CaseManagementEntryFormBean) request.getAttribute("caseManagementEntryForm");
     if (frm == null) {
         frm = (CaseManagementEntryFormBean) session.getAttribute(caseMgmtEntryFrm);
         request.setAttribute("caseManagementEntryForm", frm);
     }
     request.setAttribute("encSelect", encSelect);
+    String observationDateText = NoteObservationDate.format(
+            frm == null || frm.getCaseNote() == null ? null : frm.getCaseNote().getObservation_date());
 %>
 <c:choose>
     <c:when test="${empty caseManagementEntryForm.caseNote.id}">
@@ -100,7 +106,7 @@
         <c:when test="${not empty ajaxsave}">
             <fmt:message key="encounter.encounterDate.title"/>&nbsp;
             <span id="obs${caseManagementEntryForm.caseNote.id}">
-                <fmt:formatDate value="${caseManagementEntryForm.caseNote.observation_date}" pattern="dd-MMM-yyyy HH:mm"/>
+                <carlos:encode value="<%= observationDateText %>"/>
             </span>&nbsp;
             <fmt:message key="encounter.noteRev.title"/>
             <a href="#" onclick="return showHistory('${caseManagementEntryForm.caseNote.id}', event);">
@@ -112,7 +118,7 @@
             <img src="${ctx}/images/cal.gif" id="observationDate_cal" alt="calendar">&nbsp;
             <input type="text" id="observationDate" name="observation_date" ondblclick="this.value='';"
                    style="border: none; width: 140px;" readonly
-                   value="<fmt:formatDate value="${caseManagementEntryForm.caseNote.observation_date}" pattern="dd-MMM-yyyy HH:mm"/>">
+                   value="<carlos:encode value="<%= observationDateText %>" context="htmlAttribute"/>">
             rev
             <a href="#" onclick="return showHistory('${caseManagementEntryForm.caseNote.id}', event);">
                 ${caseManagementEntryForm.caseNote.revision}
@@ -147,7 +153,7 @@
 
 <%
     Facility currentFacility = loggedInInfo73557.getCurrentFacility();
-    String programId = (String) request.getSession().getAttribute("case_program_id");
+    String programId = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request);
     Program currentProgram = null;
     if (programId != null) {
         ProgramDao programDao = (ProgramDao) SpringUtils.getBean(ProgramDao.class);
@@ -169,9 +175,13 @@
         <c:otherwise>
             <fmt:message key="encounter.encounterTime.title"/>:&nbsp;
             <input type="text" tabindex="11" id="hourOfEncounterTime" name="hourOfEncounterTime" maxlength="2"
+                   oninput="if (typeof noteIssuesChanged !== 'undefined') noteIssuesChanged = true;"
+                   onchange="if (typeof noteIssuesChanged !== 'undefined') noteIssuesChanged = true;"
                    style="border: 1px; width: 20px; height: 12px;"
                    value="${caseManagementEntryForm.caseNote.hourOfEncounterTime}">&nbsp;<b>:</b>&nbsp;
             <input type="text" tabindex="12" id="minuteOfEncounterTime" name="minuteOfEncounterTime" maxlength="2"
+                   oninput="if (typeof noteIssuesChanged !== 'undefined') noteIssuesChanged = true;"
+                   onchange="if (typeof noteIssuesChanged !== 'undefined') noteIssuesChanged = true;"
                    style="border: 1px; width: 20px; height: 12px;"
                    value="${caseManagementEntryForm.caseNote.minuteOfEncounterTime}">
         </c:otherwise>
@@ -196,9 +206,13 @@
         <c:otherwise>
             <fmt:message key="encounter.encounterTransportation.title"/>:&nbsp;
             <input type="text" tabindex="13" id="hourOfEncTransportationTime" name="hourOfEncTransportationTime" maxlength="2"
+                   oninput="if (typeof noteIssuesChanged !== 'undefined') noteIssuesChanged = true;"
+                   onchange="if (typeof noteIssuesChanged !== 'undefined') noteIssuesChanged = true;"
                    style="border: 1px; width: 20px; height:12px;"
                    value="${caseManagementEntryForm.caseNote.hourOfEncTransportationTime}">&nbsp;<b>:</b>&nbsp;
             <input type="text" tabindex="14" id="minuteOfEncTransportationTime" name="minuteOfEncTransportationTime" maxlength="2"
+                   oninput="if (typeof noteIssuesChanged !== 'undefined') noteIssuesChanged = true;"
+                   onchange="if (typeof noteIssuesChanged !== 'undefined') noteIssuesChanged = true;"
                    style="border: 1px; width: 20px; height:12px;"
                    value="${caseManagementEntryForm.caseNote.minuteOfEncTransportationTime}">
         </c:otherwise>
@@ -263,6 +277,16 @@
 
 
 <div id="noteIssues" data-saved-note-id="${carlos:forHtmlAttribute(ajaxsave)}">
+    <c:if test="${empty ajaxsave}">
+        <div class="add-issues">
+            <label for="issueAutocomplete"><fmt:message key="encounter.Index.assnIssue"/></label>
+            <input type="text" id="issueAutocomplete" class="issueAutocomplete" name="issueSearch"
+                   size="25" autocomplete="off" onkeypress="return submitIssue(event);">
+            <fmt:message key="encounter.assign.title" var="assignIssueLabel"/>
+            <input type="button" id="asgnIssues" value="${carlos:forHtmlAttribute(assignIssueLabel)}"
+                   onclick="return assignNoteIssue(event);">
+        </div>
+    </c:if>
     <div id="noteIssues-resolved" style="margin: 0; background-color: #CCCCFF; display: none;">
         <b><fmt:message key="encounter.referenceResolvedIssues.title"/></b>
         <% int countResolvedIssue = -1; %>
@@ -273,11 +297,7 @@
     <c:if test="${issueCheckList.issue.resolved == true}">
         <tr>
             <td style="width: 50%; background-color: #CCCCFF;">
-                <c:set var="winame" value="window${issueCheckList.issueDisplay.description}"/>
-                <c:set var="winame" value="${fn:replace(winame, ' ', '_')}" />
-                <c:set var="winame" value="${fn:replace(winame, '/', '_')}" />
-                <c:set var="winame" value="${fn:replace(winame, '*', '_')}" />
-                <c:set var="winame" value="${fn:replace(winame, \"'\", '')}" />
+                <c:set var="winame" value="noteIssueDetails${status.index}" />
 
                 <c:set var="submitString" value="this.form.method.value='issueChange'; this.form.lineId.value='${status.index}'; return ajaxUpdateIssues('issueChange', $('noteIssues').up().id);" />
                 <c:set var="id" value="noteIssue${status.index}" />
@@ -285,7 +305,7 @@
                 <c:set var="writeAccess" value="${issueCheckList.issueDisplay.writeAccess}" />
                 <c:set var="disabled" value="${!writeAccess}" />
 
-                <input type="checkbox" id="${id}" name="issueCheckList[${status.index}].checked" ${disabled ? 'disabled="disabled"' : ''}/>
+                <input type="checkbox" id="${id}" data-issue-id="<carlos:encode value='${issueCheckList.issue.id}' context='htmlAttribute'/>" name="issueCheckList[${status.index}].checked" value="on" ${issueCheckList.checked == 'on' ? 'checked="checked"' : ''} ${disabled ? 'disabled="disabled"' : ''}/>
 
                 <a href="#" onclick="return displayIssue('${winame}');">
                     ${carlos:forHtml(issueCheckList.issueDisplay.description)}
@@ -305,31 +325,32 @@
                 <div id="${winame}" style="margin-left: 20px; display: none;">
                     <div>
                         <div style="width: 50%; float: left; display: inline;">
-                            <input type="radio" name="issueCheckList[${status.index}].issue.acute" value="true" onchange="${submitString}"> acute
+                            <input type="radio" id="${winame}-acute-true" name="issueCheckList[${status.index}].issue.acute" value="true" onchange="${submitString}"> <label for="${winame}-acute-true">acute</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline; clear: right;">
-                            <input type="radio" name="issueCheckList[${status.index}].issue.acute" value="false" onchange="${submitString}"> chronic
+                            <input type="radio" id="${winame}-acute-false" name="issueCheckList[${status.index}].issue.acute" value="false" onchange="${submitString}"> <label for="${winame}-acute-false">chronic</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline;">
-                            <input type="radio" name="issueCheckList[${status.index}].issue.certain" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> certain
+                            <input type="radio" id="${winame}-certain-true" name="issueCheckList[${status.index}].issue.certain" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-certain-true">certain</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline; clear: right;">
-                            <input type="radio" name="issueCheckList[${status.index}].issue.certain" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> uncertain
+                            <input type="radio" id="${winame}-certain-false" name="issueCheckList[${status.index}].issue.certain" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-certain-false">uncertain</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline;">
-                            <input type="radio" name="issueCheckList[${status.index}].issue.major" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> major
+                            <input type="radio" id="${winame}-major-true" name="issueCheckList[${status.index}].issue.major" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-major-true">major</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline; clear: right;">
-                            <input type="radio" name="issueCheckList[${status.index}].issue.major" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> not major
+                            <input type="radio" id="${winame}-major-false" name="issueCheckList[${status.index}].issue.major" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-major-false">not major</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline;">
-                            <input type="radio" name="issueCheckList[${status.index}].issue.resolved" value="true" onchange="${submitString}"> resolved
+                            <input type="radio" id="${winame}-resolved-true" name="issueCheckList[${status.index}].issue.resolved" value="true" onchange="${submitString}"> <label for="${winame}-resolved-true">resolved</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline; clear: right;">
-                            <input type="radio" name="issueCheckList[${status.index}].issue.resolved" value="false" onchange="${submitString}"> unresolved
+                            <input type="radio" id="${winame}-resolved-false" name="issueCheckList[${status.index}].issue.resolved" value="false" onchange="${submitString}"> <label for="${winame}-resolved-false">unresolved</label>
                         </div>
                         <div style="text-align: center;">
-                            <input type="text" name="issueCheckList[${status.index}].issueDisplay.role" size="10" ${disabled ? 'disabled="disabled"' : ''} />
+                            <label for="${winame}-role"><fmt:message key="role"/></label>
+                            <input type="text" id="${winame}-role" name="issueCheckList[${status.index}].issueDisplay.role" size="10" ${disabled ? 'disabled="disabled"' : ''} />
                         </div>
                     </div>
                 </div>
@@ -352,12 +373,8 @@
             <c:forEach var="issueCheckList" items="${caseManagementEntryForm.issueCheckList}" varStatus="status">
     <c:if test="${issueCheckList.issue.resolved == false}">
 
-        <c:set var="winame" value="window${issueCheckList.issueDisplay.description}" />
-        <c:set var="winame" value="${fn:replace(winame, ' ', '_')}" />
-        <c:set var="winame" value="${fn:replace(winame, '/', '_')}" />
-        <c:set var="winame" value="${fn:replace(winame, '*', '_')}" />
-        <c:set var="winame" value="${fn:replace(winame, \"'\", '')}" />
-        <c:set var="winame" value="${fn:escapeXml(winame)}" />
+        <c:set var="winame" value="noteIssueDetails${status.index}" />
+
         <c:set var="countUnresolvedIssue" value="${status.index + 1}" />
 
         <c:if test="${countUnresolvedIssue % 2 == 0}">
@@ -371,10 +388,10 @@
             <c:set var="writeAccess" value="${issueCheckList.issueDisplay.writeAccess}" />
             <c:set var="disabled" value="${!writeAccess}" />
 
-            <input type="checkbox" id="${id}" name="issueCheckList[${status.index}].checked" ${disabled ? 'disabled="disabled"' : ''} />
+            <input type="checkbox" id="${id}" data-issue-id="<carlos:encode value='${issueCheckList.issue.id}' context='htmlAttribute'/>" name="issueCheckList[${status.index}].checked" value="on" ${issueCheckList.checked == 'on' ? 'checked="checked"' : ''} ${disabled ? 'disabled="disabled"' : ''} />
 
             <a href="#" onclick="return displayIssue('${winame}');">
-                ${issueCheckList.issueDisplay.description}
+                ${carlos:forHtml(issueCheckList.issueDisplay.description)}
             </a>
 
             <c:if test="${issueCheckList.used == false}">
@@ -390,31 +407,32 @@
             <div id="${winame}" style="margin-left: 20px; display: none;">
                 <div>
                     <div style="width: 50%; float: left; display: inline;">
-                        <input type="radio" name="issueCheckList[${status.index}].issue.acute" value="true" onchange="${submitString}"> Acute
+                        <input type="radio" id="${winame}-acute-true" name="issueCheckList[${status.index}].issue.acute" value="true" onchange="${submitString}"> <label for="${winame}-acute-true">Acute</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline; clear: right;">
-                        <input type="radio" name="issueCheckList[${status.index}].issue.acute" value="false" onchange="${submitString}"> Chronic
+                        <input type="radio" id="${winame}-acute-false" name="issueCheckList[${status.index}].issue.acute" value="false" onchange="${submitString}"> <label for="${winame}-acute-false">Chronic</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline;">
-                        <input type="radio" name="issueCheckList[${status.index}].issue.certain" value="true" disabled="${disabled}" onchange="${submitString}"> Certain
+                        <input type="radio" id="${winame}-certain-true" name="issueCheckList[${status.index}].issue.certain" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-certain-true">Certain</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline; clear: right;">
-                        <input type="radio" name="issueCheckList[${status.index}].issue.certain" value="false" disabled="${disabled}" onchange="${submitString}"> Uncertain
+                        <input type="radio" id="${winame}-certain-false" name="issueCheckList[${status.index}].issue.certain" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-certain-false">Uncertain</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline;">
-                        <input type="radio" name="issueCheckList[${status.index}].issue.major" value="true" disabled="${disabled}" onchange="${submitString}"> Major
+                        <input type="radio" id="${winame}-major-true" name="issueCheckList[${status.index}].issue.major" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-major-true">Major</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline; clear: right;">
-                        <input type="radio" name="issueCheckList[${status.index}].issue.major" value="false" disabled="${disabled}" onchange="${submitString}"> Not Major
+                        <input type="radio" id="${winame}-major-false" name="issueCheckList[${status.index}].issue.major" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-major-false">Not Major</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline;">
-                        <input type="radio" name="issueCheckList[${status.index}].issue.resolved" value="true" onchange="${submitString}"> Resolved
+                        <input type="radio" id="${winame}-resolved-true" name="issueCheckList[${status.index}].issue.resolved" value="true" onchange="${submitString}"> <label for="${winame}-resolved-true">Resolved</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline; clear: right;">
-                        <input type="radio" name="issueCheckList[${status.index}].issue.resolved" value="false" onchange="${submitString}"> Unresolved
+                        <input type="radio" id="${winame}-resolved-false" name="issueCheckList[${status.index}].issue.resolved" value="false" onchange="${submitString}"> <label for="${winame}-resolved-false">Unresolved</label>
                     </div>
                     <div style="text-align: center;">
-                        <input type="text" name="issueCheckList[${status.index}].issueDisplay.role" size="10" disabled="${disabled}" />
+                        <label for="${winame}-role"><fmt:message key="role"/></label>
+                        <input type="text" id="${winame}-role" name="issueCheckList[${status.index}].issueDisplay.role" size="10" ${disabled ? 'disabled="disabled"' : ''} />
                     </div>
                 </div>
             </div>
@@ -431,14 +449,19 @@
 </div>
 <!-- end of div noteIssues -->
 
-<div id='autosaveTime' class='sig' style='text-align:center; margin:0px;'></div>
+<div id='autosaveTime' class='sig' style='text-align:center; margin:0px;'
+     role='status' aria-live='polite' aria-atomic='true'></div>
 <script type="text/javascript">
 (function () {
     // AJAX responses re-evaluate this fragment, so keep its declarations isolated.
+    <c:if test="${empty ajaxsave}">
+        initializeIssueAutocomplete(document.getElementById('noteIssues'));
+    </c:if>
 
     //check to see if we need to update div containers to most recent note id
     //this happens only when we're called thru ajaxsave
     <c:if test="${not empty ajaxsave}">
+        destroyNoteIssueAutocomplete();
         var origId = "${carlos:forJavaScriptBlock(origNoteId)}";
         var newId = "${carlos:forJavaScriptBlock(ajaxsave)}";
         var oldDiv;

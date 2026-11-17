@@ -142,7 +142,7 @@
                                 </c:forEach>
 
                                 <td><a href="#" name='<fmt:message key="encounter.Index.oldMeasurements"/>'
-                                       onClick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory?type=${carlos:forHtml(pair.key)}'); return false;">more...</a></td>
+                                       onClick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory?type=${carlos:forUriComponent(pair.key)}&amp;demographicNo=${carlos:forHtmlAttribute(demographicNo)}'); return false;">more...</a></td>
                             </tr>
                         </c:forEach>
 

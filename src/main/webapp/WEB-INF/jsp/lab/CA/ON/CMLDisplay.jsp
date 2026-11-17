@@ -144,6 +144,9 @@
 </script>
 
 <body>
+<% if (!lab.versionChainReliable) { %>
+<div class="alert alert-warning" role="alert"><fmt:message key="cml.versionChain.unavailable"/></div>
+<% } %>
 <!-- form forwarding of the lab -->
 <form name="reassignForm" method="post" action="<%= request.getContextPath() %>/lab/CA/ON/Forward"><input
         type="hidden" name="flaggedLabs"
@@ -636,8 +639,7 @@
                             <% } %> <% if (request.getParameter("searchProviderNo") != null) { // we were called from e-chart %>
                             <input type="button"
                                    <c:set var="__enc_3"><carlos:encode value='<%= segmentID %>' context="uriComponent"/></c:set>
-                                   value                                   
-=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
+                                   value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                                    onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=CML&segmentID=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&name=<%=java.net.URLEncoder.encode(lab.pLastName+", "+lab.pFirstName )%>', 'searchPatientWindow')">
                             <% } %>
                         </td>

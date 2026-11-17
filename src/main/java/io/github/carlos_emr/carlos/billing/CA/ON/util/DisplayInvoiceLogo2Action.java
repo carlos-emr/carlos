@@ -38,114 +38,106 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 
-import jakarta.activation.MimetypesFileTypeMap;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Serves the clinic's invoice letterhead, the image the Ontario third-party invoice
+ * ({@code billingON3rdInv.jsp}) shows in place of the clinic's name, address and phone.
+ *
+ * <p>The letterhead is the active document of the {@code invoice_head_logo_doctype} type
+ * ("invoice letterhead" by default), stored in DOCUMENT_DIR. Requires {@code _billing} read. The
+ * invoice only ever shows an image, so only image types are served; no letterhead, a missing file or
+ * a file of another type answers 404, and {@link #hasServableLogo()} tells the invoice to show the
+ * clinic's details instead.</p>
+ *
+ * @since 2007-02-19
+ */
 public class DisplayInvoiceLogo2Action extends ActionSupport {
+    /** The letterhead file extensions the invoice can show (any case), and the type each is served as. */
+    private static final Map<String, String> IMAGE_TYPES;
+
+    static {
+        Map<String, String> types = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        types.put("png", "image/png");
+        types.put("jpg", "image/jpeg");
+        types.put("jpeg", "image/jpeg");
+        types.put("jpe", "image/jpeg");
+        types.put("gif", "image/gif");
+        types.put("bmp", "image/bmp");
+        IMAGE_TYPES = Collections.unmodifiableMap(types);
+    }
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private HttpServletRequest request = ServletActionContext.getRequest();
     private HttpServletResponse response = ServletActionContext.getResponse();
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    // FindSecBugs PATH_TRAVERSAL_IN: fileName is the containment-validated path returned by getLogoImgAbsPath()
-    // (validated within DOCUMENT_DIR there); resolveTrustedPath below only canonicalizes the already-validated value.
-    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; fileName is already containment-validated within DOCUMENT_DIR by getLogoImgAbsPath(); resolveTrustedPath only canonicalizes a trusted value")
     @Override
-    public String execute() throws Exception {
+    public String execute() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        // TODO Auto-generated method stub
-        String fileName = getLogoImgAbsPath();
-        if (fileName.isEmpty()) {
-            throw new Exception("Can't open the file: " + fileName);
-        }
-
-        response.setHeader("Content-disposition", "inline; filename=" + fileName);
-        File file = PathValidationUtils.resolveTrustedPath(new File(fileName));
-        //gets content type from image extension
-        String contentType = new MimetypesFileTypeMap().getContentType(file);
-        /**
-         * For encoding file types not included in the mimetypes file
-         * You need to look at mimetypes file to check if the file type you are using is included
-         *
-         */
-        try {
-            if (extension(file.getName()).equalsIgnoreCase("png")) { // for PNG
-                contentType = "image/png";
-            } else if (extension(file.getName()).equalsIgnoreCase("jpeg") ||
-                    extension(file.getName()).equalsIgnoreCase("jpe") ||
-                    extension(file.getName()).equalsIgnoreCase("jpg")) { //for JPEG,JPG,JPE
-                contentType = "image/jpeg";
-            } else if (extension(file.getName()).equalsIgnoreCase("bmp")) { // for BMP
-                contentType = "image/bmp";
-            } else if (extension(file.getName()).equalsIgnoreCase("cod")) { // for COD
-                contentType = "image/cis-cod";
-            } else if (extension(file.getName()).equalsIgnoreCase("ief")) { // for IEF
-                contentType = "image/ief";
-            } else if (extension(file.getName()).equalsIgnoreCase("jfif")) { // for JFIF
-                contentType = "image/pipeg";
-            } else if (extension(file.getName()).equalsIgnoreCase("svg")) { // for SVG
-                contentType = "image/svg+xml";
-            } else if (extension(file.getName()).equalsIgnoreCase("tiff") ||
-                    extension(file.getName()).equalsIgnoreCase("tif")) { // for TIFF or TIF
-                contentType = "image/tiff";
-            } else if (extension(file.getName()).equalsIgnoreCase("pbm")) { // for PBM
-                contentType = "image/x-portable-bitmap";
-            } else if (extension(file.getName()).equalsIgnoreCase("pnm")) { // for PNM
-                contentType = "image/x-portable-anymap";
-            } else if (extension(file.getName()).equalsIgnoreCase("pgm")) { // for PGM
-                contentType = "image/x-portable-greymap";
-            } else if (extension(file.getName()).equalsIgnoreCase("ppm")) { // for PPM
-                contentType = "image/x-portable-pixmap";
-            } else if (extension(file.getName()).equalsIgnoreCase("xbm")) { // for XBM
-                contentType = "image/x-xbitmap";
-            } else if (extension(file.getName()).equalsIgnoreCase("xpm")) { // for XPM
-                contentType = "image/x-xpixmap";
-            } else if (extension(file.getName()).equalsIgnoreCase("xwd")) { // for XWD
-                contentType = "image/x-xwindowdump";
-            } else if (extension(file.getName()).equalsIgnoreCase("rgb")) { // for RGB
-                contentType = "image/x-rgb";
-            } else if (extension(file.getName()).equalsIgnoreCase("ico")) { // for ICO
-                contentType = "image/x-icon";
-            } else if (extension(file.getName()).equalsIgnoreCase("cmx")) { // for CMX
-                contentType = "image/x-cmx";
-            } else if (extension(file.getName()).equalsIgnoreCase("ras")) { // for RAS
-                contentType = "image/x-cmu-raster";
-            } else if (extension(file.getName()).equalsIgnoreCase("gif")) { // for GIF
-                contentType = "image/gif";
-            } else if (extension(file.getName()).equalsIgnoreCase("js")) { // for GIF
-                contentType = "text/javascript";
-            } else if (extension(file.getName()).equalsIgnoreCase("css")) { // for GIF
-                contentType = "text/css";
-            } else if (extension(file.getName()).equalsIgnoreCase("rtl") || extension(file.getName()).equalsIgnoreCase("html") || extension(file.getName()).equalsIgnoreCase("htm")) { // for HTML
-                contentType = "text/html";
-            } else {
-                throw new Exception("please check the file type or update mimetypes.default file to include the " + "." + extension(file.getName()));
-            }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-            throw new Exception("Could not open file " + file.getName() + " wrong file extension, ", e);
+        String logoPath = getLogoImgAbsPath();
+        File file = logoPath.isEmpty() ? null : trustedFile(logoPath);
+        String contentType = file == null ? null : imageContentType(file.getName());
+        if (contentType == null || !file.isFile()) {
+            // The invoice falls back to the clinic's details when hasServableLogo() is false, so this
+            // answer is only seen by a stale page or a direct request.
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
         }
 
         response.setContentType(contentType);
-        response.setHeader("Content-disposition", "attachment; filename=" + fileName);
-
+        response.setContentLengthLong(file.length());
+        response.setHeader("Content-Disposition", "inline; filename=\"" + headerSafeName(file.getName()) + "\"");
+        Files.copy(file.toPath(), response.getOutputStream());
         return NONE;
     }
 
-    public String extension(String f) {
-        int dot = f.lastIndexOf(".");
-        return f.substring(dot + 1);
+    /**
+     * Whether the invoice can show the letterhead: one exists, its file is present and it is an image
+     * type this action serves.
+     *
+     * @return true when the invoice should show the letterhead instead of the clinic's details
+     */
+    public static boolean hasServableLogo() {
+        String logoPath = getLogoImgAbsPath();
+        if (logoPath.isEmpty()) {
+            return false;
+        }
+        File file = trustedFile(logoPath);
+        return imageContentType(file.getName()) != null && file.isFile();
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: logoPath is the containment-validated path returned by getLogoImgAbsPath()
+    // (validated within DOCUMENT_DIR there); resolveTrustedPath only canonicalizes the already-validated value.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "logoPath is already containment-validated within DOCUMENT_DIR by getLogoImgAbsPath(); resolveTrustedPath only canonicalizes a trusted value")
+    private static File trustedFile(String logoPath) {
+        return PathValidationUtils.resolveTrustedPath(new File(logoPath));
+    }
+
+    /** The content type to serve a letterhead file as, or null when the invoice cannot show it. */
+    static String imageContentType(String fileName) {
+        int dot = fileName.lastIndexOf('.');
+        return dot < 0 ? null : IMAGE_TYPES.get(fileName.substring(dot + 1));
+    }
+
+    /** The file name as a quoted header value: anything but letters, digits, dot, dash and underscore becomes '_'. */
+    private static String headerSafeName(String fileName) {
+        return fileName.replaceAll("[^A-Za-z0-9._-]", "_");
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
@@ -180,7 +172,7 @@ public class DisplayInvoiceLogo2Action extends ActionSupport {
             File directory = PathValidationUtils.resolveConfiguredDirectory(document_dir, "DOCUMENT_DIR");
             if (!directory.exists()) {
                 MiscUtils.getLogger().info("Directory:  " + document_dir + " does not exist");
-                return fileName;
+                return "";
             }
             if (document_dir.lastIndexOf(File.separator) != (document_dir.length() - 1)) {
                 fileName = document_dir + File.separator + fileName;

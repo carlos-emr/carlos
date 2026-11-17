@@ -11,7 +11,8 @@
  * the head's Master Record showing the duplicate as a tail; the schedule search
  * returning only the head; the unmerge marking the row deleted and parking the
  * privilege in the recycle bin; a self-merge, a forged head outside the selection
- * and a GET refused with no row. Fixtures: two owned FAKE- patients seeded by SQL (and a
+ * and a GET refused with no row, and forged requests that would create a merge cycle (#3880)
+ * refused with no row. Fixtures: two owned FAKE- patients seeded by SQL (and a
  * third, never selected, as the forged head);
  * cleanup removes their merge, privilege, recycle-bin and demographic rows and
  * asserts they are gone. Implements coverage plan §2.4 demographic-merge.
@@ -168,6 +169,39 @@ async function workflow(s) {
     const shown = (await results.locator('a[title="Master Demographic File"]').allTextContents())
       .map(text => text.trim()).filter(text => ids.includes(text));
     h.assert(shown.length === 1 && shown[0] === head, 'The patient search did not collapse the merged pair to its head record');
+  });
+
+  await s.step('a crafted POST that would create a merge cycle is refused without a row (#3880)', async () => {
+    // The page only offers head records, so these requests are forged: merging the head into
+    // its own merged duplicate would close a loop, and merging an already-merged record into a
+    // third patient would re-point it. Either left getHead recursing until the stack overflowed.
+    const before = mergeRows();
+    await search();
+    const token = await csrfTokenPresent(merge);
+    const third = seed('Third');
+    h.assert(/^[1-9]\d*$/.test(third), 'The third patient fixture was not created');
+    ids.push(third);
+    const endpoint = h.appUrl(s.config.baseUrl, '/admin/MergeRecords');
+    const forge = async (mergeHead, selected) => {
+      const body = new URLSearchParams({'CSRF-TOKEN': token, mergeAction: 'merge', provider_no: provider, head: mergeHead});
+      for (const record of selected) body.append('records', record);
+      return context.request.post(endpoint, {data: body.toString(), maxRedirects: 0,
+        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': token}});
+    };
+    const intoMergedSource = await forge(dup, [head, dup]);
+    h.assert(intoMergedSource.status() === 302 && /outcome=failure/.test(intoMergedSource.headers().location || ''),
+      `Merging into an already-merged record returned HTTP ${intoMergedSource.status()} instead of the failure outcome`);
+    const mergedSource = await forge(third, [dup, third]);
+    h.assert(mergedSource.status() === 302 && /outcome=failure/.test(mergedSource.headers().location || ''),
+      `Merging an already-merged record returned HTTP ${mergedSource.status()} instead of the failure outcome`);
+    h.assert(mergeRows() === before && liveRows() === '1'
+      && sql.value(`SELECT COUNT(*) FROM demographic_merged WHERE demographic_no=${dup} AND merged_to=${head} AND deleted=0`) === '1'
+      && sql.value(`SELECT COUNT(*) FROM demographic_merged WHERE demographic_no IN (${head},${third}) OR merged_to IN (${dup},${third})`) === '0',
+    'A refused cycle-forming merge wrote or changed a merge row');
+    // The head still resolves: the merge search still collapses the pair under its head.
+    await search();
+    h.assert(await rowFor('Duplicate').locator('input[name="records"], input[name="head"]').count() === 0,
+      'The merged duplicate was offered as a head record after the refused probes');
   });
 
   await s.step('unmerging from Search Merged Records marks the row deleted and parks the privilege in the recycle bin', async () => {

@@ -63,6 +63,8 @@
 
     </script>
 
+    <%-- No stylesheet: this page only shows "Processing..." while it submits itself, and the
+         /styles.css it used to link does not exist (a 404 on every group save). --%>
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
     <% 
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");

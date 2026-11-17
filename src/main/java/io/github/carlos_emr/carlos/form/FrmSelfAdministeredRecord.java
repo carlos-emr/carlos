@@ -94,7 +94,7 @@ public class FrmSelfAdministeredRecord extends FrmRecord {
 
                         String value;
                         MiscUtils.getLogger().debug(" name = " + name + " type = " + md.getColumnTypeName(i) + " scale = " + md.getScale(i));
-                        if (md.getColumnTypeName(i).equalsIgnoreCase("TINY"))
+                        if (FrmRecordHelp.isBooleanColumnType(md.getColumnTypeName(i)))
                         //                            && md.getScale(i)==1)
                         {
 

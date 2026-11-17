@@ -30,6 +30,8 @@
 --%>
 
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicListSearch" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.PatientReadAccess" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 
 <%--
     Displays patient search results for appointment selection and contact pickers.
@@ -96,6 +98,8 @@
     Boolean isMobileOptimized = session.getAttribute("mobileOptimized") != null;
 
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    Set<Integer> deniedPatients = PatientReadAccess.deniedPatientsFromRequest(request,
+            SpringUtils.getBean(SecurityInfoManager.class), loggedInInfo, "_demographic", SecurityInfoManager.READ);
 
     String curProvider_no = request.getParameter("provider_no");
 
@@ -465,7 +469,7 @@
 
                     if (Boolean.TRUE.equals(request.getAttribute("showRecentPatients"))) {
                         int mostRecentPatientListSize = Integer.parseInt(CarlosProperties.getInstance().getProperty("MOST_RECENT_PATIENT_LIST_SIZE", "3"));
-                        List<Integer> results = oscarLogDao.getRecentDemographicsAccessedByProvider(providerNo, 0, mostRecentPatientListSize);
+                        List<Integer> results = oscarLogDao.getRecentDemographicsAccessedByProvider(providerNo, 0, mostRecentPatientListSize, deniedPatients);
                         demoList = new ArrayList<Demographic>();
                         for (Integer r : results) {
                             // A patient can disappear after the recent-ID query.
@@ -476,7 +480,7 @@
 
                         List<String> statuses = "active".equals(ptstatus) || "inactive".equals(ptstatus) ? stati : null;
                         demoList = demographicDao.searchForPatientList(new DemographicListSearch(searchMode, keyword,
-                                "last_name", statuses, "active".equals(ptstatus), offset, limit), providerNo, outOfDomain);
+                                "last_name", statuses, "active".equals(ptstatus), offset, limit, deniedPatients), providerNo, outOfDomain);
                         hasNextPage = demoList.size() > limit;
                         if (hasNextPage) demoList = demoList.subList(0, limit);
                     }
@@ -491,6 +495,7 @@
                         DemographicMerged dmDAO = new DemographicMerged();
 
                         for (Demographic demo : demoList) {
+                            if (deniedPatients.contains(demo.getDemographicNo())) continue;
 
                             String dem_no = demo.getDemographicNo().toString();
                             String head = dmDAO.getHead(dem_no);

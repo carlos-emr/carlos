@@ -44,6 +44,7 @@
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctProgram" %>
 <%@ page import="java.net.URLEncoder" %>
@@ -67,7 +68,13 @@
     long startTime = System.currentTimeMillis();
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    String demographic$ = request.getParameter("demographicNo");
+    String demographic$;
+    try {
+        demographic$ = EncounterPatientContext.requireDemographicNo(request);
+    } catch (IllegalArgumentException invalidPatient) {
+        response.sendError(400, "Invalid encounter patient");
+        return;
+    }
     boolean bPrincipalControl = false;
     boolean bPrincipalDisplay = false;
 
@@ -119,10 +126,12 @@
     LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_ECHART, demographic$, ip, demographic$);
 %>
 
-<%-- Session bean retrieval --%>
+<%-- IncomingEncounter and the legacy save (EctSaveEncounter2Action) each supply this chart's
+     request-owned bean. The login-wide session bean follows whichever chart was entered last in
+     any window, so it is never rendered here (issues #4556, #4673). --%>
 <%
-    EctSessionBean bean = null;
-    if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
+    EctSessionBean bean = (EctSessionBean) request.getAttribute("EctSessionBean");
+    if (bean == null || !demographic$.equals(bean.demographicNo)) {
         response.sendRedirect(request.getContextPath() + "/encounter/ViewError");
         return;
     }
@@ -135,15 +144,22 @@
     session.setAttribute("newCaseManagement", "true");
     String userNo = (String) request.getSession().getAttribute("user");
     if (userNo != null) {
+        // Both chart variants choose their own program before redirecting. An ordinary
+        // day-sheet entry must not capture a program selected in an unrelated PMM window.
+        try {
+            io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.initialize(
+                    request, new EctProgram(session), userNo, bean.providerNo);
+        } catch (SecurityException invalidProgram) {
+            response.sendError(403, "Unavailable chart program selection");
+            return;
+        }
 %>
 <caisi:isModuleLoad moduleName="caisi" reverse="true">
     <%
-        EctProgram prgrmMgr = new EctProgram(session);
-        session.setAttribute("case_program_id", prgrmMgr.getProgram(bean.providerNo));
         session.setAttribute("casemgmt_oscar_baseurl", request.getContextPath());
-        session.setAttribute("casemgmt_bean_flag", "true");
         String hrefurl = request.getContextPath() + "/casemgmt/ViewForward?action=view" +
         "&demographicNo=" + bean.demographicNo +
+        "&chartContext=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) +
         "&providerNo=" + bean.providerNo +
         "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8) +
         "&appointmentNo=" + (bean.appointmentNo != null ? bean.appointmentNo : "") +
@@ -173,9 +189,9 @@
 <caisi:isModuleLoad moduleName="caisi">
     <%
         session.setAttribute("casemgmt_oscar_baseurl", request.getContextPath());
-        session.setAttribute("casemgmt_oscar_bean", bean);
-        session.setAttribute("casemgmt_bean_flag", "true");
-        String hrefurl = request.getContextPath() + "/casemgmt/ViewForward?action=view&demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8) +
+        // The request-owned bean is not copied into the session: under this unkeyed name it was
+        // the last-entered chart's, and every reader asks for "casemgmt_oscar_bean" + patient.
+        String hrefurl = request.getContextPath() + "/casemgmt/ViewForward?action=view&demographicNo=" + bean.demographicNo + "&chartContext=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) + "&providerNo=" + bean.providerNo + "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8) +
                 (bean.oscarMsgID != null && !bean.oscarMsgID.isEmpty() ? "&msgId=" + SafeEncode.forUriComponent(bean.oscarMsgID) : "");
         if (request.getParameter("casetoEncounter") == null) {
             if (!response.isCommitted())
@@ -214,7 +230,8 @@
                 <div id="leftNavbar" style="height: 100%; width: 100%;">
                     <caisi:isModuleLoad moduleName="caisi">
                         <%
-                            String hrefurl2 = request.getContextPath() + "/casemgmt/ViewForward?action=view&demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8);
+                            String hrefurl2 = request.getContextPath() + "/casemgmt/ViewForward?action=view&demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8)
+                                    + (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) == null ? "" : "&chartContext=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)));
                         %>
                         <a href="<%=hrefurl2%>">Case Management Encounter</a>
                     </caisi:isModuleLoad>
@@ -223,7 +240,15 @@
 
             <%-- Right content: encounter form --%>
             <div class="col" style="background-color: #CCCCFF;">
-                <form name="encForm" action="SaveEncounter2" method="POST">
+                <%-- An absolute route: encounter-head.jspf sets <base href> to the context root, so the
+                     relative "SaveEncounter2" posted to /carlos/SaveEncounter2 (404) (issue #4673). --%>
+                <form name="encForm" action="${pageContext.request.contextPath}/encounter/SaveEncounter2" method="POST">
+                    <% if (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) != null) { %>
+                    <input type="hidden" name="chartContext" value="<%= SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>">
+                    <% } %>
+                    <input type="hidden" name="demographicNo" value="${carlos:forHtmlAttribute(bean.demographicNo)}">
+                    <%-- The revision this editor shows; the save refuses it once another save has landed. --%>
+                    <input type="hidden" name="eChartId" value="${carlos:forHtmlAttribute(bean.EChartId)}">
                     <input type="hidden" id="reloadDiv" name="reloadDiv" value="none"
                            onchange="updateDiv();">
                     <caisi:isModuleLoad moduleName="caisi">

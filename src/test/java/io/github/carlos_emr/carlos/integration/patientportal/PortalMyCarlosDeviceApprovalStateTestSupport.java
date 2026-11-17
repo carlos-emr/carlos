@@ -15,9 +15,17 @@ import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.nio.charset.StandardCharsets;
+import java.math.BigInteger;
+import java.security.AlgorithmParameters;
 import java.security.KeyFactory;
+import java.security.MessageDigest;
 import java.security.PrivateKey;
-import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.ECGenParameterSpec;
+import java.security.spec.ECParameterSpec;
+import java.security.spec.ECPrivateKeySpec;
+import java.security.spec.EdECPrivateKeySpec;
+import java.security.spec.NamedParameterSpec;
+import java.security.spec.XECPrivateKeySpec;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Instant;
@@ -41,7 +49,10 @@ final class PortalMyCarlosDeviceApprovalStateTestSupport {
         try (var input = PortalMyCarlosDeviceApprovalStateTestSupport.class.getResourceAsStream("/patientportal/device-approval-contract-v1.json")) {
             if (input == null) throw new IllegalStateException("shared fixture missing");
             byte[] bytes = input.readAllBytes();
-            if (bytes.length != 225016 || !PortalMyCarlosDeviceApprovalCrypto.sha256(bytes).equals("2f20211f6bcfe14ff0723745b28def15e6453f54c428d1b9a1656e0d091505b6")) throw new IllegalStateException("shared fixture changed");
+            if (bytes.length != PortalMyCarlosDeviceApprovalCodecUnitTest.FIXTURE_LENGTH
+                    || !PortalMyCarlosDeviceApprovalCrypto.sha256(bytes).equals(PortalMyCarlosDeviceApprovalCodecUnitTest.FIXTURE_SHA256)) {
+                throw new IllegalStateException("shared fixture changed");
+            }
             return JSON.readTree(bytes);
         }
     }
@@ -55,9 +66,55 @@ final class PortalMyCarlosDeviceApprovalStateTestSupport {
                 : e.getValue().isIntegralNumber() ? e.getValue().longValue() : e.getValue().textValue()));
         return result;
     }
+    /** Every FAKE seed text in the shared contract fixtures starts so. */
+    static final String SEED_PREFIX = "FAKE delivery contract test key: ";
+
+    /**
+     * The FAKE private key of a fixture key, derived at run time from its seed text. The fixture keeps
+     * seed texts and public values only, never private key bytes (Ben's D120).
+     *
+     * @param field which key: the private-key field the fixture used to carry
+     *        ({@code FAKE_ed25519_private_pkcs8_b64url}, {@code FAKE_x25519_private_pkcs8_b64url} or
+     *        {@code FAKE_private_pkcs8_b64url}), so existing callers read unchanged
+     * @param algorithm {@code Ed25519}, {@code X25519} or {@code EC}, matching the field
+     */
     static PrivateKey privateKey(JsonNode key, String field, String algorithm) throws Exception {
-        return KeyFactory.getInstance(algorithm).generatePrivate(new PKCS8EncodedKeySpec(
-                PortalMyCarlosDeviceApprovalCodec.base64(key.path(field).asText(), 1024)));
+        String seedField = switch (field) {
+            case "FAKE_ed25519_private_pkcs8_b64url" -> "ed25519_seed_text";
+            case "FAKE_x25519_private_pkcs8_b64url" -> "x25519_seed_text";
+            case "FAKE_private_pkcs8_b64url" -> "seed_text";
+            default -> throw new IllegalArgumentException("unknown FAKE key field");
+        };
+        String expected = seedField.equals("seed_text") ? "EC" : seedField.startsWith("ed") ? "Ed25519" : "X25519";
+        if (!expected.equals(algorithm)) throw new IllegalArgumentException("FAKE key field and algorithm differ");
+        return seedPrivateKey(key.path(seedField).textValue(), algorithm);
+    }
+
+    /**
+     * The shared rule (carlos-portal tests/delivery_contract_reference.py): key bytes = SHA-256 of the
+     * seed text; the Ed25519 seed and the X25519 key are those bytes; the P-256 scalar is their
+     * big-endian value mod (n - 1), plus 1.
+     */
+    static PrivateKey seedPrivateKey(String seedText, String algorithm) throws Exception {
+        if (seedText == null || !seedText.startsWith(SEED_PREFIX)) throw new IllegalArgumentException("not a FAKE contract seed text");
+        byte[] seed = seedBytes(seedText);
+        return switch (algorithm) {
+            case "Ed25519" -> KeyFactory.getInstance("Ed25519").generatePrivate(new EdECPrivateKeySpec(NamedParameterSpec.ED25519, seed));
+            case "X25519" -> KeyFactory.getInstance("X25519").generatePrivate(new XECPrivateKeySpec(NamedParameterSpec.X25519, seed));
+            case "EC" -> {
+                AlgorithmParameters parameters = AlgorithmParameters.getInstance("EC");
+                parameters.init(new ECGenParameterSpec("secp256r1"));
+                ECParameterSpec curve = parameters.getParameterSpec(ECParameterSpec.class);
+                BigInteger scalar = new BigInteger(1, seed).mod(curve.getOrder().subtract(BigInteger.ONE)).add(BigInteger.ONE);
+                yield KeyFactory.getInstance("EC").generatePrivate(new ECPrivateKeySpec(scalar, curve));
+            }
+            default -> throw new IllegalArgumentException("unknown FAKE key algorithm");
+        };
+    }
+
+    /** SHA-256 of a seed text: the FAKE key bytes it names. */
+    static byte[] seedBytes(String seedText) throws Exception {
+        return MessageDigest.getInstance("SHA-256").digest(seedText.getBytes(StandardCharsets.UTF_8));
     }
     static String key(Bytes id, String kind) { return PortalMyCarlosDeviceApprovalCodec.base64(id.copy()) + "/" + kind;
     }

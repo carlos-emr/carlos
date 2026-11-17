@@ -58,13 +58,16 @@ public class MdsMSHDaoImpl extends AbstractDaoImpl<MdsMSH> implements MdsMSHDao 
 
     @Override
     public List<Object[]> findMdsSementDataById(Integer id) {
-        String sql = "select mdsMSH.dateTime, mdsMSH.controlId, min(mdsZFR.reportFormStatus) " +
+        // One MSH row joins every form row of the report; min() collapses them to the least final
+        // status. dateTime and controlId are grouped explicitly (they are functionally dependent on the
+        // MSH key) so the query also runs where non-aggregated select columns are refused.
+        String sql = "SELECT mdsMSH.dateTime, mdsMSH.controlId, min(mdsZFR.reportFormStatus) " +
                 "FROM MdsMSH mdsMSH, MdsZFR mdsZFR " +
                 "WHERE mdsMSH.id = mdsZFR.id " +
-                "AND mdsMSH.id = :segmentID" +
-                "GROUP BY mdsMSH.id";
+                "AND mdsMSH.id = :segmentID " +
+                "GROUP BY mdsMSH.id, mdsMSH.dateTime, mdsMSH.controlId";
         Query query = entityManager.createQuery(sql);
-        query.setParameter("id", id);
+        query.setParameter("segmentID", id);
         return query.getResultList();
     }
 

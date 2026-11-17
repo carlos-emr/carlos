@@ -31,6 +31,10 @@
 
 <%-- ========== PAGE IMPORTS ========== --%>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.lab.service.LabPatientAccess" %>
+<%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayLabAction2" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -80,6 +84,10 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
     ArrayList<LabResultData> labs = comLab.populateLabResultsData(loggedInInfo, "", demographicNo, "", "", "", "U");
+    // The no-demographic inbox also contains routed labs: hide locked rows before any grouping
+    // or rendering, using the row's actual source-specific ownership rather than URL filters.
+    labs = LabPatientAccess.visibleResults(labs, SpringUtils.getBean(SecurityInfoManager.class),
+            SpringUtils.getBean(PatientLabRoutingDao.class), loggedInInfo);
     labs = getLatestLabVersions(labs);
     Collections.sort(labs);
 
@@ -132,7 +140,7 @@
                 }
             }
             if (aBoxIsChecked) {
-                popupStart(300, 400, '${ctx}/oscarMDS/ViewSelectProvider', 'providerselect');
+                popupStart(397, 700, '${ctx}/oscarMDS/ViewSelectProvider', 'providerselect');
             } else {
                 alert('<fmt:message key="oscarMDS.index.msgSelectOneLab"/>');
             }
@@ -279,7 +287,10 @@
                     <tr class="<%=rowClass%>">
                         <%  if (demographicNo == null) { %>
                         <td>
-                            <input type="checkbox" name="flaggedLabs" value="<carlos:encode value='<%= segmentID %>' context='htmlAttribute'/>"/>
+                            <%-- data-lab-type: the picker posts each checked lab as "<id>:<type>" (issue #4558). --%>
+                            <label for="flaggedLab<%= i %>" class="visually-hidden"><carlos:encode value='<%= formattedDate %>'/></label>
+                            <input type="checkbox" id="flaggedLab<%= i %>" name="flaggedLabs" value="<carlos:encode value='<%= segmentID %>' context='htmlAttribute'/>"
+                                   data-lab-type="<carlos:encode value='<%= result.labType %>' context='htmlAttribute'/>"/>
                         </td>
                         <% } %>
                         <td><%=SafeEncode.forHtmlContent(formattedDate)%></td>
@@ -345,21 +356,6 @@
     }
 
     public ArrayList<LabResultData> getLatestLabVersions(ArrayList<LabResultData> labs) {
-        List<String> allLabIds = new ArrayList<>();
-        ArrayList<LabResultData> latestLabVersions = new ArrayList<>();
-        for (LabResultData lab : labs) {
-            if (allLabIds.contains(lab.getSegmentID())) {
-                continue;
-            }
-            String[] allLabVersionIdsOfLab = Hl7textResultsData.getMatchingLabs(lab.getSegmentID()).split(",");
-            allLabIds.addAll(Arrays.asList(allLabVersionIdsOfLab));
-            for (LabResultData labResultData : labs) {
-                if (allLabVersionIdsOfLab[allLabVersionIdsOfLab.length - 1].equals(labResultData.getSegmentID())) {
-                    latestLabVersions.add(labResultData);
-                    break;
-                }
-            }
-        }
-        return latestLabVersions;
+        return CommonLabResultData.latestVisibleVersions(labs);
     }
 %>

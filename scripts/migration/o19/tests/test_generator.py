@@ -10,6 +10,8 @@ Run (from the repository root):
 
 import importlib.util
 import inspect
+import contextlib
+import io
 import os
 import re
 import runpy
@@ -31,6 +33,21 @@ def load_generator():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+class TestExplicitSourceCommit(unittest.TestCase):
+    def test_empty_or_malformed_source_commit_is_refused_before_generation(self):
+        generator = load_generator()
+        for commit in ("", "abc", "A" * 40):
+            with self.subTest(commit=commit):
+                errors = io.StringIO()
+                with mock.patch.object(sys, "argv", [str(GEN), "--oscar-src", "unused", "--oscar-commit", commit]), \
+                        mock.patch.object(generator, "build_profile") as build, \
+                        contextlib.redirect_stderr(errors), self.assertRaises(SystemExit) as refusal:
+                    generator.main()
+                self.assertEqual(refusal.exception.code, 2)
+                self.assertIn("--oscar-commit must be a full lowercase commit SHA", errors.getvalue())
+                build.assert_not_called()
 
 
 #: the parsed CARLOS schema, kept because the parse is the expensive
@@ -225,6 +242,26 @@ class TestGenerator(unittest.TestCase):
             {"kept": "b", "owned": "b", "same": "a", "pfx.k": "b"},
             ov)
         self.assertEqual(derived, {"kept": "b", "pfx.k": "b"})
+
+    def test_exempt_keys_are_not_listed_as_divergent_carlos_defaults(self):
+        ov = types.SimpleNamespace(
+            KEYS={"kept": {"d": "carry"}, "exempt": {"d": "carry"}},
+            PREFIX_RULES=[],
+            DIVERGENCE_REPORT_EXEMPT={"exempt": "why"})
+        derived = self.gen.divergent_carlos_defaults(
+            {"kept": "a", "exempt": "a"}, {"kept": "b", "exempt": "b"}, ov)
+        self.assertEqual(derived, {"kept": "b"})
+
+    def test_every_exempt_key_is_a_divergent_carry_key(self):
+        # an exemption that no longer suppresses anything is stale curation
+        carlos = self.gen.parse_properties(self.gen.CARLOS_PROPERTIES)
+        ov = self.gen.load_module(GEN.parent / "overrides_props.py")
+        from carlos_ctl import o19map_props
+        for key in ov.DIVERGENCE_REPORT_EXEMPT:
+            self.assertEqual(self.gen.overlay_disposition(key, ov), "carry", key)
+            self.assertNotEqual(o19map_props.O19_DEFAULTS[key],
+                                carlos[key], key)
+            self.assertNotIn(key, o19map_props.CARLOS_DEFAULTS, key)
 
     def test_bundle_renames_are_verified_against_the_carlos_bundle(self):
         # a target that does not exist would carry a token resolving to ""

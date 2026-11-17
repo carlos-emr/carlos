@@ -59,6 +59,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
+import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 
 
 import org.apache.struts2.ActionSupport;
@@ -223,12 +224,25 @@ public class ReportMacro2Action extends ActionSupport {
             ObjectNode jTickler = (ObjectNode) macro.get("tickler");
 
             if (jTickler.has("taskAssignedTo") && jTickler.has("message")) {
-                // The lab is attached through the attachment service (#3984), which requires
-                // _tickler write on the patient, _lab read, and proves the lab is routed to that
-                // patient under its own source. The checks run before any side effect so a
-                // refused attachment leaves neither an empty tickler nor an acknowledged lab.
+                // The reviewed item is attached through the attachment service (#3984), which
+                // requires _tickler write on the patient, read on the item's type, and proves the
+                // item belongs to that patient. The checks run before any side effect so a refused
+                // attachment leaves neither an empty tickler nor an acknowledged item.
+                boolean reviewedIsDocument = LabResultData.DOCUMENT.equals(StringUtils.trimToEmpty(labType));
+                if (reviewedIsDocument && StringUtils.isBlank(segmentID)) {
+                    // A blank id would parse to an empty attachment set, which the service
+                    // accepts and attaches nothing: the tickler would be filed unlinked.
+                    logger.warn("Document macro not run: missing segmentID");
+                    return MacroOutcome.failed();
+                }
                 pendingAttachment = new EnumMap<>(DocumentType.class);
-                pendingAttachment.put(DocumentType.LAB, Set.of(TicklerAttachmentParameters.labValue(labType, segmentID)));
+                if (reviewedIsDocument) {
+                    // The document viewer posts labType=DOC. The service refuses a document
+                    // submitted as a lab source, so a document is attached as a document.
+                    pendingAttachment.put(DocumentType.DOC, Set.of(segmentID.trim()));
+                } else {
+                    pendingAttachment.put(DocumentType.LAB, Set.of(TicklerAttachmentParameters.labValue(labType, segmentID)));
+                }
                 try {
                     pendingTickler = buildTickler(jTickler, Integer.parseInt(demographicNo), providerNo);
                     ticklerAttachmentService.requireAttachable(loggedInInfo, pendingTickler.getDemographicNo(), pendingAttachment);

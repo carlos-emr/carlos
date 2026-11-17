@@ -91,6 +91,12 @@ public class UserProperty extends AbstractModel<Integer> implements Serializable
 
     public static final String LAB_RECALL_DELEGATE = "lab_recall_delegate";
     public static final String LAB_RECALL_MSG_SUBJECT = "lab_recall_msg_subject";
+    /**
+     * The name the Lab Recall Settings page stored the message subject under before issue #4720.
+     * Read only as a fallback, so a subject saved before the fix keeps working; a save moves it to
+     * {@link #LAB_RECALL_MSG_SUBJECT}.
+     */
+    public static final String LAB_RECALL_MSG_SUBJECT_LEGACY = "labRecallMsgSubject";
     public static final String LAB_RECALL_TICKLER_ASSIGNEE = "lab_recall_tickler_assignee";
     public static final String LAB_RECALL_TICKLER_PRIORITY = "lab_recall_tickler_priority";
 

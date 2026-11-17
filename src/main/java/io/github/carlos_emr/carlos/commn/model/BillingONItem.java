@@ -26,6 +26,8 @@ package io.github.carlos_emr.carlos.commn.model;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.Set;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -109,6 +111,7 @@ public class BillingONItem extends AbstractModel<Integer> implements Serializabl
 
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "timestamp")
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date lastEditDT;
 
     @Override

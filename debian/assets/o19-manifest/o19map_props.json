@@ -2,7 +2,7 @@
  "format": 1,
  "kind": "o19map-props",
  "generator": "scripts/migration/o19/generate_manifests.py",
- "PROPS_MAP_VERSION": "o19map-3+47eba883",
+ "PROPS_MAP_VERSION": "o19map-4+47eba883",
  "O19_DEFAULTS": {
   "ALLOW_UPDATE_DOCUMENT_CONTENT": "false",
   "ALT_DISCHARGE_REASON": "no",

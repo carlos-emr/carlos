@@ -91,6 +91,8 @@ public class FrmSelect2Action extends ActionSupport {
 
         String fwd = this.getForward();
         if (fwd != null) {
+            // Hide, Up and Down change the forms at one place; shared places would move or hide every form there.
+            ShownEncounterForms.renumber((EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class));
             if (fwd.compareTo("add") == 0) {
                 logger.debug("the add button is pressed");
 

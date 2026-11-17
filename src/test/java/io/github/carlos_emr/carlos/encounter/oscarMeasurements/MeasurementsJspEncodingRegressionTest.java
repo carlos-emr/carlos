@@ -141,6 +141,27 @@ class MeasurementsJspEncodingRegressionTest extends io.github.carlos_emr.carlos.
     }
 
     @Test
+    @DisplayName("should exempt the request-scoped instruction collection only as a forEach items binding")
+    void shouldRecognizeInstructionCollection_onlyWithinForEachItems() {
+        String expression = "requestScope[attributeName].measuringInstructionList";
+        String binding = "${" + expression + "}";
+        String loop = "<c:forEach var=\"mInstrc\" items=\"" + binding + "\">";
+
+        assertThat(isNonRenderingExpression(loop, loop.indexOf(binding), expression)).isTrue();
+        for (String sink : List.of("<span>" + binding + "</span>",
+                "<input value=\"" + binding + "\"/>",
+                "<button onclick=\"use('" + binding + "')\">",
+                "<script>const value = '" + binding + "';</script>",
+                "<c:forEach var=\"" + binding + "\" items=\"${other}\">")) {
+            assertThat(isNonRenderingExpression(sink, sink.indexOf(binding), expression))
+                    .as("rendered or non-collection use: %s", sink).isFalse();
+        }
+        String otherExpression = "requestScope[attributeName].unencodedValue";
+        String otherLoop = "<c:forEach items=\"${" + otherExpression + "}\">";
+        assertThat(isNonRenderingExpression(otherLoop, otherLoop.indexOf("${"), otherExpression)).isFalse();
+    }
+
+    @Test
     @DisplayName("should neutralize hostile values in every output context used by the page")
     void shouldNeutralizeHostileValues_inEveryOutputContext() {
         String hostile = "\"><script>alert('measurements')</script>&";
@@ -264,6 +285,15 @@ class MeasurementsJspEncodingRegressionTest extends io.github.carlos_emr.carlos.
         }
         int tagStart = jsp.lastIndexOf('<', expressionStart);
         int tagEnd = jsp.indexOf('>', tagStart);
+        if (tagStart >= 0 && tagEnd >= expressionStart
+                && expression.equals("requestScope[attributeName].measuringInstructionList")) {
+            String tagPrefix = jsp.substring(tagStart, expressionStart);
+            // JSTL consumes this collection as data; its rendered child values still require encoders.
+            if (tagPrefix.startsWith("<c:forEach ")
+                    && (tagPrefix.endsWith(" items=\"") || tagPrefix.endsWith(" items='"))) {
+                return true;
+            }
+        }
         return tagStart >= 0 && tagEnd >= expressionStart
                 && jsp.substring(tagStart, expressionStart).startsWith("<fmt:param ");
     }

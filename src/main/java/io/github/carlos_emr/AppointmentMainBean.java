@@ -141,11 +141,23 @@ public class AppointmentMainBean {
         return toFile.getDef(targetType, "");
     }
 
+    /**
+     * Runs a configured query with the supplied keyword parameters.
+     *
+     * <p>An empty parameter array executes the {@code dboperation} query without
+     * bound values. If the first entry is {@code "*"}, the {@code search*} query
+     * is selected instead and no keyword parameters are bound.</p>
+     *
+     * @param aKeyword String[] of bound keyword values; may be empty, but must not be null
+     * @param dboperation String key of the configured query for non-wildcard requests
+     * @return ResultSet containing the query results
+     * @throws Exception if query lookup or JDBC execution fails
+     */
     public ResultSet queryResults(String[] aKeyword, String dboperation) throws Exception {
         String sqlQuery = null;
 
         ResultSet rs = null;
-        if (aKeyword[0].equals("*")) {
+        if (aKeyword.length > 0 && "*".equals(aKeyword[0])) {
             sqlQuery = dbSQL.getDef("search*", "");
             // SQL from UtilDict constants is server-owned; empty parameters are part of an established template path.
             rs = LegacyJdbcQuery.queryResults(sqlQuery, EMPTY_DB_PARAMS);

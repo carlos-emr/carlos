@@ -35,11 +35,13 @@
  *      cleared. On Add that is observable in the post too: onAdd's "."
  *      no-show rule turns status into N only for an unlinked name.
  *
- * NOTHING IS SAVED. Every POST to appointment/AddRecord and
+ * No appointment is saved. Every POST to appointment/AddRecord and
  * appointment/UpdateRecord is intercepted with page.route(), its form body
  * recorded, and answered with a stub page, so no appointment row is created or
- * changed and there is nothing to clean up. The pages are opened by the same
- * URLs the day sheet's slot and appointment links open in their popups; the
+ * changed. The real Add page does create a booking monitor. Its exact browser session,
+ * provider/date and pre-existing IDs are captured before opening any Add page;
+ * only newly added owned monitors are removed after closing the browser.
+ * The pages use the same URLs the day sheet's slot and appointment links open in their popups; the
  * day-sheet navigation itself is appointment-lifecycle's job.
  *
  * No patient name, demographic_no or provider number is printed: failure
@@ -70,6 +72,7 @@ const {
   assertNoPageErrors,
   assertNotErrorPage,
   createRecorder,
+  createSqlRunner,
   gotoApp,
   launchBrowser,
   login,
@@ -79,12 +82,14 @@ const {
   wirePage,
   withExpectedDialogs,
 } = require('./lib/playwright-harness');
+const { appointmentMonitorCleanup } = require('./lib/appointment-page-monitor-cleanup');
 
 const appointmentNo = process.env.APPOINTMENT_NO || '1';
 const providerNo = process.env.APPOINTMENT_PROVIDER_NO || '999998';
 const daysAhead = Number(process.env.APPOINTMENT_DAYS_AHEAD || '400');
 const searchTerm = process.env.TYPEAHEAD_SEARCH_TERM || 'FAKE-';
 const HAND_EDITED = 'PW typeahead hand edited';
+let bookingDate;
 
 const SAVE_ROUTE = /\/appointment\/(AddRecord|UpdateRecord)$/;
 
@@ -96,7 +101,7 @@ const PAGES = {
     // Posts only #demographic_no; #mrp has no name on the Add page.
     postsMrpAs: null,
     path() {
-      const target = new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000);
+      const target = new Date(bookingDate + 'T00:00:00Z');
       const query = new URLSearchParams({
         provider_no: providerNo,
         bFirstDisp: 'true',
@@ -345,11 +350,19 @@ async function main() {
 
   const config = readConfig();
   const recorder = createRecorder();
-  const browser = await launchBrowser(config);
+  // Hold one date across all pages, including a run spanning UTC midnight.
+  bookingDate = new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const sql = createSqlRunner(config.mysql);
+  const monitors = appointmentMonitorCleanup({ sql: statement => sql.rows(statement).map(row => row.join('\t')).join('\n'), provider: providerNo,
+    date: bookingDate, baseUrl: config.baseUrl });
+  const failures = [];
+  let browser;
   try {
+    browser = await launchBrowser(config);
     const context = await newContext(browser, config);
     const landing = await login(context, config, recorder);
     await landing.close();
+    await monitors.remember(context);
     for (const spec of [PAGES.add, PAGES.edit]) {
       await arrowBlurSubmit(context, recorder, spec, config.baseUrl);
       await handEditSubmit(context, recorder, spec, config.baseUrl);
@@ -358,9 +371,15 @@ async function main() {
       await searchHandoffs(context, recorder, spec, config.baseUrl);
     }
     assertNoPageErrors(recorder, [PAGES.add.label, PAGES.edit.label]);
+  } catch (error) {
+    failures.push(error);
   } finally {
-    await browser.close().catch(() => {});
+    try { if (browser) await browser.close(); } catch (error) { failures.push(error); }
+    try { monitors.cleanup(); } catch (error) { failures.push(error); }
+    try { sql.dispose(); } catch (error) { failures.push(error); }
   }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) throw new AggregateError(failures, 'Appointment typeahead validation and fixture cleanup failed');
 }
 
 if (require.main === module) {

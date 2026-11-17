@@ -73,7 +73,9 @@ public class CaseManagementViewAction {
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
 
 
-    public static class IssueDisplay {
+    public static class IssueDisplay implements java.io.Serializable {
+        private static final long serialVersionUID = 1L;
+
         public boolean writeAccess = true;
         public String codeType = null;
         public String code = null;

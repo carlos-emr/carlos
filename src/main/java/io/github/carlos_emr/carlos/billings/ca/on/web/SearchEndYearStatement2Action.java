@@ -97,7 +97,11 @@ public class SearchEndYearStatement2Action extends ActionSupport {
 
         request.setAttribute("summary", result.summary());
         request.setAttribute("result", result.invoices());
-        request.getSession().setAttribute("summary", result.summary()); // nosemgrep: tainted-session-from-http-request -- summary bean populated from DAO billing query results and utility-formatted totals
+        // The statement shown, which the page's Print PDF prints whatever its date fields say by
+        // then: they can be changed in place without pressing Create Statement again.
+        request.setAttribute("statementDemographicNo", String.valueOf(demographic.getDemographicNo()));
+        request.setAttribute("statementFromDate", fromDate == null ? "" : getFromDateParam());
+        request.setAttribute("statementToDate", toDate == null ? "" : getToDateParam());
         return SUCCESS;
     }
 

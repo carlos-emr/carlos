@@ -84,6 +84,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.report.UnbilledReportStatusParameters" %>
 <%
     ReportProviderDao reportProviderDao = SpringUtils.getBean(ReportProviderDao.class);
@@ -107,6 +108,7 @@
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlosCsrfForm.js"></script>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     <title>Billing Report</title>
 
@@ -121,6 +123,14 @@
 
         function openBrWindow(theURL, winName, features) { //v2.0
             window.open(theURL, winName, features);
+        }
+
+        // The flu report's -B (unbill) link: the delete takes only a form post, so post into the popup
+        // (opened in the click so popup blockers allow it); carlosPostForm adds the CSRF token.
+        function unbillFluBill(billingNo, billCode) {
+            var popup = window.open('', 'unbill_popup', 'height=700,width=720,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,top=0,left=0');
+            carlosPostForm('<%= SafeEncode.forJavaScript(request.getContextPath()) %>/billing/CA/BC/BillingDeleteNoAppt',
+                {billing_no: billingNo, billCode: billCode, hotclick: '0'}, {target: 'unbill_popup', popup: popup});
         }
 
         function refresh() {

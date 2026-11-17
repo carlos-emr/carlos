@@ -53,6 +53,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
 const h = require('./lib/playwright-harness');
 const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
@@ -467,7 +468,7 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
     await wrongPatient.dispose();
     await preview();
 
-    otherContext = await browser.newContext({ ignoreHTTPSErrors: true });
+    otherContext = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
     const otherLogin = await login(otherContext);
     // Use this session's own valid token, so a CSRF refusal cannot satisfy the ownership assertion.
     await gotoApp(otherLogin, `/encounter/oscarConsultationRequest/ViewConsultationFormRequest?de=${encodeURIComponent(demographicNo)}`);
@@ -543,7 +544,7 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
     assert(provider, 'The configured test login has no provider');
     demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
     browser = await chromium.launch(launchOptions);
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1280, height: 1400 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1280, height: 1400 } });
     const landingPage = await login(context);
     await landingPage.close();
 

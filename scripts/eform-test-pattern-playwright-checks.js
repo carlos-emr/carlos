@@ -46,6 +46,7 @@ const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
 const h = require('./lib/playwright-harness');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const {
   assert,
@@ -886,7 +887,7 @@ async function cleanupUploadedImage(context, imageName) {
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
     context = await browser.newContext({
       acceptDownloads: true,
-      ignoreHTTPSErrors: config.baseUrl.protocol === 'https:' && isLocalTestBaseUrl(config.baseUrl),
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl),
       viewport: { width: 1280, height: 1600 },
     });
     const landingPage = await login(context, config, recorder);

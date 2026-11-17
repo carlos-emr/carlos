@@ -17,7 +17,7 @@ const index = fs.readFileSync(
 function acknowledge(formId, labType) {
   const queueUpdates = [];
   const jQuery = () => ({ length: 0, val: () => '0' });
-  jQuery.post = () => ({ done(callback) { callback('{"clearedCount":1}'); return this; } });
+  jQuery.post = () => ({ then(callback) { callback('{"clearedCount":1}'); return this; } });
   const context = vm.createContext({
     jQuery,
     console: { log() {}, error() {} },

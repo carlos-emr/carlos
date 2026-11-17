@@ -27,6 +27,26 @@ function run(args, env) {
   return spawnSync('bash', [SCRIPT, ...args], { encoding: 'utf8', env });
 }
 
+test('should enable consultation auto-include before restarting the disposable validation install', (t) => {
+  const box = sandbox(t);
+  const source = fs.readFileSync(SCRIPT, 'utf8');
+  const start = source.indexOf("    if grep -qE '^CONSULTATION_AUTO_INCLUDE_MEDICATIONS");
+  const end = source.indexOf('    carlos-ctl restart', start);
+  assert.ok(start > 0 && end > start);
+  // Unquote the in_container string, then execute the real fixture commands
+  // against a temporary properties file, never /etc or a running installation.
+  const fixture = source.slice(start, end).replaceAll('\\"', '"').replaceAll('\\$', '$');
+  const props = path.join(box.dir, 'carlos.properties');
+  for (const before of ['', 'CONSULTATION_AUTO_INCLUDE_MEDICATIONS=false\n',
+    'CONSULTATION_AUTO_INCLUDE_MEDICATIONS = false\n', 'CONSULTATION_AUTO_INCLUDE_MEDICATIONS: false\n']) {
+    fs.writeFileSync(props, `other.setting=unchanged\n${before}`);
+    const r = spawnSync('bash', ['-ec', fixture], { encoding: 'utf8', env: { ...box.env, P: props } });
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(fs.readFileSync(props, 'utf8'), 'other.setting=unchanged\nCONSULTATION_AUTO_INCLUDE_MEDICATIONS=true\n');
+  }
+  assert.match(source, /^export CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true$/m);
+});
+
 test('should pass bash syntax checking', () => {
   assert.equal(spawnSync('bash', ['-n', SCRIPT]).status, 0);
 });
@@ -161,4 +181,118 @@ test('should refuse a reset password that quoting could not carry into the conta
     assert.match(r.stderr, /RESET_PASSWORD must not/);
   }
   assert.equal(run(['print-preseed'], { ...box.env, RESET_PASSWORD: 'Carlos2026!Verify' }).status, 0);
+});
+
+test('should preserve literal HOME_DIR through the container shell and generated environment', t => {
+  const box = sandbox(t);
+  const directory = path.join(box.dir, "clinic space $HOME `touch injected` $(touch injected2) 'single'");
+  fs.mkdirSync(directory);
+  const properties = path.join(box.dir, 'carlos.properties');
+  fs.writeFileSync(properties, `HOME_DIR=${directory}\n`);
+  const buildProperties = path.join(box.dir, 'carlos-build.properties');
+  fs.writeFileSync(buildProperties, 'build.version=test\nbuild.job=validation\nbuild.number=1\n');
+  const initialAdmin = path.join(box.dir, 'initial-admin.txt');
+  fs.writeFileSync(initialAdmin, 'user: fixture\nPIN: 1234\n');
+  const environment = path.join(box.dir, 'suite-env.sh');
+  const childRunner = path.join(box.dir, 'container-shell.js');
+  fs.writeFileSync(childRunner, `
+    const { spawnSync } = require('node:child_process');
+    let command = process.env.CONTAINER_COMMAND;
+    command = command.replaceAll('node scripts/packaged-home-dir.js', 'node ' + process.env.TEST_HOME_SCRIPT + ' ' + process.env.TEST_PROPERTIES);
+    command = command.replaceAll('node /root/carlos/scripts/packaged-home-dir.js', 'node ' + process.env.TEST_HOME_SCRIPT + ' ' + process.env.TEST_PROPERTIES);
+    command = command.replaceAll('/root/suite-env.sh', process.env.TEST_SUITE_ENV);
+    command = command.replaceAll('/usr/share/carlos-emr/webapp/carlos/WEB-INF/classes/carlos-build.properties', process.env.TEST_BUILD_PROPERTIES);
+    command = command.replaceAll('/etc/carlos-emr/initial-admin.txt', process.env.TEST_INITIAL_ADMIN);
+    command = command.replaceAll('/root/carlos', process.env.TEST_REPO);
+    command = command.replaceAll('/tmp/carlos-shots', process.env.TEST_TEMP + '/shots');
+    command = command.replaceAll('/tmp/carlos-artifacts', process.env.TEST_TEMP + '/artifacts');
+    const result = spawnSync('bash', ['-c', command], { cwd: process.env.TEST_TEMP, env: process.env, encoding: 'utf8' });
+    process.stdout.write(result.stdout || ''); process.stderr.write(result.stderr || ''); process.exit(result.status ?? 1);
+  `);
+  const source = fs.readFileSync(SCRIPT, 'utf8');
+  const functionSource = source.slice(source.indexOf('\nwrite_suite_env() {'), source.indexOf('\ncmd_suite() {'));
+  assert.match(functionSource, /^\nwrite_suite_env\(\) \{/);
+  const result = spawnSync('bash', ['-c', `set -euo pipefail
+    suite_province() { printf BC; }
+    in_container() { CONTAINER_COMMAND="$1" node "$TEST_CHILD_RUNNER"; }
+    ${functionSource}
+    write_suite_env
+  `], { encoding: 'utf8', cwd: box.dir, env: { ...box.env, RESET_PASSWORD: 'FixturePassword',
+    TEST_CHILD_RUNNER: childRunner, TEST_TEMP: box.dir, TEST_HOME_SCRIPT: path.join(__dirname, 'packaged-home-dir.js'),
+    TEST_PROPERTIES: properties, TEST_SUITE_ENV: environment, TEST_BUILD_PROPERTIES: buildProperties,
+    TEST_INITIAL_ADMIN: initialAdmin, TEST_REPO: path.resolve(__dirname, '..') } });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const sourced = spawnSync('bash', ['-c', 'mariadb() { printf fixturehash; }; . "$1"; printf %s "$HOME_DIR"', 'source-env', environment],
+    { encoding: 'utf8', cwd: box.dir });
+  assert.equal(sourced.status, 0, sourced.stderr);
+  assert.equal(sourced.stdout, directory);
+  assert.equal(fs.existsSync(path.join(box.dir, 'injected')), false, 'backtick command ran');
+  assert.equal(fs.existsSync(path.join(box.dir, 'injected2')), false, 'dollar command substitution ran');
+});
+
+test('should refuse an unknown profile, and every profile without CARLOS_DISPOSABLE_HOST=true, before calling docker', (t) => {
+  const box = sandbox(t);
+  const unknown = run(['profile', 'nonesuch'], { ...box.env, CARLOS_DISPOSABLE_HOST: 'true' });
+  assert.equal(unknown.status, 1);
+  assert.match(unknown.stderr, /profile must be legacy-teleplan or default \(got 'nonesuch'\)/);
+  for (const name of ['legacy-teleplan', 'default']) {
+    const r = run(['profile', name], { ...box.env, CARLOS_DISPOSABLE_HOST: '' });
+    assert.equal(r.status, 1, `${name}: ${r.stdout}${r.stderr}`);
+    assert.match(r.stderr, /refusing to run: set CARLOS_DISPOSABLE_HOST=true/);
+  }
+  assert.equal(fs.existsSync(box.calls), false, 'docker was called before the profile was refused');
+});
+
+test('should refuse the legacy-teleplan profile on an install that is not British Columbia', (t) => {
+  const box = sandbox(t);
+  // The fake docker answers nothing, so the installed province reads as unknown.
+  const r = run(['profile', 'legacy-teleplan'], { ...box.env, CARLOS_DISPOSABLE_HOST: 'true' });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /the legacy-teleplan profile is for a BC install \(this one is 'unknown'\)/);
+  const calls = fs.readFileSync(box.calls, 'utf8');
+  assert.doesNotMatch(calls, /carlos-ctl restart/, 'the install was changed although the province check failed');
+});
+
+/** Apply `profile NAME`'s carlos.properties edit to `file`, as the container does. */
+function applyProfileEdit(name, file) {
+  const edit = run(['print-profile-edit', name], process.env);
+  assert.equal(edit.status, 0, edit.stderr);
+  const r = spawnSync('bash', ['-ec', `P='${file}'\n${edit.stdout}`], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  return fs.readFileSync(file, 'utf8');
+}
+
+test('should switch carlos.properties to a profile and back byte for byte, whatever the file ends with', (t) => {
+  const box = sandbox(t);
+  const cases = {
+    'with the setting': 'A=1\nNEW_BC_TELEPLAN=yes\nB=2\n',
+    'without a final newline': 'A=1\nNEW_BC_TELEPLAN=yes\nB=2',
+    'without the setting': 'A=1\nB=2',
+    'with a spaced setting': 'A=1\nNEW_BC_TELEPLAN = yes\n',
+  };
+  for (const [label, original] of Object.entries(cases)) {
+    const file = path.join(box.dir, 'carlos.properties');
+    fs.writeFileSync(file, original);
+    let text = applyProfileEdit('legacy-teleplan', file);
+    // Java properties keep the last value of a key: the profile's own line must be the one that is read.
+    const values = [...text.matchAll(/^NEW_BC_TELEPLAN\s*[=:]\s*(.*)$/gm)].map(m => m[1]);
+    assert.deepEqual(values, ['no'], `${label}: NEW_BC_TELEPLAN values ${JSON.stringify(values)}`);
+    if (/^B=2$/m.test(original)) assert.match(text, /^B=2$/m, `${label}: the last setting was changed`);
+    assert.equal(applyProfileEdit('legacy-teleplan', file), text, `${label}: switching twice is not idempotent`);
+    text = applyProfileEdit('default', file);
+    assert.equal(text.replace(/\n$/, ''), original.replace(/\n$/, ''), `${label}: profile default did not restore the file`);
+    assert.equal(applyProfileEdit('default', file), text, `${label}: profile default twice changed the file`);
+  }
+});
+
+test('should refuse a suite run that does not match the profile the install is in', (t) => {
+  const box = sandbox(t);
+  // This fake docker answers the profile query with legacy-teleplan; anything else is recorded and fails.
+  fs.writeFileSync(path.join(box.dir, 'bin', 'docker'),
+    `#!/bin/sh\ncase "$*" in *carlos-validation-profile:*) echo legacy-teleplan; exit 0 ;; esac\necho "$*" >> '${box.calls}'\nexit 1\n`,
+    { mode: 0o755 });
+  const r = run(['suite', '--tier', 'smoke'], { ...box.env, CARLOS_DISPOSABLE_HOST: 'true' });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /the install is in profile 'legacy-teleplan' but the run asks for 'default'/);
+  assert.equal(fs.existsSync(box.calls), false, 'the suite ran although the install is in another profile');
 });

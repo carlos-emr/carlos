@@ -65,9 +65,9 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 <%
     String curProvider_no = (String) session.getAttribute("user");
-    String orderby = request.getParameter("orderby");
-    // Only the report's sortable columns can become SQL identifiers.
-    if (!List.of("start_time", "name", "phone", "sex", "hin", "ver", "chart_no", "roster_status").contains(orderby == null ? "" : orderby)) {
+    String orderby = request.getParameter("orderby") != null ? request.getParameter("orderby") : ("start_time");
+    // Sort keys become SQL identifiers; only the report's own column choices are valid.
+    if (!Set.of("start_time", "name", "phone", "sex", "hin", "ver", "chart_no", "roster_status").contains(orderby)) {
         orderby = "start_time";
     }
     boolean nonRosteredOnly = "true".equals(request.getParameter("rosteredStatus"));
@@ -245,6 +245,9 @@
             }
         }
         while (rsdemo.next()) {
+            // The index labels rosteredStatus=true as "Non Rostered Only".
+            // Apply it before emitting headings or rows, for provider, group and all views.
+            if (nonRosteredOnly && "RO".equalsIgnoreCase(rsdemo.getString("roster_status"))) continue;
             //if it is a group and a group member
             if (!myGroupBean.isEmpty()) {
                 if (myGroupBean.getProperty(rsdemo.getString("provider_no")) == null) continue;
@@ -268,11 +271,9 @@
                 String encodedEdate = SafeEncode.forUriComponent(edate);
                 String encodedDsmode = request.getParameter("dsmode") != null ? "&dsmode=" + SafeEncode.forUriComponent(request.getParameter("dsmode")) : "";
                 String sortBaseUrl = request.getContextPath() + "/report/ViewReportdaysheet?provider_no=" + encodedProviderNo + "&sdate=" + encodedSdate + "&edate=" + encodedEdate;
-                for (String filter : List.of("sTime", "eTime", "rosteredStatus")) {
-                    if (request.getParameter(filter) != null) {
-                        sortBaseUrl += "&" + filter + "=" + SafeEncode.forUriComponent(request.getParameter(filter));
-                    }
-                }
+                if (request.getParameter("sTime") != null) sortBaseUrl += "&sTime=" + SafeEncode.forUriComponent(request.getParameter("sTime"));
+                if (request.getParameter("eTime") != null) sortBaseUrl += "&eTime=" + SafeEncode.forUriComponent(request.getParameter("eTime"));
+                if (nonRosteredOnly) sortBaseUrl += "&rosteredStatus=true";
     %>
     <div class="section-header" style="font-weight:bold; font-size:14px; padding:6px 10px; background:#eee; border-bottom:1px solid #ddd; margin:15px 0 0 0;">
         <carlos:encode value='<%= providerBean.getProperty(rsdemo.getString("provider_no")) + " - " + dateTemp + (request.getParameter("sTime") != null ? (" " + sTime + "-" + eTime) : "") %>' context="html"/>

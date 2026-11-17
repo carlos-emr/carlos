@@ -50,40 +50,11 @@
 
 
 <%@ page import="java.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.MeasurementManager" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
 <%
-    String groupName = session.getAttribute("groupName").toString();
-    String groupId = null;
-
-    String propKey = null;
-    String propValue = null;
-    String valueDisplay = null;
-    String dsHTML = null;
-
-    String state = null;
-
-    MeasurementManager measurementManager = SpringUtils.getBean(MeasurementManager.class);
-
-    if (groupName != null) {
-
-        groupId = measurementManager.findGroupId(groupName);
-        propKey = "mgroup.ds.html." + groupId;
-
-
-        if (request.getParameter("add") != null) {
-            dsHTML = request.getParameter("htmlName");
-            measurementManager.addMeasurementGroupDS(groupName, dsHTML);
-
-            state = "added";
-        } else if (request.getParameter("remove") != null) {
-
-            measurementManager.removeMeasurementGroupDS(propKey);
-            state = "removed";
-        }
-
-    }//if groupName
+    // Shows the result only: the add or remove is done by encounter/oscarMeasurements/MeasurementGroupDecisionSupport,
+    // which the Add and Remove pages post to and which forwards here with "added" or "removed".
+    String state = (String) request.getAttribute("dsState");
 %>
 <!DOCTYPE html>
 <html>
@@ -102,9 +73,14 @@
     <h3><fmt:message key="encounter.Measurements.msgEditMeasurementGroup"/> - Modify Decision Support for
         Group </h3>
 
+    <% if (state != null) { %>
     <div class="alert alert-success">
         <h4>Success!</h4>
         You have successfully <%=state%> the decision support!
+    <% } else { %>
+    <div class="alert alert-info">
+        The group's decision support was not changed.
+    <% } %>
 
         <div style="width:100%;text-align:right;margin-top:10px"><a class="btn btn-secondary" onclick="window.close();">Done</a> <a
                 href="SetupGroupList" class="btn btn-info">Modify another group</a></div>

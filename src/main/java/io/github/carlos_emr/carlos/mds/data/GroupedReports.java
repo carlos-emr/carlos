@@ -38,7 +38,7 @@ import java.util.Locale;
 public class GroupedReports {
 
     public String associatedOBR;
-    public ArrayList<Results> resultsArray;
+    public ArrayList<Results> resultsArray = new ArrayList<Results>();
     public String timeStamp;
     public List<String> codes;
 

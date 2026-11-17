@@ -17,33 +17,32 @@
  *   4. does the same from a login with the seeded `doctor` role (`_con` x, neither `_admin` nor `_admin.consult`),
  *      after proving that the page which hosts the form refuses that login.
  *
- * WHAT THE ACTIONS DO TODAY (read from source, confirmed live). None checks the request method. HttpMethodGuardFilter
- * refuses GET/HEAD by action name, and the names AddService and DelService begin with its "add" and "del" prefixes,
- * so those two are answered 405 before the action runs; EnableConRequestResponse, UpdateServiceSpecialists and
- * UpdateInstitutionDepartment do not (the filter leaves "Update*" alone on purpose) and write on a GET and on a
- * HEAD (finding 263). The privilege check inside the action is `_con` w for AddService, `_con` u for DelService and
- * EnableConRequestResponse, and `_con` r for the two Update actions; the page and its result JSP check
- * `_admin,_admin.consult` and redirect to /securityError, but only after the write has happened (finding 264).
+ * ACTION BOUNDARIES. Every configuration write requires a logged-in administration/consultation-administration
+ * writer before parsing identifiers or accessing stored data, and accepts POST only. The native forms already
+ * submit POST through CSRFGuard. General consultation privileges do not grant configuration write access; read-only
+ * GET links that open the consultant, institution and department editors remain supported. Findings 263 and 264 are
+ * regression assertions here: the ten former failure entries must pass with the same refusal and unchanged-row
+ * checks, together with each entry's native admin POST control.
  *
- * KNOWN FAILURES AND CLAIMS. The entry asserts, one labelled step each, the (action, concern) pairs it CLAIMS; it runs
+ * CLAIMS. The entry asserts, one labelled step each, the (action, concern) pairs it CLAIMS; it runs
  * the page flow of every action it claims a pair of (the replays need the POST the page sent) and the probes of the
  * pairs it claims, records each outcome, and only then asserts, so one broken pair never hides another.
  * CONSULT_CONFIG_ONLY and CONSULT_CONFIG_EXCEPT (lib/form-claims.js: `<action>` or `<action>.<concern>`, lower case)
- * choose them, so each broken pair has its own manifest entry pinned on its own finding, the default entry leaves it
+ * choose them; each former failure pair retains its own ordinary regression entry, the default entry leaves it
  * out, and scripts/form-claims.test.js proves the entries together claim every pair exactly once. The concerns are
  * page (the write through its page lands), get (GET and HEAD replays are refused), restricted (the `_con` r login is
  * refused) and doctor (the seeded doctor role, which the pages refuse, is refused). A pair that cannot be judged (the
  * page flow failed, the front door answered, the owned rows could not be put in the state a write changes, the
  * control replay did not write, the doctor was not refused the page) is reported under a label of its own, never the
- * pinned one (lib/form-claims.js claimFailure): only h.assertRefused is the pinned assertion.
+ * assertion label (lib/form-claims.js claimFailure).
  *
  * FIXTURES. Marker-named services, a consultant (professionalSpecialists, fName FAKE), an institution and a
  * department, seeded by SQL or created through the Add Service page, and up to two throwaway logins (one with a role
  * of its own, one with the seeded doctor role; lib/authz-read-fixture.js). Enable Request/Response is clinic-wide: the
- * two property rows and the Referring Doctor service are snapshotted and restored, and so is the legacy
- * specialistsJavascript script that the service and consultant writes regenerate, verbatim and checked by MD5
- * (lib/consult-config-state.js). Cleanup removes every owned row by key and asserts it, so this check must run with
- * EXCLUSIVE=1.
+ * two property rows and the Referring Doctor service are snapshotted and restored, and the legacy
+ * specialistsJavascript script, which the service and consultant writes no longer regenerate (finding 260, #4617), is
+ * asserted unchanged by MD5 (lib/consult-config-state.js). Cleanup removes every owned row by key and asserts it, so
+ * this check must run with EXCLUSIVE=1.
  */
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
@@ -99,23 +98,8 @@ const concernLabel = (key, concern) => ({
 })[concern];
 const generatedLabel = (key, concern) => `${ACTIONS.find((action) => action.key === key).title}: ${concernLabel(key, concern)}`;
 
-/*
- * The labels a manifest pins are literals here: expectedFailure.step is checked against this file's text
- * (run-playwright-suite.js validateExpectedFailure), and a label assembled at run time cannot be found there.
- * scripts/form-claims.test.js proves each literal equals the label the run generates.
- */
-const PINNED = Object.freeze({
-  'enablerequest.get': 'EnableConRequestResponse: the request the page sends, replayed as GET and HEAD, is refused and writes nothing',
-  'updateservice.get': 'UpdateServiceSpecialists: the request the page sends, replayed as GET and HEAD, is refused and writes nothing',
-  'updateinstitution.get': 'UpdateInstitutionDepartment: the request the page sends, replayed as GET and HEAD, is refused and writes nothing',
-  'updateservice.restricted': 'UpdateServiceSpecialists: a login holding only _con r is refused and its replay of the request writes nothing',
-  'updateinstitution.restricted': 'UpdateInstitutionDepartment: a login holding only _con r is refused and its replay of the request writes nothing',
-  'addservice.doctor': 'AddService: a login with the seeded doctor role, which the pages refuse, is refused and its replay of the request writes nothing',
-  'delservice.doctor': 'DelService: a login with the seeded doctor role, which the pages refuse, is refused and its replay of the request writes nothing',
-  'enablerequest.doctor': 'EnableConRequestResponse: a login with the seeded doctor role, which the pages refuse, is refused and its replay of the request writes nothing',
-  'updateservice.doctor': 'UpdateServiceSpecialists: a login with the seeded doctor role, which the pages refuse, is refused and its replay of the request writes nothing',
-  'updateinstitution.doctor': 'UpdateInstitutionDepartment: a login with the seeded doctor role, which the pages refuse, is refused and its replay of the request writes nothing',
-});
+// All consultation-configuration assertions are ordinary regression checks.
+const PINNED = Object.freeze({});
 const stepLabel = (key, concern) => PINNED[claims.claimKey(key, concern)] || generatedLabel(key, concern);
 /**
  * Every pair is pinned (or would be) on an assertion, h.assertRefused, so no browser problem is its own: the page concern
@@ -202,7 +186,9 @@ async function workflow(s, { select = validatePin() } = {}) {
       table: 'consultationServices', expected: '0',
       where: (tag) => `serviceDesc=${q(names.probe(tag))}`,
       reset: (tag) => sql.execute(`DELETE FROM consultationServices WHERE serviceDesc=${q(names.probe(tag))}`),
-      overrides: (tag) => ({ service: names.probe(tag) }),
+      // The page's one-time submission token (issue #4225) is spent by the page's own add; the replays
+      // drop it so the control replay is the tokenless request the action still accepts once per send.
+      overrides: (tag) => ({ service: names.probe(tag), carlosFormSubmission: null }),
     },
     delservice: {
       table: 'consultationServices', expected: '1',
@@ -478,7 +464,7 @@ async function workflow(s, { select = validatePin() } = {}) {
   for (const action of chosen) {
     for (const concern of CONCERNS.filter((name) => claimed(action, name))) {
       const label = stepLabel(action.key, concern);
-      // Only the pair's own failure carries the pinned label; a precondition or a pair that was not reached is
+      // Only the pair's own failure carries the assertion label; a precondition or a pair that was not reached is
       // reported under a label of its own (lib/form-claims.js).
       const failure = claims.claimFailure(results.get(action.key)[concern], label, knownProblem(action.key, concern));
       if (failure) throw h.markFailedStep(new Error(failure.message), failure.label);

@@ -123,6 +123,9 @@ override_dh_auto_build:
 	# needs no separate Flyway CLI download and the migrations it applies are
 	# byte-identical to the ones the deployed WAR validates against at boot.
 	$(CURDIR)/debian/build-flyway-runner.sh $(BUILDDIR)/carlos.war $(BUILDDIR)
+	# Bind the supplied/built WAR to the committed physical schema contract.
+	python3 scripts/schema-contract.py --verify-files --verify-war $(BUILDDIR)/carlos.war
+	python3 scripts/test-o19-input-lifecycle.py
 ifeq ($(SKIP_DRUGREF),)
 	set -e; \
 	if [ -n "$$DRUGREF_WAR" ]; then \
@@ -199,6 +202,9 @@ override_dh_auto_install:
 	# diff the SQL that carlos-ctl applies without unpacking a webapp.
 	install -d $(STAGE)/$(SHAREDIR)/schema
 	cp -a database/mysql/migration $(STAGE)/$(SHAREDIR)/schema/
+	install -d $(STAGE)/$(SHAREDIR)/schema/contracts
+	install -m 0644 database/mysql/schema-contract/*.json $(STAGE)/$(SHAREDIR)/schema/contracts/
+	install -m 0644 database/mysql/collation-policy.json $(STAGE)/$(SHAREDIR)/schema/
 	# Data-fixup scripts for IMPORTED rows: Flyway runs on the empty deploy
 	# before an import and never sees clinic data, so carlos-ctl import-o19
 	# replays the Rich Text Letter seed + 2026.3.0 scripts itself. The

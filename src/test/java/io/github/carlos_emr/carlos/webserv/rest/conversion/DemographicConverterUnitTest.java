@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -142,5 +143,40 @@ class DemographicConverterUnitTest {
         assertThat(transfer.getRosterEnrolledTo()).isEqualTo(PROVIDER_NO);
         assertThat(filtered.getRosterEnrolledTo()).isEqualTo(PROVIDER_NO);
         assertThat(filtered.getDemographicNo()).isNull();
+    }
+
+    @Test
+    @DisplayName("should store an empty pref_name when the transfer object has no alias")
+    void shouldStoreEmptyPrefName_whenTransferObjectHasNoAlias() {
+        DemographicTo1 t = new DemographicTo1();
+        t.setAlias(null);
+
+        Demographic d = converter.getAsDomainObject(null, t);
+
+        // pref_name is NOT NULL: a null here made REST create and update fail with HTTP 500.
+        assertThat(ReflectionTestUtils.getField(d, "prefName")).isEqualTo("");
+    }
+
+    @Test
+    @DisplayName("should copy the alias into pref_name when it fits the column")
+    void shouldCopyAliasIntoPrefName_whenItFitsTheColumn() {
+        DemographicTo1 t = new DemographicTo1();
+        t.setAlias("Sam");
+
+        Demographic d = converter.getAsDomainObject(null, t);
+
+        assertThat(ReflectionTestUtils.getField(d, "prefName")).isEqualTo("Sam");
+    }
+
+    @Test
+    @DisplayName("should cut a long alias to the pref_name column width")
+    void shouldCutLongAlias_toThePrefNameColumnWidth() {
+        DemographicTo1 t = new DemographicTo1();
+        t.setAlias("A".repeat(Demographic.PREF_NAME_MAX_LENGTH + 20));
+
+        Demographic d = converter.getAsDomainObject(null, t);
+
+        assertThat((String) ReflectionTestUtils.getField(d, "prefName"))
+            .hasSize(Demographic.PREF_NAME_MAX_LENGTH);
     }
 }

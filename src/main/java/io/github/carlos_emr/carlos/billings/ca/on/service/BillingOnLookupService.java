@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFavouriteDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFilenameDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONFavourite;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONFilename;
+import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
@@ -98,9 +99,10 @@ public class BillingOnLookupService {
     private final DemographicManager demographicManager;
     private final BillingONFilenameDao billingONFilenameDao;
     private final ProviderSiteDao providerSiteDao;
+    private final AppointmentArchiveDao appointmentArchiveDao;
 
     /** Test-friendly constructor — package-private, takes DAO mocks directly. */
-    BillingOnLookupService(OscarAppointmentDao appointmentDao, ProfessionalSpecialistDao professionalSpecialistDao, ClinicLocationDao clinicLocationDao, ProviderDao providerDao, BillingPaymentTypeDao billingPaymentTypeDao, BillingONFavouriteDao billingONFavouriteDao, DemographicManager demographicManager, BillingONFilenameDao billingONFilenameDao, ProviderSiteDao providerSiteDao) {
+    BillingOnLookupService(OscarAppointmentDao appointmentDao, ProfessionalSpecialistDao professionalSpecialistDao, ClinicLocationDao clinicLocationDao, ProviderDao providerDao, BillingPaymentTypeDao billingPaymentTypeDao, BillingONFavouriteDao billingONFavouriteDao, DemographicManager demographicManager, BillingONFilenameDao billingONFilenameDao, ProviderSiteDao providerSiteDao, AppointmentArchiveDao appointmentArchiveDao) {
         this.appointmentDao = appointmentDao;
         this.professionalSpecialistDao = professionalSpecialistDao;
         this.clinicLocationDao = clinicLocationDao;
@@ -110,6 +112,7 @@ public class BillingOnLookupService {
         this.demographicManager = demographicManager;
         this.billingONFilenameDao = billingONFilenameDao;
         this.providerSiteDao = providerSiteDao;
+        this.appointmentArchiveDao = appointmentArchiveDao;
     }
 
     /**
@@ -497,6 +500,9 @@ public class BillingOnLookupService {
         // readOnly transactions), losing the update.
         Appointment appt = appointmentDao.find(Integer.valueOf(apptNo));
         if (appt != null) {
+            // appointmentArchive holds the versions an appointment replaced, so archive before the
+            // status changes (issue #4589); archiving afterwards would store the new status.
+            appointmentArchiveDao.archiveAppointment(appt);
             appt.setStatus(status);
             appt.setLastUpdateUser(userNo);
             appt.setUpdateDateTime(new Date());

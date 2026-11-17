@@ -28,6 +28,26 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Rx Indication (drug reason) popup
+
+    Purpose:
+    Files and archives the indications (ICD9 reasons) of one prescribed medication. Opened from the
+    Reason link of a drug in the Rx profile (ListDrugs.jsp, popupRxReasonWindow) through the
+    rx/RxReason action (RxReason2Action), which renders this page and handles its posts.
+
+    Features:
+    - Patient Dx Registry: the patient's diagnoses; a link puts its ICD9 code in the indication box
+      Save validates, and shows the description beside the box (#5000)
+    - Indication search (dxJSONCodeSearch.jsp) with comments and a primary-indication flag
+    - The drug's current indications, each with an Archive form and reason
+
+    Parameters:
+    - demographicNo: the patient (request parameter or the demoNo attribute after a post)
+    - drugId: the medication whose indications are shown and filed
+
+    @since 2026-08-04
+--%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -148,11 +168,22 @@
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/rx/styles.css">
         <script type="text/javascript">
 
+            // A Patient Dx Registry link files that diagnosis: Save reads and validates the visible
+            // jsonDxSearch box as the ICD9 code, so the code goes there and the description is shown
+            // beside it. Putting the description in the box made every registry pick fail as an
+            // invalid code (#5000).
             function assignPatientDxLink(id, name) {
                 $("#codeTxt").val(id);
-                $(".codeTxt").val(name);
-                $(".codeTxt").css('color', 'black')
+                $("#jsonDxSearch").val(id).prop('title', id + ' - ' + name).css('color', 'black');
+                $("#jsonDxSearchDescription").text(name);
             }
+
+            // Typing a different code makes the shown registry description stale.
+            $(document).on('input', '#jsonDxSearch', function () {
+                $("#codeTxt").val('');
+                $(this).prop('title', '');
+                $("#jsonDxSearchDescription").text('');
+            });
 
             function toggleArchiveMenu(id) {
                 $('#' + id).toggle();
@@ -233,6 +264,7 @@
                         <jsp:include page="/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxJSONCodeSearch.jsp">
                             <jsp:param value="true" name="enableCodeSystemSelect"/>
                         </jsp:include>
+                        <span id="jsonDxSearchDescription" aria-live="polite"></span>
 
                         <table>
                             <tr>

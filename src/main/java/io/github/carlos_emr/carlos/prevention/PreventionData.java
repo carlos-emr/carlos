@@ -232,14 +232,36 @@ public class PreventionData {
         }
     }
 
+    /**
+     * Throws unless prevention {@code id} is recorded as {@code preventionType}. prevention/AddPrevention
+     * accepts the RH form's type though no Preventions-page item lists it (issue #4992); an RH edit or
+     * delete must reach only an RH record, never another type's record in the same chart.
+     *
+     * @param id             int: the prevention record id
+     * @param preventionType String: the type the request was posted as
+     * @throws IllegalArgumentException when the record is missing or of another type
+     */
+    public static void requirePreventionType(int id, String preventionType) {
+        Prevention prevention = preventionDao.find(id);
+        if (prevention == null || !Objects.equals(prevention.getPreventionType(), preventionType)) {
+            throw new IllegalArgumentException("Prevention record is not of the posted type");
+        }
+    }
+
     public static ArrayList<Map<String, Object>> getPreventionDataFromExt(String extKey, String extVal) {
         ArrayList<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
 
         try {
             List<PreventionExt> preventionExts = preventionExtDao.findByKeyAndValue(extKey, extVal);
             for (PreventionExt preventionExt : preventionExts) {
-                Map<String, Object> hash = getPreventionById(preventionDao.find(preventionExt.getPreventionId()).toString());
-                if (hash.get("deleted") != null && ((String) hash.get("deleted")).equals("0")) {
+                // Pass the identifier, never the entity's reflection-based toString(): parsing that
+                // clinical content as an id both hid the RH injections and wrote it into an error log
+                // (issue #4992).
+                Integer preventionId = preventionExt.getPreventionId();
+                if (preventionId == null) continue;
+                Map<String, Object> hash = getPreventionById(preventionId.toString());
+                // An old extension can outlive its prevention. It must not hide later live records.
+                if (hash != null && "0".equals(hash.get("deleted"))) {
                     list.add(hash);
                 }
             }
@@ -327,10 +349,30 @@ public class PreventionData {
 
 	@Nonnull
     public static ArrayList<Map<String, Object>> getPreventionData(LoggedInInfo loggedInInfo, String preventionType, Integer demographicId) {
+        Date dob;
+        try {
+            dob = getDemographicDateOfBirth(loggedInInfo, demographicId);
+        } catch (Exception e) {
+            log.error(e.getMessage(), e);
+            return new ArrayList<Map<String, Object>>();
+        }
+        return listForCheckedPatient(preventionType, demographicId, dob);
+    }
+
+    /**
+     * Lists the patient's preventions of one type, or of every type when
+     * {@code preventionType} is {@code null}, as
+     * {@link #getPreventionData(LoggedInInfo, String, Integer)} does, for a date of birth the
+     * caller has already looked up. It makes no privilege check of its own, so it stays
+     * package-private, and its name says so: call it only for a patient the caller has already
+     * looked up through a privilege-checked call. {@link PreventionPageData} calls it after its own
+     * checked lookup of the same patient.
+     */
+    @Nonnull
+    static ArrayList<Map<String, Object>> listForCheckedPatient(String preventionType, Integer demographicId, Date dob) {
         ArrayList<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
 
         try {
-            Date dob = getDemographicDateOfBirth(loggedInInfo, demographicId);
             List<Prevention> preventions = preventionType == null ? preventionDao.findNotDeletedByDemographicId(demographicId) : preventionDao.findByTypeAndDemoNo(preventionType, demographicId);
             for (Prevention prevention : preventions) {
 
@@ -462,8 +504,18 @@ public class PreventionData {
     public static Map<String, Object> getPreventionById(String id) {
         Map<String, Object> h = null;
 
+        Integer preventionId;
         try {
-            Prevention prevention = preventionDao.find(Integer.valueOf(id));
+            preventionId = Integer.valueOf(id == null ? "" : id.trim());
+        } catch (NumberFormatException e) {
+            // The value is not echoed: a caller that passed an entity's toString() here wrote the
+            // patient's prevention, lot and reason into the error log (issue #4992).
+            log.warn("Refused a prevention lookup by a value that is not a numeric id");
+            return null;
+        }
+
+        try {
+            Prevention prevention = preventionDao.find(preventionId);
             if (prevention != null) {
                 Map<String, String> ext = getPreventionKeyValues(prevention.getId().toString());
 

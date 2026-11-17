@@ -8,6 +8,7 @@ const h = require('./playwright-harness');
 const {fixturePdf} = require('../incoming-pdf-extraction-playwright-checks');
 const {execFileSync} = require('node:child_process');
 const {markDocumentResidue, removeDocumentResidue} = require('./document-residue');
+const {documentReferenceColumns, planDocumentFixtureId, assertSplitFixtureId} = require('./document-fixture-allocation');
 
 function inspect(file) {
   const pdf = fs.readFileSync(file);
@@ -133,7 +134,7 @@ function createStoredDocumentFixture(session, program, recovery, options = {}) {
   const cacheConfigured = process.env.DOCUMENT_CACHE_DIR || path.join(path.dirname(store), path.basename(store) + '_cache');
   const documents = new Map(), columns = new Map();
   const filename = `${marker}-stored.pdf`, sourceFile = path.join(store, filename);
-  let uncertain = false, initialised = false, closed = false, cleaned = false, transportUncertain = false, baseline, sourceId, journal, acceptedSplitId, recoveryOf;
+  let uncertain = false, initialised = false, closed = false, cleaned = false, transportUncertain = false, baseline, sourceId, journal, acceptedSplitId, recoveryOf, allocation;
   const removed = [], metadataReceipts = [];
   // The routing lock row is keyed by the document number alone and no snapshot below holds it; a fresh run removes the ones it
   // wrote (lib/document-residue.js). A recovery run did not take the mark, so it leaves the original run's lock rows alone.
@@ -141,7 +142,7 @@ function createStoredDocumentFixture(session, program, recovery, options = {}) {
   function checkpoint(phase) {
     if (!journal) return;
     const content = JSON.stringify({marker, patient, provider, program, store, sourceId, acceptedSplitId, uncertain, initialised, closed, cleaned, transportUncertain, phase,
-      documents: [...documents], baseline, removed, recoveryOf, metadataReceipts}, null, 2);
+      documents: [...documents], baseline, removed, recoveryOf, metadataReceipts, allocation}, null, 2);
     const temporary = journal + '.new';
     fs.writeFileSync(temporary, content, {mode: 0o600, flag: 'wx'});
     const descriptor = fs.openSync(temporary, 'r');
@@ -185,12 +186,7 @@ function createStoredDocumentFixture(session, program, recovery, options = {}) {
   }
   function noForeignReferences(number) {
     const known = new Set(Object.keys(tableKeys));
-    const references = sql.rows(`SELECT c.TABLE_NAME,c.COLUMN_NAME,0 AS declared_fk FROM information_schema.COLUMNS c
-      JOIN information_schema.TABLES t ON t.TABLE_SCHEMA=c.TABLE_SCHEMA AND t.TABLE_NAME=c.TABLE_NAME
-      WHERE c.TABLE_SCHEMA=DATABASE() AND t.TABLE_TYPE='BASE TABLE'
-      AND LOWER(REPLACE(c.COLUMN_NAME,'_','')) IN ('documentno','documentid','docno','docid')
-      UNION ALL SELECT TABLE_NAME,COLUMN_NAME,1 AS declared_fk FROM information_schema.KEY_COLUMN_USAGE
-      WHERE TABLE_SCHEMA=DATABASE() AND REFERENCED_TABLE_NAME='document' AND REFERENCED_COLUMN_NAME='document_no'`);
+    const references = documentReferenceColumns(sql);
     const guards = [];
     for (const {table, condition} of externalDocumentReferences(references, number, fields, known)) {
       h.assert(sql.value(`SELECT COUNT(*) FROM ${quote(table)} WHERE ${condition}`) === '0',
@@ -306,17 +302,23 @@ function createStoredDocumentFixture(session, program, recovery, options = {}) {
     try {await cleanup();}
     catch (error) {throw new Error(`Stored fixture recovery journal ${journal}: ${error.message}`, {cause: error});}
   }); // before the first file or database mutation
-  journal = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'stored-document-owned-')), 'journal.json');
-  checkpoint('preparing');
   owner();
+  // Do this immediately before INSERT, before creating any document file. An
+  // explicit fresh identity also advances the normal app allocator for splits.
+  allocation = planDocumentFixtureId(sql);
+  journal = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'stored-document-owned-')), 'journal.json');
+  checkpoint('allocation-planned');
   h.assert(!fs.existsSync(sourceFile), 'Stored fixture filename already exists');
   fs.writeFileSync(sourceFile, fixturePdf(marker), {flag: 'wx', mode: 0o640});
   const ownerStat = fs.statSync(store); fs.chownSync(sourceFile, ownerStat.uid, ownerStat.gid);
   uncertain = true; checkpoint('inserting');
-  sourceId = id(sql.value(`INSERT INTO document (doctype,docdesc,docfilename,doccreator,responsible,program_id,
+  sourceId = id(sql.value(`INSERT INTO document (document_no,doctype,docdesc,docfilename,doccreator,responsible,program_id,
     updatedatetime,status,contenttype,contentdatetime,public1,number_of_pages,restrictToProgram${options.metadataSchema ? ',observationdate' : ''})
-    VALUES ('Lab',${h.sqlString(marker + ' stored mutation')},${h.sqlString(filename)},${h.sqlString(provider)},${h.sqlString(provider)},${program},
-    NOW(),'A','application/pdf',NOW(),0,3,1${options.metadataSchema ? ',DATE(NOW())' : ''}); SELECT LAST_INSERT_ID()`));
+    VALUES (${allocation.sourceId},'Lab',${h.sqlString(marker + ' stored mutation')},${h.sqlString(filename)},${h.sqlString(provider)},${h.sqlString(provider)},${program},
+    NOW(),'A','application/pdf',NOW(),0,3,1${options.metadataSchema ? ',DATE(NOW())' : ''});
+    SELECT document_no FROM document WHERE document_no=${allocation.sourceId} AND docfilename=${h.sqlString(filename)}
+    AND docdesc=${h.sqlString(marker + ' stored mutation')}`));
+  h.assert(sourceId === allocation.sourceId, 'The inserted document escaped its reserved fixture identity');
   checkpoint('document-inserted');
   sql.execute(`INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('demographic',${patient},${sourceId},'A');
     INSERT INTO patientLabRouting (demographic_no,lab_no,lab_type,created) VALUES (${patient},${sourceId},'DOC',NOW());
@@ -390,6 +392,7 @@ function createStoredDocumentFixture(session, program, recovery, options = {}) {
     rememberStable() {documents.get(sourceId).stable = sql.value(`SELECT ${digest('document', true)} FROM document WHERE document_no=${sourceId}`);},
     acceptSplit(number, expectedPages) {
       number = id(number); h.assert(!documents.has(number), 'Split reused an existing document identity');
+      assertSplitFixtureId(sourceId, number);
       acceptedSplitId = number; checkpoint('split-response');
       verify(sourceId);
       const row = sql.rows(`SELECT docfilename,doccreator,contenttype,number_of_pages,program_id,restrictToProgram,public1 FROM document WHERE document_no=${number}`);

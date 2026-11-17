@@ -34,6 +34,7 @@ const h = require('./playwright-harness');
 const ui = require('./playwright-ui');
 const { captureRequest } = require('./get-reject-probe');
 const { revealAuditLink } = require('./playwright-link-audit');
+const { masterRecordLink } = require('./master-record-link');
 
 const TIMEOUT = 30000;
 const q = h.sqlString;
@@ -112,7 +113,9 @@ function appointmentAdd(s) {
       if (!popup.isClosed()) await popup.close().catch(() => {});
       return captured;
     },
-    aim: (captured, tag) => ({ overrides: { reason: prefix + tag } }),
+    // The booking form's one-time submission token (issue #4225) was spent by the UI's own add, so a
+    // replay carrying it would be answered as a repeat and write nothing; replays drop it.
+    aim: (captured, tag) => ({ overrides: { reason: prefix + tag, carlosFormSubmission: null } }),
   };
 }
 
@@ -235,7 +238,8 @@ function demographicAdd(s) {
       if (!search.isClosed()) await search.close().catch(() => {});
       return captured;
     },
-    aim: (captured, tag) => ({ overrides: { last_name: prefix + tag } }),
+    // The Add Demographic form's one-time submission token (issue #4225) was spent by the UI's own add.
+    aim: (captured, tag) => ({ overrides: { last_name: prefix + tag, carlosFormSubmission: null } }),
   };
 }
 
@@ -274,7 +278,9 @@ function demographicUpdate(s) {
       // rows, so the form as it was rendered would insert them a second time on replay
       // (uk_demo_ext_single_value, the stale-form defect concurrency-demographic-ext-insert pins).
       // The ids are set as the same form opened again would carry them.
-      const overrides = { city: prefix + tag };
+      // The form also names the record version it was rendered from (issue #4225); the UI's own save
+      // changed that version, so a replay carrying it would be refused as stale. Replays drop it.
+      const overrides = { city: prefix + tag, demographicVersion: null };
       for (const [key, id] of s.sql.rows(`SELECT key_val, id FROM demographicExt WHERE demographic_no=${s.patient}`)) {
         if (/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(key) && /^[1-9]\d*$/.test(id)) overrides[`${key}_id`] = id;
       }
@@ -360,6 +366,8 @@ function billingOnSave(s) {
         if (captured.body.has(name)) overrides[name] = appointmentNo;
       }
       h.assert(Object.keys(overrides).length, 'The captured bill save names no appointment to aim the replay at');
+      // The review page's one-time submission token (issue #4225) was spent by the UI's own save.
+      overrides.carlosFormSubmission = null;
       return { overrides };
     },
   };
@@ -385,7 +393,7 @@ function ticklerAdd(s) {
       h.assert(ids().length === 0, 'Owned ticklers were not removed');
     },
     async perform(tag) {
-      const list = await s.popup(s.master, s.master.locator('a[onclick*="/tickler/ViewTicklerMain"]').first(), 'tickler-list');
+      const list = await s.popup(s.master, masterRecordLink(s.master, '/tickler/ViewTicklerMain').first(), 'tickler-list');
       await list.waitForLoadState('domcontentloaded', { timeout: TIMEOUT });
       const add = await s.popup(list, list.locator('input.btn-primary[onclick*="/tickler/ViewAddTickler"]').first(), 'tickler-add');
       await add.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: TIMEOUT });
@@ -496,7 +504,7 @@ function rxSave(s) {
         + (SELECT COUNT(*) FROM prescription WHERE demographic_no=${s.patient})`) === '0', 'Owned Rx rows were not removed');
     },
     async perform(tag) {
-      rx = await s.popup(s.master, s.master.locator('a[onclick*="/rx/choosePatient"]').first(), 'rx-module');
+      rx = await s.popup(s.master, masterRecordLink(s.master, '/rx/choosePatient').first(), 'rx-module');
       await rx.locator('#searchString').waitFor({ state: 'visible', timeout: TIMEOUT });
       await rx.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
       this.card = await stage(prefix + tag);

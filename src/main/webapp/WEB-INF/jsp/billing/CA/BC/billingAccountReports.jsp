@@ -181,7 +181,7 @@
                 </tr>
             </table>
             <table width="100%" border="0" bgcolor="#EEEEFF">
-                <form action="createBillingReportAction" method="post">
+                <form action="<%= request.getContextPath() %>/billing/CA/BC/createBillingReportAction" method="post">
                     <tr>
                         <td width="34%"><font
                                 face="Verdana, Arial, Helvetica, sans-serif" size="2"

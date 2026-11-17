@@ -95,7 +95,11 @@
             <li><fmt:message key="eform.renderIssue.labDecisionSupportStubbed"/>: <carlos:encode value="${labDecisionSupportStubbed}"/></li>
         </ul>
         <div class="d-flex gap-2 mt-3">
-            <form method="post" action="${pageContext.request.contextPath}/${approvalAction}">
+            <%-- The template id and patient ride in the action's query string: the eForm view this post returns is
+                 shown at that URL, and APCache.js reads the form id from the page's own query string for every
+                 lookup it sends. Without them each lookup there answered "Invalid fid" and the fields stayed blank
+                 (#4979). The approval itself is still decided by the hidden fields and the one-time token. --%>
+            <form method="post" action="${pageContext.request.contextPath}/${approvalAction}<c:if test="${not empty approvalFormId}">?efmfid=${carlos:forUriComponent(approvalFormId)}&amp;efmdemographic_no=${carlos:forUriComponent(demographicNo)}</c:if>">
                 <input type="hidden" name="fdid" value="<carlos:encode value="${fdid}" context="htmlAttribute"/>">
                 <input type="hidden" name="demographicNo" value="<carlos:encode value="${demographicNo}" context="htmlAttribute"/>">
                 <input type="hidden" name="parentAjaxId" value="eforms">

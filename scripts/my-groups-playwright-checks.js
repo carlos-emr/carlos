@@ -14,8 +14,11 @@
  * Asserts: the `mygroup` rows after every create/add/delete (names copied from
  * `provider`), the day sheet's group dropdown and provider columns for the selected
  * group, `ProviderPreference.myGroupNo` after each selection, the empty-name validation
- * alert, and that GET cannot reach AdminSaveMyGroup / SaveMyGroup / the AdminNewGroup
- * delete branch. Fixtures: one group named from the run marker (10-char limit) holding
+ * alert, that View groups ▸ Save and ▸ Delete land back on the group list (#4515: both
+ * used to leave a blank providercontrol page), that Search/Edit/Delete Groups ▸ Delete
+ * removes the ticked rows and shows its notice (#4515: it answered 500 on the CSRF
+ * token), and that GET cannot reach AdminSaveMyGroup / SaveMyGroup / DeleteMyGroupMembers
+ * / the AdminNewGroup delete branch. Fixtures: one group named from the run marker (10-char limit) holding
  * the test provider and one or two active demo providers; the group preference is
  * snapshotted and restored through the UI and again by cleanup SQL; cleanup deletes only
  * rows carrying the group name and asserts they are gone.
@@ -24,6 +27,7 @@ const h = require('./lib/playwright-harness');
 const {clickAndAwaitReload, clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
+const {captureRequest} = require('./lib/get-reject-probe');
 const {bundleMessage} = require('./lib/throwaway-login-fixture');
 
 /** Wait for the admin shell's #myFrame to navigate because of `action`. */
@@ -75,6 +79,13 @@ async function workflow(s) {
   const {sql, provider, marker} = s;
   const groupName = 'PW' + marker.slice(-8); // mygroup_no is varchar(10)
   const group = h.sqlString(groupName);
+  /** The provider-side list a Save or Delete must land back on (not the blank page of #4515). */
+  async function assertOnProviderGroupList(list, after) {
+    h.assert(new URL(list.url()).pathname.endsWith('/provider/ViewProviderDisplayMyGroup'),
+      `${after} did not return to the group list (left on ${new URL(list.url()).pathname})`);
+    await h.assertNotErrorPage(list, `group list after ${after}`);
+    await list.locator('input[type="submit"].btn-danger').waitFor({timeout: 20000});
+  }
   /** Preferences ▸ View groups ▸ tick one member ▸ Delete (confirm) and prove the row is gone. */
   async function deleteMemberFromProviderList(list, member) {
     await list.locator(`input[name="${groupName}${member}"]`).check();
@@ -84,6 +95,8 @@ async function workflow(s) {
     h.assert(seen.length === 1 && seen[0].type === 'confirm', 'Deleting a member did not ask for confirmation');
     await expectValue(sql, `SELECT COUNT(*) FROM mygroup WHERE mygroup_no=${group} AND provider_no=${h.sqlString(member)}`, '0',
       'Deleting the member did not remove its row');
+    await assertOnProviderGroupList(list, 'Delete');
+    h.assert(await list.locator(`input[name="${groupName}${member}"]`).count() === 0, 'The group list still shows the deleted member');
   }
   const providerKey = h.sqlString(provider);
   h.assert(sql.value(`SELECT COUNT(*) FROM mygroup WHERE mygroup_no=${group}`) === '0', 'The marker group name already exists');
@@ -171,36 +184,30 @@ async function workflow(s) {
   });
   let prefs;
   let groups;
-  await s.step('Preferences shows the group; View groups adds a member through provider/SaveMyGroup and deletes it', async () => {
+  await s.step('Preferences shows the group; View groups adds a member through provider/SaveMyGroup and deletes it, landing on the list each time', async () => {
     prefs = await s.popup(s.schedule, s.schedule.getByTitle(/Edit your personal setting/i).first(), 'preferences');
     h.assert(await prefs.locator('input[name="mygroup_no"]').inputValue() === groupName, 'The preference form does not show the selected group');
     groups = await s.popup(prefs, prefs.locator('a[href$="/provider/ViewProviderDisplayMyGroup"]'), 'my-group-list');
     h.assert(await groups.locator(`input[name="${groupName}${provider}"]`).count() === 1, 'View groups does not list the admin-created group');
-    await clickAndAwaitReload(groups, groups.locator('input[type="submit"].btn-primary'), {label: 'New Group/Add a Member'});
+    await clickAndAwaitReload(groups, groups.locator('a.btn-primary[href$="/provider/ViewProviderNewGroup"]'), {label: 'New Group/Add a Member'});
     await groups.locator('input[name="mygroup_no"]').fill(groupName);
     await memberCheckbox(groups, demo2, 'input.provider-check').check();
     await clickAndAwaitReload(groups, groups.locator('input[type="submit"].btn-primary'), {label: 'Save group member'});
     await expectValue(sql, `SELECT COUNT(*) FROM mygroup WHERE mygroup_no=${group} AND provider_no=${h.sqlString(demo2)}`, '1',
       'provider/SaveMyGroup did not add the member');
     h.assert(groupRows() === '3', 'Adding a member changed other group rows');
-    // DEFECT (live, 2026-10-01): providersavemygroup.jsp and providernewgroup.jsp
-    // sendRedirect() to displaymode=displaymygroup from inside providercontrol.jsp's
-    // include, so the browser is left on a blank /provider/providercontrol page after
-    // Save and after Delete. The rows are written; the list is re-opened from the
-    // Preferences link to assert it, instead of pinning the blank page.
-    if ((await groups.locator('body').innerText()).trim() === '') {
-      console.log('  observed: Save left a blank providercontrol page instead of the group list (swallowed redirect)');
-    }
-    await groups.close();
-    groups = await s.popup(prefs, prefs.locator('a[href$="/provider/ViewProviderDisplayMyGroup"]'), 'my-group-list-after-save');
+    // #4515: Save ran inside providercontrol.jsp's include, which ignored its redirect and
+    // left a blank page. It now posts to provider/SaveMyGroup and redirects to the list.
+    await assertOnProviderGroupList(groups, 'Save');
     h.assert(await groups.locator(`input[name="${groupName}${demo2}"]`).count() === 1, 'The group list does not show the new member');
     const rejected = await s.context.request.get(h.appUrl(s.config.baseUrl, '/provider/SaveMyGroup'), {maxRedirects: 0});
     h.assert(rejected.status() === 405, 'GET on provider/SaveMyGroup was not rejected');
+    const rejectedDelete = await s.context.request.get(h.appUrl(s.config.baseUrl, '/provider/DeleteMyGroupMembers'),
+      {params: {[`${groupName}${demo2}`]: groupName}, maxRedirects: 0});
+    h.assert(rejectedDelete.status() === 405, 'GET on provider/DeleteMyGroupMembers was not rejected');
+    h.assert(groupRows() === '3', 'A rejected GET delete changed group rows');
     await deleteMemberFromProviderList(groups, demo2);
     h.assert(groupRows() === '2', 'Deleting one member removed other rows');
-    await groups.close();
-    groups = await s.popup(prefs, prefs.locator('a[href$="/provider/ViewProviderDisplayMyGroup"]'), 'my-group-list-after-delete');
-    h.assert(await groups.locator(`input[name="${groupName}${demo2}"]`).count() === 0, 'The deleted member is still listed');
     await groups.close();
     await prefs.close();
   });
@@ -223,27 +230,48 @@ async function workflow(s) {
       'Restoring the group selection did not persist');
     h.assert(await s.schedule.locator('#mygroup_no').inputValue() === originalOption, 'The day sheet did not return to the previous selection');
   });
-  await s.step('GET cannot delete or save a group; View groups deletes every remaining member', async () => {
+  await s.step('GET cannot delete or save a group; Search/Edit/Delete Groups ▸ Delete removes the ticked members', async () => {
     const getSave = await s.context.request.get(h.appUrl(s.config.baseUrl, '/admin/AdminSaveMyGroup'), {maxRedirects: 0});
     h.assert(getSave.status() === 405, 'GET on admin/AdminSaveMyGroup was not rejected');
     const getDelete = await s.context.request.get(h.appUrl(s.config.baseUrl, '/admin/AdminNewGroup'),
       {params: {submit: 'Delete', [`${groupName}${provider}`]: groupName}, maxRedirects: 0});
     h.assert(getDelete.status() === 405, 'GET on the AdminNewGroup delete branch was not rejected');
     h.assert(groupRows() === '2', 'A rejected GET changed group rows');
-    // DEFECT (live, 2026-10-01): Administration ▸ Search/Edit/Delete Groups ▸ Delete
-    // answers HTTP 500. adminnewgroup.jsp treats every posted parameter except
-    // displaymode/submit as "<group><provider>", so the CSRFGuard token parameter hits
-    // String.substring(39) on "CSRF-TOKEN" (StringIndexOutOfBoundsException). Until it is
-    // fixed the admin Delete is left out; the members are deleted where the UI works,
-    // Preferences ▸ View groups, and the rows are asserted gone.
-    const prefsAgain = await s.popup(s.schedule, s.schedule.getByTitle(/Edit your personal setting/i).first(), 'preferences-cleanup');
-    for (const member of [demo1, provider]) {
-      const list = await s.popup(prefsAgain, prefsAgain.locator('a[href$="/provider/ViewProviderDisplayMyGroup"]'), 'my-group-list-delete');
-      await deleteMemberFromProviderList(list, member);
-      await list.close();
+    // #4515: this Delete answered HTTP 500. adminnewgroup.jsp read every posted parameter
+    // as "<group><provider>", so the CSRFGuard token CSRFGuard injects into this form hit
+    // String.substring() on "CSRF-TOKEN". The page posts that token here, so this is the
+    // regression check for it.
+    const list = await openAdminSection(admin, '/admin/ViewAdminDisplayMyGroup', `input[name="${groupName}${provider}"]`);
+    const memberBox = member => list.locator(`input[name="${groupName}${member}"][value="${groupName}"]`);
+    // A user holding _site_access_privacy is shown only their own rows (see the list step).
+    const listed = [];
+    for (const member of [provider, demo1]) {
+      if (await memberBox(member).count() === 1) listed.push(member);
     }
-    await prefsAgain.close();
-    h.assert(groupRows() === '0', 'Deleting the group through View groups left rows behind');
+    h.assert(listed.includes(provider), 'Search/Edit/Delete Groups does not list the signed-in provider in the group');
+    for (const member of listed) await memberBox(member).check();
+    // The list lives in the shell's iframe; the shell page sees its requests.
+    const deleted = await captureRequest(admin, url => url.pathname.endsWith('/admin/AdminNewGroup'),
+      () => frameNavigation(admin, list, () => list.locator('input[name="submit"].btn-danger').click()));
+    h.assert(deleted.params.has('CSRF-TOKEN'), 'The Delete post carried no CSRF token, so it does not exercise #4515');
+    h.assert(deleted.status === 200, `Search/Edit/Delete Groups ▸ Delete answered HTTP ${deleted.status}`);
+    await h.assertNotErrorPage(list, 'Search/Edit/Delete Groups ▸ Delete');
+    await list.locator('.alert-success').waitFor({timeout: 20000});
+    for (const member of listed) {
+      await expectValue(sql, `SELECT COUNT(*) FROM mygroup WHERE mygroup_no=${group} AND provider_no=${h.sqlString(member)}`, '0',
+        'Search/Edit/Delete Groups ▸ Delete did not remove a ticked member');
+    }
+    h.assert(groupRows() === String(2 - listed.length), 'Search/Edit/Delete Groups ▸ Delete removed rows that were not ticked');
+    // Whatever the admin list could not show goes through Preferences ▸ View groups.
+    const hidden = [demo1].filter(member => !listed.includes(member));
+    if (hidden.length) {
+      const prefsAgain = await s.popup(s.schedule, s.schedule.getByTitle(/Edit your personal setting/i).first(), 'preferences-cleanup');
+      const remaining = await s.popup(prefsAgain, prefsAgain.locator('a[href$="/provider/ViewProviderDisplayMyGroup"]'), 'my-group-list-delete');
+      for (const member of hidden) await deleteMemberFromProviderList(remaining, member);
+      await remaining.close();
+      await prefsAgain.close();
+    }
+    h.assert(groupRows() === '0', 'Deleting the group left rows behind');
   });
 }
 if (require.main === module) runWorkflow('my-groups', workflow, {openPatient: false});

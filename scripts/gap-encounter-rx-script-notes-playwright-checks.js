@@ -189,4 +189,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('gap-encounter-rx-script-notes', workflow, { openPatient: true });
-module.exports = { workflow };
+module.exports = { workflow, viewScriptFrame, noteBodyTracker };

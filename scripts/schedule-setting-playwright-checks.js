@@ -38,6 +38,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
 /*
  * Two tiers, because the two decisions they gate carry different risk.
@@ -599,7 +600,7 @@ async function checkResizeIframeCallers(page) {
   const browser = await chromium.launch(launchOptions);
   try {
     const context = await browser.newContext({
-      ignoreHTTPSErrors: isLoopbackHost(baseUrl.hostname),
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
       viewport: { width: 1440, height: 900 },
     });
     const page = await login(context);

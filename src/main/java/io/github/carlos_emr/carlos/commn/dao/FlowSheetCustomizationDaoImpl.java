@@ -41,19 +41,24 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class FlowSheetCustomizationDaoImpl extends AbstractDaoImpl<FlowSheetCustomization> implements FlowSheetCustomizationDao {
 
+    // Legacy null/blank scope columns mean the same unset scope as the service classifier.
+    // Keep owner comparisons exact; normalization applies only to the absence of an owner/patient.
+    private static final String NO_PROVIDER = "COALESCE(TRIM(fd.providerNo), '')=''";
+    private static final String NO_PATIENT = "(COALESCE(TRIM(fd.demographicNo), '')='' OR fd.demographicNo='0')";
+    private static final String CLINIC_SCOPE = "(" + NO_PROVIDER + " AND " + NO_PATIENT + ")";
+    private static final String SCOPE_ORDER = " ORDER BY CASE WHEN " + CLINIC_SCOPE
+            + " THEN 0 WHEN " + NO_PATIENT + " THEN 1 ELSE 2 END, fd.demographicNo, fd.providerNo, fd.id";
+
     // Static JPQL for findHigherLevelCustomization
     private static final String FIND_HIGHER_LEVEL_FOR_PATIENT =
         "SELECT fd FROM FlowSheetCustomization fd " +
         "WHERE fd.flowsheet=?1 AND fd.measurement=?2 AND fd.action=?3 AND fd.archived=false " +
-        "AND ((fd.providerNo='' AND fd.demographicNo='0') " +
-        "OR (fd.providerNo=?4 AND fd.demographicNo='0')) " +
-        "ORDER BY fd.providerNo ASC";
+        "AND (" + CLINIC_SCOPE + " OR (fd.providerNo=?4 AND " + NO_PATIENT + "))" + SCOPE_ORDER;
 
     private static final String FIND_HIGHER_LEVEL_FOR_PROVIDER =
         "SELECT fd FROM FlowSheetCustomization fd " +
         "WHERE fd.flowsheet=?1 AND fd.measurement=?2 AND fd.action=?3 AND fd.archived=false " +
-        "AND (fd.providerNo='' AND fd.demographicNo='0') " +
-        "ORDER BY fd.providerNo ASC";
+        "AND " + CLINIC_SCOPE + SCOPE_ORDER;
 
     public FlowSheetCustomizationDaoImpl() {
         super(FlowSheetCustomization.class);
@@ -85,13 +90,11 @@ public class FlowSheetCustomizationDaoImpl extends AbstractDaoImpl<FlowSheetCust
         // Returns customizations across all scope levels for this flowsheet.
         Query query = entityManager.createQuery(
             "SELECT fd FROM FlowSheetCustomization fd WHERE fd.flowsheet=?1 AND fd.archived=false " +
-            "AND ((fd.providerNo='' AND fd.demographicNo='0') " +
-            "OR (fd.providerNo=?2 AND fd.demographicNo='0') " +
-            "OR (fd.demographicNo=?3)) " +
-            "ORDER BY fd.demographicNo ASC, fd.providerNo ASC");
+            "AND (" + CLINIC_SCOPE + " OR (fd.providerNo=?2 AND " + NO_PATIENT + ") " +
+            "OR (fd.demographicNo=?3 AND NOT " + NO_PATIENT + "))" + SCOPE_ORDER);
         query.setParameter(1, flowsheet);
         query.setParameter(2, provider);
-        query.setParameter(3, String.valueOf(demographic));
+        query.setParameter(3, demographic == null ? null : String.valueOf(demographic));
 
         @SuppressWarnings("unchecked")
         List<FlowSheetCustomization> list = query.getResultList();
@@ -103,11 +106,9 @@ public class FlowSheetCustomizationDaoImpl extends AbstractDaoImpl<FlowSheetCust
         // Include both clinic-level (providerNo='') and provider-level customizations
         Query query = entityManager.createQuery(
             "SELECT fd FROM FlowSheetCustomization fd WHERE fd.flowsheet=?1 AND fd.archived=false " +
-            "AND fd.demographicNo=?3 AND (fd.providerNo='' OR fd.providerNo=?2) " +
-            "ORDER BY fd.providerNo, fd.demographicNo");
+            "AND " + NO_PATIENT + " AND (" + NO_PROVIDER + " OR fd.providerNo=?2)" + SCOPE_ORDER);
         query.setParameter(1, flowsheet);
         query.setParameter(2, provider);
-        query.setParameter(3, "0");
 
         @SuppressWarnings("unchecked")
         List<FlowSheetCustomization> list = query.getResultList();
@@ -118,9 +119,8 @@ public class FlowSheetCustomizationDaoImpl extends AbstractDaoImpl<FlowSheetCust
     public List<FlowSheetCustomization> getFlowSheetCustomizations(String flowsheet) {
         Query query = entityManager.createQuery(
             "SELECT fd FROM FlowSheetCustomization fd WHERE fd.flowsheet=?1 AND fd.archived=false " +
-            "AND fd.providerNo='' AND fd.demographicNo=?2");
+            "AND " + CLINIC_SCOPE + SCOPE_ORDER);
         query.setParameter(1, flowsheet);
-        query.setParameter(2, "0");
 
         @SuppressWarnings("unchecked")
         List<FlowSheetCustomization> list = query.getResultList();
@@ -131,7 +131,7 @@ public class FlowSheetCustomizationDaoImpl extends AbstractDaoImpl<FlowSheetCust
     public List<FlowSheetCustomization> getClinicLevelCustomizations(String flowsheet) {
         // Clinic level: providerNo='' AND demographicNo='0'
         return getCustomizationsByScope(flowsheet,
-            "AND fd.providerNo='' AND fd.demographicNo='0'",
+            "AND " + CLINIC_SCOPE + SCOPE_ORDER,
             q -> { });
     }
 
@@ -139,13 +139,16 @@ public class FlowSheetCustomizationDaoImpl extends AbstractDaoImpl<FlowSheetCust
     public List<FlowSheetCustomization> getProviderLevelCustomizations(String flowsheet, String providerNo) {
         // Provider level: specific providerNo AND demographicNo='0'
         return getCustomizationsByScope(flowsheet,
-            "AND fd.providerNo=?2 AND fd.demographicNo='0'",
+            "AND fd.providerNo=?2 AND " + NO_PATIENT + SCOPE_ORDER,
             q -> q.setParameter(2, providerNo));
     }
 
     @Override
     public List<FlowSheetCustomization> getPatientLevelCustomizations(String flowsheet, String demographicNo) {
-        // Patient level: specific demographicNo (not "0")
+        // An unset patient denotes a broader scope, never rows available for patient-level mutation.
+        if (demographicNo == null || demographicNo.isBlank() || "0".equals(demographicNo)) {
+            return List.of();
+        }
         return getCustomizationsByScope(flowsheet,
             "AND fd.demographicNo=?2",
             q -> q.setParameter(2, demographicNo));
@@ -156,8 +159,8 @@ public class FlowSheetCustomizationDaoImpl extends AbstractDaoImpl<FlowSheetCust
             String flowsheet, String measurement, String action,
             String providerNo, String demographicNo) {
 
-        boolean isPatientScope = demographicNo != null && !"0".equals(demographicNo);
-        boolean isProviderScope = !isPatientScope && providerNo != null && !providerNo.isEmpty();
+        boolean isPatientScope = demographicNo != null && !demographicNo.isBlank() && !"0".equals(demographicNo);
+        boolean isProviderScope = !isPatientScope && providerNo != null && !providerNo.isBlank();
 
         // Clinic scope: nothing is higher
         if (!isPatientScope && !isProviderScope) {

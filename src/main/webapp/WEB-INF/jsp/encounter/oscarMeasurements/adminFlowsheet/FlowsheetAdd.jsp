@@ -182,7 +182,7 @@
                         <option value="<%=FlowSheetUserCreated.SCOPE_CLINIC %>" <%="clinic".equals(scope) ? "selected=\"selected\" " : "" %>>
                             Clinic
                         </option>
-                        <option value="<%=FlowSheetUserCreated.SCOPE_PROVIDER %>" <%="providers".equals(scope) ? "selected=\"selected\" " : "" %>>
+                        <option value="<%=FlowSheetUserCreated.SCOPE_PROVIDER %>" <%=FlowSheetUserCreated.isProviderScope(scope) ? "selected=\"selected\" " : "" %>>
                             Provider
                         </option>
                         <option value="<%=FlowSheetUserCreated.SCOPE_PATIENT %>" <%="patient".equals(scope) ? "selected=\"selected\" " : "" %>>

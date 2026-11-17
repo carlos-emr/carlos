@@ -118,11 +118,16 @@ class DemographicFieldLengthUnitTest {
     }
 
     @Test
-    void shouldValidateAliasFallback_whenItWillBePersistedAsPreferredName() {
+    void shouldValidateAliasAndStoredPreferredName_againstTheirOwnColumns() {
         Demographic demographic = new Demographic();
-        demographic.setAlias("A".repeat(31));
+        String alias = "A".repeat(Demographic.ALIAS_MAX_LENGTH);
+        demographic.setAlias(alias);
+        demographic.setPrefName(Demographic.prefNameForNameUsed(alias));
+        assertThat(demographic.validateFieldLengths()).isEmpty();
+        assertThat(demographic.getPrefName()).isEqualTo(alias);
+        demographic.setAlias(alias + "A");
         assertThat(demographic.validateFieldLengths()).containsExactly(
-                "Preferred name exceeds maximum length of 30 characters.");
+                "Preferred name exceeds maximum length of 70 characters.");
     }
 
     @Test

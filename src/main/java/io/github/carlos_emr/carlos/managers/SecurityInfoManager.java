@@ -53,5 +53,9 @@ public interface SecurityInfoManager {
 
     public boolean hasPrivilege(LoggedInInfo loggedInInfo, String objectName, String privilege, String demographicNo);
 
+    /** Evaluate the same privilege policy without changing the session's account-lock state.
+     * Use for discovery that may inspect records belonging to several patients. */
+    public boolean hasPrivilegeReadOnly(LoggedInInfo loggedInInfo, String objectName, String privilege, String demographicNo);
+
     public boolean isAllowedAccessToPatientRecord(LoggedInInfo loggedInInfo, Integer demographicNo);
 }

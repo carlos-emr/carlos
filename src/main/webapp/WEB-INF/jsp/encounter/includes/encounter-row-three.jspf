@@ -53,6 +53,21 @@
     </div>
 </div>
 
+<%-- One submit per rendering of the editor. A double click posted it twice: the first post saved,
+     and the second, made from the revision the first had just replaced, was refused as a
+     conflicting edit, so the window showed the concurrency page instead of closing (issue #4673). --%>
+<script>
+    function submitEncounterOnce(action) {
+        var form = document.forms['encForm'];
+        if (form.dataset.submitted === 'true') {
+            return;
+        }
+        form.dataset.submitted = 'true';
+        form.btnPressed.value = action;
+        form.submit();
+    }
+</script>
+
 <%-- Action buttons --%>
 <div class="encounter-actions d-flex justify-content-between align-items-center">
     <div>
@@ -67,7 +82,7 @@
 
         <input type="button" class="btn btn-sm btn-secondary"
                value="<fmt:message key="global.btnPrint"/>"
-               onclick="document.forms['encForm'].btnPressed.value='Save'; popupPage(700, 960, 'print', '${ctx}/encounter/ViewEncounterPrint');"/>
+               onclick="document.forms['encForm'].btnPressed.value='Save'; popupPage(700, 960, 'print', '${ctx}/encounter/ViewEncounterPrint?demographicNo=${carlos:forJavaScriptAttribute(carlos:forUriComponent(bean.demographicNo))}&amp;echartid=${carlos:forJavaScriptAttribute(carlos:forUriComponent(bean.EChartId))}');"/>
 
         <input type="hidden" name="btnPressed" value="">
 
@@ -76,26 +91,26 @@
             <% if (!bPrincipalControl || (bPrincipalControl && bPrincipalDisplay)) { %>
             <input type="button" class="btn btn-sm btn-primary"
                    value="<fmt:message key="encounter.Index.btnSave"/>"
-                   onclick="document.forms['encForm'].btnPressed.value='Save'; document.forms['encForm'].submit();">
+                   onclick="submitEncounterOnce('Save');">
             <input type="button" class="btn btn-sm btn-primary"
                    value="<fmt:message key="encounter.Index.btnSignSave"/>"
-                   onclick="document.forms['encForm'].btnPressed.value='Sign,Save and Exit'; document.forms['encForm'].submit();">
+                   onclick="submitEncounterOnce('Sign,Save and Exit');">
             <oscar:oscarPropertiesCheck property="billregion" value="BC">
                 <input type="button" class="btn btn-sm btn-primary"
                        value="<fmt:message key="encounter.Index.btnSignSaveBill"/>"
-                       onclick="document.forms['encForm'].btnPressed.value='Sign,Save and Bill'; document.forms['encForm'].submit();">
+                       onclick="submitEncounterOnce('Sign,Save and Bill');">
             </oscar:oscarPropertiesCheck>
             <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart.verifyButton" rights="w">
                 <input type="button" class="btn btn-sm btn-primary"
                        value="<fmt:message key="encounter.Index.btnSign"/>"
-                       onclick="document.forms['encForm'].btnPressed.value='Verify and Sign'; document.forms['encForm'].submit();">
+                       onclick="submitEncounterOnce('Verify and Sign');">
             </security:oscarSec>
             <% } %>
         </security:oscarSec>
 
         <input type="button" class="btn btn-sm btn-secondary" name="buttonPressed"
                value="<fmt:message key="global.btnExit"/>"
-               onclick="document.forms['encForm'].btnPressed.value='Exit'; if (closeEncounterWindow()) {document.forms['encForm'].submit();}">
+               onclick="if (closeEncounterWindow()) {submitEncounterOnce('Exit');}">
 
         <%-- Hidden form state fields --%>
         <input type="hidden" name="rowOneSize" value="<carlos:encode value='${rowOneSize}' context="htmlAttribute"/>">
@@ -103,7 +118,7 @@
         <input type="hidden" name="presBoxSize" value="<carlos:encode value='${presBoxSize}' context="htmlAttribute"/>">
         <input type="hidden" name="rowThreeSize" value="<carlos:encode value='${rowThreeSize}' context="htmlAttribute"/>">
         <input type="hidden" name="status" value="t"/>
-        <input type="hidden" name="appointment_no" value="${bean.appointmentNo}"/>
+        <input type="hidden" name="appointment_no" value="<carlos:encode value='${bean.appointmentNo}' context="htmlAttribute"/>"/>
     </div>
 </div>
 

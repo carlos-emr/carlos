@@ -277,18 +277,18 @@
                            onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/ON/ManageBillingform");return false;'><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
                     </security:oscarSec>
                     <li><a href="#"
-                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/billing/CA/BC/billingAddCode");return false;'><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
+                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/billing/CA/BC/ViewBillingPrivateCodeAdjust");return false;'><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
                     <oscar:oscarPropertiesCheck property="BC_BILLING_CODE_MANAGEMENT"
                                                 value="yes">
                         <li><a href="#"
-                               onclick='popupPage(600,900,"${pageContext.request.contextPath}/billing/CA/BC/billingAddCode");return false;'><fmt:message key="admin.admin.ManageBillCodes"/></a></li>
+                               onclick='popupPage(600,900,"${pageContext.request.contextPath}/billing/CA/BC/ViewBillingCodeAdjust");return false;'><fmt:message key="admin.admin.ManageBillCodes"/></a></li>
                     </oscar:oscarPropertiesCheck>
                     <li><a href="#"
                            onclick='popupPage(600,600,"${pageContext.request.contextPath}/billing/CA/BC/showServiceCodeAssocs");return false;'><fmt:message key="admin.admin.ManageServiceDiagnosticCodeAssoc"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(600,500,"${pageContext.request.contextPath}/billing/CA/BC/supServiceCodeAssocAction");return false;'><fmt:message key="admin.admin.ManageProcedureFeeCodeAssoc"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/AddReferralDoc");return false;'><fmt:message key="admin.admin.ManageReferralDoc"/></a></li>
+                           onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/ViewBillingManageReferralDoc");return false;'><fmt:message key="admin.admin.ManageReferralDoc"/></a></li>
                     <oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="no"
                                                 defaultVal="true">
                         <li><a href="#"
@@ -298,9 +298,9 @@
                     </oscar:oscarPropertiesCheck>
                     <oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="yes">
                         <li><a href="#"
-                               onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/GenerateTeleplanFile");return false;'><fmt:message key="admin.admin.simulateSubFile2"/></a></li>
+                               onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/GenerateTeleplanFile");return false;'><fmt:message key="admin.admin.genTeleplanFile2"/></a></li>
                         <li><a href="#"
-                               onclick='popupPage(800,720,"${pageContext.request.contextPath}/billing/CA/BC/SimulateTeleplanFile");return false;'><fmt:message key="admin.admin.genTeleplanFile2"/></a></li>
+                               onclick='popupPage(800,720,"${pageContext.request.contextPath}/billing/CA/BC/SimulateTeleplanFile");return false;'><fmt:message key="admin.admin.simulateSubFile2"/></a></li>
                         <li><a href="#"
                                onclick='popupPage(800,1000,"${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan");return false;'><fmt:message key="admin.admin.manageTeleplan"/></a></li>
                     </oscar:oscarPropertiesCheck>
@@ -310,7 +310,7 @@
                                onclick='popupPage(600,800,"${pageContext.request.contextPath}/billing/CA/BC/ViewBillingTA");return false;'><fmt:message key="admin.admin.uploadRemittance"/></a></li>
                     </oscar:oscarPropertiesCheck>
                     <li><a href="#"
-                           onclick='popupPage(600,800,"${pageContext.request.contextPath}/billing/CA/BC/ProcessRemittance");return false;'><fmt:message key="admin.admin.reconciliationReports"/></a></li>
+                           onclick='popupPage(600,800,"${pageContext.request.contextPath}/billing/CA/BC/ViewReconcileReports");return false;'><fmt:message key="admin.admin.reconciliationReports"/></a></li>
                     <li><a href="#"
                            onclick='popUpBillStatus(375,425,"${pageContext.request.contextPath}/billing/CA/BC/ViewBillingAccountReports");return false;'><fmt:message key="admin.admin.AccountingRpts"/></a></li>
                     <li><a href="#"
@@ -407,6 +407,11 @@
                                             defaultVal="false">
                     <li><a href="#"
                            onclick='popupPage(800,1000,"${pageContext.request.contextPath}/lab/labUpload");return false;'><fmt:message key="admin.admin.oldLabUpload"/></a></li>
+                </oscar:oscarPropertiesCheck>
+                <oscar:oscarPropertiesCheck property="PATHNET_LABS" value="yes" defaultVal="false">
+                    <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="w" reverse="<%=false%>">
+                        <li><a href="${pageContext.request.contextPath}/lab/CA/BC/ViewIndex">PathNet Patient Linking</a></li>
+                    </security:oscarSec>
                 </oscar:oscarPropertiesCheck>
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="w" reverse="<%=false%>">
                 <li><a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/admin/labForwardingRules");return false;'><fmt:message key="admin.admin.labFwdRules"/></a></li>

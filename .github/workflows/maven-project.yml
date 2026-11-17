@@ -205,6 +205,12 @@ jobs:
             make install
           "
 
+      - name: Compile packaged Edit Appointment servlet
+        run: |
+          docker exec carlos-tomcat-dev bash -c '
+            bash scripts/compile-edit-appointment-jsp.sh /usr/local/tomcat/webapps/carlos
+          '
+
   tests:
     needs: build
     runs-on: ubuntu-latest
@@ -355,6 +361,76 @@ jobs:
               mvn --batch-mode test -Dtest.forkCount=1 \
               -Dtest=DemographicBirthDayTimezoneUnitTest,DemographicBirthDayPropertyUnitTest,DemographicServiceEndpointTest,DemographicConverterUnitTest,SmartDateModuleRoundTripUnitTest,RestBirthDateMapperConfigurationUnitTest
           done
+
+      - name: Verify Rourke PDFs with alternate fonts and cache permissions
+        run: docker exec carlos-tomcat-dev bash scripts/check-rourke-fonts.sh
+
+      - name: Prepare sanitized Java test reports
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          import shutil
+          import xml.etree.ElementTree as ET
+
+          source = Path("target/surefire-reports")
+          destination = Path(os.environ["RUNNER_TEMP"]) / "carlos-ci-surefire-reports"
+          if destination.exists():
+              shutil.rmtree(destination)
+          destination.mkdir(parents=True)
+          reports = sorted(source.glob("TEST-*.xml"))
+          if not reports:
+              print("::warning::No Surefire XML reports were generated; no Java failure inventory is available.")
+          for report in reports:
+              try:
+                  tree = ET.parse(report)
+              except ET.ParseError:
+                  print(f"::warning::Cannot sanitize {report.name}; no unsanitized report will be published.")
+                  raise SystemExit(1)
+              root = tree.getroot()
+              # Never publish JVM/configuration properties or captured console output.
+              for parent in list(root.iter()):
+                  for child in list(parent):
+                      if child.tag.rsplit("}", 1)[-1] in {"properties", "system-out", "system-err"}:
+                          parent.remove(child)
+              tree.write(destination / report.name, encoding="utf-8", xml_declaration=True)
+              # Derive concise TXT diagnostics from the safe copy, not console-output files.
+              lines = [root.get("name", report.stem), " ".join(
+                  f"{key}={root.get(key, 'unknown')}" for key in ("tests", "failures", "errors", "skipped", "time"))]
+              for case in root.iter():
+                  if case.tag.rsplit("}", 1)[-1] != "testcase":
+                      continue
+                  for problem in case:
+                      kind = problem.tag.rsplit("}", 1)[-1]
+                      if kind not in {"failure", "error"}:
+                          continue
+                      lines.extend([f"{kind.upper()}: {case.get('classname', '')}.{case.get('name', '')}",
+                                    problem.get("type", ""), problem.get("message", ""), problem.text or ""])
+              (destination / (report.stem.removeprefix("TEST-") + ".txt")).write_text(
+                  "\n".join(lines) + "\n", encoding="utf-8")
+          print(f"Prepared {len(reports)} sanitized Surefire XML/TXT report pairs")
+          PY
+
+      - name: Preserve Java test reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: java-test-reports
+          path: ${{ runner.temp }}/carlos-ci-surefire-reports/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Preserve synthetic Rourke rendering evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: rourke-font-rendering
+          path: |
+            target/rourke-font-matrix/
+            target/rourke-pdf/
+          if-no-files-found: ignore
+          retention-days: 14
 
   encode-lint:
     # Encoder null-safety lint — catches two silent-failure classes:

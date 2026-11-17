@@ -41,7 +41,9 @@ package io.github.carlos_emr.carlos.demographic.data;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DemographicMergedDao;
@@ -50,6 +52,7 @@ import io.github.carlos_emr.carlos.commn.dao.SecObjPrivilegeDao;
 import io.github.carlos_emr.carlos.commn.model.RecycleBin;
 import io.github.carlos_emr.carlos.commn.model.SecObjPrivilege;
 import io.github.carlos_emr.carlos.commn.model.SecObjPrivilegePrimaryKey;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -69,16 +72,28 @@ public class DemographicMerged {
     public DemographicMerged() {
     }
 
+    /**
+     * Records that {@code demographic_no} (or, when it was already merged, its current head) is merged into
+     * {@code head}.
+     *
+     * <p>Callers that take ids from a request should reject merged-source records up front with
+     * {@link #isMergedSource(int)}; this method additionally refuses any merge that would close a loop in the
+     * {@code demographic_merged} chain, because {@link #getHead(Integer)} and every lab/appointment lookup that
+     * follows the chain assumes it is acyclic.
+     *
+     * @throws IllegalArgumentException if the merge would link a record to itself or create a merge cycle
+     */
     public void Merge(LoggedInInfo loggedInInfo, String demographic_no, String head) {
 
         io.github.carlos_emr.carlos.commn.model.DemographicMerged dm = new io.github.carlos_emr.carlos.commn.model.DemographicMerged();
 
         // always merge the head of records that have already been merged to the new head
-        String record_head = getHead(demographic_no);
-        if (record_head == null)
-            dm.setDemographicNo(Integer.parseInt(demographic_no));
-        else
-            dm.setDemographicNo(Integer.parseInt(record_head));
+        Integer sourceHead = getHead(Integer.parseInt(demographic_no));
+        Integer target = Integer.valueOf(head);
+        if (sourceHead.equals(target) || sourceHead.equals(getHead(target))) {
+            throw new IllegalArgumentException("Refusing a demographic merge that would create a merge cycle");
+        }
+        dm.setDemographicNo(sourceHead);
 
         dm.setMergedTo(Integer.parseInt(head));
 
@@ -152,20 +167,48 @@ public class DemographicMerged {
     }
 
 
+    /**
+     * Whether the record is currently merged into another record, i.e. it is a non-head "source" of a merge.
+     * Only head records may be merged or used as a merge target.
+     */
+    public boolean isMergedSource(int demographicNo) {
+        return !dao.findCurrentByDemographicNo(demographicNo).isEmpty();
+    }
+
+    /**
+     * Follows the active {@code demographic_merged} chain from {@code demographic_no} to its head record.
+     *
+     * <p>Iterative with a visited set: a corrupt chain that loops back on itself (for example from a crafted
+     * merge request before the cycle checks existed) would otherwise recurse until the stack overflows. When a
+     * cycle is found there is no real head, so the starting record is returned unchanged. Callers that must
+     * not treat such a record as a head (lab routing) use {@link #findHead(Integer)} instead.
+     */
     public Integer getHead(Integer demographic_no) {
-        Integer head = null;
+        Integer head = findHead(demographic_no);
+        return head != null ? head : demographic_no;
+    }
 
-        List<io.github.carlos_emr.carlos.commn.model.DemographicMerged> dms = dao.findCurrentByDemographicNo(demographic_no);
-        for (io.github.carlos_emr.carlos.commn.model.DemographicMerged dm : dms) {
-            head = dm.getMergedTo();
+    /**
+     * Like {@link #getHead(Integer)}, but returns {@code null} when the chain is a cycle and therefore has no
+     * head. A cyclic record is neither a head nor a record whose head is known, so a caller deciding where to
+     * deliver data (an incoming lab) must leave it unresolved rather than attach it to an arbitrary member.
+     */
+    public Integer findHead(Integer demographic_no) {
+        Set<Integer> visited = new HashSet<>();
+        Integer current = demographic_no;
+        while (visited.add(current)) {
+            Integer next = null;
+            for (io.github.carlos_emr.carlos.commn.model.DemographicMerged dm : dao.findCurrentByDemographicNo(current)) {
+                next = dm.getMergedTo();
+            }
+            if (next == null) {
+                return current;
+            }
+            current = next;
         }
-
-        if (head != null)
-            head = getHead(head);
-        else
-            head = demographic_no;
-
-        return head;
+        logger.warn("Merge cycle detected in demographic_merged chain starting at demographic {}",
+                LogSafe.sanitizeObject(demographic_no));
+        return null;
     }
 
     public ArrayList<String> getTail(String demographic_no) {

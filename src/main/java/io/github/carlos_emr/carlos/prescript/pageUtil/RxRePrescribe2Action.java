@@ -75,9 +75,9 @@ public final class RxRePrescribe2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     /**
-     * Dispatches on {@code method}: reprints read the named patient's Rx; every re-prescribe method stages
-     * copies into the explicitly named patient's stash and needs {@code _rx} write for that patient;
-     * {@code saveDigitalSignature} is POST-only.
+     * Dispatches on {@code method}: reprints update the named patient's print audit trail, while
+     * re-prescribe methods stage copies into that patient's stash. Both require POST and
+     * {@code _rx} write for the explicitly named patient, as does {@code saveDigitalSignature}.
      *
      * @return the dispatched method's result
      */
@@ -100,7 +100,8 @@ public final class RxRePrescribe2Action extends ActionSupport {
     }
 
     /**
-     * Loads a saved script for reprinting, for the explicitly named patient ({@code _rx} read).
+     * Loads a saved script for reprinting and records the print for the explicitly named patient
+     * ({@code _rx} write).
      *
      * @return the reprint result, or {@code NONE} after an error response
      */
@@ -117,12 +118,12 @@ public final class RxRePrescribe2Action extends ActionSupport {
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
+        checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
-        RxSessionBean sessionBeanRX = RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
-        // Printing updates persisted print history, so even this read-privileged operation
-        // must name its patient instead of using another window's active-patient fallback.
-        if (!RxSessionBeanResolver.isRequestForBeanPatient(request, sessionBeanRX)) {
+        // Print() persists audit history: require write on the explicitly named patient (#3585).
+        RxSessionBean sessionBeanRX =
+                RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", PRIVILEGE_WRITE);
+        if (sessionBeanRX == null) {
             response.sendError(HttpServletResponse.SC_CONFLICT);
             return NONE;
         }
@@ -174,7 +175,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
 
     /**
      * Loads a saved script of the explicitly named patient into that patient's {@link RxReprintWorkspace}
-     * entry; the script is looked up for that patient only ({@code _rx} read).
+     * entry and records the print; the script is looked up for that patient only ({@code _rx} write).
      *
      * @return {@code null} when ViewScript2 can render the reprint, or {@code NONE} after an error response
      */
@@ -186,11 +187,12 @@ public final class RxRePrescribe2Action extends ActionSupport {
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
+        checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
-        RxSessionBean sessionBeanRX = RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
-        // Print-history updates must use the explicitly named patient, never the fallback.
-        if (!RxSessionBeanResolver.isRequestForBeanPatient(request, sessionBeanRX)) {
+        // Print() persists audit history: require write on the explicitly named patient (#3585).
+        RxSessionBean sessionBeanRX =
+                RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", PRIVILEGE_WRITE);
+        if (sessionBeanRX == null) {
             // An AJAX caller follows a redirect to a 200 error page and would treat it as staged:
             // answer 409 instead (#3908).
             response.sendError(HttpServletResponse.SC_CONFLICT);

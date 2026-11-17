@@ -185,7 +185,6 @@ public final class FormViewRoutes {
                     "formVTForm",
                     "graphHeadCirc",
                     "graphLengthWeight",
-                    "patientEncounterWorksheet",
                     "RhInjectionDisplay"
             )));
 
@@ -245,6 +244,10 @@ public final class FormViewRoutes {
         String pathOnly = queryIndex >= 0 ? trimmed.substring(0, queryIndex) : trimmed;
         String query = queryIndex >= 0 ? trimmed.substring(queryIndex) : "";
 
+        if ("/form/SetupForm.do".equals(pathOnly) || "/form/SetupForm".equals(pathOnly)) {
+            return "/form/SetupForm" + query;
+        }
+
         if ("/form/formXmlUpload.jsp".equals(pathOnly)) {
             return "/form/formXmlUpload" + query;
         }
@@ -254,8 +257,13 @@ public final class FormViewRoutes {
         if ("/form/forwardname.jsp".equals(pathOnly)) {
             return "/form/forwardname" + query;
         }
-        if ("/form/pharmaForms/formBPMH.jsp".equals(pathOnly)) {
+        // The BC seed registers BPMH as "../formBPMH.do?demographic_no="; actions are extensionless now (#4732).
+        if ("/form/pharmaForms/formBPMH.jsp".equals(pathOnly) || "/formBPMH.do".equals(pathOnly)) {
             return "/formBPMH" + query;
+        }
+        // The BC seed registers BC-WCB as "../billing/CA/BC/viewformwcb.do?demographic_no=" the same way.
+        if ("/billing/CA/BC/viewformwcb.do".equals(pathOnly)) {
+            return "/billing/CA/BC/viewformwcb" + query;
         }
         if (!pathOnly.startsWith(PUBLIC_FORM_PREFIX)) {
             return null;

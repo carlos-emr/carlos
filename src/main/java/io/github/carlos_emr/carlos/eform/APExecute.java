@@ -98,9 +98,7 @@ public class APExecute {
                 logUnusableResult(ap, names.size(), values.size());
                 output = "";
             } else {
-                for (int i = 0; i < names.size(); i++) {
-                    output = DatabaseAP.parserReplace(names.get(i), values.get(i), output);
-                }
+                if (!names.isEmpty()) output = DatabaseAP.renderOutput(output, names, values);
             }
         }
         return output;
@@ -174,9 +172,7 @@ public class APExecute {
             logUnusableResult(ap, names.size(), values.size());
             output = "";
         } else {
-            for (int i = 0; i < names.size(); i++) {
-                output = DatabaseAP.parserReplace(names.get(i), values.get(i), output);
-            }
+            if (!names.isEmpty()) output = DatabaseAP.renderOutput(output, names, values);
         }
 
         return output;

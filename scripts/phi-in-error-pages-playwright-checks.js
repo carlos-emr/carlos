@@ -437,8 +437,8 @@ async function workflow(s) {
   });
 
   if (!journalUnit) {
-    // A pass here would say the log is clean when it was never read, and the manifest's expectedFailure (finding 204)
-    // would then read "unexpected pass". Every body step above has passed; the run ends as a skip that says why.
+    // A pass here would say the log is clean when it was never read, so the check would claim a
+    // fixed finding 204 (#4570) it never verified. Every body step above has passed; the run ends as a skip that says why.
     throw new h.SkipCheck('every error body was clean, but CARLOS_LOG_JOURNAL_UNIT is not set, so there is no journal to read '
       + 'and the server log was not judged (set it to the carlos-emr systemd unit, as suite-env.sh does)');
   }
@@ -455,7 +455,8 @@ async function workflow(s) {
     h.assert(read && Number(read[1]) > 0, 'The PHI log scan read no journal line in this run window, so it cannot say the log is clean');
   });
 
-  // Finding 204. The scan reports counts and logger names, never the matching text, so its output is safe to quote.
+  // Finding 204 (#4570, fixed): Struts' Dispatcher logged each unmapped-action query string at WARN; log4j2.xml now
+  // drops that message. The scan reports counts and logger names, never the matching text, so its output is safe to quote.
   await s.step('the server log holds none of this run HIN, FAKE- names, address or e-mail', async () => {
     h.assert(scan && scan.status === 0, `The server log holds this run patient data:\n${scan ? scan.out : 'no scan result'}`);
   });

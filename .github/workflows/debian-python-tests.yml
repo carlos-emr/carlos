@@ -25,6 +25,7 @@ on:
     paths:
       - 'debian/**'
       - 'scripts/migration/o19/**'
+      - 'scripts/ci/prepare-cli-manifest-test-copy.py'
       # the manifest generator's inputs (schema/overlay parity tests run
       # here; full --check also needs an OSCAR 19 checkout): the Flyway set
       # and the legacy patches it reads, the entity
@@ -44,6 +45,7 @@ on:
     paths:
       - 'debian/**'
       - 'scripts/migration/o19/**'
+      - 'scripts/ci/prepare-cli-manifest-test-copy.py'
       # the manifest generator's inputs (schema/overlay parity tests run
       # here; full --check also needs an OSCAR 19 checkout): the Flyway set
       # and the legacy patches it reads, the entity
@@ -69,6 +71,7 @@ jobs:
     timeout-minutes: 10
     env:
       CARLOS_CTL_SRC: ${{ github.workspace }}/.carlos-ctl
+      PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
@@ -108,8 +111,23 @@ jobs:
         run: python3 -m unittest discover -s debian/assets/tests
       - name: Manifest generator and shipped-manifest tests
         run: python3 -m unittest discover -s scripts/migration/o19/tests -t .
-      - name: The pinned carlos-ctl suite against this checkout
-        working-directory: ${{ env.CARLOS_CTL_SRC }}
+      # Standalone data belongs to carlos-emr and can advance independently
+      # of the pinned CLI release. Its supported exporter refreshes only the
+      # generated data block in a disposable copy; code and tests stay pinned.
+      - name: Export current standalone data into a pinned CLI test copy
+        run: >-
+          python3 scripts/ci/prepare-cli-manifest-test-copy.py
+          "$CARLOS_CTL_SRC" "$RUNNER_TEMP/carlos-ctl-current-data" "$GITHUB_WORKSPACE"
+      - name: Pinned CLI runtime code with current exported standalone data
+        working-directory: ${{ runner.temp }}/carlos-ctl-current-data
         env:
           CARLOS_SRC: ${{ github.workspace }}
-        run: python3 -m unittest discover -s tests -t .
+          CARLOS_CTL_SRC: ${{ runner.temp }}/carlos-ctl-current-data
+          PYTHONPATH: ${{ runner.temp }}/carlos-ctl-current-data
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          test_status=0
+          python3 -m unittest discover -s tests -t . || test_status=$?
+          python3 "$GITHUB_WORKSPACE/scripts/ci/prepare-cli-manifest-test-copy.py" --verify \
+            "$GITHUB_WORKSPACE/.carlos-ctl" "$RUNNER_TEMP/carlos-ctl-current-data" "$GITHUB_WORKSPACE"
+          exit "$test_status"

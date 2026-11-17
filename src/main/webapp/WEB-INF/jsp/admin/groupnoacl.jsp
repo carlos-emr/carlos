@@ -79,7 +79,8 @@
                 mgra = new MyGroupAccessRestriction();
                 mgra.setMyGroupNo(chosen_group);
                 mgra.setProviderNo(providerNoTemp);
-                mgra.setLastUpdateUser(providerNoTemp);
+                // Who saved the change: the signed-in provider, not the provider being restricted.
+                mgra.setLastUpdateUser(providerNo);
                 myGroupAccessRestrictionDao.persist(mgra);
             }
         }

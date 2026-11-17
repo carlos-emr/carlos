@@ -90,11 +90,8 @@
 
 <%!
     //multisite starts =====================
-    private boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
-    private JdbcApptImpl jdbc = new JdbcApptImpl();
 
-    private String getSiteHTML(String scDate, String provider_no, List<Site> sites) {
-        if (!bMultisites) return "";
+    private String getSiteHTML(JdbcApptImpl jdbc, String scDate, String provider_no, List<Site> sites) {
         String _loc = jdbc.getLocationFromSchedule(scDate, provider_no);
         String color = getSafeCssColor(ApptUtil.getColorFromLocation(sites, _loc));
         if (color == null) { color = "white"; }
@@ -108,6 +105,8 @@
     }
 %>
 <% 
+    boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
+    JdbcApptImpl jdbc = new JdbcApptImpl();
     List<Site> sites = null;
     if (bMultisites) {
         SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
@@ -457,7 +456,7 @@
                 </a>
             </th>
             <% if (bMultisites) { %>
-            <td class="availability-site"><%=getSiteHTML(strTempDate, curProvider_no, sites)%></td>
+            <td class="availability-site"><%=getSiteHTML(jdbc, strTempDate, curProvider_no, sites)%></td>
             <% } %>
             <%
                 String bookinglimit;

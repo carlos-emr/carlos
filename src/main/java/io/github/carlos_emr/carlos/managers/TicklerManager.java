@@ -134,6 +134,16 @@ public interface TicklerManager {
     /** Reads the current tickler under a write lock inside the caller's edit transaction. */
     Tickler getTicklerForUpdate(LoggedInInfo loggedInInfo, Integer id);
 
+    /**
+     * Resolves the patient for note authorization without loading editable demographic entities.
+     * The tickler read privilege and existing lookup audit apply before disclosure.
+     *
+     * @param loggedInInfo LoggedInInfo current authenticated user
+     * @param id Integer tickler identifier
+     * @return Integer patient identifier, or {@code null} when the tickler is missing or unassigned
+     * @since 2026-10-24
+     */
+    public Integer getTicklerDemographicNo(LoggedInInfo loggedInInfo, Integer id);
 
     public void addComment(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, String message);
 
@@ -152,6 +162,14 @@ public interface TicklerManager {
 
     public void completeTickler(LoggedInInfo loggedInInfo, Integer tickler_id, String provider);
 
+    /**
+     * Marks the tickler Deleted while retaining the task, comments, links, attachments and
+     * status history as part of the clinical record.
+     *
+     * @param loggedInInfo LoggedInInfo the acting user
+     * @param tickler_id Integer the task to mark Deleted
+     * @param provider String the provider recording the status change
+     */
     public void deleteTickler(LoggedInInfo loggedInInfo, Integer tickler_id, String provider);
 
     public void resolveTicklersBySubstring(LoggedInInfo loggedInInfo, String providerNo, List<String> demographicIds,

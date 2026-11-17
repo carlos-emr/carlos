@@ -51,6 +51,7 @@ import io.github.carlos_emr.carlos.commn.jobs.OscarJobUtils;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMFixMissingReportHelper;
 import io.github.carlos_emr.carlos.integration.mcedt.mailbox.CidPrefixResourceResolver;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteCodeSweeper;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosCodeEmailSweeper;
 
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import io.github.carlos_emr.CarlosProperties;
@@ -60,6 +61,7 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
     private static final CarlosProperties oscarProperties = CarlosProperties.getInstance();
 
     private ScheduledFuture<?> portalInviteSweep;
+    private ScheduledFuture<?> myCarlosCodeEmailSweep;
 
     @Override
     public void contextInitialized(jakarta.servlet.ServletContextEvent sce) {
@@ -108,6 +110,7 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
             }
 
             forgetLeftoverPortalInviteCodes();
+            forgetLeftoverMyCarlosCodes();
         } catch (Exception e) {
             logger.error("Unexpected error.", e);
             throw (new RuntimeException(e));
@@ -123,6 +126,18 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
                     sweeper, Instant.now().plus(PortalInviteCodeSweeper.INTERVAL), PortalInviteCodeSweeper.INTERVAL);
         } catch (RuntimeException e) {
             logger.warn("patient portal invitation code sweep could not be scheduled: {}", e.getClass().getSimpleName());
+        }
+    }
+
+    /** Clear a device code an email's one post-send write failed to remove; cancelled when this webapp stops. */
+    private void forgetLeftoverMyCarlosCodes() {
+        try {
+            PortalMyCarlosCodeEmailSweeper sweeper = new PortalMyCarlosCodeEmailSweeper(SpringUtils.getBean(EmailLogDao.class));
+            sweeper.run();
+            myCarlosCodeEmailSweep = SpringUtils.getBean(TaskScheduler.class).scheduleWithFixedDelay(
+                    sweeper, Instant.now().plus(PortalMyCarlosCodeEmailSweeper.INTERVAL), PortalMyCarlosCodeEmailSweeper.INTERVAL);
+        } catch (RuntimeException e) {
+            logger.warn("myCarlos device code email sweep could not be scheduled: {}", e.getClass().getSimpleName());
         }
     }
 
@@ -219,6 +234,9 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
     public void contextDestroyed(jakarta.servlet.ServletContextEvent sce) {
         if (portalInviteSweep != null) {
             portalInviteSweep.cancel(false);
+        }
+        if (myCarlosCodeEmailSweep != null) {
+            myCarlosCodeEmailSweep.cancel(false);
         }
         logger.info("Server processes stopping. context=" + sce.getServletContext().getContextPath());
 

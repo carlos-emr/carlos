@@ -47,25 +47,16 @@ public final class WebappShutdownResources {
 
     /**
      * Releases shutdown-sensitive resources for the supplied web application class loader.
-     * The call order is significant: servlet-thread DB state and datasource tracking are released before
-     * async log workers, Drools executors, cache timers, the JDK scheduler's context loader,
-     * MySQL cleanup, and finally webapp-owned JDBC driver deregistration. Spring-managed
-     * resources are released by their bean lifecycle callbacks before this servlet-context
-     * listener runs.
+     * The call order is significant: async log workers, Drools executors and cache timers
+     * are stopped before servlet-thread DB state and datasource tracking are released, followed by the JDK scheduler's context loader,
+     * MySQL cleanup, and finally webapp-owned
+     * JDBC driver deregistration.
      *
      * @param webappClassLoader class loader associated with the stopping CARLOS webapp
      * @return per-step shutdown report for audit logging
      */
     public static ShutdownReport releaseForContext(ClassLoader webappClassLoader) {
         List<ShutdownStepResult> results = new ArrayList<>();
-        runStep(results, ShutdownStep.DB_THREAD_RESOURCES, () -> {
-            DbConnectionFilter.releaseAllKnownDbResources();
-            return 0;
-        });
-        runStep(results, ShutdownStep.TRACKING_DATA_SOURCE, () -> {
-            OscarTrackingBasicDataSource.clearTrackingState();
-            return 0;
-        });
         runStep(results, ShutdownStep.LOG_ACTION_EXECUTOR, () -> {
             LogAction.shutdownExecutorService();
             return 0;
@@ -73,6 +64,14 @@ public final class WebappShutdownResources {
         runStep(results, ShutdownStep.DROOLS_EXECUTORS, () -> DroolsShutdownResources.shutdownExecutors());
         runStep(results, ShutdownStep.QUEUE_CACHE_TIMER, () -> {
             QueueCache.shutdownSharedTimer();
+            return 0;
+        });
+        runStep(results, ShutdownStep.DB_THREAD_RESOURCES, () -> {
+            DbConnectionFilter.releaseAllKnownDbResources();
+            return 0;
+        });
+        runStep(results, ShutdownStep.TRACKING_DATA_SOURCE, () -> {
+            OscarTrackingBasicDataSource.clearTrackingState();
             return 0;
         });
         runStep(results, ShutdownStep.JDK_DELAY_SCHEDULER,

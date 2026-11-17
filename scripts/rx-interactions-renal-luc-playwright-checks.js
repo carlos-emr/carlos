@@ -27,6 +27,7 @@ const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { stageFromSearch } = require('./rx-edit-discontinue-playwright-checks');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const RENAL = { term: 'CIPRO 500', name: 'CIPRO 500MG', atc: 'J01MA02' };
 const INTERACTING = { term: 'UNIPHYL 4', name: 'UNIPHYL 400MG', atc: 'R03DA04' };
@@ -98,7 +99,7 @@ async function workflow(s) {
     await reopened.prefs.close();
   });
 
-  const rx = await s.popup(s.master, s.master.locator('a[onclick*="/rx/choosePatient"]').first(), 'rx-module');
+  const rx = await s.popup(s.master, masterRecordLink(s.master, '/rx/choosePatient').first(), 'rx-module');
   h.assert(new URL(rx.url()).searchParams.get('demographicNo') === patient, 'The Rx module opened for another patient');
   await rx.locator('#searchString').waitFor({ state: 'visible' });
   await rx.waitForLoadState('networkidle');
@@ -147,12 +148,20 @@ async function workflow(s) {
       OR (affectingatc=${h.sqlString(INTERACTING.atc)} AND affectedatc=${h.sqlString(RENAL.atc)})`);
     const level = SIGNIFICANCE[significance];
     h.assert(level, 'DrugRef records no graded interaction for the fixture pair');
-    const card = await stageFromSearch(rx, INTERACTING.term, INTERACTING.name);
-    await rx.waitForLoadState('networkidle');
+    let card;
+    // The page asks rx/interactionWarnings after the card is inserted (debounced); wait for that
+    // answer to be drawn rather than for a network-idle state the page had already reached.
+    const [check] = await Promise.all([
+      rx.waitForResponse(r => h.pathOnly(r.url()).endsWith('/rx/interactionWarnings'), { timeout: 60000 }),
+      (async () => { card = await stageFromSearch(rx, INTERACTING.term, INTERACTING.name); })(),
+    ]);
+    h.assert(check.status() === 200, `rx/interactionWarnings answered HTTP ${check.status()}`);
+    await rx.locator('#interactingDrugErrorMsg:not([data-check-status="pending"])[data-check-status]')
+      .waitFor({ state: 'attached', timeout: 15000 });
     const markers = [card, renalCard].map(id => rx.locator(`#${level}_${id}`));
     const visible = await Promise.all(markers.map(marker => marker.isVisible()));
     h.assert(visible.some(Boolean), `No ${level} interaction marker is shown on either staged card for ciprofloxacin + theophylline `
-      + `(DrugRef significance ${significance}); the Rx page never requests rx/ViewInteractionDisplay or rx/ViewUpdateInteractingDrugs`);
+      + `(DrugRef significance ${significance}); see rx/interactionWarnings and rx-interaction-warnings`);
   });
 }
 

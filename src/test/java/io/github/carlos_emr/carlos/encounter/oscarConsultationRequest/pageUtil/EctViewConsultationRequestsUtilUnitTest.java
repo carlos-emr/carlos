@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -30,7 +31,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -83,6 +87,52 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
             assertThat(EctViewConsultationRequestsUtil.isTicklerDemographic(value)).as(value).isFalse();
         }
         assertThat(EctViewConsultationRequestsUtil.isTicklerDemographic("42")).isTrue();
+    }
+
+    @Test
+    @DisplayName("should send the patient and suggested message under the names the Add Tickler form reads")
+    void shouldBuildOverdueTicklerPath_withParametersTheFormReads() {
+        String path = EctViewConsultationRequestsUtil.overdueTicklerPath("/carlos", "42");
+
+        assertThat(path).startsWith("/carlos/tickler/ViewAddTickler?");
+        Map<String, String> parameters = queryParameters(path);
+        // #4999: the list used to send "demo" and "message", which ticklerAdd.jsp never reads, so
+        // the form opened with no patient and an empty message. These two names are the form's own.
+        assertThat(parameters)
+                .containsOnlyKeys("demographic_no", "ticklerMessage")
+                .containsEntry("demographic_no", "42")
+                .containsEntry("ticklerMessage", EctViewConsultationRequestsUtil.OVERDUE_TICKLER_MESSAGE);
+    }
+
+    @Test
+    @DisplayName("should keep the suggested message intact through URL encoding")
+    void shouldRoundTripSuggestedMessage_throughUrlEncoding() {
+        String path = EctViewConsultationRequestsUtil.overdueTicklerPath("", "7");
+
+        // Quotes, spaces and the ampersand-free sentence must decode to exactly what was suggested.
+        assertThat(queryParameters(path)).containsEntry("ticklerMessage",
+                "Patient has Consultation Letter with a status of 'Nothing Done' for over one week");
+        assertThat(path).doesNotContain(" ").doesNotContain("'");
+    }
+
+    @Test
+    @DisplayName("should refuse to build a tickler path for a patient that cannot receive a tickler")
+    void shouldRejectOverdueTicklerPath_forInvalidPatient() {
+        for (String value : new String[] {null, "", "0", "-3", "abc", "1&demographic_no=2"}) {
+            assertThatThrownBy(() -> EctViewConsultationRequestsUtil.overdueTicklerPath("/carlos", value))
+                    .as(String.valueOf(value))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    private static Map<String, String> queryParameters(String path) {
+        Map<String, String> parameters = new LinkedHashMap<>();
+        for (String pair : path.substring(path.indexOf('?') + 1).split("&")) {
+            int equals = pair.indexOf('=');
+            parameters.put(URLDecoder.decode(pair.substring(0, equals), StandardCharsets.UTF_8),
+                    URLDecoder.decode(pair.substring(equals + 1), StandardCharsets.UTF_8));
+        }
+        return parameters;
     }
 
     private ConsultationRequestDao consultationRequestDao;

@@ -42,13 +42,14 @@ const {
   validateBaseUrl,
   wirePage,
 } = require('./eform-local-playwright-utils');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const config = {
   baseUrl,
-  // Certificate errors are ignorable only against a loopback target (the packaged install's
-  // self-signed certificate); never unconditionally (issue #3598).
-  ignoreHTTPSErrors: ['127.0.0.1', 'localhost', '[::1]'].includes(baseUrl.hostname),
+  // Certificate errors are ignorable only against a local target (the packaged install's
+  // self-signed certificate) or with ALLOW_UNVERIFIED_TLS=true; never unconditionally (issue #3598).
+  ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
   chromePath: process.env.CHROME_PATH || '',
   testUser: process.env.TEST_USER || 'carlosdoc',
   testPassword: process.env.TEST_PASSWORD || 'carlos2026',

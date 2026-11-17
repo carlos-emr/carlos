@@ -72,6 +72,18 @@ public final class IncomingDocumentCapacityResponse {
     /** Authorize stored-view metadata and revision bytes without requiring edit permission. */
     public static void requireStoredDocumentReadAccess(io.github.carlos_emr.carlos.managers.SecurityInfoManager security,
                                                        io.github.carlos_emr.carlos.utility.LoggedInInfo info, int documentNo) {
+        requireStoredDocumentReadAccess(security, info, documentNo, false);
+    }
+
+    /** The same stored-owner policy for discovery, without session locking as rows are filtered. */
+    public static void requireStoredDocumentListReadAccess(io.github.carlos_emr.carlos.managers.SecurityInfoManager security,
+                                                           io.github.carlos_emr.carlos.utility.LoggedInInfo info, int documentNo) {
+        requireStoredDocumentReadAccess(security, info, documentNo, true);
+    }
+
+    private static void requireStoredDocumentReadAccess(io.github.carlos_emr.carlos.managers.SecurityInfoManager security,
+                                                        io.github.carlos_emr.carlos.utility.LoggedInInfo info, int documentNo,
+                                                        boolean discovery) {
         if (info == null || !security.hasPrivilege(info, "_edoc", "r", (String) null)) {
             throw new SecurityException("Document read access is required");
         }
@@ -95,7 +107,10 @@ public final class IncomingDocumentCapacityResponse {
             }
         }
         for (Integer patient : linkedPatients) {
-            if (!security.hasPrivilege(info, "_edoc", "r", patient.toString())) {
+            boolean readable = discovery
+                    ? security.hasPrivilegeReadOnly(info, "_edoc", "r", patient.toString())
+                    : security.hasPrivilege(info, "_edoc", "r", patient.toString());
+            if (!readable) {
                 throw new SecurityException("Patient document read access denied");
             }
         }

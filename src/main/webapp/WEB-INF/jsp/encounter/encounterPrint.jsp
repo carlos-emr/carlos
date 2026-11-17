@@ -28,6 +28,13 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Prints the legacy encounter editor's chart: the patient's header, family doctor, history and
+    the encounter of the revision the editor window shows. Parameters: demographicNo (required)
+    and echartid (the window's revision; a missing revision or another patient's prints only the
+    header). Requires the _eChart role, _eChart read for the patient and access to the record.
+    @since 2026-10-16 (request-owned print bean, issue #4673)
+--%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -52,24 +59,42 @@
 
 <%@page import="io.github.carlos_emr.carlos.encounter.data.*,java.net.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <jsp:useBean id="providerBean" class="java.util.Properties"
              scope="session"/>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
-<link rel="stylesheet" type="text/css" media="print" href="print.css"/>
-<link rel="stylesheet" type="text/css" href="encounterPrintStyles.css"/>
 <%
-    //The encounter session manager, if the session bean is not in the context it looks for a session cookie with the appropriate name and value, if the required cookie is not available
-    //it dumps you out to an erros page.
-
-    EctSessionBean bean = null;
-    if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
-        response.sendRedirect(request.getContextPath() + "/encounter/ViewError");
+    // The legacy editor's Print button names its own patient and the revision its window shows.
+    // This page printed the login-wide EctSessionBean, which follows whichever chart was entered
+    // last in any window, so A's window printed B's name, doctor, history and encounter (#4673).
+    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    String printedPatient;
+    try {
+        printedPatient = EncounterPatientContext.requireDemographicNo(request);
+    } catch (IllegalArgumentException invalidPatient) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
         return;
     }
+    // The check above is for the _eChart role; this is the patient's chart.
+    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", printedPatient)
+            || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(printedPatient))) {
+        response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");
+        return;
+    }
+    // A missing revision, or another patient's, prints only this patient's header.
+    EctSessionBean bean = new EctSessionBean();
+    bean.setUpEncounterPage(loggedInInfo, request.getParameter("echartid"), printedPatient);
 %>
+
+<link rel="stylesheet" type="text/css" media="print" href="print.css"/>
+<link rel="stylesheet" type="text/css" href="encounterPrintStyles.css"/>
 
 <script type="text/javascript" language="Javascript">
     function onPrint() {
@@ -116,11 +141,11 @@
         <tr>
             <td
                     style="text-align: left; height: 34px; border-left: 2px solid #A9A9A9; border-bottom: 2px solid #A9A9A9; border-top: 2px solid #A9A9A9;">
-		<span style="font-weight: bold;"><carlos:encode value='<%= bean.patientLastName %>' context="html"/>, <carlos:encode value='<%= bean.patientFirstName %>' context="html"/>
-		<carlos:encode value='<%= bean.patientSex %>' context="html"/> <carlos:encode value='<%= bean.patientAge %>' context="html"/></span></td>
+		<span style="font-weight: bold;"><carlos:encode value='<%= bean.patientLastName %>'/>, <carlos:encode value='<%= bean.patientFirstName %>'/>
+		<carlos:encode value='<%= bean.patientSex %>'/> <carlos:encode value='<%= bean.patientAge %>'/></span></td>
             <td
                     style="text-align: right; height: 34px; border-bottom: 2px solid #A9A9A9; border-right: 2px solid #A9A9A9; border-top: 2px solid #A9A9A9;">
-		<span style="font-weight: bold;"><fmt:message key="encounter.encounterPrint.msgDr"/>. <carlos:encode value='<%= providerBean.getProperty(bean.familyDoctorNo, "") %>' context="html"/></span>
+		<span style="font-weight: bold;"><fmt:message key="encounter.encounterPrint.msgDr"/>. <carlos:encode value='<%= providerBean.getProperty(bean.familyDoctorNo == null ? "" : bean.familyDoctorNo, "") %>'/></span>
             </td>
         </tr>
         <tr>
@@ -154,15 +179,15 @@
                                 <tr>
                                     <td valign="top" align="left" class="TableWithBorder"><pre
                                             name='shTextarea'
-                                            style="font-size: 8pt;"><carlos:encode value='<%= bean.socialHistory %>' context="html"/>&nbsp;</pre>
+                                            style="font-size: 8pt;"><carlos:encode value='<%= bean.socialHistory %>'/>&nbsp;</pre>
                                     </td>
                                     <td valign="top" class="TableWithBorder"><pre
                                             name='fhTextarea'
-                                            style="font-size: 8pt;"><carlos:encode value='<%= bean.familyHistory %>' context="html"/>&nbsp;</pre>
+                                            style="font-size: 8pt;"><carlos:encode value='<%= bean.familyHistory %>'/>&nbsp;</pre>
                                     </td>
                                     <td valign="top" class="TableWithBorder"><pre
                                             name='mhTextarea'
-                                            style="font-size: 8pt;"><carlos:encode value='<%= bean.medicalHistory %>' context="html"/>&nbsp;</pre>
+                                            style="font-size: 8pt;"><carlos:encode value='<%= bean.medicalHistory %>'/>&nbsp;</pre>
                                     </td>
                                 </tr>
                             </table>
@@ -189,10 +214,10 @@
                                 <tr width="100%">
                                     <td valign="top" class="TableWithBorder"><pre
                                             name='ocTextarea'
-                                            style="font-size: 8pt;"><carlos:encode value='<%= bean.ongoingConcerns %>' context="html"/>&nbsp;</pre>
+                                            style="font-size: 8pt;"><carlos:encode value='<%= bean.ongoingConcerns %>'/>&nbsp;</pre>
                                     </td>
                                     <td valign="top" class="TableWithBorder"><pre
-                                            name='reTextarea' style="font-size: 8pt;"><carlos:encode value='<%= bean.reminders %>' context="html"/>&nbsp;</pre>
+                                            name='reTextarea' style="font-size: 8pt;"><carlos:encode value='<%= bean.reminders %>'/>&nbsp;</pre>
                                     </td>
                                 </tr>
                             </table>

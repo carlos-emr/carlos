@@ -82,12 +82,14 @@ public class MsgGenerate {
         Document doc = MsgCommxml.newDocument();
         Element docRoot = MsgCommxml.addNode(doc, "root");
 
-        // Load and parse the configuration file
-        Document cfg = null;
-        try {
-            cfg = MsgCommxml.parseXMLFile("/DocXferConfig.xml");
+        // The export definition travels with the application in every WAR/deb installation.
+        Document cfg;
+        try (java.io.InputStream input = MsgGenerate.class.getResourceAsStream("/DocXferConfig.xml")) {
+            if (input == null) throw new java.io.IOException("Missing document-transfer definition");
+            cfg = io.github.carlos_emr.carlos.utility.XmlUtils.createSecureDocumentBuilderFactory()
+                    .newDocumentBuilder().parse(input);
         } catch (Exception ex) {
-            logger.error("", ex);
+            throw new java.sql.SQLException("Unable to load document-transfer definition", ex);
         }
 
         // Process each table configuration from the config file
@@ -159,13 +161,9 @@ public class MsgGenerate {
                     if (!meta.getColumnName(i).startsWith("fld")) {
                         String name = meta.getTableName(i) + "." + meta.getColumnName(i);
 
-                        String fldData = "";
-                        try {
-                            fldData = Misc.getString(rs, i);
-                            if (fldData == null) fldData = "";
-                        } catch (Exception ex) {
-                            // Ignore exceptions and use empty string
-                        }
+                        // A failed clinical column read must fail the transfer, not export an
+                        // apparently complete document with silently erased patient information.
+                        String fldData = Misc.getString(rs, i);
 
                         Element fld = doc.createElement(name);
 

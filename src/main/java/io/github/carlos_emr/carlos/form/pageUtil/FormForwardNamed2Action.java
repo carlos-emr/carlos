@@ -13,6 +13,8 @@
 package io.github.carlos_emr.carlos.form.pageUtil;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -70,6 +72,20 @@ public class FormForwardNamed2Action extends ActionSupport {
         // An INCLUDE bypasses CSRFGuard script injection, leaving the next Save
         // without its token. Keep the HTML media type explicit as well.
         response.setContentType("text/html;charset=UTF-8");
+        if ("true".equals(request.getParameter("saved"))) {
+            String formId = request.getParameter("formId");
+            if (formId == null || !formId.matches("[1-9]\\d{0,9}")) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+            // The successful POST redirects here. Refresh its own chart before redisplaying
+            // the saved record, without another POST or a full chart reload that loses drafts.
+            request.setAttribute("savedFormUrl", request.getContextPath() + "/form/forwardname?form_link="
+                    + URLEncoder.encode(formLink, StandardCharsets.UTF_8)
+                    + "&demographic_no=" + demographicNo + "&formId=" + formId);
+            request.getRequestDispatcher("/WEB-INF/jsp/form/formSaved.jsp").forward(request, response);
+            return NONE;
+        }
         request.getRequestDispatcher(internalView + "?demographic_no=" + demographicNo)
                 .forward(request, response);
         return NONE;

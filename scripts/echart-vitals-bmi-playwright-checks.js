@@ -35,6 +35,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -145,7 +146,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   try {
     measurementHighWater = Number(sql('SELECT IFNULL(MAX(id), 0) FROM measurements'));
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1200, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1200, height: 1000 } });
     await login(context, config, recorder);
 
     const page = await context.newPage();

@@ -58,9 +58,9 @@
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProviderManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
@@ -151,6 +151,8 @@
             // names it so the server resolves that patient's bean, not the most recently opened
             // chart's (per-patient Rx state, #3875).
             int viewScriptDemographicNo = bean.getDemographicNo();
+            String viewScriptChartContext = java.util.Objects.toString(
+                    io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request), "");
             Provider provider = providerManager.getProvider(bean.getProviderNo());
             String providerFax = provider.getWorkPhone();
             if (providerFax == null) {
@@ -209,18 +211,18 @@
             Vector vecAddress = null;
             Vector vecAddressPhone = null;
             Vector vecAddressFax = null;
+            // The clinic site of this patient's current visit, preselected in the address list. It
+            // stays on this page: the session's RX_ADDR holds only the address the prescriber last
+            // chose by hand (rx/ViewSetDefaultAddr), so one patient's visit site cannot become the
+            // default for another patient's prescription (issue #4673).
+            String appointmentAddressIndex = null;
             CarlosProperties props = CarlosProperties.getInstance();
             if (bMultisites) {
-                String appt_no = (String) session.getAttribute("cur_appointment_no");
-                String location = null;
-                if (appt_no != null) {
-                    try {
-                        Appointment result = appointmentDao.find(Integer.parseInt(appt_no));
-                        if (result != null) location = result.getLocation();
-                    } catch (NumberFormatException e) {
-                        // Malformed appointment number in session — skip location lookup
-                    }
-                }
+                // The appointment this patient was opened for from the day sheet, never the one last
+                // opened for another patient.
+                Appointment currentAppointment = EncounterPatientContext.currentAppointment(request,
+                        String.valueOf(viewScriptDemographicNo), appointmentDao);
+                String location = currentAppointment == null ? null : currentAppointment.getLocation();
 
                 RxProviderData.Provider rxprovider = new RxProviderData().getProvider(bean.getProviderNo());
                 ProSignatureData sig = new ProSignatureData();
@@ -259,7 +261,7 @@
                             s.getCity(), s.getProvince(), s.getPostal(), s.getPhone(), s.getFax(), encodedTelLabel, encodedFaxLabel);
                     vecAddress.add(addressHtml);
                     if (s.getName().equals(location))
-                        session.setAttribute("RX_ADDR", String.valueOf(i));
+                        appointmentAddressIndex = String.valueOf(i);
                 }
 
 
@@ -348,6 +350,9 @@
         <script src="<%= request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
+        <script src="${pageContext.request.contextPath}/share/javascript/rx-patient-context.js"
+                data-demographic-no="<%= viewScriptDemographicNo %>"
+                data-chart-context="<%= SafeEncode.forHtmlAttribute(viewScriptChartContext) %>"></script>
 
         <%-- Pre-declare i18n messages used in JavaScript so they can be safely embedded
              in JavaScript string literals using OWASP forJavaScript() encoding --%>
@@ -403,7 +408,7 @@
                             modal.hide();
                         }
                     } else {
-                        window.location.href = "${carlos:forJavaScript(ctx)}/rx/choosePatient?demographicNo=<%= viewScriptDemographicNo %>";
+                        window.location.href = RxPatientContext.withPatient("${carlos:forJavaScript(ctx)}/rx/choosePatient?demographicNo=<%= viewScriptDemographicNo %>");
                     }
                     return true;
                 }).catch(function() {
@@ -791,9 +796,7 @@
                     noteEditor = "noteEditor" + demographicNo;
                     var pasteResult = Promise.resolve(true);
                     if (window.parent.opener) {
-                        if (window.parent.opener.document.forms["caseManagementEntryForm"] != undefined &&
-                            window.parent.opener.document.forms["caseManagementEntryForm"].demographicNo &&
-                            window.parent.opener.document.forms["caseManagementEntryForm"].demographicNo.value === "<%=bean.getDemographicNo()%>") {
+                        if (matchesRxChart(window.parent.opener.document.forms["caseManagementEntryForm"])) {
                             //oscarLog("3");
                             faxPasteCanRetry = false;
                             if (window.parent.opener.pasteToEncounterNote(text) === false) {
@@ -803,16 +806,14 @@
                             if (print) {
                                 printIframe();
                             }
-                        } else if (window.parent.opener.document.encForm != undefined &&
-                            window.parent.opener.document.encForm.demographicNo &&
-                            window.parent.opener.document.encForm.demographicNo.value === "<%=bean.getDemographicNo()%>") {
+                        } else if (matchesRxChart(window.parent.opener.document.encForm)) {
                             //oscarLog("4");
                             faxPasteCanRetry = false;
                             window.parent.opener.document.encForm.enTextarea.value = window.parent.opener.document.encForm.enTextarea.value + text;
                             if (print) {
                                 printIframe();
                             }
-                        } else if (window.parent.opener.document.getElementById(noteEditor) != undefined) {
+                        } else if (<%= viewScriptChartContext.isEmpty() %> && window.parent.opener.document.getElementById(noteEditor) != undefined) {
                             faxPasteCanRetry = false;
                             window.parent.opener.document.getElementById(noteEditor).value = window.parent.opener.document.getElementById(noteEditor).value + text;
                             if (print) {
@@ -835,6 +836,12 @@
 
             }
 
+    function matchesRxChart(form) {
+        return form && form.elements.demographicNo
+            && form.elements.demographicNo.value === '<%= viewScriptDemographicNo %>'
+            && ((form.elements.chartContext && form.elements.chartContext.value) || '')
+                === '<%= SafeEncode.forJavaScript(viewScriptChartContext) %>';
+    }
 	function writeToEncounter(print, text) {
     	try {
 			var url = "<%=request.getContextPath() %>/rx/WriteToEncounter";
@@ -846,6 +853,7 @@
 				body: "prefPharmacy=" + encodeURIComponent(prefPharmacy) +
 						"&expectedDemographicNo=<%= bean.getDemographicNo() %>" +
 						"&demographicNo=<%= bean.getDemographicNo() %>" +
+						"<%= viewScriptChartContext.isEmpty() ? "" : "&chartContext=" + SafeEncode.forUriComponent(viewScriptChartContext) %>" +
 						"&additionalNotes=" +
 						"&body="+ encodeURIComponent(text)
 			};
@@ -883,14 +891,17 @@
                 var windowprops = "height=710,width=1024,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=20,left=20";
                 var currentDate = new Date().toISOString().substring(0, 10);
                 var url = "<%= request.getContextPath() %>/encounter/IncomingEncounter?providerNo=<%= bean.getProviderNo() %>&demographicNo=<%= bean.getDemographicNo() %>&curProviderNo=<%= bean.getProviderNo() %>&userName=<carlos:encode value='<%= ProviderData.getProviderName(bean.getProviderNo()) %>' context="uriComponent"/>&curDate=" + currentDate;
+                <% if (!viewScriptChartContext.isEmpty()) { %>
+                url += '&chartContext=<%= SafeEncode.forJavaScript(SafeEncode.forUriComponent(viewScriptChartContext)) %>';
+                <% } %>
 
-                if (window.parent.opener && window.parent.opener.document.forms["caseManagementEntryForm"] != undefined) {
+                if (window.parent.opener && matchesRxChart(window.parent.opener.document.forms["caseManagementEntryForm"])) {
                     // redirect if encounter window open
                     window.parent.opener.location = url;
                     return window.parent.opener;
                 }
 
-                return window.open(url, "encounter", windowprops);
+                return window.open(url, 'encounter<%= viewScriptDemographicNo %>_<%= SafeEncode.forJavaScript(viewScriptChartContext) %>', windowprops);
             }
 
             var rxToPaste = null;
@@ -900,11 +911,14 @@
                 encounterWindow.rxToPaste = rxToPaste;
             }
 
-            function addressSelect() {
+            // rememberChoice is true only when the prescriber picks an address. The page-load call
+            // passes false so the address preselected for this patient's visit site is shown
+            // without becoming the remembered default for other patients (issue #4673).
+            function addressSelect(rememberChoice) {
                 if (typeof hasPreview === 'undefined' || !hasPreview || !frames['preview']) return;
                 <% if(vecAddressName != null) {
                  %>
-                setDefaultAddr();
+                if (rememberChoice) setDefaultAddr();
                 <%      for(int i=0; i<vecAddressName.size(); i++) {%>
                 var clinicAddress = frames['preview'].document.getElementById("clinicAddress");
                 if (clinicAddress && document.getElementById("addressSel").value == "<%=i%>") {
@@ -1428,9 +1442,8 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
     </head>
 
 <body topmargin="0" leftmargin="0" vlink="#0000FF"
-	onload="addressSelect();showFaxWarning();">
+	onload="addressSelect(false);showFaxWarning();">
 
-    <!-- HSFO functionality removed -->
     <div id="bodyView">
         <p id="signatureAssociationError" class="alert alert-danger" role="alert" hidden><fmt:message key="ViewScript.js.signatureAssociationFailed"/></p>
 
@@ -1456,7 +1469,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
                                         <iframe id='preview' name='preview' width=420px height=890px onload="setComment()"
-							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&demographicNo=<%= viewScriptDemographicNo %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/>"
+							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&demographicNo=<%= viewScriptDemographicNo %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/><%= viewScriptChartContext.isEmpty() ? "" : "&amp;chartContext=" + SafeEncode.forHtmlAttribute(SafeEncode.forUriComponent(viewScriptChartContext)) %>"
 							align=center border=0 frameborder=0></iframe></div>
 					<% } %>
                                     <p id="selectedPharmacy" role="status" hidden><fmt:message key="oscarRx.printPharmacyInfo.paperSizeWarning"/></p>
@@ -1568,10 +1581,11 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         <% //vecAddress=null;
                                             if (vecAddress != null) { %>
                                         <tr>
-                                            <td align="left" colspan=2><fmt:message key="ViewScript.msgAddress"/>
-                                                <select name="addressSel" id="addressSel" onChange="addressSelect()"
+                                            <td align="left" colspan=2><label for="addressSel"><fmt:message key="ViewScript.msgAddress"/></label>
+                                                <select name="addressSel" id="addressSel" onChange="addressSelect(true)"
                                                         style="width:200px;">
-                                                    <% String rxAddr = (String) session.getAttribute("RX_ADDR");
+                                                    <% String rxAddr = appointmentAddressIndex != null
+                                                            ? appointmentAddressIndex : (String) session.getAttribute("RX_ADDR");
                                                         for (int i = 0; i < vecAddressName.size(); i++) {
                                                             String te = (String) vecAddressName.get(i);
                                                             String tf = (String) vecAddress.get(i);%>

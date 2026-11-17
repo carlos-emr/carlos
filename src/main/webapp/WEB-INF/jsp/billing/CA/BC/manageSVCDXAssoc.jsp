@@ -18,6 +18,8 @@
 <%@page
         import="java.util.*,io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ServiceCodeAssociation" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <html>
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
@@ -70,32 +72,33 @@
                     %>
                     <tr align="center" class="assocRow"
                         bgcolor="<%=i%2==0?"FFFFFF":"EEEEFF"%>">
-                        <td><%=assoc.getServiceCode()%>
+                        <td><carlos:encode value='<%= assoc.getServiceCode() %>'/>
                         </td>
                         <td>
                             <%
                                 List dxcodes = assoc.getDxCodes();
                                 for (int j = 0; j < dxcodes.size(); j++) {
                                     String s = (String) dxcodes.get(j);
-                                    out.print(s + "<br>");
+                                    out.print(SafeEncode.forHtmlContent(s) + "<br>");
                                 }
                             %>
                         </td>
                         <td><a
-                                href="editServiceCodeAssocAction?svcCode=<%=assoc.getServiceCode()%>">Edit</a>
+                                href="editServiceCodeAssocAction?svcCode=<carlos:encode value='<%= assoc.getServiceCode() %>' context="uriComponent"/>">Edit</a>
                             <br>
                             <a href="javascript:void(0)"
                                     onclick="document.getElementById('deleteAssocForm_<%=i%>').submit()">Remove</a>
                             <form id="deleteAssocForm_<%=i%>" method="post"
                                   action="deleteServiceCodeAssoc" style="display:none">
-                                <input type="hidden" name="svcCode" value="<%=assoc.getServiceCode()%>"/>
+                                <input type="hidden" name="svcCode" value="<carlos:encode value='<%= assoc.getServiceCode() %>' context="htmlAttribute"/>"/>
                             </form>
                         </td>
                     </tr>
                     <%} %>
                     <tr bgcolor="CCCCFF">
                         <td colspan="3">
-                            <div align="center"><a href="<%= request.getContextPath() %>/billing/CA/BC/showServiceCodeAssocs">Create
+                            <%-- No svcCode: the editor opens empty, in create mode (#4439 D14). --%>
+                            <div align="center"><a href="<%= request.getContextPath() %>/billing/CA/BC/editServiceCodeAssocAction">Create
                                 New Association</a></div>
                         </td>
                     </tr>

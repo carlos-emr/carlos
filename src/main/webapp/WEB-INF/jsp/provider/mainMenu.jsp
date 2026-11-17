@@ -279,16 +279,16 @@
                         </oscar:oscarPropertiesCheck>
 
                         <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                            <security:oscarSec roleName="<%=roleName$%>"
-                                               objectName="_admin,_admin.userAdmin,_admin.schedule,_admin.billing,_admin.resource,_admin.reporting,_admin.backup,_admin.messenger,_admin.eform,_admin.encounter,_admin.misc,_admin.fax,_admin.flowsheet"
-                                               rights="r">
+                            <%-- One oscarSec tag per object: see administration-menu-gate.jspf (issues #4238, #4623). --%>
+                            <%@ include file="/WEB-INF/jspf/administration-menu-gate.jspf" %>
+                            <c:if test="${canOpenAdministration}">
 
                                 <li id="admin2" class="<%= adminTabActive ? "nav-active" : "" %>">
                                     <a href="javascript:void(0)" id="admin-panel" TITLE='<fmt:message key="admin.admin.page.title"/>'
                                        onclick="return openScheduleMenuSection('<%=SafeEncode.forJavaScriptAttribute(administrationUrl)%>', function(u){ newWindow(u,'admin'); }, event);"><fmt:message key="provider.mainMenu.administration"/></a>
                                 </li>
 
-                            </security:oscarSec>
+                            </c:if>
                         </caisi:isModuleLoad>
 
                         <security:oscarSec roleName="<%=roleName$%>" objectName="_dashboardDisplay" rights="r">

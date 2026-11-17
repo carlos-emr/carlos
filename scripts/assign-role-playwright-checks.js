@@ -51,6 +51,7 @@
  */
 const assert = require('assert');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const { randomInt } = require('crypto');
 const fs = require('fs');
@@ -361,7 +362,7 @@ async function run() {
       // self-signed certificate. Relax verification only for loopback; compose
       // service names and opted-in remote targets must still prove their
       // certificate before this privileged, DB-writing check logs in.
-      ignoreHTTPSErrors: baseUrl.protocol === 'https:' && isLoopbackHost(baseUrl.hostname),
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
       viewport: { width: 1400, height: 1000 },
     });
 

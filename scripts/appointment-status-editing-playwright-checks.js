@@ -43,6 +43,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
   assert, assertNoPageErrors, assertNotErrorPage, buildFailureDetails, getLaunchOptions, gotoApp, login,
   wirePage,
@@ -281,7 +282,7 @@ async function main() {
     assert(statuses.length > 1, `appointment_status has ${statuses.length} active rows; the pull-down needs a list`);
 
     browser = await chromium.launch(getLaunchOptions(fixture.config.chromePath));
-    const context = await browser.newContext({ ignoreHTTPSErrors: true });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(fixture.config.baseUrl) });
     // appointmentaddarecord.jsp self-closes on success; keep the page inspectable.
     await context.addInitScript(() => {
       window.close = () => { window.__carlosSelfCloseRequested = true; };

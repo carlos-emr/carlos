@@ -94,6 +94,20 @@ test('should ignore WARN and INFO lines and pass an empty window', (t) => {
   assert.match(r.out, /^PASS server log audit: no unexplained signature \(0 known, 0 event\(s\)/m);
 });
 
+test('should fail if the fixed prescription-text or lab-graph diagnostics recur', (t) => {
+  const r = audit(t, [
+    '2026-10-19 10:00:00,000 ERROR pageUtil.RxWriteScriptForm (RxWriteScriptForm.java:267) - drug special is either null or empty : 1 od',
+    'java.lang.IllegalArgumentException: special is null or empty',
+    '\tat io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScriptForm.setSpecial(RxWriteScriptForm.java:267)',
+    '2026-10-19 10:00:01,000 ERROR ON.labValuesGraph_jsp (labValuesGraph_jsp.java:524) - ARR 2',
+  ], { baseline: fs.readFileSync(BASELINE, 'utf8') });
+  assert.equal(r.status, 1, r.out + r.err);
+  assert.match(r.out, /^UNKNOWN +1 +ERROR pageUtil\.RxWriteScriptForm /m);
+  assert.match(r.out, /^UNKNOWN +1 +ERROR ON\.labValuesGraph_jsp /m);
+  assert.match(r.out, /^FAIL server log audit: 2 unexplained signature\(s\), 0 known, 2 event\(s\)/m);
+  assert.doesNotMatch(r.out, /1 od/, 'the audit summary must not repeat prescription text');
+});
+
 test('should report a baselined signature as KNOWN with its reason and pass', (t) => {
   const r = audit(t, NPE_EVENT, {
     baseline: '^ERROR utility\\.DbConnectionFilter .*@FrmCustomedPDFServlet\\.parseSCAddress \tfixture reason #1\n',

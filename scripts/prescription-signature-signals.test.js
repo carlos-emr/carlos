@@ -24,6 +24,7 @@ for (const launchFails of [false, true]) {
             async close() { events.push('close'); },
           };
         } } };
+        if (name === './lib/playwright-harness') return { shouldIgnoreHttpsErrors: () => true };
         if (name === './graceful-signal-cancellation') return { createGracefulSignalCancellation() {
           events.push('register');
           return { throwIfCancelled() { events.push('check'); }, dispose() { events.push('dispose'); } };

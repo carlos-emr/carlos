@@ -114,7 +114,6 @@
 
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/niftyCorners.css"/>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/niftyPrint.css" media="print"/>
-        <link rel="stylesheet" type="text/css" href="preventPrint.css" media="print"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/nifty.js"></script>
         <script type="text/javascript">
             window.onload = function () {

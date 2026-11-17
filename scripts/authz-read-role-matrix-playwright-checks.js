@@ -22,7 +22,12 @@ const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const { authzReadFixture } = require('./lib/authz-read-fixture');
 const { probe, classify, forbiddenByApp, refusedHead, urlFor, signIn } = require('./lib/authz-read-probe');
-const { DENIED, ERROR_PAGE_REFUSALS, patientQuery } = require('./lib/authz-read-routes');
+const { DENIED, ERROR_PAGE_REFUSALS, BC_BILLING_ERROR_PAGE_REFUSALS, patientQuery } = require('./lib/authz-read-routes');
+
+// The objects ViewAdministrationIndex2Action.ADMIN_PRIVS accepts, and the index's two routes.
+const ADMIN_INDEX_GATE = ['_admin', '_admin.userAdmin', '_admin.schedule', '_admin.billing', '_admin.resource',
+  '_admin.reporting', '_admin.misc', '_admin.flowsheet'];
+const ADMIN_INDEX_ROUTES = ['administration', 'administration/index'];
 
 // A route each role may open, proving the login is alive (a dead session would also "refuse").
 const CONTROL = {
@@ -36,6 +41,18 @@ async function workflow(s) {
   const { sql, marker, provider, config } = s;
   const fixture = authzReadFixture({ sql, marker, provider, testUser: config.testUser });
   s.cleanup(() => fixture.cleanup());
+  // ViewAdministrationIndex2Action serves the Administration index to a role holding read on any one
+  // of its gate objects. The DENIED tables were recorded on Ontario data, where no seeded role holds
+  // one; BC's seed gives doctor `_admin.flowsheet` r, so there the index is served by design and the
+  // two pairs are left out for whichever role holds such a right in this database.
+  const denied = {};
+  for (const role of Object.keys(DENIED)) {
+    const opensAdminIndex = fixture.rolePrivileges(role).some(entry => {
+      const [object, right] = entry.split(':');
+      return ADMIN_INDEX_GATE.includes(object) && /^[rwux]$/.test(right);
+    });
+    denied[role] = opensAdminIndex ? DENIED[role].filter(route => !ADMIN_INDEX_ROUTES.includes(route)) : DENIED[role];
+  }
   const sessions = {};
   const query = patientQuery(s.patient);
 
@@ -58,9 +75,9 @@ async function workflow(s) {
   });
 
   for (const role of Object.keys(DENIED)) {
-    await s.step(`${role}: ${DENIED[role].length} read routes outside its sec objects answer 403 (from the application) to GET`, async () => {
+    await s.step(`${role}: ${denied[role].length} read routes outside its sec objects answer 403 (from the application) to GET`, async () => {
       const wrong = [];
-      for (const route of DENIED[role]) {
+      for (const route of denied[role]) {
         const result = await probe(sessions[role].context, urlFor(config, `${route}?${query}`));
         if (!forbiddenByApp(result)) wrong.push(`${route} -> ${result.status}/${classify(result)}`);
       }
@@ -71,7 +88,7 @@ async function workflow(s) {
   await s.step('the same pairs are refused for HEAD too (the application 403, a redirect to its securityError/noRights page, or 405 where the route is GET-only; a container runs doGet for HEAD)', async () => {
     const wrong = [];
     for (const role of Object.keys(DENIED)) {
-      for (const route of DENIED[role]) {
+      for (const route of denied[role]) {
         const result = await probe(sessions[role].context, urlFor(config, `${route}?${query}`), { method: 'HEAD' });
         if (!refusedHead(result)) wrong.push(`${role} ${route} -> ${result.status}/${classify(result)}`);
       }
@@ -90,6 +107,12 @@ async function workflow(s) {
       if (classify(result) === 'served') served.push(route);
     }
     h.assert(served.length >= ERROR_PAGE_REFUSALS.length * 0.8, `Only ${served.length} of ${ERROR_PAGE_REFUSALS.length} control routes were served`);
+    // The BC billing views are added where this install serves them to the control login. Some
+    // need the BC billing tables, so on an Ontario database they are skipped, not counted against the ratio.
+    for (const route of BC_BILLING_ERROR_PAGE_REFUSALS) {
+      const result = await probe(s.context, urlFor(config, `${route}?${query}`));
+      if (classify(result) === 'served') served.push(route);
+    }
     tested = served.length;
     for (const route of served) {
       const result = await probe(sessions.er_clerk.context, urlFor(config, `${route}?${query}`));

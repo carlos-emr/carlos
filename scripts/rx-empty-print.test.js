@@ -81,5 +81,19 @@ test('empty prescription address initialization returns before default-address a
   const addressStart = jsp.indexOf('function addressSelect(');
   const addressEnd = jsp.indexOf('function popupPrint(', addressStart);
   const source = jsp.slice(addressStart, addressEnd);
-  assert.match(source, /function addressSelect\(\)\s*\{\s*if \(typeof hasPreview === 'undefined' \|\| !hasPreview \|\| !frames\['preview'\]\) return;/);
+  assert.match(source, /function addressSelect\(rememberChoice\)\s*\{\s*if \(typeof hasPreview === 'undefined' \|\| !hasPreview \|\| !frames\['preview'\]\) return;/);
+});
+
+test('only a hand-picked prescription address becomes the remembered default', () => {
+  // Issue #4673: the page-load call must not store the address preselected for this patient's
+  // visit site, or it becomes the default on the next patient's prescription.
+  const addressStart = jsp.indexOf('function addressSelect(');
+  const addressEnd = jsp.indexOf('function popupPrint(', addressStart);
+  const source = jsp.slice(addressStart, addressEnd);
+  assert.match(source, /if \(rememberChoice\) setDefaultAddr\(\);/);
+  assert.doesNotMatch(source.replace(/if \(rememberChoice\) setDefaultAddr\(\);/, ''), /setDefaultAddr\(\)/);
+  assert.match(jsp, /onload="addressSelect\(false\);showFaxWarning\(\);"/);
+  assert.match(jsp, /id="addressSel" onChange="addressSelect\(true\)"/);
+  assert.doesNotMatch(jsp, /session\.setAttribute\("RX_ADDR"/);
+  assert.doesNotMatch(jsp, /"cur_appointment_no"/);
 });

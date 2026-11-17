@@ -43,6 +43,18 @@ import org.springframework.stereotype.Repository;
 @SuppressWarnings("unchecked")
 public class MessageListDaoImpl extends AbstractDaoImpl<MessageList> implements MessageListDao {
 
+    /**
+     * Matches the local recipient boundary used by LocalMessageRecipients for mailbox mutations.
+     * A non-current address-book location is not evidence of previous clinic ownership. Keep
+     * this restriction in the query so remote recipients cannot consume local inbox pages or
+     * unread counts. Legacy NULL facility identifiers have the same local meaning as zero.
+     */
+    private static final String LOCAL_FACILITY =
+            "(ml.destinationFacilityId IS NULL OR ml.destinationFacilityId < 1)";
+    private static final String LOCAL_RECIPIENT = LOCAL_FACILITY
+            + " AND (ml.remoteLocation = 0 OR ml.remoteLocation IN"
+            + " (SELECT location.id FROM OscarCommLocations location WHERE location.current1 = 1))";
+
     public MessageListDaoImpl() {
         super(MessageList.class);
     }
@@ -61,7 +73,8 @@ public class MessageListDaoImpl extends AbstractDaoImpl<MessageList> implements 
     @Override
     public List<MessageList> findByProviderNoAndLocationNo(String providerNo, Integer locationNo) {
         Query query = createQuery("ml",
-                "ml.providerNo = ?1 and ml.status not like 'del' and ml.remoteLocation = ?2 order by ml.message");
+                "ml.providerNo = ?1 and ml.status not like 'del' and ml.remoteLocation = ?2 AND "
+                + LOCAL_FACILITY + " order by ml.message");
         query.setParameter(1, providerNo);
         query.setParameter(2, locationNo);
         return query.getResultList();
@@ -108,7 +121,7 @@ public class MessageListDaoImpl extends AbstractDaoImpl<MessageList> implements 
 
     @Override
     public List<MessageList> findByProviderAndStatus(String providerNo, String status) {
-        Query query = createQuery("ml", "ml.providerNo = ?1 and ml.status = ?2");
+        Query query = createQuery("ml", "ml.providerNo = ?1 and ml.status = ?2 AND " + LOCAL_RECIPIENT);
         query.setParameter(1, providerNo);
         query.setParameter(2, status);
         return query.getResultList();
@@ -116,7 +129,7 @@ public class MessageListDaoImpl extends AbstractDaoImpl<MessageList> implements 
 
     @Override
     public List<MessageList> findUnreadByProvider(String providerNo) {
-        Query query = createQuery("ml", "ml.providerNo = ?1 and ml.status ='new'");
+        Query query = createQuery("ml", "ml.providerNo = ?1 and ml.status ='new' AND " + LOCAL_RECIPIENT);
         query.setParameter(1, providerNo);
         return query.getResultList();
     }
@@ -124,7 +137,8 @@ public class MessageListDaoImpl extends AbstractDaoImpl<MessageList> implements 
     @Override
     public int findUnreadByProviderAndAttachedCount(String providerNo) {
         Query query = entityManager.createQuery(
-                "select count(l) from MessageList l, MsgDemoMap m where l.providerNo= ?1 and l.status='new' and l.message=m.messageID");
+                "select count(ml) from MessageList ml, MsgDemoMap m where ml.providerNo= ?1 and ml.status='new'"
+                + " and ml.message=m.messageID AND " + LOCAL_RECIPIENT);
 
         query.setParameter(1, providerNo);
         return getCountResult(query).intValue();
@@ -135,7 +149,7 @@ public class MessageListDaoImpl extends AbstractDaoImpl<MessageList> implements 
     public List<MessageList> search(String providerNo, String status, int start, int max) {
 
         StringBuilder sql = new StringBuilder();
-        sql.append("select ml from MessageList ml, MessageTbl mt where ml.message = mt.id");
+        sql.append("select ml from MessageList ml, MessageTbl mt where ml.message = mt.id AND ").append(LOCAL_RECIPIENT);
 
         if (providerNo != null && !providerNo.isEmpty()) {
             sql.append(" AND ml.providerNo= ?1 ");
@@ -165,7 +179,7 @@ public class MessageListDaoImpl extends AbstractDaoImpl<MessageList> implements 
     public Integer searchAndReturnTotal(String providerNo, String status) {
 
         StringBuilder sql = new StringBuilder();
-        sql.append("select count(ml) from MessageList ml, MessageTbl mt where ml.message = mt.id");
+        sql.append("select count(ml) from MessageList ml, MessageTbl mt where ml.message = mt.id AND ").append(LOCAL_RECIPIENT);
 
         if (providerNo != null && !providerNo.isEmpty()) {
             sql.append(" AND ml.providerNo= ?1 ");
@@ -205,11 +219,13 @@ public class MessageListDaoImpl extends AbstractDaoImpl<MessageList> implements 
                 // deleted
                 sql.append(
                         "MessageList ml, MessageTbl mt where ml.status LIKE 'del' AND ml.message = mt.id AND ml.providerNo= ?1 AND ml.remoteLocation = ?2 ");
+                sql.append(" AND ").append(LOCAL_FACILITY);
                 break;
             default:
                 // inbox
                 sql.append(
                         "MessageList ml, MessageTbl mt where ml.status !='del' AND ml.message = mt.id AND ml.providerNo= ?1 AND ml.remoteLocation = ?2 ");
+                sql.append(" AND ").append(LOCAL_FACILITY);
                 break;
         }
 

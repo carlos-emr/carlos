@@ -33,7 +33,10 @@
  *      middleware-era copy is visible;
  *   3. "Test SRFax connection" posts the entered values (nothing saved) and
  *      renders a result: a failure message for the fake defaults, or success
- *      when SRFAX_LIVE=true and real credentials are supplied via env;
+ *      when SRFAX_LIVE=true and real credentials are supplied via env. The
+ *      server answers it by calling SRFax's API at www.srfax.com, even with
+ *      the fake defaults, so this step runs only with SRFAX_LIVE=true or
+ *      FAX_CONFIG_PROBE_SRFAX=true and is otherwise reported as SKIP;
  *   4. Save persists the row and a reload shows the values back with the
  *      password masked, never echoed.
  *
@@ -97,7 +100,7 @@
 
 const { chromium } = require('playwright');
 const { createFaxConfigGuard } = require('./lib/fax-config-state');
-const { createSqlRunner, readConfig } = require('./lib/playwright-harness');
+const { createSqlRunner, readConfig, shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
   assert,
   assertNoPageErrors,
@@ -144,6 +147,7 @@ const config = {
   testPin: process.env.TEST_PIN || '2026',
   screenshotDir: process.env.FAX_CONFIG_SCREENSHOT_DIR || '/tmp',
   allowOverwrite: process.env.FAX_CONFIG_ALLOW_OVERWRITE === 'true',
+  probeSrfax: process.env.FAX_CONFIG_PROBE_SRFAX === 'true',
   screenshotsAlways: process.env.FAX_CONFIG_SCREENSHOTS === 'always',
   srfax: {
     accessId: process.env.SRFAX_ACCESS_ID || FAKE_ACCESS_ID,
@@ -294,7 +298,7 @@ async function main() {
     context = await browser.newContext({
       // A packaged standalone install begins with a self-signed certificate.
       // Remote targets explicitly opted into above must still prove their TLS.
-      ignoreHTTPSErrors: config.baseUrl.protocol === 'https:' && isExactLoopback(config.baseUrl.hostname),
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl),
       viewport: { width: 1360, height: 1100 },
     });
 
@@ -377,7 +381,18 @@ async function main() {
       await shot(page, existing, 'fax-config-page');
     });
 
-    await step('test connection reports a result before anything is saved', async () => {
+    // The connection test is a real request: verifyConnection posts Get_Fax_Inbox to SRFax's API at
+    // www.srfax.com whenever an account number and password are entered, the fake defaults included.
+    // A default run must not reach an outside service, so the step runs only when asked for.
+    const probeStep = 'test connection reports a result before anything is saved';
+    const probeAllowed = config.srfax.live || config.probeSrfax;
+    if (!probeAllowed) {
+      skip(probeStep, 'the connection test contacts SRFax (www.srfax.com) even with the fake values; '
+        + 'set FAX_CONFIG_PROBE_SRFAX=true to run it with them, or SRFAX_LIVE=true with real values');
+    }
+
+    // The skip path never enters step(), so it can never be recorded as a PASS.
+    await (probeAllowed ? step : async () => {})(probeStep, async () => {
       await fillSrfaxForm(frame, config.srfax);
       await shot(page, existing, 'fax-config-filled');
 
@@ -454,6 +469,8 @@ async function main() {
 
     // The skip path never enters step(), so it can never be recorded as a PASS.
     await (saveIsSafe ? step : async () => {})(saveStep, async () => {
+      // Without the connection test, the form has not been filled yet.
+      if (!probeAllowed) await fillSrfaxForm(frame, config.srfax);
       await armSaveButton(frame);
       const clicked = Date.now();
       await frame.locator('#submit').click();

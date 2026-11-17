@@ -70,6 +70,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
@@ -135,6 +136,9 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
+    @Mock private io.github.carlos_emr.carlos.commn.dao.DocumentDao mockStoredDocumentDao;
+    @Mock private io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao mockStoredDocumentLinks;
+    @Mock private io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao mockStoredDocumentQueues;
     private DocumentPreview2Action action;
 
     @BeforeEach
@@ -151,6 +155,10 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn(mockLoggedInInfo);
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.DocumentDao.class, mockStoredDocumentDao);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao.class, mockStoredDocumentLinks);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao.class, mockStoredDocumentQueues);
+
         registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
         registerMock(EFormRenderApprovalService.class, mockEFormRenderApprovalService);
         registerMock(PdfPreviewCapabilityService.class, mockPdfPreviewCapabilityService);
@@ -165,7 +173,10 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
         // lenient: not every test exercises a privilege check (e.g. unsupported-method returns 400
         // before any hasPrivilege call), so this shared default must not trip strict-stub checks.
         lenient().when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(), any(), any())).thenReturn(true);
+        lenient().when(mockSecurityInfoManager.hasPrivilegeReadOnly(any(LoggedInInfo.class), any(), any(), any())).thenReturn(true);
 
+        lenient().when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), anyInt()))
+                .thenReturn(true);
         action = spy(new DocumentPreview2Action());
     }
 
@@ -350,26 +361,17 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should fall back to zero demographic when fetch consult demographic is invalid")
-    void shouldFallBackToZeroDemographic_whenFetchConsultDemographicIsInvalid() {
+    @DisplayName("should refuse invalid consult picker patient before data lookup")
+    void shouldRefuseInvalidPatient_whenFetchConsultDemographicIsInvalid() {
+        observeFallbackReadersWithoutTouchingDatabase();
         request.setParameter("method", "fetchConsultDocuments");
         request.setParameter("demographicNo", "not-a-number");
-
-        eDocUtilMock = mockStatic(EDocUtil.class);
-        eFormUtilMock = mockStatic(EFormUtil.class);
-        hrmUtilMock = mockStatic(HRMUtil.class);
-        eDocUtilMock.when(() -> EDocUtil.listDocs(mockLoggedInInfo, "demographic", "0", null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE))
-                .thenReturn(new ArrayList<>());
-        eFormUtilMock.when(() -> EFormUtil.listPatientEformsCurrent(0, true)).thenReturn(new ArrayList<>());
-        hrmUtilMock.when(() -> HRMUtil.listHRMDocuments(mockLoggedInInfo, "report_date", false, "0", false))
-                .thenReturn(new ArrayList<>());
-
-        String result = action.execute();
-
-        assertThat(result).isEqualTo("fetchDocuments");
-        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_con", SecurityInfoManager.READ, "0");
-        eDocUtilMock.verify(() -> EDocUtil.listDocs(mockLoggedInInfo, "demographic", "0", null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE));
-        eFormUtilMock.verify(() -> EFormUtil.listPatientEformsCurrent(0, true));
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("allDocuments")).isNull();
+        assertThat(request.getAttribute("allEForms")).isNull();
+        verifyNoInteractions(mockDocumentAttachmentManager, mockFormsManager, mockSecurityInfoManager);
+        assertNoFallbackReadersWereCalled();
     }
 
     @Test
@@ -419,6 +421,8 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("demographicNo", "123");
 
         List<EDoc> expectedDocuments = List.of(mockEDoc);
+        when(mockEDoc.getDocId()).thenReturn("42");
+        when(mockStoredDocumentDao.find(42)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Document(42));
 
         when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_hrm", SecurityInfoManager.READ, "123")).thenReturn(false);
         when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_lab", SecurityInfoManager.READ, "123")).thenReturn(false);
@@ -435,7 +439,7 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo("fetchDocuments");
         assertThat(request.getAttribute("allDocuments")).isEqualTo(expectedDocuments);
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_edoc", SecurityInfoManager.READ, "123");
-        verify(mockSecurityInfoManager, never()).hasPrivilege(mockLoggedInInfo, "_edoc", SecurityInfoManager.READ, null);
+        verify(mockSecurityInfoManager, org.mockito.Mockito.atLeastOnce()).hasPrivilege(mockLoggedInInfo, "_edoc", SecurityInfoManager.READ, null);
         eDocUtilMock.verify(() -> EDocUtil.listDocs(mockLoggedInInfo, "demographic", "123", null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE));
     }
 
@@ -476,31 +480,17 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should fall back to zero when fetch eform demographic is invalid")
-    void shouldFallBackToZero_whenFetchingEformDemographicWithInvalidValue() {
+    @DisplayName("should refuse invalid eForm picker patient before data lookup")
+    void shouldRefuseInvalidPatient_whenFetchingEformDemographicWithInvalidValue() {
+        observeFallbackReadersWithoutTouchingDatabase();
         request.setParameter("method", "fetchEFormDocuments");
         request.setParameter("demographicNo", "abc");
-        request.setParameter("fdid", "not-a-number");
-
-        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_hrm", SecurityInfoManager.READ, "0")).thenReturn(false);
-        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_lab", SecurityInfoManager.READ, "0")).thenReturn(false);
-        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_form", SecurityInfoManager.READ, "0")).thenReturn(false);
-        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_eform", SecurityInfoManager.WRITE, "0")).thenReturn(true);
-
-        eDocUtilMock = mockStatic(EDocUtil.class);
-        eFormUtilMock = mockStatic(EFormUtil.class);
-        hrmUtilMock = mockStatic(HRMUtil.class);
-        when(mockDocumentAttachmentManager.getAllEFormsExpectFdid(mockLoggedInInfo, 0, 0)).thenReturn(List.of());
-
-        String result = action.execute();
-
-        assertThat(result).isEqualTo("fetchDocuments");
-        assertThat(request.getAttribute("attachmentSecurityObject")).isEqualTo("_eform");
-        assertThat(request.getAttribute("canManageAttachments")).isEqualTo(true);
-        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_eform", SecurityInfoManager.READ, "0");
-        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_eform", SecurityInfoManager.WRITE, "0");
-        verify(mockDocumentAttachmentManager).getAllEFormsExpectFdid(mockLoggedInInfo, 0, 0);
-        eDocUtilMock.verify(() -> EDocUtil.listDocs(mockLoggedInInfo, "demographic", "0", null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE));
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("allDocuments")).isNull();
+        assertThat(request.getAttribute("allEForms")).isNull();
+        verifyNoInteractions(mockDocumentAttachmentManager, mockFormsManager, mockSecurityInfoManager);
+        assertNoFallbackReadersWereCalled();
     }
 
     @Test
@@ -855,6 +845,7 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("eDocId", "42");
         request.setParameter("demographicNo", "123");
         stubEDocDemographic(42, "123");
+        when(mockStoredDocumentDao.find(42)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Document(42));
 
         when(mockDocumentAttachmentManager.renderDocument(mockLoggedInInfo, DocumentType.DOC, 42))
                 .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("edoc failed"));
@@ -867,7 +858,7 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
                 .contains("Failed to render document PDF.")
                 .doesNotContain("edoc failed");
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_edoc", SecurityInfoManager.READ, "123");
-        verify(mockSecurityInfoManager, never()).hasPrivilege(mockLoggedInInfo, "_edoc", SecurityInfoManager.READ, null);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_edoc", SecurityInfoManager.READ, null);
     }
 
     @Test
@@ -1126,4 +1117,208 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
         return eFormData;
     }
 
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"fetchConsultDocuments", "fetchEFormDocuments", "fetchTicklerDocuments"})
+    void attachmentPickersRefuseLockedPatientsBeforeListReads(String method) {
+        observeFallbackReadersWithoutTouchingDatabase();
+        request.setParameter("method", method);
+        request.setParameter("demographicNo", "123");
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo, 123)).thenReturn(false);
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
+        assertThat(request.getAttribute("allDocuments")).isNull();
+        assertThat(request.getAttribute("allEForms")).isNull();
+        assertThat(request.getAttribute("demographicNo")).isNull();
+        verifyNoInteractions(mockDocumentAttachmentManager, mockFormsManager);
+    }
+
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"fetchConsultDocuments,0,_con", "fetchConsultDocuments,,_con",
+            "fetchEFormDocuments,0,_eform", "fetchEFormDocuments,-1,_eform", "fetchEFormDocuments,,_eform"})
+    void nonpatientNativePickersRemainEmptyAndReadOnlyWithoutDataReads(String method, String patient, String container) {
+        observeFallbackReadersWithoutTouchingDatabase();
+        request.setParameter("method", method);
+        if (patient != null) request.setParameter("demographicNo", patient);
+        assertThat(action.execute()).isEqualTo("fetchDocuments");
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(request.getAttribute("canManageAttachments")).isEqualTo(false);
+        for (String list : new String[]{"allDocuments", "allHRMDocuments", "allLabsSortedByVersions", "allForms", "allEForms"}) {
+            assertThat((java.util.Collection<?>) request.getAttribute(list)).isEmpty();
+        }
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, container, SecurityInfoManager.READ, null);
+        verify(mockSecurityInfoManager, never()).isAllowedAccessToPatientRecord(any(), anyInt());
+        verifyNoInteractions(mockDocumentAttachmentManager, mockFormsManager);
+        assertNoFallbackReadersWereCalled();
+    }
+
+    @Test
+    void emptyNativePickerStillRequiresItsContainerDomain() {
+        observeFallbackReadersWithoutTouchingDatabase();
+        request.setParameter("method", "fetchEFormDocuments"); request.setParameter("demographicNo", "-1");
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_eform", "r", null)).thenReturn(false);
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
+        assertThat(request.getAttribute("allDocuments")).isNull();
+        verifyNoInteractions(mockDocumentAttachmentManager, mockFormsManager);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"not-a-number,0", "17,17"})
+    void positivePatientKeepsSavedAndNewEformExclusionSemantics(String requestedFdid, int expectedFdid) {
+        request.setParameter("method", "fetchEFormDocuments");
+        request.setParameter("demographicNo", "123"); request.setParameter("fdid", requestedFdid);
+        eDocUtilMock = mockStatic(EDocUtil.class); hrmUtilMock = mockStatic(HRMUtil.class);
+        when(mockDocumentAttachmentManager.getAllEFormsExpectFdid(mockLoggedInInfo, 123, expectedFdid))
+                .thenReturn(List.of());
+        assertThat(action.execute()).isEqualTo("fetchDocuments");
+        assertThat(request.getAttribute("demographicNo")).isEqualTo("123");
+        verify(mockSecurityInfoManager).isAllowedAccessToPatientRecord(mockLoggedInInfo, 123);
+        verify(mockDocumentAttachmentManager).getAllEFormsExpectFdid(mockLoggedInInfo, 123, expectedFdid);
+    }
+
+    @Test
+    void emptyPickerDoesNotBecomeAnonymousReadAccess() {
+        request.setParameter("method", "fetchEFormDocuments"); request.setParameter("demographicNo", "-1");
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class))).thenReturn(null);
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
+        assertThat(request.getAttribute("allDocuments")).isNull();
+        verifyNoInteractions(mockDocumentAttachmentManager, mockFormsManager, mockSecurityInfoManager);
+    }
+
+    private void observeFallbackReadersWithoutTouchingDatabase() {
+        eDocUtilMock = mockStatic(EDocUtil.class);
+        eFormUtilMock = mockStatic(EFormUtil.class);
+        hrmUtilMock = mockStatic(HRMUtil.class);
+    }
+
+    private void assertNoFallbackReadersWereCalled() {
+        eDocUtilMock.verifyNoInteractions(); eFormUtilMock.verifyNoInteractions(); hrmUtilMock.verifyNoInteractions();
+    }
+
+    private void prepareSharedPicker(String method) {
+        request.setParameter("method", method); request.setParameter("demographicNo", "123");
+        eDocUtilMock = mockStatic(EDocUtil.class); eFormUtilMock = mockStatic(EFormUtil.class);
+        hrmUtilMock = mockStatic(HRMUtil.class);
+        when(mockEDoc.getDocId()).thenReturn("42");
+        lenient().when(mockStoredDocumentDao.find(42)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Document(42));
+        eDocUtilMock.when(() -> EDocUtil.listDocs(mockLoggedInInfo, "demographic", "123", null,
+                EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE)).thenReturn(new ArrayList<>(List.of(mockEDoc)));
+        java.util.List<io.github.carlos_emr.carlos.commn.model.CtlDocument> owners = new ArrayList<>();
+        for (int patient : new int[]{123,456}) {
+            var owner = new io.github.carlos_emr.carlos.commn.model.CtlDocument();
+            owner.setId(new io.github.carlos_emr.carlos.commn.model.CtlDocumentPK("demographic", patient, 42));
+            owners.add(owner);
+        }
+        when(mockStoredDocumentLinks.findByDocumentNoAndModule(42, "demographic")).thenReturn(owners);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"fetchConsultDocuments","fetchEFormDocuments","fetchTicklerDocuments"})
+    void openPickerCannotExposeDocumentWithAnotherLockedStoredOwner(String method) {
+        prepareSharedPicker(method);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo, 456)).thenReturn(false);
+        assertThat(action.execute()).isEqualTo("fetchDocuments");
+        assertThat((java.util.Collection<?>) request.getAttribute("allDocuments")).isEmpty();
+        verify(mockSecurityInfoManager).isAllowedAccessToPatientRecord(mockLoggedInInfo, 456);
+        assertThat(request.getAttribute("attachmentSecurityObject")).isNotNull();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"fetchConsultDocuments","fetchEFormDocuments","fetchTicklerDocuments"})
+    void sharedDocumentsRemainVisibleWhenEveryActualOwnerAllowsRead(String method) {
+        prepareSharedPicker(method);
+        assertThat(action.execute()).isEqualTo("fetchDocuments");
+        assertThat(request.getAttribute("allDocuments")).isEqualTo(List.of(mockEDoc));
+        verify(mockSecurityInfoManager).isAllowedAccessToPatientRecord(mockLoggedInInfo, 456);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"fetchConsultDocuments","fetchEFormDocuments","fetchTicklerDocuments"})
+    void pickerCannotUsePatientSpecificGrantToBypassMissingGlobalDocumentDomain(String method) {
+        request.setParameter("method", method); request.setParameter("demographicNo", "123");
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_edoc", "r", null)).thenReturn(false);
+        observeFallbackReadersWithoutTouchingDatabase();
+        assertThat(action.execute()).isEqualTo("fetchDocuments");
+        assertThat((java.util.Collection<?>) request.getAttribute("allDocuments")).isEmpty();
+        eDocUtilMock.verifyNoInteractions();
+        verifyNoInteractions(mockStoredDocumentDao,mockStoredDocumentLinks);
+    }
+
+    private void prepareDirectPreview(String method, boolean shared) {
+        request.setParameter("method", method); request.setParameter("demographicNo", "123");
+        java.nio.file.Path expectedPath = java.nio.file.Path.of("authorized-direct-preview.pdf");
+        try {
+            lenient().when(mockDocumentAttachmentManager.renderDocument(eq(mockLoggedInInfo),any(DocumentType.class),eq(42))).thenReturn(expectedPath);
+            lenient().when(mockDocumentAttachmentManager.renderDocument(request,response,DocumentType.FORM)).thenReturn(expectedPath);
+            lenient().when(mockDocumentAttachmentManager.renderEform(mockLoggedInInfo,42,(EFormRenderApproval)null))
+                    .thenReturn(new EformDataManager.EformPdfRender(expectedPath,EFormRenderCompletenessReport.complete()));
+            lenient().when(mockDocumentAttachmentManager.convertPDFToBase64(expectedPath)).thenReturn("QUJD");
+        } catch (io.github.carlos_emr.carlos.utility.PDFGenerationException impossible) { throw new AssertionError(impossible); }
+        switch (method) {
+            case "renderEDocPDF" -> {
+                request.setParameter("eDocId", "42"); stubEDocDemographic(42, "123");
+                lenient().when(mockStoredDocumentDao.find(42)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Document(42));
+                var first = new io.github.carlos_emr.carlos.commn.model.CtlDocument();
+                first.setId(new io.github.carlos_emr.carlos.commn.model.CtlDocumentPK("demographic", 123, 42));
+                var second = new io.github.carlos_emr.carlos.commn.model.CtlDocument();
+                second.setId(new io.github.carlos_emr.carlos.commn.model.CtlDocumentPK("demographic", 456, 42));
+                lenient().when(mockStoredDocumentLinks.findByDocumentNoAndModule(42, "demographic"))
+                        .thenReturn(shared ? List.of(first, second) : List.of(first));
+            }
+            case "renderEFormPDF" -> {
+                request.setParameter("eFormId", "42");
+                when(mockEFormDataDao.find(42)).thenReturn(eFormData(123));
+            }
+            case "renderHrmPDF" -> {
+                request.setParameter("hrmId", "42");
+                when(mockHrmDocumentToDemographicDao.findByHrmDocumentId(42))
+                        .thenReturn(shared ? List.of(hrmDemographic(42,123),hrmDemographic(42,456)) : List.of(hrmDemographic(42,123)));
+            }
+            case "renderLabPDF" -> {
+                request.setParameter("segmentId", "42"); request.setParameter("labType", "HL7");
+                when(mockPatientLabRoutingDao.findByLabNoAndLabType(42, "HL7"))
+                        .thenReturn(shared ? List.of(new PatientLabRouting(42,"HL7",123),new PatientLabRouting(42,"HL7",456))
+                                : List.of(new PatientLabRouting(42,"HL7",123)));
+            }
+            case "renderFormPDF" -> {
+                request.setParameter("formId", "42"); request.setParameter("formName", "Annual");
+                lenient().when(mockFormsManager.getEncounterFormsbyDemographicNumber(mockLoggedInInfo,123,true,true))
+                        .thenReturn(List.of(new EctFormData.PatientForm("formAnnual","Annual",42,123)));
+            }
+            default -> throw new IllegalArgumentException(method);
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"renderEDocPDF","renderEFormPDF","renderHrmPDF","renderLabPDF","renderFormPDF"})
+    void directPreviewRefusesActualLockedPatientBeforeApprovalOrRendering(String method) {
+        prepareDirectPreview(method,false);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo,123)).thenReturn(false);
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(mockDocumentAttachmentManager,mockEFormRenderApprovalService);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"renderEDocPDF","renderHrmPDF","renderLabPDF"})
+    void directSharedPreviewCannotNameOpenOwnerToBypassAnotherLockedOwner(String method) {
+        prepareDirectPreview(method,true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo,456)).thenReturn(false);
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(mockDocumentAttachmentManager,mockEFormRenderApprovalService);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"renderEDocPDF","renderHrmPDF","renderLabPDF"})
+    void directSharedPreviewRendersWhenEveryStoredOwnerIsAllowed(String method) throws Exception {
+        prepareDirectPreview(method,true);
+        DocumentType type = method.equals("renderEDocPDF") ? DocumentType.DOC : method.equals("renderHrmPDF") ? DocumentType.HRM : DocumentType.LAB;
+        java.nio.file.Path rendered = java.nio.file.Path.of("authorized-direct-preview.pdf");
+        when(mockDocumentAttachmentManager.renderDocument(mockLoggedInInfo,type,42)).thenReturn(rendered);
+        when(mockDocumentAttachmentManager.convertPDFToBase64(rendered)).thenReturn("QUJD");
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("\"base64Data\":\"QUJD\"");
+        verify(mockSecurityInfoManager).isAllowedAccessToPatientRecord(mockLoggedInInfo,456);
+    }
 }

@@ -44,6 +44,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
   assert,
   assertNoPageErrors,
@@ -126,7 +127,7 @@ if (config.baseUrl.protocol !== 'https:') {
     // certificate the browser trusts, so a forged/expired cert on such a host
     // fails this check instead of posting TEST_PASSWORD to it unverified.
     const context = await browser.newContext({
-      ignoreHTTPSErrors: isLocalTlsTarget(config.baseUrl),
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl),
       viewport: { width: 1400, height: 900 },
     });
     const landingPage = await login(context, config, recorder);

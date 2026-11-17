@@ -6,12 +6,16 @@
 package io.github.carlos_emr.carlos.providers.gate;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.model.security.Secuserrole;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Level;
 import org.apache.struts2.ActionSupport;
@@ -130,6 +134,69 @@ class ProviderLandingViewGateUnitTest {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_appointment");
         assertThat(response.getForwardedUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("should render the no-role refusal at the schedule landing for an account without a role")
+    void shouldRenderNoRoleRefusal_whenLandingCallerHasNoRole() throws Exception {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", null)).thenReturn(false);
+        when(securityInfoManager.getRoles(loggedInInfo)).thenReturn(Collections.emptyList());
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("700001");
+
+        try (LogCapture capture = LogCapture.forLogger(ViewProviderControl2Action.class)) {
+            String result = new ViewProviderControl2Action(securityInfoManager).execute();
+
+            assertThat(result).isEqualTo(ViewProviderControl2Action.NO_SCHEDULE_ACCESS);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            assertThat(request.getAttribute(ViewProviderControl2Action.NO_ROLE_ATTRIBUTE)).isEqualTo(true);
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("missing required sec object (_appointment)")
+                        .contains("no active role assigned");
+            });
+        }
+    }
+
+    @Test
+    @DisplayName("should render the schedule-privilege refusal when the account's roles lack schedule access")
+    void shouldRenderSchedulePrivilegeRefusal_whenRolesLackScheduleAccess() throws Exception {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", null)).thenReturn(false);
+        when(securityInfoManager.getRoles(loggedInInfo)).thenReturn(List.of(new Secuserrole()));
+
+        String result = new ViewProviderControl2Action(securityInfoManager).execute();
+
+        assertThat(result).isEqualTo(ViewProviderControl2Action.NO_SCHEDULE_ACCESS);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(request.getAttribute(ViewProviderControl2Action.NO_ROLE_ATTRIBUTE)).isEqualTo(false);
+    }
+
+    @Test
+    @DisplayName("should still refuse when a subclass refusal hook answers with the view result")
+    void shouldStillRefuse_whenRefusalHookReturnsSuccess() {
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_appointment"), eq("r"), isNull()))
+                .thenReturn(false);
+        BaseProviderViewGate2Action leaky = new BaseProviderViewGate2Action(securityInfoManager) {
+            @Override
+            protected String getSecurityObject() {
+                return "_appointment";
+            }
+
+            @Override
+            protected String getAccessRight() {
+                return "r";
+            }
+
+            @Override
+            protected String renderPrivilegeDenied(HttpServletRequest req, HttpServletResponse res,
+                                                   LoggedInInfo info) {
+                return SUCCESS;
+            }
+        };
+
+        assertThatThrownBy(leaky::execute)
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_appointment)");
     }
 
     @Test

@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.service;
 
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
@@ -99,13 +101,17 @@ class CaseManagementPrintAllergiesUnitTest extends CarlosUnitTestBase {
         when(properties.getProperty("CMESort", "")).thenReturn("");
         when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDirectory.toString());
         when(dao.findAllergies(PATIENT)).thenReturn(stored);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("demographicNo", Integer.toString(PATIENT));
+        // This section-only fixture uses an explicitly issued legacy context.
+        ChartProgramContext.remember(request, null);
         try (var configuration = mockStatic(CarlosProperties.class);
              var pdfs = mockConstruction(CaseManagementPrintPdf.class);
              var _ = mockStatic(ConcatPDF.class)) {
             configuration.when(CarlosProperties::getInstance).thenReturn(properties);
             new CaseManagementPrint().doPrint(loggedInInfo, PATIENT, allNotes, new String[0],
                     false, false, false, false, includeAllergies, false, null, null,
-                    new MockHttpServletRequest(), new ByteArrayOutputStream());
+                    request, new ByteArrayOutputStream());
             assertThat(pdfs.constructed()).hasSize(1);
             CaseManagementPrintPdf pdf = pdfs.constructed().getFirst();
             if (includeAllergies) {

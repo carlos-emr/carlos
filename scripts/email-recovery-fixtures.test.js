@@ -77,6 +77,7 @@ async function runWithFakes({ failure, existingFooters = '0' }) {
       if (name === 'node:crypto') return require(name);
       if (name === './graceful-signal-cancellation') return { settleOperations,
         createGracefulSignalCancellation: () => createGracefulSignalCancellation({ signalProcess }) };
+      if (name === './lib/playwright-harness') return {shouldIgnoreHttpsErrors: () => true};
       if (name === './eform-local-playwright-utils') return {
         assert: (condition, message) => assert.ok(condition, message),
         validateBaseUrl: value => new URL(value), createRecorder: () => ({}),

@@ -58,7 +58,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
@@ -155,10 +154,6 @@
         printLabLbl = demoPath + "printClientLabLabelAction?demographic_no=";
     }
 
-    String wLReadonly = "";
-    if (oscarProps != null && "true".equals(oscarProps.getProperty("DEMOGRAPHIC_WAITING_LIST"))) {
-        wLReadonly = "readonly";
-    }
     
     String warningLevel = demoExt != null ? demoExt.get("rxInteractionWarningLevel") : null;
     if (warningLevel == null) warningLevel = "0";
@@ -343,8 +338,8 @@
                                                         <td align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formNameUsed"/>:
                                                         </b></td>
                                                         <td align="left"><input type="text"
-                                                                                name="nameUsed" maxlength="<%=Demographic.PREF_NAME_MAX_LENGTH%>" <%=getDisabled("nameUsed")%>
-                                                                                size="30"
+                                                                                name="nameUsed" <%=getDisabled("nameUsed")%>
+                                                                                size="30" maxlength="<%= Demographic.ALIAS_MAX_LENGTH %>"
                                                                                 value="<carlos:encode value='<%= demographic.getAlias() %>' context="htmlAttribute"/>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                         <td style="text-align: right;">
@@ -656,6 +651,7 @@
                                                                 } %> : </b></td>
                                                         <td align="left"><input type="text" name="postal"
                                                                                 size="30" <%=getDisabled("postal")%>
+                                                                                data-original-province="<carlos:encode value='<%= StringUtils.trimToEmpty(province) %>' context="htmlAttribute"/>"
                                                                                 value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPostal()) %>' context="htmlAttribute"/>"
                                                                                 onBlur="upCaseCtrl(this)"
                                                                                 onChange="isPostalCode()"></td>
