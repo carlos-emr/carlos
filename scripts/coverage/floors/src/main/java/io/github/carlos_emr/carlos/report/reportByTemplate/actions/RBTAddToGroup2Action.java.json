@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/report/reportByTemplate/actions/RBTAddToGroup2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "d25a69ee10f287a1bfacab806d2ef21f6638ee89"
+  },
+  "evidenceSha256": "0b053b6e25209f261adc7afccc17a22d9c4cd38aa7bed3ddc52edefff74a4054"
+}

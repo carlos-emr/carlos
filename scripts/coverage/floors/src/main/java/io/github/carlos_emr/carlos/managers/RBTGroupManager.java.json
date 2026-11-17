@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/managers/RBTGroupManager.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 88.88888888888889,
+    "sourceBlob": "b15e0f66468a2191c36279aecdf6983d8beea8b3"
+  },
+  "evidenceSha256": "0b053b6e25209f261adc7afccc17a22d9c4cd38aa7bed3ddc52edefff74a4054"
+}
