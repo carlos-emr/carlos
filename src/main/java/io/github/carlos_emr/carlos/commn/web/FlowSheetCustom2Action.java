@@ -262,7 +262,11 @@ public class FlowSheetCustom2Action extends ActionSupport {
         }
 
         MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
-        MeasurementFlowSheet mFlowsheet = templateConfig.getFlowSheet(flowsheet);
+        MeasurementFlowSheet mFlowsheet = flowsheet == null ? null : templateConfig.getFlowSheet(flowsheet);
+        if (mFlowsheet == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Flowsheet template not found.");
+            return NONE;
+        }
 
         if (request.getParameter("measurement") != null) {
 
@@ -355,6 +359,11 @@ public class FlowSheetCustom2Action extends ActionSupport {
         String scope = request.getParameter("scope");
 
         LoggedInInfo loggedInInfo = validateCustomizationPermissions(scope, demographicNo);
+
+        if (flowsheet == null || templateConfig.getFlowSheet(flowsheet) == null) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
 
         logger.debug("Updating flowsheet customization for demographic-scoped request");
 
@@ -477,6 +486,11 @@ public class FlowSheetCustom2Action extends ActionSupport {
         logger.debug("IN HIDE");
         ScopeContext ctx = parseScopeContext();
         LoggedInInfo loggedInInfo = validateCustomizationPermissions(ctx.scope, ctx.demographicNo);
+
+        if (ctx.flowsheet == null || MeasurementTemplateFlowSheetConfig.getInstance().getFlowSheet(ctx.flowsheet) == null) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
 
         // Check for blocking customization from higher level
         CascadeCheckResult cascadeResult = flowSheetCustomizationService.checkCascadingBlocked(
