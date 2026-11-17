@@ -45,7 +45,7 @@ class EFormImagePublicationLockUnitTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void shouldBlockAnotherJvm_whenPublicationIsProvisional(boolean withToolOptions) throws Exception {
+    void shouldBlockAnotherJvm_whenPublicationIsProvisional(boolean withToolOptions, @TempDir Path diagnostics) throws Exception {
         Process child = null;
         try (var lease = EFormImagePublicationLock.acquire(images.toFile())) {
             Path marker = marker();
@@ -55,14 +55,29 @@ class EFormImagePublicationLockUnitTest {
                     "-cp", classpath, LockProbe.class.getName(), marker.toString());
             builder.environment().remove("JAVA_TOOL_OPTIONS");
             if (withToolOptions) builder.environment().put("JAVA_TOOL_OPTIONS", "-Dcarlos.eform.lockProbe=FAKE-option-banner");
-            child = builder.redirectErrorStream(true).start();
+            Path stderr = diagnostics.resolve("child-stderr.log");
+            child = builder.redirectError(stderr.toFile()).start();
             try (var output = new BufferedReader(new InputStreamReader(child.getInputStream(), StandardCharsets.UTF_8));
                  var reader = Executors.newSingleThreadExecutor()) {
-                assertThat(reader.submit(output::readLine).get(10, TimeUnit.SECONDS)).isEqualTo("BLOCKED");
-                lease.close();
-                assertThat(reader.submit(output::readLine).get(10, TimeUnit.SECONDS)).isEqualTo("ACQUIRED");
-                assertThat(child.waitFor(10, TimeUnit.SECONDS)).isTrue();
-                assertThat(child.exitValue()).isZero();
+                try {
+                    assertThat(reader.submit(output::readLine).get(10, TimeUnit.SECONDS)).isEqualTo("BLOCKED");
+                    lease.close();
+                    assertThat(reader.submit(output::readLine).get(10, TimeUnit.SECONDS)).isEqualTo("ACQUIRED");
+                    assertThat(child.waitFor(10, TimeUnit.SECONDS)).isTrue();
+                    assertThat(child.exitValue()).isZero();
+                    assertThat(output.readLine()).isNull();
+                    if (withToolOptions) assertThat(Files.readString(stderr)).contains("FAKE-option-banner");
+                } catch (Exception | AssertionError failure) {
+                    try {
+                        failure.addSuppressed(new AssertionError("Child JVM stderr:\n" + Files.readString(stderr)));
+                    } catch (IOException diagnosticFailure) {
+                        failure.addSuppressed(diagnosticFailure);
+                    }
+                    throw failure;
+                } finally {
+                    // Unblock a pending protocol read before the executor's close waits for it.
+                    child.destroyForcibly();
+                }
             }
         } finally {
             if (child != null) child.destroyForcibly();
