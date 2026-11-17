@@ -244,8 +244,10 @@ class ReportConfigurationDaoIntegrationTest extends CarlosTestBase {
             assertThat(configurations.findByReportIdAndSave(5549, "A"))
                     .extracting(ReportConfig::getId, ReportConfig::getOrderNo)
                     .containsExactly(tuple(first.getId(), 0), tuple(second.getId(), 0));
-            assertThatThrownBy(() -> service.moveBefore(5549, "B", first.getId(), second.getId())).isInstanceOf(IllegalArgumentException.class);
-            assertThatThrownBy(() -> service.moveBefore(5549, "A", first.getId(), -1)).isInstanceOf(IllegalArgumentException.class);
+            int firstId = first.getId();
+            int secondId = second.getId();
+            assertThatThrownBy(() -> service.moveBefore(5549, "B", firstId, secondId)).isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> service.moveBefore(5549, "A", firstId, -1)).isInstanceOf(IllegalArgumentException.class);
         } finally { cleanup(); }
     }
 
