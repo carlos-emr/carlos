@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/fax/core/FaxPollBackoff.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "11dc5ac18d192873a24de93872e744b3836b8103"
+  },
+  "evidenceSha256": "6b9258bd75daa47cf684c6a06e1c826478045ab2c2fce2ac3beb76bec98fe83a"
+}
