@@ -130,6 +130,59 @@ class ResultInventoryTest(unittest.TestCase):
         self.assertFalse(gate.browser_results(path, check, self.root)["ready"])
 
 
+    def test_browser_retains_named_runner_failures_and_keeps_messages_private(self):
+        (self.root / "scripts/playwright-suite.json").write_text(json.dumps({"checks": [
+            {"name": "required", "provinces": ["all"]}]}))
+        path = self.root / "browser.xml"
+        path.write_text('<testsuites><testsuite><testcase name="required"/>'
+            '<testcase name="residue-audit"><failure message="private synthetic details"/></testcase>'
+            '<testcase name="application-identity"><failure/></testcase></testsuite></testsuites>')
+        result = gate.browser_results(path, {"selectedProfile": "ON"}, self.root)
+        self.assertEqual(result["tests"], 3)
+        self.assertEqual(result["failed"], 2)
+        self.assertFalse(result["ready"])
+        self.assertEqual(result["runnerFailures"], ["residue-audit", "application-identity"])
+        self.assertNotIn("private synthetic", json.dumps(result))
+
+    def test_browser_names_navigation_failure_even_when_the_check_could_not_start(self):
+        (self.root / "scripts/playwright-suite.json").write_text(json.dumps({"checks": [
+            {"name": "required", "provinces": ["all"]}]}))
+        path = self.root / "browser.xml"
+        path.write_text('<testsuites><testsuite><testcase name="required-navigation-fixture">'
+            '<failure message="private synthetic owner"/></testcase></testsuite></testsuites>')
+        with self.assertRaisesRegex(EvidenceError, "runner failures: required-navigation-fixture") as caught:
+            gate.browser_results(path, {"selectedProfile": "ON"}, self.root)
+        self.assertNotIn("private synthetic", str(caught.exception))
+
+    def test_browser_retains_navigation_cleanup_failure_after_a_passing_check(self):
+        (self.root / "scripts/playwright-suite.json").write_text(json.dumps({"checks": [
+            {"name": "required", "provinces": ["all"]}]}))
+        path = self.root / "browser.xml"
+        path.write_text('<testsuites><testsuite><testcase name="required"/>'
+            '<testcase name="required-navigation-cleanup"><error/></testcase></testsuite></testsuites>')
+        result = gate.browser_results(path, {"selectedProfile": "ON"}, self.root)
+        self.assertFalse(result["ready"])
+        self.assertEqual(result["runnerFailures"], ["required-navigation-cleanup"])
+        self.assertEqual(result["failed"], 1)
+
+    def test_browser_runner_diagnostics_do_not_accept_unknown_extra_rows_or_weaken_selection(self):
+        (self.root / "scripts/playwright-suite.json").write_text(json.dumps({"checks": [
+            {"name": "required", "provinces": ["all"]}]}))
+        path = self.root / "browser.xml"
+        for cases in (
+            '<testcase name="required"/><testcase name="residue-audit"/>',
+            '<testcase name="required"/><testcase name="unknown"><failure/></testcase>',
+            '<testcase name="required"/><testcase name="required"/>'
+                '<testcase name="application-identity"><failure/></testcase>',
+            '<testcase name="required"/><testcase name="residue-audit"><failure/></testcase>'
+                '<testcase name="residue-audit"><failure/></testcase>',
+        ):
+            with self.subTest(cases=cases):
+                path.write_text('<testsuites><testsuite>' + cases + '</testsuite></testsuites>')
+                with self.assertRaises(EvidenceError):
+                    gate.browser_results(path, {"selectedProfile": "ON"}, self.root)
+
+
 class ScopeInventoryTest(unittest.TestCase):
     def test_reviewed_ownership_does_not_waive_rewritten_shared_migration_bytes(self):
         scope = module_from('scope_migration_command', 'release-scope-audit.py')
