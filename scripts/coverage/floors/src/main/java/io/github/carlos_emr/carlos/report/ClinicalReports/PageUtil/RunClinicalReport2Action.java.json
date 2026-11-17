@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/report/ClinicalReports/PageUtil/RunClinicalReport2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 95.45454545454545,
+    "instructions": 91.58878504672897,
+    "branches": 100.0,
+    "sourceBlob": "789ea77cc6a66566c32d3bb4a8f7f486a470e6c5"
+  },
+  "evidenceSha256": "4f2717e050718b2bb2c1968330530d10e61deaaf5dc082527a1d58e60aed2487"
+}

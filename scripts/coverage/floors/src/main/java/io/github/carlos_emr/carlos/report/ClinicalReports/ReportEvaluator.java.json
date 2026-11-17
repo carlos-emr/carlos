@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/report/ClinicalReports/ReportEvaluator.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "9197a63add46471d1806c379b7316891ca74509a"
+  },
+  "evidenceSha256": "4f2717e050718b2bb2c1968330530d10e61deaaf5dc082527a1d58e60aed2487"
+}
