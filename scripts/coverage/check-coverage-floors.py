@@ -10,6 +10,7 @@ import re
 import subprocess
 
 from changed_line_audit import read_jacoco_lines, changed_lines, audit, audit_details
+from coverage_policy import load_policy
 
 
 def source_identity(base, head='HEAD'):
@@ -24,22 +25,29 @@ def source_identity(base, head='HEAD'):
             'comparisonSha256': hashlib.sha256(comparison).hexdigest()}
 
 
-def check_freshness(floors, base, head='HEAD'):
-    actual = source_identity(base, head)
-    problems = [key for key, value in actual.items() if floors.get(key) != value]
-    if subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=all', '--', 'src/main/java']):
-        problems.append('dirtyJavaSources')
-    files = floors.get('files')
-    if floors.get('schemaVersion') != 1 or not isinstance(files, dict) or not files:
-        raise ValueError('Floors require a nonempty source-bound baseline')
-    waivers = floors.get('zeroCoverageWaivers', {})
-    if not isinstance(waivers, dict):
-        raise ValueError('Zero-coverage waivers must be keyed by source path')
+def source_blobs(head):
     blobs = {}
     for entry in subprocess.check_output(['git', 'ls-tree', '-r', '-z', head, '--', 'src/main/java']).split(b'\0'):
         if entry:
             metadata, path = entry.split(b'\t', 1)
             blobs[path.decode()] = metadata.decode().split()[-1]
+    return blobs
+
+
+def check_freshness(floors, base, head='HEAD'):
+    actual = source_identity(base, head)
+    sharded = floors.get('schemaVersion') == 2
+    problems = [key for key, value in actual.items()
+                if (not sharded or key == 'base') and floors.get(key) != value]
+    if subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=all', '--', 'src/main/java']):
+        problems.append('dirtyJavaSources')
+    files = floors.get('files')
+    if floors.get('schemaVersion') not in (1, 2) or not isinstance(files, dict) or not files:
+        raise ValueError('Floors require a nonempty source-bound baseline')
+    waivers = floors.get('zeroCoverageWaivers', {})
+    if not isinstance(waivers, dict):
+        raise ValueError('Zero-coverage waivers must be keyed by source path')
+    blobs = source_blobs(head)
     for path, row in files.items():
         if not isinstance(row, dict) or row.get('sourceBlob') != blobs.get(path) or path not in blobs:
             problems.append('sourceBlob:' + path)
@@ -54,6 +62,9 @@ def check_freshness(floors, base, head='HEAD'):
         if (not path.endswith(('package-info.java', '.jrxml')) or not isinstance(row, dict)
                 or not row.get('reason') or not row.get('tests')):
             raise ValueError('Only documented nonexecutable sources can be excluded')
+        if sharded and path in floors.get('exclusionSourceBlobs', {}):
+            if floors['exclusionSourceBlobs'][path] != blobs.get(path) or path not in blobs:
+                problems.append('sourceBlob:' + path)
     compared = set(subprocess.check_output(['git', 'diff', '--no-ext-diff', '--no-renames',
         '--diff-filter=ACMRT', '--name-only', '-z', actual['base'], head,
         '--', 'src/main/java']).decode().strip('\0').split('\0')) - {''}
@@ -63,6 +74,48 @@ def check_freshness(floors, base, head='HEAD'):
         problems.append('sourceOutsideComparison:' + path)
     if set(files) & set(exclusions):
         raise ValueError('Sources cannot have both a floor and an exclusion')
+    if sharded:
+        evidence = floors.get('sourceEvidence', {})
+        validated = {}
+        for path in sorted(set(files) | set(exclusions)):
+            record = evidence.get(path)
+            if not isinstance(record, dict) or record.get('base') != actual['base']:
+                problems.append('sourceEvidence:' + path)
+                continue
+            # Evidence describes the complete original run. Only this source's
+            # bytes must match the candidate: unrelated merges do not change
+            # the lines compared against the fixed, reviewed base.
+            identity = id(record)
+            if identity not in validated:
+                issues = baseline_problems(record, record.get('sourceTree'))
+                measured = subprocess.run(['git', 'rev-parse', '--verify',
+                    str(record.get('baselineCommit')) + '^{commit}'], capture_output=True, check=False)
+                measured_blobs = None
+                if not measured.returncode:
+                    measured_blobs = source_blobs(record['baselineCommit'])
+                    if record.get('comparisonSha256') != source_identity(actual['base'], record['baselineCommit'])['comparisonSha256']:
+                        issues.append('comparisonSha256')
+                validated[identity] = (issues, measured_blobs)
+            issues, measured_blobs = validated[identity]
+            for problem in issues:
+                problems.append(problem + ':' + path)
+            expected = files.get(path, {}).get('sourceBlob') or floors.get('exclusionSourceBlobs', {}).get(path)
+            if measured_blobs is not None:
+                expected = expected or measured_blobs.get(path)
+                if expected != measured_blobs.get(path) or expected != blobs.get(path):
+                    problems.append('baselineSourceBlob:' + path)
+    else:
+        problems.extend(baseline_problems(floors, actual['sourceTree']))
+    return {'ready': not problems, 'source': actual, 'problems': problems,
+            'unreviewedZeroFloors': sorted(path for path, row in files.items()
+                if row['lines'] == 0 and not reviewed_zero_floor(
+                    waivers.get(path), row.get('sourceBlob')))}
+
+
+def baseline_problems(floors, source_tree):
+    problems = []
+    if not isinstance(source_tree, str) or not re.fullmatch(r'[0-9a-f]{40}', source_tree):
+        problems.append('baselineSourceTree')
     baseline = floors.get('baselineCommit')
     if not isinstance(baseline, str) or not re.fullmatch(r'[0-9a-f]{40}', baseline):
         problems.append('baselineCommit')
@@ -73,10 +126,10 @@ def check_freshness(floors, base, head='HEAD'):
             # Squash/rebase merges can discard the original commit object. Retain
             # its measured Java tree explicitly; the candidate tree, comparison
             # and every source blob above must still match that recorded evidence.
-            if floors.get('baselineSourceTree') != actual['sourceTree']:
+            if floors.get('baselineSourceTree') != source_tree or not source_tree:
                 problems.append('baselineSourceTree')
         else:
-            if resolved.stdout.strip() != actual['sourceTree']:
+            if resolved.stdout.strip() != source_tree:
                 problems.append('baselineSourceTree')
             if ('baselineSourceTree' in floors
                     and floors['baselineSourceTree'] != resolved.stdout.strip()):
@@ -86,10 +139,7 @@ def check_freshness(floors, base, head='HEAD'):
         problems.append('baselineReportSha256')
     if not isinstance(floors.get('baselineLane'), str) or not floors['baselineLane'].strip():
         problems.append('baselineLane')
-    return {'ready': not problems, 'source': actual, 'problems': problems,
-            'unreviewedZeroFloors': sorted(path for path, row in files.items()
-                if row['lines'] == 0 and not reviewed_zero_floor(
-                    waivers.get(path), row.get('sourceBlob')))}
+    return problems
 
 
 def reviewed_zero_floor(waiver, source_blob):
@@ -126,7 +176,8 @@ def measure(report, diff):
 
 
 def check_floors(report, floors, diff):
-    if floors.get('schemaVersion') != 1 or not floors.get('baselineCommit') or not floors.get('files'):
+    if (floors.get('schemaVersion') not in (1, 2) or not floors.get('files')
+            or (floors['schemaVersion'] == 1 and not floors.get('baselineCommit'))):
         raise ValueError('Floors require a committed nonempty baseline')
     actual, unmapped = measure(report, diff)
     counters_by_source = read_jacoco_lines(report, include_branches=True)
@@ -186,7 +237,7 @@ def main():
     args.output.unlink(missing_ok=True)
     if args.jacoco is None and not args.freshness_only:
         parser.error('jacoco is required unless --freshness-only is selected')
-    floors = json.loads(args.floors.read_text())
+    floors = load_policy(args.floors)
     freshness = check_freshness(floors, args.base, args.head)
     if args.freshness_only or not freshness['ready']:
         result = {'schemaVersion': 1, 'ready': freshness['ready'], 'freshness': freshness,
