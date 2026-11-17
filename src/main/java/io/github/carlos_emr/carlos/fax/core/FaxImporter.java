@@ -446,8 +446,8 @@ public class FaxImporter {
             PollingFailure state = pollBackoff.snapshot().get(faxConfig.getId());
             // Attempts 2-7 follow delays of 1, 2, 4, 8, 16 and 32 minutes.
             // Attempt 8 is the first retry after the one-hour cap was reached.
-            // failed() just recorded this state, and poll() serializes all mutations.
-            if (state.attempts() >= 8) {
+            // A configuration reset can discard a stale poll's failure state.
+            if (state != null && state.attempts() >= 8) {
                 log.warn("Inbound fax polling still failing for account {} ({}) after {} consecutive failed polls; "
                                 + "retries remain one hour apart. Check Administration > Faxes > Configure Fax.",
                         faxConfig.getId(), faxConfig.getProviderType(), state.attempts());

@@ -452,6 +452,27 @@ class FaxImporterPollTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldContinueOtherAccounts_whenFailureStateWasDiscardedDuringPoll() throws Exception {
+        FaxConfig stale = createFaxConfig(1, true, true);
+        FaxConfig healthy = createFaxConfig(2, true, true);
+        when(faxConfigDao.findAll(null, null)).thenReturn(List.of(stale, healthy));
+        var backoff = mock(FaxPollBackoff.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(faxImporter, "pollBackoff", backoff);
+        when(backoff.isDue(any())).thenReturn(true);
+        when(backoff.failed(1)).thenReturn(false);
+        when(backoff.snapshot()).thenReturn(java.util.Map.of());
+        when(faxProviderClientFactory.getClient(stale)).thenThrow(new IllegalStateException("PRIVATE_STALE_FAILURE"));
+        when(faxProviderClientFactory.getClient(healthy)).thenReturn(faxProviderClient);
+        when(faxProviderClient.listInboundFaxes(healthy)).thenReturn(List.of());
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxImporter.class)) {
+            faxImporter.poll();
+            verify(faxProviderClient).listInboundFaxes(healthy);
+            assertThat(logs.messages()).noneMatch(message -> message.contains("Inbound fax polling"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_");
+        }
+    }
+
     // -- helper methods --
 
     /**
