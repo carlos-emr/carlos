@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/report/ClinicalReports/PageUtil/RunClinicalReport2Action.java",
   "kind": "floor",
   "floor": {
-    "lines": 90.0,
-    "instructions": 79.06976744186046,
+    "lines": 93.33333333333333,
+    "instructions": 85.48387096774194,
     "branches": 100.0,
-    "sourceBlob": "52121081293216d2d2b48bef80dc6afa06d543d3"
+    "sourceBlob": "4e376a901bd3a61c0124a2c92fe00a9fbccf2397"
   },
-  "evidenceSha256": "5e8fa15d606a265ffeb492ab81efe978a3df75ce128dd0a15bb4c6f18cc0d09f"
+  "evidenceSha256": "a1e396248e996c437d2078051abd7a7e8a1c9fd63f917453d73568b07bab8d20"
 }
