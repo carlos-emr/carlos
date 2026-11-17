@@ -219,6 +219,41 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {MSPReconcile.REP_WO, MSPReconcile.REP_INVOICE,
+            MSPReconcile.REP_ACCOUNT_REC, MSPReconcile.REP_REJ})
+    void shouldPopulateAccountInitials_fromEachBillsAccountProvider(String type) throws Exception {
+        reportRows("MSP");
+        Provider account = new Provider();
+        account.setFirstName("FAKE Account");
+        account.setLastName("Owner");
+        Provider appointment = new Provider();
+        appointment.setFirstName("FAKE Treating");
+        appointment.setLastName("Clinician");
+        doReturn(account).when(reconcile).getProvider("12345", 0);
+        doReturn(appointment).when(reconcile).getProvider("12345", 1);
+        if (MSPReconcile.REP_REJ.equals(type)) {
+            TeleplanC12Dao rejections = createAndRegisterMock(TeleplanC12Dao.class);
+            when(rejections.findRejected()).thenReturn(List.of());
+        }
+
+        MSPReconcile.BillSearch report = report(type);
+
+        assertThat(report.list).hasSize(1);
+        MSPBill bill = (MSPBill) report.list.getFirst();
+        assertThat(bill.getAcctInit()).isEqualTo(account.getInitials()).isNotEmpty();
+        assertThat(bill.getProvName()).isEqualTo(appointment.getInitials());
+        if (MSPReconcile.REP_WO.equals(type)) {
+            var output = new java.io.ByteArrayOutputStream();
+            io.github.carlos_emr.carlos.report.export.BcBillingCsv.write(output, type, List.of(bill));
+            try (var csv = org.apache.commons.csv.CSVFormat.DEFAULT.builder().setHeader()
+                    .setSkipHeaderRecord(true).get().parse(new java.io.StringReader(
+                            output.toString(java.nio.charset.StandardCharsets.UTF_8)))) {
+                assertThat(csv.getRecords().getFirst().get("Account")).isEqualTo(account.getInitials());
+            }
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"REP_INVOICE", "REP_ACCOUNT_REC"})
     void shouldRetainLegacyRows_whenCsvAmountsCannotBeCalculated(String type) throws Exception {
         var csv = spy(new MSPReconcile(true));
