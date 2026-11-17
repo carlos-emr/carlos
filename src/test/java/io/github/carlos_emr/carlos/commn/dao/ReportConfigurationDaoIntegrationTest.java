@@ -308,6 +308,25 @@ class ReportConfigurationDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("update")
+    void shouldReorderBothLegacyNullVariantRows_whenTheTargetPositionIsOccupied() {
+        cleanup();
+        try {
+            ReportConfig first = config("first nullable", 1, null);
+            ReportConfig second = config("second nullable", 2, null);
+            new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+                configurations.persist(first);
+                configurations.persist(second);
+            });
+            service.shiftAndRemove(5549, null, second.getId(), 1);
+            assertThat(configurations.find(second.getId()).getOrderNo()).isEqualTo(1);
+            assertThat(configurations.find(first.getId()).getOrderNo()).isEqualTo(2);
+            assertThat(configurations.findByReportIdAndSave(5549, null))
+                    .extracting(ReportConfig::getId).containsExactly(second.getId(), first.getId());
+        } finally { cleanup(); }
+    }
+
+    @Test
+    @Tag("update")
     void shouldKeepEveryOrderNumber_whenMovingAFieldToItsCurrentPosition() {
         cleanup();
         try {

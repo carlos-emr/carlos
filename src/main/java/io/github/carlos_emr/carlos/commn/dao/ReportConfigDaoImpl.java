@@ -56,7 +56,7 @@ public class ReportConfigDaoImpl extends AbstractDaoImpl<ReportConfig> implement
 
     @Override
     public List<ReportConfig> findByReportIdAndSave(int reportId, String save) {
-        return entityManager.createQuery("select x from ReportConfig x where x.reportId=:reportId and x.save=:save order by coalesce(x.orderNo, 0), x.id", ReportConfig.class)
+        return entityManager.createQuery("select x from ReportConfig x where x.reportId=:reportId and (x.save=:save or (:save is null and x.save is null)) order by coalesce(x.orderNo, 0), x.id", ReportConfig.class)
                 .setParameter(REPORT_ID_PARAMETER, reportId).setParameter("save", save).getResultList();
     }
 
@@ -102,7 +102,7 @@ public class ReportConfigDaoImpl extends AbstractDaoImpl<ReportConfig> implement
 
     @Override
     public List<ReportConfig> findByReportIdAndSaveAndGtOrderNo(int reportId, String save, int orderNo) {
-        Query q = entityManager.createQuery("select x from ReportConfig x where x.reportId=?1 and x.save=?2 and coalesce(x.orderNo, 0) >= ?3 order by coalesce(x.orderNo, 0) DESC, x.id");
+        Query q = entityManager.createQuery("select x from ReportConfig x where x.reportId=?1 and (x.save=?2 or (?2 is null and x.save is null)) and coalesce(x.orderNo, 0) >= ?3 order by coalesce(x.orderNo, 0) DESC, x.id");
         q.setParameter(1, reportId);
         q.setParameter(2, save);
         q.setParameter(3, orderNo);
