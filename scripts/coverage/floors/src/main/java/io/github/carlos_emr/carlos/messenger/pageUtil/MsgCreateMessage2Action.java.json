@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgCreateMessage2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 96.29629629629629,
+    "instructions": 95.15151515151516,
+    "branches": 83.33333333333333,
+    "sourceBlob": "5a4bb11e6e58f8e148f7a2dae14de0b4f3669dd7"
+  },
+  "evidenceSha256": "169b613a391dbe5da690ed367422f730f32d246d493371b449ec3b487fdcdf70"
+}
