@@ -32,10 +32,26 @@ def comparison(root, base, head):
     return [(fields[i].decode("ascii"), fields[i + 1].decode("utf-8")) for i in range(0, len(fields) - 1, 2)]
 
 
+# These inputs build or qualify shipped bytes outside the runtime source trees.
+# Keep test-only scripts outside this set; the adapter tests also reconcile the
+# scripts named by debian/rules so a new build input cannot silently escape.
+RELEASE_BUILD_INPUTS = frozenset({
+    "scripts/build-demo-additive.sh",
+    "scripts/check-demo-additive.sh",
+    "scripts/schema-contract.py",
+    "scripts/check-war-container-apis.py",
+    "scripts/test-o19-input-lifecycle.py",
+    "scripts/migration/o19/generate_manifests.py",
+    ".github/workflows/deb-packages.yml",
+    ".github/workflows/publish-release.yml",
+})
+
+
 def runtime_path(path):
     return (path.startswith(("src/main/", "database/", ".devcontainer/", "local_repo/"))
             or path.startswith("debian/") and not path.startswith(("debian/assets/tests/", "debian/tests/"))
-            or path in ("pom.xml", "package.json", "package-lock.json"))
+            or path in ("pom.xml", "package.json", "package-lock.json")
+            or path in RELEASE_BUILD_INPUTS)
 
 
 def inventory(plan, root=ROOT, head="HEAD"):
