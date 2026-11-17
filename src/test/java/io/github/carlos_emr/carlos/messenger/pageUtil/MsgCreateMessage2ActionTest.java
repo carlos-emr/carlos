@@ -215,6 +215,7 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
         private final java.util.concurrent.atomic.AtomicInteger sends = new java.util.concurrent.atomic.AtomicInteger();
         private Runnable duringSend = () -> { };
         private String sentMessageId = "77";
+        private String sentTo = RECIPIENT;
         private RuntimeException sendFailure;
         private boolean noRecipients;
         private String thisWindow;
@@ -242,7 +243,7 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
                 when(data.getDups4(any())).thenAnswer(invocation -> invocation.getArgument(0));
                 when(data.getProviderStructure(any(), any())).thenReturn(
                         noRecipients ? new ArrayList<>() : new ArrayList<>(List.of(new MsgProviderData())));
-                when(data.createSentToString(any())).thenReturn(RECIPIENT);
+                when(data.createSentToString(any())).thenReturn(sentTo);
                 when(data.sendMessage2(any(), any(), any(), any(), any(), any(), any(), any(), any()))
                         .thenAnswer(invocation -> {
                             sends.incrementAndGet();
@@ -459,6 +460,133 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
             assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.PATIENT_LINK_AFTER_SEND_FAILED)).isNull();
             assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ATTACHMENTS_AFTER_SEND_FAILED)).isNull();
             assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND_FAILED)).isNull();
+        }
+
+        @Test
+        @DisplayName("should confirm without a warning a send that an earlier version recorded without warning digits")
+        void shouldConfirmWithoutWarnings_whenTheSavedResultIsFromAnEarlierVersion() throws Exception {
+            repeatSubmission(null);
+            // The first send took this window's attachments, as a real send does.
+            MsgAttachmentStaging.take(getMockSession(), thisWindow);
+            java.lang.reflect.Method digest = MsgCreateMessage2Action.class.getDeclaredMethod("contentDigest");
+            digest.setAccessible(true);
+            java.lang.reflect.Method answer = MsgCreateMessage2Action.class.getDeclaredMethod("answerUsedForm",
+                    jakarta.servlet.http.HttpSession.class, String.class);
+            answer.setAccessible(true);
+            // A session that outlived a redeploy: "id:digest:recipients", with no warning digits.
+            String legacy = "77:" + digest.invoke(action) + ":" + RECIPIENT;
+
+            assertThat(answer.invoke(action, getMockSession(), legacy)).isEqualTo("success");
+
+            assertThat(getMockRequest().getAttribute("SentMessageProvs")).isEqualTo(RECIPIENT);
+            assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.PATIENT_LINK_AFTER_SEND_FAILED)).isNull();
+            assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ATTACHMENTS_AFTER_SEND_FAILED)).isNull();
+            assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND_FAILED)).isNull();
+        }
+
+        @Test
+        @DisplayName("should confirm an empty recipient line when the first send named no one")
+        void shouldRepeatAnEmptyRecipientLine_whenTheFirstSendNamedNoOne() throws Exception {
+            String token = FormSubmissionGuard.issue(getMockSession(), FormSubmissionGuard.Scope.MESSENGER_SEND, null);
+            sentTo = null;
+            repeatSubmission(token);
+            assertThat(send()).isEqualTo("success");
+            assertThat(getMockRequest().getAttribute("SentMessageProvs")).isNull();
+
+            repeatSubmission(token);
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(getMockRequest().getAttribute("SentMessageProvs")).isEqualTo("");
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.NullSource
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"   "})
+        @DisplayName("should send with the subject 'none' when the subject is missing or only spaces")
+        void shouldSendWithTheSubjectNone_whenTheSubjectIsMissingOrOnlySpaces(String subject) throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            action.setSubject(subject);
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sentSubject.get()).isEqualTo("none");
+        }
+
+        @Test
+        @DisplayName("should tick no one again when a refused send had no recipients at all")
+        void shouldTickNoOneAgain_whenARefusedSendHadNoRecipients() throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setProvider(null);
+            noRecipients = true;
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(getMockRequest().getAttribute("replyList")).isEqualTo(List.of());
+        }
+
+        @Test
+        @DisplayName("should leave a blank recipient id out when ticking a refused send's recipients again")
+        void shouldLeaveABlankIdOut_whenTickingARefusedSendsRecipientsAgain() throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("202");
+            action.setProvider(new String[]{" ", null, "999998-0-1"});
+
+            assertThat(send()).isEqualTo("error");
+
+            @SuppressWarnings("unchecked")
+            List<ContactIdentifier> ticked = (List<ContactIdentifier>) getMockRequest().getAttribute("replyList");
+            assertThat(ticked).extracting(ContactIdentifier::getCompositeId).containsExactly("999998-0-1");
+        }
+
+        @Test
+        @DisplayName("should send and archive nothing when Send and Archive carries no message replied to")
+        void shouldArchiveNothing_whenSendAndArchiveCarriesNoMessage() throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            getMockRequest().setParameter(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND, "1");
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND_FAILED)).isNull();
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"", "null"})
+        @DisplayName("should show a changed unlinked message again when the used form is resubmitted")
+        void shouldRedisplayAChangedUnlinkedMessage_whenTheUsedFormIsResubmitted(String noPatient) throws Exception {
+            String token = FormSubmissionGuard.issue(getMockSession(), FormSubmissionGuard.Scope.MESSENGER_SEND, null);
+            repeatSubmission(token);
+            assertThat(send()).isEqualTo("success");
+
+            repeatSubmission(token);
+            action.setDemographic_no(noPatient);
+            action.setMessage("FAKE changed body");
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(getMockResponse().getStatus()).isEqualTo(409);
+            assertThat(getMockRequest().getAttribute("demographic_no")).isNull();
+            assertThat(sends.get()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("should treat repeated and blank recipient ids as one message when the same form is submitted twice")
+        void shouldSendOnce_whenTheRecipientIdsRepeatOrAreBlank() throws Exception {
+            String token = FormSubmissionGuard.issue(getMockSession(), FormSubmissionGuard.Scope.MESSENGER_SEND, null);
+            repeatSubmission(token);
+            action.setProvider(new String[]{RECIPIENT, " ", null, RECIPIENT});
+            assertThat(send()).isEqualTo("success");
+
+            // The same recipients ticked in another order, blank ids dropped: the same message.
+            repeatSubmission(token);
+            action.setProvider(new String[]{RECIPIENT});
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(getMockResponse().getStatus()).isEqualTo(200);
         }
 
         @Test
@@ -1021,6 +1149,23 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
                 assertThat(send()).isEqualTo("success");
 
                 verify(messageListDao, never()).merge(any());
+            }
+
+            @Test
+            void shouldSayTheMessageIsStillInTheInbox_whenTheArchiveStepItselfFails() throws Exception {
+                getMockRequest().setParameter(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND, "1");
+                try (MockedStatic<MsgBulkOperationHelper> archive = mockStatic(MsgBulkOperationHelper.class, CALLS_REAL_METHODS)) {
+                    archive.when(() -> MsgBulkOperationHelper.updateSelectedMessages(any(), any(), any(), any()))
+                            .thenThrow(new IllegalStateException("FAKE archive step failed"));
+
+                    // The reply is sent; the archive failure is reported on the sent page, not thrown.
+                    assertThat(send()).isEqualTo("success");
+                }
+
+                assertThat(sends.get()).isEqualTo(1);
+                assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND_FAILED))
+                        .isEqualTo(Boolean.TRUE);
+                assertThat(ownCopy.getStatus()).isEqualTo(MessageList.STATUS_READ);
             }
 
             @Test

@@ -233,8 +233,7 @@ public class MsgCreateMessage2Action extends ActionSupport {
      * digits, recorded by an earlier version, confirms the send with no warning.
      */
     private String savedResult(String messageId, String sentToWho, String afterSendWarnings) {
-        return messageId + ":" + contentDigest() + ":" + (afterSendWarnings == null ? "" : afterSendWarnings + ":")
-                + (sentToWho == null ? "" : sentToWho);
+        return messageId + ":" + contentDigest() + ":" + afterSendWarnings + ":" + (sentToWho == null ? "" : sentToWho);
     }
 
     /** The after-send warnings of this request, as {@link #savedResult} records them. */
