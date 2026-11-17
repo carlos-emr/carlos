@@ -178,7 +178,7 @@
         "scripts/facility-disable-browser-checks.js"
       ],
       "source": "scripts/facility-disable-browser-checks.js",
-      "sourceSha256": "07e6ccae7385f46cf86e478b1204dd23ba477c7d17f6d67addd3991e7cd2446d",
+      "sourceSha256": "22aba23a9f96cdc3647a2d2710b9d6d63b94ec0cbe5dbab52f188d37e9f3fcac",
       "minimumAssertions": 11,
       "requiredCases": [
         "every parsed row retains its own POST form, including the first facility",

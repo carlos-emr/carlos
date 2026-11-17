@@ -63,7 +63,7 @@ async function withPage(body) {
   const context = await browser.newContext(), page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
   try {
-    await page.goto(`http://127.0.0.1:${server.address().port}/carlos/list`);
+    await page.goto(`http://127.0.0.1:${server.address().port}/carlos/list`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- this test owns the server bound to literal 127.0.0.1; the OS assigns its port and the path is fixed; no user input enters the destination
     await body(page, posts);
     assert.deepEqual(errors, [], 'The production Disable handler must not throw');
   } finally {await context.close();server.closeAllConnections();await new Promise(resolve => server.close(resolve));}
