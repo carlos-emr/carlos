@@ -35,6 +35,8 @@ import java.util.Collection;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import org.apache.commons.csv.CSVFormat;
+import io.github.carlos_emr.carlos.utility.SpreadsheetCsv;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -177,15 +179,15 @@ public class ReportEvaluator {
 
     //TODO:HACK for now! replace with something more flexible
     public String getCSV() {
-        String csv = null;
+        List<String> cells = new ArrayList<>();
         if (denominator.hasReplaceableValues()) {
             String providerNo = (String) denominator.getReplaceableValues().get("provider_no");
-            csv = "'" + getProviderStringName(providerNo) + "','" + getNumeratorCount() + "','" + getDenominatorCount() + "','" + getPercentageInt() + "'";
-        } else {
-            csv = "'" + getNumeratorCount() + "','" + getDenominatorCount() + "','" + getPercentageInt() + "'";
+            cells.add(getProviderStringName(providerNo));
         }
-
-        return csv;
+        cells.add(String.valueOf(getNumeratorCount()));
+        cells.add(String.valueOf(getDenominatorCount()));
+        cells.add(String.valueOf(getPercentageInt()));
+        return CSVFormat.DEFAULT.format(cells.stream().map(SpreadsheetCsv::sanitizeCell).toArray());
     }
 
 
