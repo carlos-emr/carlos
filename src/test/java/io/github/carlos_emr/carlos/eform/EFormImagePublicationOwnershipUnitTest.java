@@ -73,7 +73,7 @@ class EFormImagePublicationOwnershipUnitTest {
         try (var workers = Executors.newFixedThreadPool(2)) {
             var failingImport = workers.submit(() -> {
                 try (MockedStatic<ImageUpload2Action> folder = mockStatic(ImageUpload2Action.class);
-                     MockedStatic<Files> filesystem = mockStatic(Files.class, call -> {
+                     var _ = mockStatic(Files.class, call -> {
                          if (call.getMethod().getName().equals("createLink")) {
                              if (publicationCount.incrementAndGet() > 1) throw failure;
                              Object linked = call.callRealMethod();

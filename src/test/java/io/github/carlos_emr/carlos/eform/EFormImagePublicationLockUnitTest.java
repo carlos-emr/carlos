@@ -79,7 +79,8 @@ class EFormImagePublicationLockUnitTest {
         Path retained = Files.writeString(outside.resolve("retained.txt"), "FAKE preexisting bytes");
         Files.createDirectories(marker().getParent());
         Files.createSymbolicLink(marker(), retained);
-        assertThatThrownBy(() -> EFormImagePublicationLock.acquire(images.toFile()))
+        var imageDirectory = images.toFile();
+        assertThatThrownBy(() -> EFormImagePublicationLock.acquire(imageDirectory))
                 .isInstanceOf(SecurityException.class);
         assertThat(Files.readString(retained)).isEqualTo("FAKE preexisting bytes");
         Files.delete(marker());

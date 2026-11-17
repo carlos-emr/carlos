@@ -125,7 +125,7 @@ class ManageEFormImportErrorsUnitTest extends CarlosUnitTestBase {
         Path archive = Files.createFile(temporary.resolve("unreadable-entry.zip"));
         var failure = new java.io.IOException("FAKE-private-archive-name\nFAKE-forged-log-line");
         try (var capture = LogCapture.forLogger(ManageEForm2Action.class);
-             var importer = mockConstruction(EFormExportZip.class, (mock, context) ->
+             var _ = mockConstruction(EFormExportZip.class, (mock, context) ->
                      when(mock.importForm(any())).thenThrow(failure))) {
             assertThat(action(archive).execute()).isEqualTo("fail");
             var warnings = capture.events().stream()
@@ -142,7 +142,7 @@ class ManageEFormImportErrorsUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldKeepWarnings_onTheImportPage() throws Exception {
         Path archive = Files.createFile(temporary.resolve("warnings.zip"));
-        try (var importer = mockConstruction(EFormExportZip.class, (mock, context) ->
+        try (var _ = mockConstruction(EFormExportZip.class, (mock, context) ->
                 when(mock.importForm(any())).thenReturn(List.of("Synthetic invalid form")))) {
             assertThat(action(archive).execute()).isEqualTo("fail");
             assertThat(request.getAttribute("importErrors")).isEqualTo(List.of("Synthetic invalid form"));
@@ -153,7 +153,7 @@ class ManageEFormImportErrorsUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldKeepSuccess_afterAnAcceptedImport() throws Exception {
         Path archive = Files.createFile(temporary.resolve("accepted.zip"));
-        try (var importer = mockConstruction(EFormExportZip.class, (mock, context) ->
+        try (var _ = mockConstruction(EFormExportZip.class, (mock, context) ->
                 when(mock.importForm(any())).thenReturn(List.of()))) {
             assertThat(action(archive).execute()).isEqualTo("success");
             assertThat(request.getAttribute("status")).isEqualTo("success");
@@ -164,7 +164,8 @@ class ManageEFormImportErrorsUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldDenyImport_beforeReadingAnUpload() {
         when(security.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
-        assertThatThrownBy(() -> action(temporary.resolve("missing.zip")).execute())
+        ManageEForm2Action denied = action(temporary.resolve("missing.zip"));
+        assertThatThrownBy(denied::execute)
                 .isInstanceOf(SecurityException.class);
         assertThat(request.getAttribute("importErrors")).isNull();
     }

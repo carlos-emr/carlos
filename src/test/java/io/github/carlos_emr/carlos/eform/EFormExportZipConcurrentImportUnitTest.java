@@ -128,7 +128,7 @@ class EFormExportZipConcurrentImportUnitTest {
         // Root CI bypasses directory permissions. Inject only the later failed link;
         // the earlier hard link, inode identity checks and rollback remain real.
         try (MockedStatic<ImageUpload2Action> folder = mockStatic(ImageUpload2Action.class);
-             MockedStatic<Files> filesystem = mockStatic(Files.class, call -> {
+             var _ = mockStatic(Files.class, call -> {
                  if (call.getMethod().getName().equals("createLink")
                          && calls.incrementAndGet() == 2) {
                      refused.incrementAndGet();
@@ -169,7 +169,7 @@ class EFormExportZipConcurrentImportUnitTest {
         Path owned = Files.createLink(blocked.resolve("owned.bin"), source);
         var denied = new java.nio.file.AccessDeniedException(owned.toString());
         // Keep a real published inode and refuse only its unlink, independently of UID.
-        try (MockedStatic<Files> filesystem = mockStatic(Files.class, call -> {
+        try (var _ = mockStatic(Files.class, call -> {
             if (call.getMethod().getName().equals("delete") && owned.equals(call.getArgument(0))) throw denied;
             return call.callRealMethod();
         })) {
