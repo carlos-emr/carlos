@@ -148,13 +148,14 @@ def main() -> int:
     try:
         with log_path.open("w") as log:
 
-            def execute(command, *, capture=False, check=True):
+            def execute(command, *, capture=False, check=True, timeout=None):
                 return subprocess.run(
                     command,
                     text=True,
                     stdout=subprocess.PIPE if capture else log,
                     stderr=log,
                     check=check,
+                    timeout=timeout,
                 )
 
             def build(command, **kw):

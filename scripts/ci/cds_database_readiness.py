@@ -1,6 +1,7 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 """Wait for the final daemon of an owned MariaDB container, not its init server."""
 import time
+import subprocess
 
 
 def database_client(docker, database, defaults_file):
@@ -15,7 +16,17 @@ def wait_for_database(client, execute, *, monotonic=time.monotonic, sleep=time.s
     if '--protocol=TCP' not in client or '--host=127.0.0.1' not in client:
         raise RuntimeError('Owned database readiness requires its final TCP listener')
     deadline = monotonic() + 90
-    while execute(client + ['-e', 'SELECT 1'], check=False).returncode:
-        if monotonic() > deadline:
+    while True:
+        remaining = deadline - monotonic()
+        if remaining <= 0:
             raise RuntimeError('Owned MariaDB startup timeout')
-        sleep(1)
+        try:
+            result = execute(client + ['-e', 'SELECT 1'], check=False, timeout=remaining)
+        except subprocess.TimeoutExpired as failure:
+            raise RuntimeError('Owned MariaDB startup timeout') from failure
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            raise RuntimeError('Owned MariaDB startup timeout')
+        if result.returncode == 0:
+            return
+        sleep(min(1, remaining))
