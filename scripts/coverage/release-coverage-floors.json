@@ -2321,10 +2321,10 @@
       "branches": 91.66666666666667
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/printing/PrivacyStatementAppendingFilter.java": {
-      "lines": 92.6829268292683,
-      "instructions": 92.96875,
-      "branches": 86.95652173913044,
-      "sourceBlob": "6ac5badd4695eef41056b37927557714c65628b9"
+      "lines": 95.1219512195122,
+      "instructions": 95.26184538653366,
+      "branches": 90.54054054054055,
+      "sourceBlob": "038539604e77916afbb869414227f362bfd6f894"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/service/FieldNoteManager.java": {
       "lines": 0.0,
