@@ -58,6 +58,7 @@ import static org.mockito.Mockito.*;
 @ContextConfiguration(classes = DemographicWebUnmergeIntegrationTest.Config.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Tag("integration")
+@Tag("mariadb-native")
 class DemographicWebUnmergeIntegrationTest {
     @Autowired private DataSource dataSource;
     @Autowired private DemographicDao patients;
