@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.doAnswer;
@@ -141,6 +142,8 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     void shouldFileTheWholeResult_whenAnAbsentFilterMeetsALineBreak(String result) {
         LocalDateTime entered = LocalDateTime.parse("2026-10-13T10:05:19");
         Measurement absent = fileResult(result, null, "2026-10-09 11:20:29", entered);
+        // fileResult checks that one filing persisted at most one measurement: start the count again for the second.
+        clearInvocations(measurementDao);
         Measurement blank = fileResult(result, "", "2026-10-09 11:20:29", entered);
         assertThat(absent.getDataField()).isEqualTo(result);
         assertThat(absent.getDataField()).isEqualTo(blank.getDataField());
