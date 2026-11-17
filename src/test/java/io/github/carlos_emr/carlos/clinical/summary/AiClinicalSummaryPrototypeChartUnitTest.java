@@ -112,7 +112,10 @@ class AiClinicalSummaryPrototypeChartUnitTest extends CarlosUnitTestBase {
                 .contains("medications_unavailable", "allergies_unavailable", "notes_unavailable");
         verifyNoInteractions(medications, allergies);
         verify(notes, never()).getNotes(anyString());
-        logActionMock.verify(() -> LogAction.addLogSynchronous(user, "ClinicalSummary.read", "demographicNo=42"));
+        // A chart-level row: the patient is the key and there is no document id.
+        logActionMock.verify(() -> LogAction.addLogSynchronous(user, "ClinicalSummary.read",
+                io.github.carlos_emr.carlos.log.LogConst.CON_AI_CLINICAL_SUMMARY, null, 42, "demographicNo=42"));
+        logActionMock.verify(() -> LogAction.addLogSynchronous(any(), anyString(), anyString()), never());
     }
 
     @Test

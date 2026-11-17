@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.admin.web;
 import java.sql.Timestamp;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.Properties;
 import java.util.Vector;
 
@@ -34,6 +35,7 @@ import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.ProviderData;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -82,6 +84,10 @@ import org.apache.struts2.ServletActionContext;
  * @since 2026-04-05
  */
 public class LogReport2Action extends ActionSupport {
+    /** Content values the report may filter on literally; anything else means every content type. */
+    static final Set<String> FILTERABLE_CONTENT = Set.of("login", "admin",
+            LogConst.CON_AI_CHART_UPDATE, LogConst.CON_AI_CLINICAL_SUMMARY, LogConst.CON_AI_DOCUMENT_SUMMARY);
+
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private ProviderDataDao providerDataDao = SpringUtils.getBean(ProviderDataDao.class);
@@ -144,11 +150,11 @@ public class LogReport2Action extends ActionSupport {
             String providerNo = request.getParameter("providerNo");
             boolean bAll = "*".equals(providerNo);
 
-            // Allowlist the content parameter — only known values pass through literally;
+            // Allowlist the content parameter (FILTERABLE_CONTENT) — only known values pass through literally;
             // everything else becomes a wildcard.
             String contentParam = request.getParameter("content");
             String content;
-            if ("login".equals(contentParam) || "admin".equals(contentParam)) {
+            if (contentParam != null && FILTERABLE_CONTENT.contains(contentParam)) {
                 content = contentParam;
             } else {
                 content = "%";

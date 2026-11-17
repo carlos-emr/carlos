@@ -11,6 +11,7 @@ import io.github.carlos_emr.carlos.clinical.summary.SyntheticSummaryScope;
 import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryGenerationService;
 import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryGenerationException;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -107,7 +108,8 @@ public final class AiClinicalSummaryPrototype2Action extends ActionSupport {
                         response.sendError(HttpServletResponse.SC_FORBIDDEN);
                         return NONE;
                     }
-                    LogAction.addLogSynchronous(user, "ClinicalSummary.generate", "demographicNo=" + demographicNo);
+                    LogAction.addLogSynchronous(user, "ClinicalSummary.generate", LogConst.CON_AI_CLINICAL_SUMMARY, null,
+                            demographicNo, "demographicNo=" + demographicNo);
                     try {
                         ClinicalSummaryArtifact draft = (generator == null ? new ClinicalSummaryGenerationService() : generator)
                                 .generate(artifact);
@@ -127,7 +129,8 @@ public final class AiClinicalSummaryPrototype2Action extends ActionSupport {
                         artifact = selected.load(user, ClinicalSummaryRequest.chart(demographicNo));
                         request.setAttribute("summaryGenerationAllowed", SyntheticSummaryScope.isEligible(artifact));
                         request.setAttribute("summaryGenerationError", rejected.getMessage());
-                        LogAction.addLogSynchronous(user, "ClinicalSummary.generateRejected", "demographicNo=" + demographicNo);
+                        LogAction.addLogSynchronous(user, "ClinicalSummary.generateRejected", LogConst.CON_AI_CLINICAL_SUMMARY,
+                                null, demographicNo, "demographicNo=" + demographicNo);
                     } catch (IllegalArgumentException configuration) {
                         artifact = selected.load(user, ClinicalSummaryRequest.chart(demographicNo));
                         request.setAttribute("summaryGenerationAllowed", SyntheticSummaryScope.isEligible(artifact));
