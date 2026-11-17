@@ -42,7 +42,7 @@ function fixtureHtml() {
     (_, row) => facilities.map((facility, index) => expressions(row, facility, index + 1)).join(''));
   body = expressions(body);
   assert.ok(!/<%|\$\{|<\/?c:/.test(body), 'Unrendered JSP/JSTL in fixture');
-  return '<!doctype html><html><head><meta charset="UTF-8"></head><body>' + body + '</body></html>';
+  return body;
 }
 let browser;
 before(async () => { browser = await chromium.launch({headless: true,

@@ -1,3 +1,4 @@
+<%@ page pageEncoding="UTF-8" contentType="text/html;charset=UTF-8" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%--
 
@@ -29,6 +30,13 @@
 
 --%>
 <%@ include file="/taglibs.jsp" %>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Facilities management</title>
+</head>
+<body>
 
 <script>
     function ConfirmDelete(name) {
@@ -107,3 +115,5 @@
             href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=add">
         Add new facility </a></p>
 </div>
+</body>
+</html>

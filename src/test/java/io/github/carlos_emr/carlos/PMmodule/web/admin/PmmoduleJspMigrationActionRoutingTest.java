@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.VacancyDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
@@ -109,6 +110,8 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
         replaceSpringUtilsBean(ProviderManager.class, providerManager);
         replaceSpringUtilsBean(VacancyTemplateManager.class, vacancyTemplateManager);
         replaceSpringUtilsBean(FacilityDao.class, facilityDao);
+        replaceSpringUtilsBean(AdmissionDao.class, admissionDao);
+        replaceSpringUtilsBean(DemographicDao.class, demographicDao);
         replaceSpringUtilsBean(FunctionalCentreDao.class, functionalCentreDao);
         replaceSpringUtilsBean(RolesManager.class, rolesManager);
         replaceSpringUtilsBean(CaseManagementManager.class, caseManagementManager);
@@ -161,13 +164,7 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
     }
 
     private FacilityManager2Action newFacilityManagerAction() {
-        FacilityManager2Action action = new FacilityManager2Action();
-        action.setFacilityDao(facilityDao);
-        action.setProgramManager(programManager);
-        action.setLookupManager(lookupManager);
-        action.setAdmissionDao(admissionDao);
-        action.setDemographicDao(demographicDao);
-        return action;
+        return new FacilityManager2Action();
     }
 
     @Test
@@ -347,6 +344,20 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
 
         assertThat(viewWrapper).contains("Function User");
         assertThat(viewWrapper).contains("/WEB-INF/jsp/PMmodule/Admin/ProgramView/function_user.jsp");
+    }
+
+    @Test
+    @DisplayName("FacilityManager should resolve its Spring dependencies when Struts constructs the action")
+    void shouldListFacilitiesWithoutManualSetterInjection() throws Exception {
+        Facility facility = new Facility("FAKE facility", "FAKE contact");
+        facility.setId(5);
+        when(facilityDao.findAll(true)).thenReturn(List.of(facility));
+        String result = executeAction(newFacilityManagerAction());
+        assertThat(result).isEqualTo("list");
+        assertThat(getMockRequest().getAttribute("facilities")).isEqualTo(List.of(facility));
+        assertThat(getMockRequest().getAttribute("orgList")).isNotNull();
+        assertThat(getMockRequest().getAttribute("sectorList")).isNotNull();
+        verifySecurityCheck("_admin", "r");
     }
 
     @Test
