@@ -78,8 +78,9 @@ public class RptDownloadCSVServlet extends HttpServlet {
      * Answers a download whose report could not be generated: status 500, nothing partial sent.
      *
      * <p>A configured_report.* limit refusal is the user's to fix (narrow the report, or ask for the limit
-     * to be raised), not a defect: it is logged once, as a warning naming the setting and its value without
-     * the trace, and the error page names the limit. Any other failure is logged as an error with its trace.</p>
+     * to be raised), not a defect: this servlet logs it once, as a warning naming the setting and its value
+     * without the trace, and the error page names the limit. Any other failure is logged as an error with its
+     * trace. (The container's error page adds its own generic line for every error status.)</p>
      */
     private static void reportFailed(HttpServletRequest request, HttpServletResponse response, String failureMessage,
                                      Exception failure) throws IOException {
@@ -116,6 +117,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
         // configured_report.max_csv_mb, read for each download; MAX_CSV_EXPORT_BYTES is its default.
         int maximumMb = ConfiguredReportQuery.Limit.CSV.configured();
         if (bytes.length > (long) maximumMb * 1024 * 1024) {
+            // The same refusal as a query limit: one warning naming the setting, no trace.
+            _logger.warn("Report download refused by its {} limit of {}", ConfiguredReportQuery.Limit.CSV.setting(), maximumMb);
             ReportLimitNotice.publish(request, ConfiguredReportQuery.Limit.CSV, maximumMb);
             response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
                     ConfiguredReportQuery.Limit.CSV.english(maximumMb));

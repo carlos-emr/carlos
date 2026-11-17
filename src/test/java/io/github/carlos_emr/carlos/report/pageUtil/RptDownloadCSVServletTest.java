@@ -522,7 +522,12 @@ class RptDownloadCSVServletTest {
         request.setParameter("demoReport", "true"); request.setParameter("last_name", "on");
         addFilter(request, 1, "demographic.demographic_no=42", "unused", "");
         var response = new org.springframework.mock.web.MockHttpServletResponse();
-        new RptDownloadCSVServlet().service(request, response);
+        try (LogCapture log = LogCapture.forLogger(RptDownloadCSVServlet.class)) {
+            new RptDownloadCSVServlet().service(request, response);
+            assertThat(messages(log, Level.WARN))
+                    .containsExactly("Report download refused by its configured_report.max_csv_mb limit of 5");
+            assertThat(messages(log, Level.ERROR)).isEmpty();
+        }
         assertThat(response.getStatus()).isEqualTo(413);
         assertThat(response.getContentAsString()).isEmpty();
         // The refusal names the download limit, for the log and for the error page.
@@ -642,6 +647,30 @@ class RptDownloadCSVServletTest {
                     .singleElement().satisfies(event -> assertThat(event.getThrown()).hasRootCause(failure));
         }
         assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(request.getAttribute("carlosReportLimitKey")).isNull();
+    }
+
+    @Test
+    void shouldLogOneErrorWithTrace_whenADemographicReportFailsForAnotherReason() throws Exception {
+        var failure = new java.sql.SQLException("synthetic read failure");
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(
+                        org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(Object[].class)))
+                .thenThrow(failure);
+        var request = baseRequest(); request.getSession(true);
+        request.setParameter("demoReport", "true"); request.setParameter("last_name", "on");
+        addFilter(request, 1, "demographic.demographic_no=42", "unused", "");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        try (LogCapture log = LogCapture.forLogger(RptDownloadCSVServlet.class)) {
+            new RptDownloadCSVServlet().service(request, response);
+
+            assertThat(messages(log, Level.WARN)).isEmpty();
+            assertThat(messages(log, Level.ERROR)).containsExactly("RptDownloadCSVServlet service() - report generation failed");
+            assertThat(log.events()).filteredOn(event -> event.getLevel() == Level.ERROR)
+                    .singleElement().satisfies(event -> assertThat(event.getThrown()).isSameAs(failure));
+        }
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getErrorMessage()).isEqualTo("Unable to generate report");
+        assertThat(response.getContentAsString()).isEmpty();
         assertThat(request.getAttribute("carlosReportLimitKey")).isNull();
     }
 
