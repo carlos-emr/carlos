@@ -37,13 +37,19 @@
 package io.github.carlos_emr.carlos.prevention.pageUtil;
 
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.openpdf.text.DocumentException;
 import org.apache.logging.log4j.Logger;
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -51,60 +57,110 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 
 /**
- * Struts2 action that generates a PDF of selected prevention/immunization records for a patient.
+ * Struts2 action behind the Preventions page's Print and Print Immunizations Only buttons.
  *
- * <p>Delegates PDF generation to {@link PreventionPrintPdf} and streams the result directly
- * to the HTTP response as an {@code application/pdf} attachment. Requires the
- * {@code _prevention} read privilege.</p>
+ * <p>The request names the patient ({@code demographicNo}), the ticked prevention types
+ * ({@code printHP}, one value per type name) and whether to leave screenings out
+ * ({@code immunizationOnly=true}). Everything printed is read from the chart by
+ * {@link PreventionPrintLoader}; chart values posted with the request are ignored. Requires the
+ * {@code _prevention} read privilege, and {@code _demographic} read for the patient through the
+ * loader.</p>
  *
+ * <p>The PDF is drawn into a buffer and checked before any header is set, so a failure can
+ * still answer the Preventions page with its "An error occurred while trying to print" banner
+ * (the {@code error} result) instead of a download whose body is that page's HTML: 400 when
+ * nothing printable was selected, 500 when drawing failed. A malformed or unknown patient
+ * number is answered with 400 and no page.</p>
+ *
+ * @see PreventionPrintLoader
  * @see PreventionPrintPdf
- * @see PreventionDisplayConfig
  * @since 2007-03-14
  */
-import org.apache.struts2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
-
 public class PreventionPrint2Action extends ActionSupport {
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
 
-    private static Logger logger = MiscUtils.getLogger();
+    private static final Logger logger = MiscUtils.getLogger();
+    private static final Pattern DEMOGRAPHIC_NO = Pattern.compile("[1-9]\\d{0,9}");
+    private static final byte[] PDF_MAGIC = "%PDF-".getBytes(StandardCharsets.ISO_8859_1);
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient PreventionPrintLoader printLoader;
+    private final transient Supplier<PreventionPrintPdf> pdfFactory;
 
     public PreventionPrint2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class), new PreventionPrintLoader(), PreventionPrintPdf::new);
+    }
+
+    PreventionPrint2Action(SecurityInfoManager securityInfoManager, PreventionPrintLoader printLoader,
+                           Supplier<PreventionPrintPdf> pdfFactory) {
+        this.securityInfoManager = securityInfoManager;
+        this.printLoader = printLoader;
+        this.pdfFactory = pdfFactory;
     }
 
     /**
-     * Validates security privileges and generates the prevention PDF.
+     * Prints the ticked prevention types of the patient as a PDF download.
      *
-     * @return String {@code NONE} on success (response written directly), or {@code "error"} if
-     *         PDF generation fails due to a {@link DocumentException} or {@link IOException}
+     * @return {@code NONE} when the PDF, or a 400 for a malformed or unknown patient, was
+     *         written; {@code "error"} to show the Preventions page with its print error banner
+     * @throws IOException if the response cannot be written
      * @throws SecurityException if the logged-in user lacks {@code _prevention} read privilege
      */
-    public String execute() {
+    @Override
+    public String execute() throws IOException {
+        HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_prevention", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", "r", null)) {
             throw new SecurityException("missing required sec object (_prevention)");
         }
 
+        String demographicNo = request.getParameter("demographicNo");
+        if (demographicNo == null || !DEMOGRAPHIC_NO.matcher(demographicNo).matches()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid demographic number");
+            return NONE;
+        }
+        boolean immunizationsOnly = "true".equals(request.getParameter("immunizationOnly"));
 
+        PreventionPrintLoader.Printout printout;
         try {
-            PreventionPrintPdf pdf = new PreventionPrintPdf();
-            pdf.printPdf(request, response);
-
-        } catch (DocumentException de) {
-            logger.error("", de);
-            request.setAttribute("printError", Boolean.valueOf(true));
-            return "error";
-        } catch (IOException ioe) {
-            logger.error("", ioe);
-            request.setAttribute("printError", Boolean.valueOf(true));
-            return "error";
+            printout = printLoader.load(loggedInInfo, demographicNo, request.getParameterValues("printHP"), immunizationsOnly);
+        } catch (IllegalArgumentException _) {
+            // No patient has that number (or it is not a number).
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Patient not found");
+            return NONE;
+        }
+        if (printout.sections().isEmpty()) {
+            return printError(request, response, HttpServletResponse.SC_BAD_REQUEST);
         }
 
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        try {
+            pdfFactory.get().printPdf(printout, buffer);
+        } catch (IOException | RuntimeException generationFailure) {
+            // OpenPDF's DocumentException is a RuntimeException.
+            // The exception names no patient data; the identifiers stay out of the log.
+            logger.error("Unable to generate the prevention print", generationFailure);
+            return printError(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        }
+        byte[] pdf = buffer.toByteArray();
+        if (pdf.length < PDF_MAGIC.length || !Arrays.equals(Arrays.copyOf(pdf, PDF_MAGIC.length), PDF_MAGIC)) {
+            logger.error("The prevention print produced {} bytes that are not a PDF", pdf.length);
+            return printError(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        }
+
+        response.setContentType("application/pdf");
+        response.setHeader("Content-Disposition", "attachment; filename=\"Prevention.pdf\"");
+        response.setContentLength(pdf.length);
+        response.getOutputStream().write(pdf);
         return NONE;
+    }
+
+    /** Shows the Preventions page with its print error banner; nothing has been written yet. */
+    private static String printError(HttpServletRequest request, HttpServletResponse response, int status) {
+        request.setAttribute("printError", Boolean.TRUE);
+        response.setStatus(status);
+        return ERROR;
     }
 
 }

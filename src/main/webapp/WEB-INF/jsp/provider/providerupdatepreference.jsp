@@ -110,7 +110,17 @@
 
             String selected_site = (String) request.getParameter("site");
             if (selected_site != null) {
-                session.setAttribute("site_selected", (selected_site.equals("none") ? null : selected_site));
+                // Only a clinic this login's clinic selector offers may be remembered: every active site, or under
+                // site or team access privacy the login's own. Anything else, "none" included, is All Clinics.
+                String offeredSite = null;
+                if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) {
+                    offeredSite = io.github.carlos_emr.carlos.commn.SiteChoice.offeredOrNull(selected_site,
+                            io.github.carlos_emr.carlos.commn.SiteChoice.offeredSites(
+                                    SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.SiteDao.class),
+                                    loggedInInfo.getLoggedInProviderNo(),
+                                    io.github.carlos_emr.carlos.commn.SiteChoice.hasAccessPrivacy(securityInfoManager, loggedInInfo)));
+                }
+                session.setAttribute("site_selected", offeredSite);
             }
 
             boolean saveSuccess = false;

@@ -45,6 +45,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <html>
 <head>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <style type="text/css">
@@ -156,30 +157,37 @@
         }
 
         function reSubmit(resourceId, control) {
+            // Without the token helper the POST would only be refused (403): say so,
+            // and undo any busy state the click set, so the button is not left stuck (#4130).
+            if (typeof carlosPostForm !== 'function') {
+                alert('This page did not finish loading. Please reload it and try again.');
+                if (control) {
+                    control.disabled = false;
+                }
+                if (typeof HideSpin === 'function') {
+                    HideSpin();
+                }
+                return false;
+            }
             if (control) {
                 control.disabled = true;
             }
 
-            var form = document.getElementById('reSubmitForm');
-            if (!form) {
-                form = document.createElement('form');
-                form.id = 'reSubmitForm';
-                form.method = 'post';
-                form.style.display = 'none';
-                var input1 = document.createElement('input');
-                input1.type = 'hidden';
-                input1.name = 'resourceId';
-                form.appendChild(input1);
-                var input2 = document.createElement('input');
-                input2.type = 'hidden';
-                input2.name = 'serviceId';
-                form.appendChild(input2);
-                document.body.appendChild(form);
-            }
-            form.action = "<%= request.getContextPath() %>/mcedt/reSubmit";
-            form.elements['resourceId'].value = resourceId;
-            form.elements['serviceId'].value = jQuery("#serviceId").val();
-            form.submit();
+            // A fresh form per click: the token may still be loading, and a
+            // shared form would let a second click overwrite the first one's
+            // resourceId before it is sent. carlosPostForm attaches the CSRF
+            // token, which CSRFGuard cannot inject into a runtime-built form
+            // in time (#4130).
+            carlosPostForm("${carlos:forJavaScript(pageContext.request.contextPath)}/mcedt/reSubmit",
+                {resourceId: resourceId, serviceId: jQuery("#serviceId").val()}).catch(function () {
+                // No token, so nothing was sent and the page stays: undo the busy state.
+                if (control) {
+                    control.disabled = false;
+                }
+                if (typeof HideSpin === 'function') {
+                    HideSpin();
+                }
+            });
             return false;
 
         }

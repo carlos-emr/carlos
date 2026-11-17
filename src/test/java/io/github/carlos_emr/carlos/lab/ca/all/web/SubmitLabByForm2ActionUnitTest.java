@@ -44,7 +44,7 @@ import static org.mockito.Mockito.mockStatic;
 
 /**
  * Unit tests for {@link SubmitLabByForm2Action}, focused on the null guard
- * for HL7 generation and PHI-safe MSH segment extraction.
+ * for HL7 generation and protection of request-derived data in logs.
  *
  * @since 2026-04-03
  */
@@ -60,6 +60,7 @@ class SubmitLabByForm2ActionUnitTest extends CarlosWebTestBase {
     void setUp() throws Exception {
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         allowPrivilege("_lab", "w");
+        mockRequest.setMethod("POST");
 
         action = new SubmitLabByForm2Action();
 
@@ -110,11 +111,20 @@ class SubmitLabByForm2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should extract only MSH segment when HL7 uses LF separators")
-    void shouldExtractOnlyMshSegment_whenHL7UsesLfSeparators() throws Exception {
-        // Given — HL7 with \n separators (as all three generators produce)
-        // MSH is safe metadata; PID contains PHI (name, HIN, DOB)
-        String msh = "MSH|^~\\&|CML|CML|OSCAR|OSCAR|20260403100000||ORU^R01|BAR260403100000|P|2.3|||ER|AL";
+    void shouldRejectMutation_whenRequestUsesGet() throws Exception {
+        mockRequest.setMethod("GET");
+        cmlGeneratorMock = mockStatic(CMLLabHL7Generator.class);
+        assertThat(executeActionMethod(action, "saveManage")).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(405);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        cmlGeneratorMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should not log any generated HL7 fields")
+    void shouldNotLogHl7Fields_whenLabIsGenerated() throws Exception {
+        // MSH can also contain sender-supplied fields, so neither segment is safe to log.
+        String msh = "MSH|^~\\&|private-sender|CML|OSCAR|OSCAR|20260403100000||ORU^R01|BAR260403100000|P|2.3|||ER|AL";
         String pid = "PID||||1234567890|Test^Patient||19900101|M|||||555-0100||||||X1234567890";
         String hl7WithLf = msh + "\n" + pid + "\n";
 
@@ -124,20 +134,20 @@ class SubmitLabByForm2ActionUnitTest extends CarlosWebTestBase {
         // Stop immediately after the log statement so this test never writes to the configured
         // DOCUMENT_DIR or invokes the downstream lab import infrastructure.
         try (MockedStatic<Utilities> utilitiesMock = mockStatic(Utilities.class);
-                LogCapture logCapture = LogCapture.forLogger(SubmitLabByForm2Action.class)) {
+                LogCapture logs = LogCapture.forLogger(SubmitLabByForm2Action.class)) {
             utilitiesMock.when(() -> Utilities.saveFile(any(InputStream.class), anyString()))
-                    .thenThrow(new IllegalStateException("stop after HL7 metadata logging"));
+                    .thenThrow(new IllegalStateException("stop after HL7 generation logging"));
 
             assertThatThrownBy(() -> executeActionMethod(action, "saveManage"))
                     .isInstanceOf(InvocationTargetException.class)
                     .hasCauseInstanceOf(IllegalStateException.class);
 
-            assertThat(logCapture.messages()).anySatisfy(message -> {
-                assertThat(message).contains("HL7 generated", "MSH=", "CML|CML|OSCAR|OSCAR");
-                assertThat(message).doesNotContain("PID");
-                assertThat(message).doesNotContain("Test^Patient");
-                assertThat(message).doesNotContain("1234567890");
-            });
+            assertThat(logs.messages()).contains("HL7 generated for lab submission");
+            assertThat(String.join("\n", logs.messages()))
+                    // Every PHI-bearing value in the generated MSH/PID segments, plus the raw
+                    // request values they were built from (DOB, accession, billing number).
+                    .doesNotContain("private-sender", "BAR260403100000", "Test^Patient", "1234567890",
+                            "19900101", "555-0100", "X1234567890", "1990-01-01", "ACC001", "B001");
         }
     }
 }

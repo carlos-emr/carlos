@@ -169,7 +169,8 @@ class RemovedJspReferenceRegressionTest {
                 .contains("<carlos:encode value='<%= StringUtils.trimToEmpty((String) relHash.get(\"firstName\")) %>' context=\"html\"/>")
                 .contains("<carlos:encode value='<%= dContact.getRole() %>' context=\"html\"/>")
                 .contains("<carlos:encode value='<%= dContact.getContactName() %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= demographic.getRosterStatusDisplay() %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= demographic.getRosterStatusDisplay("
+                        + "LocaleUtils.resolveBundleLocale(request)) %>' context=\"html\"/>")
                 .contains("<carlos:encode value='<%= demographic.getPatientStatus() %>' context=\"html\"/>")
                 .contains("<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getChartNo()) %>' context=\"html\"/>")
                 .contains("<carlos:encode value='<%= OtherIdManager.getDemoOtherId(demographic_no, \"meditech_id\") %>' context=\"html\"/>")
@@ -222,13 +223,34 @@ class RemovedJspReferenceRegressionTest {
     }
 
     @Test
+    @DisplayName("Security update should archive admin security changes through SecurityManager")
+    void shouldRouteAdminSecurityUpdates_throughSecurityManagerInSecurityUpdateAction() throws IOException {
+        // The write moved from the JSP into SecurityUpdate2Action (#4225); the view only reports it.
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/securityupdate.jsp"));
+        String action = Files.readString(Path.of(
+                "src/main/java/io/github/carlos_emr/carlos/admin/web/SecurityUpdate2Action.java"));
+
+        assertThat(jsp)
+                .doesNotContain("SecurityDao")
+                .doesNotContain("updateSecurityRecord")
+                .doesNotContain("saveEntity");
+        assertThat(action)
+                .contains("securityManager.updateSecurityRecord(LoggedInInfo.getLoggedInInfoFromSession(request), row);")
+                // A record the manager would refuse is refused first, with the form's failure message.
+                .contains("SecurityUpdatePasswordValidator.isUnchanged(password)")
+                .doesNotContain("saveEntity(");
+    }
+
+    @Test
     @DisplayName("Lab forwarding JSP should load jQuery for standalone popup use")
     void shouldLoadJqueryBeforeInlineScript_inLabForwardingJsp() throws IOException {
         String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/labforwardingrules.jsp"), StandardCharsets.UTF_8);
 
         assertThat(jsp.indexOf("/library/jquery/jquery-3.7.1.min.js"))
                 .isPositive()
-                .isLessThan(jsp.indexOf("$(\"#providers-selection\")"));
+                .isLessThan(jsp.indexOf("$(\"#provider-selection\")"));
+        // The select is #provider-selection; a handler on #providers-selection never fires (#4131).
+        assertThat(jsp).doesNotContain("#providers-selection");
     }
 
     @Test

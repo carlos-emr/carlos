@@ -109,7 +109,20 @@ async function clickOpensPopup(page, locator, options = {}) {
     await target.scrollIntoViewIfNeeded({ timeout }).catch(() => {});
     // Some menus close their own window in the click handler. Their callers
     // can skip waiting on that opener; the popup is still awaited below.
-    await target.click({ timeout, noWaitAfter: options.closesOpener === true });
+    // options.position lets a caller click a specific point of the target, for links whose
+    // centre sits under a sibling overlay (the eChart navbar's "...date" suffix). Omitted, the
+    // key stays absent so Playwright clicks the centre.
+    const click = { timeout, noWaitAfter: options.closesOpener === true };
+    if (options.position) click.position = options.position;
+    try {
+      await target.click(click);
+    } catch (error) {
+      // Chromium can acknowledge the menu's window.close() before acknowledging
+      // the click, even with noWaitAfter. Accept only this explicit opt-in and
+      // actual opener closure; a real, healthy popup is still required below.
+      if (options.closesOpener !== true || !page.isClosed()
+        || !/Target page, context or browser has been closed/.test(error.message)) throw error;
+    }
     popup = await pending.promise;
   } catch (error) {
     await pending.abandon();
@@ -124,6 +137,8 @@ async function clickOpensPopup(page, locator, options = {}) {
   // Playwright page each and kept going, which is how a long run exhausts the
   // browser for a reason unrelated to anything it is testing.
   try {
+    // Named-window helpers can open about:blank before assigning the destination.
+    await popup.waitForURL(url => String(url) !== 'about:blank', { timeout, waitUntil: 'domcontentloaded' });
     await popup.waitForLoadState('domcontentloaded', { timeout });
     await popup.waitForLoadState('networkidle', { timeout }).catch(() => {});
     await assertNotErrorPage(popup, label);
@@ -148,6 +163,8 @@ async function clickOpensPopup(page, locator, options = {}) {
  * the only honest reading of a control whose behaviour is a deployment setting.
  *
  * Returns { page, isPopup }. The caller closes the page only when isPopup.
+ * checkErrorPage defaults to true; an aggregate audit may pass false and record
+ * the destination's error page itself before continuing with its next control.
  */
 async function clickOpensPopupOrNavigates(page, locator, options = {}) {
   const context = options.context || page.context();
@@ -188,9 +205,10 @@ async function clickOpensPopupOrNavigates(page, locator, options = {}) {
     }
   }
   try {
+    await outcome.page.waitForURL(url => String(url) !== 'about:blank', { timeout, waitUntil: 'domcontentloaded' });
     await outcome.page.waitForLoadState('domcontentloaded', { timeout });
     await outcome.page.waitForLoadState('networkidle', { timeout }).catch(() => {});
-    await assertNotErrorPage(outcome.page, label, options);
+    if (options.checkErrorPage !== false) await assertNotErrorPage(outcome.page, label, options);
     return outcome;
   } catch (error) {
     // The caller never receives a rejected popup. Close it here so the next
@@ -745,6 +763,20 @@ const REQUIRED_SECTIONS = [
   'administration', 'preferences', 'logout',
 ];
 
+/**
+ * Hover the eChart Forms module's "+" (#menuTitle1 a) so its Add Form menu (#menu1) shows.
+ *
+ * The hover is forced. showPopup (share/javascript/popupmenu.js) opens the menu under the cursor (offsets -30/-5),
+ * so after the mouseover the menu's own heading covers the "+", and on a layout where it does Playwright's
+ * actionability re-check never settles ("locator.hover: Timeout", before the check reaches its form). A user simply
+ * lands in the open menu. Callers still prove the entry by finding its link in the menu and clicking it.
+ *
+ * @param {import('playwright').Page} chart the eChart page
+ */
+async function openFormsMenu(chart) {
+  await chart.locator('#menuTitle1 a').hover({ force: true });
+}
+
 module.exports = {
   NAVIGATION,
   REQUIRED_SECTIONS,
@@ -759,6 +791,7 @@ module.exports = {
   expectOpenerRefresh,
   inFrame,
   markOpener,
+  openFormsMenu,
   pathOnly,
   pickDate,
   pressShortcut,

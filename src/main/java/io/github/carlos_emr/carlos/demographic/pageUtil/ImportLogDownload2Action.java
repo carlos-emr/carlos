@@ -63,6 +63,7 @@ public class ImportLogDownload2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
     
+    // Struts creates this action per request; its Spring service is not serialized.
     private final transient SecurityInfoManager securityInfoManager;
 
     public ImportLogDownload2Action(SecurityInfoManager securityInfoManager) {
@@ -106,6 +107,8 @@ public class ImportLogDownload2Action extends ActionSupport {
             }
             
             // Construct the file path within the temp directory
+            // the basename is containment-checked by validateExistingPath below, before opening the stream.
+            // nosemgrep: carlos.httpservlet-path-traversal
             File importLogFile = new File(tempDir, sanitizedFilename);
 
             // Validate using PathValidationUtils to prevent directory traversal

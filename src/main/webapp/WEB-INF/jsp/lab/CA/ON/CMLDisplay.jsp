@@ -144,6 +144,9 @@
 </script>
 
 <body>
+<% if (!lab.versionChainReliable) { %>
+<div class="alert alert-warning" role="alert"><fmt:message key="cml.versionChain.unavailable"/></div>
+<% } %>
 <!-- form forwarding of the lab -->
 <form name="reassignForm" method="post" action="<%= request.getContextPath() %>/lab/CA/ON/Forward"><input
         type="hidden" name="flaggedLabs"
@@ -201,8 +204,7 @@
                             <% } %> <% if (request.getParameter("searchProviderNo") != null) { // we were called from e-chart %>
                             <input type="button"
                                    <c:set var="__enc_1"><carlos:encode value='<%= segmentID %>' context="uriComponent"/></c:set>
-                                   value=" <fmt:message key="oscarMDS.segmen                                   
-tDisplay.btnEChart"/> "
+                                   value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                                    onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=CML&segmentID=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&name=<%=java.net.URLEncoder.encode(lab.pLastName+", "+lab.pFirstName )%>', 'searchPatientWindow')">
                             <% } %>
                             <input type="button" value="Req# <%=reqTableID%>" title="Link to Requisition"
@@ -280,7 +282,7 @@ tDisplay.btnEChart"/> "
                                                                     <% } else { // we were called from lab module %>
                                                                                              <c:set var="__enc_2"><carlos:encode value='<%= segmentID %>' context="uriComponent"/></c:set>
                                                    <a
-                                                                            href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=CML&segmentID=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&name=<%=java.net.URLEncoder.encode(lab.pLastName+", "+lab.pFirstName )%>', 'searchPatientWindow')">
+                                                                            href="${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=CML&amp;segmentID=<carlos:encode value='${__enc_2}' context="htmlAttribute"/>&amp;name=<%=java.net.URLEncoder.encode(lab.pLastName+", "+lab.pFirstName )%>" onclick="popupStart(360, 680, this.href, 'searchPatientWindow'); return false;">
                                                                         <carlos:encode value='<%= lab.pLastName %>' context="html"/>, <carlos:encode value='<%= lab.pFirstName %>' context="html"/>
                                                                     </a> <% } %></div>
                                                             </td>
@@ -637,8 +639,7 @@ tDisplay.btnEChart"/> "
                             <% } %> <% if (request.getParameter("searchProviderNo") != null) { // we were called from e-chart %>
                             <input type="button"
                                    <c:set var="__enc_3"><carlos:encode value='<%= segmentID %>' context="uriComponent"/></c:set>
-                                   value                                   
-=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
+                                   value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                                    onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=CML&segmentID=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&name=<%=java.net.URLEncoder.encode(lab.pLastName+", "+lab.pFirstName )%>', 'searchPatientWindow')">
                             <% } %>
                         </td>

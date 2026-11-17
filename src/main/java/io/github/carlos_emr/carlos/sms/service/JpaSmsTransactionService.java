@@ -1,6 +1,8 @@
 package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.SmsDirection;
+import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
+import io.github.carlos_emr.carlos.sms.SmsProviderErrorCode;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
@@ -19,14 +21,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.Date;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 @Service
@@ -39,23 +44,32 @@ public class JpaSmsTransactionService implements SmsTransactionService {
     private final SmsTransactionDao smsTransactionDao;
     private final ApplicationEventPublisher eventPublisher;
     private final TransactionTemplate inboundWriteTransaction;
+    private final SmsProviderRetirementService retirementService;
 
-    @Autowired
     public JpaSmsTransactionService(
             SmsTransactionDao smsTransactionDao,
             ApplicationEventPublisher eventPublisher,
             PlatformTransactionManager transactionManager
     ) {
+        this(smsTransactionDao, eventPublisher, transactionManager, null);
+    }
+
+    @Autowired
+    public JpaSmsTransactionService(SmsTransactionDao smsTransactionDao, ApplicationEventPublisher eventPublisher,
+                                    PlatformTransactionManager transactionManager,
+                                    SmsProviderRetirementService retirementService) {
         this.smsTransactionDao = smsTransactionDao;
         this.eventPublisher = eventPublisher;
         this.inboundWriteTransaction = new TransactionTemplate(transactionManager);
         this.inboundWriteTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.retirementService = retirementService;
     }
 
     JpaSmsTransactionService(SmsTransactionDao smsTransactionDao, ApplicationEventPublisher eventPublisher) {
         this.smsTransactionDao = smsTransactionDao;
         this.eventPublisher = eventPublisher;
         this.inboundWriteTransaction = null;
+        this.retirementService = null;
     }
 
     @Override
@@ -64,6 +78,10 @@ public class JpaSmsTransactionService implements SmsTransactionService {
                                                 SmsConsentDecisionDto decision) {
         Objects.requireNonNull(command, "command is required");
         Objects.requireNonNull(decision, "decision is required before recording an outbound attempt");
+        if (retirementService != null && !retirementService.admissionAllowed(retirementService.lockSelection(),
+                providerType, command.messagePurpose())) {
+            throw new SmsProviderSelectionChangedException();
+        }
         SmsTransaction transaction = SmsTransaction.outboundAttempt(command, providerType);
         if (decision.allowed()) {
             transaction.recordConsentDecision(decision);
@@ -110,9 +128,35 @@ public class JpaSmsTransactionService implements SmsTransactionService {
     @Transactional
     public SmsTransaction markSending(SmsTransaction transaction, Date attemptAt) {
         Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
+        requireUnretiredClaim(transaction);
         SmsTransaction marked = claimForSending(transaction, attemptAt);
         smsTransactionDao.flush();
         return marked;
+    }
+
+    @Override
+    @Transactional
+    public SmsTransaction renewClaim(SmsTransaction transaction, Date attemptAt) {
+        Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
+        requireUnretiredClaim(transaction);
+        // The caller sends on this claim, so a write the version check dropped must not look like success.
+        AtomicBoolean applied = new AtomicBoolean();
+        SmsTransaction renewed = applyIfVersionMatches(
+                transaction,
+                "renewClaim",
+                row -> {
+                    if (row.getStatus() == SmsStatus.SENDING) {
+                        row.renewSendingClaim(attemptAt);
+                        applied.set(true);
+                    }
+                }
+        );
+        if (!applied.get()) {
+            throw new SmsTransactionClaimConflictException(transaction.getId());
+        }
+        // Run the version-checked update now, even inside a caller's transaction, so a conflict surfaces before any send.
+        smsTransactionDao.flush();
+        return renewed;
     }
 
     @Override
@@ -139,18 +183,78 @@ public class JpaSmsTransactionService implements SmsTransactionService {
     ) {
         Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
         Objects.requireNonNull(providerResult, "providerResult is required");
+        if (retirementService != null) {
+            retirementService.lockSelection();
+            if (retirementService.retired(transaction)) {
+                return failRetiredUnsent(transaction, "retiredRetry");
+            }
+        }
         return applyIfVersionMatches(
                 transaction,
                 "markRetryScheduled",
-                row -> row.markRetryScheduled(providerResult, nextAttemptAt)
+                row -> row.markRetryScheduled(keepNotFoundMarker(row, providerResult), nextAttemptAt)
         );
+    }
+
+    /**
+     * A text that once had a try the provider could not account for (a stale send its status lookup did not
+     * find) keeps that marker for as long as it waits: a later refusal is not written over it. The marker is
+     * what keeps a provider swap from moving the text, and so from sending it a second time, while it may already
+     * have gone out ({@link SmsProviderRetirementService#movable}). The new try's provider message id and due time
+     * are still recorded.
+     *
+     * @param row the row as it is now, before this retry is written
+     * @param providerResult the result of the try that just ended
+     * @return {@code providerResult}, or the same result carrying the row's not-found code and message
+     */
+    static SmsProviderSendResultDto keepNotFoundMarker(SmsTransaction row, SmsProviderSendResultDto providerResult) {
+        if (!hasNotFoundMarker(row)) {
+            return providerResult;
+        }
+        return new SmsProviderSendResultDto(providerResult.accepted(), providerResult.providerMessageId(),
+                providerResult.status(), row.getErrorCode(), row.getErrorMessage());
+    }
+
+    /**
+     * Hands an unsent claim back and records why the text waits, except on a text that carries the not-found mark
+     * ({@link #keepNotFoundMarker}): that mark is kept, and the reason goes only to the worker's log.
+     */
+    static void releaseWithReason(SmsTransaction row, Date dueAt, SmsProviderErrorCode reason) {
+        if (hasNotFoundMarker(row)) {
+            row.markClaimReleased(dueAt);
+        } else {
+            row.markClaimReleased(dueAt, reason);
+        }
+    }
+
+    private static boolean hasNotFoundMarker(SmsTransaction row) {
+        return SmsQueueProcessingService.QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED_CODE.equals(row.getErrorCode());
     }
 
     @Override
     @Transactional
     public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
         Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
-        return applyIfVersionMatches(transaction, "releaseClaim", row -> row.markClaimReleased(dueAt));
+        return release(transaction, row -> row.markClaimReleased(dueAt));
+    }
+
+    @Override
+    @Transactional
+    public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt, SmsProviderErrorCode reason) {
+        Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
+        Objects.requireNonNull(reason, "reason is required");
+        return release(transaction, row -> releaseWithReason(row, dueAt, reason));
+    }
+
+    /** Hands an unsent claim back with a version check, or fails it unsent when its provider is retired. */
+    private SmsTransaction release(SmsTransaction transaction, Consumer<SmsTransaction> mutation) {
+        if (retirementService != null) {
+            retirementService.lockSelection();
+            if (retirementService.retired(transaction)) {
+                return failRetiredUnsent(transaction, "retiredRelease");
+            }
+        }
+        return applyIfVersionMatches(transaction, "releaseClaim", mutation);
     }
 
     @Override
@@ -262,7 +366,113 @@ public class JpaSmsTransactionService implements SmsTransactionService {
     @Transactional
     public List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date now, int limit) {
         Date claimAt = now == null ? new Date() : new Date(now.getTime());
+        if (retirementService != null) {
+            if (!retirementService.admissionAllowed(retirementService.lockSelection(), providerType,
+                    SmsMessagePurpose.PATIENT_MESSAGE)) {
+                return List.of();
+            }
+            return smsTransactionDao.claimDueOutboundQueue(providerType, claimAt, limit,
+                    retirementService.retiredThrough(providerType));
+        }
         return smsTransactionDao.claimDueOutboundQueue(providerType, claimAt, limit);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public int moveOrFailRetiredOutboundQueue(SmsProviderType providerType, int limit) {
+        if (retirementService == null || providerType == null) {
+            return 0;
+        }
+        List<Long> failedIds = new ArrayList<>();
+        int settled = 0;
+        for (int handled = 0; handled < Math.max(1, limit); handled++) {
+            AtomicReference<Long> attemptedId = new AtomicReference<>();
+            try {
+                boolean found = Boolean.TRUE.equals(inboundWriteTransaction.execute(status -> {
+                    var config = retirementService.lockSelection();
+                    long cutoff = retirementService.retiredThrough(providerType);
+                    SmsProviderType selected = retirementService.selectedProvider(config);
+                    // Sending disabled does not make the selected provider's queued tests inactive.
+                    boolean inactive = selected != providerType;
+                    List<SmsTransaction> rows = smsTransactionDao.findRetiredQueuedForUpdate(providerType, cutoff,
+                            inactive, new Date(), failedIds);
+                    if (rows.isEmpty()) {
+                        return false;
+                    }
+                    SmsTransaction row = rows.get(0);
+                    attemptedId.set(row.getId());
+                    // Only a row its provider's boundary retired is moved; an inactive provider's system test above
+                    // the boundary is failed as before.
+                    if (row.getId() != null && row.getId() <= cutoff && SmsProviderRetirementService.movable(row)) {
+                        moveRetiredRow(row, selected);
+                        return true;
+                    }
+                    row.markProviderResult(SmsProviderRetirementService.retirementFailure(row));
+                    smsTransactionDao.flush();
+                    publishIfTerminalFailure(row);
+                    return true;
+                }));
+                if (!found) {
+                    break;
+                }
+                settled++;
+            } catch (RuntimeException e) {
+                Long id = attemptedId.get();
+                LOGGER.warn("SMS retirement write failed; exceptionClass={}", e.getClass().getName());
+                if (id == null) {
+                    break; // Configuration/storage failure: do not spin through more work.
+                }
+                failedIds.add(id);
+                if (failedIds.size() >= 2) {
+                    break;
+                }
+            }
+        }
+        return settled;
+    }
+
+    /**
+     * Queues a retired row's text again for the selected provider and closes the retired row, in the caller's
+     * transaction and under its selection and row locks. The new row's id is above every retirement boundary,
+     * which stay as they are; the retired row keeps its provider, attempts and dates as the text's history. It is
+     * not a failed send, so no failure event is published.
+     */
+    private void moveRetiredRow(SmsTransaction row, SmsProviderType selected) {
+        SmsTransaction moved = row.queuedCopyFor(selected);
+        smsTransactionDao.persist(moved);
+        smsTransactionDao.flush();
+        Long movedId = Objects.requireNonNull(moved.getId(), "the moved SMS row has no id");
+        moved.assignClientReferenceId(SmsTransaction.clientReferenceIdFor(movedId));
+        row.markProviderResult(SmsProviderRetirementService.movedResult(selected, movedId));
+        smsTransactionDao.flush();
+        LOGGER.info("SMS transaction {} of retired provider {} was queued again for {} as transaction {}.",
+                row.getId(), row.getProviderType(), selected, movedId);
+    }
+
+    private void requireUnretiredClaim(SmsTransaction transaction) {
+        if (retirementService != null) {
+            retirementService.lockSelection();
+            boolean initialSystemTest = transaction.getMessagePurpose()
+                    == SmsMessagePurpose.SYSTEM_TEST
+                    && transaction.getProviderType() == SmsProviderType.STUB;
+            if (!initialSystemTest && retirementService.retired(transaction)) {
+                throw new SmsTransactionClaimConflictException(transaction.getId());
+            }
+        }
+    }
+
+    private SmsTransaction failRetiredUnsent(SmsTransaction transaction, String context) {
+        AtomicBoolean failed = new AtomicBoolean();
+        return applyIfVersionMatches(transaction, context, row -> {
+            if (row.getStatus() == SmsStatus.QUEUED || row.getStatus() == SmsStatus.SENDING) {
+                row.markProviderResult(SmsProviderRetirementService.retirementFailure(row));
+                failed.set(true);
+            }
+        }, row -> {
+            if (failed.get()) {
+                publishIfTerminalFailure(row);
+            }
+        });
     }
 
     @Override

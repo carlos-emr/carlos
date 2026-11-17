@@ -39,6 +39,7 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="billing.manageBillingform.title"/></title>
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <!-- Bootstrap -->
 
@@ -63,7 +64,7 @@
             function valid(form) {
                 if (validateServiceType(form)) {
                     form.action = "${pageContext.request.contextPath}/billing/CA/ON/DbManageBillingformAdd";
-                    form.submit();
+                    carlosSubmitForm(form);
                 }
             }
 
@@ -103,21 +104,11 @@
             }
 
             function postToPopup(action, params, winName, w, h) {
-                var form = document.createElement('form');
-                form.method = 'POST';
-                form.action = action;
-                form.target = winName;
-                for (var key in params) {
-                    var input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = key;
-                    input.value = params[key];
-                    form.appendChild(input);
-                }
-                window.open('', winName, 'width=' + w + ',height=' + h);
-                document.body.appendChild(form);
-                form.submit();
-                document.body.removeChild(form);
+                // Open the popup inside the click handler (popup blockers), then
+                // post into it. carlosPostForm attaches the CSRF token, which
+                // CSRFGuard cannot inject into a runtime-built form in time (#4130).
+                var popup = window.open('', winName, 'width=' + w + ',height=' + h);
+                carlosPostForm(action, params, {target: winName, popup: popup});
             }
 
             function onUnbilled(servicetype) {

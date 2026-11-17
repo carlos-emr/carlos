@@ -22,6 +22,7 @@ Calendar._TT["WK"] = "wk";
 Calendar._TT["TIME"] = "Time:";
 Calendar._TT["CLOSE"] = "Close";
 Calendar._TT["TODAY"] = "Today";
+Calendar._TT["CHOOSE_DATE"] = "Choose a date";
 
 /* English is the flatpickr default — no locale file to load */
 Calendar._flatpickrLocale = null;

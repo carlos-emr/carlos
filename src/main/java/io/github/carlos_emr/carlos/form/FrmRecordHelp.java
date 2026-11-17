@@ -43,6 +43,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -221,12 +222,19 @@ public class FrmRecordHelp {
      * Whether a JDBC column type name denotes one of the boolean-valued columns these
      * legacy form tables use for checkbox fields.
      *
+     * <p>The one check for every legacy form record that turns a stored {@code 1} into the
+     * attribute text {@code checked='checked'}. MySQL Connector/J reports {@code tinyint(1)}
+     * as {@code BIT} and other widths as {@code TINYINT}; it never reports {@code TINY}, the
+     * name nineteen {@code Frm*Record} classes once compared against (issue #4466), so a
+     * saved tick was shown again as the raw value {@code 1}. A record class that reads a form row
+     * column by column must call this rather than compare type names itself.
+     *
      * @param columnTypeName value from {@code ResultSetMetaData.getColumnTypeName}; may be null
      * @return true for {@code TINYINT...} or {@code bit}, in any case
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (JDBC column type name); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (JDBC column type name); not a security or authorization decision")
-    private static boolean isBooleanColumnType(String columnTypeName) {
+    public static boolean isBooleanColumnType(String columnTypeName) {
         return columnTypeName != null
                 && (columnTypeName.regionMatches(true, 0, TINYINT_TYPE, 0, TINYINT_TYPE.length())
                         || BIT_TYPE.equalsIgnoreCase(columnTypeName));
@@ -513,8 +521,27 @@ public class FrmRecordHelp {
         return results;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    @SuppressWarnings("unchecked")
     public String findActionValue(String submit) {
-        return VALID_ACTION_VALUES.contains(submit) ? submit : "failure";
+        if (submit == null) {
+            return "failure";
+        }
+        // MATCHED WITHOUT REGARD TO CASE, AND ANSWERED IN THE CANONICAL SPELLING. The submit token
+        // comes from whatever each form JSP puts in document.forms[0].submit.value, and seven of
+        // them (the lab requisitions, the mental health forms and formCounseling) have always sent
+        // "printall" where the rest send "printAll". An exact-case lookup answered "failure" for
+        // those, and "failure" is a mapped Struts result pointing at the error page -- so Print Pdf
+        // on a lab requisition saved the record and then handed the clinician a server error
+        // instead of the PDF (issue #3735). Returning the member rather than the caller's spelling
+        // is what makes the answer usable as a Struts result name.
+        for (String value : (Set<String>) VALID_ACTION_VALUES) {
+            if (value.equalsIgnoreCase(submit)) {
+                return value;
+            }
+        }
+        return "failure";
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

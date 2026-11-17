@@ -33,11 +33,14 @@
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, CHROME_PATH,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE
  * Optional: PREVENTION_DEMOGRAPHIC_NO (1), PREVENTION_BRAND_QUERY (Tdap),
- * PREVENTION_CVC_UI=true (requires the configured CVC picker; exercises its
- * brand/generic/lot suggestions and saves a vaccine with an undated lot).
+ * PREVENTION_CVC_UI=true (requires the catalogue picker, which the Preventions
+ * page shows once a National Vaccine Catalogue is installed -- see
+ * vaccine-catalogue-update-playwright-checks.js; exercises its brand/generic/lot
+ * suggestions and saves a vaccine with an undated lot).
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -160,7 +163,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   // either still reaches the fixture cleanup below.
   try {
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1400, height: 1100 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1400, height: 1100 } });
     await login(context, config, recorder);
 
     // The picker's data source, fetched the way the page fetches it.

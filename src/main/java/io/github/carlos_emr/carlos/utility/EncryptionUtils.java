@@ -51,6 +51,11 @@ public final class EncryptionUtils {
     public static final String SECRET_KEY_ENV_VAR = "encryption.util.secret.key";
     private static volatile SecretKeySpec SECRET_KEY_SPEC;
     private static final String ENCRYPTION_PREFIX = "{ENC}";
+    /**
+     * Smallest possible output of {@link #encrypt(byte[])}: the 12-byte IV plus the 16-byte
+     * (128-bit) GCM tag, before any ciphertext bytes.
+     */
+    public static final int MIN_CIPHERTEXT_BYTES = 12 + 16;
 
     public EncryptionUtils() {
     }
@@ -193,6 +198,33 @@ public final class EncryptionUtils {
     }
 
     /**
+     * Reports whether a stored value has the exact shape {@link #encrypt(String)} writes: the
+     * {@code {ENC}} marker followed by standard Base64 that decodes to at least a 12-byte IV and a
+     * 16-byte GCM tag.
+     * <p>
+     * Stricter than {@link #isEncrypted(String)}, which is a bare prefix test that also answers
+     * {@code true} for null and empty input. Use this where plaintext must not be counted as
+     * ciphertext, such as the startup check for data a missing key would orphan. It narrows the
+     * {@code {ENC}} prefix collision (#3132) to plaintext that is itself well-formed Base64 of that
+     * length, but cannot rule it out without the key. It never decrypts and needs no key.
+     *
+     * @param value the stored value, may be null
+     * @return true when the value is shaped like output of {@link #encrypt(String)}
+     * @since 2026-09-29
+     */
+    public static boolean isWellFormedCiphertext(String value) {
+        if (value == null || !value.startsWith(ENCRYPTION_PREFIX)) {
+            return false;
+        }
+        try {
+            return Base64.getDecoder().decode(value.substring(ENCRYPTION_PREFIX.length())).length
+                    >= MIN_CIPHERTEXT_BYTES;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    /**
      * Generates a new secret key for encryption/decryption.
      * <p>
      * This method uses the AES algorithm to generate a 256-bit secret key.
@@ -264,6 +296,20 @@ public final class EncryptionUtils {
             throw new IllegalArgumentException("Invalid AES key length: " + keyBytes.length + " bytes");
         }
         SECRET_KEY_SPEC = new SecretKeySpec(keyBytes, "AES");
+    }
+
+    /**
+     * Reports whether an application encryption key has been prepared. Read-only: it never
+     * prepares, generates or replaces a key. It says nothing about whether the key is the one
+     * existing values were encrypted under. In the servlet deployment Startup creates a key when
+     * none is set and refuses to start on an invalid one, so it is false there only before Startup
+     * runs; entry points that skip Startup may see false for a missing or invalid key.
+     *
+     * @return true when {@link #encrypt(String)} and {@link #decrypt(String)} have a key to use
+     * @since 2026-09-24
+     */
+    public static boolean isKeyConfigured() {
+        return SECRET_KEY_SPEC != null;
     }
 
     /**

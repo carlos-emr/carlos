@@ -54,6 +54,14 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.WCBCodes" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.WcbHelper" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%!
+    // Field bindings (#4864): the page's Struts 1 form tags filled every field from the WCBForm bean, and the
+    // plain inputs that replaced them lost that. Each field now states its value or its checked state.
+    private static String checkedIf(String actual, String value) {
+        return value.equals(actual) ? " checked=\"checked\"" : "";
+    }
+%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -75,6 +83,8 @@
     }
 
     WCBForm form = (WCBForm) request.getAttribute("WCBForm");
+    WCBForm bound = form != null ? form : new WCBForm();
+    pageContext.setAttribute("wcbSide", bound.getW_side());
     boolean haveClaims = false;
     boolean haveEmps = false;
     ArrayList claims = new ArrayList();
@@ -433,13 +443,13 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><%= SafeEncode.forHtmlContent(error) %></li>
             <% } %>
         </ul>
     </div>
 <% } %>
-    <form action="${pageContext.request.contextPath}/billing/CA/BC/formwcb" method="post" onsubmit="return validateForm()">
-        <input type="hidden" name="w_servicelocation" id="w_servicelocation"/>
+    <form name="WCBForm" action="${pageContext.request.contextPath}/billing/CA/BC/formwcb" method="post" onsubmit="return validateForm()">
+        <input type="hidden" name="w_servicelocation" id="w_servicelocation" value="<%= SafeEncode.forHtmlAttribute(bound.getW_servicelocation()) %>"/>
 
         <!-- Params for billingBC.jsp `-->
         <input type="hidden" name="method" value="save"/>
@@ -447,20 +457,20 @@
         <input type="hidden" name="billForm" value="GP"/>
         <input type="hidden" name="appointment_no" value="0"/>
         <input type="hidden" name="demographic_name"
-               value="<%=form.getW_lname() + " " + form.getW_fname()%>"/>
+               value="<%= SafeEncode.forHtmlAttribute(form.getW_lname() + " " + form.getW_fname()) %>"/>
         <input type="hidden" name="demographic_no"
-               value="<%=form.getDemographic()%>"/>
+               value="<%= SafeEncode.forHtmlAttribute(form.getDemographic()) %>"/>
         <input type="hidden" name="appointment_no" value="0"/>
         <input type="hidden" name="providerview"
-               value="<%=form.getProviderNo()%>"/>
+               value="<%= SafeEncode.forHtmlAttribute(form.getProviderNo()) %>"/>
         <input type="hidden" name="user_no"
-               value="<%=(String) session.getAttribute("user")%>"/>
+               value="<%= SafeEncode.forHtmlAttribute((String) session.getAttribute("user")) %>"/>
         <input type="hidden" name="status" value="t"/>
         <input type="hidden" name="apptProvider_no"
-               value="<%=form.getProviderNo()%>"/>
+               value="<%= SafeEncode.forHtmlAttribute(form.getProviderNo()) %>"/>
         <input type="hidden" name="bNewForm" value="1"/>
         <input type="hidden" name="fromBilling" value="<carlos:encode value='<%= fromBilling %>' context="htmlAttribute"/>"/>
-        <input type="hidden" name="wcbFormId" id="wcbFormId"/>
+        <input type="hidden" name="wcbFormId" id="wcbFormId" value="<%= SafeEncode.forHtmlAttribute(bound.getWcbFormId()) %>"/>
 
         <%
             java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("yyyy-MM-dd");
@@ -493,11 +503,11 @@
                     }
                 %>
 
-                <td>Form Needed <input type="checkbox" value="1" name="formNeeded" onclick="isformNeeded();"/></td>
+                <td><label for="formNeeded">Form Needed</label> <input type="checkbox" id="formNeeded" value="1" name="formNeeded" onclick="isformNeeded();"<%= checkedIf("true".equals(bound.getFormNeeded()) ? "1" : bound.getFormNeeded(), "1") %>/></td>
                 <td colspan="1" valign="top" height="25" class="SmallerText"
-                    id="reportTypeSection">Physician's First Report <input type="radio"
-                        value="F" name="w_reporttype"/> or The worker's condition or
-                    treatment has changed: <input type="radio" value="C" name="w_reporttype"/>
+                    id="reportTypeSection"><label for="w_reporttype_F">Physician's First Report</label> <input type="radio"
+                        id="w_reporttype_F" value="F" name="w_reporttype"<%= checkedIf(bound.getW_reporttype(), "F") %>/> or <label for="w_reporttype_C">The worker's condition or
+                    treatment has changed:</label> <input type="radio" id="w_reporttype_C" value="C" name="w_reporttype"<%= checkedIf(bound.getW_reporttype(), "C") %>/>
                     </span></td>
             </tr>
 
@@ -505,8 +515,8 @@
                 <td colspan="2">
                     <%if (!haveClaims) {%> <a
                         href="javascript: function myFunction() {return false; }"
-                        onClick="showpic('claimLayer','claimId');" id="claimId"><%}%> <b>WCB
-                    Claim Number:</B> <input type="text" maxlength="25" name="w_wcbno"/> *Can be left
+                        onClick="showpic('claimLayer','claimId');" id="claimId"><%}%> <label for="w_wcbno"><b>WCB
+                    Claim Number:</B></label> <input type="text" maxlength="25" id="w_wcbno" name="w_wcbno" value="<%= SafeEncode.forHtmlAttribute(bound.getW_wcbno()) %>"/> *Can be left
                     blank <%if (!haveClaims) {%>
                 </a> <%}%>
                 </td>
@@ -524,22 +534,22 @@
                                 <%if (!haveClaims) {%> <a
                                     href="javascript: function myFunction() {return false; }"
                                     onClick="showpic('employerLayer','employerId');" id="employerId">
-                                <%}%> Employer's Name: <%if (!haveClaims) {%></a> <%}%>
+                                <%}%> <label for="w_empname">Employer's Name:</label> <%if (!haveClaims) {%></a> <%}%>
                             </td>
-                            <td><input type="text" maxlength="25" name="w_empname"/></td>
+                            <td><input type="text" maxlength="25" id="w_empname" name="w_empname" value="<%= SafeEncode.forHtmlAttribute(bound.getW_empname()) %>"/></td>
                             <!--</tr>
                         <tr id="firstSection2">-->
-                            <td class="SmallerText">Operating Address:</td>
-                            <td><input type="text" maxlength="25" name="w_opaddress" size="25"/></td>
+                            <td class="SmallerText"><label for="w_opaddress">Operating Address:</label></td>
+                            <td><input type="text" maxlength="25" id="w_opaddress" name="w_opaddress" size="25" value="<%= SafeEncode.forHtmlAttribute(bound.getW_opaddress()) %>"/></td>
                         </tr>
                         <tr id="firstSection3">
-                            <td class="SmallerText">Operating City:</td>
-                            <td><input type="text" maxlength="25" name="w_opcity"/></td>
+                            <td class="SmallerText"><label for="w_opcity">Operating City:</label></td>
+                            <td><input type="text" maxlength="25" id="w_opcity" name="w_opcity" value="<%= SafeEncode.forHtmlAttribute(bound.getW_opcity()) %>"/></td>
                             <!--</tr>
                         <tr id="firstSection4">-->
-                            <td class="SmallerText">Employers Telephone No:</td>
-                            <td><input type="text" maxlength="3" name="w_emparea" size="3"/>-
-                                <input type="text" maxlength="7" name="w_empphone" size="10"/></td>
+                            <td class="SmallerText"><label for="w_emparea">Employers Telephone No:</label></td>
+                            <td><input type="text" maxlength="3" id="w_emparea" name="w_emparea" size="3" value="<%= SafeEncode.forHtmlAttribute(bound.getW_emparea()) %>"/>-
+                                <label for="w_empphone" style="position:absolute;left:-10000px;">Employer's telephone number</label><input type="text" maxlength="7" id="w_empphone" name="w_empphone" size="10" value="<%= SafeEncode.forHtmlAttribute(bound.getW_empphone()) %>"/></td>
                 </td>
             </tr>
 
@@ -556,39 +566,39 @@
                         <td colspan="4" class="SmallerText">Worker's Info</td>
                     </tr>
                     <tr>
-                        <td colspan="1" class="SmallerText"><b>Last Name:</b>
+                        <td colspan="1" class="SmallerText"><label for="w_lname"><b>Last Name:</b></label>
                             <input type="text"
-                                maxlength="18" name="w_lname" size="20"/></td>
-                        <td class="SmallerText"><b>First Name:</b>
+                                maxlength="18" id="w_lname" name="w_lname" size="20" value="<%= SafeEncode.forHtmlAttribute(bound.getW_lname()) %>"/></td>
+                        <td class="SmallerText"><label for="w_fname"><b>First Name:</b></label>
                             <input type="text"
-                                maxlength="12" name="w_fname" size="20"/></td>
-                        <td class="SmallerText" colspan="2">Initial:
+                                maxlength="12" id="w_fname" name="w_fname" size="20" value="<%= SafeEncode.forHtmlAttribute(bound.getW_fname()) %>"/></td>
+                        <td class="SmallerText" colspan="2"><label for="w_mname">Initial:</label>
                             <input type="text"
-                                maxlength="1" name="w_mname" size="1"/></td>
+                                maxlength="1" id="w_mname" name="w_mname" size="1" value="<%= SafeEncode.forHtmlAttribute(bound.getW_mname()) %>"/></td>
 
                     </tr>
                     <tr>
 
-                        <td class="SmallerText"><b>Date of Birth:</b>
-                            <input type="text" readonly="readonly" maxlength="10" name="w_dob" size="10"/>
+                        <td class="SmallerText"><label for="w_dob"><b>Date of Birth:</b></label>
+                            <input type="text" readonly="readonly" maxlength="10" id="w_dob" name="w_dob" size="10" value="<%= SafeEncode.forHtmlAttribute(bound.getW_dob()) %>"/>
                         </td>
-                        <td class="SmallerText"><b>Gender:</b>
-                            <input type="text" readonly="readonly" maxlength="1" name="w_gender" size="1"/>
+                        <td class="SmallerText"><label for="w_gender"><b>Gender:</b></label>
+                            <input type="text" readonly="readonly" maxlength="1" id="w_gender" name="w_gender" size="1" value="<%= SafeEncode.forHtmlAttribute(bound.getW_gender()) %>"/>
                         </td>
-                        <td class="SmallerText"><b>PHN:</b>
-                            <input type="text" maxlength="12" name="w_phn" size="12"/></td>
+                        <td class="SmallerText"><label for="w_phn"><b>PHN:</b></label>
+                            <input type="text" maxlength="12" id="w_phn" name="w_phn" size="12" value="<%= SafeEncode.forHtmlAttribute(bound.getW_phn()) %>"/></td>
                         <td>&nbsp;</td>
                     </tr>
                     <tr id="workersAddressSection">
-                        <td class="SmallerText">Worker's Telephone No:
-                            <input type="text" maxlength="3" name="w_area" size="3"/>
-                            <input type="text" maxlength="7" name="w_phone" size="7"/></td>
-                        <td class="SmallerText">Address:
-                            <input type="text" maxlength="25" name="w_address" size="20"/></td>
-                        <td class="SmallerText">City:
-                            <input type="text" maxlength="20" name="w_city" size="20"/></td>
-                        <td class="SmallerText">Postal Code:
-                            <input type="text" maxlength="6" name="w_postal" size="6"/></td>
+                        <td class="SmallerText"><label for="w_area">Worker's Telephone No:</label>
+                            <input type="text" maxlength="3" id="w_area" name="w_area" size="3" value="<%= SafeEncode.forHtmlAttribute(bound.getW_area()) %>"/>
+                            <label for="w_phone" style="position:absolute;left:-10000px;">Worker's telephone number</label><input type="text" maxlength="7" id="w_phone" name="w_phone" size="7" value="<%= SafeEncode.forHtmlAttribute(bound.getW_phone()) %>"/></td>
+                        <td class="SmallerText"><label for="w_address">Address:</label>
+                            <input type="text" maxlength="25" id="w_address" name="w_address" size="20" value="<%= SafeEncode.forHtmlAttribute(bound.getW_address()) %>"/></td>
+                        <td class="SmallerText"><label for="w_city">City:</label>
+                            <input type="text" maxlength="20" id="w_city" name="w_city" size="20" value="<%= SafeEncode.forHtmlAttribute(bound.getW_city()) %>"/></td>
+                        <td class="SmallerText"><label for="w_postal">Postal Code:</label>
+                            <input type="text" maxlength="6" id="w_postal" name="w_postal" size="6" value="<%= SafeEncode.forHtmlAttribute(bound.getW_postal()) %>"/></td>
             </td>
         </tr>
         <tr>
@@ -605,29 +615,29 @@
 
         <tr id="secondSection1">
             <td>Are you the worker's regular physician?</td>
-            <td><input type="radio" value="Y" name="w_rphysician"
-                            onclick="ShowElementById('secondSection2')"/> Yes <input type="radio"
-                    value="N" name="w_rphysician"
-                    onclick="HideElementById('secondSection2')"/> No
+            <td><input type="radio" id="w_rphysician_Y" value="Y" name="w_rphysician"
+                            onclick="ShowElementById('secondSection2')"<%= checkedIf(bound.getW_rphysician(), "Y") %>/> <label for="w_rphysician_Y">Yes</label> <input type="radio"
+                    id="w_rphysician_N" value="N" name="w_rphysician"
+                    onclick="HideElementById('secondSection2')"<%= checkedIf(bound.getW_rphysician(), "N") %>/> <label for="w_rphysician_N">No</label>
             </td>
         </tr>
         <tr id="secondSection2">
             <td>If yes, how long has the worker been your patient?</td>
-            <td><input type="radio" value="1" name="w_duration"/> 0-6 months <input type="radio"
-                    value="2" name="w_duration"/> 7-12 months <input type="radio" value="9" name="w_duration"/>&gt; 12 months
+            <td><input type="radio" id="w_duration_1" value="1" name="w_duration"<%= checkedIf(bound.getW_duration(), "1") %>/> <label for="w_duration_1">0-6 months</label> <input type="radio"
+                    id="w_duration_2" value="2" name="w_duration"<%= checkedIf(bound.getW_duration(), "2") %>/> <label for="w_duration_2">7-12 months</label> <input type="radio" id="w_duration_9" value="9" name="w_duration"<%= checkedIf(bound.getW_duration(), "9") %>/><label for="w_duration_9">&gt; 12 months</label>
             </td>
         </tr>
         <tr id="secondSection3">
-            <td>Who rendered the first treatment?</td>
-            <td><input type="text" maxlength="25" name="w_ftreatment" size="25"/>
+            <td><label for="w_ftreatment">Who rendered the first treatment?</label></td>
+            <td><input type="text" maxlength="25" id="w_ftreatment" name="w_ftreatment" size="25" value="<%= SafeEncode.forHtmlAttribute(bound.getW_ftreatment()) %>"/>
             </td>
         </tr>
         <tr id="secondSection4">
-            <td>Prior/Other Problems Affecting Injury, Recovery and
-                Disability
+            <td><label for="w_problem">Prior/Other Problems Affecting Injury, Recovery and
+                Disability</label>
             </td>
             <td><textarea cols="50" onkeyup="checkTextLimit(this.form.w_problem,160);" id="w_problem"
-                               name="w_problem" style="height:50px;width:100%;"></textarea>
+                               name="w_problem" style="height:50px;width:100%;"><%= SafeEncode.forHtmlContent(bound.getW_problem()) %></textarea>
             </td>
         </tr>
 
@@ -636,85 +646,85 @@
         </tr>
         <tr>
             <td class="SectionHead">Injury Codes and Descriptions</td>
-            <td><b>Date of Service</b> <input type="text" name="w_servicedate"
-                                                  id="w_servicedate" size="10" readonly="true"/> <a
+            <td><label for="w_servicedate"><b>Date of Service</b></label> <input type="text" name="w_servicedate"
+                                                  id="w_servicedate" size="10" readonly="true" value="<%= SafeEncode.forHtmlAttribute(bound.getW_servicedate()) %>"/> <a
                     id="hlSDate"><img
                     title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar"
-                    border="0"/></a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <b>Date of Injury:</b>
-                <input type="text" id="w_doi" name="w_doi" readonly="true" size="12"/>
+                    border="0"/></a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <label for="w_doi"><b>Date of Injury:</b></label>
+                <input type="text" id="w_doi" name="w_doi" readonly="true" size="12" value="<%= SafeEncode.forHtmlAttribute(bound.getW_doi()) %>"/>
                 <a id="hlDDate"><img title="Calendar"
                                      src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a></td>
         </tr>
         <tr id="thirdSection1">
-            <td>Diagnosis:</td>
-            <td><input type="text" maxlength="120" name="w_diagnosis" id="w_diagnosis" size="120"/>
+            <td><label for="w_diagnosis">Diagnosis:</label></td>
+            <td><input type="text" maxlength="120" name="w_diagnosis" id="w_diagnosis" size="120" value="<%= SafeEncode.forHtmlAttribute(bound.getW_diagnosis()) %>"/>
             </td>
         </tr>
         <tr>
             <td><a href="javascript: function myFunction() {return false; }"
-                   onClick="showpic('Layer1','Calcs');" id="Calcs">WCB code: </a>
+                   onClick="showpic('Layer1','Calcs');" id="Calcs"><label for="w_feeitem">WCB code:</label> </a>
 
             </td>
 
 
-            <td><input type="text" maxlength="5" name="w_feeitem" size="5"
-                           onkeypress="return grabEnter(event,WCBFeeItemCall)"/>
+            <td><input type="text" maxlength="5" id="w_feeitem" name="w_feeitem" size="5"
+                           onkeypress="return grabEnter(event,WCBFeeItemCall)" value="<%= SafeEncode.forHtmlAttribute(bound.getW_feeitem()) %>"/>
                 <a onClick="popFeeItemList('WCBForm','w_feeitem');">Search</a></td>
         </tr>
         <tr>
-            <td>Service code:</td>
-            <td><input type="text" maxlength="5" name="w_extrafeeitem" size="5"
-                           onkeypress="return grabEnter(event,extraFeeItemCall)"/>
+            <td><label for="w_extrafeeitem">Service code:</label></td>
+            <td><input type="text" maxlength="5" id="w_extrafeeitem" name="w_extrafeeitem" size="5"
+                           onkeypress="return grabEnter(event,extraFeeItemCall)" value="<%= SafeEncode.forHtmlAttribute(bound.getW_extrafeeitem()) %>"/>
                 <a onClick="popFeeItemList('WCBForm','w_extrafeeitem');">Search</a></td>
         </tr>
         <tr>
-            <td><b>ICD9:</b></td>
-            <td><input type="text" maxlength="5" name="w_icd9" size="5" onkeypress="return grabEnter(event,icd9Call)"/> <a
+            <td><label for="w_icd9"><b>ICD9:</b></label></td>
+            <td><input type="text" maxlength="5" id="w_icd9" name="w_icd9" size="5" onkeypress="return grabEnter(event,icd9Call)" value="<%= SafeEncode.forHtmlAttribute(bound.getW_icd9()) %>"/> <a
                     onClick="popICD9List('WCBForm','w_icd9');">Search</a></td>
         </tr>
         <tr>
-            <td><b>Body Part:</b></td>
-            <td><input type="text" maxlength="5" name="w_bp" size="5" onkeypress="return grabEnter(event,bodyPartCall)"/> <a
+            <td><label for="w_bp"><b>Body Part:</b></label></td>
+            <td><input type="text" maxlength="5" id="w_bp" name="w_bp" size="5" onkeypress="return grabEnter(event,bodyPartCall)" value="<%= SafeEncode.forHtmlAttribute(bound.getW_bp()) %>"/> <a
                     onClick="popBodyPartList('WCBForm','w_bp');">Search</a></td>
         </tr>
         <tr>
-            <td><b>Side:</b></td>
-            <td><select name="w_side">
+            <td><label for="w_side"><b>Side:</b></label></td>
+            <td><select id="w_side" name="w_side">
                 <c:forEach var="injury" items="${injuryLocations}">
-                    <option value="${injury.sidetype}">
-                            ${injury.sidedesc}
+                    <option value="${carlos:forHtmlAttribute(injury.sidetype)}"<c:if test="${injury.sidetype eq wcbSide}"> selected="selected"</c:if>>
+                            ${carlos:forHtmlContent(injury.sidedesc)}
                     </option>
                 </c:forEach>
             </select></td>
         </tr>
         <tr>
-            <td><b>Nature of Injury</b></td>
-            <td><input type="text" maxlength="5" name="w_noi" size="5"
-                           onkeypress="return grabEnter(event,natureOfInjuryCall)"/> <a
+            <td><label for="w_noi"><b>Nature of Injury</b></label></td>
+            <td><input type="text" maxlength="5" id="w_noi" name="w_noi" size="5"
+                           onkeypress="return grabEnter(event,natureOfInjuryCall)" value="<%= SafeEncode.forHtmlAttribute(bound.getW_noi()) %>"/> <a
                     onClick="popNOIList('WCBForm','w_noi');">Search</a></td>
         </tr>
         <tr id="thirdSection8">
             <td>From injury or since last report, has the worker been
                 disabled from work?
             </td>
-            <td><input type="radio" value="Y" name="w_work"
-                            onclick="ShowElementById('thirdSection9')"/>Yes <input type="radio"
-                    value="N" name="w_work"
-                    onclick="HideElementById('thirdSection9')"/>No
+            <td><input type="radio" id="w_work_Y" value="Y" name="w_work"
+                            onclick="ShowElementById('thirdSection9')"<%= checkedIf(bound.getW_work(), "Y") %>/><label for="w_work_Y">Yes</label> <input type="radio"
+                    id="w_work_N" value="N" name="w_work"
+                    onclick="HideElementById('thirdSection9')"<%= checkedIf(bound.getW_work(), "N") %>/><label for="w_work_N">No</label>
                 </p>
             </td>
         </tr>
         <tr id="thirdSection9">
-            <td>If Yes, as of what date? (if known)</td>
+            <td><label for="w_workdate">If Yes, as of what date? (if known)</label></td>
             <td align="left" valign="top"><input type="text" readonly="true"
                                                      id="w_workdate" name="w_workdate"
-                                                     onclick="window.WCBForm.w_workdate.value = '';"/> <a
+                                                     onclick="window.WCBForm.w_workdate.value = '';" value="<%= SafeEncode.forHtmlAttribute(bound.getW_workdate()) %>"/> <a
                     id="hlWDate"><img
                     title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar"
                     border="0"/></a></td>
         </tr>
         <tr id="thirdSection10">
-            <td align="left" valign="top">Clinical Information:<br>
+            <td align="left" valign="top"><label for="w_clinicinfo">Clinical Information:</label><br>
                 <small>What happened?<br>
                     Subjective Symptoms<br>
                     Examination<br>
@@ -723,7 +733,7 @@
             <td align="left" valign="top"><textarea
                     class="mhAssTextarea"
                     onkeyup="checkTextLimit(this.form.w_clinicinfo,800);" id="w_clinicinfo"
-                    name="w_clinicinfo" style="height:80px;width:100%;"></textarea>
+                    name="w_clinicinfo" style="height:80px;width:100%;"><%= SafeEncode.forHtmlContent(bound.getW_clinicinfo()) %></textarea>
             </td>
         </tr>
         <tr id="forthSectionTitle">
@@ -733,61 +743,61 @@
             <td>Is the worker now medically capable of working full duties,
                 full time?
             </td>
-            <td><input type="radio" value="Y" name="w_capability"
-                            onclick="HideElementById('forthSection2')"/> Yes <input type="radio"
-                    value="N" name="w_capability"
-                    onclick="ShowElementById('forthSection2')"/> No
+            <td><input type="radio" id="w_capability_Y" value="Y" name="w_capability"
+                            onclick="HideElementById('forthSection2')"<%= checkedIf(bound.getW_capability(), "Y") %>/> <label for="w_capability_Y">Yes</label> <input type="radio"
+                    id="w_capability_N" value="N" name="w_capability"
+                    onclick="ShowElementById('forthSection2')"<%= checkedIf(bound.getW_capability(), "N") %>/> <label for="w_capability_N">No</label>
             </td>
         </tr>
         <tr id="forthSection2">
-            <td valign="top">If No: What are the current physical and/or
-                psychological restrictions?
+            <td valign="top"><label for="w_capreason">If No: What are the current physical and/or
+                psychological restrictions?</label>
             </td>
             <td><textarea class="mhAssTextarea"
                                onkeyup="checkTextLimit(this.form.w_capreason,240);" id="w_capreason"
-                               name="w_capreason" style="height:80px;width:100%;"></textarea>
+                               name="w_capreason" style="height:80px;width:100%;"><%= SafeEncode.forHtmlContent(bound.getW_capreason()) %></textarea>
             </td>
         </tr>
         <tr id="forthSection3">
             <td valign="top">Estimated time before the worker will be able
                 to return to the workplace.
             </td>
-            <td><input type="radio" value="0" name="w_estimate"/>At Work<br>
-                <input type="radio" value="1" name="w_estimate"/>1-6 days
-                <input type="radio" value="2" name="w_estimate"/>7-13 days<br>
-                <input type="radio" value="3" name="w_estimate"/>14-20 days
-                <input type="radio" value="9" name="w_estimate"/>20 days
+            <td><input type="radio" id="w_estimate_0" value="0" name="w_estimate"<%= checkedIf(bound.getW_estimate(), "0") %>/><label for="w_estimate_0">At Work</label><br>
+                <input type="radio" id="w_estimate_1" value="1" name="w_estimate"<%= checkedIf(bound.getW_estimate(), "1") %>/><label for="w_estimate_1">1-6 days</label>
+                <input type="radio" id="w_estimate_2" value="2" name="w_estimate"<%= checkedIf(bound.getW_estimate(), "2") %>/><label for="w_estimate_2">7-13 days</label><br>
+                <input type="radio" id="w_estimate_3" value="3" name="w_estimate"<%= checkedIf(bound.getW_estimate(), "3") %>/><label for="w_estimate_3">14-20 days</label>
+                <input type="radio" id="w_estimate_9" value="9" name="w_estimate"<%= checkedIf(bound.getW_estimate(), "9") %>/><label for="w_estimate_9">20 days</label>
             </td>
         </tr>
         <tr id="forthSection4">
             <td>If appropriate, is the worker now ready for a rehabilitation
                 program?
             </td>
-            <td><input type="radio" value="Y" name="w_rehab"
-                            onclick="ShowElementById('forthSection5')"/> Yes <input type="radio"
-                    value="N" name="w_rehab"
-                    onclick="HideElementById('forthSection5')"/> No
+            <td><input type="radio" id="w_rehab_Y" value="Y" name="w_rehab"
+                            onclick="ShowElementById('forthSection5')"<%= checkedIf(bound.getW_rehab(), "Y") %>/> <label for="w_rehab_Y">Yes</label> <input type="radio"
+                    id="w_rehab_N" value="N" name="w_rehab"
+                    onclick="HideElementById('forthSection5')"<%= checkedIf(bound.getW_rehab(), "N") %>/> <label for="w_rehab_N">No</label>
             </td>
         </tr>
         <tr id="forthSection5">
             <td>If Yes, Select &quot;WCP&quot; or Other</td>
-            <td><input type="radio" value="C" name="w_rehabtype"/>WCP <input type="radio"
-                    value="O" name="w_rehabtype"/>Other
+            <td><input type="radio" id="w_rehabtype_C" value="C" name="w_rehabtype"<%= checkedIf(bound.getW_rehabtype(), "C") %>/><label for="w_rehabtype_C">WCP</label> <input type="radio"
+                    id="w_rehabtype_O" value="O" name="w_rehabtype"<%= checkedIf(bound.getW_rehabtype(), "O") %>/><label for="w_rehabtype_O">Other</label>
             </td>
         </tr>
         <tr id="forthSection6">
             <td>Do you wish to consult with WCB physician or nurse advisor?</td>
-            <td><input type="radio" value="Y" name="w_wcbadvisor"/> Yes <input type="radio"
-                    value="N" name="w_wcbadvisor"/> No
+            <td><input type="radio" id="w_wcbadvisor_Y" value="Y" name="w_wcbadvisor"<%= checkedIf(bound.getW_wcbadvisor(), "Y") %>/> <label for="w_wcbadvisor_Y">Yes</label> <input type="radio"
+                    id="w_wcbadvisor_N" value="N" name="w_wcbadvisor"<%= checkedIf(bound.getW_wcbadvisor(), "N") %>/> <label for="w_wcbadvisor_N">No</label>
             </td>
         </tr>
         <tr id="forthSection7">
-            <td>If possible, please estimate date of Maximal Medical
-                Recovery
+            <td><label for="w_estimatedate">If possible, please estimate date of Maximal Medical
+                Recovery</label>
             </td>
             <td><input type="text" readonly="readonly" id="w_estimatedate"
                            name="w_estimatedate"
-                           onclick="window.WCBForm.w_estimatedate.value = '';"/><a
+                           onclick="window.WCBForm.w_estimatedate.value = '';" value="<%= SafeEncode.forHtmlAttribute(bound.getW_estimatedate()) %>"/><a
                     id="hlEDate"> <img title="Calendar"
                                        src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a></td>
         </tr>
@@ -795,15 +805,15 @@
             <td>Further Correspondence to Follow: (2nd electronic form or
                 paper)
             </td>
-            <td><input type="radio" value="Y" name="w_tofollow"/> Yes <input type="radio"
-                    value="N" name="w_tofollow"/> No
+            <td><input type="radio" id="w_tofollow_Y" value="Y" name="w_tofollow"<%= checkedIf(bound.getW_tofollow(), "Y") %>/> <label for="w_tofollow_Y">Yes</label> <input type="radio"
+                    id="w_tofollow_N" value="N" name="w_tofollow"<%= checkedIf(bound.getW_tofollow(), "N") %>/> <label for="w_tofollow_N">No</label>
             </td>
         </tr>
         <tr>
-            <td>Payee Number: <input type="text" readonly="readonly"
-                                         name="w_payeeno" size="5"/></td>
-            <td>Provider No: <input type="text" readonly="readonly"
-                                        name="w_pracno" size="5"/>(<%=form.getW_pracname()%>)
+            <td><label for="w_payeeno">Payee Number:</label> <input type="text" readonly="readonly"
+                                         id="w_payeeno" name="w_payeeno" size="5" value="<%= SafeEncode.forHtmlAttribute(bound.getW_payeeno()) %>"/></td>
+            <td><label for="w_pracno">Provider No:</label> <input type="text" readonly="readonly"
+                                        id="w_pracno" name="w_pracno" size="5" value="<%= SafeEncode.forHtmlAttribute(bound.getW_pracno()) %>"/>(<%= SafeEncode.forHtmlContent(form.getW_pracname()) %>)
             </td>
         </tr>
         <tr>
@@ -814,10 +824,13 @@
                 <%if (hideToBill) { %>
                 <hidden name="hideToBill" value="true"/>
                 <%}%>
+                <%-- A saved form opens for viewing only (#4947): every save stores a new row. --%>
+                <%if (!readonly) {%>
                 <input type="submit" name="save" value="Save"/>|
                 <input type="submit" name="saveAndClose" value="Save and Close"/>|
                 <%if (!hideToBill) {%>
                 <input type="submit" name="saveandbill" value="Save and Bill"/>|
+                <%}%>
                 <%}%>
                 <input type="button" value="Cancel" onClick="window.close();"/> |
                 <input type="button" value="Print" onClick="window.print()"/>
@@ -973,8 +986,8 @@
             <tr class="SectionHead">
                 <td class="wcblayerTitle">
                     <a href="#"
-                       onClick="setClaim('<%=claim.getClaimNumber()%>','<%=emp.w_empname%>','<%=emp.w_opaddress%>','<%=emp.w_opcity%>','<%=emp.w_emparea%>','<%=emp.w_empphone%>','<%=claim.w_icd9%>','<%=claim.w_bp%>','<%=claim.w_side%>','<%=claim.w_noi%>','<%=claim.w_doi%>');hidepic('claimLayer');return false;">
-                        <%=claim.getClaimNumber()%>
+                       onClick="setClaim('<%= SafeEncode.forJavaScriptAttribute(claim.getClaimNumber()) %>','<%= SafeEncode.forJavaScriptAttribute(emp.w_empname) %>','<%= SafeEncode.forJavaScriptAttribute(emp.w_opaddress) %>','<%= SafeEncode.forJavaScriptAttribute(emp.w_opcity) %>','<%= SafeEncode.forJavaScriptAttribute(emp.w_emparea) %>','<%= SafeEncode.forJavaScriptAttribute(emp.w_empphone) %>','<%= SafeEncode.forJavaScriptAttribute(claim.w_icd9) %>','<%= SafeEncode.forJavaScriptAttribute(claim.w_bp) %>','<%= SafeEncode.forJavaScriptAttribute(claim.w_side) %>','<%= SafeEncode.forJavaScriptAttribute(claim.w_noi) %>','<%= SafeEncode.forJavaScriptAttribute(claim.w_doi) %>');hidepic('claimLayer');return false;">
+                        <%= SafeEncode.forHtmlContent(claim.getClaimNumber()) %>
                     </a></td>
                 <td class="wcblayerItem">&nbsp;</td>
 
@@ -1008,14 +1021,14 @@
             %>
             <tr class="SectionHead">
                 <td class="wcblayerTitle"><a href="#"
-                                             onClick="setEmployer('<%=emp.w_empname%>','<%=emp.w_opaddress%>','<%=emp.w_opcity%>','<%=emp.w_emparea%>','<%=emp.w_empphone%>');hidepic('employerLayer');return false;">
-                    <%=emp.w_empname%>
+                                             onClick="setEmployer('<%= SafeEncode.forJavaScriptAttribute(emp.w_empname) %>','<%= SafeEncode.forJavaScriptAttribute(emp.w_opaddress) %>','<%= SafeEncode.forJavaScriptAttribute(emp.w_opcity) %>','<%= SafeEncode.forJavaScriptAttribute(emp.w_emparea) %>','<%= SafeEncode.forJavaScriptAttribute(emp.w_empphone) %>');hidepic('employerLayer');return false;">
+                    <%= SafeEncode.forHtmlContent(emp.w_empname) %>
                 </a></td>
-                <td class="wcblayerTitle"><%=emp.w_opaddress%>
+                <td class="wcblayerTitle"><%= SafeEncode.forHtmlContent(emp.w_opaddress) %>
                 </td>
-                <td class="wcblayerTitle"><%=emp.w_opcity%>
+                <td class="wcblayerTitle"><%= SafeEncode.forHtmlContent(emp.w_opcity) %>
                 </td>
-                <td class="wcblayerTitle"><%=emp.w_emparea%>-<%=emp.w_empphone%>
+                <td class="wcblayerTitle"><%= SafeEncode.forHtmlContent(emp.w_emparea) %>-<%= SafeEncode.forHtmlContent(emp.w_empphone) %>
                 </td>
                 <td colspan="2" class="wcblayerItem">&nbsp;</td>
             </tr>

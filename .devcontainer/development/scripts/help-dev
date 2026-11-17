@@ -52,6 +52,7 @@ AI CODING ASSISTANTS:
 
 DATABASE ACCESS:
   db-connect              Connect to MariaDB as root
+  qbe-reporting-account   Create/refresh the read-only Query by Example DB account
   mariadb -h db -u root -ppassword carlos
 
 MAVEN OPERATIONS:

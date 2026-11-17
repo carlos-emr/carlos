@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.eform;
 
 import io.github.carlos_emr.CarlosProperties;
+import jakarta.servlet.http.HttpSession;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.Unmarshaller;
 import org.apache.commons.lang3.StringUtils;
@@ -119,13 +120,24 @@ public class EFormLoader {
         return opener;
     }
 
-    public static String getOpenEform(String url, String fdid, String fname, String field, EForm efm) {
+    /**
+     * Builds the {@code onclick} of an {@code oscarOPEN} button: it opens the named eForm for the
+     * opener's patient, or the saved copy the button already links to ({@code fdid}).
+     *
+     * @param url        the public route of the page being rendered ({@code <context>/eform/efmformadd_data}
+     *                   or {@code <context>/eform/efmshowform_data})
+     * @param providerNo the signed-in provider. The link is issued in their name, because the linked
+     *                   eForm's save and the opener's own save look it up under the signed-in provider,
+     *                   not the author of a saved opener
+     * @param session    the session the link is issued in ({@link EFormOpenerLinks#issue})
+     */
+    public static String getOpenEform(String url, String fdid, String fname, String field, EForm efm,
+                                      String providerNo, HttpSession session) {
         String fid = EFormUtil.getEFormIdByName(fname);
         if (StringUtils.isBlank(fid)) return "alert('Eform does not exist [" + fname + "]');";
         if (StringUtils.isBlank(url)) return null;
         if (StringUtils.isBlank(field)) return null;
 
-        String providerNo = efm.getProviderNo();
         String demographicNo = efm.getDemographicNo();
         String formId = efm.getFid();
         String appointmentNo = efm.getAppointmentNo();
@@ -140,8 +152,8 @@ public class EFormLoader {
             url = url.replaceFirst("efmshowform_data", "efmformadd_data");
             url += "?fid=" + fid + "&demographic_no=" + demographicNo + "&appointment=" + appointmentNo;
         }
-        String link = "&eform_link=" + providerNo + "_" + demographicNo + "_" + formId + "_" + field;
-        return "window.open('" + url + link + "');";
+        String link = EFormOpenerLinks.issue(session, providerNo, demographicNo, formId, field, fid);
+        return "window.open('" + url + (link == null ? "" : "&eform_link=" + link) + "');";
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

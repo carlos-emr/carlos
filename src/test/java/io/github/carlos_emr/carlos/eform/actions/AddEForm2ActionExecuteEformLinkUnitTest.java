@@ -93,6 +93,8 @@ class AddEForm2ActionExecuteEformLinkUnitTest extends CarlosUnitTestBase {
         // introduced dependencies in AddEForm2Action or related code paths.
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(EformDataManager.class, mockEformDataManager);
+        var transactions = spy(new io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager());
+        registerMock(org.springframework.transaction.PlatformTransactionManager.class, transactions);
         registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
         // execute() resolves EmailManager via SpringUtils; register the declared mock here rather
         // than relying on another test in the suite having registered it first (isolation safety).
@@ -138,6 +140,9 @@ class AddEForm2ActionExecuteEformLinkUnitTest extends CarlosUnitTestBase {
         // Set required request parameters — minimal set for a clean execute() path
         mockRequest.setParameter("efmfid", "1");
         mockRequest.setParameter("efmdemographic_no", "123");
+        mockRequest.setParameter(io.github.carlos_emr.carlos.eform.EFormSubmissionGuard.PARAMETER,
+                io.github.carlos_emr.carlos.eform.EFormSubmissionGuard.issue(mockRequest.getSession(),
+                        mockRequest.getParameter("efmfid"), "123"));
         // Use faxEForm=true to exit cleanly after the session write (the fax branch returns
         // the narrow POST handoff before the EctProgram DB lookup and MatchManager). print=true used to serve
         // this purpose, but it is now the legacy alias of the save-and-download workflow and renders
@@ -170,6 +175,244 @@ class AddEForm2ActionExecuteEformLinkUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRejectReplay_whenCommitAcknowledgementIsLost() {
+        var transactions = (io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager)
+                SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class);
+        transactions.failCommit = true;
+        assertThat(submissionAction().execute()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        assertThat(submissionAction().execute()).isEqualTo("none");
+        verify(mockEformDataManager, times(1)).saveEformData(any(), any());
+        assertThat(transactions.rollbacks).isZero();
+    }
+
+    @Test
+    void shouldReportUncertainty_whenCallbackThrowsAfterCommit() throws Exception {
+        when(mockEformDataManager.saveEformData(any(), any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override public void afterCommit() { throw new IllegalArgumentException("synthetic callback failure"); }
+                    });
+            return 42;
+        });
+        assertThat(submissionAction().execute()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        assertThat(mockResponse.getContentAsString()).contains("Check").doesNotContain("not saved");
+        assertThat(submissionAction().execute()).isEqualTo("none");
+        verify(mockEformDataManager, times(1)).saveEformData(any(), any());
+    }
+
+    @Test
+    void shouldPermitCorrectedRetry_whenAttachmentTransactionRollsBack() {
+        doThrow(new IllegalArgumentException("synthetic attachment rejection")).doNothing()
+                .when(mockDocumentAttachmentManager).attachToEForm(any(),
+                        eq(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.LAB), any(), any(), any(), any());
+        assertThat(submissionAction().execute()).isEqualTo("error");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(submissionAction().execute()).isEqualTo("faxPreparation");
+        verify(mockEformDataManager, times(2)).saveEformData(any(), any());
+    }
+
+    @Test
+    void shouldPermitRetry_whenTransactionCannotStart() {
+        var transactions = (io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager)
+                SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class);
+        transactions.failBegin = true;
+        assertThatThrownBy(() -> submissionAction().execute())
+                .isInstanceOf(org.springframework.transaction.CannotCreateTransactionException.class);
+        transactions.failBegin = false;
+        assertThat(submissionAction().execute()).isEqualTo("faxPreparation");
+        verify(mockEformDataManager, times(1)).saveEformData(any(), any());
+    }
+
+    private org.mockito.MockedConstruction<io.github.carlos_emr.carlos.eform.data.EForm> openerForms() {
+        return mockConstruction(io.github.carlos_emr.carlos.eform.data.EForm.class, (form, construction) -> {
+            when(form.getFormFileName()).thenReturn("test.html");
+            when(form.getOpenerNames()).thenReturn(new java.util.ArrayList<>(java.util.List.of("referral")));
+        });
+    }
+
+    @Test
+    void shouldRetainOpenerValues_forConfirmedRollbackRetry() {
+        String key = "doc1_123_1_referral";
+        mockRequest.getSession().setAttribute(key, "synthetic incoming value");
+        doThrow(new IllegalArgumentException("synthetic rejection")).doNothing()
+                .when(mockDocumentAttachmentManager).attachToEForm(any(),
+                        eq(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.LAB), any(), any(), any(), any());
+        try (var forms = openerForms()) {
+            assertThat(submissionAction().execute()).isEqualTo("error");
+            assertThat(mockRequest.getSession().getAttribute(key)).isEqualTo("synthetic incoming value");
+            assertThat(submissionAction().execute()).isEqualTo("faxPreparation");
+            assertThat(mockRequest.getSession().getAttribute(key)).isNull();
+            verify(forms.constructed().get(1)).setOpenerValues(
+                    new java.util.ArrayList<>(java.util.List.of("referral")),
+                    new java.util.ArrayList<>(java.util.List.of("synthetic incoming value")));
+        }
+    }
+
+    @Test
+    void shouldPreserveNewOpenerValue_whenAnotherWindowReplacesItBeforeCommit() {
+        String key = "doc1_123_1_referral";
+        mockRequest.getSession().setAttribute(key, "synthetic original");
+        doAnswer(invocation -> { mockRequest.getSession().setAttribute(key, "synthetic replacement"); return null; })
+                .when(mockDocumentAttachmentManager).attachToEForm(any(),
+                        eq(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.LAB), any(), any(), any(), any());
+        try (var forms = openerForms()) {
+            assertThat(submissionAction().execute()).isEqualTo("faxPreparation");
+            verify(forms.constructed().getFirst()).setOpenerValues(any(),
+                    eq(new java.util.ArrayList<>(java.util.List.of("synthetic original"))));
+            assertThat(mockRequest.getSession().getAttribute(key)).isEqualTo("synthetic replacement");
+        }
+    }
+
+    @Test
+    void shouldConsumeCommittedOpener_whenAfterCommitCallbackThrows() {
+        String key = "doc1_123_1_referral";
+        mockRequest.getSession().setAttribute(key, "synthetic incoming value");
+        when(mockEformDataManager.saveEformData(any(), any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override public void afterCommit() { throw new IllegalArgumentException("synthetic callback failure"); }
+                    });
+            return 42;
+        });
+        try (var forms = openerForms()) {
+            assertThat(submissionAction().execute()).isEqualTo("none");
+            assertThat(mockResponse.getStatus()).isEqualTo(409);
+            assertThat(mockRequest.getSession().getAttribute(key)).isNull();
+            verify(forms.constructed().getFirst()).setOpenerValues(any(), any());
+        }
+    }
+
+    private AddEForm2Action submissionAction() {
+        AddEForm2Action action = spy(new AddEForm2Action());
+        doReturn("Check the patient eForms before reopening").when(action).getText("eform.submitUnavailable");
+        doReturn("This request was not processed. Copy your changes and check saved eForms.")
+                .when(action).getText("eform.submitStale");
+        // A failure after storage started has its own texts, never the replay refusal (#4424);
+        // AddEForm2ActionPostSaveFailureUnitTest asserts the shipped wording.
+        doReturn("Could not confirm the save. Check the patient eForms.")
+                .when(action).getText("eform.submitOutcomeUnknown");
+        doReturn("a follow-on step").when(action).getText("eform.submitStep.followOn");
+        doReturn("Saved, but a follow-on step did not complete. Check the patient eForms and chart.")
+                .when(action).getText(eq("eform.submitSavedStepIncomplete"), any(String[].class));
+        return action;
+    }
+
+    @Test
+    @DisplayName("should hand only the saved eForm id to the POST fax handoff, without a redirect or a render")
+    void shouldHandSavedEFormToPostHandoff_whenSavingWithFax() throws Exception {
+        mockRequest.setContextPath("/carlos");
+        mockRequest.setParameter("recipient", "Dr & Smith");
+        mockRequest.setParameter("recipientFaxNumber", "555 1234");
+        mockRequest.setParameter("letterheadFax", "Clinic#1");
+
+        assertThat(submissionAction().execute()).isEqualTo("faxPreparation");
+
+        // The target names the NEW saved revision (42), not the template id (efmfid=1), so the
+        // fax carries exactly what was just stored. EFormFaxPreparation.jsp posts it with a CSRF
+        // token; the clinical fields themselves are never replayed to the fax route.
+        assertThat(mockRequest.getAttribute("preparedFaxTarget")).isEqualTo(
+                "/carlos/fax/faxAction?method=prepareFax&transactionId=42&transactionType=EFORM"
+                        + "&demographicNo=123&recipient=Dr+%26+Smith&recipientFaxNumber=555+1234"
+                        + "&letterheadFax=Clinic%231");
+        assertThat(mockResponse.getStatus()).isEqualTo(200);
+        assertThat(mockResponse.getHeader("Location")).isNull();
+        assertThat(mockResponse.getHeader("Cache-Control")).isEqualTo("no-store");
+        verify(mockEformDataManager, times(1)).saveEformData(any(), any());
+        // Preparation renders on its own POST, and a faxed eForm never writes chart template notes.
+        verify(mockDocumentAttachmentManager, never()).stageEFormPacketForFaxPreview(any(), any(), any());
+        verify(mockDocumentAttachmentManager, never()).renderEFormPacketWithCompleteness(any(), any(), any());
+        eFormUtilMock.verify(() -> EFormUtil.writeEformTemplate(any(), any(), any(), any(), any(), any(), any()),
+                never());
+    }
+
+    @Test
+    void shouldSaveOnlyOnce_whenSamePostIsReplayed() {
+        assertThat(submissionAction().execute()).isEqualTo("faxPreparation");
+        assertThat(submissionAction().execute()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        verify(mockEformDataManager, times(1)).saveEformData(any(), any());
+        verify(mockDocumentAttachmentManager, times(1)).attachToEForm(any(),
+                eq(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.LAB), any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldRejectMissingIdentity_beforeSavingOrAttaching() throws Exception {
+        mockRequest.removeParameter(io.github.carlos_emr.carlos.eform.EFormSubmissionGuard.PARAMETER);
+        assertThat(submissionAction().execute()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        assertThat(mockResponse.getContentAsString()).contains("This request was not processed", "Copy your changes");
+        assertThat(mockResponse.getContentType()).isEqualTo("text/plain;charset=UTF-8");
+        assertThat(mockResponse.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+        verifyNoInteractions(mockEformDataManager, mockDocumentAttachmentManager);
+    }
+
+    @Test
+    void shouldRejectCrossPatientIdentity_beforeSaving() {
+        mockRequest.setParameter("efmdemographic_no", "456");
+        assertThat(submissionAction().execute()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        verifyNoInteractions(mockEformDataManager, mockDocumentAttachmentManager);
+    }
+
+    @Test
+    void shouldSaveNewRevision_whenPageHasFreshIdentity() {
+        assertThat(submissionAction().execute()).isEqualTo("faxPreparation");
+        mockRequest.setParameter(io.github.carlos_emr.carlos.eform.EFormSubmissionGuard.PARAMETER,
+                io.github.carlos_emr.carlos.eform.EFormSubmissionGuard.issue(mockRequest.getSession(), "1", "123"));
+        assertThat(submissionAction().execute()).isEqualTo("faxPreparation");
+        verify(mockEformDataManager, times(2)).saveEformData(any(), any());
+    }
+
+    @Test
+    void shouldRejectReplay_whenEdocFailsAfterClinicalSave() throws Exception {
+        mockRequest.setParameter("saveAsEdoc", "true");
+        doThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("synthetic render failure"))
+                .when(mockDocumentAttachmentManager).saveEFormAsEDoc(any(), any());
+        assertThat(submissionAction().execute()).isEqualTo("error");
+        assertThat(submissionAction().execute()).isEqualTo("none");
+        verify(mockEformDataManager, times(1)).saveEformData(any(), any());
+        verify(mockDocumentAttachmentManager, times(1)).saveEFormAsEDoc(any(), any());
+    }
+
+    @Test
+    void shouldRollBackClinicalSave_whenLabAttachmentIsRejected() {
+        doThrow(new IllegalArgumentException("ambiguous lab source"))
+                .when(mockDocumentAttachmentManager).attachToEForm(any(),
+                        eq(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.LAB), any(), any(), any(), any());
+        assertThat(new AddEForm2Action().execute()).isEqualTo(org.apache.struts2.ActionSupport.ERROR);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        var transactions = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class);
+        verify(transactions, atLeastOnce()).rollback(any());
+        verify(transactions, never()).commit(any());
+        assertThat(mockRequest.getAttribute("error")).isEqualTo("true");
+        assertThat(mockRequest.getAttribute("errorMessage")).asString().contains("not saved");
+    }
+
+    @Test
+    @DisplayName("should roll back and show a toolbar error when attachment access is denied")
+    void shouldRollBackAndShowError_whenAttachmentAccessDenied() {
+        String validLink = issueOpenerLink("1");
+        mockRequest.setParameter("eform_link", validLink);
+        doThrow(new SecurityException("PRIVATE_ATTACHMENT_DETAILS"))
+                .when(mockDocumentAttachmentManager).attachToEForm(any(),
+                        eq(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.DOC), any(), any(), any(), any());
+
+        assertThat(new AddEForm2Action().execute()).isEqualTo(org.apache.struts2.ActionSupport.ERROR);
+
+        assertThat(mockResponse.getStatus()).isEqualTo(403);
+        var transactions = SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class);
+        verify(transactions, atLeastOnce()).rollback(any());
+        verify(transactions, never()).commit(any());
+        assertThat(mockRequest.getAttribute("error")).isEqualTo("true");
+        assertThat(mockRequest.getAttribute("errorMessage")).asString()
+                .contains("not saved", "permission").doesNotContain("PRIVATE_ATTACHMENT_DETAILS");
+        assertThat(mockRequest.getSession().getAttribute(validLink)).isNull();
+        assertThat(mockRequest.getAttribute("fdid")).isNull();
+    }
+
+    @Test
     @DisplayName("should expose toolbar error state when saveAsEdoc generation fails")
     void shouldExposeToolbarErrorState_whenSaveAsEdocGenerationFails() throws Exception {
         mockRequest.setParameter("saveAsEdoc", "true");
@@ -185,10 +428,19 @@ class AddEForm2ActionExecuteEformLinkUnitTest extends CarlosUnitTestBase {
                 .isEqualTo("This eForm (and attachments, if applicable) could not be added to this patient’s documents.");
     }
 
+    /**
+     * The link an opener eForm (fid 13) issued to its "referralForm" button, which opens {@code targetFid}.
+     * It names the opener, not the eForm being saved here (fid 1).
+     */
+    private String issueOpenerLink(String targetFid) {
+        return io.github.carlos_emr.carlos.eform.EFormOpenerLinks.issue(
+                mockRequest.getSession(), "doc1", "123", "13", "referralForm", targetFid);
+    }
+
     @Test
-    @DisplayName("should write fdid to session when eform_link is valid")
+    @DisplayName("should write fdid to session when eform_link was issued by an opener of this eForm")
     void shouldWriteFdidToSession_whenEformLinkIsValid() {
-        String validLink = "doc1_123_1_referralForm";
+        String validLink = issueOpenerLink("1");
         mockRequest.setParameter("eform_link", validLink);
 
         AddEForm2Action action = new AddEForm2Action();
@@ -201,12 +453,58 @@ class AddEForm2ActionExecuteEformLinkUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should not write to session when a well-formed eform_link was never issued")
+    void shouldNotWriteToSession_whenEformLinkWasNeverIssued() {
+        String unissued = "doc1_123_1_referralForm";
+        mockRequest.setParameter("eform_link", unissued);
+
+        assertThat(new AddEForm2Action().execute()).isEqualTo("faxPreparation");
+
+        assertThat(mockRequest.getSession().getAttribute(unissued)).isNull();
+    }
+
+    @Test
+    @DisplayName("should not write to session when eform_link was issued for a button that opens another eForm")
+    void shouldNotWriteToSession_whenEformLinkOpensAnotherEForm() {
+        String otherTarget = issueOpenerLink("99");
+        mockRequest.setParameter("eform_link", otherTarget);
+
+        assertThat(new AddEForm2Action().execute()).isEqualTo("faxPreparation");
+
+        assertThat(mockRequest.getSession().getAttribute(otherTarget)).isNull();
+    }
+
+    @Test
+    @DisplayName("should restore all CARLOS image links without saving them as form fields")
+    void shouldRestoreImageLinks_withoutPersistingTransportFields() throws Exception {
+        String[] images = {
+                "{\"id\":\"signature\",\"value\":\"data:image/png;base64,AQID\"}",
+                "{\"id\":\"letterhead\",\"value\":\"/carlos/eform/displayImage?imagefile=logo.png\"}"
+        };
+        mockRequest.setParameter("carlos-image-link", images);
+        mockRequest.setParameter("clinicalNote", "Synthetic follow-up");
+        try (var forms = mockConstruction(io.github.carlos_emr.carlos.eform.data.EForm.class,
+                (form, construction) -> {
+                    when(form.getFormFileName()).thenReturn("test.html");
+                    when(form.getOpenerNames()).thenReturn(new java.util.ArrayList<>());
+                })) {
+            assertThat(new AddEForm2Action().execute()).isEqualTo("faxPreparation");
+            assertThat(forms.constructed()).hasSize(1);
+            verify(forms.constructed().getFirst()).addImagePathPlaceholders(images);
+            eFormUtilMock.verify(() -> EFormUtil.addEFormValues(
+                    argThat(names -> names.contains("clinicalNote") && !names.contains("carlos-image-link")),
+                    argThat(values -> values.contains("Synthetic follow-up") && !values.contains(images[0])
+                            && !values.contains(images[1])), eq(42), eq(1), eq(123)));
+        }
+    }
+
+    @Test
     void shouldKeepImageFailuresAndRejectedLinkValuesOutOfDiagnostics() throws Exception {
-        mockRequest.setParameter("openosp-image-link", "PRIVATE_IMAGE_CONTENT");
+        mockRequest.setParameter("carlos-image-link", "PRIVATE_IMAGE_CONTENT");
         mockRequest.setParameter("eform_link", "PRIVATE_LINK_VALUE");
         var failure = new IllegalArgumentException("PRIVATE_IMAGE_MESSAGE",
                 new IllegalStateException("PRIVATE_IMAGE_CAUSE"));
-        try (var forms = org.mockito.Mockito.mockConstruction(
+        try (var forms = mockConstruction(
                 io.github.carlos_emr.carlos.eform.data.EForm.class, (form, construction) -> {
                     when(form.getFormFileName()).thenReturn("test.html");
                     when(form.getOpenerNames()).thenReturn(new java.util.ArrayList<>());
@@ -214,6 +512,7 @@ class AddEForm2ActionExecuteEformLinkUnitTest extends CarlosUnitTestBase {
                 });
              var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(AddEForm2Action.class)) {
             assertThat(new AddEForm2Action().execute()).isEqualTo("faxPreparation");
+            assertThat(forms.constructed()).hasSize(1);
             verify(mockEformDataManager).saveEformData(any(), any());
             assertThat(logs.messages()).anyMatch(message -> message.contains("image placeholders (IllegalArgumentException)"));
             assertThat(logs.messages()).anyMatch(message -> message.contains("Invalid eform_link"));

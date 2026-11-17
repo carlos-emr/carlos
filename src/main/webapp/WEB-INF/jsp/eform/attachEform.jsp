@@ -105,6 +105,13 @@
 
     Set<String> attachedDocIds = fdid != null ? new HashSet<>(attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.DOC, demographicNo)) : Collections.emptySet();
     Set<String> attachedLabIds = fdid != null ? new HashSet<>(attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.LAB, demographicNo)) : Collections.emptySet();
+    Set<String> offeredLabIds = new HashSet<>();
+    for (AttachmentLabResultData lab : allLabsSortedByVersions) {
+        offeredLabIds.add(lab.getLabType() + ":" + lab.getSegmentID());
+        for (String versionId : lab.getLabVersionIds().keySet()) offeredLabIds.add(lab.getLabType() + ":" + versionId);
+    }
+    Set<String> unavailableLabIds = new HashSet<>(attachedLabIds);
+    unavailableLabIds.removeAll(offeredLabIds);
     Set<String> attachedHrmIds = fdid != null ? new HashSet<>(attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.HRM, demographicNo)) : Collections.emptySet();
     Set<String> attachedEFormIds = fdid != null ? new HashSet<>(attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.EFORM, demographicNo)) : Collections.emptySet();
     Set<String> attachedFormIds = new HashSet<>();
@@ -187,7 +194,7 @@
             <div class="list">
                 <% if (allLabsSortedByVersions.isEmpty()) { %>
                 <em class="muted">No labs available</em>
-                <% } else { for (AttachmentLabResultData lab : allLabsSortedByVersions) { String labSegmentId = lab.getSegmentID(); String labCheckboxId = buildDomId("labNo", labSegmentId); String labLabelId = buildDomId("labLabel", labSegmentId); String labDateId = buildDomId("labDate", labSegmentId); %>
+                <% } else { for (AttachmentLabResultData lab : allLabsSortedByVersions) { String labSegmentId = lab.getLabType() + ":" + lab.getSegmentID(); String labCheckboxId = buildDomId("labNo", labSegmentId); String labLabelId = buildDomId("labLabel", labSegmentId); String labDateId = buildDomId("labDate", labSegmentId); %>
                 <div class="item">
                     <label for="<%= SafeEncode.forHtmlAttribute(labCheckboxId) %>">
                         <input type="checkbox" id="<%= SafeEncode.forHtmlAttribute(labCheckboxId) %>" name="labNo" value="<%= SafeEncode.forHtmlAttribute(labSegmentId) %>" aria-labelledby="<%= SafeEncode.forHtmlAttribute(labLabelId + " " + labDateId) %>" <%= attachedLabIds.contains(labSegmentId) ? "checked" : "" %>>
@@ -195,7 +202,7 @@
                         <span id="<%= SafeEncode.forHtmlAttribute(labDateId) %>" class="muted"><%= SafeEncode.forHtml(lab.getLabDateFormated()) %></span>
                     </label>
                 </div>
-                <% for (Map.Entry<String, String> version : lab.getLabVersionIds().entrySet()) { String labVersionId = version.getKey(); String labVersionCheckboxId = buildDomId("labNo", labSegmentId, labVersionId); String labVersionLabelId = buildDomId("labLabel", labSegmentId, labVersionId); String labVersionDateId = buildDomId("labDate", labSegmentId, labVersionId); %>
+                <% for (Map.Entry<String, String> version : lab.getLabVersionIds().entrySet()) { String labVersionId = lab.getLabType() + ":" + version.getKey(); String labVersionCheckboxId = buildDomId("labNo", labSegmentId, labVersionId); String labVersionLabelId = buildDomId("labLabel", labSegmentId, labVersionId); String labVersionDateId = buildDomId("labDate", labSegmentId, labVersionId); %>
                 <div class="item" style="padding-left: 18px;">
                     <label for="<%= SafeEncode.forHtmlAttribute(labVersionCheckboxId) %>">
                         <input type="checkbox" id="<%= SafeEncode.forHtmlAttribute(labVersionCheckboxId) %>" name="labNo" value="<%= SafeEncode.forHtmlAttribute(labVersionId) %>" aria-labelledby="<%= SafeEncode.forHtmlAttribute(labVersionLabelId + " " + labVersionDateId) %>" <%= attachedLabIds.contains(labVersionId) ? "checked" : "" %>>
@@ -204,6 +211,13 @@
                     </label>
                 </div>
                 <% } } } %>
+                <% for (String missingLab : unavailableLabIds) { %>
+                <div class="item">
+                    <label><input type="checkbox" name="labNo" value="<%= SafeEncode.forHtmlAttribute(missingLab) %>" checked>
+                        Lab attachment unavailable. Select the correct lab above and remove this unresolved entry before printing.
+                    </label>
+                </div>
+                <% } %>
             </div>
         </div>
 

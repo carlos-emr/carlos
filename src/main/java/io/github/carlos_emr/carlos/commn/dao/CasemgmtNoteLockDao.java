@@ -40,5 +40,11 @@ public interface CasemgmtNoteLockDao extends AbstractDao<CasemgmtNoteLock> {
 
     void remove(String providerNo, Integer demographicNo, Long note_id);
 
+    /** Atomically release only a lock still owned by this authenticated session. */
+    int removeForSession(String providerNo, Integer demographicNo, Long noteId, String sessionId);
+
+    /** Atomically removes locks still owned by the destroyed session. */
+    int removeAllForSession(String sessionId);
+
     List<CasemgmtNoteLock> findBySession(String sessionId);
 }

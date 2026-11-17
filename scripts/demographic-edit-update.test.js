@@ -83,16 +83,15 @@ test('the originals are captured from the database, not from the form', () => {
     'the originals must be captured before the first field is filled');
 });
 
-test('the restore runs in a finally and is scoped to one patient and one column set', () => {
-  // The OUTER finally of main(), which holds the restore. The nested one after
-  // it only disposes the sql runner and the browser, so slicing from the last
-  // occurrence would miss the restore entirely.
+test('the patient is the check\'s own and is removed by its key in the finally', () => {
+  // The OUTER finally of main(), which holds the removal. A demo patient is never written: a Master Record save also rewrites
+  // province and newsletter codes and files archive rows, so a restore of the five columns could not put a demo record back.
   const finallyBlock = SOURCE.slice(SOURCE.indexOf('} finally {', SOURCE.indexOf('async function main')));
-  assert.match(finallyBlock, /UPDATE demographic SET/, 'the restore must be in the finally');
-  assert.match(finallyBlock, /WHERE demographic_no = \$\{Number\(demographicNo\)\}/,
-    'the restore must be scoped to the one patient, with the id coerced to a number');
-  assert.ok(!/DELETE FROM demographic/.test(SOURCE),
-    'this check edits an existing patient; it must never delete one');
+  assert.match(finallyBlock, /removeOwnedPatient\(sql, ownedPatient, ownedMarker\)/, 'the removal must be in the finally');
+  assert.match(SOURCE, /createOwnedPatient\(sql, \{ marker: ownedMarker, provider \}\)/, 'the patient is created by the check');
+  assert.ok(!/UPDATE demographic SET/.test(SOURCE), 'a patient row is never written back by SQL');
+  assert.ok(!/DELETE FROM demographic/.test(SOURCE), 'the delete is lib/owned-patient\'s, scoped to the run marker');
+  assert.ok(!/DEMOGRAPHIC_EDIT_(SEARCH|DEMOGRAPHIC_NO)/.test(SOURCE), 'no environment variable can point the check at a demo patient');
 });
 
 test('no field value is ever logged', () => {

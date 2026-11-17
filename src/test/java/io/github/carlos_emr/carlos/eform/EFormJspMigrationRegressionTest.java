@@ -59,6 +59,12 @@ class EFormJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/jsp/eform/efmTopNav.jspf");
     private static final Path EFM_FORM_MANAGER_EDIT_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/eform/efmformmanageredit.jsp");
+    private static final Path UPLOAD_IMAGE_PARTIAL_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/eform/partials/upload_image.jsp");
+    private static final Path EFM_IMAGE_MANAGER_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/eform/efmimagemanager.jsp");
+    private static final Path ADMIN_LEFT_NAV_JSPF =
+            Path.of("src/main/webapp/WEB-INF/jsp/administration/leftNav.jspf");
     private static final Path STRUTS_EFORM_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts-eform.xml");
     private static final Path STRUTS_FORM_XML =
@@ -164,8 +170,24 @@ class EFormJspMigrationRegressionTest {
         assertThat(jsp).containsPattern(
                 "(?s)eForm = new EForm\\(fdid\\);\\s*"
                         + "eForm\\.setContextPath\\(request\\.getContextPath\\(\\)\\);\\s*"
-                        + "eForm\\.setOscarOPEN\\(request\\.getRequestURI\\(\\)\\);\\s*"
+                        + "eForm\\.setOscarOPEN\\(request\\.getContextPath\\(\\) \\+ \"/eform/efmshowform_data\", session, signedInProvider\\);\\s*"
                         + "eForm\\.setImagePath\\(request\\.getContextPath\\(\\)\\);");
+    }
+
+    @Test
+    @DisplayName("oscarOPEN buttons should open the public eForm routes, not the internal JSP that renders the page")
+    void shouldOpenPublicRoutes_whenOscarOpenButtonsRender() throws IOException {
+        String add = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/efmformadd_data.jsp"), StandardCharsets.UTF_8);
+        String show = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/efmshowform_data.jsp"), StandardCharsets.UTF_8);
+
+        // Both pages are forwarded to from their actions, so request.getRequestURI() is the
+        // /WEB-INF/jsp/... path, which the browser cannot open.
+        assertThat(add + show).doesNotContain("setOscarOPEN(request.getRequestURI())");
+        assertThat(add).contains(
+                "thisEForm.setOscarOPEN(request.getContextPath() + \"/eform/efmformadd_data\", session, provider_no);");
+        assertThat(show.split(Pattern.quote(
+                "eForm.setOscarOPEN(request.getContextPath() + \"/eform/efmshowform_data\", session, signedInProvider);"), -1))
+                .as("the saved-copy view and the admin preview").hasSize(3);
     }
 
     @Test
@@ -220,6 +242,46 @@ class EFormJspMigrationRegressionTest {
                     .contains("/administration?show=Forms${param.scheduleNav eq '1' ? '&scheduleNav=1' : ''}")
                     .doesNotContain("/administration?show=Forms&scheduleNav=1\"");
         }
+    }
+
+    @Test
+    @DisplayName("eForm image upload should preserve explicit schedule navigation")
+    void shouldPreserveScheduleNavigation_throughEFormImageUpload() throws IOException {
+        String imageManager = Files.readString(EFM_IMAGE_MANAGER_JSP, StandardCharsets.UTF_8);
+        String uploadImage = Files.readString(UPLOAD_IMAGE_PARTIAL_JSP, StandardCharsets.UTF_8);
+        String topNav = Files.readString(EFM_TOP_NAV_JSPF, StandardCharsets.UTF_8);
+
+        // scheduleNav=1 is what makes the administration shell render its top nav bar. Uploading
+        // an eForm image ends in a top-level navigation, so every hop from the shell to the Image
+        // Library to the upload panel and back has to carry the flag, or the operator lands on an
+        // administration page with no way back to the schedule. upload.jsp/import.jsp already did;
+        // this path did not.
+        assertThat(topNav)
+                .contains("String efmScheduleNavSuffix = \"1\".equals(request.getParameter(\"scheduleNav\"))")
+                .contains("/eform/efmimagemanager<%= efmScheduleNavSuffix %>");
+        assertThat(imageManager)
+                .contains("/eform/partials/upload_image<%= \"1\".equals(request.getParameter(\"scheduleNav\"))");
+        assertThat(uploadImage)
+                .contains("<c:if test=\"${param.scheduleNav eq '1'}\">")
+                .contains("<input type=\"hidden\" name=\"scheduleNav\" value=\"1\"")
+                .contains("/administration?show=ImageUpload${param.scheduleNav eq '1' ? '&scheduleNav=1' : ''}")
+                .doesNotContain("/administration?show=ImageUpload\"");
+    }
+
+    @Test
+    @DisplayName("administration deep links should survive an entry whose panel is named differently")
+    void shouldSurviveMismatchedPanelName_whenDeepLinkingIntoAdministration() throws IOException {
+        String leftNav = Files.readString(ADMIN_LEFT_NAV_JSPF, StandardCharsets.UTF_8);
+
+        // ?show=X selects an ANCHOR by its .defaultX class, but expanded #collapseX -- and
+        // .defaultImageUpload lives inside #collapseForms, so #collapseImageUpload does not exist.
+        // getOrCreateInstance(null) threw BEFORE the content load below it, and the whole deep link
+        // died in the catch: an empty content pane with no explanation. That is what every eForm
+        // image upload landed on.
+        assertThat(leftNav)
+                .contains("$target.closest('.accordion-collapse').get(0)")
+                .contains("if (panel) {")
+                .doesNotContain("bootstrap.Collapse.getOrCreateInstance(document.getElementById('collapse'+show)).show();");
     }
 
     @Test

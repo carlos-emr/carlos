@@ -34,6 +34,7 @@ import jakarta.servlet.jsp.JspException;
 import jakarta.servlet.jsp.JspWriter;
 import jakarta.servlet.jsp.tagext.TagSupport;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
@@ -90,7 +91,7 @@ public class DemographicNameAgeTag extends TagSupport {
         DemographicNameAgeString demoNameAge = DemographicNameAgeString.getInstance();
         Integer intDemoNo = ConversionUtils.fromIntString(demoNo);
         if (intDemoNo == 0) {
-            MiscUtils.getLogger().error("Unable to parse demo no: " + demoNo);
+            MiscUtils.getLogger().error("Unable to parse demo no: {}", LogSafe.sanitize(demoNo));
             return SKIP_BODY;
         }
         String nameage = demoNameAge.getNameAgeString(LoggedInInfo.getLoggedInInfoFromSession(this.pageContext.getSession()), intDemoNo);

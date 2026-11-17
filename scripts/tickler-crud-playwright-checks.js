@@ -22,10 +22,14 @@
  */
 
 const { chromium } = require('playwright');
+const { cleanupTicklerFixture, readNoteLinkFloor } = require('./lib/tickler-fixture-cleanup');
+const { selectTicklerAssignee } = require('./lib/tickler-clinic');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING, shouldIgnoreHttpsErrors,
+  createRecorder, wireStrictPage, assertStrictPage, buildFailureDetails } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -51,6 +55,10 @@ const editedMessage = `${CLINICAL_TEXT_THE_WAF_SCORES} ${stamp} edited through e
 const mysqlDefaults = createMysqlDefaultsFile();
 const badResponses = [];
 const consoleIssues = [];
+const strictRecorder = createRecorder();
+// Set before the tickler is created; until then the run owns no rows to clean. Note
+// links at or below it predate the run and are never deleted (#4409).
+let linkIdFloor = null;
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
@@ -63,7 +71,11 @@ function validateBaseUrl(rawBaseUrl) {
 
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -87,13 +99,27 @@ function appUrl(appPath, query = null) {
   return url.toString();
 }
 
+// A MariaDB option file is NOT a raw key=value format: in a value, '\' starts an
+// escape sequence ('\s' is a space, '\t' a tab) and an unquoted '#' starts a
+// comment that truncates the rest of the line. Writing the password verbatim
+// therefore silently corrupts it and the script dies on "Access denied".
+// Double-quoting the value neutralizes '#' and surrounding whitespace; '\' and
+// '"' still need escaping inside the quotes.
+function encodeOptionFileValue(value) {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
 function createMysqlDefaultsFile() {
   if (/[\r\n]/.test(mysqlPassword)) {
     throw new Error('MYSQL_PASSWORD must not contain newline characters');
   }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-tickler-mysql-'));
   const file = path.join(dir, 'client.cnf');
-  fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+  fs.writeFileSync(
+    file,
+    `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`,
+    { mode: 0o600 }
+  );
   return { dir, file };
 }
 
@@ -128,10 +154,10 @@ function assert(condition, message) {
 }
 
 function cleanupRows() {
-  // The stamp sits after the scoring text, so match it anywhere in the message.
-  const escapedStamp = escapeSql(`%${stamp}%`);
-  sql(`DELETE FROM tickler_comments WHERE tickler_no IN (SELECT tickler_no FROM tickler WHERE message LIKE '${escapedStamp}')`);
-  sql(`DELETE FROM tickler WHERE message LIKE '${escapedStamp}'`);
+  if (linkIdFloor === null) {
+    return;
+  }
+  cleanupTicklerFixture({ sql, patient: demographicNo, stamp, linkIdFloor });
 }
 
 function getTicklerRows() {
@@ -171,10 +197,7 @@ function getCommentRows(ticklerNo) {
 }
 
 function wirePage(page, label) {
-  page.on('dialog', async (dialog) => {
-    consoleIssues.push({ label, type: 'dialog', text: dialog.message() });
-    await dialog.accept();
-  });
+  wireStrictPage(page, label, strictRecorder, { baseline: [] });
   page.on('response', (response) => {
     const status = response.status();
     const responseUrl = response.url();
@@ -362,7 +385,7 @@ async function createTickler(context) {
   await page.locator('textarea[name="ticklerMessage"]').fill(createdMessage);
   await page.locator('input[name="xml_appointment_date"]').fill('2026-02-18');
   await page.locator('select[name="priority"]').selectOption('High');
-  await page.locator('select[name="task_assigned_to"]').selectOption(providerNo);
+  await selectTicklerAssignee(page, providerNo);
   await page.locator('input.btn-primary[name="Button"]').first().click();
   await page.waitForFunction(() => {
     const frame = document.getElementById('ticklerSubmitFrame');
@@ -409,10 +432,16 @@ async function editTicklerFromList(context, listPage, ticklerNo) {
   assert(comments.includes(editedMessage), 'edited tickler comment was not saved');
 }
 
-async function completeTicklerViaEdit(context, ticklerNo) {
-  const page = await context.newPage();
+async function completeTicklerViaEdit(context, listPage, ticklerNo) {
+  await findRowInList(listPage, createdMessage, 'A');
+  const row = listPage.locator('#ticklerResults tbody tr').filter({ hasText: createdMessage }).first();
+  const popup = context.waitForEvent('page');
+  await row.locator('a[onclick*="openTicklerEdit"]').click();
+  const page = await popup;
   wirePage(page, 'tickler-complete-edit');
-  await gotoApp(page, '/tickler/ViewTicklerEdit', 'domcontentloaded', { tickler_no: ticklerNo });
+  await page.waitForURL(url => url.pathname.endsWith('/tickler/ViewTicklerEdit')
+    && url.searchParams.get('tickler_no') === String(ticklerNo),
+    { timeout: 30000, waitUntil: 'domcontentloaded' });
   await page.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 30000 });
   await page.locator('#status').selectOption('C');
   await page.locator('input[name="updateTickler"]').click();
@@ -454,19 +483,32 @@ async function deleteTicklerFromList(page, message) {
   await waitForTicklerStatus('D');
 }
 
+// Issue #3600: a finally does not run when the process is killed, which would leave
+// the synthetic ticklers (and the cleartext MySQL password file) behind. Both steps
+// are idempotent; the handler is removed once the normal finally has run them.
+const signalHandlers = installCleanupSignalHandlers(() => {
+  try {
+    cleanupRows();
+  } finally {
+    cleanupMysqlDefaultsFile();
+  }
+});
+
 (async () => {
-  cleanupRows();
+  linkIdFloor = readNoteLinkFloor(sql);
 
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    ...NO_PLAYWRIGHT_SIGNAL_HANDLING,
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
   }
 
   const browser = await chromium.launch(launchOptions);
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+  context.on('page', page => wireStrictPage(page, 'tickler-crud', strictRecorder, { baseline: [] }));
   try {
     const schedulePage = await context.newPage();
     wirePage(schedulePage, 'login-schedule');
@@ -480,9 +522,7 @@ async function deleteTicklerFromList(page, message) {
     const activeRow = await findRowInList(listPage, createdMessage, 'A');
     assert(String(activeRow.id) === String(ticklerNo), `list row id ${activeRow.id} did not match created id ${ticklerNo}`);
     const searchFoundCreated = await probeTicklerSearch(listPage, createdMessage);
-    if (!searchFoundCreated) {
-      console.log(`WARN tickler list search did not return the created message ${createdMessage}`);
-    }
+    assert(searchFoundCreated, 'Tickler list search did not return the created message');
 
     await editTicklerFromList(context, listPage, ticklerNo);
     await listPage.reload({ waitUntil: 'domcontentloaded' });
@@ -490,7 +530,7 @@ async function deleteTicklerFromList(page, message) {
     const editedRow = await findRowInList(listPage, createdMessage, 'A');
     assert(String(editedRow.id) === String(ticklerNo), `edited list row id ${editedRow.id} did not match ${ticklerNo}`);
 
-    await completeTicklerViaEdit(context, ticklerNo);
+    await completeTicklerViaEdit(context, listPage, ticklerNo);
     await listPage.reload({ waitUntil: 'domcontentloaded' });
     await waitForTicklerListReady(listPage);
     await setTicklerListStatus(listPage, 'C');
@@ -502,6 +542,7 @@ async function deleteTicklerFromList(page, message) {
 
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
     assert(consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(consoleIssues, null, 2)}`);
+    assertStrictPage(strictRecorder);
 
     console.log(`PASS tickler CRUD interface flow for tickler ${ticklerNo}`);
   } finally {
@@ -509,9 +550,14 @@ async function deleteTicklerFromList(page, message) {
     await browser.close().catch(() => {});
     cleanupRows();
     cleanupMysqlDefaultsFile();
+    // Last, so a signal arriving during cleanup still reaches the handler.
+    signalHandlers.dispose();
   }
+  assertStrictPage(strictRecorder);
 })().catch((error) => {
+  signalHandlers.dispose();
   cleanupMysqlDefaultsFile();
   console.error(`FAIL tickler CRUD interface flow: ${error.stack || error.message}`);
+  console.error(JSON.stringify(buildFailureDetails(strictRecorder), null, 2));
   process.exit(1);
 });

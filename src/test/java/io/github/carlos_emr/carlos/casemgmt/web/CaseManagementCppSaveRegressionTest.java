@@ -60,7 +60,7 @@ class CaseManagementCppSaveRegressionTest {
             "lifestage", "hidecpp", "startdate", "resolutiondate", "proceduredate", "ageatonset"};
     /**
      * The CRS tag groups that read prose as an attack. {@code attack-rfi} is on this list
-     * for the note route even though 1045 and 1050 keep it: 931100 is anchored on the whole
+     * for the note route, as on Letter (1045), even though formHtml (1050) keeps it: 931100 is anchored on the whole
      * argument and fires on a CPP box or note that IS a pasted IP-address link (an internal
      * PACS URL), measured 403 on the packaged install — see the rule's comment.
      */
@@ -73,7 +73,7 @@ class CaseManagementCppSaveRegressionTest {
     void shouldRefreshUnresolvedIssues_afterCppSave() throws IOException {
         String js = Files.readString(CASE_MGMT_VIEW_JS_JSP, StandardCharsets.UTF_8);
 
-        int callbackStart = js.indexOf("function onIssueUpdate()");
+        int callbackStart = js.indexOf("function onIssueUpdate(complete)");
         assertThat(callbackStart).as("CPP issue update callback must exist").isGreaterThan(0);
         // Bound the slice by the next function declaration rather than by a specific
         // indentation of the closing brace, which a reformat would silently break.
@@ -91,7 +91,7 @@ class CaseManagementCppSaveRegressionTest {
                         + "encoded before #3422 and must stay that way")
                 .contains("encodeURIComponent(ctx + \"/encounter/displayIssues\")")
                 .contains("cmd=unresolvedIssues")
-                .contains("loadDiv('unresolvedIssueslist', reloadUrl, 0)");
+                .contains("loadDiv('unresolvedIssueslist', reloadUrl, 0,");
     }
 
     @Test
@@ -207,7 +207,7 @@ class CaseManagementCppSaveRegressionTest {
         String jsp = Files.readString(CASE_MGMT_ENTRY_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp)
-                .contains("${carlos:forHtmlContent(caseNote.note)}")
+                .contains("${carlos:forHtmlContent(caseManagementEntryForm.caseNote.note)}")
                 .doesNotContain("${caseNote.note}");
     }
 
@@ -267,27 +267,21 @@ class CaseManagementCppSaveRegressionTest {
     }
 
     @Test
-    @DisplayName("reopening a saved note for editing should HTML-escape the decoded text inside the textarea markup")
-    void shouldEscapeDecodedNote_whenBuildingEditorMarkup() throws IOException {
-        // renderedNoteText() hands back the raw note, and editNote() splices it into
-        // "<textarea ...>" + payload + "</textarea>" through insertAdjacentHTML. Unescaped, a
-        // note holding "</textarea><img onerror=...>" would close the element and run when
-        // the next clinician opened it. Escaped, the textarea's RCDATA decodes it back to the
-        // clinician's text.
+    @DisplayName("new and reopened note editors should assign raw text through the textarea value")
+    void shouldAssignRawNoteValue_whenBuildingEditors() throws IOException {
+        // Keep decoded notes and appointment reasons out of HTML construction. The Node
+        // and Chromium checks exercise literal closing tags, leading newlines and submission.
         String js = Files.readString(CASE_MGMT_VIEW_JS_JSP, StandardCharsets.UTF_8);
-
+        int createTextarea = js.indexOf("function createNoteTextarea(id, value, editing)");
         int editNote = js.indexOf("function editNote(e)");
-        int escaped = js.indexOf("payload = escapeNoteText(payload);", editNote);
-        int spliced = js.indexOf("id='\" + caseNote + \"'>\" + payload + \"<\\/textarea>\"", editNote);
-        assertThat(editNote).as("editNote() is defined").isGreaterThanOrEqualTo(0);
-        assertThat(escaped).as("editNote() escapes the payload").isGreaterThan(editNote);
-        assertThat(spliced).as("editNote() splices the payload into the textarea markup").isGreaterThan(escaped);
-
-        // newNote() builds its textarea the same way from the pre-populated reason (an
-        // appointment reason, decoded into a JavaScript string), so it gets the same escape.
+        assertThat(createTextarea).as("the shared editor builder is defined").isGreaterThanOrEqualTo(0);
+        assertThat(editNote).as("editNote() follows the builder").isGreaterThan(createTextarea);
+        assertThat(js.substring(createTextarea, editNote))
+                .contains("document.createElement(\"textarea\")", "input.value = value;")
+                .doesNotContain("innerHTML", "insertAdjacentHTML");
         assertThat(js)
-                .contains("id='caseNote_note\" + safeNoteIdSuffix + \"'>\" + escapeNoteText(reason) + \"<\\/textarea>\"")
-                .doesNotContain("+ \"'>\" + reason + \"<\\/textarea>\"");
+                .contains("createNoteTextarea(caseNote, payload, true)")
+                .contains("createNoteTextarea(\"caseNote_note\" + safeNoteIdSuffix, reason, false)");
     }
 
     @Test
@@ -320,6 +314,54 @@ class CaseManagementCppSaveRegressionTest {
         assertThat(js)
                 .contains("\"&noteTxt=\" + encodeURIComponent(noteTxt)")
                 .doesNotContain("encodeURI(noteTxt)");
+    }
+
+    @Test
+    @DisplayName("change detection should treat disagreeing duplicate rows as a change (#3739)")
+    void shouldTreatDivergentDuplicatesAsChange_inIssueNoteSave() throws IOException {
+        // THE RECONCILIATION IS UNREACHABLE IF THE SAVE RETURNS FIRST. getExtByNote() orders id
+        // desc, so stopping at the first matching row reads the NEWEST, while
+        // NotesService.getNote() assigns from every row and ends on the OLDEST. On a note that
+        // already holds two rows for one key, submitting the value the newest row has looked like
+        // "nothing changed": issueNoteSave returned early and the write loop that refreshes every
+        // row never ran, so the chart kept showing the older value. The inner loop must therefore
+        // walk EVERY row for the key rather than break at the first.
+        String action = read(Path.of("src", "main", "java", "io", "github", "carlos_emr", "carlos",
+                "casemgmt", "web", "CaseManagementEntry2Action.java"));
+
+        int blockStart = action.indexOf("List<CaseManagementNoteExt> cmeList = caseManagementNoteExtDao.getExtByNote(");
+        assertThat(blockStart)
+                .as("issueNoteSave still reads the note's existing extensions for change detection")
+                .isGreaterThan(-1);
+        int blockEnd = action.indexOf("// if note has not changed don't save", blockStart);
+        String block = action.substring(blockStart, blockEnd);
+        assertThat(action.substring(blockEnd, action.indexOf("note.setNote(strNote);", blockEnd)))
+                .as("the existing note named by the request's noteId must belong to the chart whose "
+                        + "lock was checked before anything rewrites it")
+                .containsPattern("!\\s*Objects\\.equals\\(\\s*demo\\s*,\\s*note\\.getDemographic_no\\(\\)\\s*\\)")
+                .contains("throw new SecurityException(");
+
+        assertThat(block)
+                .as("every row for the key is compared, so a disagreeing duplicate is itself a change")
+                .contains("extKeyMatched = true;")
+                .doesNotContainPattern("extKeyMatched\\s*=\\s*true\\s*;\\s*break\\s*;");
+        assertThat(block)
+                .as("the date comparison is resolved once per key; re-normalising an already "
+                        + "normalised value on a second row would compare the wrong thing")
+                .contains("String comparableDate =")
+                .contains("String comparableValue =");
+        assertThat(block)
+                .as("a date the write loop would discard (empty or malformed, so no partial-date "
+                        + "format) is not counted as a change")
+                .containsPattern("if\\s*\\(\\s*i\\s*<=\\s*2\\s*&&\\s*comparableValue\\s*==\\s*null\\s*\\)\\s*continue\\s*;");
+        // partialDateFormat() returns the EMPTY STRING for a full YYYY-MM-DD date, so the
+        // "was a value added?" test has to read what was submitted rather than its comparison
+        // form -- otherwise a newly typed complete date reads as nothing added and the early
+        // return discards it.
+        assertThat(block)
+                .as("a newly added full date is not mistaken for an empty field")
+                .contains("filled(submitted) && !extKeyMatched")
+                .doesNotContain("filled(comparableValue)");
     }
 
     /**

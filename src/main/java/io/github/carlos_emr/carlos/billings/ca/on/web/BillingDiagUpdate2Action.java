@@ -47,6 +47,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class BillingDiagUpdate2Action extends ActionSupport {
 
+    /** Request parameter prefix for the edited description: {@code desc_<dxCode>}. */
+    static final String DESCRIPTION_PARAM_PREFIX = "desc_";
+
     private final SecurityInfoManager securityInfoManager;
 
     private final BillingDiagCodeViewModelAssembler billingDxCodeAssembler;
@@ -76,13 +79,21 @@ public class BillingDiagUpdate2Action extends ActionSupport {
             return NONE;
         }
 
-        // Cleave the last 3 chars off the "update X" submit value (legacy
-        // behavior). The new description is the form input named after the
-        // 3-char dx code itself.
+        // The code is read from the "Update <code>" submit value the same way
+        // the persister reads it, so both name the same row (four-character
+        // codes included). The new description is the input named desc_<code>.
+        // The search page used to name it with the bare code, which broke
+        // CSRFGuard's client-side token injection (issue #4130); the bare name
+        // is still accepted so a page rendered before an upgrade works.
         String submitValue = request.getParameter("update");
-        String code = (submitValue == null || submitValue.length() < 3)
-                ? "" : submitValue.substring(submitValue.length() - 3);
-        String newDescription = request.getParameter(code);
+        String code = DiagCodeDescriptionPersister.codeFromSubmitValue(submitValue);
+        if (code == null) {
+            code = "";
+        }
+        String newDescription = request.getParameter(DESCRIPTION_PARAM_PREFIX + code);
+        if (newDescription == null) {
+            newDescription = request.getParameter(code);
+        }
 
         boolean updated = diagCodeDescriptionPersister.updateDescription(submitValue, newDescription);
         BillingDiagCodeUpdateViewModel model = billingDxCodeAssembler.assembleUpdate(!updated);

@@ -22,6 +22,8 @@
 
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.documentManager.EDoc;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -50,6 +52,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -123,6 +126,54 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
             if (eDocUtilMock != null) eDocUtilMock.close();
         } finally {
             if (mocks != null) mocks.close();
+        }
+    }
+
+    @Test
+    void shouldRejectDocumentBeforeLookup_whenDocumentWritePrivilegeMissing() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, 770001))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> manager.renderDocument(loggedInInfo, 42, 770001))
+                .isInstanceOf(RuntimeException.class).hasMessageContaining("_edoc");
+
+        eDocUtilMock.verify(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.getDoc("42"), never());
+    }
+
+    @Test
+    void shouldRejectDocument_whenLinkedPatientDiffers(@TempDir Path documentDir) throws Exception {
+        Path pdf = Files.writeString(documentDir.resolve("document.pdf"), "fixture");
+        EDoc document = new EDoc();
+        document.setModule("demographic");
+        document.setModuleId("770002");
+        document.setFilePath(pdf.toString());
+        eDocUtilMock.when(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.getDoc("42"))
+                .thenReturn(document);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, 770001))
+                .thenReturn(true);
+
+        assertThat(manager.renderDocument(loggedInInfo, 42, 770001)).isNull();
+    }
+
+    @Test
+    void shouldRenderProviderScopedDocument_whenStoredModuleIdEqualsRequestedPatient(@TempDir Path documentDir)
+            throws Exception {
+        Path pdf = Files.writeString(documentDir.resolve("document.pdf"), "fixture");
+        EDoc document = new EDoc();
+        document.setModule("provider");
+        document.setModuleId("770001");
+        document.setFilePath(pdf.toString());
+        eDocUtilMock.when(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.getDoc("42"))
+                .thenReturn(document);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, 770001))
+                .thenReturn(true);
+        try (MockedStatic<CarlosProperties> properties = Mockito.mockStatic(CarlosProperties.class)) {
+            CarlosProperties configuration = mock(CarlosProperties.class);
+            properties.when(CarlosProperties::getInstance).thenReturn(configuration);
+            when(configuration.getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"))
+                    .thenReturn(documentDir.toString());
+
+            assertThat(manager.renderDocument(loggedInInfo, 42, 770001)).isEqualTo(pdf);
         }
     }
 

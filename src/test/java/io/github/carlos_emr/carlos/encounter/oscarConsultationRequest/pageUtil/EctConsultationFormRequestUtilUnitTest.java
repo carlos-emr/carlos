@@ -286,4 +286,23 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
         org.mockito.Mockito.lenient().when(mockFaxClientLogDao.findClientLogbyRequestId(456)).thenReturn(Collections.emptyList());
         return request;
     }
+
+    @Test
+    @DisplayName("should return the service description for a numeric id")
+    void shouldReturnServiceDescription_whenIdIsNumeric() {
+        ConsultationServices service = new ConsultationServices();
+        service.setServiceDesc("Cardiology");
+        when(mockConsultationServiceDao.find(eq(7))).thenReturn(service);
+
+        assertThat(consultationFormRequestUtil.getServiceName(" 7 ")).isEqualTo("Cardiology");
+    }
+
+    @Test
+    @DisplayName("should return empty text instead of throwing for a missing or malformed id")
+    void shouldReturnEmpty_whenServiceIdMissingOrMalformed() {
+        assertThat(consultationFormRequestUtil.getServiceName(null)).isEmpty();
+        assertThat(consultationFormRequestUtil.getServiceName("  ")).isEmpty();
+        assertThat(consultationFormRequestUtil.getServiceName("abc")).isEmpty();
+        verifyNoInteractions(mockConsultationServiceDao);
+    }
 }

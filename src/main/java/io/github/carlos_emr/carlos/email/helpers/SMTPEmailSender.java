@@ -6,13 +6,16 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import io.github.carlos_emr.carlos.email.core.BoundedEmailOutputStream;
+import io.github.carlos_emr.carlos.email.core.EmailInlineImage;
 import java.net.URLConnection;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
@@ -23,9 +26,11 @@ import jakarta.mail.Address;
 import jakarta.mail.MessagingException;
 import jakarta.mail.SendFailedException;
 import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.internet.MimeUtility;
 
 import org.eclipse.angus.mail.smtp.SMTPAddressFailedException;
 import org.eclipse.angus.mail.smtp.SMTPSendFailedException;
+import org.eclipse.angus.mail.util.CRLFOutputStream;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
@@ -43,6 +48,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.mail.MailAuthenticationException;
 import org.springframework.mail.MailPreparationException;
@@ -107,6 +113,8 @@ public class SMTPEmailSender implements OutboundEmailTransport {
     private String[] recipients = new String[0];
     private String subject;
     private String body;
+    private String htmlBody;
+    private EmailInlineImage inlineImage;
     private List<EmailAttachment> attachments;
     private MimeMessage preparedMessage;
     private List<PreparedAttachment> preparedAttachments = List.of();
@@ -177,6 +185,21 @@ public class SMTPEmailSender implements OutboundEmailTransport {
     }
 
     /**
+     * Adds the formatted (HTML) version sent alongside the plain-text body (issue #3981): an email
+     * with a footer goes out as multipart/alternative, with the clinic logo, when given, carried
+     * inline for the HTML's {@code cid:} reference. Without it (null) the email is plain text only.
+     * Call before {@link #prepareArtifactBytes()}.
+     *
+     * @param htmlBody the HTML document, or null for plain text only
+     * @param inlineImage the clinic logo the HTML refers to, or null
+     * @since 2026-10-08
+     */
+    public void setFormattedVersion(String htmlBody, EmailInlineImage inlineImage) {
+        this.htmlBody = htmlBody;
+        this.inlineImage = htmlBody == null ? null : inlineImage;
+    }
+
+    /**
      * Sends the configured email message via SMTP with TLS encryption.
      *
      * <p>Validates user privileges, creates a TLS-enabled mail sender, constructs
@@ -217,15 +240,30 @@ public class SMTPEmailSender implements OutboundEmailTransport {
         try {
             javaMailSender = createTLSMailSender(emailConfig);
             MimeMessage message = javaMailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            // UTF-8 for every text part: without it the HTML part is written in the platform's
+            // single-byte charset while labelled UTF-8, and accented text arrives garbled.
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
             helper.setFrom(emailConfig.getSenderEmail(), emailConfig.getSenderFullName());
             helper.setTo(recipients);
-            helper.setSubject(subject);
-            helper.setText(body, false);
+            setSubject(helper, message, subject);
+            if (htmlBody == null) {
+                helper.setText(body, false);
+            } else {
+                // multipart/alternative: mail apps show the formatted version, simple ones the text.
+                helper.setText(body, htmlBody);
+                if (inlineImage != null) {
+                    // After setText, into the related part the HTML refers to through cid:.
+                    helper.addInline(inlineImage.contentId(), inlineImage.fileName(),
+                            new ByteArrayResource(inlineImage.bytes()), inlineImage.contentType());
+                }
+            }
             List<PreparedAttachment> attachmentSnapshots = addAttachments(helper, attachments, attachmentSnapshotPaths);
             message.saveChanges();
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            message.writeTo(new BoundedEmailOutputStream(outputStream, MAX_PREPARED_MESSAGE_BYTES));
+            // Match SMTP's line endings before archiving, including plain-text bodies entered
+            // with LF or CR. Bound the normalized bytes that will actually be transmitted.
+            message.writeTo(new CRLFOutputStream(
+                    new BoundedEmailOutputStream(outputStream, MAX_PREPARED_MESSAGE_BYTES)));
             preparedAttachments = attachmentSnapshots;
             preparedAttachmentSnapshots = List.copyOf(attachmentSnapshotPaths);
             preparedMessage = message;
@@ -505,6 +543,99 @@ public class SMTPEmailSender implements OutboundEmailTransport {
     }
 
     /**
+     * Length of the {@code "Subject: "} prefix that shares the first header line with the value.
+     */
+    private static final int SUBJECT_PREFIX_LENGTH = "Subject: ".length();
+
+    /** RFC 5322 section 2.1.1 hard limit on a header line, excluding the CRLF. */
+    private static final int MAX_HEADER_LINE_LENGTH = 998;
+
+    /**
+     * UTF-8 bytes per RFC 2047 encoded-word: 45 bytes become 60 Base64 characters, so
+     * {@code =?UTF-8?B?...?=} is 72 characters, inside the 75-character encoded-word limit.
+     */
+    private static final int ENCODED_WORD_MAX_BYTES = 45;
+
+    /**
+     * Sets the subject so that no header line exceeds the RFC 5322 998-character limit.
+     *
+     * <p>Jakarta Mail leaves an all-ASCII subject unencoded and folds it only at whitespace, so an
+     * unbroken run of characters (a pasted URL or identifier) near the 1,024-character
+     * {@code emailLog.subject} limit becomes a single over-long line that SMTP servers may reject.
+     * Such a subject is written as RFC 2047 Base64 encoded-words instead, which fold between words
+     * and decode back to exactly the same text. Every other subject keeps the standard encoding.</p>
+     *
+     * @param helper the helper used for the ordinary case
+     * @param message the message whose {@code Subject} header is set directly when encoding is forced
+     * @param subject the subject; line breaks were already stripped or are folded as whitespace
+     * @throws MessagingException if the header cannot be set
+     */
+    static void setSubject(MimeMessageHelper helper, MimeMessage message, String subject) throws MessagingException {
+        if (subject == null || SUBJECT_PREFIX_LENGTH + longestUnbrokenRun(subject) <= MAX_HEADER_LINE_LENGTH) {
+            helper.setSubject(subject);
+            return;
+        }
+        message.setHeader("Subject", MimeUtility.fold(SUBJECT_PREFIX_LENGTH, toEncodedWords(subject)));
+    }
+
+    /**
+     * @return the length of the longest run of characters without whitespace, which is the shortest
+     *         line Jakarta Mail can fold that run onto
+     */
+    static int longestUnbrokenRun(String value) {
+        int longest = 0;
+        int current = 0;
+        for (int i = 0; i < value.length(); i++) {
+            if (Character.isWhitespace(value.charAt(i))) {
+                current = 0;
+            } else {
+                current++;
+                longest = Math.max(longest, current);
+            }
+        }
+        return longest;
+    }
+
+    /**
+     * Encodes the whole value as space-separated UTF-8 Base64 encoded-words, never splitting a code
+     * point across words. Whitespace between adjacent encoded-words is ignored by decoders
+     * (RFC 2047 section 6.2), so the decoded subject is unchanged.
+     */
+    static String toEncodedWords(String value) {
+        StringBuilder words = new StringBuilder();
+        StringBuilder chunk = new StringBuilder();
+        int chunkBytes = 0;
+        int i = 0;
+        while (i < value.length()) {
+            int codePoint = value.codePointAt(i);
+            String character = new String(Character.toChars(codePoint));
+            int bytes = character.getBytes(StandardCharsets.UTF_8).length;
+            if (chunkBytes + bytes > ENCODED_WORD_MAX_BYTES) {
+                appendEncodedWord(words, chunk);
+                chunk.setLength(0);
+                chunkBytes = 0;
+            }
+            chunk.append(character);
+            chunkBytes += bytes;
+            i += Character.charCount(codePoint);
+        }
+        appendEncodedWord(words, chunk);
+        return words.toString();
+    }
+
+    private static void appendEncodedWord(StringBuilder words, CharSequence chunk) {
+        if (chunk.length() == 0) {
+            return;
+        }
+        if (words.length() > 0) {
+            words.append(' ');
+        }
+        words.append("=?UTF-8?B?")
+                .append(Base64.getEncoder().encodeToString(chunk.toString().getBytes(StandardCharsets.UTF_8)))
+                .append("?=");
+    }
+
+    /**
      * Creates a JavaMailSender configured for TLS-encrypted SMTP transmission.
      *
      * <p>Parses the EmailConfig's JSON configuration to extract SMTP server settings
@@ -639,7 +770,9 @@ public class SMTPEmailSender implements OutboundEmailTransport {
             }
             return parsedPort;
         } catch (NumberFormatException e) {
-            throw new EmailSendingException(invalidCredentialsMessage, e);
+            // No cause: report the sanitized message only, never the parser exception or the
+            // stored configuration value it would quote (release #3929 transport-config hardening).
+            throw new EmailSendingException(invalidCredentialsMessage);
         }
     }
 

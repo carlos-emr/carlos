@@ -7,6 +7,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -19,6 +20,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -126,8 +128,8 @@ class JpaSmsSendRateLimitServiceUnitTest {
     }
 
     @Test
-    @DisplayName("tryAcquire inserts SMS provider limiter row before locking")
-    void shouldInsertRateLimitRowBeforeLock_whenProviderIsUsed() {
+    @DisplayName("tryAcquire atomically ensures and locks the seeded SMS provider limiter row")
+    void shouldEnsureThenLock_whenLimiterRowExists() {
         MutableClock clock = new MutableClock(Instant.parse("2026-06-08T12:00:00Z"));
         SmsProviderRateLimit rateLimit = SmsProviderRateLimit.forProvider(
                 SmsProviderType.CLOUDLI,
@@ -143,14 +145,36 @@ class JpaSmsSendRateLimitServiceUnitTest {
 
         assertThat(limiter.tryAcquire(SmsProviderType.CLOUDLI)).isTrue();
 
-        verify(rateLimitDao).insertIfMissing(SmsProviderType.CLOUDLI, Date.from(clock.instant()));
+        InOrder order = inOrder(rateLimitDao);
+        order.verify(rateLimitDao).ensureExists(SmsProviderType.CLOUDLI, Date.from(clock.instant()));
+        order.verify(rateLimitDao).findByProviderTypeForUpdate(SmsProviderType.CLOUDLI);
         verify(rateLimitDao, never()).persist(any(SmsProviderRateLimit.class));
         verify(rateLimitDao).merge(rateLimit);
         verify(rateLimitDao).flush();
     }
 
     @Test
-    @DisplayName("tryAcquire fails closed when SMS provider limiter row is still missing after insert")
+    @DisplayName("tryAcquire uses the current time after waiting for the row lock")
+    void shouldKeepCommittedWindow_whenClockAdvancesWhileWaitingForLock() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-06-08T12:00:00Z"));
+        Date nextWindow = Date.from(clock.instant().plusSeconds(60));
+        SmsProviderRateLimit rateLimit = SmsProviderRateLimit.forProvider(SmsProviderType.STUB, nextWindow);
+        rateLimit.tryAcquire(nextWindow, 1, Duration.ofMinutes(1));
+        JpaSmsSendRateLimitService limiter = new JpaSmsSendRateLimitService(
+                rateLimitDao, 1, Duration.ofMinutes(1), clock);
+        when(rateLimitDao.findByProviderTypeForUpdate(SmsProviderType.STUB)).thenAnswer(invocation -> {
+            clock.advance(Duration.ofMinutes(1));
+            return Optional.of(rateLimit);
+        });
+
+        assertThat(limiter.tryAcquire(SmsProviderType.STUB)).isFalse();
+        assertThat(rateLimit.getSendCount()).isEqualTo(1);
+        assertThat(rateLimit.getWindowStartedAt()).isEqualTo(nextWindow);
+        verify(rateLimitDao, never()).merge(any(SmsProviderRateLimit.class));
+    }
+
+    @Test
+    @DisplayName("tryAcquire fails closed when SMS provider limiter row is missing after upsert")
     void shouldFailClosed_whenProviderLimiterRowCannotBeLocked() {
         MutableClock clock = new MutableClock(Instant.parse("2026-06-08T12:00:00Z"));
         JpaSmsSendRateLimitService limiter = new JpaSmsSendRateLimitService(
@@ -163,7 +187,8 @@ class JpaSmsSendRateLimitServiceUnitTest {
 
         assertThat(limiter.tryAcquire(SmsProviderType.CLOUDLI)).isFalse();
 
-        verify(rateLimitDao).insertIfMissing(SmsProviderType.CLOUDLI, Date.from(clock.instant()));
+        verify(rateLimitDao).ensureExists(SmsProviderType.CLOUDLI, Date.from(clock.instant()));
+        verify(rateLimitDao).findByProviderTypeForUpdate(SmsProviderType.CLOUDLI);
         verify(rateLimitDao, never()).persist(any(SmsProviderRateLimit.class));
         verify(rateLimitDao, never()).merge(any(SmsProviderRateLimit.class));
         verify(rateLimitDao, never()).flush();

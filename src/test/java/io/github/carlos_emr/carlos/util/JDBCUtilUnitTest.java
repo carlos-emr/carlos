@@ -37,6 +37,13 @@ import io.github.carlos_emr.carlos.utility.XmlUtils;
 class JDBCUtilUnitTest extends CarlosUnitTestBase {
 
     @Test
+    void shouldPropagateInvalidEntry_insteadOfReportingSuccess() {
+        var input = new ByteArrayInputStream("<Results/>".getBytes(StandardCharsets.UTF_8));
+        assertThatThrownBy(() -> JDBCUtil.toDataBase(input, "invalid.xml"))
+                .isInstanceOf(JDBCUtil.XmlImportException.class);
+    }
+
+    @Test
     @DisplayName("should leave result set closing to the caller")
     void shouldLeaveResultSetClosing_toCaller() throws Exception {
         ResultSet rs = mock(ResultSet.class);

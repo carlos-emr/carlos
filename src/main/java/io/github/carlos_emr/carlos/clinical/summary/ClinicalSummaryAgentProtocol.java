@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.io.InputStream;
@@ -56,6 +57,20 @@ final class ClinicalSummaryAgentProtocol {
 
     static JsonNode get(int port, String path, int timeoutMs) throws IOException {
         return exchange(port, path, null, timeoutMs);
+    }
+
+    /** Provider grammar omits document evidence uniqueness; the host validator enforces it. */
+    static ObjectNode providerWireSchema(JsonNode request) {
+        ObjectNode schema = request.get("output_schema").deepCopy();
+        if ("single-document-summary".equals(request.path("workflow").asText())) {
+            JsonNode evidence = schema.at("/properties/points/items/properties/evidence");
+            if (!evidence.isObject() || !evidence.path("uniqueItems").isBoolean()
+                    || !evidence.get("uniqueItems").booleanValue()) {
+                throw new IllegalArgumentException("Expected canonical document evidence uniqueness");
+            }
+            ((ObjectNode) evidence).remove("uniqueItems");
+        }
+        return schema;
     }
 
     // FindSecBugs URLCONNECTION_SSRF_FD: the host is always 127.0.0.1; the port is validated and the path limited to

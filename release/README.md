@@ -15,17 +15,17 @@ package at the repository root:
 
 Release builds are published automatically: the `Debian Packages` workflow
 (`.github/workflows/deb-packages.yml`) runs when a release is published,
-builds both packages inside an `ubuntu:26.04` container from that release's
+builds the packages (`carlos-emr` for amd64 and `carlos-emr-drugref`) inside an `ubuntu:26.04` container from that release's
 own attested WAR, and attaches the `.deb`s, checksums and provenance
 attestations to the release.
 
 Build it locally the normal way:
 
-    sudo apt build-dep .          # or: apt install debhelper maven openjdk-21-jdk-headless tomcat11
+    sudo apt build-dep .          # or: apt install debhelper maven openjdk-25-jdk-headless tomcat11
     dpkg-buildpackage -us -uc -b
 
 That produces `carlos-emr` and `carlos-emr-drugref` targeting Ubuntu 26.04 LTS
-(the release whose Tomcat 11 and OpenJDK 21 packages satisfy the build
+(the release whose Tomcat 11 and OpenJDK 25 packages satisfy the build
 dependencies). See `debian/carlos-emr.README.Debian` for what the packages
 install and how to
 operate the result, and `debian/rules` for the build inputs (including how to
@@ -40,7 +40,7 @@ that predate systemd timers, and a build that had to run as root. It also
 produced a package that ran the EMR under the distribution's shared `tomcat`
 user.
 
-The `debian/` packaging targets the current stack (Tomcat 11, Java 21, MariaDB
+The `debian/` packaging targets the current stack (Tomcat 11, Java 25, MariaDB
 11.8, the Flyway migration set) and runs the application under its own
 unprivileged account behind an nginx/ModSecurity front door.
 
@@ -72,8 +72,12 @@ unprivileged account behind an nginx/ModSecurity front door.
   `RourkeEform*.sql`, `Document/`, `OPR-2017*.png`, `4422-84v9-1.png`,
   `labDecisionSupport.js`, `editControl2.js`).
 - Operational helpers that are clinical rather than packaging concerns:
-  `ExcellerisDownload.sh` (lab download), `run_rxquery.sh`,
-  `drugrefUpdate.cron`.
+  two Excelleris lab-pull options, either of which a site may run:
+  `ExcellerisDownload.sh` (shell script that hands files to a Mule /
+  hl7_file_management bridge) and `excelleris_pull.py` (Python, uploads
+  directly into CARLOS or OSCAR 19 with no bridge; guide in
+  `docs/excelleris-pull.md`, config in `excelleris_pull.conf.example`, tests in
+  `test_excelleris_pull.py`); `run_rxquery.sh`, `drugrefUpdate.cron`.
 
 These are not installed by the `carlos-emr` package: they are optional
 site-by-site data loads. Apply one with, for example:

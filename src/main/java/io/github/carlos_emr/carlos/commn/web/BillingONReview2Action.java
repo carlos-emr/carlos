@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.commn.web;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
+import io.github.carlos_emr.carlos.demographic.PatientReadAccess;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -77,18 +78,26 @@ public class BillingONReview2Action extends ActionSupport {
     }
 
     public String getDemographic() throws IOException {
-        String demographicNo = request.getParameter("demographicNo");
-
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
-        Demographic demographic = demographicDao.getDemographic(demographicNo);
+        final int patient;
+        try {
+            patient = PatientReadAccess.requestedPatient(request, true);
+        } catch (IllegalArgumentException invalid) {
+            ServletActionContext.getResponse().setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        PatientReadAccess.requirePatient(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                patient, "_demographic", SecurityInfoManager.READ);
+        Demographic demographic = demographicDao.getDemographic(Integer.toString(patient));
 
         String json = objectMapper.writeValueAsString(demographic);
         response.setContentType("application/json;charset=UTF-8");
         response.getOutputStream().write(json.getBytes(StandardCharsets.UTF_8)); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON API response with application/json content-type
-        return null;
+        // The JSON is the whole answer: NONE stops Struts from resolving a result after it.
+        return NONE;
     }
 
     public String getClinic() throws IOException {
@@ -96,6 +105,6 @@ public class BillingONReview2Action extends ActionSupport {
         String json = objectMapper.writeValueAsString(clinic);
         response.setContentType("application/json;charset=UTF-8");
         response.getOutputStream().write(json.getBytes(StandardCharsets.UTF_8));
-        return null;
+        return NONE;
     }
 }

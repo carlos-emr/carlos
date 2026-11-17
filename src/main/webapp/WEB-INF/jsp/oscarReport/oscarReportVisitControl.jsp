@@ -121,10 +121,11 @@
     </script>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/report-print.css">
     <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 </head>
 <body>
-<div class="d-print-none" style="float:right;">
+<div class="d-print-none report-print-hide" style="float:right;">
     <a style="font-size:10px" href="#"
        onclick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider?action=visitreport')">Manage Visit Report
         Providers</a>
@@ -134,7 +135,7 @@
     <h3>
         <fmt:message key="oscarReport.oscarReportVisitControl.title"/>
         <div class="float-end">
-            <button name="print" onclick="window.print()" class="btn d-print-none">
+            <button name="print" onclick="window.print()" class="btn d-print-none report-print-hide">
                 <i class="fa-solid fa-print"></i>
                 <fmt:message key="global.btnPrint"/>
             </button>
@@ -143,7 +144,7 @@
 </div>
 
 <form action="${ctx}/oscarReport/ViewOscarReportVisitControl"
-      class="card card-body bg-body-tertiary d-print-none" id="visitForm">
+      class="card card-body bg-body-tertiary d-print-none report-print-hide" id="visitForm">
     <fieldset>
         <h4>
             <fmt:message key="oscarReport.oscarReportVisitControl.title"/>
@@ -223,6 +224,26 @@
 <p>&nbsp;</p>
 <%
 } else {
+    // The filter form is hidden in print, so print the criteria it carried.
+    // The provider filter only applies to the Visit Report ("vr").
+    String printProviderLabel = "All";
+    if (reportAction.equals("vr") && providerview != null && !providerview.equals("%") && !providerview.equals("all")) {
+        Provider printProvider = providerDao.getProvider(providerview);
+        printProviderLabel = printProvider != null ? printProvider.getFormattedName() : providerview;
+    }
+%>
+<div class="report-print-only" id="visitReportPrintCriteria">
+    <% if (reportAction.equals("lk")) { %>
+    <strong>Larry Kain Report</strong> &mdash;
+    <% } else { %>
+    <strong>Provider:</strong> <carlos:encode value='<%= printProviderLabel %>' context="html"/> &mdash;
+    <% } %>
+    <strong>Service dates:</strong>
+    <carlos:encode value='<%= xml_vdate.isEmpty() ? "earliest" : xml_vdate %>' context="html"/>
+    to
+    <carlos:encode value='<%= xml_appointment_date.isEmpty() ? "today" : xml_appointment_date %>' context="html"/>
+</div>
+<%
     if (reportAction.compareTo("lk") == 0) {
 %>
 <%@ include file="oscarReportVisit_lk.jspf" %>

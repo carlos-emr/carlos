@@ -83,10 +83,21 @@ public class HRMResultsData {
      * @param pageSize maximum results per page
      * @return HRM results keyed internally by report identity
      */
+    public Collection<LabResultData> populateHRMdocumentsResultsData(LoggedInInfo loggedInInfo, String providerNo, String firstName, String lastName, String hin, String demographicNumber, String status, Date newestDate, Date oldestDate,
+                                                                     boolean isPaged, Integer page, Integer pageSize) {
+        return populateHRMdocumentsResultsData(loggedInInfo, providerNo, firstName, lastName, hin, demographicNumber, status, newestDate, oldestDate, isPaged, page, pageSize, null);
+    }
+
+    /**
+     * As above, additionally keeping only reports signed off at or after {@code signedOffSince}.
+     *
+     * @param signedOffSince inclusive lower bound on the sign-off time, or null for none; the
+     *                       Inbox Hub sets it to list the reports signed off today
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public Collection<LabResultData> populateHRMdocumentsResultsData(LoggedInInfo loggedInInfo, String providerNo, String firstName, String lastName, String hin, String demographicNumber, String status, Date newestDate, Date oldestDate,
-                                                                     boolean isPaged, Integer page, Integer pageSize) {
+                                                                     boolean isPaged, Integer page, Integer pageSize, Date signedOffSince) {
         String firstNameSearch = firstName != null ? firstName.toUpperCase() : "";
         String lastNameSearch = lastName != null ? lastName.toUpperCase() : "";
         String hinSearch = hin != null ? hin.toUpperCase() : "";
@@ -128,7 +139,7 @@ public class HRMResultsData {
         }
 
 		List<HRMDocumentToProvider> hrmDocResultsProvider = hrmDocumentToProviderDao.findByProviderNoLimit(providerNo, demographicNumbers, patientSearch, newestDate, oldestDate, viewed, signedOff,
-                isPaged, page, pageSize);
+                isPaged, page, pageSize, signedOffSince);
 
         // the key = SendingFacility+':'+ReportNumber+':'+DeliverToUserID as per HRM spec can be used to signify duplicate report
         HashMap<String, LabResultData> labResults = new HashMap<String, LabResultData>();
@@ -176,8 +187,10 @@ public class HRMResultsData {
             lbData.resultStatus = hrmReport.getResultStatus();
 
             String duplicateKey = hrmReport.getSendingFacilityId() + ':' + hrmReport.getSendingFacilityReportNo() + ':' + hrmReport.getDeliverToUserId();
-            String[] patientName = lbData.patientName.split(",");
-            if (lbData.healthNumber.contains(hinSearch) || patientName[0].contains(lastNameSearch) || patientName[1].contains(firstNameSearch)) {
+            String[] patientName = Objects.toString(lbData.patientName, "").split(",", 2);
+            String givenName = patientName.length > 1 ? patientName[1] : "";
+            if (Objects.toString(lbData.healthNumber, "").contains(hinSearch)
+                    || patientName[0].contains(lastNameSearch) || givenName.contains(firstNameSearch)) {
                 // if no duplicate
                 if (!labResults.containsKey(duplicateKey)) {
                     labResults.put(duplicateKey, lbData);

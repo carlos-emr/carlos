@@ -1,6 +1,6 @@
 # Technical Specification for the Outside Use Report (Patients with Signed Consent)
 
-> **Source**: http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspec_outside_use_en.pdf
+> **Source**: [http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspec_outside_use_en.pdf](http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspec_outside_use_en.pdf)
 > **Fetched**: 2026-04-29  
 > **Format**: extracted text from PDF via pypdfium2; tables may be space-aligned rather than GFM.  
 > **Authoritative source**: the PDF at the URL above. If this MD and the PDF disagree, the PDF wins.
@@ -8,6 +8,7 @@
 Page count: 26
 
 ---
+
 <!-- page 1 -->
 
 Technical Specification
@@ -494,6 +495,8 @@ for Family Health Network and Family Health Organization Models
 
 June 2014 Page 19 of 26 Version 1.0
 APPENDIX G: XML Schema
+
+```text
 <?xml version="1.0" encoding="utf-8"?>
 <xs:schema id="REPORT" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
 <!--XSD specification created by Don Wood-->
@@ -691,6 +694,8 @@ June 2014 Page 24 of 26 Version 1.0
  </xs:complexType>
  </xs:element>
 </xs:schema>
+```
+
 
 <!-- page 25 -->
 
@@ -704,4 +709,3 @@ Outside Use
 <!-- page 26 -->
 
 Catalogue # CIB-XXXXXXX Month/Year © Queen’s Printer for Ontario
-

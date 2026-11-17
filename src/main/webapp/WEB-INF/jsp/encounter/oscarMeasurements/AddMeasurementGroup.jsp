@@ -92,30 +92,26 @@
                     <table border=0 cellspacing=4 width=800>
                         <tr>
                             <td>
+                                <%-- The group does not exist yet: AddMeasurementGroup creates it together with
+                                     the types chosen here, so there is no member to remove and closing the
+                                     window leaves nothing behind (issue #3335). --%>
                                 <table>
                                     <tr>
-                                        <th align="left" class="td.tite"><fmt:message key="encounter.oscarMeasurements.MeasurementGroup.allTypes"/>
-                                        </th>
-
                                         <th align="left" class="td.tite"><carlos:encode value='<%= groupName %>' context="html"/></th>
                                     </tr>
                                     <tr>
                                         <td><fmt:message key="encounter.oscarMeasurements.MeasurementGroup.add2Group"/>
                                             <carlos:encode value='<%= groupName %>' context="html"/></td>
-                                        <td><fmt:message key="encounter.oscarMeasurements.MeasurementGroup.deleteTypes"/>
-                                            <carlos:encode value='<%= groupName %>' context="html"/></td>
+                                    </tr>
                                     <tr>
-                                        <td><select multiple="true" name="selectedAddTypes" size="10">
+                                        <td><fmt:message key="encounter.oscarMeasurements.MeasurementGroup.savedWithFirstTypes"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td><select multiple="true" name="selectedAddTypes" size="10"
+                                                    aria-label="<fmt:message key="encounter.oscarMeasurements.MeasurementGroup.allTypes"/>">
                                             <c:forEach var="allTypeDisplayName" items="${allTypeDisplayNames}">
-                                                <option value="${allTypeDisplayName.typeDisplayName}">
-                                                        ${allTypeDisplayName.typeDisplayName}
-                                                </option>
-                                            </c:forEach>
-                                        </select></td>
-                                        <td><select multiple="true" name="selectedDeleteTypes" size="10">
-                                            <c:forEach var="existingTypeDisplayName" items="${existingTypeDisplayNames}">
-                                                <option value="${existingTypeDisplayName.typeDisplayName}">
-                                                        ${existingTypeDisplayName.typeDisplayName}
+                                                <option value="<carlos:encode value='${allTypeDisplayName.typeDisplayName}' context="htmlAttribute"/>">
+                                                        <carlos:encode value='${allTypeDisplayName.typeDisplayName}'/>
                                                 </option>
                                             </c:forEach>
                                         </select></td>
@@ -124,18 +120,13 @@
                                         <input type="hidden" name="forward" value="error"/>
                                         <td><input type="button" name="button"
                                                    value="<fmt:message key="encounter.oscarMeasurements.MeasurementsAction.addBtn"/>"
-                                                   onclick="set('add');submit();"/></td>
-                                        <td><input type="button" name="button"
-                                                   value="<fmt:message key="encounter.oscarMeasurements.MeasurementsAction.deleteBtn"/>"
-                                                   onclick="set('delete');submit();"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td><input type="button" name="Button"
+                                                   onclick="set('add');submit();"/>
+                                            <input type="button" name="Button"
                                                    value="<fmt:message key="global.btnClose"/>"
                                                    onClick="window.close()"></td>
-                                        <td></td>
                                     </tr>
-                                    <input type="hidden" name="groupName" value="<%= groupName %>"/>
+                                    <input type="hidden" name="groupName" value="<carlos:encode value='<%= groupName %>' context="htmlAttribute"/>"/>
+                                    <input type="hidden" name="styleSheet" value="<carlos:encode value='${styleSheet}' context="htmlAttribute"/>"/>
                                 </table>
                             </td>
                         </tr>

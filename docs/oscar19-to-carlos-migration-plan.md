@@ -328,7 +328,7 @@ objects with no seeded grant.
 |---|---|
 | Antenatal forms `formAR`, `formONAR`, `formONAREnhancedRecord(+Ext1/2)` | **archive** — patient data; see `docs/migration-deprecated-form-tables.md`; export CSV + `o19_archive` |
 | Generic intake (`intake*`, `formIntakeHx`), OCAN (`Ocan*`), eyeform (`eyeform*`, `Eyeform*`, `specshis`, `procedurebook`…) | **archive** if row counts > 0 |
-| HSFO study (`hsfo_*`, `form_hsfo_visit`), CAISI beds/rooms (`bed*`, `room_*`, `vacancy`, `complaint`, `incident`) | **archive** if used (CHC-style sites), else drop |
+| HSFO study (`hsfo_*`, `form_hsfo_visit`; the HSFO/HSFO2 submission menu, `hsfo.*` settings and `hsfo_job_run_as_provider` are retired in CARLOS, so the tables are data-retention only), CAISI beds/rooms (`bed*`, `room_*`, `vacancy`, `complaint`, `incident`) | **archive** if used (CHC-style sites), else drop |
 | OLIS (`OLIS*`) | **archive** query prefs/log; OLIS module does not exist in CARLOS — flag to clinic |
 | Integrator/sharing/PHR/Indivo/BORN (`Integrator*`, `sharing_*`, `phr_*`, `indivoDocs`, `BORN*`), cookie-revolver `cr_*`, report-runner `report_*`, MDS raw (`mdsZCL`, `mdsZCT`), `RedirectLink*`, temp/backup tables | **drop** — no live CARLOS table, but the rows are preserved in `o19_archive` and as an `import_archived_` twin, and named in the report |
 
@@ -696,10 +696,13 @@ checks, UI smoke — before clinical use.
   document order with quote-aware comment stripping) and the CARLOS Flyway set
   (read-only), deep-merges the curated overlays (`overrides_schema.py`,
   `overrides_props.py`), and emits the shipped manifests
-  `debian/assets/carlos_ctl/o19map_schema.py` / `o19map_props.py`
-  (`SCHEMA_MAP_VERSION` is a plain `o19map-N` token, deliberately not
-  CalVer-shaped). `test_manifest_integrity.py` (stdlib unittest)
-  refuses any unclassified table.
+  `debian/assets/o19-manifest/o19map_schema.json` / `o19map_props.json` /
+  `o19_preflight.json` (JSON data with a format version, installed by
+  carlos-emr under `/usr/share/carlos-emr/o19-manifest/` and loaded by the
+  carlos-ctl package's `o19map_schema.py` / `o19map_props.py`;
+  `SCHEMA_MAP_VERSION` is a plain `o19map-N` token, deliberately not
+  CalVer-shaped). `test_manifest_integrity.py` (stdlib unittest, in
+  `scripts/migration/o19/tests/`) refuses any unclassified table.
 - Current classification (580 O19 tables at commit `a7900d5`): 337 copy /
   34 merge / 25 reference / 156 archive (patient-data subset flagged for the
   B1 blocker; includes the three shared OAuth/session token tables, which
@@ -732,7 +735,7 @@ checks, UI smoke — before clinical use.
   the three turnkey inputs.
 
 **Milestone 2 — standalone preflight (done):**
-`debian/assets/carlos_ctl/o19_preflight.py` — one self-contained file
+`carlos_ctl/o19_preflight.py` (carlos-emr/carlos-ctl) — one self-contained file
 (old-python compatible, stdlib only, drives the mysql/mariadb CLI) that runs
 the §6.1 gate in assessment mode at the clinic and is imported by carlos-ctl
 for import mode (column-level unknown detection activates when the schema
@@ -1192,17 +1195,22 @@ rules, every refusal and the validation report — is identical on every
 deployment. A second implementation of those would drift from this one
 commit by commit. So the deb's `o19host.Host` (§9a) is the seam: it answers
 every substrate question, `Host` IS the deb's implementation, and
-carlos-podman subclasses it. `debian/assets/carlos_ctl/tests/test_host.py`
+carlos-podman subclasses it. `tests/test_host.py` in carlos-emr/carlos-ctl
 pins both directions — the deb's own answers, and that every substrate
 question is actually ASKED of the host rather than read from a deb constant.
 
-**Why the engine is fetched, not vendored.** `o19map_schema.py` and
-`o19map_props.py` are generated from CARLOS's own Flyway migrations and the
+**Why the engine is fetched, not vendored.** The manifests (`o19map_schema.json`
+and `o19map_props.json`, loaded by `o19map_schema.py` / `o19map_props.py`)
+are generated from CARLOS's own Flyway migrations and the
 OSCAR 19 schema, so every ruling in them is correct for exactly one CARLOS
-version. carlos-podman already pins a CARLOS release *and its commit* and
+version. Since the carlos-ctl split the engine lives in
+carlos-emr/carlos-ctl and the manifests ship with carlos-emr
+(`debian/assets/o19-manifest/`), which is what lets the two version
+independently; the paragraph below describes the pre-split layout. carlos-podman already pins a CARLOS release *and its commit* and
 builds the WAR from that tree; its `o19source.py` takes the importer from
 the same commit — downloading that tarball, unpacking only
-`debian/assets/carlos_ctl/o19*.py`, verifying that every package sibling the
+the CLI's `o19*.py` modules (`carlos_ctl/o19*.py` in carlos-emr/carlos-ctl
+since the split), verifying that every package sibling the
 engine imports is one podman can answer, and loading the twelve modules
 under a synthetic package. "The manifest matches the schema the application
 will read" becomes structural instead of a sync chore.

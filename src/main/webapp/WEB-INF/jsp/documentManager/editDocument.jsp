@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose: Edit a patient document and record provider review acknowledgements.
+    Features: Document metadata, primary reviewer and additional reviewer display and sign-off.
+    Parameters: The action supplies formdata; mode identifies the document submitted to addEditDocument.
+    @since 2026-07-07
+--%>
 
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -86,9 +92,9 @@
         moduleid = (String) request.getAttribute("functionid");
     }
 
-    Hashtable docerrors = new Hashtable();
+    Map<String, String> docerrors = new HashMap<>();
     if (request.getAttribute("docerrors") != null) {
-        docerrors = (Hashtable) request.getAttribute("docerrors");
+        docerrors = (Map<String, String>) request.getAttribute("docerrors");
     }
 
     String lastUpdate = "";
@@ -162,6 +168,9 @@
     <link rel="stylesheet" type="text/css"
           href="<%= request.getContextPath() %>/share/css/niftyPrint.css" media="print"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/nifty.js"></script>
+    <%-- submitUpload() validates the observation date with validDate(), defined in Oscar.js;
+         without it every Update threw a ReferenceError and the edit was never posted. --%>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
     <link rel="stylesheet" type="text/css" media="all"
           href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
     <style type="text/css">
@@ -243,18 +252,16 @@
         }
 
         function reviewed(ths) {
-            if (ths.form.reviewerId.value == 'null') {
-                thisForm = ths.form;
-                thisForm.reviewerId.value = <%=user_no%>;
+            var thisForm = ths.form;
+            if (thisForm.reviewerId.value === '' || thisForm.reviewerId.value === 'null') {
+                // The action assigns the authenticated reviewer and writes the review audit event.
+                thisForm.reviewerId.value = '';
                 thisForm.reviewDoc.value = true;
-                thisForm.submit();
             } else {
-                alert('set extra');
-                thisForm = ths.form;
                 thisForm.extraReviewerId.value = <%=user_no%>;
                 thisForm.extraReviewDoc.value = true;
-                thisForm.submit();
             }
+            thisForm.submit();
         }
 
         var docSubClassList = [
@@ -267,8 +274,8 @@
 <body class="mainbody">
 <div class="maindiv">
     <div class="maindivheading">Edit Document</div>
-    <%-- Lists docerrors --%> <% for (Enumeration errorkeys = docerrors.keys(); errorkeys.hasMoreElements(); ) {%>
-    <font class="warning">Error: <fmt:message key="<%=(String) docerrors.get(errorkeys.nextElement())%>"/></font><br/>
+    <%-- Lists docerrors --%> <% for (String errorkey : docerrors.keySet()) {%>
+    <font class="warning">Error: <fmt:message key="<%=docerrors.get(errorkey)%>"/></font><br/>
     <% } %> <form action="${pageContext.request.contextPath}/documentManager/addEditDocument" method="POST"
                        enctype="multipart/form-data" onsubmit="return submitUpload(this);">
     <input type="hidden" name="function"

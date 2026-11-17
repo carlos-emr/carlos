@@ -78,6 +78,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class CarlosProperties extends Properties {
     private static final long serialVersionUID = -5965807410049845132L;
+    private final Properties deploymentOverrideProperties = new Properties();
     private static CarlosProperties carlosProperties = new CarlosProperties();
     private static final Set<String> activeMarkers = new HashSet<String>(Arrays.asList(new String[]{"true", "yes", "on"}));
     /**
@@ -223,14 +224,28 @@ public class CarlosProperties extends Properties {
         try {
             readFromFile("/carlos.properties");
 
-            String overrideProperties = System.getProperty("carlos_override_properties");
-            if (overrideProperties != null) {
-                MiscUtils.getLogger().info("Applying override properties : " + overrideProperties);
-                readFromFile(overrideProperties);
-            }
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error", e);
         }
+        String overrideProperties = System.getProperty("carlos_override_properties");
+        if (overrideProperties != null && !overrideProperties.isBlank()) {
+            File file = PathValidationUtils.resolveConfiguredFile(overrideProperties, "carlos override properties");
+            try (InputStream input = java.nio.file.Files.newInputStream(file.toPath())) {
+                deploymentOverrideProperties.load(input);
+                putAll(deploymentOverrideProperties);
+            } catch (java.nio.file.NoSuchFileException e) {
+                MiscUtils.getLogger().info("Override properties file not found");
+            } catch (IOException e) {
+                throw new IllegalStateException("Configured override properties could not be read", e);
+            }
+        }
+    }
+
+    /** Returns a copy of the constructor's parsed override, for startup fallback and application. */
+    public Properties getDeploymentOverrideProperties() {
+        Properties snapshot = new Properties();
+        snapshot.putAll(deploymentOverrideProperties);
+        return snapshot;
     }
 
     public void readFromFile(String url) throws IOException {
@@ -439,6 +454,28 @@ public class CarlosProperties extends Properties {
 
     public boolean isConsultationSignatureEnabled() {
         return isPropertyActive("consultation_signature_enabled");
+    }
+
+    /**
+     * Whether appointment statuses are editable: the add/edit appointment status pull-down,
+     * the Administration "Appointment Status Setting" page link, and custom-status handling.
+     *
+     * <p>Enabled unless {@code ENABLE_EDIT_APPT_STATUS} is explicitly set to a non-active value
+     * (anything other than {@code true}/{@code yes}/{@code on}). An absent or blank key counts as
+     * enabled: the OSCAR-era installer wrote {@code yes}, but neither CARLOS installer (legacy
+     * deb or turnkey .deb) sets it, and the shipped default was commented out, so defaulting off
+     * silently degraded status to a free-text box prefilled with {@code t} and hid the admin page.
+     *
+     * @return {@code true} unless the key is set to a non-active value
+     */
+    public boolean isAppointmentStatusEditingEnabled() {
+        // Raw read: an absent key is the normal, enabled case here, so it must not trip
+        // getProperty(String)'s "property is missing" warning.
+        String value = super.getProperty("ENABLE_EDIT_APPT_STATUS");
+        if (value == null || value.trim().isEmpty()) {
+            return true;
+        }
+        return isPropertyActive("ENABLE_EDIT_APPT_STATUS");
     }
 
 

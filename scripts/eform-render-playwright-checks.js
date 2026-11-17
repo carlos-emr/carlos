@@ -34,6 +34,13 @@
  *
  * Requires pdftotext from poppler-utils to inspect the actual PDF content and positions.
  *
+ * FIXTURE. The eForm is opened for, and downloads as, a FAKE patient this check creates (lib/owned-patient.js: last name = a
+ * FAKE-PW run marker) and removes. It used to open demo patient 1: the download stores an eForm instance for the patient the
+ * form was opened for, and the admin library's Delete only marks the TEMPLATE removed (status 0), so every run left an
+ * eform_data row with its eform_values for demo patient 1 and a soft-deleted eform row. Cleanup now deletes, by the patient's key
+ * and by the run's unique form name, the instances and their values, the template row and the patient, and asserts each gone.
+ * The database is reached with MYSQL_*.
+ *
  * Defaults are for the local devcontainer:
  *   node scripts/eform-render-playwright-checks.js
  *
@@ -52,7 +59,10 @@ const os = require('os');
 const path = require('path');
 const { execFileSync } = require('node:child_process');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
+const h = require('./lib/playwright-harness');
+const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -67,6 +77,7 @@ const transparentPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0
 const badResponses = [];
 const consoleIssues = [];
 const displayImageResponses = [];
+const strictRecorder = h.createRecorder();
 
 function assert(condition, message) {
   if (!condition) {
@@ -85,7 +96,11 @@ function validateBaseUrl(rawBaseUrl) {
 
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -191,10 +206,7 @@ function isSevereConsoleMessage(message) {
 }
 
 function wirePage(page, label) {
-  page.on('dialog', async (dialog) => {
-    consoleIssues.push({ label, type: 'dialog', text: dialog.message() });
-    await dialog.dismiss().catch(() => {});
-  });
+  h.wireStrictPage(page, label, strictRecorder, { baseline: [] });
   page.on('response', (response) => {
     const responseUrl = response.url();
     const status = response.status();
@@ -242,6 +254,21 @@ async function login(context) {
   return page;
 }
 
+async function submitUploadAndAwaitAdmin(page, submitButton, section) {
+  const administration = new URL(appUrl('/administration'));
+  // The upload iframe redirects the top window from its AJAX completion handler.
+  // A current URL/load state is not evidence that this new navigation finished.
+  const completed = page.waitForNavigation({
+    url: url => url.origin === administration.origin && url.pathname === administration.pathname
+      && url.searchParams.get('show') === section,
+    waitUntil: 'networkidle', timeout: 30000,
+  });
+  completed.catch(() => {});
+  await submitButton.click();
+  const response = await completed;
+  assert(response && response.status() === 200, 'The native upload did not finish on its administration page');
+}
+
 async function ensureImageUploaded(context, imagePath, imageName) {
   const page = await context.newPage();
   wirePage(page, `image:${imageName}`);
@@ -255,8 +282,7 @@ async function ensureImageUploaded(context, imagePath, imageName) {
 
     const frame = page.frameLocator('#uploadFrame');
     await frame.locator('#image').setInputFiles(imagePath);
-    await frame.locator('input.upload[type="submit"]').click();
-    await page.waitForURL(/administration\?show=ImageUpload/, { timeout: 10000 }).catch(() => {});
+    await submitUploadAndAwaitAdmin(page, frame.locator('input.upload[type="submit"]'), 'ImageUpload');
     await gotoApp(page, '/eform/efmimagemanager');
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await page.locator('#tblImage a.viewImage', { hasText: imageName }).first().waitFor({ state: 'visible', timeout: 15000 });
@@ -277,9 +303,7 @@ async function uploadEform(context, formName, formSubject, htmlPath) {
     await frame.locator('input[name="formSubject"]').fill(formSubject);
     await frame.locator('#patientIndependent').check();
     await frame.locator('#formHtml').setInputFiles(htmlPath);
-    await frame.locator('input.upload[type="submit"]').click();
-
-    await page.waitForURL(/administration\?show=Forms/, { timeout: 10000 }).catch(() => {});
+    await submitUploadAndAwaitAdmin(page, frame.locator('input.upload[type="submit"]'), 'Forms');
     await gotoApp(page, '/eform/efmformmanager');
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
@@ -370,6 +394,10 @@ function assertDisplayImageFetchesSucceeded(imageName) {
   const screenshotPath = buildArtifactPath(screenshotDir, artifactBaseName);
   let importedFid = null;
   let managerPage = null;
+  // The owned patient the eForm is opened for (never a demo patient), created before anything else is written.
+  const sql = h.createSqlRunner(h.readConfig().mysql);
+  const ownedMarker = newOwnedMarker();
+  let patient = null;
 
   const launchOptions = {
     headless: true,
@@ -379,9 +407,14 @@ function assertDisplayImageFetchesSucceeded(imageName) {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
+  let browser = null;
   try {
-    const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: true, viewport: { width: 1100, height: 1600 } });
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    patient = createOwnedPatient(sql, { marker: ownedMarker, provider });
+    browser = await chromium.launch(launchOptions);
+    const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1100, height: 1600 } });
+    context.on('page', page => h.wireStrictPage(page, 'eform-render', strictRecorder, { baseline: [] }));
     const landingPage = await login(context);
     await landingPage.close();
 
@@ -400,7 +433,7 @@ function assertDisplayImageFetchesSucceeded(imageName) {
     assert(managerPreviewState.patientLast === 'TemplateSeed', `Manager preview did not render template-stored field data: ${managerPreviewState.patientLast}`);
     await managerPreview.close();
 
-    const popup = await openImportedEform(context, importedFid, '1');
+    const popup = await openImportedEform(context, importedFid, patient);
     await assertNotErrorPage(popup, 'render-pipeline eForm popup');
 
     await popup.fill('#patient_nameL', 'Playwright');
@@ -459,6 +492,7 @@ function assertDisplayImageFetchesSucceeded(imageName) {
       !(issue.label === 'eform-popup' && /Failed to load resource/.test(issue.text) && /\/oscar\/eform\/displayImage\?imagefile=/.test(issue.location && issue.location.url ? issue.location.url : '')));
     assert(fatalBadResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(fatalBadResponses, null, 2)}`);
     assert(fatalConsoleIssues.length === 0, `unexpected browser console failures: ${JSON.stringify(fatalConsoleIssues, null, 2)}`);
+    h.assertStrictPage(strictRecorder);
 
     console.log(JSON.stringify({
       importedFormName,
@@ -481,11 +515,35 @@ function assertDisplayImageFetchesSucceeded(imageName) {
       await managerPage.close().catch(() => {});
     }
     fs.rmSync(fixture.tempDir, { recursive: true, force: true });
-    await browser.close();
+    if (browser) await browser.close();
+    try {
+      removeFixtureRows();
+    } finally {
+      sql.dispose();
+    }
   }
+
+  /**
+   * The rows the run wrote, by key. The instance the download stored carries the patient's key; the template carries the run's
+   * unique form name (the admin Delete soft-deletes it, so the row stays until it is removed here). Every one is asserted gone.
+   */
+  function removeFixtureRows() {
+    if (patient === null) return;
+    const q = h.sqlString;
+    sql.execute(`DELETE FROM eform_values WHERE fdid IN (SELECT fdid FROM eform_data WHERE demographic_no=${patient});
+      DELETE FROM eform_data WHERE demographic_no=${patient};
+      DELETE FROM eform WHERE form_name=${q(importedFormName)}`);
+    assert(sql.value(`SELECT (SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient})
+      + (SELECT COUNT(*) FROM eform WHERE form_name=${q(importedFormName)})
+      + (SELECT COUNT(*) FROM eform_data WHERE form_name=${q(importedFormName)})`) === '0',
+    'The eForm instances or the template this run created were not removed');
+    removeOwnedPatient(sql, patient, ownedMarker);
+  }
+  h.assertStrictPage(strictRecorder);
 })().catch((error) => {
   console.error('FAIL app-backed eForm render pipeline Playwright check');
   console.error(error.stack || error.message);
+  console.error(JSON.stringify(h.buildFailureDetails(strictRecorder), null, 2));
   if (badResponses.length) {
     console.error(`HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
   }

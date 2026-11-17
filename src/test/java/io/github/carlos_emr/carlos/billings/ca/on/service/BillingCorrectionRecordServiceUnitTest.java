@@ -38,6 +38,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockHttpServletRequest;
 
@@ -50,11 +53,13 @@ import java.lang.reflect.Method;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -235,6 +240,68 @@ class BillingCorrectionRecordServiceUnitTest {
         boolean ret = service.deleteBilling("42", "D", "999998");
 
         assertThat(ret).isFalse();
+    }
+
+    // ---- unbillClaim: the stored status, never the request, decides ----
+
+    private static BillingONCHeader1 headerWithStatus(String status) {
+        BillingONCHeader1 header = new BillingONCHeader1();
+        header.setStatus(status);
+        return header;
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"B", "S"})
+    void shouldRefuseUnbill_whenStoredStatusIsBilledOrSettled(String storedStatus) {
+        when(cheader1Dao.findForUpdate(42)).thenReturn(headerWithStatus(storedStatus));
+
+        BillingCorrectionRecordService.UnbillOutcome outcome = service.unbillClaim(42, "999998");
+
+        assertThat(outcome).isEqualTo(BillingCorrectionRecordService.UnbillOutcome.REFUSED_BILLED_OR_SETTLED);
+        // The status is read with a row lock, never a plain read: a claim submitted or settled
+        // between the read and the write must not be overwritten with D (review of #4666).
+        verify(cheader1Dao).findForUpdate(42);
+        verify(cheader1Dao, never()).find(anyInt());
+        // A refused unbill must not touch the claim, its items or the audit trail.
+        verifyNoInteractions(correctionPersister, billOnItemDao);
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"O", "P", "N", "I", "W", "A", "D"})
+    void shouldDeleteClaimAndItems_whenStoredStatusIsNotBilledOrSettled(String storedStatus) {
+        when(cheader1Dao.findForUpdate(42)).thenReturn(headerWithStatus(storedStatus));
+        when(correctionPersister.updateBillingStatus("42", "D", "999998")).thenReturn(true);
+        BillingONItem item = new BillingONItem();
+        item.setStatus("O");
+        when(billOnItemDao.getBillingItemByCh1Id(42)).thenReturn(List.of(item));
+
+        BillingCorrectionRecordService.UnbillOutcome outcome = service.unbillClaim(42, "999998");
+
+        assertThat(outcome).isEqualTo(BillingCorrectionRecordService.UnbillOutcome.DELETED);
+        verify(correctionPersister).updateBillingStatus("42", "D", "999998");
+        assertThat(item.getStatus()).isEqualTo("D");
+        verify(billOnItemDao).merge(item);
+    }
+
+    @Test
+    void shouldReportNotFound_whenNoClaimHasTheId() {
+        when(cheader1Dao.findForUpdate(42)).thenReturn(null);
+
+        BillingCorrectionRecordService.UnbillOutcome outcome = service.unbillClaim(42, "999998");
+
+        assertThat(outcome).isEqualTo(BillingCorrectionRecordService.UnbillOutcome.NOT_FOUND);
+        verifyNoInteractions(correctionPersister, billOnItemDao);
+    }
+
+    @Test
+    void shouldReportNotFound_whenPersisterCannotUpdateTheClaim() {
+        when(cheader1Dao.findForUpdate(42)).thenReturn(headerWithStatus("O"));
+        when(correctionPersister.updateBillingStatus("42", "D", "999998")).thenReturn(false);
+        when(billOnItemDao.getBillingItemByCh1Id(42)).thenReturn(Collections.emptyList());
+
+        assertThat(service.unbillClaim(42, "999998"))
+                .isEqualTo(BillingCorrectionRecordService.UnbillOutcome.NOT_FOUND);
     }
 
     // ---- updateBillingClaimHeader: direct coverage --------------------

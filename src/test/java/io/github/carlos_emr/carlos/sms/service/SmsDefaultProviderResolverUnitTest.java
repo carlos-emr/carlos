@@ -5,6 +5,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -42,5 +44,22 @@ class SmsDefaultProviderResolverUnitTest {
 
         assertThatThrownBy(selector::configuredDefault).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("sms.provider.default");
+    }
+
+    @Test
+    @DisplayName("configuredDefault uses the provider saved in Administration over the property")
+    void shouldPreferStoredProvider_overProperty() {
+        SmsDefaultProviderResolver selector = new SmsDefaultProviderResolver(
+                () -> "VOIPMS", () -> Optional.of(SmsProviderType.STUB));
+
+        assertThat(selector.configuredDefault()).isEqualTo(SmsProviderType.STUB);
+    }
+
+    @Test
+    @DisplayName("configuredDefault falls back to the property while nothing is saved")
+    void shouldFallBackToProperty_whenNothingStored() {
+        SmsDefaultProviderResolver selector = new SmsDefaultProviderResolver(() -> "VOIPMS", Optional::empty);
+
+        assertThat(selector.configuredDefault()).isEqualTo(SmsProviderType.VOIPMS);
     }
 }

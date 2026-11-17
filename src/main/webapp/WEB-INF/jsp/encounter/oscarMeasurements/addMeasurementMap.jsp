@@ -67,9 +67,16 @@
             var popup = window.open(varpage, windowname, windowprops);
         }
 
+        // Search only reads: it reloads this page by GET, carrying just the search fields, so the
+        // action renders it instead of writing (a write needs the form's POST). Re-submitting the
+        // mapping form used to POST to a GET-only view gate (HTTP 405), and the form's CSRF token
+        // must not end up in a URL (issue #3335).
         function reloadPage() {
-            document.CONFIG.action = '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementMap';
-            return true;
+            var form = document.CONFIG;
+            window.location.href = '<%= request.getContextPath() %>/encounter/oscarMeasurements/AddMeasurementMap'
+                + '?searchstring=' + encodeURIComponent(form.elements['searchstring'].value)
+                + '&identifier=' + encodeURIComponent(form.elements['identifier'].value);
+            return false;
         }
 
 
@@ -105,8 +112,8 @@
                                                 value=" <fmt:message key="global.btnClose"/> "
                                                 onClick="window.close()"></td>
                         <td align="right"><a
-                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                                href="<%= request.getContextPath() %>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a> | <a
+                                href="<%= request.getContextPath() %>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>

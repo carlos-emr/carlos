@@ -41,6 +41,22 @@ class DocumentReportJspRegressionTest {
                 .doesNotContain("var msgNoDocSelected = '<fmt:message");
     }
 
+    /**
+     * A tickler is for a patient. On a provider's own eDoc list the row's module id is the
+     * provider number, and the Tickler link sent it as {@code demographic_no}, so the form opened
+     * for whichever patient shared that number (#4839). Only a patient's list offers the link.
+     */
+    @Test
+    @DisplayName("should offer the document Tickler link only on a patient's document list")
+    void shouldOfferTicklerLink_onlyOnPatientDocumentList() throws IOException {
+        String source = Files.readString(DOCUMENT_REPORT_JSP, StandardCharsets.UTF_8);
+
+        assertThat(source).containsPattern("<% if \\(\"demographic\"\\.equals\\(module\\)\\) \\{\\s*"
+                + "String tickler_url = request\\.getContextPath\\(\\) \\+ \"/tickler/ForwardDemographicTickler\\?");
+        assertThat(source.split("/tickler/ForwardDemographicTickler", -1)).hasSize(2);
+        assertThat(source).doesNotContain("moduleid.equals(session.getAttribute(\"user\"))");
+    }
+
     @Test
     @DisplayName("should announce that the chart-update document link opens a dialog")
     void shouldAnnounceDialog_forChartUpdateDocumentLink() throws IOException {

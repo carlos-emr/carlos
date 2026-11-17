@@ -57,6 +57,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
+import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -425,6 +426,8 @@ public class BillingOnReviewViewModelAssembler {
                 String codeFee = nullToEmpty(item.getCodeFee());
                 String codeTotalStr = nullToEmpty(item.getCodeTotal());
                 String warning = nullToEmpty(item.getMsg());
+                // A failed numeric/fee calculation must never offer a save with a placeholder zero.
+                if (!warning.isEmpty()) parseFailed[0] = true;
                 String codeAt = nullToEmpty(item.getCodeAt());
 
                 String gstFlag = gstRep.getGstFlag(codeName, billReferalDate);
@@ -631,6 +634,11 @@ public class BillingOnReviewViewModelAssembler {
         List<BillingOnReviewViewModel.ParamPair> all = new ArrayList<>();
         for (Enumeration<String> e = request.getParameterNames(); e.hasMoreElements(); ) {
             String name = e.nextElement();
+            // The review renders its own fresh submission token; echoing one posted back from an
+            // earlier review (Back to Edit) would put a spent token ahead of it in the form.
+            if (FormSubmissionGuard.PARAMETER.equals(name)) {
+                continue;
+            }
             String value = request.getParameter(name);
             all.add(new BillingOnReviewViewModel.ParamPair(name, value == null ? "" : value));
         }

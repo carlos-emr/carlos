@@ -40,10 +40,33 @@ import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
 
 public interface TicklerDao extends AbstractDao<Tickler> {
 
+    /** Locks and refreshes the current tickler; callers must retain the transaction through their write. */
+    Tickler findForUpdate(Integer ticklerNo);
+
     /**
      * Finds a Tickler by its ID.
      */
     public Tickler find(Integer id);
+
+    /**
+     * Reads only the tickler's patient identifier, without materializing demographic details.
+     *
+     * @param ticklerNo Integer tickler identifier
+     * @return {@code List<Integer>} empty when absent, or one scalar patient identifier;
+     *         an existing unassigned tickler has a single null element
+     * @since 2026-10-24
+     */
+    public List<Integer> findDemographicNos(Integer ticklerNo);
+
+    /**
+     * Loads the tickler row under a pessimistic write lock, so that two requests changing the
+     * same tickler's attachments run one after the other inside their transactions. Callers
+     * must hold an active transaction.
+     *
+     * @param ticklerNo Integer tickler identifier
+     * @return Tickler the locked row, or {@code null} when there is no such tickler
+     */
+    public Tickler lockForAttachmentSync(Integer ticklerNo);
 
     /**
      * Finds active ticklers for patients based on demographic numbers and a message.
@@ -61,6 +84,7 @@ public interface TicklerDao extends AbstractDao<Tickler> {
 
     /**
      * Finds non-deleted ticklers for the specified tickler IDs and demographic.
+     * The assignee is loaded with each tickler, so callers may read it after the transaction ends.
      */
     public List<Tickler> findByTicklerNosDemo(List<Integer> ticklerNos, Integer demoNo);
 
@@ -68,6 +92,7 @@ public interface TicklerDao extends AbstractDao<Tickler> {
 
     /**
      * Finds non-deleted ticklers for the specified tickler IDs, assignee, and demographic.
+     * The assignee is loaded with each tickler, so callers may read it after the transaction ends.
      */
     public List<Tickler> findByTicklerNosAssignedTo(List<Integer> ticklerNos, String assignedTo, Integer demoNo);
 

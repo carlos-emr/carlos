@@ -75,6 +75,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors, assertStrictPage, wireStrictPage } = require('./lib/playwright-harness');
 const {
   assert,
   assertNoPageErrors,
@@ -84,7 +85,6 @@ const {
   login,
   screenshot,
   validateBaseUrl,
-  wirePage,
 } = require('./eform-local-playwright-utils');
 
 const config = {
@@ -156,12 +156,13 @@ function assertSanitizedErrorPage(label, status, body, contentType) {
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   const recorder = createRecorder();
   try {
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1400, height: 900 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1400, height: 900 } });
+    context.on('page', page => wireStrictPage(page, 'error-sanitization-page', recorder, { baseline: [] }));
     const loginPage = await login(context, config, recorder);
     await loginPage.close();
 
     const page = await context.newPage();
-    wirePage(page, 'error-sanitization', recorder);
+    wireStrictPage(page, 'error-sanitization', recorder, { baseline: [] });
 
     // page.request shares the context's session cookies, so these are authenticated
     // requests. It is also NOT a browser navigation, so these deliberate 500s never
@@ -230,8 +231,10 @@ function assertSanitizedErrorPage(label, status, body, contentType) {
     await screenshot(page, config.screenshotDir, 'error-sanitization');
     await page.close();
 
-    // Safe to keep: this inspects uncaught JavaScript only, never HTTP status.
+    // The intentional failures above use APIRequestContext, which emits no page
+    // response/console events. Every observed browser failure remains fatal.
     assertNoPageErrors(recorder);
+    assertStrictPage(recorder);
 
     await context.close();
 

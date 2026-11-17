@@ -2,28 +2,28 @@
 <jasperReport name="pdf_rep_invoice" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20">
 	<property name="ireport.scriptlethandling" value="0" />
 	<property name="ireport.encoding" value="UTF-8" />
-	<import value="net.sf.jasperreports.engine.*" />
-	<import value="java.util.*" />
-	<import value="net.sf.jasperreports.engine.data.*" />
-	<parameter name="startDate" class="java.lang.String" isForPrompting="false">
+	<import>net.sf.jasperreports.engine.*</import>
+	<import>java.util.*</import>
+	<import>net.sf.jasperreports.engine.data.*</import>
+	<parameter name="startDate" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
-	<parameter name="endDate" class="java.lang.String" isForPrompting="false">
+	<parameter name="endDate" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
-	<parameter name="demNoCnt" class="java.lang.String" isForPrompting="false">
+	<parameter name="demNoCnt" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA["0"]]></defaultValueExpression>
 	</parameter>
-	<parameter name="billCnt" class="java.lang.String" isForPrompting="false">
+	<parameter name="billCnt" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA["0"]]></defaultValueExpression>
 	</parameter>
-	<parameter name="billMasterCnt" class="java.lang.String" isForPrompting="false">
+	<parameter name="billMasterCnt" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA["0"]]></defaultValueExpression>
 	</parameter>
-	<parameter name="insurers" class="java.lang.String" isForPrompting="false">
+	<parameter name="insurers" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
-	<parameter name="account" class="java.lang.String" isForPrompting="false">
+	<parameter name="account" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
 	<field name="providerFirstName" class="java.lang.String" />
@@ -42,34 +42,32 @@
 	<field name="accountNo" class="java.lang.String" />
 	<field name="adjustmentCode" class="java.lang.String" />
 	<variable name="invTotal" class="java.lang.Double" calculation="Sum">
-		<variableExpression><![CDATA[new Double($F{amount})]]></variableExpression>
+		<expression><![CDATA[new Double($F{amount})]]></expression>
 	</variable>
 	<variable name="invCount" class="java.lang.Integer" calculation="Count">
-		<variableExpression><![CDATA[new Integer($F{billMasterNo})]]></variableExpression>
+		<expression><![CDATA[new Integer($F{billMasterNo})]]></expression>
 	</variable>
 	<variable name="lineCount" class="java.lang.Integer" calculation="Count">
-		<variableExpression><![CDATA[new Integer($F{billMasterNo})]]></variableExpression>
+		<expression><![CDATA[new Integer($F{billMasterNo})]]></expression>
 	</variable>
 	<variable name="demoCount" class="java.lang.Integer" calculation="Count">
-		<variableExpression><![CDATA[new Integer($F{demoNo})]]></variableExpression>
+		<expression><![CDATA[new Integer($F{demoNo})]]></expression>
 	</variable>
 	<variable name="balanceTotal" class="java.lang.Double" calculation="Sum">
-		<variableExpression><![CDATA[new Double($F{amtOwing})]]></variableExpression>
+		<expression><![CDATA[new Double($F{amtOwing})]]></expression>
 	</variable>
 	<variable name="subAmt" class="java.lang.Double" resetType="Group" resetGroup="grpAccount" calculation="Sum">
-		<variableExpression><![CDATA[new Double($F{amount})]]></variableExpression>
+		<expression><![CDATA[new Double($F{amount})]]></expression>
 	</variable>
 	<variable name="subBalance" class="java.lang.Double" resetType="Group" resetGroup="grpAccount" calculation="Sum">
-		<variableExpression><![CDATA[new Double($F{amtOwing})]]></variableExpression>
+		<expression><![CDATA[new Double($F{amtOwing})]]></expression>
 	</variable>
 	<group name="grpAccount">
-		<groupExpression><![CDATA[$F{accountNo}]]></groupExpression>
+		<expression><![CDATA[$F{accountNo}]]></expression>
 		<groupHeader>
 			<band height="21">
 				<element kind="rectangle" mode="Opaque" x="1" y="3" width="534" height="16" forecolor="#000000" backcolor="#CCCCCC" key="rectangle-1" radius="0">
-					<graphicElement fill="Solid">
-						<pen lineWidth="0.0" lineStyle="Solid" />
-					</graphicElement>
+					<pen lineWidth="0.0" lineStyle="Solid" />
 				</element>
 				<element kind="textField" mode="Transparent" x="0" y="3" width="535" height="16" forecolor="#000000" backcolor="#FFFFFF" key="textField-12" hTextAlign="Left" vTextAlign="Middle" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="">
 					<paragraph lineSpacing="Single" />
@@ -134,14 +132,10 @@
 			<text><![CDATA[Invoice Report]]></text>
 		</element>
 		<element kind="line" mode="Opaque" x="0" y="31" width="534" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line">
-			<graphicElement fill="Solid">
-				<pen lineWidth="2.0" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="2.0" lineStyle="Solid" />
 		</element>
 		<element kind="line" mode="Opaque" x="0" y="3" width="534" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line">
-			<graphicElement fill="Solid">
-				<pen lineWidth="2.0" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="2.0" lineStyle="Solid" />
 		</element>
 		<element kind="textField" mode="Transparent" x="1" y="33" width="87" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="dd-MMM-yy 'at' h:mm aaa">
 			<paragraph lineSpacing="Single" />
@@ -186,19 +180,13 @@
 	</pageHeader>
 	<columnHeader height="20" splitType="Stretch">
 		<element kind="rectangle" mode="Opaque" x="1" y="0" width="533" height="20" forecolor="#000000" backcolor="#999999" key="element-22" radius="0">
-			<graphicElement fill="Solid">
-				<pen lineWidth="0.5" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="0.5" lineStyle="Solid" />
 		</element>
 		<element kind="line" mode="Opaque" x="0" y="0" width="535" height="1" forecolor="#000000" backcolor="#FFFFFF" key="element-88" direction="BottomUp">
-			<graphicElement fill="Solid">
-				<pen lineWidth="0.5" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="0.5" lineStyle="Solid" />
 		</element>
 		<element kind="line" mode="Opaque" x="0" y="19" width="535" height="1" forecolor="#000000" backcolor="#FFFFFF" key="element-89" direction="BottomUp">
-			<graphicElement fill="Solid">
-				<pen lineWidth="0.5" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="0.5" lineStyle="Solid" />
 		</element>
 		<element kind="staticText" mode="Transparent" x="1" y="0" width="28" height="20" forecolor="#FFFFFF" backcolor="#FFFFFF" key="element-90" hTextAlign="Left" vTextAlign="Middle" rotation="None">
 			<paragraph lineSpacing="Single" />
@@ -522,9 +510,7 @@
 			<text><![CDATA[TOTALS:]]></text>
 		</element>
 		<element kind="line" mode="Opaque" x="3" y="0" width="530" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line-1">
-			<graphicElement fill="Solid">
-				<pen lineWidth="0.5" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="0.5" lineStyle="Solid" />
 		</element>
 		<element kind="textField" x="131" y="0" width="48" height="12" vTextAlign="Middle">
 			<expression><![CDATA[$P{demNoCnt}]]></expression>

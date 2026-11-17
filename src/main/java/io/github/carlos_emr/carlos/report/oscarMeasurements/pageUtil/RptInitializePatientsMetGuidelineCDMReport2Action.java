@@ -49,7 +49,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.*;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -58,8 +57,6 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws ServletException, IOException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
@@ -75,8 +72,8 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
 
         if (!validate(request)) {
             MiscUtils.getLogger().debug("the form is invalid");
-            response.sendRedirect(request.getContextPath() + "/oscarReport/oscarMeasurements/ViewInitializePatientsMetGuidelineCDMReport");
-            return NONE;
+            request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
+            return INPUT;
         }
 
         if (patientSeenCheckbox != null) {
@@ -112,28 +109,46 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         String[] guidelineCheckbox = this.getGuidelineCheckbox();
 
         boolean valid = true;
+        // The hidden type/instruction fields are echoes of the session definitions; anything else
+        // is a tampered request and its row is skipped, here and in the report loop.
+        CdmReportSelectionValidator selection = CdmReportSelectionValidator.fromSession(request);
 
         if (guidelineCheckbox != null) {
             for (int i = 0; i < guidelineCheckbox.length; i++) {
-                int ctr = Integer.parseInt(guidelineCheckbox[i]);
+                // The index is request data: parse and range-check it before any array access.
+                int ctr = selection.acceptedRow(guidelineCheckbox[i], CdmReportSelectionValidator.length(startDateB),
+                        CdmReportSelectionValidator.length(endDateB), CdmReportSelectionValidator.length(guidelineB));
+                if (ctr < 0) {
+                    continue;
+                }
                 String startDate = startDateB[ctr];
                 String endDate = endDateB[ctr];
                 String guideline = guidelineB[ctr];
-                String measurementType = (String) this.getValue("measurementType" + ctr);
-                String sNumMInstrc = (String) this.getValue("mNbInstrcs" + ctr);
-                int iNumMInstrc = Integer.parseInt(sNumMInstrc);
-
+                String measurementType = selection.acceptedMeasurementType(ctr, (String) this.getValue("measurementType" + ctr));
+                if (measurementType == null) {
+                    continue;
+                }
                 if (!ectValidation.isDate(startDate)) {
-                    addActionError(getText("errors.invalidDate", measurementType));
+                    addActionError(getText("oscarReport.CDMReport.msgInvalidDate", new String[]{measurementType}));
                     valid = false;
                 }
                 if (!ectValidation.isDate(endDate)) {
-                    addActionError(getText("errors.invalidDate", measurementType));
+                    addActionError(getText("oscarReport.CDMReport.msgInvalidDate", new String[]{measurementType}));
                     valid = false;
                 }
+                // Validate the aggregate row too, even when every instruction is unchecked.
+                if (new RptCheckGuideline().getValidation(measurementType) == 1
+                        && RptCheckGuideline.numericValue(guideline) == null) {
+                    addActionError(getText("oscarReport.CDMReport.msgInvalidValue", new String[]{measurementType}));
+                    valid = false;
+                    continue;
+                }
+                // The posted value(mNbInstrcsN) count is ignored: the rendered list bounds the loop.
+                int iNumMInstrc = selection.instructionCount(ctr);
+
                 for (int j = 0; j < iNumMInstrc; j++) {
 
-                    String mInstrc = (String) this.getValue("mInstrcsCheckbox" + ctr + j);
+                    String mInstrc = selection.acceptedMeasuringInstruction(ctr, (String) this.getValue("mInstrcsCheckbox" + ctr + j));
                     if (mInstrc != null) {
                         List<Validations> vs = ectValidation.getValidationType(measurementType, mInstrc);
                         String regExp = null;
@@ -142,16 +157,18 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
 
                         if (!vs.isEmpty()) {
                             Validations v = vs.iterator().next();
-                            dMax = v.getMaxValue();
-                            dMin = v.getMinValue();
+                            // A non-numeric rule (Yes/No/NA, Provided/Revised/Reviewed) stores no bounds; unboxing
+                            // its NULL max/min into a double threw before any report line was produced.
+                            dMax = v.getMaxValue() != null ? v.getMaxValue() : 0;
+                            dMin = v.getMinValue() != null ? v.getMinValue() : 0;
                             regExp = v.getRegularExp();
                         }
 
                         if (!ectValidation.isInRange(dMax, dMin, guideline)) {
-                            addActionError(getText("errors.range", new String[]{measurementType, Double.toString(dMin), Double.toString(dMax)}));
+                            addActionError(getText("oscarReport.CDMReport.msgOutOfRange", new String[]{measurementType, Double.toString(dMin), Double.toString(dMax)}));
                             valid = false;
                         } else if (!ectValidation.matchRegExp(regExp, guideline)) {
-                            addActionError(getText("errors.invalid", measurementType));
+                            addActionError(getText("oscarReport.CDMReport.msgInvalidValue", new String[]{measurementType}));
                             valid = false;
                         } else if (!ectValidation.isValidBloodPressure(regExp, guideline)) {
                             addActionError(getText("error.bloodPressure"));
@@ -162,6 +179,36 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
             }
         }
         return valid;
+    }
+
+    private static final String ABOVE = ">";
+    private static final String BELOW = "<";
+    private static final String SQL_MET_WITH_INSTRUCTION_PREFIX = "SELECT dataField FROM measurements WHERE dateEntered = :dateEntered"
+            + " AND demographicNo = :demographicNo AND type = :measurementType AND measuringInstruction = :measuringInstruction AND dataField";
+    private static final String SQL_MET_PREFIX = "SELECT dataField FROM measurements WHERE dateEntered = :dateEntered"
+            + " AND demographicNo = :demographicNo AND type = :measurementType AND dataField";
+    // Constant SQL per operator: the operator can't be a bind parameter, and request data must
+    // never be concatenated into the statement.
+    static final String SQL_MET_ABOVE_WITH_INSTRUCTION = SQL_MET_WITH_INSTRUCTION_PREFIX + " > :guideline";
+    static final String SQL_MET_BELOW_WITH_INSTRUCTION = SQL_MET_WITH_INSTRUCTION_PREFIX + " < :guideline";
+    static final String SQL_MET_ABOVE = SQL_MET_PREFIX + " > :guideline";
+    static final String SQL_MET_BELOW = SQL_MET_PREFIX + " < :guideline";
+
+    /**
+     * Maps the submitted "above/below" radio value to the only two comparison operators the
+     * met-guideline form offers.
+     *
+     * @param raw the submitted {@code value(aboveBelowN)} field
+     * @return {@code ">"} or {@code "<"}, or {@code null} for any other value
+     */
+    static String guidelineComparator(String raw) {
+        if (ABOVE.equals(raw)) {
+            return ABOVE;
+        }
+        if (BELOW.equals(raw)) {
+            return BELOW;
+        }
+        return null;
     }
 
     /*****************************************************************************************
@@ -176,6 +223,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         String[] guidelineB = this.getGuidelineB();
         String[] guidelineCheckbox = this.getGuidelineCheckbox();
         RptCheckGuideline checkGuideline = new RptCheckGuideline();
+        CdmReportSelectionValidator selection = CdmReportSelectionValidator.fromSession(request);
 
         if (guidelineCheckbox == null) {
             return metGLPercentageMsg;
@@ -185,22 +233,37 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         FormsDao fDao = SpringUtils.getBean(FormsDao.class);
         MiscUtils.getLogger().debug("the length of guideline checkbox is " + guidelineCheckbox.length);
         for (int i = 0; i < guidelineCheckbox.length; i++) {
-            int ctr = Integer.parseInt(guidelineCheckbox[i]);
-            MiscUtils.getLogger().debug("the value of guildline Checkbox is: " + guidelineCheckbox[i]);
+            // The index is request data: parse and range-check it before any array access.
+            int ctr = selection.acceptedRow(guidelineCheckbox[i], CdmReportSelectionValidator.length(startDateB),
+                    CdmReportSelectionValidator.length(endDateB), CdmReportSelectionValidator.length(guidelineB));
+            if (ctr < 0) {
+                continue;
+            }
+            MiscUtils.getLogger().debug("the value of guildline Checkbox is: " + ctr);
             String startDate = startDateB[ctr];
             String endDate = endDateB[ctr];
             String guideline = guidelineB[ctr];
-            String measurementType = (String) this.getValue("measurementType" + ctr);
-            String aboveBelow = (String) this.getValue("aboveBelow" + ctr);
-            String sNumMInstrc = (String) this.getValue("mNbInstrcs" + ctr);
-            int iNumMInstrc = Integer.parseInt(sNumMInstrc);
+            // Only a type the server rendered for this row may drive the patient-wide queries.
+            String measurementType = selection.acceptedMeasurementType(ctr, (String) this.getValue("measurementType" + ctr));
+            if (measurementType == null) {
+                continue;
+            }
+            // The comparison operator selects a constant statement below, so only the two operators
+            // the form offers are accepted; anything else (a tampered request) skips this row.
+            String comparator = guidelineComparator((String) this.getValue("aboveBelow" + ctr));
+            if (comparator == null) {
+                MiscUtils.getLogger().warn("CDM met-guideline report: rejected an unsupported guideline comparator");
+                continue;
+            }
+            // The posted value(mNbInstrcsN) count is ignored: the rendered list bounds the loop.
+            int iNumMInstrc = selection.instructionCount(ctr);
             double metGLPercentage = 0;
             double nbMetGL = 0;
 
             for (int j = 0; j < iNumMInstrc; j++) {
                 metGLPercentage = 0;
                 nbMetGL = 0;
-                String mInstrc = (String) this.getValue("mInstrcsCheckbox" + ctr + j);
+                String mInstrc = selection.acceptedMeasuringInstruction(ctr, (String) this.getValue("mInstrcsCheckbox" + ctr + j));
 
                 if (mInstrc != null) {
                     double nbGeneral = 0;
@@ -212,7 +275,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                             Integer demographicNo = (Integer) o[0];
                             Date maxDateEntered = (Date) o[1];
                             for (Measurement m : dao.findByDemographicNoTypeAndDate(demographicNo, maxDateEntered, measurementType, mInstrc)) {
-                                if (checkGuideline.isBloodPressureMetGuideline(m.getDataField(), guideline, aboveBelow)) {
+                                if (checkGuideline.isBloodPressureMetGuideline(m.getDataField(), guideline, comparator)) {
                                     nbMetGL++;
                                 }
                             }
@@ -221,7 +284,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                         if (nbGeneral != 0) {
                             metGLPercentage = Math.round((nbMetGL / nbGeneral) * 100);
                         }
-                        String[] param = {startDate, endDate, measurementType, mInstrc, "(" + nbMetGL + "/" + nbGeneral + ") " + Double.toString(metGLPercentage), aboveBelow, guideline};
+                        String[] param = {startDate, endDate, measurementType, mInstrc, "(" + nbMetGL + "/" + nbGeneral + ") " + Double.toString(metGLPercentage), comparator, guideline};
                         String msg = getText("oscarReport.CDMReport.msgNbOfPatientsMetGuideline", param);
                         MiscUtils.getLogger().debug(msg);
                         metGLPercentageMsg.add(msg);
@@ -230,13 +293,14 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                             Integer demographicNo = (Integer) o[0];
                             Date maxDateEntered = (Date) o[1];
 
-                            String sql = "SELECT dataField FROM measurements WHERE dateEntered = :dateEntered AND demographicNo = :demographicNo AND type = :measurementType AND measuringInstruction = :measuringInstruction AND dataField" + aboveBelow + ":guideline";
+                            // Preserve the full entry timestamp; formatting as a date loses non-midnight readings.
+                            String sql = ABOVE.equals(comparator) ? SQL_MET_ABOVE_WITH_INSTRUCTION : SQL_MET_BELOW_WITH_INSTRUCTION;
                             List<Object[]> rs = fDao.runParameterizedNativeQuery(sql, 
-                                "dateEntered", ConversionUtils.toDateString(maxDateEntered),
+                                "dateEntered", maxDateEntered,
                                 "demographicNo", demographicNo,
                                 "measurementType", measurementType,
                                 "measuringInstruction", mInstrc,
-                                "guideline", guideline);
+                                "guideline", RptCheckGuideline.numericValue(guideline));
 
                             if (!rs.isEmpty()) {
                                 nbMetGL++;
@@ -247,7 +311,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                         if (nbGeneral != 0) {
                             metGLPercentage = Math.round((nbMetGL / nbGeneral) * 100);
                         }
-                        String[] param = {startDate, endDate, measurementType, mInstrc, "(" + nbMetGL + "/" + nbGeneral + ") " + Double.toString(metGLPercentage), aboveBelow, guideline};
+                        String[] param = {startDate, endDate, measurementType, mInstrc, "(" + nbMetGL + "/" + nbGeneral + ") " + Double.toString(metGLPercentage), comparator, guideline};
 
                         String msg = getText("oscarReport.CDMReport.msgNbOfPatientsMetGuideline", param);
                         MiscUtils.getLogger().debug(msg);
@@ -290,7 +354,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                     Date maxDateEntered = (Date) o[1];
 
                     for (Measurement m : dao.findByDemoNoDateAndType(demographicNo, maxDateEntered, measurementType)) {
-                        if (checkGuideline.isBloodPressureMetGuideline(m.getDataField(), guideline, aboveBelow)) {
+                        if (checkGuideline.isBloodPressureMetGuideline(m.getDataField(), guideline, comparator)) {
                             nbMetGL++;
                         }
                         break;
@@ -301,7 +365,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                     metGLPercentage = Math.round((nbMetGL / nbGeneral) * 100);
                 }
 
-                String[] param = {startDate, endDate, measurementType, "", "(" + nbMetGL + "/" + nbGeneral + ") " + Double.toString(metGLPercentage), aboveBelow, guideline};
+                String[] param = {startDate, endDate, measurementType, "", "(" + nbMetGL + "/" + nbGeneral + ") " + Double.toString(metGLPercentage), comparator, guideline};
                 String msg = getText("oscarReport.CDMReport.msgNbOfPatientsMetGuideline", param);
                 MiscUtils.getLogger().debug(msg);
                 metGLPercentageMsg.add(msg);
@@ -310,12 +374,12 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                     Integer demographicNo = (Integer) o[0];
                     Date maxDateEntered = (Date) o[1];
 
-                    String sql = "SELECT dataField FROM measurements WHERE dateEntered = :dateEntered AND demographicNo = :demographicNo AND type = :measurementType AND dataField" + aboveBelow + ":guideline";
+                    String sql = ABOVE.equals(comparator) ? SQL_MET_ABOVE : SQL_MET_BELOW;
                     List<Object[]> rs = fDao.runParameterizedNativeQuery(sql,
-                        "dateEntered", ConversionUtils.toDateString(maxDateEntered),
+                        "dateEntered", maxDateEntered,
                         "demographicNo", demographicNo,
                         "measurementType", measurementType,
-                        "guideline", guideline);
+                        "guideline", RptCheckGuideline.numericValue(guideline));
                     if (!rs.isEmpty()) {
                         nbMetGL++;
                     }
@@ -325,7 +389,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                 if (nbGeneral != 0) {
                     metGLPercentage = Math.round((nbMetGL / nbGeneral) * 100);
                 }
-                String[] param = {startDate, endDate, measurementType, "", "(" + nbMetGL + "/" + nbGeneral + ") " + Double.toString(metGLPercentage), aboveBelow, guideline};
+                String[] param = {startDate, endDate, measurementType, "", "(" + nbMetGL + "/" + nbGeneral + ") " + Double.toString(metGLPercentage), comparator, guideline};
                 String msg = getText("oscarReport.CDMReport.msgNbOfPatientsMetGuideline", param);
                 MiscUtils.getLogger().debug(msg);
                 metGLPercentageMsg.add(msg);
@@ -361,8 +425,14 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         values.put(key, value);
     }
 
+    /**
+     * Returns a {@code value(key)} form field. Struts 7 never binds these names through
+     * {@link #setValue}, so the posted request parameter is the source; see
+     * {@link MappedFormValues}.
+     */
     public Object getValue(String key) {
-        return values.get(key);
+        Object value = values.get(key);
+        return value != null ? value : MappedFormValues.get(request, key);
     }
 
     private String[] patientSeenCheckbox;

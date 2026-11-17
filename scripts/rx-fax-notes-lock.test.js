@@ -338,7 +338,7 @@ test('dismissal after the fax POST starts never resets an uncertain in-flight op
 });
 
 test('prescription reset and clear actions cancel the deferred fax before changing the stash', () => {
-  assert.match(browserFunction('resetStash', 'resetReRxDrugList'), /function resetStash\(\)\s*\{\s*cancelPendingFax\(\);/);
+  assert.match(browserFunction('resetStash', 'cancelPendingFax'), /function resetStash\(\)\s*\{\s*cancelPendingFax\(\);/);
   assert.match(browserFunction('clearPending', 'clearPendingFax'), /function clearPending\(actionValue\)\s*\{\s*cancelPendingFax\(\);/);
 });
 
@@ -480,6 +480,41 @@ test('Print and Paste works without fax-only variables and rejects historical re
   assert.match(declarations, /var hasPreview =/);
   assert.match(declarations, /var isReprint =/);
   assert.ok(!declarations.includes('if (CarlosProperties'));
+});
+
+test('the Rx opener shortcut requires the originating patient and chart program context', () => {
+  const { context } = setup();
+  vm.runInContext(browserFunction('matchesRxChart', 'writeToEncounter'), context);
+  const form = { elements: { demographicNo: { value: '1' }, chartContext: { value: '1' } } };
+  assert.equal(context.matchesRxChart(form), true);
+  form.elements.chartContext.value = 'other-program';
+  assert.equal(context.matchesRxChart(form), false);
+  delete form.elements.chartContext;
+  assert.equal(context.matchesRxChart(form), false);
+  form.elements.chartContext = { value: '1' };
+  form.elements.demographicNo.value = '2';
+  assert.equal(context.matchesRxChart(form), false);
+  assert.equal(Boolean(context.matchesRxChart(null)), false);
+});
+
+test('chart reopening preserves another program window and uses an origin-specific popup name', () => {
+  const { context } = setup();
+  const opened = [];
+  const form = { elements: { demographicNo: { value: '1' }, chartContext: { value: 'other-program' } } };
+  const opener = { location: 'other-program-chart', document: { forms: { caseManagementEntryForm: form } } };
+  context.window.parent = { opener };
+  context.window.open = (url, name) => { opened.push({ url, name }); return { opened: true }; };
+  vm.runInContext(browserFunction('matchesRxChart', 'writeToEncounter'), context);
+  vm.runInContext(browserFunction('openEncounter', 'pasteRxToEchart'), context);
+  context.openEncounter();
+  assert.equal(opener.location, 'other-program-chart');
+  assert.equal(opened.length, 1);
+  assert.equal(opened[0].name, 'encounter1_1');
+  assert.match(opened[0].url, /&chartContext=1$/);
+  form.elements.chartContext.value = '1';
+  context.openEncounter();
+  assert.match(opener.location, /&chartContext=1$/);
+  assert.equal(opened.length, 1, 'the matching chart should be reused');
 });
 
 function encounterFixture(fetchResult) {

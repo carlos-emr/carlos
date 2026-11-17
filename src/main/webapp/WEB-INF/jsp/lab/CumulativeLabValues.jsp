@@ -49,6 +49,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="encounter.LeftNavBar.msgLoading" var="labLoadingMessage"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -164,12 +165,19 @@
 
                 var newNode = document.createElement('div');
                 var img = document.createElement('img');
-                img.setAttribute('src', '<%= request.getContextPath() %>/images/osx-pinwheel.gif');
+                img.setAttribute('src', '${carlos:forJavaScript(pageContext.request.contextPath)}/images/spinner.jpg');
+                img.width = 100;
+                img.height = 77;
+                img.alt = '';
 
-                newNode.appendChild(img)
+                newNode.appendChild(img);
+                var loadingStatus = document.createElement('span');
+                loadingStatus.setAttribute('role', 'status');
+                newNode.appendChild(loadingStatus);
                 var ran_number = Math.round(Math.random() * 1000000);
                 newNode.setAttribute('id', 'd' + ran_number);
                 document.getElementById('cumulativeLab').appendChild(newNode);
+                loadingStatus.textContent = '${carlos:forJavaScript(labLoadingMessage)}';
 
                 var url = "<%= request.getContextPath() %>/lab/ViewDisplayLabValue";
                 var ran_number = Math.round(Math.random() * 1000000);
@@ -214,8 +222,8 @@
                         <td><oscar:nameage demographicNo="<%=demographic_no%>"/></td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                                href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a> | <a
+                                href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>

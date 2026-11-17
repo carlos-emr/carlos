@@ -68,7 +68,7 @@ public final class OllamaClinicalSummaryAgent implements ClinicalSummaryAgent {
                 .put("system", request.get("instructions").asText())
                 .put("prompt", JSON.writeValueAsString(bundle)).put("stream", false).put("think", false)
                 .put("keep_alive", "5m");
-        ObjectNode schema = request.get("output_schema").deepCopy();
+        ObjectNode schema = providerWireSchema(request);
         JsonNode properties = schema.path("properties");
         if (properties.has("coverage") && properties.has("claims")) {
             ObjectNode coverage = (ObjectNode) properties.path("coverage");

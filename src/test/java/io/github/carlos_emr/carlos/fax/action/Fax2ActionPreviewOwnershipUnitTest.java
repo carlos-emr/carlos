@@ -2,6 +2,18 @@
 package io.github.carlos_emr.carlos.fax.action;
 
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
+import io.github.carlos_emr.carlos.commn.model.Document;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
+import io.github.carlos_emr.carlos.commn.model.FaxConfig;
+import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
+import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
@@ -33,6 +45,7 @@ class Fax2ActionPreviewOwnershipUnitTest extends CarlosUnitTestBase {
     private FaxManager fax;
     private SecurityInfoManager security;
     private EFormDataDao eforms;
+    private CtlDocumentDao links;
     private EFormData eform;
     private LoggedInInfo user;
     private Path directory;
@@ -60,6 +73,13 @@ class Fax2ActionPreviewOwnershipUnitTest extends CarlosUnitTestBase {
         security = createAndRegisterMock(SecurityInfoManager.class);
         createAndRegisterMock(DocumentAttachmentManager.class);
         eforms = createAndRegisterMock(EFormDataDao.class);
+        links = createAndRegisterMock(CtlDocumentDao.class);
+        createAndRegisterMock(PatientLabRoutingDao.class);
+        createAndRegisterMock(QueueDocumentLinkDao.class);
+        Document stored = new Document();
+        stored.setDocumentNo(77);
+        stored.setRestrictToProgram(false);
+        when(createAndRegisterMock(DocumentDao.class).find(77)).thenReturn(stored);
         eform = new EFormData();
         eform.setDemographicId(10);
         when(eforms.find(77)).thenReturn(eform);
@@ -87,6 +107,66 @@ class Fax2ActionPreviewOwnershipUnitTest extends CarlosUnitTestBase {
             if ("image".equals(operation)) request.setParameter("showAs", "image");
             new Fax2Action().getPreview();
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"pdf", "image", "count"})
+    void shouldDenyWarmDocumentPreview_whenARestrictedSecondaryPatientIsLinkedLater(String operation) throws Exception {
+        claims.put(pdf.toString(), new Fax2Action.FaxPreviewClaim(FaxManager.TransactionType.DOCUMENT, 77, 10, "999998", false));
+        EDoc document = new EDoc();
+        document.setFileName("owned.pdf");
+        document.setModule("demographic");
+        document.setModuleId("10");
+        when(links.findByDocumentNoAndModule(77, "demographic")).thenReturn(List.of(patientLink(10)));
+        try (MockedStatic<EDocUtil> metadata = mockStatic(EDocUtil.class)) {
+            metadata.when(() -> EDocUtil.getDoc("77")).thenReturn(document);
+            read("pdf");
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getContentAsByteArray()).startsWith("%PDF-".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+            when(links.findByDocumentNoAndModule(77, "demographic"))
+                    .thenReturn(List.of(patientLink(10), patientLink(20)));
+            response = new MockHttpServletResponse();
+            context.when(ServletActionContext::getResponse).thenReturn(response);
+            clearInvocations(fax);
+            metadata.clearInvocations();
+
+            read(operation);
+
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            metadata.verifyNoInteractions();
+            verifyNoInteractions(fax);
+            assertThat(claims).hasSize(1);
+            assertThat(pdf).exists();
+        }
+    }
+
+    @Test
+    void shouldDenyDirectDocumentPreparationBeforeReadingMetadataOrStagingFiles_whenSecondaryPatientIsRestricted() {
+        request.setMethod("POST");
+        when(fax.getFaxGatewayAccounts(user)).thenReturn(List.of(mock(FaxConfig.class)));
+        when(links.findByDocumentNoAndModule(77, "demographic"))
+                .thenReturn(List.of(patientLink(10), patientLink(20)));
+        NioFileManager files = createAndRegisterMock(NioFileManager.class);
+        claims.clear();
+        try (MockedStatic<EDocUtil> metadata = mockStatic(EDocUtil.class)) {
+            Fax2Action action = new Fax2Action();
+            action.setTransactionType("DOCUMENT");
+            action.setTransactionId(77);
+            action.setDemographicNo(10);
+            assertThat(action.prepareFax()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(403);
+            metadata.verifyNoInteractions();
+            verifyNoInteractions(files);
+            assertThat(claims).isEmpty();
+        }
+    }
+
+    private CtlDocument patientLink(int patient) {
+        CtlDocument row = new CtlDocument();
+        row.setId(new CtlDocumentPK("demographic", patient, 77));
+        return row;
     }
 
     @ParameterizedTest

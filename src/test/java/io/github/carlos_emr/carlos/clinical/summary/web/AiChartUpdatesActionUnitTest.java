@@ -36,6 +36,8 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 
 class AiChartUpdatesActionUnitTest extends CarlosUnitTestBase {
     private final MockHttpServletRequest request = new MockHttpServletRequest();
@@ -176,6 +178,10 @@ class AiChartUpdatesActionUnitTest extends CarlosUnitTestBase {
         // Before and after generation only: the 303 target performs its own fresh load.
         verify(context, times(2)).load(user, 42);
         verifyNoInteractions(writer);
+        // The audit row names the document and the patient; no proposal text reaches any column.
+        logActionMock.verify(() -> LogAction.addLogSynchronous(user, "ChartUpdates.generate",
+                LogConst.CON_AI_CHART_UPDATE, "42", 3001, "documentId=42"));
+        logActionMock.verify(() -> LogAction.addLogSynchronous(any(), anyString(), anyString()), never());
     }
 
     @Test void shouldSuggestAssignee_onlyWhenClinicianIsActive() throws Exception {
@@ -279,6 +285,14 @@ class AiChartUpdatesActionUnitTest extends CarlosUnitTestBase {
         assertThat(review.getOutcomes().get(proposal.key())).contains("Saved: tickler #123");
         assertThat(response.getHeader("Location"))
                 .isEqualTo("/documentManager/AiChartUpdates?documentId=42#after-" + proposal.key());
+        // One accept row for the one write, keyed by document and patient; the edited text stays out of it.
+        logActionMock.verify(() -> LogAction.addLogSynchronous(user, "ChartUpdates.accept",
+                LogConst.CON_AI_CHART_UPDATE, "42", 3001, "documentId=42,kind=tickler,targetId=123"), times(1));
+        logActionMock.verify(() -> LogAction.addLogSynchronous(any(), anyString(), contains("Clinician edit"),
+                anyString(), any(), anyString()), never());
+        logActionMock.verify(() -> LogAction.addLogSynchronous(any(), anyString(), anyString(), anyString(), any(),
+                contains("Clinician edit")), never());
+        logActionMock.verify(() -> LogAction.addLogSynchronous(any(), anyString(), anyString()), never());
     }
 
     @Test void shouldAvoidWrites_whenReadAccessRevoked() {

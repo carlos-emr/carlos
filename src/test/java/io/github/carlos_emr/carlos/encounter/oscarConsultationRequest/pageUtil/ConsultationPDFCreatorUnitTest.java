@@ -163,6 +163,38 @@ class ConsultationPDFCreatorUnitTest {
     }
 
     @Test
+    @DisplayName("formats appointment time without a null minute literal")
+    void shouldFormatAppointmentTime_whenMinuteNull() {
+        String result = ConsultationPDFCreator.formatAppointmentTime("9", null, "am");
+
+        assertThat(result).isEqualTo("9 am");
+    }
+
+    @Test
+    @DisplayName("formats appointment time with a minute separator")
+    void shouldFormatAppointmentTime_whenMinutePresent() {
+        String result = ConsultationPDFCreator.formatAppointmentTime("9", "05", "am");
+
+        assertThat(result).isEqualTo("9:05 am");
+    }
+
+    @Test
+    @DisplayName("formats blank appointment time when the hour is missing")
+    void shouldFormatAppointmentTime_whenHourMissing() {
+        String result = ConsultationPDFCreator.formatAppointmentTime(null, "05", "pm");
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("formats blank appointment time when all parts are null")
+    void shouldFormatAppointmentTime_whenAllPartsNull() {
+        String result = ConsultationPDFCreator.formatAppointmentTime(null, null, null);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
     @DisplayName("returns null when the stored signature cannot be found")
     void shouldReturnNull_whenStoredSignatureMissing() {
         DigitalSignatureManager mgr = mock(DigitalSignatureManager.class);
@@ -224,6 +256,32 @@ class ConsultationPDFCreatorUnitTest {
 
         assertThat(image.getScaledWidth()).isEqualTo(40f);
         assertThat(image.getScaledHeight()).isEqualTo(12f);
+    }
+
+    @Test
+    void shouldPreserveUnicodeLetterhead_whenRenderingClinicHeader() throws Exception {
+        var creator = mock(ConsultationPDFCreator.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+        var form = mock(EctConsultationFormRequestUtil.class);
+        form.letterheadName = "-1";
+        form.letterheadAddress = "İstanbul";
+        org.mockito.Mockito.when(form.getLetterheadAddress()).thenReturn("İstanbul");
+        var clinic = mock(io.github.carlos_emr.carlos.clinic.ClinicData.class);
+        org.mockito.Mockito.when(clinic.getClinicName()).thenReturn("Nguyễn Łukasz");
+        org.springframework.test.util.ReflectionTestUtils.setField(creator, "reqFrm", form);
+        org.springframework.test.util.ReflectionTestUtils.setField(creator, "clinic", clinic);
+        org.springframework.test.util.ReflectionTestUtils.setField(creator, "heading",
+                io.github.carlos_emr.carlos.commn.printing.PdfFonts.getFont("Helvetica", 12));
+        org.openpdf.text.pdf.PdfPTable table = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                creator, "createClinicInfoHeader");
+        var output = new ByteArrayOutputStream();
+        var document = new org.openpdf.text.Document();
+        org.openpdf.text.pdf.PdfWriter.getInstance(document, output);
+        document.open();
+        document.add(table);
+        document.close();
+        try (var pdf = org.apache.pdfbox.Loader.loadPDF(output.toByteArray())) {
+            assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(pdf)).contains("Nguyễn Łukasz", "İstanbul");
+        }
     }
 
     private static byte[] createPng(int width, int height) throws IOException {

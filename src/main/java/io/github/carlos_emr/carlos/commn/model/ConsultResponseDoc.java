@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.commn.model;
 
+import jakarta.persistence.Column;
+
 import java.util.Date;
 
 import jakarta.persistence.Entity;
@@ -55,6 +57,8 @@ public class ConsultResponseDoc extends AbstractModel<Integer> {
     private int responseId;
     private int documentNo;
     private String docType;
+    @Column(name = "lab_type")
+    private String labType;
     private String deleted;
     @Temporal(TemporalType.DATE)
     private Date attachDate;
@@ -91,6 +95,10 @@ public class ConsultResponseDoc extends AbstractModel<Integer> {
     public void setDocumentNo(int documentNo) {
         this.documentNo = documentNo;
     }
+
+    public String getLabType() { return labType; }
+
+    public void setLabType(String labType) { this.labType = labType; }
 
     public String getDocType() {
         return docType;

@@ -28,6 +28,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -135,9 +137,10 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
         // appointmentsearch.jsp.  Request up to targetSlotOrdinal results per provider so
         // that after aggregating across all providers we have enough to pick the Nth slot.
         List<NextAppointmentSearchResult> allResults = new ArrayList<>();
+        Set<String> searchedProviders = new HashSet<>();
         for (String providerNo : providerNos) {
             providerNo = providerNo.trim();
-            if (providerNo.isEmpty()) continue;
+            if (providerNo.isEmpty() || !searchedProviders.add(providerNo)) continue;
 
             NextAppointmentSearchBean searchBean = new NextAppointmentSearchBean();
             searchBean.setProviderNo(providerNo);

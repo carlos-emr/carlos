@@ -2,18 +2,18 @@
 <jasperReport name="pdf_rep_mspremsum" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20">
 	<property name="ireport.scriptlethandling" value="0" />
 	<property name="ireport.encoding" value="UTF-8" />
-	<import value="net.sf.jasperreports.engine.*" />
-	<import value="java.util.*" />
-	<import value="net.sf.jasperreports.engine.data.*" />
-	<import value="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile" />
+	<import>net.sf.jasperreports.engine.*</import>
+	<import>java.util.*</import>
+	<import>net.sf.jasperreports.engine.data.*</import>
+	<import>io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile</import>
 	<parameter name="s21id" class="java.lang.String" />
 	<parameter name="providerNo" class="java.lang.String" />
-	<parameter name="msgs" class="net.sf.jasperreports.engine.JasperReport" isForPrompting="false" />
-	<parameter name="practSum" class="net.sf.jasperreports.engine.JasperReport" isForPrompting="false" />
-	<parameter name="adj" class="net.sf.jasperreports.engine.JasperReport" isForPrompting="false" />
-	<queryString>
+	<parameter name="msgs" class="net.sf.jasperreports.engine.JasperReport" forPrompting="false" />
+	<parameter name="practSum" class="net.sf.jasperreports.engine.JasperReport" forPrompting="false" />
+	<parameter name="adj" class="net.sf.jasperreports.engine.JasperReport" forPrompting="false" />
+	<query>
 		<![CDATA[select t_payment,t_payeeno,t_payeename,t_amtbilled ,t_amtpaid ,t_cheque from teleplanS21 where status <> 'D' and s21_id = $P{s21id} order by t_payment desc]]>
-	</queryString>
+	</query>
 	<field name="t_payment" class="java.lang.String" />
 	<field name="t_payeeno" class="java.lang.String" />
 	<field name="t_payeename" class="java.lang.String" />
@@ -21,21 +21,17 @@
 	<field name="t_amtpaid" class="java.lang.String" />
 	<field name="t_cheque" class="java.lang.String" />
 	<variable name="test" class="java.lang.String" resetType="None">
-		<variableExpression><![CDATA["test"]]></variableExpression>
+		<expression><![CDATA["test"]]></expression>
 		<initialValueExpression><![CDATA["test"]]></initialValueExpression>
 	</variable>
 	<background splitType="Stretch">
 		</background>
 	<title height="93" splitType="Stretch">
 		<element kind="line" mode="Opaque" x="0" y="32" width="534" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line">
-			<graphicElement fill="Solid">
-				<pen lineWidth="2.0" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="2.0" lineStyle="Solid" />
 		</element>
 		<element kind="line" mode="Opaque" x="0" y="3" width="534" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line">
-			<graphicElement fill="Solid">
-				<pen lineWidth="2.0" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="2.0" lineStyle="Solid" />
 		</element>
 		<element kind="textField" mode="Transparent" x="0" y="34" width="209" height="19" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="dd-MMM-yy 'at' h:mm aaa">
 			<paragraph lineSpacing="Single" />
@@ -48,9 +44,7 @@
 			<expression><![CDATA[new Date()]]></expression>
 		</element>
 		<element kind="line" mode="Opaque" x="0" y="90" width="535" height="1" forecolor="#808080" backcolor="#FFFFFF" key="line">
-			<graphicElement fill="Solid">
-				<pen lineWidth="0.5" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="0.5" lineStyle="Solid" />
 		</element>
 		<element kind="textField" mode="Transparent" x="0" y="74" width="89" height="15" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="dd-MMM-yy">
 			<paragraph lineSpacing="Single" />
@@ -113,14 +107,10 @@
 			<expression><![CDATA["$"+MSPReconcile.convCurValue($F{t_cheque})]]></expression>
 		</element>
 		<element kind="rectangle" mode="Opaque" x="1" y="55" width="534" height="17" forecolor="#000000" backcolor="#000000" key="element-22" radius="0">
-			<graphicElement fill="Solid">
-				<pen lineWidth="0.5" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="0.5" lineStyle="Solid" />
 		</element>
 		<element kind="line" mode="Opaque" x="0" y="54" width="535" height="1" forecolor="#000000" backcolor="#FFFFFF" key="element-88" direction="BottomUp">
-			<graphicElement fill="Solid">
-				<pen lineWidth="0.5" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="0.5" lineStyle="Solid" />
 		</element>
 		<element kind="staticText" mode="Transparent" x="0" y="55" width="89" height="16" forecolor="#FFFFFF" backcolor="#FFFFFF" key="element-90" hTextAlign="Left" vTextAlign="Top" rotation="None">
 			<paragraph lineSpacing="Single" />

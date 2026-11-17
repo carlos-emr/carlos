@@ -372,6 +372,14 @@ public class AlphaHandler extends DefaultGenericHandler implements MessageHandle
         }
     }
 
+    /** The OBX segment for the {@link MessageHandler} ED.5/ED.4 accessors; see {@link EdObservationValue}. */
+    @Override
+    public Segment getOBXSegment(int i, int j) throws Exception {
+        return "2.2".equals(version)
+                ? msg22.getPATIENT_RESULT().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX()
+                : msg23.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX();
+    }
+
     public String getOBXResult(int i, int j) {
         try {
             if (version.equals("2.2")) {

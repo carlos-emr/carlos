@@ -96,7 +96,8 @@
         <script>
             function popupPage(varpage, windowname) {
                 var page = "" + varpage;
-                windowprops = "height=700,width=800,location=no,"
+                // 900 wide: the report page needs about 870 px, so 800 scrolled sideways (#3711).
+                windowprops = "height=700,width=900,location=no,"
                     + "scrollbars=yes,menubars=no,status=yes,toolbars=no,resizable=yes,top=10,left=200";
                 var popup = window.open(page, windowname, windowprops);
                 if (popup != null) {
@@ -120,8 +121,8 @@
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
                                 href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewHelp')"><fmt:message key="global.help"/></a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                                href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a> | <a
+                                href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>
@@ -152,7 +153,7 @@
                     <tr>
 
                         <td><a href="#"
-                               ONCLICK="popupPage('<%=request.getContextPath() %>/hospitalReportManager/Display?id=<carlos:encode value='<%= String.valueOf(curhrmdoc.get("id")) %>' context="uriComponent"/>', 'HRM Report'); return false;"
+                               ONCLICK="popupPage('<%=request.getContextPath() %>/hospitalReportManager/Display?id=<carlos:encode value='<%= String.valueOf(curhrmdoc.get("id")) %>' context="uriComponent"/>&demographicNo=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>', 'HRM Report'); return false;"
                         ><carlos:encode value='<%= String.valueOf(curhrmdoc.get("report_type")) %>' context="html"/>
                         </a></td>
                         <td><carlos:encode value='<%= String.valueOf(curhrmdoc.get("description")) %>' context="html"/>

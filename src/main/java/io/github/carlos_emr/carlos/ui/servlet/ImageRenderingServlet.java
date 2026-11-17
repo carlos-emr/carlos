@@ -86,13 +86,13 @@ public final class ImageRenderingServlet extends HttpServlet {
             } else if (Source.clinic_logo.name().equals(source)) {
                 renderClinicLogoStored(request, response);
             } else {
-                throw (new IllegalArgumentException("Unknown source type : " + source));
+                throw (new IllegalArgumentException("Unknown image source type"));
             }
         } catch (Exception e) {
             if (e.getCause() instanceof SocketException) {
-                logger.warn("An error we can't handle that's expected infrequently. " + e.getMessage());
+                logger.warn("Image rendering encountered an infrequent socket failure");
             } else {
-                logger.error("Unexpected error. qs=" + LogSafe.sanitize(request.getQueryString()), e);
+                logger.error("Unexpected image rendering error{}", LogSafe.exceptionTrace(e));
                 if (!response.isCommitted()) {
                     response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 }
@@ -152,29 +152,55 @@ public final class ImageRenderingServlet extends HttpServlet {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
-        String clientId = request.getParameter("clientId");
-        if (clientId != null && !clientId.isEmpty()) {
-            try {
-                // get image
-                ClientImage clientImage = clientImageDAO.getClientImage(Integer.parseInt(clientId));
-                String imageType = getRenderableImageType(clientImage);
-                if (imageType != null) {
-                    renderImage(response, clientImage.getImage_data(), imageType);
-                    return;
-                } else {
-                    byte[] defaultImage = getDefaultImage(request);
-                    if (defaultImage == null) {
-                        response.sendError(HttpServletResponse.SC_NOT_FOUND);
-                        return;
-                    }
-                    renderImage(response, defaultImage, "jpeg");
-                    return;
-                }
-            } catch (Exception e) {
-                logger.error("Could not render client image id {}", clientId, e);
+        Integer clientId = clientImagePatient(request);
+        if (clientId == null) {
+            logger.warn("Rejected an invalid client photo patient");
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+        try {
+            // Both native callers render inside this patient's chart. A direct image
+            // request must honor that same chart-read and patient-record boundary.
+            PatientRecordAccess.require(SpringUtils.getBean(SecurityInfoManager.class),
+                    LoggedInInfo.getLoggedInInfoFromSession(request), clientId.toString(), "_eChart", "r");
+        } catch (SecurityException denied) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+        try {
+            ClientImage clientImage = clientImageDAO.getClientImage(clientId);
+            String imageType = getRenderableImageType(clientImage);
+            if (imageType != null) {
+                renderImage(response, clientImage.getImage_data(), imageType);
+                return;
             }
+            byte[] defaultImage = getDefaultImage(request);
+            if (defaultImage != null) {
+                renderImage(response, defaultImage, "jpeg");
+                return;
+            }
+        } catch (Exception e) {
+            logger.error("Could not render client image{}", LogSafe.exceptionTrace(e));
         }
         response.sendError(HttpServletResponse.SC_NOT_FOUND);
+    }
+
+    /** Resolves only the explicit image patient; repeated values must name the same positive Integer. */
+    private static Integer clientImagePatient(HttpServletRequest request) {
+        String[] values = request.getParameterValues("clientId");
+        if (values == null || values.length == 0) return null;
+        Integer selected = null;
+        for (String value : values) {
+            if (value == null || !value.matches("[0-9]{1,10}")) return null;
+            try {
+                int patient = Integer.parseInt(value);
+                if (patient <= 0 || selected != null && selected != patient) return null;
+                selected = patient;
+            } catch (NumberFormatException invalidPatient) {
+                return null;
+            }
+        }
+        return selected;
     }
 
     /**
@@ -251,6 +277,8 @@ public final class ImageRenderingServlet extends HttpServlet {
                 String tempFilePath = DigitalSignatureUtils.getTempFilePath(signatureRequestId);
 
                 // Use PathValidationUtils to validate the temp file path
+                // getTempFilePath validates the generated child; allowed-temp and validateUpload checks precede the read.
+                // nosemgrep: carlos.httpservlet-path-traversal
                 File targetFile = new File(tempFilePath);
                 if (!PathValidationUtils.isInAllowedTempDirectory(targetFile)) {
                     logger.warn("SECURITY WARNING: Attempt to access file outside temp directory: {}", LogSafe.sanitize(tempFilePath));
@@ -262,7 +290,7 @@ public final class ImageRenderingServlet extends HttpServlet {
                 byte[] imageBytes = FileUtils.readFileToByteArray(validatedTargetFile);
                 renderImage(response, imageBytes, detectImageType(imageBytes));
                 return;
-            } catch (FileNotFoundException e) {
+            } catch (FileNotFoundException _) {
                 // no image, render a blank gif, yes this breaks the concept
                 // of the image already exists, but it's difficult to implement the preview otherwise
                 String tempFilePath = getServletContext().getRealPath("/images/1x1.gif");
@@ -297,8 +325,8 @@ public final class ImageRenderingServlet extends HttpServlet {
         int parsedDigitalSignatureId;
         try {
             parsedDigitalSignatureId = Integer.parseInt(digitalSignatureId);
-        } catch (NumberFormatException e) {
-            logger.warn("Digital signature id {} is non-numeric", LogSafe.sanitize(digitalSignatureId));
+        } catch (NumberFormatException _) {
+            logger.warn("Invalid digital signature id");
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return;
         }
@@ -312,7 +340,8 @@ public final class ImageRenderingServlet extends HttpServlet {
 
         if (!canRenderStoredSignature(session, signatureMetadata)) {
             logger.warn("Denied stored signature render: provider={} moduleType={} demographicNo={}",
-                    provider.getProviderNo(), signatureMetadata.getModuleType(), signatureMetadata.getDemographicId());
+                    LogSafe.sanitize(provider.getProviderNo()), LogSafe.sanitizeObject(signatureMetadata.getModuleType()),
+                    LogSafe.sanitizeObject(signatureMetadata.getDemographicId()));
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
@@ -345,7 +374,8 @@ public final class ImageRenderingServlet extends HttpServlet {
 
         SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
         return securityInfoManager.hasPrivilege(
-                loggedInInfo, securityObjectName, SecurityInfoManager.READ, String.valueOf(demographicId));
+                loggedInInfo, securityObjectName, SecurityInfoManager.READ, String.valueOf(demographicId))
+                && securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicId);
     }
 
     private static String getStoredSignatureReadSecurityObject(ModuleType moduleType) {

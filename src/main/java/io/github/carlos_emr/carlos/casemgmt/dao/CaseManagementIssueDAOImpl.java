@@ -116,6 +116,11 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
     }
 
     @Override
+    public CaseManagementIssue findById(Long id) {
+        return id == null ? null : entityManager().find(CaseManagementIssue.class, id);
+    }
+
+    @Override
     public CaseManagementIssue getIssuebyIssueCode(String demo, String issueCode) {
         @SuppressWarnings("unchecked")
         List<CaseManagementIssue> list = (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),

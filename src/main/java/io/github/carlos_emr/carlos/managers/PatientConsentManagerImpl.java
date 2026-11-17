@@ -479,6 +479,128 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         return consent;
     }
 
+    public boolean recordExplicitConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId) {
+        if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.WRITE, demographic_no)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
+        ConsentType consentType = getConsentTypeByConsentTypeId(consentTypeId);
+        if (consentType == null || !consentType.isActive()) {
+            return false;
+        }
+        // As every consent write: lock the patient first, so a concurrent save, clear or opt-out
+        // cannot change the record between this read and the merge below.
+        consentDao.lockPatientForConsentChange(demographic_no);
+        Consent consent = ConsentRecords.effective(
+                consentDao.findLiveByDemographicAndConsentTypeIdForUpdate(demographic_no, consentTypeId));
+        if (consent == null || consent.isOptout()) {
+            // Confirming consent the patient has refused, or never gave, is not an upgrade. Staff
+            // asked for it, so the refusal is recorded against the patient.
+            LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.recordExplicitConsent", CONSENT_LOG_CONTENT,
+                    consent == null ? null : String.valueOf(consent.getId()), demographic_no,
+                    " Demographic: " + demographic_no + LOG_CONSENT_TYPE_ID + consentTypeId
+                            + (consent == null ? " skipped: no live record" : " skipped: opted out"));
+            return false;
+        }
+        if (consent.isExplicit()) {
+            return true;
+        }
+
+        // The consent date is restamped to when the patient confirmed. Consent keeps no history,
+        // so the audit entry carries the consent date the record held just before the upgrade
+        // (the moment of this save if the same save has just switched it from opt-out).
+        Date priorConsentDate = consent.getConsentDate();
+        Date now = new Date(System.currentTimeMillis());
+        consent.setExplicit(true);
+        consent.setConsentDate(now);
+        consent.setEditDate(now);
+        consent.setLastEnteredBy(loggedinInfo.getLoggedInProviderNo());
+        consentDao.merge(consent);
+        // As every consent change: if its audit entry cannot be written, the upgrade rolls back with it.
+        LogAction.addLogSynchronousOrThrow(loggedinInfo, "PatientConsentManager.recordExplicitConsent", CONSENT_LOG_CONTENT,
+                String.valueOf(consent.getId()), demographic_no,
+                " Demographic: " + demographic_no + LOG_CONSENT_TYPE_ID + consentTypeId + LOG_CONSENT_ID
+                        + consent.getId() + " implied->explicit PriorConsentDate: " + priorConsentDate);
+        return true;
+    }
+
+    public ChartConsentOutcome saveChartConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId,
+                                                ChartConsentRequest request) {
+        if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.WRITE, demographic_no)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        if (request == null || request.choice() == null || request.choice() == ChartConsentRequest.Choice.NONE) {
+            return ChartConsentOutcome.NO_CHANGE;
+        }
+
+        if (request.shownSent()) {
+            // The lock is held until commit and is re-entrant within this transaction, so the
+            // record checked here is the one the calls below then edit.
+            consentDao.lockPatientForConsentChange(demographic_no);
+            Consent current = ConsentRecords.effective(
+                    consentDao.findLiveByDemographicAndConsentTypeIdForUpdate(demographic_no, consentTypeId));
+            if (!isRecordShown(current, request)) {
+                // The page re-posted a choice made against a record that has since changed, for
+                // instance a colleague's opt-out. Applying it would silently reverse that change.
+                LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.saveChartConsent", CONSENT_LOG_CONTENT,
+                        current == null ? null : String.valueOf(current.getId()), demographic_no,
+                        " Demographic: " + demographic_no + LOG_CONSENT_TYPE_ID + consentTypeId
+                                + " refused: the consent record changed since the chart page was loaded."
+                                + " Requested: " + describeRequest(request)
+                                + " Shown:" + describeRecord(request.shownId(), request.shownOptOut())
+                                + " Current:" + (current == null ? describeRecord(null, null)
+                                : describeRecord(current.getId(), current.isOptout())));
+                return ChartConsentOutcome.STALE;
+            }
+        }
+
+        switch (request.choice()) {
+            case CLEAR:
+                deleteConsent(loggedinInfo, demographic_no, consentTypeId);
+                return ChartConsentOutcome.APPLIED;
+            case OPT_OUT:
+                addEditConsentRecord(loggedinInfo, demographic_no, consentTypeId, true, true);
+                return ChartConsentOutcome.APPLIED;
+            case OPT_IN:
+                // Order matters: an implied opt-out switched to opt-in is flipped first, because
+                // the confirmation refuses an opt-out.
+                addEditConsentRecord(loggedinInfo, demographic_no, consentTypeId, true, false);
+                if (request.explicitRequested() && !recordExplicitConsent(loggedinInfo, demographic_no, consentTypeId)) {
+                    return ChartConsentOutcome.EXPLICIT_NOT_RECORDED;
+                }
+                return ChartConsentOutcome.APPLIED;
+            default:
+                // NONE returned above; a choice added later must not fall into opting the patient in.
+                return ChartConsentOutcome.NO_CHANGE;
+        }
+    }
+
+    /** Whether the current deciding record is the one the chart page showed: same id, same choice. */
+    private static boolean isRecordShown(Consent current, ChartConsentRequest request) {
+        if (current == null) {
+            return request.shownId() == null && request.shownOptOut() == null;
+        }
+        return request.shownId() != null && request.shownOptOut() != null
+                && request.shownId().equals(current.getId())
+                && request.shownOptOut() == current.isOptout();
+    }
+
+    private static String describeRecord(Integer consentId, Boolean optOut) {
+        if (consentId == null && optOut == null) {
+            return " none";
+        }
+        return LOG_CONSENT_ID + consentId + " Choice: " + (optOut == null ? "unknown" : describeChoice(optOut));
+    }
+
+    private static String describeRequest(ChartConsentRequest request) {
+        return switch (request.choice()) {
+            case OPT_IN -> request.explicitRequested() ? "opt-in, confirmed directly" : "opt-in";
+            case OPT_OUT -> "opt-out";
+            case CLEAR -> "clear";
+            case NONE -> "none";
+        };
+    }
+
     /**
      * A boolean determination for if the patient has consented to the given ConsentType/program.
      * A consent is when the consent object exists AND if the patient has not Opted out.

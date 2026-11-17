@@ -25,70 +25,40 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ *
+ * Modified by the CARLOS EMR Project in 2026: moved onto the shared embedded lab
+ * document contract (patient-scoped access, PDF signature check, bounded
+ * parameters, read audit).
  */
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
-import java.io.OutputStream;
-
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-
-import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
-import org.apache.commons.codec.binary.Base64;
+import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
-import io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler;
+/**
+ * Serves the PDF embedded in an HL7 {@code ED} OBX as an {@code attachment}
+ * ({@code lab/DownloadEmbeddedDocumentFromLab}), the "Download PDF" link on the lab display.
+ *
+ * <p>No size limit applies: the whole HL7 message is already in memory, and the download is the
+ * way to read a PDF too large to preview inline. Everything else, including patient-scoped
+ * access, the {@code %PDF-} check and the read audit, is the contract of
+ * {@link AbstractEmbeddedLabDocumentAction}.</p>
+ */
+public class DownloadEmbeddedDocumentFromLab2Action extends AbstractEmbeddedLabDocumentAction {
 
-import org.apache.struts2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
-
-public class DownloadEmbeddedDocumentFromLab2Action extends ActionSupport {
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
-
-
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    public DownloadEmbeddedDocumentFromLab2Action(SecurityInfoManager securityInfoManager,
+            Hl7TextMessageDao hl7TextMessageDao, PatientLabRoutingDao patientLabRoutingDao) {
+        super(securityInfoManager, hl7TextMessageDao, patientLabRoutingDao);
+    }
 
     @Override
-    public String execute() throws Exception {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "r", null)) {
-            throw new SecurityException("missing required sec object (_lab)");
-        }
+    protected String disposition() {
+        return "attachment";
+    }
 
-        String labNo = request.getParameter("labNo");
-        String segment = request.getParameter("segment");
-        String group = request.getParameter("group");
-        String legacy = request.getParameter("legacy");
-
-        if (labNo == null || !labNo.matches("\\d+")) {
-            throw new IllegalArgumentException("Lab number must be a non-null numeric value");
-        }
-
-        //String hl7 = io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory.getHL7Body(labNo);
-
-        MessageHandler handler = Factory.getHandler(labNo);
-
-        String result = null;
-        if (legacy != null && "true".equals(legacy)) {
-            result = ((PATHL7Handler) handler).getLegacyOBXResult(Integer.parseInt(segment), Integer.parseInt(group));
-        } else {
-            result = handler.getOBXResult(Integer.parseInt(segment), Integer.parseInt(group));
-        }
-
-        byte[] decodedData = Base64.decodeBase64(result);
-
-        response.setContentType("application/pdf"); // Check http://www.iana.org/assignments/media-types for all types. Use if necessary ServletContext#getMimeType() for auto-detection based on filename.
-        response.setHeader("Content-disposition", "attachment; filename=\"Lab-" + labNo + ".pdf\""); // The Save As popup magic is done here. You can give it any filename you want, this only won't work in MSIE, it will use current request URL as filename instead.
-
-        // Write file to response.
-        OutputStream output = response.getOutputStream();
-        output.write(decodedData); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- application/pdf binary write
-        output.close();
-
-
-        return NONE;
+    @Override
+    protected long maxBytes() {
+        return 0;
     }
 }

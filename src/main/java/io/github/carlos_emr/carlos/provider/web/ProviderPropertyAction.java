@@ -29,6 +29,7 @@ import jakarta.persistence.PersistenceException;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
+import io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferencePersister;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -133,6 +134,9 @@ public class ProviderPropertyAction {
         saveCheckbox(request, propertyDAO, providerNo, "encounterWindowMaximize", "encounterWindowMaximize");
         saveScheduleNavigationMode(request, propertyDAO, providerNo);
         saveIfPresent(request, propertyDAO, providerNo, "quickChartSize", "quickChartSize");
+
+        // eChart display settings (Yes/No radios; an absent or malformed value leaves the stored one)
+        SpringUtils.getBean(EchartDisplayPreferencePersister.class).persist(providerNo, request::getParameter);
 
         // Contact info (use saveAllowEmpty so users can clear previously set values)
         saveAllowEmpty(request, propertyDAO, providerNo, "rxAddress", "rxAddress");

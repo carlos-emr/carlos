@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose: Edit the four-page Rourke Baby Record 2017.
+    Features: Visit date shortcuts, measurement imports, validation, autosave and explicit Save.
+    Parameters: demographic_no and formId select the patient and form; provNo and appointmentNo supply context.
+    @since 2026-07-07
+--%>
 <%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -387,6 +393,12 @@
 
         //Remove date from textbox
         function resetDate(textbox) {
+            if (textbox._flatpickr) {
+                // Keep the selected date in sync so blur and reopening preserve the shortcut.
+                textbox._flatpickr.setDate(textbox.value ? null : new Date(), true);
+                textbox._flatpickr.close();
+                return;
+            }
             if (textbox.value.length > 0)
                 textbox.value = "";
             else {
@@ -698,6 +710,15 @@
 
     </script>
     <style>
+        @media screen {
+            /* Rourke reserves input double-clicks for its date shortcut. */
+            #frmP1 [id$="_cal"] {
+                display: inline-block;
+                cursor: pointer;
+                vertical-align: middle;
+            }
+        }
+
         .panel-page {
             display: flex;
             flex-direction: row;

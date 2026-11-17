@@ -45,6 +45,7 @@
 %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%-- nosemgrep: carlos.jsp-scriptlet-xss.variable-request -- creatorDemo is only passed raw as the demographicNo attribute of <oscar:nameage>, which parses it as an integer (skipping on failure) and SafeEncode-encodes its output; every HTML/URL output of it uses <carlos:encode>. --%>
 <%
 
     //int demographic_no = Integer.parseInt(request.getParameter("demographic_no"));
@@ -116,8 +117,8 @@
                         <td><oscar:nameage demographicNo="<%=creatorDemo%>"/></td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                                href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a> | <a
+                                href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>

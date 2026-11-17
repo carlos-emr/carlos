@@ -2,8 +2,11 @@
 package io.github.carlos_emr.carlos.integration.patientportal.web;
 
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.Date;
@@ -13,6 +16,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -119,12 +123,59 @@ class PortalEmailDelivery2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(404);
     }
 
-    @Test void shouldShowUnavailable_whenPortalConfigurationFailsOnGet() throws Exception {
-        when(delivery.findForRecovery(user, 45)).thenThrow(
-                new io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException("bad pin"));
-        execute("GET", "45");
+    @Test void shouldReportNotConfiguredWithoutLogging_whenPortalIsSwitchedOff() throws Exception {
+        when(delivery.recover(user, 45, "confirmSent", true)).thenThrow(
+                new PatientPortalConfigurationException("patient portal is not enabled"));
+        try (var settings = mockStatic(PatientPortalSettings.class);
+             var capture = LogCapture.forLogger(PortalEmailDelivery2Action.class)) {
+            settings.when(PatientPortalSettings::isConfigured).thenReturn(false);
+            execute("POST", "45");
+            assertThat(capture.events()).isEmpty();
+        }
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(request.getAttribute("portalRecoveryErrorKey")).isEqualTo("email.portalDelivery.error.notConfigured");
+        assertThat(request.getAttribute("emailLog")).isSameAs(stored);
+    }
+
+    @Test void shouldReportUnavailable_whenSpringFailsForAnotherReason() throws Exception {
+        when(delivery.recover(user, 45, "confirmSent", true)).thenThrow(
+                new BeanCreationException("patientPortalService",
+                        "creation failed", new IllegalStateException("secret=x")));
+        try (var capture = LogCapture.forLogger(PortalEmailDelivery2Action.class)) {
+            execute("POST", "45");
+            assertThat(capture.messages()).hasSize(1);
+            assertThat(capture.messages().get(0)).contains("BeanCreationException").doesNotContain("secret");
+        }
         assertThat(response.getStatus()).isEqualTo(503);
         assertThat(request.getAttribute("portalRecoveryErrorKey")).isEqualTo("email.portalDelivery.error.unavailable");
+        assertThat(request.getAttribute("emailLog")).isSameAs(stored);
+    }
+
+    /** How a failure to build the portal client arrives: Spring wraps the configuration error. */
+    @Test void shouldReportNotConfigured_whenSpringWrapsTheConfigurationFailure() throws Exception {
+        when(delivery.recover(user, 45, "confirmSent", true)).thenThrow(
+                new BeanCreationException("patientPortalService",
+                        "creation failed", new PatientPortalConfigurationException("bad pin")));
+        try (var settings = mockStatic(PatientPortalSettings.class)) {
+            settings.when(PatientPortalSettings::isConfigured).thenReturn(true);
+            execute("POST", "45");
+        }
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(request.getAttribute("portalRecoveryErrorKey")).isEqualTo("email.portalDelivery.error.notConfigured");
+        assertThat(request.getAttribute("emailLog")).isSameAs(stored);
+    }
+
+    @Test void shouldReportNotConfiguredAndWarn_whenSwitchedOnPortalConfigurationFailsOnGet() throws Exception {
+        when(delivery.findForRecovery(user, 45)).thenThrow(new PatientPortalConfigurationException("bad pin"));
+        try (var settings = mockStatic(PatientPortalSettings.class);
+             var capture = LogCapture.forLogger(PortalEmailDelivery2Action.class)) {
+            settings.when(PatientPortalSettings::isConfigured).thenReturn(true);
+            execute("GET", "45");
+            assertThat(capture.messages()).hasSize(1);
+            assertThat(capture.messages().get(0)).contains("settings are not valid").doesNotContain("bad pin");
+        }
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(request.getAttribute("portalRecoveryErrorKey")).isEqualTo("email.portalDelivery.error.notConfigured");
     }
 
     private static PortalEmailDeliveryService.RecoveryRefusedException refused(String key, boolean conflict) {

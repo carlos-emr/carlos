@@ -154,6 +154,9 @@
                 <select name="content">
                     <option value="admin"><fmt:message key="admin.logReport.content.admin"/></option>
                     <option value="login"><fmt:message key="admin.logReport.content.login"/></option>
+                    <option value="AI chart update"><fmt:message key="admin.logReport.content.aiChartUpdate"/></option>
+                    <option value="AI clinical summary"><fmt:message key="admin.logReport.content.aiClinicalSummary"/></option>
+                    <option value="AI document summary"><fmt:message key="admin.logReport.content.aiDocumentSummary"/></option>
                 </select>
             </div>
 

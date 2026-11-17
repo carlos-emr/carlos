@@ -28,6 +28,21 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose:
+        Administration > Labs/Inbox > Lab Forwarding Rules: view and change any provider's
+        incoming-lab forwarding rules (admin/labForwardingRules, saved via admin/ForwardingRules).
+
+    Features:
+        Choosing a provider reloads the rules for that provider, into the administration panel
+        (#dynamic-content) or, when opened as a stand-alone popup, by navigating the window;
+        only the latest request may fill the panel.
+
+    Parameters:
+        providerNo  the provider whose rules are shown ("0" or absent: none chosen yet).
+
+    @since CARLOS heritage page; documented 2026-10 for issue #4131
+--%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -272,16 +287,35 @@
         registerFormSubmit('ForwardRulesForm', 'dynamic-content');
     }
 
-    $("#providers-selection").change(function (e) {
+    // The select is #provider-selection (singular). The handler was bound to a non-existent
+    // "providers-" (plural) id, so choosing a provider never reloaded the rules: providerNo stayed
+    // "0" and confirmUpdate() refused every save (issue #4131, previously #2626).
+    $("#provider-selection").on('change', function (e) {
         e.preventDefault();
-        $("#dynamic-content").load('${ctx}/admin/labForwardingRules?providerNo=' + $("#providers-selection").val(),
-            function (response, status, xhr) {
-                if (status == "error") {
-                    var msg = "Sorry but there was an error: ";
-                    $("#dynamic-content").html(msg + xhr.status + " " + xhr.statusText);
+        var url = '${ctx}/admin/labForwardingRules?providerNo=' + encodeURIComponent($(this).val());
+        var panel = $("#dynamic-content");
+        if (panel.length === 0) {
+            // Opened as a stand-alone popup (admin.jsp): there is no administration panel to
+            // inject into, so navigate the window itself.
+            window.location.href = url;
+            return;
+        }
+        // Only the latest provider's response may fill the panel: switching providers quickly
+        // could otherwise let a slower, earlier response show another provider's rules. The
+        // counter lives on window because this script is re-run by every panel load.
+        var request = window.labForwardingRulesRequest = (window.labForwardingRulesRequest || 0) + 1;
+        $.ajax({ url: url, dataType: 'html' })
+            .done(function (html) {
+                if (request === window.labForwardingRulesRequest) {
+                    panel.html(html);
                 }
-            }
-        );
+            })
+            .fail(function (xhr) {
+                if (request === window.labForwardingRulesRequest) {
+                    var msg = "Sorry but there was an error: ";
+                    panel.text(msg + xhr.status + " " + xhr.statusText);
+                }
+            });
     });
 
 

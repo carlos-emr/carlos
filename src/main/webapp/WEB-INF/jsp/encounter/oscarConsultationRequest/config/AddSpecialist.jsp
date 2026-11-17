@@ -524,7 +524,7 @@
                             <select id="specType" name="specType" class="form-select">
                                 <option value="0" selected>&nbsp;</option>
                                 <c:forEach items="${ specialties }" var="specialtyType">
-                                    <option value="${ specialtyType.serviceId }" ${ specialtyType.serviceId eq specType ? 'selected' : '' }>
+                                    <option value="${ specialtyType.serviceId }" ${ specialtyType.serviceId.toString() eq specType ? 'selected' : '' }>
                                         ${carlos:forHtml(specialtyType.serviceDesc)}
                                     </option>
                                 </c:forEach>

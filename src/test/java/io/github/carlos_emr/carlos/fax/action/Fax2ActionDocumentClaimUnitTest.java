@@ -25,6 +25,9 @@ import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.Document;
@@ -104,6 +107,9 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
 
         registerMock(FaxManager.class, faxManager);
         createAndRegisterMock(OutboundEmailArchiveDao.class);
+        createAndRegisterMock(CtlDocumentDao.class);
+        createAndRegisterMock(PatientLabRoutingDao.class);
+        createAndRegisterMock(QueueDocumentLinkDao.class);
         registerMock(DocumentAttachmentManager.class, mock(DocumentAttachmentManager.class));
         registerMock(SecurityInfoManager.class, securityInfoManager);
         // queue() re-derives the document's patient from the row before promoting it, so the
@@ -127,7 +133,9 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
         pk.setDocumentNo(documentNo);
         ctl.setId(pk);
 
+        document.setRestrictToProgram(false);
         DocumentDao dao = mock(DocumentDao.class);
+        when(dao.find(documentNo)).thenReturn(document);
         when(dao.findCtlDocsAndDocsByDocNo(documentNo))
                 .thenReturn(List.<Object[]>of(new Object[]{document, ctl}));
 
@@ -139,6 +147,8 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
         sibling.setDocfilename("sibling.pdf");
         sibling.setContenttype("application/pdf");
         sibling.setNumberofpages(1);
+        sibling.setRestrictToProgram(false);
+        when(dao.find(documentNo + 1)).thenReturn(sibling);
         CtlDocument siblingCtl = new CtlDocument();
         CtlDocumentPK siblingPk = new CtlDocumentPK();
         siblingPk.setModule("demographic");
@@ -162,6 +172,36 @@ class Fax2ActionDocumentClaimUnitTest extends CarlosUnitTestBase {
         action.setRecipientFaxNumber("1234567890");
         action.setFaxFilePath(faxFilePath);
         return action;
+    }
+
+    @Test
+    void shouldDiscardClaimBeforeQueueing_whenASecondaryPatientLinkBecomesRestricted() throws Exception {
+        setUpCommonMocks();
+        CtlDocumentDao links = createAndRegisterMock(CtlDocumentDao.class);
+        CtlDocument primary = new CtlDocument();
+        primary.setId(new CtlDocumentPK("demographic", DEMOGRAPHIC_NO, DOCUMENT_NO));
+        CtlDocument restricted = new CtlDocument();
+        restricted.setId(new CtlDocumentPK("demographic", DEMOGRAPHIC_NO + 1, DOCUMENT_NO));
+        when(links.findByDocumentNoAndModule(DOCUMENT_NO, "demographic")).thenReturn(List.of(primary, restricted));
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(DEMOGRAPHIC_NO + 1))).thenReturn(false);
+        DocumentDao metadata = createAndRegisterMock(DocumentDao.class);
+        Files.createDirectories(Paths.get(APP_TEMP_ROOT));
+        Path staged = Files.createTempFile(Paths.get(APP_TEMP_ROOT), "restricted-document-", ".pdf");
+        Map<String, Fax2Action.FaxPreviewClaim> claims = new HashMap<>(Map.of(staged.toString(),
+                new Fax2Action.FaxPreviewClaim(FaxManager.TransactionType.DOCUMENT, DOCUMENT_NO,
+                        DEMOGRAPHIC_NO, "999998", false)));
+        request.getSession().setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY, claims);
+        try (MockedStatic<ServletActionContext> context = mockStatic(ServletActionContext.class)) {
+            context.when(ServletActionContext::getRequest).thenReturn(request);
+            context.when(ServletActionContext::getResponse).thenReturn(response);
+            assertThatThrownBy(() -> documentFaxAction(staged.toString()).queue()).isInstanceOf(SecurityException.class);
+            assertThat(Files.exists(staged)).isFalse();
+            assertThat(claims).isEmpty();
+            org.mockito.Mockito.verifyNoInteractions(metadata);
+            verify(faxManager, never()).persistAndLogFaxJobs(any(), anyMap(), any(), any());
+        } finally {
+            Files.deleteIfExists(staged);
+        }
     }
 
     @Test

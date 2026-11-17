@@ -78,11 +78,11 @@ public class ClientImageDAOImpl extends AbstractJpaDao implements ClientImageDAO
 
     @Override
     public void deleteClientImage(Integer clientId) {
-        ClientImage clientImage = getClientImage(clientId);
-        if (clientImage != null) {
-            entityManager().remove(clientImage);
-            dataCache.remove(clientId);
-        }
+        // The read cache can hold a detached entity. Delete by patient instead of
+        // removing that cached instance; also clear any legacy duplicate photos.
+        entityManager().createQuery("delete from ClientImage i where i.demographic_no = ?1")
+                .setParameter(1, clientId).executeUpdate();
+        dataCache.remove(clientId);
     }
 
     @Override

@@ -180,7 +180,7 @@
                 %>
                 <tr align="center" bgcolor="<%=bgColor%>" align="center"
                     onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
-                    onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<carlos:encode value='<%= strOnClick %>' context="javaScriptAttribute"/>">
+                    onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<carlos:encode value='<%= strOnClick %>' context="htmlAttribute"/>">
                     <td>${carlos:forHtml(contact.lastName)}</td>
                     <td>${carlos:forHtml(contact.firstName)}</td>
                     <td>${carlos:forHtml(contact.phoneNumber)}</td>

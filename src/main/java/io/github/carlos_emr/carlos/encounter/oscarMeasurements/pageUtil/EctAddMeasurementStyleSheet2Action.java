@@ -70,11 +70,20 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private static MeasurementCSSLocationDao dao = SpringUtils.getBean(MeasurementCSSLocationDao.class);
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    // An instance field like its siblings: a static one was resolved when the class was first
+    // loaded, which is before a Spring context exists in a unit test.
+    private transient MeasurementCSSLocationDao dao = SpringUtils.getBean(MeasurementCSSLocationDao.class);
+    private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute()
             throws ServletException, IOException {
+        // Writes only from the form's POST: a link, image tag or prefetch must never change the
+        // measurement configuration (issue #3335).
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
         if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
 

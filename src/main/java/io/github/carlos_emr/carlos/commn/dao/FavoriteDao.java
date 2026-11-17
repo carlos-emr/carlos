@@ -37,5 +37,7 @@ import io.github.carlos_emr.carlos.commn.model.Favorite;
 
 public interface FavoriteDao extends AbstractDao<Favorite> {
     List<Favorite> findByProviderNo(String providerNo);
+    /** Finds an existing favorite with every persisted prescribing value equal. */
+    Favorite findDuplicate(Favorite candidate);
     Favorite findByEverything(String providerNo, String favoriteName, String bn, String gcn_SEQNO, String customName, float takeMin, float takeMax, String frequencyCode, String duration, String durationUnit, String quantity, int repeat, boolean nosubsInt, boolean prnInt, String parsedSpecial, String gn, String unitName, boolean customInstr);
 }

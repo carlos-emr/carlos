@@ -33,6 +33,7 @@
 <!DOCTYPE html>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.EFormEditorResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -56,11 +57,9 @@
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">
 <%-- AJAX fragments reuse the administration shell's jQuery and its registered plugins. --%>
 <%
-    // jQuery and CSRFGuard can each append the AJAX marker to this header.
-    String eformRequestedWith = request.getHeader("X-Requested-With");
-    boolean eformAjaxFragment = eformRequestedWith != null
-            && java.util.Arrays.stream(eformRequestedWith.split(","))
-                    .anyMatch(value -> "XMLHttpRequest".equalsIgnoreCase(value.trim()));
+    // jQuery and CSRFGuard can each append the AJAX marker to this header, so it is a list.
+    // Shared with every other server-side reader rather than hand-rolled here.
+    boolean eformAjaxFragment = io.github.carlos_emr.carlos.utility.RequestNegotiation.isAjax(request);
     if (!eformAjaxFragment) {
 %>
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
@@ -260,10 +259,13 @@
                 SecurityInfoManager tableSecurityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
                 boolean tableIsEFormAdmin = tableSecurityInfoManager.hasPrivilege(tableLoggedInInfo, "_admin.eform", SecurityInfoManager.WRITE, null);
 
-                ArrayList<HashMap<String, ? extends Object>> eForms = EFormUtil.listEForms(orderBy, EFormUtil.CURRENT);
+                ArrayList<HashMap<String, ? extends Object>> eForms = EFormUtil.listEFormsWithEditor(orderBy, EFormUtil.CURRENT);
                 for (int i = 0; i < eForms.size(); i++) {
                     HashMap<String, ? extends Object> curForm = eForms.get(i);
                     boolean canDelete = tableIsEFormAdmin;
+                    EFormEditorResolver.EditorKind editorKind = tableIsEFormAdmin
+                            ? (EFormEditorResolver.EditorKind) curForm.get("editorKind")
+                            : EFormEditorResolver.EditorKind.HTML;
             %>
             <tr>
                 <td><%if (curForm.get("formFileName") != null && curForm.get("formFileName").toString().length() != 0) {%><i
@@ -284,10 +286,37 @@
                 <td>
 
                     <div class="btn-group">
+                        <%-- Edit routing (#3166): the pencil opens the Visual eForm Editor only for a form
+                             the visual editor saved and nobody has changed since, because a visual save
+                             regenerates every script and would drop a hand-authored form's custom code.
+                             Every other form keeps the HTML source editor as its Edit action.
+                             EFormEditorResolver makes that call (see docs/eform-editor-routing.md); the
+                             visual editor needs _admin.eform write, so without it every row stays HTML. --%>
+                        <% if (editorKind == EFormEditorResolver.EditorKind.VISUAL) { %>
+                        <a class="btn btn-link eformVisualEditorLink"
+                           href="<%= request.getContextPath() %>/eform/visualEformEditor?fid=<%= SafeEncode.forHtmlAttribute((String) curForm.get("fid"))%>"
+                           data-editor="visual"
+                           title='<fmt:message key="eform.uploadhtml.editform"/> <%=SafeEncode.forHtmlAttribute((String) curForm.get("formName"))%>'><i
+                                class="fa-solid fa-pencil" title="<fmt:message key="eform.uploadhtml.editform"/>"></i></a>
                         <a class="btn btn-link contentLink"
                            href="<%= request.getContextPath() %>/eform/efmformmanageredit?fid=<%= SafeEncode.forHtmlAttribute((String) curForm.get("fid"))%>"
-                           title='<fmt:message key="eform.uploadhtml.editform"/><%=SafeEncode.forHtmlAttribute((String) curForm.get("formName"))%>'><i
+                           data-editor="html"
+                           title='<fmt:message key="eform.uploadhtml.editHtmlSource"/> <%=SafeEncode.forHtmlAttribute((String) curForm.get("formName"))%>'><i
+                                class="fa-solid fa-code" title="<fmt:message key="eform.uploadhtml.editHtmlSource"/>"></i></a>
+                        <% } else { %>
+                        <a class="btn btn-link contentLink"
+                           href="<%= request.getContextPath() %>/eform/efmformmanageredit?fid=<%= SafeEncode.forHtmlAttribute((String) curForm.get("fid"))%>"
+                           data-editor="html"
+                           title='<fmt:message key="eform.uploadhtml.editform"/> <%=SafeEncode.forHtmlAttribute((String) curForm.get("formName"))%>'><i
                                 class="fa-solid fa-pencil" title="<fmt:message key="eform.uploadhtml.editform"/>"></i></a>
+                        <% if (editorKind == EFormEditorResolver.EditorKind.CONVERTIBLE) { %>
+                        <a class="btn btn-link eformVisualEditorLink"
+                           href="<%= request.getContextPath() %>/eform/visualEformEditor?fid=<%= SafeEncode.forHtmlAttribute((String) curForm.get("fid"))%>"
+                           data-editor="visual-convert"
+                           title='<fmt:message key="eform.uploadhtml.openInVisualEditor"/> <%=SafeEncode.forHtmlAttribute((String) curForm.get("formName"))%>'><i
+                                class="fa-solid fa-object-group" title="<fmt:message key="eform.uploadhtml.openInVisualEditor"/>"></i></a>
+                        <% } %>
+                        <% } %>
 
 
                         <a class="btn btn-link"

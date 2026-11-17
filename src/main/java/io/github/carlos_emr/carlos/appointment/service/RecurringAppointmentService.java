@@ -98,6 +98,7 @@ public class RecurringAppointmentService {
             if (!existingDates.contains(date)) missing.add(date);
         }
         if (adding) {
+            rejectBlockedDates(identity, missing);
             for (LocalDate date : missing) {
                 Appointment occurrence = copy(identity);
                 occurrence.setAppointmentDate(Date.valueOf(date));
@@ -123,6 +124,15 @@ public class RecurringAppointmentService {
             }
         }
         return existing.size();
+    }
+
+    /** Preflights every new occurrence before writing any member of the series. */
+    private void rejectBlockedDates(Appointment template, List<LocalDate> dates) {
+        if (dates.isEmpty()) return;
+        List<java.util.Date> requestedDates = dates.stream().map(date -> (java.util.Date) Date.valueOf(date)).toList();
+        if (!appointments.findDoNotBookDates(template, requestedDates).isEmpty()) {
+            throw new IllegalArgumentException("A recurring appointment overlaps a Do Not Book slot. Choose another time.");
+        }
     }
 
     private static Appointment template(Map<String, String> v, int programId, String creator) {
@@ -180,8 +190,10 @@ public class RecurringAppointmentService {
     private static boolean sameDetails(Appointment a, Appointment b) {
         return equalText(a.getProviderNo(), b.getProviderNo()) && a.getDemographicNo() == b.getDemographicNo()
                 && Objects.equals(a.getStartTime(), b.getStartTime()) && Objects.equals(a.getEndTime(), b.getEndTime())
-                && equalText(a.getName(), b.getName()) && equalText(a.getNotes(), b.getNotes())
-                && equalText(a.getReason(), b.getReason()) && equalText(a.getLocation(), b.getLocation())
+                && equalText(a.getName(), b.getName())
+                && equalText(Appointment.normalizeLineEndings(a.getNotes()), Appointment.normalizeLineEndings(b.getNotes()))
+                && equalText(Appointment.normalizeLineEndings(a.getReason()), Appointment.normalizeLineEndings(b.getReason()))
+                && equalText(a.getLocation(), b.getLocation())
                 && equalText(a.getResources(), b.getResources()) && equalText(a.getType(), b.getType())
                 && equalText(a.getStyle(), b.getStyle()) && equalText(a.getBilling(), b.getBilling())
                 && equalText(a.getStatus(), b.getStatus()) && equalText(a.getRemarks(), b.getRemarks())

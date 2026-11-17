@@ -25,6 +25,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -78,7 +79,7 @@ final class PortalStaffAssertionSigner {
 
     static PortalStaffAssertionSigner from(PortalSecret encodedPrivateKey) {
         return new PortalStaffAssertionSigner(
-                parsePrivateKey(encodedPrivateKey),
+                parsePrivateKey(encodedPrivateKey, PatientPortalSettings.STAFF_ASSERTION_KEY),
                 Clock.systemUTC(),
                 UUID::randomUUID,
                 new ObjectMapper());
@@ -86,7 +87,7 @@ final class PortalStaffAssertionSigner {
 
     /** Validates the configured key while settings are constructed, before any portal call. */
     static void validate(PortalSecret encodedPrivateKey) {
-        parsePrivateKey(encodedPrivateKey);
+        parsePrivateKey(encodedPrivateKey, PatientPortalSettings.STAFF_ASSERTION_KEY);
     }
 
     PortalStaffAssertionSigner(
@@ -123,8 +124,32 @@ final class PortalStaffAssertionSigner {
         ArrayNode permissions = payload.putArray("permissions");
         staff.sortedPermissions().forEach(permissions::add);
 
+        return signPayload(payload);
+    }
+
+    /** Signs only the fixed footer protocol, under an audience distinct from staff permissions. */
+    String signEmailFooter(PatientPortalSettings settings, String nonce, ClinicEmailFooterSnapshot footer) {
+        ObjectNode payload = PortalClinicEmailFooterProtocol.payload(objectMapper, settings, nonce, footer,
+                clock.instant().getEpochSecond());
+        return signPayload(payload);
+    }
+
+    private String signPayload(ObjectNode payload) {
+        return signCompact(privateKey, objectMapper, payload, SIGNING_FAILED);
+    }
+
+    /**
+     * Serializes and signs a payload in the compact {@code base64url(json).base64url(signature)}
+     * form both portal verifiers accept. Shared with {@link PortalJobAssertionSigner}, so the staff
+     * and job envelopes cannot drift apart.
+     */
+    static String signCompact(PrivateKey privateKey, ObjectMapper objectMapper, ObjectNode payload,
+            String failureMessage) {
         try {
             byte[] encodedPayload = objectMapper.writeValueAsBytes(payload);
+            if (encodedPayload.length > PortalClinicEmailFooterProtocol.MAX_PAYLOAD_BYTES) {
+                throw new PatientPortalConfigurationException("portal assertion exceeds its size limit");
+            }
             Signature signature = Signature.getInstance(ALGORITHM);
             signature.initSign(privateKey);
             signature.update(encodedPayload);
@@ -132,13 +157,14 @@ final class PortalStaffAssertionSigner {
                     + "."
                     + ENCODER.encodeToString(signature.sign());
         } catch (GeneralSecurityException | JsonProcessingException exception) {
-            throw new PatientPortalConfigurationException(SIGNING_FAILED, exception);
+            throw new PatientPortalConfigurationException(failureMessage, exception);
         }
     }
 
     /**
      * Matches the portal's staff_request_hash: four UTF-8/byte components, each prefixed by
-     * its unsigned eight-byte big-endian length. Never decode or reorder the path/query.
+     * its unsigned eight-byte big-endian length. Never decode or reorder the path/query. Job
+     * assertions bind their request with this same hash.
      */
     static String requestHash(String method, URI uri, byte[] body) {
         try {
@@ -159,34 +185,37 @@ final class PortalStaffAssertionSigner {
         }
     }
 
-    private static PrivateKey parsePrivateKey(PortalSecret encodedPrivateKey) {
+    /**
+     * Parses an unpadded base64url PKCS#8 Ed25519 private key. A failure names only {@code setting},
+     * never the value.
+     */
+    static PrivateKey parsePrivateKey(PortalSecret encodedPrivateKey, String setting) {
         if (encodedPrivateKey == null) {
-            throw invalidKey(null);
+            throw invalidKey(setting, null);
         }
         String encoded = encodedPrivateKey.expose();
         byte[] decoded;
         try {
             decoded = DECODER.decode(encoded);
         } catch (IllegalArgumentException exception) {
-            throw invalidKey(exception);
+            throw invalidKey(setting, exception);
         }
         try {
             if (!ENCODER.encodeToString(decoded).equals(encoded)) {
-                throw invalidKey(null);
+                throw invalidKey(setting, null);
             }
             return KeyFactory.getInstance(ALGORITHM)
                     .generatePrivate(new PKCS8EncodedKeySpec(decoded));
         } catch (GeneralSecurityException exception) {
-            throw invalidKey(exception);
+            throw invalidKey(setting, exception);
         } finally {
             // PKCS8EncodedKeySpec keeps its own copy, so the raw key bytes need not outlive this call.
             Arrays.fill(decoded, (byte) 0);
         }
     }
 
-    private static PatientPortalConfigurationException invalidKey(Exception cause) {
-        String message =
-                String.format(Locale.ROOT, INVALID_KEY, PatientPortalSettings.STAFF_ASSERTION_KEY);
+    private static PatientPortalConfigurationException invalidKey(String setting, Exception cause) {
+        String message = String.format(Locale.ROOT, INVALID_KEY, setting);
         return cause == null
                 ? new PatientPortalConfigurationException(message)
                 : new PatientPortalConfigurationException(message, cause);

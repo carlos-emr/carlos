@@ -39,15 +39,18 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%
+    FieldNoteManager fieldNoteManager = new FieldNoteManager();
     String[] selectedEforms = request.getParameterValues("selected_eform");
     String unselectEform = request.getParameter("unselect_eform");
     String customName = request.getParameter("custom_name");
 
-    FieldNoteManager.selectFieldNoteEforms(selectedEforms);
-    FieldNoteManager.unSelectFieldNoteEform(unselectEform);
+    if ("POST".equals(request.getMethod())) {
+        fieldNoteManager.selectFieldNoteEforms(selectedEforms);
+        fieldNoteManager.unSelectFieldNoteEform(unselectEform);
+    }
 
-    TreeSet<Integer> fieldNoteEforms = FieldNoteManager.getFieldNoteEforms();
-    TreeSet<Integer> fieldNoteNameEforms = FieldNoteManager.getFieldNoteNameEforms(customName);
+    TreeSet<Integer> fieldNoteEforms = fieldNoteManager.getFieldNoteEforms();
+    TreeSet<Integer> fieldNoteNameEforms = fieldNoteManager.getFieldNoteNameEforms(customName);
 
     EFormDao eformDao = (EFormDao) SpringUtils.getBean(EFormDao.class);
 %>
@@ -73,7 +76,7 @@
     <input type="button" value="<fmt:message key="admin.fieldNote.back"/>"
            onclick="window.location.href='fieldnotereport'"/>
 
-    <form name="selectFieldNoteForm" action="fieldnoteselect">
+    <form name="selectFieldNoteForm" action="fieldnoteselect" method="post">
 
         <input type="hidden" name="unselect_eform"/>
         <table class="elements" width="100%">
@@ -115,15 +118,15 @@
                 </td>
                 <td width="25%" style="padding-left: 4px"><carlos:encode value='<%= fieldNoteEform.getFileName() %>' context="html"/>
                 </td>
-                <td nowrap align='center' width="10%"><%=fieldNoteEform.getFormDate()%>
+                <td nowrap align='center' width="10%"><carlos:encode value='<%= Objects.toString(fieldNoteEform.getFormDate(), "") %>' context="html"/>
                 </td>
-                <td nowrap align='center' width="10%"><%=fieldNoteEform.getFormTime()%>
+                <td nowrap align='center' width="10%"><carlos:encode value='<%= Objects.toString(fieldNoteEform.getFormTime(), "") %>' context="html"/>
                 </td>
-                <td nowrap align='center' width="10%"><%=fieldNoteEform.getRoleType()%>
+                <td nowrap align='center' width="10%"><carlos:encode value='<%= fieldNoteEform.getRoleType() %>' context="html"/>
                 </td>
                 <td nowrap align='center'>
                     <a href="#" title="<fmt:message key="admin.fieldNote.unselectEform"/>"
-                       onclick="remove_select(<%=fieldNoteEform.getId()%>);"><fmt:message key="admin.fieldNote.unselect"/></a>
+                       onclick="remove_select(<%=fieldNoteEform.getId()%>); return false;"><fmt:message key="admin.fieldNote.unselect"/></a>
                 </td>
             </tr>
             <%
@@ -148,11 +151,11 @@
                 </td>
                 <td width="25%" style="padding-left: 4px"><carlos:encode value='<%= fieldNoteEform.getFileName() %>' context="html"/>
                 </td>
-                <td nowrap align='center' width="10%"><%=fieldNoteEform.getFormDate()%>
+                <td nowrap align='center' width="10%"><carlos:encode value='<%= Objects.toString(fieldNoteEform.getFormDate(), "") %>' context="html"/>
                 </td>
-                <td nowrap align='center' width="10%"><%=fieldNoteEform.getFormTime()%>
+                <td nowrap align='center' width="10%"><carlos:encode value='<%= Objects.toString(fieldNoteEform.getFormTime(), "") %>' context="html"/>
                 </td>
-                <td nowrap align='center' width="10%"><%=fieldNoteEform.getRoleType()%>
+                <td nowrap align='center' width="10%"><carlos:encode value='<%= fieldNoteEform.getRoleType() %>' context="html"/>
                 </td>
                 <td nowrap align='center'>
                     <input type="checkbox" value="<%=fieldNoteEform.getId()%>"

@@ -99,7 +99,7 @@ if(!authed) {
 	BigTotal = BigTotal.add(ooTotal);
 %>
 <h4>Encounter Statistics - Larry Kain Report</h4>
-<div class="card card-body bg-body-tertiary">
+<div class="card card-body bg-body-tertiary report-print-plain">
 	<dl class="row">
 		<dt>Clinic</dt>
 		<dd><carlos:encode value='<%= clinic %>' context="html"/></dd>

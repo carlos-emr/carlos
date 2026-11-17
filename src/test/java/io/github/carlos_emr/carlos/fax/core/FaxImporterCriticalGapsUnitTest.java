@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.fax.provider.FaxProviderClientFactory;
 import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.IOException;
@@ -44,7 +45,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.Base64;
 import java.util.concurrent.*;
@@ -139,6 +139,86 @@ class FaxImporterCriticalGapsUnitTest extends CarlosUnitTestBase {
         saveToIncomingMethod.setAccessible(true);
     }
 
+    @Nested
+    @DisplayName("Streamed spool ownership and quarantine publication")
+    class StreamedSpoolTests {
+        @Test
+        void shouldConsumeSpool_whenPdfIsValid() throws Exception {
+            Path incoming = initializeFaxIncomingDir();
+            Path spool = createValidPdf(2).toPath();
+            byte[] expected = Files.readAllBytes(spool);
+            FaxJob downloaded = new FaxJob();
+            downloaded.setDocumentPath(spool);
+            Path saved = null;
+            try {
+                saved = (Path) saveToIncomingMethod.invoke(faxImporter, createFaxConfig(), createReceivedFax(), downloaded);
+                assertThat(saved).isNotNull();
+                assertThat(Files.readAllBytes(saved)).isEqualTo(expected);
+                assertThat(spool).doesNotExist();
+                assertThat(downloaded.getDocumentPath()).isNull();
+            } finally {
+                Files.deleteIfExists(spool);
+                if (saved != null) Files.deleteIfExists(saved);
+                Files.deleteIfExists(incoming.resolve(String.valueOf(createFaxConfig().getId())));
+                Files.deleteIfExists(incoming);
+            }
+        }
+
+        @Test
+        void shouldDeleteSpool_whenPdfIsRejected() throws Exception {
+            Path incoming = initializeFaxIncomingDir();
+            Path spool = Files.createTempFile("carlos-fax-rejected-", ".pdf");
+            Files.writeString(spool, "not a PDF");
+            FaxJob downloaded = new FaxJob();
+            downloaded.setDocumentPath(spool);
+            FaxJob metadata = createReceivedFax();
+            try {
+                assertThat(saveToIncomingMethod.invoke(faxImporter, createFaxConfig(), metadata, downloaded)).isNull();
+                assertThat(metadata.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+                assertThat(spool).doesNotExist();
+                assertThat(downloaded.getDocumentPath()).isNull();
+                try (var files = Files.list(incoming.resolve(String.valueOf(createFaxConfig().getId())))) {
+                    assertThat(files.toList()).isEmpty();
+                }
+            } finally {
+                Files.deleteIfExists(spool);
+                Files.deleteIfExists(incoming.resolve(String.valueOf(createFaxConfig().getId())));
+                Files.deleteIfExists(incoming);
+            }
+        }
+
+        @Test
+        void shouldHidePartialCopy_whenCrossFilesystemStagingFails() throws Exception {
+            Path spool = createValidPdf(1).toPath();
+            faxImporter = new FaxImporter(faxConfigDao, faxJobDao, queueDocumentLinkDao,
+                    providerLabRoutingDao, faxProviderClientFactory, null) {
+                @Override
+                void moveFile(Path source, Path target) throws IOException {
+                    assertThat(source).isEqualTo(spool);
+                    assertThat(target.getFileName().toString()).startsWith("fax-tmp-");
+                    Files.writeString(target, "%PDF partial copy");
+                    throw new IOException("Synthetic disk failure during cross-filesystem copy");
+                }
+            };
+            Path incoming = initializeFaxIncomingDir();
+            FaxJob downloaded = new FaxJob();
+            downloaded.setDocumentPath(spool);
+            FaxJob metadata = createReceivedFax();
+            try {
+                assertThat(saveToIncomingMethod.invoke(faxImporter, createFaxConfig(), metadata, downloaded)).isNull();
+                assertThat(metadata.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+                assertThat(spool).doesNotExist();
+                try (var files = Files.list(incoming.resolve(String.valueOf(createFaxConfig().getId())))) {
+                    assertThat(files.toList()).isEmpty();
+                }
+            } finally {
+                Files.deleteIfExists(spool);
+                Files.deleteIfExists(incoming.resolve(String.valueOf(createFaxConfig().getId())));
+                Files.deleteIfExists(incoming);
+            }
+        }
+    }
+
     /**
      * Tests for collision-free filename generation (Priority 10).
      *
@@ -173,10 +253,7 @@ class FaxImporterCriticalGapsUnitTest extends CarlosUnitTestBase {
             // Then: All filenames must be unique (no collisions)
             assertThat(generatedFilenames)
                     .as("All generated filenames must be unique - no collisions allowed")
-                    .hasSize(numberOfFaxes);
-
-            // Then: All filenames should contain the original filename
-            assertThat(generatedFilenames)
+                    .hasSize(numberOfFaxes)
                     .allSatisfy(filename -> assertThat(filename).contains("referral.pdf"));
 
             // Then: All filenames should follow the pattern: yyyyMMdd-HHmmss-NNNNN-original.pdf
@@ -275,10 +352,8 @@ class FaxImporterCriticalGapsUnitTest extends CarlosUnitTestBase {
 
             // Then: Should not contain path traversal or dangerous filesystem characters
             assertThat(sanitized)
-                    .doesNotContain("..", "|", "\\", "/", ":", "*", "?", "\"", "<", ">");
-
-            // Then: Should still be a valid PDF filename
-            assertThat(sanitized).endsWith(".pdf");
+                    .doesNotContain("..", "|", "\\", "/", ":", "*", "?", "\"", "<", ">")
+                    .endsWith(".pdf");
         }
     }
 
@@ -589,9 +664,6 @@ class FaxImporterCriticalGapsUnitTest extends CarlosUnitTestBase {
             // When: Call saveToIncoming with corrupted data
             saveToIncomingMethod.invoke(faxImporter, faxConfig, receivedFax, faxFile);
 
-            // Give filesystem time to sync
-            Thread.sleep(100);
-
             // Then: No temp files should be leaked
             long tempFilesAfter = countTempFilesInDir(configDir);
             assertThat(tempFilesAfter)
@@ -600,42 +672,14 @@ class FaxImporterCriticalGapsUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    /**
-     * Tests for atomic move failure recovery (Priority 9).
-     *
-     * <p><strong>Critical Risk:</strong> Atomic move failures could leave temp files containing
-     * PHI on disk indefinitely, violating HIPAA/PIPEDA requirements. Proper cleanup in finally
-     * blocks is essential for regulatory compliance.</p>
-     */
-    /**
-     * Atomic move failure recovery tests for importFromIncoming().
-     *
-     * <p>These tests exercise the importFromIncoming() pipeline which moves files from the
-     * incoming directory to DOCUMENT_DIR and registers them in the EMR. They require:</p>
-     * <ol>
-     *   <li><strong>EDocUtil static mock:</strong> EDocUtil is a final class with static methods
-     *       (addDocumentSQL). It CAN be mocked with {@code Mockito.mockStatic(EDocUtil.class)},
-     *       but requires careful lifecycle management in {@code @BeforeEach/@AfterEach}.</li>
-     *   <li><strong>DOCUMENT_DIR static final field:</strong> FaxImporter.DOCUMENT_DIR is initialized
-     *       at class load time via {@code CarlosProperties.getInstance().getDocumentDirectory()}.
-     *       The CarlosProperties mock must be active BEFORE FaxImporter is first loaded by the JVM,
-     *       which is not feasible in a unit test since FaxImporter is already loaded by setUp().
-     *       Options: (a) refactor DOCUMENT_DIR to be an instance field set via @PostConstruct,
-     *       (b) use a real temp directory as DOCUMENT_DIR in an integration test context.</li>
-     * </ol>
-     *
-     * <p>Recommended approach: Convert to integration test with Spring test context that
-     * configures DOCUMENT_DIR via properties, or refactor FaxImporter to inject DOCUMENT_DIR
-     * as an instance field.</p>
-     */
+    /** Verifies that a failed destination move preserves the incoming PDF for retry. */
     @Nested
     @DisplayName("Atomic Move Failure Recovery Tests (Priority 9)")
     @Tag("atomicity")
-    @Disabled("Requires EDocUtil static mock (Mockito mockStatic) and DOCUMENT_DIR setup. " +
-              "DOCUMENT_DIR is a static final field initialized at class load time from " +
-              "CarlosProperties — cannot be overridden in unit tests. Convert to integration " +
-              "test or refactor FaxImporter.DOCUMENT_DIR to an instance field to enable.")
     class AtomicMoveFailureTests {
+
+        @TempDir
+        Path workspace;
 
         private Method importFromIncomingMethod;
 
@@ -647,6 +691,11 @@ class FaxImporterCriticalGapsUnitTest extends CarlosUnitTestBase {
          */
         @BeforeEach
         void setUpImportMethod() throws Exception {
+            // An existing file cannot be used as the destination directory. Failure happens
+            // before EDocUtil persistence, so no static mock or application path is needed.
+            Path invalidDirectory = Files.createFile(workspace.resolve("not-a-directory"));
+            faxImporter = new FaxImporter(faxConfigDao, faxJobDao, queueDocumentLinkDao,
+                    providerLabRoutingDao, faxProviderClientFactory, invalidDirectory.toString());
             importFromIncomingMethod = FaxImporter.class.getDeclaredMethod("importFromIncoming",
                     Path.class, FaxConfig.class, FaxJob.class);
             importFromIncomingMethod.setAccessible(true);
@@ -848,26 +897,6 @@ class FaxImporterCriticalGapsUnitTest extends CarlosUnitTestBase {
 
         document.close();
         return tempFile;
-    }
-
-    /**
-     * Counts temporary fax files matching the {@code fax-*.pdf} naming pattern in the
-     * specified directory. Similar to {@link #countTempFilesInDir(Path)} but with a
-     * broader filename prefix match.
-     *
-     * @param directory the directory to scan
-     * @return the number of matching files, or 0 if the directory does not exist
-     * @throws IOException if the directory listing fails
-     */
-    private long countTempFiles(Path directory) throws IOException {
-        if (!Files.exists(directory)) {
-            return 0;
-        }
-
-        return Files.list(directory)
-                .filter(p -> p.getFileName().toString().startsWith("fax-"))
-                .filter(p -> p.getFileName().toString().endsWith(".pdf"))
-                .count();
     }
 
     /**

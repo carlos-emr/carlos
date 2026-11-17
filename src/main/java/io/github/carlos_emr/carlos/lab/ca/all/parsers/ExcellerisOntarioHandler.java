@@ -54,6 +54,7 @@ import java.util.Set;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
+import ca.uhn.hl7v2.model.Segment;
 import ca.uhn.hl7v2.HL7Exception;
 import ca.uhn.hl7v2.model.Varies;
 import ca.uhn.hl7v2.model.v231.datatype.CX;
@@ -672,6 +673,12 @@ public class ExcellerisOntarioHandler implements MessageHandler {
         }
     }
 
+    /** The OBX segment for the {@link MessageHandler} ED.5/ED.4 accessors; see {@link EdObservationValue}. */
+    @Override
+    public Segment getOBXSegment(int i, int j) throws Exception {
+        return msg.getPIDPD1NK1NTEPV1PV2ORCOBRNTEOBXNTECTI().getORCOBRNTEOBXNTECTI(i).getOBXNTE(j).getOBX();
+    }
+
     public String getOBXResult(int i, int j) {
         try {
             return (getString(Terser.get(msg.getPIDPD1NK1NTEPV1PV2ORCOBRNTEOBXNTECTI().getORCOBRNTEOBXNTECTI(i).getOBXNTE(j).getOBX(), 5, 0, 1, 1)));
@@ -701,6 +708,23 @@ public class ExcellerisOntarioHandler implements MessageHandler {
         }catch(Exception e){
             return "";
         }
+    }
+
+    /**
+     * The OBX-4 sub-ID label followed by an embedded text document, in the same
+     * {@code "<subId>) <value>"} shape as {@link #getOBXSubIdWithObservationValue(int, int)}, so a
+     * numbered or grouped ED observation declared as text (ED.4 {@code A}) keeps its
+     * {@code A)}, {@code B)} label. The value is {@link #getOBXEmbeddedDocumentText(int, int)}:
+     * ED.5 when present, otherwise the OBX-5.1 result {@code getOBXSubIdWithObservationValue}
+     * shows.
+     *
+     * @param i the OBR group index
+     * @param j the OBX index within the group
+     * @return the labelled text, in the {@code <br />} marker form of the other result accessors
+     * @since 2026-10-01
+     */
+    public String getOBXSubIdWithEmbeddedDocumentText(int i, int j) {
+        return getOBXSubId(i, j) + ") " + getOBXEmbeddedDocumentText(i, j);
     }
 
     //OBX-7

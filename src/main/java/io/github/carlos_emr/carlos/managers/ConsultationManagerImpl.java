@@ -39,9 +39,12 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
+import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -100,6 +103,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -164,8 +168,16 @@ public class ConsultationManagerImpl implements ConsultationManager {
     DocumentManager documentManager;
     @Autowired
     private DocumentAttachmentManager documentAttachmentManager;
+    private AttachmentOwnershipService attachmentOwnershipService;
 
     private final Logger logger = MiscUtils.getLogger();
+
+    // Setter-injected: the older collaborators above are still field-injected, and the tests
+    // build this class through its no-arg constructor.
+    @Autowired
+    public void setAttachmentOwnershipService(AttachmentOwnershipService attachmentOwnershipService) {
+        this.attachmentOwnershipService = attachmentOwnershipService;
+    }
 
     public final String CON_REQUEST_ENABLED = "consultRequestEnabled";
     public final String CON_RESPONSE_ENABLED = "consultResponseEnabled";
@@ -249,6 +261,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
 
         ConsultationRequest request = consultationRequestDao.findWithAssociations(id);
+        // An unknown id returns null to the caller; it is not audited as a successful read.
         if (request != null) {
             LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getRequest", "id=" + request.getId());
         }
@@ -270,6 +283,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
 
         ConsultationResponse response = consultationResponseDao.find(id);
+        // An unknown id returns null to the caller; it is not audited as a successful read.
         if (response != null) {
             LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getResponse", "id=" + response.getId());
         }
@@ -470,6 +484,14 @@ public class ConsultationManagerImpl implements ConsultationManager {
     @Override
     public List<ConsultationAttachment> getEReferAttachments(LoggedInInfo loggedInInfo, HttpServletRequest request, HttpServletResponse response, Integer demographicNo) throws PDFGenerationException {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+        // The patient number comes from the REST caller, so the role-level check above is not
+        // enough: the caller must also be allowed to read this patient's consultations and chart
+        // before any queued attachment is loaded or rendered.
+        if (demographicNo == null
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new SecurityException("missing required sec object (_con)");
+        }
 
         Calendar calendar = Calendar.getInstance();
         calendar.add(Calendar.HOUR_OF_DAY, -1);
@@ -480,8 +502,17 @@ public class ConsultationManagerImpl implements ConsultationManager {
             return Collections.emptyList();
         }
 
+        Set<String> ownedAttachmentKeys = findOwnedEReferAttachmentKeys(eReferAttachment, demographicNo);
+
         List<ConsultationAttachment> consultationAttachments = new ArrayList<>();
+        int droppedAttachments = 0;
         for (EReferAttachmentData eReferAttachmentData : eReferAttachment.getAttachments()) {
+            if (!ownedAttachmentKeys.contains(eReferAttachmentKey(eReferAttachmentData.getLabType(), eReferAttachmentData.getLabId()))) {
+                // Defence in depth for issue #3867: never render and send a record that is not this
+                // patient's, including rows queued before ERefer2Action verified ownership.
+                droppedAttachments++;
+                continue;
+            }
             try {
                 ConsultationAttachment consultationAttachment = null;
                 switch (eReferAttachmentData.getLabType()) {
@@ -522,11 +553,57 @@ public class ConsultationManagerImpl implements ConsultationManager {
             }
         }
 
+        if (droppedAttachments > 0) {
+            logger.warn("Dropped {} Ocean eReferral attachment(s) not owned by the requested patient", droppedAttachments);
+        }
+
         // Archives the retrieved attachments so they can't be retrieved again
         eReferAttachment.setArchived(true);
         eReferAttachmentDao.merge(eReferAttachment);
 
         return consultationAttachments;
+    }
+
+    /**
+     * Returns the {@code type:id} keys of the queued eReferral attachments that belong to the
+     * requested patient, with one batched ownership lookup per attachment type.
+     *
+     * <p>The queued row must itself be for the requested patient; otherwise nothing is owned.
+     * Types without an ownership source (forms, unknown codes) are never owned; the renderer
+     * skips those anyway.</p>
+     */
+    private Set<String> findOwnedEReferAttachmentKeys(EReferAttachment eReferAttachment, Integer demographicNo) {
+        if (demographicNo == null || !demographicNo.equals(eReferAttachment.getDemographicNo())
+                || eReferAttachment.getAttachments() == null) {
+            return Collections.emptySet();
+        }
+        Map<DocumentType, Set<Integer>> idsByType = new EnumMap<>(DocumentType.class);
+        for (EReferAttachmentData data : eReferAttachment.getAttachments()) {
+            DocumentType type = documentTypeForCode(data.getLabType());
+            if (type != null && data.getLabId() != null) {
+                idsByType.computeIfAbsent(type, k -> new HashSet<>()).add(data.getLabId());
+            }
+        }
+        Set<String> owned = new HashSet<>();
+        for (Map.Entry<DocumentType, Set<Integer>> entry : idsByType.entrySet()) {
+            for (Integer id : attachmentOwnershipService.findOwnedIds(entry.getKey(), demographicNo, entry.getValue())) {
+                owned.add(eReferAttachmentKey(entry.getKey().getType(), id));
+            }
+        }
+        return owned;
+    }
+
+    private static DocumentType documentTypeForCode(String code) {
+        for (DocumentType type : DocumentType.values()) {
+            if (type.getType().equals(code)) {
+                return type;
+            }
+        }
+        return null;
+    }
+
+    private static String eReferAttachmentKey(String typeCode, Integer id) {
+        return typeCode + ":" + id;
     }
 
     /**

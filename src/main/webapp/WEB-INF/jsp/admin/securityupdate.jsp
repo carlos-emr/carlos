@@ -28,141 +28,22 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<fmt:setBundle basename="oscarResources"/>
-
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    boolean authed = true;
-%>
-<security:oscarSec roleName="<%=roleName$%>"
-                   objectName="_admin,_admin.userAdmin" rights="r"
-                   reverse="<%=true%>">
-    <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
-</security:oscarSec>
-<%
-    if (!authed) {
-        return;
-    }
-%>
-
-
-<%@ page import="java.sql.*, java.util.*,java.security.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.db.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogAction,io.github.carlos_emr.carlos.log.LogConst" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityManager" %>
-<%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%
-    if (!"POST".equalsIgnoreCase(request.getMethod())) {
-        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
-        return;
-    }
-    SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
-%>
-
+<fmt:setBundle basename="oscarResources"/>
+<%-- Writes belong to SecurityUpdate2Action; this view only reports confirmed results. --%>
 <html>
-    <head>
-    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-        <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
-        <title><fmt:message key="admin.securityupdate.title"/></title>
-    </head>
-    <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css"/>
-    <body topmargin="0" leftmargin="0" rightmargin="0">
-    <center>
-        <table border="0" cellspacing="0" cellpadding="0" width="100%">
-            <tr bgcolor="#486ebd">
-                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.securityupdate.description"/></font></th>
-            </tr>
-        </table>
-        <%
-	SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
-
-            // "****" is the unchanged-PIN sentinel rendered by securityupdatesecurity.jsp. Anything
-            // else is a real new PIN and is stored as a salted hash; a blank submission clears the
-            // PIN. Legacy Misc.encryptPIN storage is read-only now - existing values are still
-            // accepted at login and migrated there, but nothing writes that format any more.
-            String submittedPin = request.getParameter("pin");
-            boolean isPinSubmitted = submittedPin != null && !"****".equals(submittedPin);
-            String sPin = null;
-            if (isPinSubmitted && !submittedPin.isEmpty()) {
-                sPin = securityManager.encodePin(submittedPin);
-            }
-
-            int rowsAffected = 0;
-
-            // Must stay aligned with the Login2Action username pattern and security.user_name
-            // varchar(30): the form maxlength is browser-side only, so a direct POST outside
-            // this charset or length must be rejected before the save (an over-length value
-            // fails as a DB truncation error page; other charsets are rejected at login).
-            String newUserName = request.getParameter("user_name") == null ? "" : request.getParameter("user_name").trim();
-            boolean isUserNameValid = newUserName.matches("[a-zA-Z0-9]{1,30}");
-
-            Security s = securityDao.find(Integer.parseInt(request.getParameter("security_no")));
-            if (s != null && isUserNameValid) {
-                s.setUserName(newUserName);
-                s.setProviderNo(request.getParameter("provider_no"));
-                s.setBExpireset(request.getParameter("b_ExpireSet") == null ? 0 : Integer.parseInt(request.getParameter("b_ExpireSet")));
-                s.setDateExpiredate(MyDateFormat.getSysDate(request.getParameter("date_ExpireDate")));
-                s.setBLocallockset(request.getParameter("b_LocalLockSet") == null ? 0 : Integer.parseInt(request.getParameter("b_LocalLockSet")));
-                s.setBRemotelockset(request.getParameter("b_RemoteLockSet") == null ? 0 : Integer.parseInt(request.getParameter("b_RemoteLockSet")));
-
-                if (request.getParameter("password") == null || !"*********".equals(request.getParameter("password"))) {
-    		s.setPassword(securityManager.encodePassword(request.getParameter("password")));
-                    s.setPasswordUpdateDate(new java.util.Date());
-                }
-
-                if (isPinSubmitted) {
-                    s.setPin(sPin);
-                    s.setPinUpdateDate(sPin == null ? null : new java.util.Date());
-                }
-
-                if (request.getParameter("forcePasswordReset") != null && request.getParameter("forcePasswordReset").equals("1")) {
-                    s.setForcePasswordReset(Boolean.TRUE);
-                } else {
-                    s.setForcePasswordReset(Boolean.FALSE);
-                }
-
-		if (request.getParameter("enableMfa") != null && request.getParameter("enableMfa").equals("1")) {
-			s.setUsingMfa(Boolean.TRUE);
-		} else {
-			s.setUsingMfa(Boolean.FALSE);
-		}
-
-                s.setLastUpdateDate(new java.util.Date());
-
-                securityDao.saveEntity(s);
-                rowsAffected = 1;
-            }
-
-
-            if (rowsAffected == 1) {
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_SECURITY,
-                        request.getParameter("security_no") + "->" + request.getParameter("user_name"), request.getRemoteAddr());
-        %>
-        <p>
-        <h2><fmt:message key="admin.securityupdate.msgUpdateSuccess"/> <carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="html"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
-        </h2>
-        <%
-        } else if (!isUserNameValid) {
-        %>
-        <h1><fmt:message key="admin.securityupdate.msgUserNameInvalid"/></h1>
-        <%
-        } else {
-        %>
-        <h1><fmt:message key="admin.securityupdate.msgUpdateFailure"/><carlos:encode value='<%= StringUtils.noNull(request.getParameter("provider_no")) %>' context="html"/>.</h1>
-        <%
-            }
-        %>
-        </p>
-        <p></p>
-
-    </center>
-    </body>
+<head>
+    <title><fmt:message key="admin.securityupdate.title"/></title>
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/web.css"/>
+</head>
+<body>
+<% if (Boolean.TRUE.equals(request.getAttribute("securityUpdateCommitted"))) { %>
+    <h2 id="security-update-ok"><fmt:message key="admin.securityupdate.msgUpdateSuccess"/>
+        <carlos:encode value='<%= java.util.Objects.toString(request.getParameter("provider_no"), "") %>' context="html"/>
+    </h2>
+<% } else { %>
+    <h1><fmt:message key="admin.securityupdate.msgUpdateFailure"/></h1>
+<% } %>
+</body>
 </html>

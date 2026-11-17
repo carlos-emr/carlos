@@ -5,6 +5,8 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.carlos.commn.model.EmailConfig;
+
 import java.util.Collections;
 import java.util.List;
 
@@ -53,6 +55,7 @@ import static org.mockito.Mockito.when;
 class EmailManagerSenderConfigurationUnitTest extends CarlosUnitTestBase {
 
     private EmailManager emailManager;
+    private OutboundEmailArchiveService archiveService;
     private EmailSenderFactory emailSenderFactory;
     private EmailConsentResolver emailConsentResolver;
     private EmailConfigDaoImpl emailConfigDao;
@@ -82,7 +85,11 @@ class EmailManagerSenderConfigurationUnitTest extends CarlosUnitTestBase {
 
         emailSenderFactory = mock(EmailSenderFactory.class);
         emailConsentResolver = mock(EmailConsentResolver.class);
-        emailManager = new EmailManager(emailConsentResolver, emailSenderFactory, securityInfoManager, mock(OutboundEmailArchiveService.class));
+        archiveService = mock(OutboundEmailArchiveService.class);
+        emailManager = new EmailManager(emailConsentResolver, emailSenderFactory, securityInfoManager, archiveService);
+        var clinicFooters = mock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class);
+        when(clinicFooters.snapshot()).thenReturn(new io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot("FAKE Clinic", null));
+        injectDependency(emailManager, "clinicFooterService", clinicFooters);
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
         injectDependency(emailManager, "caseManagementManager", mock(CaseManagementManager.class));
@@ -98,6 +105,50 @@ class EmailManagerSenderConfigurationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRefusePublicOutboxPreparation_whenClinicIsMissingOrPreviewIsStale() {
+        var config = new EmailConfig(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.LOCAL,
+                "fake@example.test");
+        config.setActive(true);
+        injectDependency(config, "id", 123);
+        when(emailConfigDao.findActiveEmailConfigById(123)).thenReturn(config);
+        var footers = mock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class);
+        when(footers.snapshot()).thenReturn(new io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot("", null));
+        injectDependency(emailManager, "clinicFooterService", footers);
+        assertThatThrownBy(() -> emailManager.prepareEmailForOutbox(loggedInInfo, emailData(123)))
+                .isInstanceOf(IllegalStateException.class);
+        when(footers.snapshot()).thenReturn(new io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot("Current Clinic", null));
+        var stale = emailData(123);
+        stale.setClinicFooterSnapshot(new io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot("Old Clinic", null));
+        assertThatThrownBy(() -> emailManager.prepareEmailForOutbox(loggedInInfo, stale))
+                .isInstanceOf(IllegalStateException.class);
+        verifyNoInteractions(emailLogDao, emailSenderFactory, emailConsentResolver, archiveService);
+    }
+
+    @Test
+    void shouldRefuseMissingClinic_withoutOutboxArchiveOrTransport() {
+        var footers = mock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class);
+        when(footers.snapshot()).thenReturn(new io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot("<b> </b>", null));
+        injectDependency(emailManager, "clinicFooterService", footers);
+        var result = emailManager.sendEmailWithResult(loggedInInfo, emailData(123));
+        assertThat(result.isTransportAccepted()).isFalse();
+        assertThat(result.getEmailLog().getId()).isNull();
+        assertThat(result.getEmailLog().getErrorMessage()).contains("administrator must set");
+        verifyNoInteractions(emailConfigDao, emailLogDao, emailSenderFactory, emailConsentResolver, archiveService);
+    }
+
+    @Test
+    void shouldRefuseChangedClinicBeforeOutbox_whenTrustedComposeSnapshotIsStale() {
+        EmailData data = emailData(123);
+        data.setFooter("Personal");
+        data.setClinicFooterSnapshot(new io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot("Old Clinic", null));
+        var result = emailManager.sendEmailWithResult(loggedInInfo, data);
+        assertThat(result.getEmailLog().getErrorMessage()).contains("changed while this draft was open");
+        assertThat(result.getEmailLog().getId()).isNull();
+        assertThat(data.isFooterFrozen()).isFalse();
+        verifyNoInteractions(emailConfigDao, emailLogDao, emailSenderFactory, emailConsentResolver, archiveService);
+    }
+
+    @Test
     void shouldDenyUnauthorizedSend_beforeLookingUpSenderConfiguration() {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null))
                 .thenReturn(false);
@@ -106,7 +157,7 @@ class EmailManagerSenderConfigurationUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, data))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("missing required sec object (_email)");
-        verifyNoInteractions(emailConfigDao, emailLogDao, emailSenderFactory, emailConsentResolver);
+        verifyNoInteractions(emailConfigDao, emailLogDao, emailSenderFactory, emailConsentResolver, archiveService);
     }
 
     @Test

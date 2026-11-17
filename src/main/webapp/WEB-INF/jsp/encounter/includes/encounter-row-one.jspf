@@ -35,15 +35,15 @@
     <div class="card-body">
         <div class="row g-0">
             <div class="col-4">
-                <textarea name="shTextarea" tabindex="1" wrap="hard" cols="28"
+                <textarea name="shTextarea" aria-label="<fmt:message key='encounter.Index.socialFamHist'/>" tabindex="1" wrap="soft" cols="28"
                           style="height:<carlos:encode value='${rowOneSize}' context="htmlAttribute"/>;overflow:auto">${carlos:forHtml(bean.socialHistory)}</textarea>
             </div>
             <div class="col-4">
-                <textarea name="fhTextarea" tabindex="2" wrap="hard" cols="28"
+                <textarea name="fhTextarea" aria-label="<fmt:message key='encounter.Index.otherMed'/>" tabindex="2" wrap="soft" cols="28"
                           style="height:<carlos:encode value='${rowOneSize}' context="htmlAttribute"/>;overflow:auto">${carlos:forHtml(bean.familyHistory)}</textarea>
             </div>
             <div class="col-4">
-                <textarea name="mhTextarea" tabindex="3" wrap="hard" cols="28"
+                <textarea name="mhTextarea" aria-label="<fmt:message key='encounter.Index.medHist'/>" tabindex="3" wrap="soft" cols="28"
                           style="height:<carlos:encode value='${rowOneSize}' context="htmlAttribute"/>;overflow:auto">${carlos:forHtml(bean.medicalHistory)}</textarea>
             </div>
         </div>

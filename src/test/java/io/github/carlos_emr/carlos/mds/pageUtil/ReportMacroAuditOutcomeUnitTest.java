@@ -6,10 +6,10 @@ import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
-import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
-import io.github.carlos_emr.carlos.commn.model.TicklerLink;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -27,8 +27,13 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -47,7 +52,7 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
         request.setParameter("labType", "HL7");
         createAndRegisterMock(SecurityInfoManager.class);
         var ticklers = createAndRegisterMock(TicklerDao.class);
-        var links = createAndRegisterMock(TicklerLinkDao.class);
+        var links = createAndRegisterMock(TicklerAttachmentService.class);
         var info = mock(LoggedInInfo.class);
         when(info.getLoggedInProviderNo()).thenReturn("999998");
         var macro = new ObjectMapper().createObjectNode().put("name", "fixture");
@@ -85,7 +90,7 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
         createAndRegisterMock(ProviderLabRoutingDao.class);
         createAndRegisterMock(QueueDocumentLinkDao.class);
         var ticklers = createAndRegisterMock(TicklerDao.class);
-        var links = createAndRegisterMock(TicklerLinkDao.class);
+        var links = createAndRegisterMock(TicklerAttachmentService.class);
         var preferences = createAndRegisterMock(UserPropertyDAO.class);
         var info = mock(LoggedInInfo.class);
         when(info.getLoggedInProviderNo()).thenReturn("999998");
@@ -136,15 +141,192 @@ class ReportMacroAuditOutcomeUnitTest extends CarlosUnitTestBase {
             assertThat(json.path("acknowledged").asBoolean()).isEqualTo(acknowledge);
             assertThat(json.path("clearedCount").asInt()).isEqualTo(acknowledge ? 3 : 0);
             if (tickler) {
+                // Ownership and rights are proven through the attachment service before the
+                // tickler is persisted, and the lab is attached under its named source.
+                verify(links).requireAttachable(eq(info), eq(1), argThat(map -> map.get(DocumentType.LAB).contains("HL7:123")));
                 verify(ticklers).persist(any(Tickler.class));
-                verify(links).persist(any(TicklerLink.class));
+                verify(links).syncAttachments(eq(info), any(Tickler.class), argThat(map -> map.get(DocumentType.LAB).contains("HL7:123")));
             } else {
-                verify(links, never()).persist(any());
+                verify(links, never()).syncAttachments(any(), any(), any());
             }
             assertThat(logs.messages()).anyMatch(message -> message.contains("audit logging failed"));
             if (commentShape.startsWith("invalid")) assertThat(logs.messages()).anyMatch(message -> message.contains("NumberFormatException"));
             assertThat(logs.messages().toString()).doesNotContain("PRIVATE_");
             assertThat(logs.events()).isNotEmpty().allMatch(event -> event.getThrown() == null);
+        }
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("should fail the macro before any side effect when the lab id is not usable, without logging it")
+    void shouldFailMacro_whenSegmentIdInvalid() throws Exception {
+        var request = new MockHttpServletRequest("POST", "/oscarMDS/RunMacro");
+        request.setParameter("segmentID", "PRIVATE_SEGMENT_VALUE");
+        request.setParameter("labType", "HL7");
+        request.setParameter("demographicNo", "1");
+        createAndRegisterMock(SecurityInfoManager.class);
+        var ticklers = createAndRegisterMock(TicklerDao.class);
+        var links = createAndRegisterMock(TicklerAttachmentService.class);
+        var info = mock(LoggedInInfo.class);
+        when(info.getLoggedInProviderNo()).thenReturn("999998");
+        // The service's parser rejects a non-numeric id the same way for every caller.
+        doThrow(new IllegalArgumentException("attachment id is not numeric"))
+                .when(links).requireAttachable(eq(info), eq(1), argThat(map -> map.get(DocumentType.LAB).contains("HL7:PRIVATE_SEGMENT_VALUE")));
+        var macro = new ObjectMapper().createObjectNode().put("name", "fixture");
+        macro.putObject("tickler").put("taskAssignedTo", "999998").put("message", "fixture tickler");
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var session = mockStatic(LoggedInInfo.class);
+             var logs = LogCapture.forLogger(ReportMacro2Action.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            session.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
+            var outcome = new ReportMacro2Action().runMacroOutcome(macro, request);
+            assertThat(outcome.success()).isFalse();
+            verify(ticklers, never()).persist(any(Tickler.class));
+            verify(links, never()).syncAttachments(any(), any(), any());
+            assertThat(logs.messages()).anyMatch(message -> message.contains("IllegalArgumentException"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_");
+        }
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("should refuse the whole macro, acknowledgement included, when the lab may not be attached to that patient")
+    void shouldFailMacroWithoutAcknowledging_whenAttachmentRefused() throws Exception {
+        var request = new MockHttpServletRequest("POST", "/oscarMDS/RunMacro");
+        request.setParameter("segmentID", "123");
+        request.setParameter("labType", "HL7");
+        request.setParameter("demographicNo", "1");
+        createAndRegisterMock(SecurityInfoManager.class);
+        createAndRegisterMock(PatientLabRoutingDao.class);
+        createAndRegisterMock(ProviderLabRoutingDao.class);
+        createAndRegisterMock(QueueDocumentLinkDao.class);
+        var ticklers = createAndRegisterMock(TicklerDao.class);
+        var links = createAndRegisterMock(TicklerAttachmentService.class);
+        var info = mock(LoggedInInfo.class);
+        when(info.getLoggedInProviderNo()).thenReturn("999998");
+        doThrow(new SecurityException("lab attachment does not belong to the patient PRIVATE_DETAIL"))
+                .when(links).requireAttachable(eq(info), eq(1), any());
+        var macro = new ObjectMapper().createObjectNode().put("name", "fixture");
+        macro.putObject("acknowledge").put("comment", "reviewed");
+        macro.putObject("tickler").put("taskAssignedTo", "999998").put("message", "fixture tickler");
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var session = mockStatic(LoggedInInfo.class);
+             var routing = mockStatic(CommonLabResultData.class);
+             var logs = LogCapture.forLogger(ReportMacro2Action.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            session.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
+            var outcome = new ReportMacro2Action().runMacroOutcome(macro, request);
+            assertThat(outcome.success()).isFalse();
+            assertThat(outcome.acknowledged()).isFalse();
+            // The attachment is validated before the acknowledgement touches the routing rows.
+            routing.verify(() -> CommonLabResultData.acknowledgeReport(anyInt(), anyString(), any(), any(), anyBoolean(), any()), never());
+            verify(ticklers, never()).persist(any(Tickler.class));
+            verify(links, never()).syncAttachments(any(), any(), any());
+            assertThat(logs.messages()).anyMatch(message -> message.contains("lab attachment refused"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_");
+        }
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("should attach the reviewed item as a document, and acknowledge it, when the document viewer runs a tickler macro")
+    void shouldAttachDocumentAsDocument_whenLabTypeIsDoc() throws Exception {
+        var request = new MockHttpServletRequest("POST", "/oscarMDS/RunMacro");
+        request.setParameter("segmentID", "456");
+        request.setParameter("labType", "DOC");
+        request.setParameter("demographicNo", "1");
+        var security = createAndRegisterMock(SecurityInfoManager.class);
+        createAndRegisterMock(PatientLabRoutingDao.class);
+        createAndRegisterMock(ProviderLabRoutingDao.class);
+        createAndRegisterMock(QueueDocumentLinkDao.class);
+        var ticklers = createAndRegisterMock(TicklerDao.class);
+        var links = createAndRegisterMock(TicklerAttachmentService.class);
+        createAndRegisterMock(UserPropertyDAO.class);
+        var info = mock(LoggedInInfo.class);
+        when(info.getLoggedInProviderNo()).thenReturn("999998");
+        when(info.getIp()).thenReturn("127.0.0.1");
+        var macro = new ObjectMapper().createObjectNode().put("name", "fixture");
+        macro.putObject("acknowledge").put("comment", "reviewed");
+        macro.putObject("tickler").put("taskAssignedTo", "999998").put("message", "fixture tickler");
+        doAnswer(invocation -> {
+            Tickler saved = invocation.getArgument(0);
+            saved.setId(78);
+            return null;
+        }).when(ticklers).persist(any(Tickler.class));
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var session = mockStatic(LoggedInInfo.class);
+             var routing = mockStatic(CommonLabResultData.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            session.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
+            routing.when(() -> CommonLabResultData.acknowledgeReport(456, "999998", "reviewed", "DOC", false, null))
+                    .thenReturn(1);
+            var outcome = new ReportMacro2Action().runMacroOutcome(macro, request);
+            assertThat(outcome.success()).isTrue();
+            assertThat(outcome.acknowledged()).isTrue();
+            assertThat(outcome.clearedCount()).isEqualTo(1);
+            // A document submitted as a lab source is refused by the service, so it must
+            // travel under the document type and never as a lab.
+            verify(links).requireAttachable(eq(info), eq(1),
+                    argThat(map -> map.size() == 1 && map.get(DocumentType.DOC).contains("456")));
+            verify(ticklers).persist(any(Tickler.class));
+            verify(links).syncAttachments(eq(info), any(Tickler.class),
+                    argThat(map -> map.size() == 1 && map.get(DocumentType.DOC).contains("456")));
+        }
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("should refuse the whole macro, acknowledgement included, when the document may not be attached to that patient")
+    void shouldFailMacroWithoutAcknowledging_whenDocumentAttachmentRefused() throws Exception {
+        var request = new MockHttpServletRequest("POST", "/oscarMDS/RunMacro");
+        request.setParameter("segmentID", "456");
+        request.setParameter("labType", "DOC");
+        request.setParameter("demographicNo", "1");
+        createAndRegisterMock(SecurityInfoManager.class);
+        createAndRegisterMock(PatientLabRoutingDao.class);
+        createAndRegisterMock(ProviderLabRoutingDao.class);
+        createAndRegisterMock(QueueDocumentLinkDao.class);
+        var ticklers = createAndRegisterMock(TicklerDao.class);
+        var links = createAndRegisterMock(TicklerAttachmentService.class);
+        var info = mock(LoggedInInfo.class);
+        when(info.getLoggedInProviderNo()).thenReturn("999998");
+        doThrow(new SecurityException("doc attachment does not belong to the patient"))
+                .when(links).requireAttachable(eq(info), eq(1), argThat(map -> map.containsKey(DocumentType.DOC)));
+        var macro = new ObjectMapper().createObjectNode().put("name", "fixture");
+        macro.putObject("acknowledge").put("comment", "reviewed");
+        macro.putObject("tickler").put("taskAssignedTo", "999998").put("message", "fixture tickler");
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var session = mockStatic(LoggedInInfo.class);
+             var routing = mockStatic(CommonLabResultData.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            session.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
+            var outcome = new ReportMacro2Action().runMacroOutcome(macro, request);
+            assertThat(outcome.success()).isFalse();
+            assertThat(outcome.acknowledged()).isFalse();
+            routing.verify(() -> CommonLabResultData.acknowledgeReport(anyInt(), anyString(), any(), any(), anyBoolean(), any()), never());
+            verify(ticklers, never()).persist(any(Tickler.class));
+            verify(links, never()).syncAttachments(any(), any(), any());
+        }
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("should fail a document tickler macro before any side effect when the document id is missing")
+    void shouldFailMacro_whenDocumentIdMissing() throws Exception {
+        var request = new MockHttpServletRequest("POST", "/oscarMDS/RunMacro");
+        request.setParameter("labType", "DOC");
+        request.setParameter("demographicNo", "1");
+        createAndRegisterMock(SecurityInfoManager.class);
+        var ticklers = createAndRegisterMock(TicklerDao.class);
+        var links = createAndRegisterMock(TicklerAttachmentService.class);
+        var info = mock(LoggedInInfo.class);
+        when(info.getLoggedInProviderNo()).thenReturn("999998");
+        var macro = new ObjectMapper().createObjectNode().put("name", "fixture");
+        macro.putObject("tickler").put("taskAssignedTo", "999998").put("message", "fixture tickler");
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var session = mockStatic(LoggedInInfo.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            session.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
+            var outcome = new ReportMacro2Action().runMacroOutcome(macro, request);
+            assertThat(outcome.success()).isFalse();
+            verify(ticklers, never()).persist(any(Tickler.class));
+            verify(links, never()).requireAttachable(any(), any(), any());
+            verify(links, never()).syncAttachments(any(), any(), any());
         }
     }
 }

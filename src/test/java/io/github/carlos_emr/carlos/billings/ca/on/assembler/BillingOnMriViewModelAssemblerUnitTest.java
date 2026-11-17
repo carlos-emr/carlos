@@ -270,4 +270,21 @@ class BillingOnMriViewModelAssemblerUnitTest {
         return activity;
     }
 
+
+    @Test
+    @DisplayName("should filter by the team list when both site and team privacy are granted")
+    void shouldPreferTeamList_whenSiteAndTeamPrivacyAreBothGranted() {
+        // OSCAR 19 billingONMRI.jsp assigned the site list and then the team list, so
+        // the team list won; the simulation page applies the same precedence.
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_site_access_privacy"), eq("r"), org.mockito.ArgumentMatchers.isNull()))
+                .thenReturn(true);
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_team_access_privacy"), eq("r"), org.mockito.ArgumentMatchers.isNull()))
+                .thenReturn(true);
+        when(providerDataDao.findByProviderTeam("999998")).thenReturn(List.of());
+
+        assembler().assemble(requestForYear("2026"), loggedInInfo);
+
+        org.mockito.Mockito.verify(providerDataDao).findByProviderTeam("999998");
+        org.mockito.Mockito.verify(providerDataDao, org.mockito.Mockito.never()).findByProviderSite(anyString());
+    }
 }

@@ -332,14 +332,25 @@ public class OscarJobService extends AbstractServiceImpl {
         return getJob(jobId);
     }
 
+    /**
+     * One cron field from the dialog's chooser radio and multi-select. Only an explicit
+     * {@code "0"} (every) or {@code "1"} (chosen values) is accepted; a missing or unknown
+     * chooser returns {@code null} so the caller rejects the request rather than widening
+     * that field to {@code "*"} and overwriting the stored schedule.
+     */
     private String generateCronTabItem(String chooser, List<String> values) {
-        if (chooser.equals("1")) {
-            if (values.isEmpty()) {
+        if ("0".equals(chooser)) {
+            return "*";
+        }
+        if ("1".equals(chooser)) {
+            // "Choose" with nothing selected posts no values at all (the multi-select is
+            // omitted from the form), so params.get(...) is null rather than empty.
+            if (values == null || values.isEmpty()) {
                 return null;
             }
             return getIdsAsStringList(values);
         }
-        return "*";
+        return null;
     }
 
     @GET

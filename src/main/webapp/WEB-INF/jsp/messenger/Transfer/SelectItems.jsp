@@ -47,15 +47,16 @@
  *
  * Security Requirements:
  * - Requires "_msg" object write permissions via security taglib
+ * - Requires patient-specific read access to "_demographic", "_rx", "_allergy" and "_eChart"
+ * - Requires access to the selected patient's record
  * - User session validation and role-based access control
  *
  * Request Parameters:
- * - val1: Provider number for document context
- * - val2: Demographic number for patient context
+ * - val2: Positive Integer demographic number; invalid values return HTTP 400
  *
  * Processing Flow:
- * 1. Creates new MsgSessionBean with provider context
- * 2. Generates XML document structure for patient using MsgGenerate
+ * 1. Validates val2 and checks the patient's module and record read permissions
+ * 2. Generates a request-owned XML document structure for that patient using MsgGenerate
  * 3. Renders hierarchical tree interface using JSP scriptlet methods
  * 4. Allows user selection of items for transfer
  * 5. Submits selected items to PostItems.jsp for processing
@@ -78,7 +79,7 @@
  * - Organizes data in hierarchical structure for easy selection
  *
  * Error Handling:
- * - Redirects to error.html for XML generation failures
+ * - Returns an error without rendering a partial document when generation fails
  * - Validates demographic number format
  * - Handles missing or invalid patient data gracefully
  *
@@ -87,6 +88,7 @@
 --%>
 
 <%@ page import=" java.util.*, org.w3c.dom.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode,io.github.carlos_emr.carlos.utility.PatientRecordAccess,io.github.carlos_emr.carlos.utility.LoggedInInfo,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page
         import="io.github.carlos_emr.carlos.messenger.docxfer.send.*,io.github.carlos_emr.carlos.messenger.docxfer.util.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -109,19 +111,23 @@
 
 
 <%
-    // Extract request parameters and setup message session
     String demoNo = request.getParameter("val2");
-    String prov = request.getParameter("val1");
+    int selectedPatient = io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(demoNo);
+    if (selectedPatient <= 0) {
+        response.sendError(400);
+        return;
+    }
+    demoNo = Integer.toString(selectedPatient);
+    LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
+    SecurityInfoManager access = SpringUtils.getBean(SecurityInfoManager.class);
+    // This export includes demographics, prescriptions, allergies and the legacy chart.
+    for (String object : new String[]{"_demographic", "_rx", "_allergy", "_eChart"}) {
+        PatientRecordAccess.require(access, login, demoNo, object, "r");
+    }
 
-    // Create and configure message session bean
-    MsgSessionBean bean = new MsgSessionBean();
-    bean.setProviderNo(prov);
-    bean.estUserName();
-    request.getSession().setAttribute("msgSessionBean", bean);
 %>
 
 
-<link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounterStyles.css">
 
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
@@ -129,6 +135,7 @@
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.send.MsgGenerate" %>
 <html>
 <head>
+    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/messenger/encounterStyles.css">
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
 
@@ -253,11 +260,13 @@
             xmlDoc = gen.getDocument(demographicNo);
         } catch (Exception ex) {
             MiscUtils.getLogger().error("Error generating document XML", ex);
-            response.sendRedirect(request.getContextPath() + "/messenger/Transfer/error.html");
+            response.sendError(500, "Unable to prepare the document transfer.");
+            return;
         }
 
         if (xmlDoc == null) {
-            response.sendRedirect(request.getContextPath() + "/messenger/Transfer/error.html");
+            response.sendError(500, "Unable to prepare the document transfer.");
+            return;
         }
 
         Element root = xmlDoc.getDocumentElement();
@@ -299,7 +308,7 @@
                 throws jakarta.servlet.jsp.JspException, java.io.IOException {
             NodeList lst = tbl.getChildNodes();
 
-            out.print(spanStart + tbl.getAttribute("name") + spanEnd);
+            out.print(spanStart + SafeEncode.forHtml(tbl.getAttribute("name")) + spanEnd);
             out.print(tblStart);
 
             for (int i = 0; i < lst.getLength(); i++) {
@@ -315,9 +324,9 @@
             out.print(spanStart);
             if (!item.getAttribute("removable").equalsIgnoreCase("false")) {
                 String sName = "item" + item.getAttribute("itemId");
-                out.print("<input type=checkbox name='" + sName + "' onclick='javascript:chkClick();'/>");
+                out.print("<input type=checkbox name='" + SafeEncode.forHtmlAttribute(sName) + "' onclick='javascript:chkClick();'/>");
             }
-            out.print(item.getAttribute("name") + ": " + item.getAttribute("value") + spanEnd);
+            out.print(SafeEncode.forHtml(item.getAttribute("name")) + ": " + SafeEncode.forHtml(item.getAttribute("value")) + spanEnd);
             out.print(tblStartContent);
 
             NodeList lst = item.getChildNodes();
@@ -339,9 +348,9 @@
                     Element fld = (Element) lst.item(i);
                     if (fld.getTagName().equals("fld")) {
                         out.print("<tr><td style='font-weight:bold'>");
-                        out.print(fld.getAttribute("name") + ": ");
+                        out.print(SafeEncode.forHtml(fld.getAttribute("name")) + ": ");
                         out.print("</td><td>");
-                        out.print(fld.getAttribute("value"));
+                        out.print(SafeEncode.forHtml(fld.getAttribute("value")));
                         out.print("</td></tr>");
                     }
                 }
@@ -362,8 +371,8 @@
                     <td>Document Transfer</td>
                     <td></td>
                     <td style="text-align: right"><a
-                            href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')">About</a> | <a
-                            href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')">License</a></td>
+                            href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener">About</a> | <a
+                            href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener">License</a></td>
                 </tr>
             </table>
         </td>

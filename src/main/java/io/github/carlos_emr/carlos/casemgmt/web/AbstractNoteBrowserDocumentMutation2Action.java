@@ -28,11 +28,16 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/** Applies the stored document's existing write policy and its actual chart association before mutation. */
 abstract class AbstractNoteBrowserDocumentMutation2Action extends ActionSupport {
 
     private static final String METHOD_NOT_ALLOWED = "methodNotAllowed";
@@ -42,6 +47,7 @@ abstract class AbstractNoteBrowserDocumentMutation2Action extends ActionSupport 
     private String view;
     private String viewstatus;
     private String sortorder;
+    private String chartContext;
     private String mutationErrorMessage = "";
 
     @Override
@@ -59,6 +65,8 @@ abstract class AbstractNoteBrowserDocumentMutation2Action extends ActionSupport 
             return METHOD_NOT_ALLOWED;
         }
 
+        // Validate before any document change and preserve this window across the redirect.
+        chartContext = ChartProgramContext.token(request);
         mutationErrorMessage = "";
         if (!hasMutationParameter()) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidParameterMessage());
@@ -67,6 +75,25 @@ abstract class AbstractNoteBrowserDocumentMutation2Action extends ActionSupport 
         if (!hasValidMutationParameters()) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidParameterMessage());
             return NONE;
+        }
+        try {
+            demographicNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid note browser patient");
+            return NONE;
+        }
+        String document = Integer.toString(Integer.parseInt(selectedDocumentNo()));
+        IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(sim, loggedInInfo, document);
+        int patient = Integer.parseInt(demographicNo);
+        boolean linkedToChart = SpringUtils.getBean(CtlDocumentDao.class)
+                .findByDocumentNoAndModule(Integer.parseInt(document), "demographic").stream()
+                .anyMatch(link -> link != null && link.getId() != null
+                        && "demographic".equals(link.getId().getModule())
+                        && Integer.valueOf(patient).equals(link.getId().getModuleId()));
+        if (!linkedToChart) throw new SecurityException("Document is not linked to this patient");
+        if (targetQueueId() != null) {
+            IncomingDocumentCapacityResponse.requireQueueAccess(sim, loggedInInfo,
+                    Integer.toString(Integer.parseInt(targetQueueId())));
         }
         try {
             mutateDocument();
@@ -86,7 +113,11 @@ abstract class AbstractNoteBrowserDocumentMutation2Action extends ActionSupport 
     protected abstract boolean hasMutationParameter();
     protected abstract boolean hasValidMutationParameters();
     protected abstract String invalidParameterMessage();
+    protected abstract String selectedDocumentNo();
     protected abstract void mutateDocument() throws DocumentMutationException;
+
+    /** The refile destination, or null for operations that leave the document in place. */
+    protected String targetQueueId() { return null; }
 
     protected boolean handlesMutationException() {
         return false;
@@ -97,16 +128,9 @@ abstract class AbstractNoteBrowserDocumentMutation2Action extends ActionSupport 
     }
 
     protected static boolean isPositiveInteger(String s) {
-        if (s == null || s.isEmpty()) return false;
-        boolean hasNonZeroDigit = false;
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (c < '0' || c > '9') return false;
-            if (c != '0') {
-                hasNonZeroDigit = true;
-            }
-        }
-        return hasNonZeroDigit;
+        if (s == null || !s.matches("[0-9]{1,10}")) return false;
+        try { return Integer.parseInt(s) > 0; }
+        catch (NumberFormatException invalidId) { return false; }
     }
 
     public String getDemographicNo() { return demographicNo; }
@@ -118,6 +142,7 @@ abstract class AbstractNoteBrowserDocumentMutation2Action extends ActionSupport 
     public String getSortorder() { return sortorder; }
     @StrutsParameter public void setSortorder(String v) { this.sortorder = v; }
     public String getMutationErrorMessage() { return mutationErrorMessage; }
+    public String getChartContext() { return chartContext; }
 
     protected static class DocumentMutationException extends Exception {
         private static final long serialVersionUID = 1L;

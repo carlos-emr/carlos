@@ -72,9 +72,19 @@
     - ReText: Quoted text for replies
 
     Session Attributes:
-    - msgSessionBean: Message composition session data
+    - msgSessionBean: the sender's name (attachments are no longer kept on it)
     - userrole: Current user role
     - user: Current username
+
+    Attachments (issue #4673):
+    - Each render carries its own attachmentKey in the form, in the attachment chooser it opens
+      and in its Clear link; the chooser stages chart PDFs under that key with the patient they
+      were rendered for (MsgAttachmentStaging), and the send takes exactly that entry. A failed
+      send hands the key back as a request attribute so the page keeps its attachments. A reply
+      or forward, and a message view's Compose link, hand over a new key that starts with a copy
+      of the chart items saved from that message's Attachment window. Any other render gets a new
+      random key. Another compose window, opened from the same message or not, for the same or
+      another patient, never sees this one's attachments.
 
     @since 2002-11-08
 --%>
@@ -93,6 +103,9 @@
 
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MessengerSubmissionGuard" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachmentStaging" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MessengerGroupManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="java.util.Map" %>
@@ -159,6 +172,39 @@
 
     // Retrieve the message session bean for maintaining state
     MsgSessionBean bean = (MsgSessionBean) pageContext.findAttribute("bean");
+    String submission = (String) request.getAttribute(MessengerSubmissionGuard.PARAMETER);
+    if (submission == null) {
+        submission = MessengerSubmissionGuard.issue(session,
+                LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
+    }
+    request.setAttribute(MessengerSubmissionGuard.PARAMETER, submission);
+
+    // This compose window's own key: its form, its attachment chooser and its Clear link carry it,
+    // and the send takes exactly the attachments staged under it (issue #4673). A send that failed
+    // hands its key back so the attachments stay with this window, and a reply, forward or a
+    // message view's Compose link hands over a new key holding a copy of the items saved for that
+    // message; every other render starts a new message with a new key.
+    String attachmentKey = (String) request.getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE);
+    if (!MsgAttachmentStaging.isKey(attachmentKey)) {
+        attachmentKey = request.getParameter(MsgAttachmentStaging.KEY_PARAMETER);
+    }
+    if (!MsgAttachmentStaging.isKey(attachmentKey)) attachmentKey = MsgAttachmentStaging.newKey();
+    MsgAttachmentStaging.Staged stagedAttachments = MsgAttachmentStaging.peek(session, attachmentKey);
+
+    // Reply/forward first arrive by POST. Reload must name the source and read-only
+    // operation as well as the compose key, so the action can reconstruct the quote.
+    String reloadMessageNo = request.getParameter("messageNo");
+    String reloadOperation = null;
+    int reloadMessageId = io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(reloadMessageNo);
+    if (reloadMessageId > 0) {
+        reloadMessageNo = Integer.toString(reloadMessageId);
+        for (String operation : new String[]{"reply", "replyAll", "forward"}) {
+            if (request.getParameter(operation) != null) {
+                reloadOperation = operation;
+                break;
+            }
+        }
+    }
 
     // Handle patient demographic association if message is patient-related
     String demographic_no = (String) request.getAttribute("demographic_no");
@@ -188,6 +234,19 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <script>
+        // A reload belongs to this compose window and must keep its staged attachments.
+        var composeUrl = new URL(window.location.href);
+        composeUrl.searchParams.set('attachmentKey', '<%= SafeEncode.forJavaScript(attachmentKey) %>');
+        <% if (reloadOperation != null) { %>
+        composeUrl.searchParams.set('messageNo', '<%= SafeEncode.forJavaScript(reloadMessageNo) %>');
+        <% if (request.getAttribute("chartPatientNo") != null) { %>
+        composeUrl.searchParams.set('chartPatientNo', '<%= SafeEncode.forJavaScript((String) request.getAttribute("chartPatientNo")) %>');
+        <% } %>
+        composeUrl.searchParams.set('<%= SafeEncode.forJavaScript(reloadOperation) %>', '1');
+        <% } %>
+        window.history.replaceState(window.history.state, '', composeUrl);
+    </script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="messenger.CreateMessage.title"/></title>
     <style>
@@ -211,6 +270,8 @@
     <!-- js -->
     <script src="<%=request.getContextPath() %>/library/dompurify/purify.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/toastui/toastui-editor-all.min.js"></script>
+    <script src="<%=request.getContextPath() %>/messenger/messenger-markdown.js"></script>
+    <script src="<%=request.getContextPath() %>/messenger/messenger-submission.js"></script>
     <script src="<%= request.getContextPath() %>/messenger/messenger-common.js"></script>
     <c:set var="langCode"><fmt:message key="global.i18nLanguagecode"/></c:set>
     <c:if test="${langCode != 'en-GB'}">
@@ -327,30 +388,16 @@ function validateFields() {
 		if (!validateFields()) {
 			return;
 		}
-		var theLink = document.referrer;
-		if (!theLink || theLink.indexOf('?') === -1) {
+		if (!window.carlosMessengerSubmission.begin()) return;
+		// The packaged front door deliberately sends Referrer-Policy: no-referrer.
+		// HandleMessages supplies the original ID independently of browser headers.
+		var messageNo = document.getElementById('sendArchive').dataset.messageId;
+		if (!/^[1-9]\d*$/.test(messageNo || '')) {
 			document.forms[0].submit();
 			return;
 		}
-
 		var oRequest = new XMLHttpRequest();
-		var theLinkComponents = theLink.split('?');
-		var theQueryComponents = theLinkComponents[1].split('&');
-
-		var messageNo = '';
-		for (var index = 0; index < theQueryComponents.length; ++index) {
-			var theKeyValue = theQueryComponents[index].split('=');
-			if (theKeyValue[0] == 'messageID') {
-				messageNo = theKeyValue[1];
-			}
-		}
-
-		if (!messageNo) {
-			document.forms[0].submit();
-			return;
-		}
-
-		var theArchiveLink = theLinkComponents[0].substring(0, theLinkComponents[0].lastIndexOf('/')) + '/DisplayMessages';
+		var theArchiveLink = '${pageContext.request.contextPath}/messenger/DisplayMessages';
 
 		oRequest.open('POST', theArchiveLink, true);
 		oRequest.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
@@ -379,13 +426,17 @@ function validateFields() {
 	    var vheight = 700;
 	    var vwidth = 900;
 	    var windowprops = "height="+vheight+",width="+vwidth+",location=0,scrollbars=1,menubar=0,toolbar=1,resizable=1,screenX=0,screenY=0,top=0,left=0";
-	    var page = '<%= request.getContextPath() %>/messenger/attachmentFrameset?demographic_no=' +demographic;
+	    var page = '<%= request.getContextPath() %>/messenger/attachmentFrameset?demographic_no=' + encodeURIComponent(demographic)
+	        + '&attachmentKey=<%= SafeEncode.forJavaScript(SafeEncode.forUriComponent(attachmentKey)) %>';
 
 	    if ( demographic == "" || !demographic || demographic == "null") {
 	        showAlert(msgSelectDemographic, 'warning');
 	    }
 	    else {
-	        var popUp=window.open(page, "msgAttachDemo", windowprops);
+	        // A window of this compose window's own: under one shared name, a second compose
+	        // window's chooser took over the first one's, whose opener (the window it refreshes once
+	        // the PDFs are attached) stayed the first compose window.
+	        var popUp=window.open(page, "msgAttachDemo_<%= SafeEncode.forJavaScript(attachmentKey) %>", windowprops);
 	        if (popUp != null) {
 	            if (popUp.opener == null) {
 	              popUp.opener = self;
@@ -412,7 +463,7 @@ function validateFields() {
 
         document.getElementsByName("message")[0].setAttribute("style", "display:none;");
         if (typeof editor !== 'undefined') {
-            editor.setMarkdown("<br>" + document.getElementsByName("message")[0].value);
+            editor.setMarkdown((submissionerror ? "" : "<br>") + document.getElementsByName("message")[0].value);
             editor.moveCursorToStart();
         }
 
@@ -467,7 +518,7 @@ function validateFields() {
 						    <a class="btn btn-primary" href="<%=request.getContextPath()%>/messenger/DisplayMessages<%=scheduleNavFirstQuerySuffix%>">
 								<fmt:message key="messenger.ViewMessage.btnInbox" />
 							</a>
-                            <a class="btn btn-outline-secondary" href="<%=request.getContextPath()%>/messenger/ClearMessage<%=scheduleNavFirstQuerySuffix%>">
+                            <a class="btn btn-outline-secondary" href="<%=request.getContextPath()%>/messenger/ClearMessage?attachmentKey=<%= SafeEncode.forHtmlAttribute(SafeEncode.forUriComponent(attachmentKey)) %><%=scheduleNavQuerySuffix%>">
 								<fmt:message key="messenger.CreateMessage.btnClear" />
 							</a>
                             <% if (showMessengerExitButton) { %>
@@ -483,10 +534,13 @@ function validateFields() {
 
 			<tr>
 				<td><!-- colspan -->
-				<form action="${pageContext.request.contextPath}/messenger/CreateMessage" method="post" onsubmit="return validateFields()">
+				<form id="composeMessage" action="${pageContext.request.contextPath}/messenger/CreateMessage" method="post" onsubmit="return validateFields()">
+                    <input type="hidden" name="carlosMessageSubmission" value="${carlos:forHtmlAttribute(requestScope.carlosMessageSubmission)}">
                     <% if (showScheduleNav) { %>
                     <input type="hidden" name="scheduleNav" value="1">
                     <% } %>
+                    <input type="hidden" name="attachmentKey" value="<%= SafeEncode.forHtmlAttribute(attachmentKey) %>">
+                    <input type="hidden" name="archiveMessageId" value="${carlos:forHtmlAttribute(archiveMessageId)}">
 				<table class="card card-body bg-body-tertiary" style="width:100%">
 						<tr class="subheader">
 							<th><fmt:message key="messenger.CreateMessage.msgRecipients" /></th>
@@ -525,7 +579,7 @@ function validateFields() {
 												<c:forEach items="${ group.value }" var="member">
 													<div class="group_member_contact" style="white-space: nowrap;">
 														<input type="checkbox" name="provider" class="member_group_${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }"
-															id="${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" value="${ fn:escapeXml(member.id.compositeId) }" >
+															id="${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" value="${ fn:escapeXml(member.id.compositeId) }" ${not empty rejectedRecipientIds and rejectedRecipientIds.contains(member.id.compositeId) ? 'checked' : ''} >
 
 														<label for="${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" >
 															${carlos:forHtml(member.lastName)}, ${carlos:forHtml(member.firstName)}
@@ -549,7 +603,7 @@ function validateFields() {
 											<c:forEach items="${ localMembers }" var="member">
 
 												<%-- Nested forEach checks replyList to pre-select recipients for replies --%>
-												<c:set var="providerChecked" value="false" />
+												<c:set var="providerChecked" value="${not empty rejectedRecipientIds and rejectedRecipientIds.contains(member.id.compositeId)}" />
 												<c:forEach var="replyId" items="${ replyList }">
 													<c:if test="${ replyId.compositeId eq member.id.compositeId }">
 														<c:set var="providerChecked" value="true" />
@@ -585,21 +639,20 @@ function validateFields() {
 									<td><button type="submit" class="btn btn-primary" onclick="writeToMessage();"
 										title="<fmt:message key="messenger.CreateMessage.btnSendMessage"/>"><i class="fa-solid fa-share-from-square"></i>&nbsp;<fmt:message key="messenger.CreateMessage.btnSendMessage"/></button>
 									</td>
-									<td><button type="button" class="btn btn-secondary" id="sendArchive" onclick="writeToMessage(); XMLHttpRequestSendnArch();"
+									<td><button type="button" class="btn btn-secondary" id="sendArchive" data-message-id="${carlos:forHtmlAttribute(archiveMessageId)}" onclick="writeToMessage(); XMLHttpRequestSendnArch();"
 										title="<fmt:message key="messenger.CreateMessage.btnSendnArchiveMessage"/>"><i class="fa-solid fa-envelope-circle-check"></i>&nbsp;<fmt:message key="messenger.CreateMessage.btnSendnArchiveMessage"/></button>
 									</td>
 								</tr>
 							</table>
-					<%
-                       String att = bean.getAttachment();
-                       String pdfAtt = bean.getPDFAttachment();
-                       if (att != null || pdfAtt != null){
-                    %>
+					<%-- Only what this window attached (its key), never another compose window's. --%>
+					<% if (stagedAttachments != null && !stagedAttachments.isEmpty()) { %>
 							<br>
 							<fmt:message key="messenger.CreateMessage.msgAttachments" />
 							<%
-							bean.setSubject(null);
-							bean.setMessage(null);
+							if (request.getAttribute("createMessageError") == null) {
+								bean.setSubject(null);
+								bean.setMessage(null);
+							}
 						}%>
 					<%-- Client-side indicator shown when attachment popup closes (onAttachmentAdded callback).
 					     Separate from the server-side block above so it can appear even when
@@ -679,6 +732,7 @@ function validateFields() {
             el: document.getElementById('messagediv'),
             initialEditType: 'wysiwyg',
             usageStatistics: false,
+            plugins: [carlosMessengerMarkdown],
             height: '500px',
             language: '<fmt:message key="global.language.code" />',
             customHTMLSanitizer: function(html) {

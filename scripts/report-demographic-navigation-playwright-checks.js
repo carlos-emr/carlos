@@ -55,9 +55,11 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING } = require('./lib/playwright-harness');
 const path = require('path');
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
@@ -587,10 +589,15 @@ async function checkBackButtonDirectEntryFallback(context) {
   await page.close();
 }
 
+// Issue #3600: a finally does not run when the process is killed, which would leave
+// the saved-query row and the cleartext MySQL password file behind. Idempotent.
+const signalHandlers = installCleanupSignalHandlers(cleanupSavedQueryRow);
+
 (async () => {
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    ...NO_PLAYWRIGHT_SIGNAL_HANDLING,
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
@@ -603,7 +610,7 @@ async function checkBackButtonDirectEntryFallback(context) {
     // still gets full TLS validation, so a spoofed/invalid cert can't silently
     // intercept the credentialed login this script performs.
     const context = await browser.newContext({
-      ignoreHTTPSErrors: isLocalHost(baseUrl.hostname),
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
       viewport: { width: 1440, height: 1000 },
     });
     await login(context);
@@ -624,6 +631,8 @@ async function checkBackButtonDirectEntryFallback(context) {
   } finally {
     cleanupSavedQueryRow();
     await browser.close();
+    // Last, so a signal arriving during any step above still reaches the handler.
+    signalHandlers.dispose();
   }
 })().catch((error) => {
   console.error('FAIL demographic report navigation Playwright check');

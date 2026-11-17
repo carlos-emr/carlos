@@ -45,6 +45,7 @@ import java.util.Locale;
  * @param expiresAt server-side expiry, seven days from issuance
  * @param acceptedAccountId portal account id once the patient activates, otherwise {@code null}
  * @param supersedesInviteId the invite this one replaced, otherwise {@code null}
+ * @param deliveryOperationId exact durable delivery operation, otherwise {@code null}
  * @since 2026-08-19
  */
 public record PatientPortalInviteDto(
@@ -59,7 +60,16 @@ public record PatientPortalInviteDto(
         String lastIssuedBy,
         Instant expiresAt,
         Long acceptedAccountId,
-        Long supersedesInviteId) {
+        Long supersedesInviteId,
+        String deliveryOperationId) {
+
+    /** For invitations without durable delivery metadata. */
+    public PatientPortalInviteDto(long id, String clinicId, int demographicNo, String status,
+            String createdById, String createdBy, int issuedCount, Instant lastIssuedAt, String lastIssuedBy,
+            Instant expiresAt, Long acceptedAccountId, Long supersedesInviteId) {
+        this(id, clinicId, demographicNo, status, createdById, createdBy, issuedCount, lastIssuedAt,
+                lastIssuedBy, expiresAt, acceptedAccountId, supersedesInviteId, null);
+    }
 
     static PatientPortalInviteDto fromJson(JsonNode node) {
         return new PatientPortalInviteDto(
@@ -74,7 +84,8 @@ public record PatientPortalInviteDto(
                 PortalJson.requiredText(node, "last_issued_by"),
                 PortalJson.requiredTimestamp(node, "expires_at"),
                 PortalJson.nullablePositiveLong(node, "accepted_account_id"),
-                PortalJson.nullablePositiveLong(node, "supersedes_invite_id"));
+                PortalJson.nullablePositiveLong(node, "supersedes_invite_id"),
+                node.has("delivery_operation_id") ? PortalJson.nullableText(node, "delivery_operation_id") : null);
     }
 
     private static final String DESCRIPTION =

@@ -78,13 +78,22 @@ public class ManageLetters {
         reportLettersDao.persist(r);
     }
 
-    //method to archive an existing report
-    public void archiveReport(String id) {
-        ReportLetters r = reportLettersDao.find(Integer.parseInt(id));
-        if (r != null) {
-            r.setArchive("1");
-            reportLettersDao.merge(r);
+    /**
+     * Archives a letter template: Manage Letters and Generate Letters stop listing it, and the row
+     * and its file are kept.
+     *
+     * @param id the report_letters id
+     * @return true when the template exists and was archived (again, if it already was); false
+     *         when no template has that id
+     */
+    public boolean archiveReport(int id) {
+        ReportLetters r = reportLettersDao.find(id);
+        if (r == null) {
+            return false;
         }
+        r.setArchive("1");
+        reportLettersDao.merge(r);
+        return true;
     }
 
     //method getReport for id

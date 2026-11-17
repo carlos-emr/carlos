@@ -18,9 +18,18 @@
  *   HEADLESS=false
  *   KEEP_OPEN=true
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
+ *   MYSQL_HOST / MYSQL_USER / MYSQL_PASSWORD / MYSQL_DATABASE, to remove the patient the run creates
+ *
+ * The patient is named with a run marker (FAKE-PW<16 hex>), as runWorkflow()'s patients are, so the suite's residue
+ * audit finds one a run leaves behind. The run removes it again by its key with the rows the record pages write for
+ * it (lib/owned-patient: its archive, extension and custom rows, plus its admission and report row), and asserts it
+ * gone; the audit log keeps its entries. The save upper-cases the name; the database compares it without case.
  */
 
 const { chromium } = require('playwright');
+const h = require('./lib/playwright-harness');
+const { shouldIgnoreHttpsErrors } = h;
+const { newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 
 const config = {
   baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://localhost:8080/carlos'),
@@ -40,7 +49,7 @@ const config = {
 
 const stamp = process.env.SMOKE_STAMP || String(Date.now());
 const patient = {
-  lastName: `SMOKEDEM${stamp}`,
+  lastName: newOwnedMarker(),
   firstName: 'CRUD',
   updatedFirstName: 'UPDATED',
   address: '123 Smoke Test Ave',
@@ -69,7 +78,11 @@ function validateBaseUrl(rawBaseUrl) {
 
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -202,13 +215,17 @@ async function searchByName(searchPage, keyword) {
 }
 
 async function createDemographic(searchPage) {
-  const createLink = searchPage.locator('a', { hasText: /Create Demographic/i }).first();
-  if (!await createLink.count()) {
-    throw new Error('Could not find Create Demographic link after no-results search');
+  // The search landing page has a link; search results use a CSRF-protected
+  // POST form for the same action. Exercise the control on the actual page.
+  const createControl = searchPage.locator('.createNew a, .createNew button').filter({
+    hasText: /Create Demographic/i,
+  }).first();
+  if (!await createControl.count()) {
+    throw new Error('Could not find Create Demographic control after no-results search');
   }
   await Promise.all([
     searchPage.waitForLoadState('domcontentloaded').catch(() => {}),
-    createLink.click(),
+    createControl.click(),
   ]);
   await searchPage.waitForTimeout(1000);
   if (!await expectNoErrorPage(searchPage, 'open create demographic form')) return null;
@@ -279,8 +296,9 @@ async function readDemographic(searchPage, demographicNo) {
   await searchPage.waitForTimeout(1000);
   if (!await expectNoErrorPage(searchPage, 'open demographic edit/master record')) return false;
   const lastNameValue = await searchPage.locator('input[name="last_name"]').first().inputValue().catch(() => '');
-  if (lastNameValue !== patient.lastName) {
-    fail('read demographic master record', `expected last_name ${patient.lastName}, saw ${lastNameValue}`);
+  // The save stores last names upper-cased; the marker's hex is lower case.
+  if (lastNameValue !== patient.lastName.toUpperCase()) {
+    fail('read demographic master record', `expected last_name ${patient.lastName.toUpperCase()}, saw ${lastNameValue}`);
     return false;
   }
   record('OK', 'read demographic master record', `demographic_no=${demographicNo}`);
@@ -380,7 +398,33 @@ async function returnToDemographicSearch(searchPage) {
   record('OK', 'return to demographic search form', searchPage.url());
 }
 
+// Everything the record pages write for a new patient beyond the chart's own rows.
+const RECORD_ROWS = [['admission', 'client_id'], ['reportagesex', 'demographic_no']];
+
+/** Removes every patient the run created (found by its marker name) and records whether any is left. */
+function removeRunPatient(sql) {
+  const ids = sql.rows(`SELECT demographic_no FROM demographic WHERE last_name=${h.sqlString(patient.lastName)}`).map(([id]) => id);
+  for (const id of ids) removeOwnedPatient(sql, id, patient.lastName, { extra: RECORD_ROWS });
+  const left = sql.value(`SELECT COUNT(*) FROM demographic WHERE last_name=${h.sqlString(patient.lastName)}`);
+  if (left === '0') {
+    record('OK', 'remove the run patient', `${ids.length} removed`);
+  } else {
+    fail('remove the run patient', `${left} patient(s) named ${patient.lastName} are left`);
+  }
+}
+
 async function main() {
+  // Before the browser starts: without the database the run could not remove its patient.
+  const sql = h.createSqlRunner(h.readConfig().mysql);
+  try {
+    await run(sql);
+  } finally {
+    // Removes the runner's client option file, which holds the database password; also after a failed launch.
+    sql.dispose();
+  }
+}
+
+async function run(sql) {
   const launchOptions = {
     headless: config.headless,
     // Required when the bundled chromium runs as root (deb test VM / CI).
@@ -393,7 +437,7 @@ async function main() {
   const browser = await chromium.launch(launchOptions);
   // ignoreHTTPSErrors: the packaged deployment serves a self-signed certificate
   // by default, so a real install is reached over HTTPS with an untrusted CA.
-  const context = await browser.newContext({ viewport: { width: 1400, height: 1000 }, ignoreHTTPSErrors: true });
+  const context = await browser.newContext({ viewport: { width: 1400, height: 1000 }, ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
   context.setDefaultTimeout(config.timeout);
 
   context.on('page', page => {
@@ -434,7 +478,16 @@ async function main() {
       console.log('KEEP_OPEN=true, leaving browser open.');
       await new Promise(() => {});
     }
-    await browser.close();
+    try {
+      await browser.close();
+    } finally {
+      // A failed browser shutdown must not skip the patient rows this run owns.
+      try {
+        removeRunPatient(sql);
+      } catch (error) {
+        fail('remove the run patient', error.message);
+      }
+    }
   }
 
   if (findings.length) {

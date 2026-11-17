@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -33,6 +34,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.annotation.Propagation;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
@@ -60,6 +68,9 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private DrugDao drugDao;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
@@ -128,6 +139,131 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
         entityManager.persist(drug);
         entityManager.flush();
         return drug;
+    }
+
+    @Test
+    void shouldPreserveFirstDiscontinuation_andRefuseAnotherPatient() {
+        Drug drug = createAndPersist(DEMO_NO, "Owned discontinuation", "", false);
+        assertThat(drugDao.discontinueIfActive(drug.getId(), DEMO_NO_2, today, "foreign")).isFalse();
+        assertThat(drugDao.discontinueIfActive(drug.getId(), DEMO_NO, today, " doseChange ")).isTrue();
+        assertThat(drugDao.discontinueIfActive(drug.getId(), DEMO_NO, tomorrow, "allergy")).isFalse();
+        entityManager.refresh(drug);
+        assertThat(drug.isArchived()).isTrue();
+        assertThat(drug.getArchivedReason()).isEqualTo("doseChange");
+        assertThat(drug.getArchivedDate().getTime()).isEqualTo(today.getTime());
+        assertThat(drug.getLastUpdateDate().getTime()).isEqualTo(today.getTime());
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void shouldAllowOnlyOneDiscontinuation_whenTransactionsOverlap() throws Exception {
+        var transaction = new TransactionTemplate(transactionManager);
+        Integer id = transaction.execute(status -> createAndPersist(DEMO_NO, "Concurrent discontinuation", "", false).getId());
+        var firstSaved = new CountDownLatch(1);
+        var secondStarted = new CountDownLatch(1);
+        var releaseFirst = new CountDownLatch(1);
+        var workers = Executors.newFixedThreadPool(2);
+        try {
+            var first = workers.submit(() -> transaction.execute(status -> {
+                boolean changed = drugDao.discontinueIfActive(id, DEMO_NO, today, "doseChange");
+                firstSaved.countDown();
+                try {
+                    if (!releaseFirst.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Transaction wait timed out");
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(interrupted);
+                }
+                return changed;
+            }));
+            assertThat(firstSaved.await(10, TimeUnit.SECONDS)).isTrue();
+            var second = workers.submit(() -> transaction.execute(status -> {
+                secondStarted.countDown();
+                return drugDao.discontinueIfActive(id, DEMO_NO, tomorrow, "allergy");
+            }));
+            assertThat(secondStarted.await(10, TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> second.get(150, TimeUnit.MILLISECONDS))
+                    .isInstanceOf(TimeoutException.class);
+            releaseFirst.countDown();
+            assertThat(first.get(10, TimeUnit.SECONDS)).isTrue();
+            assertThat(second.get(10, TimeUnit.SECONDS)).isFalse();
+            transaction.executeWithoutResult(status -> {
+                Drug saved = entityManager.find(Drug.class, id);
+                assertThat(saved.getArchivedReason()).isEqualTo("doseChange");
+                assertThat(saved.getArchivedDate().getTime()).isEqualTo(today.getTime());
+            });
+        } finally {
+            releaseFirst.countDown();
+            workers.shutdown();
+            if (!workers.awaitTermination(15, TimeUnit.SECONDS)) workers.shutdownNow();
+            transaction.executeWithoutResult(status -> entityManager.remove(entityManager.find(Drug.class, id)));
+        }
+    }
+
+    @Test
+    @DisplayName("should require both prescription and drug ownership when loading a patient's script")
+    void shouldScopeScriptLookup_toPersistedPatientOwnership() {
+        Prescription script = new Prescription();
+        script.setDemographicId(DEMO_NO);
+        script.setProviderNo(PROVIDER_NO);
+        script.setDatePrescribed(today);
+        script.setDatePrinted(today);
+        entityManager.persist(script);
+        entityManager.flush();
+
+        Drug owned = createDrug(DEMO_NO, "Owned medication", "", false);
+        owned.setScriptNo(script.getId());
+        entityManager.persist(owned);
+        // Inconsistent historical data must not leak another patient's drug through this script.
+        Drug foreign = createDrug(DEMO_NO_2, "Foreign medication", "", false);
+        foreign.setScriptNo(script.getId());
+        entityManager.persist(foreign);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Object[]> ownedRows = drugDao.findDrugsAndPrescriptionsByScriptNumber(script.getId(), DEMO_NO);
+
+        assertThat(ownedRows).hasSize(1);
+        assertThat(((Drug) ownedRows.getFirst()[0]).getId()).isEqualTo(owned.getId());
+        assertThat(((Prescription) ownedRows.getFirst()[1]).getDemographicId()).isEqualTo(DEMO_NO);
+        // The foreign drug's own demographic cannot read a prescription belonging to DEMO_NO.
+        assertThat(drugDao.findDrugsAndPrescriptionsByScriptNumber(script.getId(), DEMO_NO_2)).isEmpty();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "UPDATE drugs SET takemin=NULL WHERE drugid=:id",
+            "UPDATE drugs SET takemax=NULL WHERE drugid=:id",
+            "UPDATE drugs SET custom_instructions=NULL WHERE drugid=:id",
+            "UPDATE drugs SET hide_cpp=NULL WHERE drugid=:id",
+            "UPDATE drugs SET start_date_unknown=NULL WHERE drugid=:id"})
+    @DisplayName("should load schema-legal null prescription fields using existing primitive defaults")
+    void shouldLoadDefaultValues_whenLegacyDrugFieldIsNull(String query) {
+        Drug stored = createAndPersist(DEMO_NO, "Legacy synthetic drug", "TEST", false);
+        // Statements are fixed literals above; the fixture identifier remains bound.
+        entityManager.createNativeQuery(query)
+                .setParameter("id", stored.getId()).executeUpdate();
+        entityManager.clear();
+        Drug loaded = drugDao.find(stored.getId());
+        assertThat(loaded.getTakeMin()).isZero();
+        assertThat(loaded.getTakeMax()).isZero();
+        assertThat(loaded.isCustomInstructions()).isFalse();
+        assertThat(loaded.getHideFromCpp()).isFalse();
+        assertThat(loaded.getStartDateUnknown()).isFalse();
+        assertThat(loaded.getSpecial()).isEqualTo("1 tab PO daily");
+        loaded.setTakeMin(0.5f);
+        loaded.setTakeMax(2.5f);
+        loaded.setCustomInstructions(true);
+        loaded.setHideFromCpp(true);
+        loaded.setStartDateUnknown(true);
+        entityManager.flush();
+        entityManager.clear();
+        Drug reloaded = drugDao.find(stored.getId());
+        assertThat(reloaded.getTakeMin()).isEqualTo(0.5f);
+        assertThat(reloaded.getTakeMax()).isEqualTo(2.5f);
+        assertThat(reloaded.isCustomInstructions()).isTrue();
+        assertThat(reloaded.getHideFromCpp()).isTrue();
+        assertThat(reloaded.getStartDateUnknown()).isTrue();
+        assertThat(reloaded.getSpecial()).isEqualTo("1 tab PO daily");
     }
 
     // ========================================================================

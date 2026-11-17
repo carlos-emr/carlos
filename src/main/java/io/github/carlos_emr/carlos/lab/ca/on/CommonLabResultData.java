@@ -30,6 +30,13 @@
 
 package io.github.carlos_emr.carlos.lab.ca.on;
 
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import io.github.carlos_emr.carlos.documentManager.data.LabAttachmentReference;
+import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
+import io.github.carlos_emr.carlos.commn.dao.ConsultResponseDocDao;
+
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
@@ -140,6 +147,16 @@ public class CommonLabResultData {
             labs.addAll(hl7Labs);
         }
 
+        if (attach && isConsultResponse && consultId != null && !consultId.isBlank()) {
+            var rows = SpringUtils.getBean(ConsultResponseDocDao.class)
+                    .findByResponseId(Integer.valueOf(consultId));
+            for (var row : rows) if ("L".equals(row.getDocType())) addUnavailableAttachment(labs, row.getLabType(), row.getDocumentNo());
+        }
+        if (attach && !isConsultResponse && consultId != null && !consultId.isBlank()) {
+            var rows = SpringUtils.getBean(ConsultDocsDao.class)
+                    .findByRequestIdDocType(Integer.valueOf(consultId), "L");
+            for (var row : rows) addUnavailableAttachment(labs, row.getLabType(), row.getDocumentNo());
+        }
         return labs;
     }
 
@@ -183,11 +200,41 @@ public class CommonLabResultData {
             labs.addAll(hl7Labs);
         }
 
+        if (attach) {
+            var rows = SpringUtils.getBean(EFormDocsDao.class)
+                    .findByFdidIdDocType(Integer.valueOf(fdid), "L");
+            for (var row : rows) addUnavailableAttachment(labs, row.getLabType(), row.getDocumentNo());
+        }
         return labs;
     }
 
 
+    private static void addUnavailableAttachment(List<LabResultData> labs, String source, int id) {
+        String key = LabAttachmentReference.stored(source, id).key();
+        if (labs.stream().anyMatch(lab -> key.equals(lab.getAttachmentKey()))) return;
+        LabResultData missing = new LabResultData(source == null
+                ? LabAttachmentReference.UNRESOLVED : source);
+        missing.labType = source == null ? LabAttachmentReference.UNRESOLVED : source;
+        missing.segmentID = String.valueOf(id);
+        missing.labPatientId = String.valueOf(id);
+        missing.label = "Lab attachment unavailable: select the lab again to confirm its source before printing";
+        missing.description = "";
+        missing.setAttachmentUnavailable(true);
+        labs.add(missing);
+    }
+
     public ArrayList<LabResultData> populateLabResultsData(LoggedInInfo loggedInInfo, String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate) {
+        return new ArrayList<>(populateLabResultsData(loggedInInfo, providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, startDate, endDate, null));
+    }
+
+    /**
+     * As above, additionally keeping only labs whose routing row changed at or after
+     * {@code acknowledgedSince}; see {@link Hl7TextInfoDao#findLabAndDocsViaMagic}. Only the paged
+     * HL7 path takes the bound, which is the only path the Inbox Hub pages through.
+     *
+     * @param acknowledgedSince inclusive lower bound on the routing row's timestamp, or null for none
+     */
+    public List<LabResultData> populateLabResultsData(LoggedInInfo loggedInInfo, String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate, Date acknowledgedSince) {
 
         ArrayList<LabResultData> labs = new ArrayList<LabResultData>();
         MDSResultsData mDSData = new MDSResultsData();
@@ -218,8 +265,8 @@ public class CommonLabResultData {
 
         if (hl7text != null && hl7text.trim().equals("yes")) {
             if (isPaged) {
-                ArrayList<LabResultData> hl7Labs = Hl7textResultsData.populateHl7ResultsData(providerNo, demographicNo, patientFirstName, patientLastName,
-                        patientHealthNumber, status, true, page, pageSize, mixLabsAndDocs, isAbnormal, startDate, endDate);
+                List<LabResultData> hl7Labs = Hl7textResultsData.populateHl7ResultsData(providerNo, demographicNo, patientFirstName, patientLastName,
+                        patientHealthNumber, status, true, page, pageSize, mixLabsAndDocs, isAbnormal, startDate, endDate, acknowledgedSince);
                 labs.addAll(hl7Labs);
             } else {
                 ArrayList<LabResultData> hl7Labs = Hl7textResultsData.populateHl7ResultsData(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, null);
@@ -424,7 +471,8 @@ public class CommonLabResultData {
      *
      * @param labNo the version the clinician acted on
      * @param providerNo acting provider (session-derived, never client-supplied)
-     * @param status status to apply to {@code labNo}; older versions are always filed as {@code F}
+     * @param status status to apply to {@code labNo}; older versions are filed as {@code F}
+     *               unless this provider has already acknowledged them
      * @param comment comment for {@code labNo}, may be null or empty
      * @param labType routing lab type, e.g. {@code HL7} or {@code DOC}
      * @param skipCommentOnUpdate true to leave an existing comment untouched
@@ -441,9 +489,9 @@ public class CommonLabResultData {
                                                           boolean skipCommentOnUpdate, String multiId) {
         // Static legacy callers cannot receive a Spring @Transactional proxy. Start an outer
         // REQUIRED transaction explicitly so all routing/archive DAO calls join one unit.
-        org.springframework.transaction.support.TransactionTemplate transaction =
-                new org.springframework.transaction.support.TransactionTemplate(
-                        SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        TransactionTemplate transaction =
+                new TransactionTemplate(
+                        SpringUtils.getBean(PlatformTransactionManager.class));
         // MariaDB 11.8 enables snapshot isolation: a REPEATABLE_READ snapshot taken
         // while resolving versions can reject rows committed before our lock is acquired.
         // Report locks serialize writers; each subsequent read must see their committed rows.
@@ -488,7 +536,9 @@ public class CommonLabResultData {
             if (version == labNo) {
                 updateReportStatus(labNo, providerNo, status, comment, labType, skipCommentOnUpdate);
             } else {
-                updateReportStatus(version, providerNo, 'F', "", labType);
+                // The chain locks are held by this transaction. Preserve each acknowledged
+                // routing row's audit data, including when duplicate routes have mixed states.
+                updateReportStatusInTransaction(version, providerNo, 'F', "", labType, false, true);
             }
         }
         return clearedFromNew;
@@ -513,7 +563,7 @@ public class CommonLabResultData {
      */
     static List<Integer> olderVersionsOf(int labNo, String labType, String multiId) {
         String chain = labType == null ? null
-                : new CommonLabResultData().getMatchingLabs(String.valueOf(labNo), labType);
+                : new CommonLabResultData().getMatchingLabsForWrite(String.valueOf(labNo), labType);
         return LabVersionChain.olderThan(labNo, chain);
     }
 
@@ -524,9 +574,9 @@ public class CommonLabResultData {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean updateReportStatus(int labNo, String providerNo, char status, String comment, String labType, boolean skipCommentOnUpdate) {
-        org.springframework.transaction.support.TransactionTemplate transaction =
-                new org.springframework.transaction.support.TransactionTemplate(
-                        SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        TransactionTemplate transaction =
+                new TransactionTemplate(
+                        SpringUtils.getBean(PlatformTransactionManager.class));
         transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
         return Boolean.TRUE.equals(transaction.execute(transactionStatus -> {
             providerLabRoutingDao.lockRoutingReport(labNo);
@@ -536,6 +586,13 @@ public class CommonLabResultData {
 
     private static boolean updateReportStatusInTransaction(int labNo, String providerNo, char status,
                                                             String comment, String labType, boolean skipCommentOnUpdate) {
+        return updateReportStatusInTransaction(labNo, providerNo, status, comment, labType,
+                skipCommentOnUpdate, false);
+    }
+
+    private static boolean updateReportStatusInTransaction(int labNo, String providerNo, char status,
+                                                            String comment, String labType, boolean skipCommentOnUpdate,
+                                                            boolean preserveAcknowledged) {
         if (comment == null) {
             comment = "";
         }
@@ -546,6 +603,11 @@ public class CommonLabResultData {
         List<ProviderLabRoutingModel> providerLabRoutingModelList = providerLabRoutingDao.findRoutingForUpdate(labNo, labType, providerNo);
         if (providerLabRoutingModelList != null && !providerLabRoutingModelList.isEmpty()) {
             for (ProviderLabRoutingModel providerLabRoutingModel : providerLabRoutingModelList) {
+                // Automatic filing of an older version must not erase a prior acknowledgement.
+                // Explicit status changes to the selected report keep their existing semantics.
+                if (preserveAcknowledged && "A".equals(providerLabRoutingModel.getStatus())) {
+                    continue;
+                }
                 providerLabRoutingModel.setStatus("" + status);
 
                 //we don't want to clobber existing comments when filing labs
@@ -651,13 +713,30 @@ public class CommonLabResultData {
     }
 
     public static boolean updatePatientLabRouting(String labNo, String demographicNo, String labType) {
-        boolean result = false;
-
         try {
+            String chain = new CommonLabResultData().getMatchingLabsForWrite(labNo, labType);
+            List<Integer> versions = java.util.Arrays.stream(chain.split(","))
+                    .map(String::trim).map(Integer::valueOf).distinct().toList();
+            return updatePatientLabRouting(versions, demographicNo, labType);
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Could not resolve lab versions for patient matching", e);
+            return false;
+        }
+    }
 
-            // update pateintLabRouting for labs with the same accession number
-            CommonLabResultData data = new CommonLabResultData();
-            String[] labArray = data.getMatchingLabs(labNo, labType).split(",");
+    /**
+     * Saves the already resolved version chain without querying a different chain halfway through.
+     * @param versions source-validated versions in clinical order, locked by the caller
+     * @param demographicNo target patient identifier
+     * @param labType source type
+     * @return false on failure; the caller must roll back its surrounding transaction
+     */
+    public static boolean updatePatientLabRouting(List<Integer> versions, String demographicNo, String labType) {
+        try {
+            if (versions == null || versions.isEmpty() || versions.stream().anyMatch(id -> id == null || id <= 0)) {
+                return false;
+            }
+            String[] labArray = versions.stream().map(String::valueOf).toArray(String[]::new);
             for (int i = 0; i < labArray.length; i++) {
 
                 // delete old entries
@@ -672,6 +751,26 @@ public class CommonLabResultData {
                 plr.setDemographicNo(Integer.parseInt(demographicNo));
                 plr.setLabType(labType);
                 patientLabRoutingDao.persist(plr);
+
+                if ("BCP".equals(labType)) {
+                    var pidDao = SpringUtils.getBean(io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7PidDao.class);
+                    var linkDao = SpringUtils.getBean(io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7LinkDao.class);
+                    for (var pid : pidDao.findByMessageId(Integer.parseInt(labArray[i]))) {
+                        var link = linkDao.find(pid.getId());
+                        if (link == null) {
+                            link = new io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Link();
+                            link.setId(pid.getId());
+                            link.setDemographicNo(Integer.parseInt(demographicNo));
+                            link.setStatus("N");
+                            linkDao.persist(link);
+                        } else {
+                            link.setDemographicNo(Integer.parseInt(demographicNo));
+                            // Patient matching must not clear an existing clinical acknowledgement.
+                            if (link.getStatus() == null || "P".equals(link.getStatus())) link.setStatus("N");
+                            linkDao.merge(link);
+                        }
+                    }
+                }
 
                 if (CarlosProperties.getInstance().isPropertyActive("queens_resident_tagging")) {
                     DemographicCustDao demographicCustDao = SpringUtils.getBean(DemographicCustDao.class);
@@ -693,17 +792,42 @@ public class CommonLabResultData {
                 }
 
 
-                // add labs to measurements table
-                populateMeasurementsTable(labArray[i], demographicNo, labType);
-
             }
 
-            return result;
+            reconcileMatchedLabMeasurements(labArray, demographicNo, labType);
+
+            // Every version is now routed to the patient; callers act on the match only on true.
+            return true;
 
         } catch (Exception e) {
             Logger l = MiscUtils.getLogger();
-            l.error("exception in CommonLabResultData.updateLabRouting()", e);
+            l.error("exception in CommonLabResultData.updatePatientLabRouting()", e);
             return false;
+        }
+    }
+
+    /**
+     * Moves imported measurements with their source result on a corrected patient match.
+     * Re-importing every version duplicated current measurements and left the old patient's
+     * values visible. Existing values and annotations are retained; an unmatched result with
+     * no imported values imports only the final version in the existing clinical version order.
+     * Must join the patient-match transaction.
+     */
+    private static void reconcileMatchedLabMeasurements(String[] labIds, String demographicNo, String labType) {
+        if (!LabResultData.HL7TEXT.equals(labType)) return;
+        var measurements = SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.MeasurementDao.class);
+        int patient = Integer.parseInt(demographicNo);
+        boolean existing = false;
+        for (String id : labIds) {
+            for (var measurement : measurements.findByValue("lab_no", id)) {
+                existing = true;
+                if (!Integer.valueOf(patient).equals(measurement.getDemographicId())) {
+                    measurements.reassignLabPatient(measurement, id, patient);
+                }
+            }
+        }
+        if (!existing && labIds.length > 0) {
+            populateMeasurementsTable(labIds[labIds.length - 1], demographicNo, labType);
         }
     }
 
@@ -720,26 +844,28 @@ public class CommonLabResultData {
     public static boolean updateLabRouting(ArrayList<String[]> flaggedLabs, String[] providersArray) {
         try {
             CommonLabResultData data = new CommonLabResultData();
-            ProviderLabRouting plr = new ProviderLabRouting();
-            // Routing owns its Spring transaction; do not reserve an unused legacy
-            // JDBC connection for the duration of the forwarding loop.
+            record ForwardVersion(int id, String type) { }
+            List<ForwardVersion> versions = new ArrayList<>();
+            // Resolve the complete selection before any write. An uncertain CML chain cannot
+            // forward only some versions, or leave earlier selections committed on refusal.
             for (String[] flaggedLab : flaggedLabs) {
-                String lab = flaggedLab[0];
-                String labType = flaggedLab[1];
-
-                // Forward all versions of the lab.
-                String[] labIds = data.getMatchingLabs(lab, labType).split(",");
-                for (String labId : labIds) {
-                    for (String provider : providersArray) {
-                        plr.route(labId, provider, labType);
-                    }
-                    // Delete old unassigned entries after forwarding this version.
-                    for (ProviderLabRoutingModel p : providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(Integer.parseInt(labId), labType, "0")) {
-                        providerLabRoutingDao.remove(p.getId());
-                    }
+                for (String id : data.getMatchingLabsForWrite(flaggedLab[0], flaggedLab[1]).split(",")) {
+                    versions.add(new ForwardVersion(Integer.parseInt(id), flaggedLab[1]));
                 }
             }
-
+            var transaction = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
+            transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+            transaction.executeWithoutResult(status -> {
+                versions.stream().map(ForwardVersion::id).distinct().sorted().forEach(providerLabRoutingDao::lockRoutingReport);
+                ProviderLabRouting routing = new ProviderLabRouting();
+                for (ForwardVersion version : versions) {
+                    for (String provider : providersArray) routing.routeMagic(version.id(), provider, version.type());
+                    for (ProviderLabRoutingModel unassigned : providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(
+                            version.id(), version.type(), "0")) {
+                        providerLabRoutingDao.remove(unassigned.getId());
+                    }
+                }
+            });
             return true;
         } catch (Exception e) {
             Logger l = MiscUtils.getLogger();
@@ -749,56 +875,210 @@ public class CommonLabResultData {
     }
 
     public static boolean fileLabs(ArrayList<String[]> flaggedLabs, LoggedInInfo loggedInInfo) {
-
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
+        if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
-        return fileLabs(flaggedLabs, loggedInInfo.getLoggedInProviderNo());
-
+        return fileLabsChecked(flaggedLabs, loggedInInfo.getLoggedInProviderNo(), loggedInInfo);
     }
 
+    /** Legacy non-document callers cannot supply the authenticated document-access context. */
     public static boolean fileLabs(ArrayList<String[]> flaggedLabs, String provider) {
+        return fileLabsChecked(flaggedLabs, provider, null);
+    }
 
+    private static boolean fileLabsChecked(ArrayList<String[]> flaggedLabs, String provider, LoggedInInfo info) {
+        if (flaggedLabs == null || flaggedLabs.isEmpty() || provider == null || provider.isBlank()) {
+            throw new IllegalArgumentException("Missing filing selection");
+        }
+        // Validate and authorize the complete selection before any per-item commit.
+        for (String[] selection : flaggedLabs) {
+            if (selection == null || selection.length != 2 || selection[1] == null
+                    || !io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.positiveId(selection[0])
+                    || (!java.util.Arrays.asList(getLabTypes()).contains(selection[1])
+                        && !java.util.Set.of(LabResultData.HRM, LabResultData.Spire, LabResultData.ALPHAHL7, LabResultData.TRUENORTH).contains(selection[1]))) {
+                throw new IllegalArgumentException("Invalid filing selection");
+            }
+            if ("DOC".equals(selection[1])) requireDocumentFilingAccess(info, Integer.parseInt(selection[0]));
+        }
         CommonLabResultData data = new CommonLabResultData();
-        // Accumulate the real per-lab outcome and return it, instead of overwriting a single flag each
-        // iteration and returning an unconditional TRUE. Do NOT remove entries from flaggedLabs
-        // mid-iteration: the previous `if(!success) flaggedLabs.remove(i)` shifted the next lab into
-        // the current index and the `i++` then skipped it — filing N labs silently processed only
-        // some. A real acknowledgement failure now throws out of updateReportStatus (see it), so
-        // allFiled reflects genuine per-lab success.
-        boolean allFiled = true;
-        for (int i = 0; i < flaggedLabs.size(); i++) {
-
-            String[] strarr = flaggedLabs.get(i);
-            String lab = strarr[0];
-            String labType = strarr[1];
-            String labs = data.getMatchingLabs(lab, labType);
-
-            if (labs != null && !labs.equals("")) {
-                String[] labArray = labs.split(",");
-                for (int j = 0; j < labArray.length; j++) {
-                    allFiled = updateReportStatus(Integer.parseInt(labArray[j]), provider, 'F', "", labType) && allFiled;
-                    removeFromQueue(Integer.parseInt(labArray[j]));
-                }
-
-            } else {
-                allFiled = updateReportStatus(Integer.parseInt(lab), provider, 'F', "", labType) && allFiled;
-                removeFromQueue(Integer.parseInt(lab));
+        java.util.Map<String, String> cmlChains = new java.util.HashMap<>();
+        for (String[] selection : flaggedLabs) {
+            if ("CML".equals(selection[1])) {
+                cmlChains.put(selection[0], data.getMatchingLabsForMutation(selection[0], "CML"));
             }
         }
-        return allFiled;
+        boolean committed = false;
+        for (String[] selection : flaggedLabs) {
+            try {
+                if ("DOC".equals(selection[1])) {
+                    fileDocument(Integer.parseInt(selection[0]), provider, info);
+                    committed = true;
+                    continue;
+                }
+                if ("CML".equals(selection[1])) {
+                    fileCmlChain(cmlChains.get(selection[0]), provider);
+                    committed = true;
+                    continue;
+                }
+                String matching = data.getMatchingLabsForWrite(selection[0], selection[1]);
+                String[] versions = matching == null || matching.isEmpty() ? new String[]{selection[0]} : matching.split(",");
+                for (String version : versions) {
+                    // Lab numeric IDs are a separate namespace: never touch document queues here.
+                    // Existing lab status writes own their transactions. An exception can include
+                    // an uncertain commit, so it must not advertise a safely replayable batch.
+                    boolean filed;
+                    try { filed = updateReportStatus(Integer.parseInt(version), provider, 'F', "", selection[1]); }
+                    catch (RuntimeException failure) { throw new FilingFailure(failure, true); }
+                    if (!filed) throw new FilingFailure(new IllegalStateException("Lab filing was not confirmed"), true);
+                    committed = true;
+                }
+            } catch (RuntimeException failure) {
+                boolean accepted = committed || failure instanceof FilingFailure filing && filing.accepted();
+                throw new FilingFailure(failure, accepted);
+            }
+        }
+        return true;
     }
 
-
-    private static void removeFromQueue(Integer lab_no) {
-        List<QueueDocumentLink> queues = queueDocumentLinkDao.getQueueFromDocument(lab_no);
-
-        for (QueueDocumentLink queue : queues) {
-            queueDocumentLinkDao.remove(queue.getId());
+    /** All versions file together, including rollback when a later version fails. */
+    private static void fileCmlChain(String chain, String provider) {
+        List<Integer> versions = java.util.Arrays.stream(chain.split(",")).map(Integer::valueOf).distinct().sorted().toList();
+        var transaction = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
+        transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+        try {
+            transaction.executeWithoutResult(status -> {
+                versions.forEach(providerLabRoutingDao::lockRoutingReport);
+                for (Integer version : versions) {
+                    if (!updateReportStatus(version, provider, 'F', "", "CML")) {
+                        throw new IllegalStateException("Lab filing was not confirmed");
+                    }
+                }
+            });
+        } catch (RuntimeException failure) {
+            // A failed commit may have an unknown outcome. The caller must not silently retry it.
+            throw new FilingFailure(failure, true);
         }
+    }
+
+    private static void requireDocumentFilingAccess(LoggedInInfo info, int document) {
+        if (info == null) throw new SecurityException("Authenticated document filing context required");
+        io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(
+                securityInfoManager, info, String.valueOf(document));
+        for (QueueDocumentLink queue : queueDocumentLinkDao.getQueueFromDocument(document)) {
+            if (queue.getStatus() != null && !"I".equals(queue.getStatus())) {
+                io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.requireQueueAccess(
+                        securityInfoManager, info, String.valueOf(queue.getQueueId()));
+            }
+        }
+    }
+
+    private static void fileDocument(int document, String provider, LoggedInInfo info) {
+        var transaction = new org.springframework.transaction.support.TransactionTemplate(
+                SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        transaction.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+        int[] completion = {-1};
+        try {
+            transaction.executeWithoutResult(status -> {
+                completion[0] = org.springframework.transaction.support.TransactionSynchronization.STATUS_UNKNOWN;
+                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                        new org.springframework.transaction.support.TransactionSynchronization() {
+                            @Override public void afterCompletion(int result) { completion[0] = result; }
+                        });
+                Document source = SpringUtils.getBean(DocumentDao.class).findForPageMutation(document);
+                if (source == null) throw new SecurityException("Document is not available");
+                requireDocumentFilingAccess(info, document);
+                if (!updateReportStatus(document, provider, 'F', "", "DOC")) {
+                    throw new IllegalStateException("Document provider filing was not confirmed");
+                }
+                removeFromQueue(document, info);
+            });
+        } catch (RuntimeException failure) {
+            throw new FilingFailure(failure, completion[0] != -1
+                    && completion[0] != org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK);
+        }
+    }
+
+    /** Called only for an authorized DOC while its document row and transaction are held. */
+    private static void removeFromQueue(Integer document, LoggedInInfo info) {
+        List<QueueDocumentLink> queues = queueDocumentLinkDao.getQueueFromDocument(document);
+        // Authorize the exact rows about to be changed, including a queue linked
+        // by a legacy writer after the earlier authorization snapshot.
+        for (QueueDocumentLink queue : queues) {
+            if (queue.getStatus() != null && !"I".equals(queue.getStatus())) {
+                io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.requireQueueAccess(
+                        securityInfoManager, info, String.valueOf(queue.getQueueId()));
+            }
+        }
+        for (QueueDocumentLink queue : queues) {
+            if (queue.getStatus() != null && !"I".equals(queue.getStatus())) {
+                queue.setStatus("I");
+                queueDocumentLinkDao.merge(queue);
+            }
+        }
+    }
+
+    /** A batch can contain earlier committed items even if the latest item rolled back. */
+    public static final class FilingFailure extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+        private final boolean accepted;
+        public FilingFailure(RuntimeException cause, boolean accepted) { super("Filing was not confirmed", cause); this.accepted = accepted; }
+        public boolean accepted() { return accepted; }
     }
 
     // //
+
+    /**
+     * Collapses visible HL7/CML versions without mixing the source-specific numeric ID spaces.
+     * If the newest version is not in this patient/visibility result set, retain the newest one
+     * that is present; a lookup must never make the patient's only visible report disappear.
+     * Other sources retain their individual rows and never enter the HL7 lookup.
+     * @param labs the reports already selected for this view
+     * @return one visible report per resolved chain, preserving the input groups' order
+     */
+    public static ArrayList<LabResultData> latestVisibleVersions(List<LabResultData> labs) {
+        java.util.Map<String, LabResultData> visible = new java.util.LinkedHashMap<>();
+        for (LabResultData lab : labs) visible.putIfAbsent(lab.labType + ":" + lab.getSegmentID(), lab);
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        ArrayList<LabResultData> latest = new ArrayList<>();
+        for (LabResultData lab : labs) {
+            String prefix = lab.labType + ":";
+            if (seen.contains(prefix + lab.getSegmentID())) continue;
+            String chain = lab.getSegmentID();
+            if ("CML".equals(lab.labType)) chain = new MDSResultsData().getMatchingCMLLabs(lab.getSegmentID());
+            else if ("HL7".equals(lab.labType)) chain = Hl7textResultsData.getMatchingLabs(lab.getSegmentID());
+            List<String> ids = chain == null ? List.of() : java.util.Arrays.asList(chain.split(","));
+            if (!ids.contains(lab.getSegmentID())) ids = List.of(lab.getSegmentID());
+            LabResultData newestVisible = lab;
+            for (String id : ids) {
+                seen.add(prefix + id);
+                LabResultData candidate = visible.get(prefix + id);
+                if (candidate != null) newestVisible = candidate;
+            }
+            latest.add(newestVisible);
+        }
+        return latest;
+    }
+
+    /**
+     * Resolves all versions for a mutation without hiding a failed source query behind one report id.
+     * @param labNo selected report identifier
+     * @param labType source-qualified lab type
+     * @return the source's clinically ordered version chain
+     */
+    public String getMatchingLabsForMutation(String labNo, String labType) {
+        return switch (labType) {
+            case "HL7" -> Hl7textResultsData.getMatchingLabs(labNo);
+            case "MDS" -> new MDSResultsData().getMatchingLabs(labNo, true);
+            case "CML" -> new MDSResultsData().getMatchingCMLLabs(labNo, true);
+            case "BCP" -> new PathnetResultsData().getMatchingLabs(labNo, true);
+            default -> throw new IllegalArgumentException("Unsupported lab source");
+        };
+    }
+
+    private String getMatchingLabsForWrite(String labNo, String labType) {
+        return "CML".equals(labType) ? getMatchingLabsForMutation(labNo, labType) : getMatchingLabs(labNo, labType);
+    }
 
     public String getMatchingLabs(String lab_no, String lab_type) {
         String labs = null;

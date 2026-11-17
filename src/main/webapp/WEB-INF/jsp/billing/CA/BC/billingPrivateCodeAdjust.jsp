@@ -31,6 +31,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
@@ -38,6 +39,7 @@
 
 <html>
     <head>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="admin.admin.ManagePrivFrm"/></title>
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
@@ -52,7 +54,9 @@
                 input.value = code;
                 form.appendChild(input);
                 document.body.appendChild(form);
-                form.submit();
+                // carlosSubmitForm attaches the CSRF token, which CSRFGuard cannot inject
+                // into a runtime-built form in time (#4130).
+                carlosSubmitForm(form);
             }
         </script>
     </head>
@@ -61,9 +65,9 @@
     <h3><fmt:message key="admin.admin.ManagePrivFrm"/></h3>
     <div class="container-fluid card card-body bg-body-tertiary">
 
-        <a href="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode?addNew=true" class="btn btn-primary">Add Code</a>
+        <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingAddPrivateCode?addNew=true" class="btn btn-primary">Add Code</a>
 
-        <form action="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode" method="get">
+        <form action="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingPrivateCodeAdjust" method="get">
             <%if (request.getAttribute("returnMessage") != null) { %>
             <%=request.getAttribute("returnMessage")%>
             <%} %>
@@ -84,9 +88,10 @@
                     arrow = "&darr;";
                 }
         %> <% request.setAttribute("test", list); %>
+        <%-- requestURI: this page is reached by a forward, so without it the sort links name the WEB-INF path (404). --%>
         <display:table name="test" defaultsort="1" defaultorder="descending"
                        decorator="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillCodesTableWrapper"
-                       class="table table-hover table-striped">
+                       class="table table-hover table-striped" requestURI="/billing/CA/BC/ViewBillingPrivateCodeAdjust">
             <display:column property="serviceCode" title="Service Code" sortable="true" headerClass="sortable"/>
             <display:column property="description" title="Description" sortable="true" headerClass="sortable"/>
             <display:column property="value" title="Price" sortable="true" headerClass="sortable"/>

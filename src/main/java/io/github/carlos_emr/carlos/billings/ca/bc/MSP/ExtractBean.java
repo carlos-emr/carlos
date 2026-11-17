@@ -266,7 +266,7 @@ public class ExtractBean extends Object implements Serializable {
             pCount = pCount + patientCount;
             rCount = rCount + recordCount;
 
-            htmlFooter = "<tr>    <td colspan='11' class='bodytext'>&nbsp;</td>  </tr>  <tr>    <td colspan='5' class='bodytext'>Billing No: " + providerNo + ": " + pCount + " RECORDS PROCESSED</td>    <td colspan='6' class='bodytext'>TOTAL: " + BigTotal + "</td>  </tr></table></body></html>";
+            htmlFooter = HtmlTeleplanHelper.htmlFooter(providerNo, pCount, BigTotal) + HtmlTeleplanHelper.htmlBottom();
             htmlCode = htmlContentHeader + htmlContent + htmlFooter;
 
             writeHtml(htmlCode);
@@ -539,52 +539,22 @@ public class ExtractBean extends Object implements Serializable {
         return MSPBillingNote.getN01(bm.getDatacenter(), seqNo, bm.getPayeeNo(), bm.getPractitionerNo(), "A", note.getNote("" + bm.getBillingmasterNo()));
     }
 
+    /**
+     * Builds the report table header for one provider. Delegates to {@link HtmlTeleplanHelper} so the
+     * provider billing number is HTML-encoded; {@code errorMsg} must already be encoded row markup
+     * (as produced by {@link CheckBillingData}).
+     */
     public String htmlContentHeaderGen(String providerNo, String output, String errorMsg) {
-        htmlContentHeader = "<html><body><style type='text/css'><!-- .bodytext{  font-family: Tahoma, Arial, Helvetica, sans-serif;  font-size: 12px; font-style: normal;  line-height: normal;  font-weight: normal;  font-variant: normal;  text-transform: none;  color: #003366;  text-decoration: none; --></style>";
-        htmlContentHeader += "<table width='100%' border='0' cellspacing='0' cellpadding='0'>";
-        htmlContentHeader += "<tr>";
-        htmlContentHeader += "<td colspan='4' class='bodytext'>Billing Invoice for Billing No." + providerNo + "</td>";
-        htmlContentHeader += "<td colspan='7' class='bodytext'>Payment date of " + output + "</td>";
-        htmlContentHeader += "</tr>";
-        htmlContentHeader += "<tr>";
-        htmlContentHeader += "<td width='9%' class='bodytext'>INVOICE</td>";
-        htmlContentHeader += "<td width='19%' class='bodytext'>NAME</td>";
-        htmlContentHeader += "<td width='12%' class='bodytext'>HEALTH #</td>";
-        htmlContentHeader += "<td width='10%' class='bodytext'>BILLDATE</td>";
-        htmlContentHeader += "<td width='8%' class='bodytext'>CODE</td>";
-        htmlContentHeader += "<td width='14%' align='right' class='bodytext'>BILLED</td>";
-        htmlContentHeader += "<td width='4%' align='right' class='bodytext'>DX</td>";
-        htmlContentHeader += "<td width='5%' align='right' class='bodytext'>DX2</td>";
-        htmlContentHeader += "<td width='6%' align='right' class='bodytext'>DX3</td>";
-        htmlContentHeader += "<td width='8%' align='right' class='bodytext'>SEQUENCE</td>";
-        htmlContentHeader += "<td width='5%' align='right' class='bodytext'>COMMENT</td>";
-        htmlContentHeader += "</tr>";
-        htmlContentHeader += errorMsg;
+        htmlContentHeader = HtmlTeleplanHelper.htmlContentHeaderGen(providerNo, output, errorMsg);
         return htmlContentHeader;
     }
 
+    /**
+     * Builds one encoded claim row for the simulation/report HTML. Patient name, PHN, codes and amounts
+     * come from claim records and are encoded by {@link HtmlTeleplanHelper#htmlLine}.
+     */
     public String htmlLine(String billingMasterNo, String invNo, String demoName, String phn, String serviceDate, String billingCode, String billAmount, String dx1, String dx2, String dx3) {
-        String htmlContent =
-                "<tr>" +
-                        "<td class='bodytext'>" +
-                        "<a href='#' onClick=\"openBrWindow('adjustBill.jsp?billingmaster_no=" +
-                        Misc.forwardZero(billingMasterNo, 7) +
-                        "','','resizable=yes,scrollbars=yes,top=0,left=0,width=900,height=600'); return false;\">" +
-                        invNo +
-                        "</a>" +
-                        "</td>" +
-                        "<td class='bodytext'>" + demoName + "</td>" +
-                        "<td class='bodytext'>" + phn + "</td>" +
-                        "<td class='bodytext'>" + serviceDate + "</td>" +
-                        "<td class='bodytext'>" + billingCode + "</td>" +
-                        "<td align='right' class='bodytext'>" + billAmount + "</td>" +
-                        "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx1, 5) + "</td>" +
-                        "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx2, 5) + "</td>" +
-                        "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx3, 5) + "</td>" +
-                        "<td class='bodytext'>" + Misc.forwardZero(billingMasterNo, 7) + "</td>" +
-                        "<td class='bodytext'>&nbsp;</td>" +
-                        "</tr>";
-        return htmlContent;
+        return HtmlTeleplanHelper.htmlLine(billingMasterNo, invNo, demoName, phn, serviceDate, billingCode, billAmount, dx1, dx2, dx3);
     }
 
 

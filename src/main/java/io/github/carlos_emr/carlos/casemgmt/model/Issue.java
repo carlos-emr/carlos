@@ -29,6 +29,8 @@ package io.github.carlos_emr.carlos.casemgmt.model;
 
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import io.github.carlos_emr.carlos.model.BaseObject;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -51,6 +53,7 @@ public class Issue extends BaseObject {
     private String code;
     private String description;
     private String role;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date update_date;
     private String priority;
     private String type;

@@ -59,7 +59,7 @@ public class CaseManagementTmpSave extends AbstractModel<Integer> {
     private String note;
 
     @Column(name = "update_date")
-    @Temporal(TemporalType.DATE)
+    @Temporal(TemporalType.TIMESTAMP)
     private Date updateDate;
 
     @Column(name = "note_id")

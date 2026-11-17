@@ -23,15 +23,11 @@ package io.github.carlos_emr.carlos.test.base;
 import java.util.List;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.introspect.AnnotationIntrospectorPair;
-import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
-import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.fasterxml.jackson.jakarta.rs.json.JacksonJsonProvider;
-import com.fasterxml.jackson.module.jakarta.xmlbind.JakartaXmlBindAnnotationIntrospector;
 
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.webserv.rest.util.SmartDateModule;
+import io.github.carlos_emr.carlos.webserv.rest.util.ProductionRestObjectMappers;
 
 import jakarta.ws.rs.core.MediaType;
 
@@ -149,6 +145,17 @@ public abstract class CarlosRestTestBase extends CarlosUnitTestBase {
     protected abstract Object getServiceBean();
 
     /**
+     * Extra JAX-RS providers for the test server only, such as the exception mappers production
+     * registers in {@code spring_ws.xml}. Empty by default, so an unmapped exception still escapes
+     * the client call the way it escapes CXF in production without a mapper.
+     *
+     * @return providers appended after the JSON/XML providers
+     */
+    protected List<Object> additionalServerProviders() {
+        return List.of();
+    }
+
+    /**
      * Returns the local transport address for the test server. Override to
      * customize (e.g., to avoid address conflicts in parallel tests).
      *
@@ -171,10 +178,10 @@ public abstract class CarlosRestTestBase extends CarlosUnitTestBase {
         MockHttpSession mockSession = new MockHttpSession();
         mockServletRequest.setSession(mockSession);
 
-        // Set LoggedInInfo in both session and request attributes.
-        // Both locations are needed: AbstractServiceImpl.getLoggedInInfo() reads
-        // from session first, but falls back to request attributes when the session
-        // value has a null loggedInProvider (which mocks do by default).
+        // Set LoggedInInfo in both session and request attributes, as either surface
+        // could carry it. AbstractServiceImpl.getLoggedInInfo() reads the request first
+        // (where OAuthInterceptor puts the /ws/services principal) and then the session
+        // (/ws/rs); AbstractServiceImplLoggedInInfoEndpointTest covers each shape alone.
         LoggedInInfo.setLoggedInInfoIntoRequest(mockServletRequest, mockLoggedInInfo);
         LoggedInInfo.setLoggedInInfoIntoSession(mockSession, mockLoggedInInfo);
 
@@ -182,7 +189,9 @@ public abstract class CarlosRestTestBase extends CarlosUnitTestBase {
         sf.setBus(bus);
         sf.setAddress(getServiceAddress());
         sf.setServiceBean(getServiceBean());
-        sf.setProviders(createProviders());
+        List<Object> serverProviders = new ArrayList<>(createProviders());
+        serverProviders.addAll(additionalServerProviders());
+        sf.setProviders(serverProviders);
         sf.getInInterceptors().add(new TestAuthenticationInterceptor(mockServletRequest));
         sf.setTransportId(LocalTransportFactory.TRANSPORT_ID);
         server = sf.create();
@@ -251,29 +260,35 @@ public abstract class CarlosRestTestBase extends CarlosUnitTestBase {
     }
 
     /**
-     * Creates a Jackson ObjectMapper matching the production configuration
-     * in applicationContextREST.xml: combined Jackson + JAXB annotation
-     * introspector for proper transfer object serialization.
+     * Returns the Jackson ObjectMapper the OAuth {@code /ws/services} surface uses, built from
+     * applicationContextREST.xml itself: combined Jackson + JAXB annotation introspector and
+     * SmartDateModule. Loading it rather than copying it means a change to that file's mapper is
+     * a change to every endpoint test, so a wire-shape assertion here holds for the deployed
+     * mapper (issue #3877).
+     *
+     * <p>The session {@code /ws/rs} mapper in spring_ws.xml does not register SmartDateModule, so
+     * it writes unannotated {@code java.util.Date} values as epoch milliseconds (issue #3446).
+     *
+     * <p>Each call returns a copy, so a test that reconfigures its mapper cannot change another's.
      *
      * @return ObjectMapper configured for CARLOS REST API
      */
     protected ObjectMapper createTestObjectMapper() {
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.setAnnotationIntrospector(
-            new AnnotationIntrospectorPair(
-                new JacksonAnnotationIntrospector(),
-                new JakartaXmlBindAnnotationIntrospector(TypeFactory.defaultInstance())
-            )
-        );
-        mapper.registerModule(new SmartDateModule());
-        return mapper;
+        return ProductionRestObjectMappers.oauthSurface().copy();
     }
 
     private List<Object> createProviders() {
         JAXBElementProvider<Object> jaxbProvider = new JAXBElementProvider<>();
         jaxbProvider.setProduceMediaTypes(List.of(MediaType.APPLICATION_XML, MediaType.TEXT_XML));
         jaxbProvider.setConsumeMediaTypes(List.of(MediaType.APPLICATION_XML, MediaType.TEXT_XML));
-        return List.of(new JacksonJsonProvider(createTestObjectMapper()), jaxbProvider);
+        List<Object> providers = new ArrayList<>(List.of(new JacksonJsonProvider(createTestObjectMapper()), jaxbProvider));
+        providers.addAll(additionalProviders());
+        return providers;
+    }
+
+    /** Production providers needed by a particular service, such as its exception mappers. */
+    protected List<Object> additionalProviders() {
+        return List.of();
     }
 
     /**

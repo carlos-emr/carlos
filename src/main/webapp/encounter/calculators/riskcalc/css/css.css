@@ -161,3 +161,17 @@ body {
     text-align: center;
     vertical-align: middle;
 }
+/* CARLOS (issue #3665): the refusal shown instead of a result for an unusable box. */
+#theScript p.refused {
+    margin: 10px 0;
+    padding: 8px 10px;
+    border: 1px solid #a94442;
+    background: #f2dede;
+    color: #a94442;
+    font-weight: bold;
+}
+
+#content input.bdr[aria-invalid="true"] {
+    border-color: #a94442;
+    background: #f2dede;
+}

@@ -37,61 +37,109 @@
 
 package io.github.carlos_emr.carlos.report.reportByTemplate.actions;
 
+import java.io.IOException;
+import java.util.Locale;
+import java.util.Set;
+import java.util.function.Supplier;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-
-import io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager;
-
-/**
- * @author apavel (Paul)
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+/**
+ * Saves, edits and deletes Report by Template definitions from the template editor's
+ * textarea ({@code xmltext}) and the configuration page's Delete button.
+ *
+ * <p>Every operation that changes a template ({@code action=add|edit|delete}) is POST-only and
+ * requires {@code _report} write; reading the editor needs {@code _report} read. The SQL a
+ * template carries is checked by {@link ReportManager} before it is stored (see
+ * {@code ReportTemplateSqlValidator}), which is the control the packaged WAF exclusion for
+ * {@code ARGS:xmltext} on this route depends on.</p>
+ *
+ * @since 2007-03-02
+ */
 public class ManageTemplates2Action extends ActionSupport {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private static final Set<String> MUTATING_ACTIONS = Set.of("add", "edit", "delete");
+
+    private final SecurityInfoManager securityInfoManager;
+    private final Supplier<ReportManager> reportManagerFactory;
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    public ManageTemplates2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class), ReportManager::new);
+    }
+
+    ManageTemplates2Action(SecurityInfoManager securityInfoManager, Supplier<ReportManager> reportManagerFactory) {
+        this.securityInfoManager = securityInfoManager;
+        this.reportManagerFactory = reportManagerFactory;
+    }
+
+    /**
+     * Applies one template operation and returns to the editor or the configuration page.
+     *
+     * @return {@code "done"}, {@code "deleted"}, {@link #SUCCESS}, or {@link #NONE} after a 405
+     * @throws IOException if the 405 response cannot be written
+     * @throws SecurityException if the user lacks {@code _report} read, or write for a mutation
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    public String execute() {
+    public String execute() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)) {
             throw new SecurityException("missing required sec object (_report)");
         }
 
-
         String action = request.getParameter("action");
+        if (action != null && MUTATING_ACTIONS.contains(action)) {
+            // Refuse a cross-site GET before anything is written: these operations replace or
+            // remove stored SQL that later runs against the clinical database.
+            if (!"POST".equals(request.getMethod())) {
+                response.setHeader("Allow", "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.WRITE, null)) {
+                throw new SecurityException("missing required sec object (_report)");
+            }
+        }
+
         String templateId = request.getParameter("templateid");
         String xmltext = request.getParameter("xmltext");
         String uuid = request.getParameter("uuid");
-        ReportManager reportManager = new ReportManager();
         String message = "Error: Improper request - Action param missing";
         if ("delete".equals(action)) {
-            message = reportManager.deleteTemplate(templateId);
+            message = reportManagerFactory.get().deleteTemplate(templateId, loggedInInfo);
             if (message.equals("")) return "deleted";
         } else if ("add".equals(action)) {
-            message = reportManager.addTemplate(uuid, xmltext, loggedInInfo);
+            message = reportManagerFactory.get().addTemplate(uuid, xmltext, loggedInInfo);
         } else if ("edit".equals(action)) {
-            message = reportManager.updateTemplate(uuid, templateId, xmltext, loggedInInfo);
+            message = reportManagerFactory.get().updateTemplate(uuid, templateId, xmltext, loggedInInfo);
         }
+        String outcome = message.toLowerCase(Locale.ROOT);
+        boolean failed = outcome.startsWith("error") || outcome.startsWith("exception");
         request.setAttribute("message", message);
         request.setAttribute("action", action);
         request.setAttribute("templateid", request.getParameter("templateid"));
         request.setAttribute("opentext", request.getParameter("opentext"));
+        if (failed && xmltext != null) {
+            // A refused save re-shows what the author typed instead of the stored copy, so the
+            // message can be acted on without retyping the template.
+            request.setAttribute("submittedXml", xmltext);
+        }
 
         if (request.getParameter("done") != null
                 && "done".equalsIgnoreCase(request.getParameter("done"))
-                && !message.toLowerCase().startsWith("error")
-                && !message.toLowerCase().startsWith("exception")) {
+                && !failed) {
             return "done";
         }
 

@@ -94,6 +94,11 @@ public class ObecData {
     }
 
     public static String space(String oldString, int leng) {
+        // A version code that was never stored is NULL (demographic.ver has no default; HL7 feeds and the REST API
+        // leave it unset): pad it as blank, like an empty one, instead of failing the whole file (#4967).
+        if (oldString == null) {
+            oldString = "";
+        }
 
         String outputString = "";
         int i;

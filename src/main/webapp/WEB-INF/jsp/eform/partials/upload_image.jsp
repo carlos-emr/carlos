@@ -97,16 +97,25 @@
                 <br/>Saved as: <strong>${carlos:forHtmlContent(sanitizedFileName)}</strong>
             </c:if>
         </div>
+        <%--
+            This panel lives in an iframe inside the Image Library, which itself is AJAX-loaded into
+            the administration shell, so the only way back to a usable page is a top-level
+            navigation. scheduleNav=1 is what makes that page render its top nav bar: dropping it
+            here is why uploading an eForm image used to leave the administration tab with no way
+            back to the schedule. upload.jsp and import.jsp already carry it; this one did not.
+            (The other half of that defect was in leftNav.jspf, whose show=ImageUpload handler threw
+            before it could load the Image Library back into the shell.)
+        --%>
         <script>
             <c:choose>
                 <c:when test="${ not empty sanitizedFileName }">
                     // Delay redirect so user can see the sanitized filename
                     setTimeout(function() {
-                        window.top.location.href = "<%=request.getContextPath()%>/administration?show=ImageUpload";
+                        window.top.location.href = "<%=request.getContextPath()%>/administration?show=ImageUpload${param.scheduleNav eq '1' ? '&scheduleNav=1' : ''}";
                     }, 2500);
                 </c:when>
                 <c:otherwise>
-                    window.top.location.href = "<%=request.getContextPath()%>/administration?show=ImageUpload";
+                    window.top.location.href = "<%=request.getContextPath()%>/administration?show=ImageUpload${param.scheduleNav eq '1' ? '&scheduleNav=1' : ''}";
                 </c:otherwise>
             </c:choose>
         </script>
@@ -115,6 +124,11 @@
     <div class="row">
         <div class="card card-body bg-body-tertiary">
             <form action="${pageContext.request.contextPath}/eform/imageUpload" enctype="multipart/form-data" method="post">
+                <%-- The success branch above is rendered by the POST response, so the flag has to
+                     survive the round trip as a form field. --%>
+                <c:if test="${param.scheduleNav eq '1'}">
+                    <input type="hidden" name="scheduleNav" value="1"/>
+                </c:if>
 
                 <s:if test="hasActionErrors()">
                     <div class="alert alert-danger">

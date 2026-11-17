@@ -47,7 +47,9 @@
  *   logged-in provider, which is also the recipient so the inbox can be read).
  */
 
+const { closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -262,7 +264,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   try {
     cleanupRows();
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
     await login(context, config, recorder);
     const expectedPatientName = patientName();
     assert(expectedPatientName, `demographic ${demographicNo} not found`);
@@ -344,10 +346,10 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
-    if (browser) {
-      await browser.close().catch(() => {});
+    try {
+      if (browser) await closeBrowserWithChartCleanup(browser, config.baseUrl);
+    } finally {
+      try { runCleanup(); } finally { cleanupMysqlDefaults(); }
     }
-    runCleanup();
-    cleanupMysqlDefaults();
   }
 })();

@@ -131,7 +131,7 @@ public class FOBTReport implements PreventionReport {
 
                 String result = PreventionData.getExtValue((String) h.get("id"), "result");
 
-                if (prevDate != null && !refused && bonusStartDate.before(prevDate) && asofDate.after(prevDate) && !result.equalsIgnoreCase("pending")) {
+                if (prevDate != null && !refused && bonusStartDate.before(prevDate) && !asofDate.before(prevDate) && !result.equalsIgnoreCase("pending")) {
                     prd.bonusStatus = "Y";
                     prd.billStatus = "Y";
                     done++;
@@ -389,7 +389,7 @@ public class FOBTReport implements PreventionReport {
                 log.error("Error parsing prevention date: " + prevDateStr, e);
             }
 
-            if (prevDate != null && prevDate.before(asOfDate)) {
+            if (prevDate != null && !prevDate.after(asOfDate)) {
                 noFutureItems.add(map);
             }
         }

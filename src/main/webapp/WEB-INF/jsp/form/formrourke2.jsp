@@ -295,8 +295,8 @@
                        href="javascript:popup('form/graphHeadCirc?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>');">
                         <fmt:message key="encounter.formRourke2.btnGraphHead"/></a></td>
                 <td nowrap="true"><a
-                        href="formrourke1?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>"><fmt:message key="encounter.formRourke2.btnpage1"/></a>&nbsp;|&nbsp; <a><fmt:message key="encounter.formRourke2.msgPage2"/></a>&nbsp;|&nbsp; <a
-                        href="formrourke3?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>"><fmt:message key="encounter.formRourke2.btnPage3"/></a></td>
+                        href="form/formrourke1?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>"><fmt:message key="encounter.formRourke2.btnpage1"/></a>&nbsp;|&nbsp; <a><fmt:message key="encounter.formRourke2.msgPage2"/></a>&nbsp;|&nbsp; <a
+                        href="form/formrourke3?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>"><fmt:message key="encounter.formRourke2.btnPage3"/></a></td>
             </tr>
         </table>
 
@@ -1311,8 +1311,8 @@
                 %>
                 </td>
                 <td nowrap="true"><a
-                        href="formrourke1?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>"><fmt:message key="encounter.formRourke2.btnpage1"/></a>&nbsp;|&nbsp; <a><fmt:message key="form.rourke.page2"/></a>&nbsp;|&nbsp; <a
-                        href="formrourke3?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>"><fmt:message key="encounter.formRourke2.btnPage3"/></a></td>
+                        href="form/formrourke1?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>"><fmt:message key="encounter.formRourke2.btnpage1"/></a>&nbsp;|&nbsp; <a><fmt:message key="form.rourke.page2"/></a>&nbsp;|&nbsp; <a
+                        href="form/formrourke3?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>"><fmt:message key="encounter.formRourke2.btnPage3"/></a></td>
             </tr>
         </table>
 

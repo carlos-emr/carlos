@@ -17,7 +17,7 @@ const index = fs.readFileSync(
 function acknowledge(formId, labType) {
   const queueUpdates = [];
   const jQuery = () => ({ length: 0, val: () => '0' });
-  jQuery.post = () => ({ done(callback) { callback('{"clearedCount":1}'); return this; } });
+  jQuery.post = () => ({ then(callback) { callback('{"clearedCount":1}'); return this; } });
   const context = vm.createContext({
     jQuery,
     console: { log() {}, error() {} },
@@ -25,8 +25,7 @@ function acknowledge(formId, labType) {
     contextpath: '',
     document: { getElementById: () => ({}) },
     serializeFormToObject: () => ({ labType }),
-    updateDocStatusInQueue: (id) => queueUpdates.push(id),
-    window: {},
+    window: {CarlosDocumentMetadata: {acknowledge: (formId) => queueUpdates.push(formId.split('_')[1])}},
     _in_window: false,
     labDocumentRows: () => ({ slideUp() {} }),
     updateGlobalDataAndSideNav() {},
@@ -37,7 +36,7 @@ function acknowledge(formId, labType) {
   return queueUpdates;
 }
 
-test('acknowledging a document inactivates that document in the inbox queue', () => {
+test('acknowledging a document delegates its exact source to confirmed document completion', () => {
   assert.deepEqual(acknowledge('acknowledgeForm_22', 'DOC'), ['22']);
 });
 

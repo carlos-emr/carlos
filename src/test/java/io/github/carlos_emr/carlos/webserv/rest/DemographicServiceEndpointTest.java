@@ -26,7 +26,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 import jakarta.ws.rs.core.Response;
@@ -44,7 +46,9 @@ import io.github.carlos_emr.carlos.commn.dao.ContactDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao;
+import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.managers.AllergyManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.MeasurementManager;
@@ -303,6 +307,60 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             assertThat(wireJson.at("/medicationSummary").isArray()).isTrue();
             assertThat(wireJson.at("/medicationSummary")).hasSize(0);
         }
+
+        @Test
+        @DisplayName("should write midnight timestamps as epoch milliseconds in the record and its includes")
+        void shouldWriteMidnightTimestampsAsEpochMillis_whenRecordIncludesAllergiesAndMeasurements() {
+            // Issue #3877: on /ws/services these timestamps were "yyyy-MM-dd" strings whenever they
+            // fell on local midnight, and a number otherwise, which broke Ocean's sync.
+            Calendar calendar = Calendar.getInstance();
+            calendar.clear();
+            calendar.set(2026, Calendar.MARCH, 11);
+            Date midnight = calendar.getTime();
+            Demographic demo = createTestDemographic(42, "Jane", "Doe");
+            demo.setLastUpdateDate(midnight);
+            Allergy allergy = new Allergy();
+            allergy.setId(7);
+            allergy.setDemographicNo(42);
+            allergy.setDescription("FAKE-allergen");
+            allergy.setArchived(false);
+            allergy.setLastUpdateDate(midnight);
+            Measurement weight = new Measurement();
+            weight.setDemographicId(42);
+            weight.setType("WT");
+            weight.setDataField("70");
+            weight.setDateObserved(midnight);
+            weight.setCreateDate(midnight);
+            when(mockDemographicManager.getDemographic(any(LoggedInInfo.class), eq(42))).thenReturn(demo);
+            when(mockDemographicManager.getDemographicExts(any(LoggedInInfo.class), eq(42)))
+                .thenReturn(Collections.emptyList());
+            when(mockWaitingListDao.search_wlstatus(42)).thenReturn(Collections.emptyList());
+            when(mockWaitingListNameDao.findAll(any(), any())).thenReturn(Collections.emptyList());
+            when(mockSpecialistDao.findAll()).thenReturn(Collections.emptyList());
+            when(mockSecUserRoleDao.getSecUserRolesByRoleName(any())).thenReturn(Collections.emptyList());
+            when(mockDemographicManager.getDemographicContacts(any(LoggedInInfo.class), eq(42)))
+                .thenReturn(Collections.emptyList());
+            when(mockAllergyManager.getActiveAllergies(any(LoggedInInfo.class), eq(42))).thenReturn(List.of(allergy));
+            when(mockMeasurementManager.getMeasurementByType(any(LoggedInInfo.class), eq(42), any()))
+                .thenReturn(Collections.emptyList());
+            when(mockMeasurementManager.getLatestMeasurementsByDemographicIdObservedAfter(
+                    any(LoggedInInfo.class), eq(42), any(Date.class)))
+                .thenReturn(new ArrayList<>(List.of(weight)));
+
+            Response response = request().path("/demographics/42")
+                .query("includes[]", "allergies").query("includes[]", "measurements").get();
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            var wireJson = responseJson(response);
+            for (String pointer : List.of("/lastUpdateDate", "/allergies/0/lastUpdateDate",
+                    "/measurements/0/createDate", "/measurements/0/dateObserved")) {
+                assertThat(wireJson.at(pointer).isIntegralNumber()).as("%s on the wire: %s", pointer,
+                        wireJson.at(pointer)).isTrue();
+                assertThat(wireJson.at(pointer).longValue()).as(pointer).isEqualTo(midnight.getTime());
+            }
+            // A calendar date beside them keeps its string shape.
+            assertThat(wireJson.at("/dateOfBirth").textValue()).isEqualTo("1980-06-15");
+        }
     }
 
     /** Tests for GET /demographics/quickSearch. */
@@ -352,4 +410,61 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             assertThat(wireJson.at("/content")).hasSize(0);
         }
     }
+    @Nested
+    @DisplayName("POST /demographics/search validation")
+    class SearchValidation {
+        @Test
+        void shouldRejectMalformedOptions_beforeSearching() {
+            for (String body : List.of(
+                    "null", "{\"type\":\"Unknown\",\"term\":\"1980\"}",
+                    "{\"type\":{},\"term\":\"1980\"}", "{\"type\":\"DOB\",\"term\":{}}",
+                    "{\"type\":\"DOB\",\"term\":\"1980\",\"active\":\"maybe\"}",
+                    "{\"type\":\"DOB\",\"term\":\"1980\",\"params\":[]}",
+                    "{\"type\":\"DOB\",\"term\":\"1980\",\"params\":{\"sorting[Unknown]\":\"asc\"}}",
+                    "{\"type\":\"DOB\",\"term\":\"1980\",\"params\":{\"sorting[DOB]\":\"sideways\"}}")) {
+                try (Response response = request().path("/demographics/search").post(body)) {
+                    assertThat(response.getStatus()).as("malformed request options").isEqualTo(400);
+                }
+            }
+            org.mockito.Mockito.verifyNoInteractions(mockDemographicManager);
+        }
+
+        @Test
+        void shouldRejectInvalidPagination_beforeSearching() {
+            for (String[] query : List.of(new String[]{"startIndex", "-1"}, new String[]{"startIndex", "abc"},
+                    new String[]{"startIndex", "2147483648"}, new String[]{"itemsToReturn", "-1"},
+                    new String[]{"itemsToReturn", "0"}, new String[]{"itemsToReturn", "501"}, new String[]{"itemsToReturn", "abc"})) {
+                try (Response response = request().path("/demographics/search").query(query[0], query[1])
+                        .post("{\"type\":\"DOB\",\"term\":\"1980\"}")) {
+                    assertThat(response.getStatus()).as("invalid pagination").isEqualTo(400);
+                }
+            }
+            org.mockito.Mockito.verifyNoInteractions(mockDemographicManager);
+        }
+
+        @Test
+        void shouldPreserveScalarCompatibility_whenKeywordIsNumericAndBooleanIsText() {
+            try (Response response = request().path("/demographics/search")
+                    .post("{\"type\":\"DOB\",\"term\":1980,\"active\":\"TRUE\",\"params\":{\"sorting[DOB]\":\"desc\"}}")) {
+                assertThat(response.getStatus()).isEqualTo(200);
+            }
+            org.mockito.Mockito.verify(mockDemographicManager).searchPatientsCount(any(),
+                    org.mockito.ArgumentMatchers.argThat(req -> "1980".equals(req.getKeyword()) && req.isActive()
+                            && req.getSortDir() == io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchRequest.SORTDIR.desc));
+        }
+
+        @Test
+        void shouldDefaultPaginationAndNameMode_whenOptionsAreAbsent() {
+            when(mockDemographicManager.searchPatientsCount(any(), any())).thenReturn(1);
+            when(mockDemographicManager.searchPatients(any(), any(), eq(0), eq(10))).thenReturn(List.of());
+            try (Response response = request().path("/demographics/search").post("{\"term\":\"Synthetic\"}")) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                assertThat(responseJson(response).at("/total").intValue()).isEqualTo(1);
+            }
+            org.mockito.Mockito.verify(mockDemographicManager).searchPatients(any(),
+                    org.mockito.ArgumentMatchers.argThat(req -> req.getMode() == io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchRequest.SEARCHMODE.Name),
+                    eq(0), eq(10));
+        }
+    }
+
 }

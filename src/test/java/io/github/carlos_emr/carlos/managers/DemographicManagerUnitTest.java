@@ -845,6 +845,78 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
         }
 
         @Test
+        @DisplayName("should link extensions to the new demographic number when creating")
+        void shouldLinkExtensionsToNewDemographicNo_whenCreating() {
+            Demographic demographic = createTestDemographic();
+            demographic.setDemographicNo(null);
+            demographic.setExtras(new DemographicExt[] {
+                createTestDemographicExt(null, "demo_cell", "555-0100")
+            });
+            doAnswer(invocation -> {
+                invocation.<Demographic>getArgument(0).setDemographicNo(TEST_DEMO_NO);
+                return null;
+            }).when(mockDemographicDao).save(demographic);
+            List<Integer> demographicNoAtSave = new ArrayList<>();
+            doAnswer(invocation -> {
+                DemographicExt ext = invocation.getArgument(0);
+                demographicNoAtSave.add(ext.getDemographicNo());
+                return ext;
+            }).when(mockDemographicExtDao).saveEntity(any(DemographicExt.class));
+
+            manager.createDemographic(mockLoggedInInfo, demographic, TEST_PROGRAM_ID);
+
+            assertThat(demographicNoAtSave).containsExactly(TEST_DEMO_NO);
+        }
+
+        @Test
+        @DisplayName("should override a client-supplied demographic number on extensions when creating")
+        void shouldOverrideClientDemographicNoOnExtensions_whenCreating() {
+            Demographic demographic = createTestDemographic();
+            demographic.setDemographicNo(null);
+            demographic.setExtras(new DemographicExt[] {
+                createTestDemographicExt(999, "demo_cell", "555-0100")
+            });
+            doAnswer(invocation -> {
+                invocation.<Demographic>getArgument(0).setDemographicNo(TEST_DEMO_NO);
+                return null;
+            }).when(mockDemographicDao).save(demographic);
+            List<Integer> demographicNoAtSave = new ArrayList<>();
+            doAnswer(invocation -> {
+                DemographicExt ext = invocation.getArgument(0);
+                demographicNoAtSave.add(ext.getDemographicNo());
+                return ext;
+            }).when(mockDemographicExtDao).saveEntity(any(DemographicExt.class));
+
+            manager.createDemographic(mockLoggedInInfo, demographic, TEST_PROGRAM_ID);
+
+            assertThat(demographicNoAtSave).containsExactly(TEST_DEMO_NO);
+        }
+
+        @Test
+        @DisplayName("should discard a client-supplied extension id so create never updates an existing row")
+        void shouldClearExtensionId_whenCreating() {
+            Demographic demographic = createTestDemographic();
+            demographic.setDemographicNo(null);
+            DemographicExt ext = createTestDemographicExt(999, "demo_cell", "555-0100");
+            ext.setId(4242);
+            demographic.setExtras(new DemographicExt[] { ext });
+            doAnswer(invocation -> {
+                invocation.<Demographic>getArgument(0).setDemographicNo(TEST_DEMO_NO);
+                return null;
+            }).when(mockDemographicDao).save(demographic);
+            List<Integer> extIdAtSave = new ArrayList<>();
+            doAnswer(invocation -> {
+                DemographicExt saved = invocation.getArgument(0);
+                extIdAtSave.add(saved.getId());
+                return saved;
+            }).when(mockDemographicExtDao).saveEntity(any(DemographicExt.class));
+
+            manager.createDemographic(mockLoggedInInfo, demographic, TEST_PROGRAM_ID);
+
+            assertThat(extIdAtSave).hasSize(1).containsOnlyNulls();
+        }
+
+        @Test
         @DisplayName("should throw exception when birth date invalid")
         void shouldThrowException_whenBirthDateInvalid() {
             Demographic demographic = createTestDemographic();
@@ -1329,6 +1401,23 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             assertThat(result).hasSize(1);
             assertThat(result.get(0).getLastName()).isEqualTo("ADAMS");
         }
+
+        @Test
+        void shouldMatchInclusiveLetterBounds_withLowercaseRangesAndUnicodeNames() {
+            Provider provider = createTestProvider();
+            List<Demographic> patients = new java.util.ArrayList<>();
+            for (String name : java.util.Arrays.asList("adams", "Murray", "Smith", "", null, "éclair", "ßmith", "ıpek")) {
+                Demographic patient = createTestDemographic();
+                patient.setLastName(name);
+                patients.add(patient);
+            }
+            when(mockDemographicDao.getDemographicByProvider(TEST_PROVIDER)).thenReturn(patients);
+
+            assertThat(manager.getDemographicsNameRangeByProvider(mockLoggedInInfo, provider, "^[a-m]"))
+                    .extracting(Demographic::getLastName).containsExactly("adams", "Murray", "ıpek");
+            assertThat(manager.getDemographicsNameRangeByProvider(mockLoggedInInfo, provider, "^[s-s]"))
+                    .extracting(Demographic::getLastName).containsExactly("Smith", "ßmith");
+        }
     }
 
     // ==================== MERGE OPERATIONS ====================
@@ -1360,6 +1449,31 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             manager.mergeDemographics(mockLoggedInInfo, parentId, children);
 
             verify(mockDemographicMergedDao, times(3)).persist(any(DemographicMerged.class));
+        }
+
+        @Test
+        @DisplayName("should refuse a merge that would create a cycle")
+        void shouldRefuseMerge_whenItWouldCreateACycle() {
+            DemographicMerged alreadyMerged = new DemographicMerged();
+            alreadyMerged.setDemographicNo(1001);
+            alreadyMerged.setMergedTo(1000);
+            when(mockDemographicMergedDao.findCurrentByDemographicNo(1001)).thenReturn(List.of(alreadyMerged));
+
+            List<Integer> plainSource = List.of(1002);
+            List<Integer> sourcesWithMerged = List.of(1002, 1001);
+            List<Integer> selfSource = List.of(1000);
+
+            // the target is itself merged into another record
+            assertThatThrownBy(() -> manager.mergeDemographics(mockLoggedInInfo, 1001, plainSource))
+                .isInstanceOf(IllegalArgumentException.class);
+            // a source that is already merged
+            assertThatThrownBy(() -> manager.mergeDemographics(mockLoggedInInfo, 1000, sourcesWithMerged))
+                .isInstanceOf(IllegalArgumentException.class);
+            // a record merged into itself
+            assertThatThrownBy(() -> manager.mergeDemographics(mockLoggedInInfo, 1000, selfSource))
+                .isInstanceOf(IllegalArgumentException.class);
+
+            verify(mockDemographicMergedDao, never()).persist(any(DemographicMerged.class));
         }
 
         @Test

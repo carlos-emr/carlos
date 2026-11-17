@@ -186,7 +186,7 @@
                 <label class="form-label" for="description"><fmt:message key="schedule.scheduletemplatecodesetting.formDescription"/>:</label>
                 <div>
                     <input type="text" name="description" id="description" maxlength="40"
-                            <%=bEdit?("value='"+SafeEncode.forHtmlContent(dataBean.getProperty("description"))+"'"):"value=''"%>>
+                            value="<%= SafeEncode.forHtmlAttribute(bEdit ? dataBean.getProperty("description") : "") %>">
                 </div>
             </div>
             <div class="mb-3">

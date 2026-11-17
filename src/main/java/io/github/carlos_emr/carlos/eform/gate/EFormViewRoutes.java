@@ -27,7 +27,9 @@ public final class EFormViewRoutes {
     public enum Privilege {
         EFORM_READ,
         EFORM_WRITE,
-        ADMIN_EFORM_WRITE
+        ADMIN_EFORM_WRITE,
+        FIELDNOTE_READ,
+        FIELDNOTE_WRITE
     }
 
     public record Route(String internalView, Privilege privilege) {
@@ -80,12 +82,12 @@ public final class EFormViewRoutes {
             Map.entry("eform/partials/upload_image",
                     new Route("/WEB-INF/jsp/eform/partials/upload_image.jsp", Privilege.EFORM_WRITE)),
             Map.entry("eform/fieldNoteReport/fieldnotereport",
-                    new Route("/WEB-INF/jsp/eform/fieldNoteReport/fieldnotereport.jsp", Privilege.EFORM_READ)),
+                    new Route("/WEB-INF/jsp/eform/fieldNoteReport/fieldnotereport.jsp", Privilege.FIELDNOTE_READ)),
             Map.entry("eform/fieldNoteReport/fieldnotereportdetail",
                     new Route("/WEB-INF/jsp/eform/fieldNoteReport/fieldnotereportdetail.jsp",
-                            Privilege.EFORM_READ)),
+                            Privilege.FIELDNOTE_READ)),
             Map.entry("eform/fieldNoteReport/fieldnoteselect",
-                    new Route("/WEB-INF/jsp/eform/fieldNoteReport/fieldnoteselect.jsp", Privilege.EFORM_READ))
+                    new Route("/WEB-INF/jsp/eform/fieldNoteReport/fieldnoteselect.jsp", Privilege.FIELDNOTE_WRITE))
     );
 
     private EFormViewRoutes() {

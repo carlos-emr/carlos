@@ -29,6 +29,13 @@
 
 --%>
 
+<%--
+    Provider usage report with patient demographics and activity counts for an inclusive date range.
+    Parameters: providerNo, startDate, endDate. Access is restricted to administration.
+    DAO-specific date boundaries include the entire selected end date; percentages use two decimals.
+    @since 2026-10-02
+--%>
+<%@ page import="io.github.carlos_emr.carlos.report.UsageReportSupport" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -213,7 +220,9 @@
             endDate = null;
         }
 
-        int scheduledAppts = appointmentDao.findByDateRangeAndProvider(startDate, endDate, providerNo).size();
+        Date exclusiveEndDate = UsageReportSupport.exclusiveEnd(endDate);
+        endDate = UsageReportSupport.inclusiveEnd(endDate);
+        int scheduledAppts = appointmentDao.findByDateRangeAndProvider(startDate, exclusiveEndDate, providerNo).size();
         int billing = billingONCHeader1Dao.getNumberOfDemographicsWithInvoicesForProvider(providerNo, startDate, endDate, true);
         int encounterNote = caseManagementNoteDao.getNoteCountForProviderForDateRange(providerNo, startDate, endDate);
         int problemList = caseManagementNoteDao.getNoteCountForProviderForDateRangeWithIssueId(providerNo, startDate, endDate, "Concerns");
@@ -360,11 +369,7 @@
 
 <%!
     String divide(int total, int count) {
-        double val = (float) count / total;
-        if (Double.isNaN(val)) {
-            return "---";
-        }
-        return "" + val * 100;
+        return UsageReportSupport.percentage(total, count);
     }
 
     int checkMale(String sex, int count) {

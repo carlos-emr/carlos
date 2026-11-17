@@ -68,6 +68,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { browserErrorClass } = require('./browser-error-class');
 const { execFileSync } = require('node:child_process');
 const { randomUUID } = require('node:crypto');
@@ -158,7 +159,11 @@ function validateBaseUrl(rawBaseUrl) {
   }
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -420,6 +425,42 @@ async function addDocument(page, pdfPath) {
   ), { waitUntil: 'domcontentloaded', timeout: 60000 });
 }
 
+/**
+ * Delete Document dismissed at its confirmation: no DocumentDelete post, the row keeps its status and stays listed.
+ * The page's only dialog listener here is this one, so the dismiss is what checkDelete() sees.
+ */
+async function dismissDeleteDocument(page) {
+  const row = page.locator('tr', { has: page.locator(`a[title="${docDescription}"]`) }).first();
+  await row.waitFor({ state: 'visible', timeout: 15000 });
+  const state = () => sql(`SELECT GROUP_CONCAT(CONCAT_WS(':', document_no, status) ORDER BY document_no)
+    FROM document WHERE docdesc='${docDescription}'`);
+  const before = state();
+  assert(/^\d+:A$/.test(before), `The uploaded document is not one active row before the dismissed delete: ${before}`);
+  const dialogs = [];
+  let posts = 0;
+  const count = (request) => {
+    if (new URL(request.url()).pathname.endsWith('/documentManager/DocumentDelete')) posts += 1;
+  };
+  page.on('request', count);
+  page.once('dialog', (dialog) => {
+    dialogs.push({ type: dialog.type(), text: dialog.message() });
+    dialog.dismiss().catch(() => {});
+  });
+  try {
+    await row.locator('a[onclick^="checkDelete("]').first().click();
+    // Long enough for the delete form's post to start, had the page sent it.
+    await page.waitForTimeout(1500);
+  } finally {
+    page.off('request', count);
+  }
+  assert(dialogs.length === 1 && dialogs[0].type === 'confirm' && dialogs[0].text.includes(docDescription),
+    `Delete Document did not ask once to confirm deleting the document: ${JSON.stringify(dialogs)}`);
+  assert(posts === 0, `A dismissed Delete Document still posted ${posts} time(s) to DocumentDelete`);
+  assert(state() === before, 'A dismissed Delete Document changed the document row');
+  assert((await page.locator(`a[title="${docDescription}"]`).count()) === 1,
+    'A dismissed Delete Document dropped the document from the list');
+}
+
 async function deleteDocument(page) {
   const row = page.locator('tr', { has: page.locator(`a[title="${docDescription}"]`) }).first();
   await row.waitFor({ state: 'visible', timeout: 15000 });
@@ -516,7 +557,7 @@ async function run() {
     initMysqlDefaults();
     browser = await chromium.launch(launchOptions);
     cancellation.throwIfCancelled();
-    context = await browser.newContext({ ignoreHTTPSErrors: isLoopbackTarget() });
+    context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
     const schedulePage = await cancellation.run(() => login(context));
     const edocPath = await readEdocPath(schedulePage);
 
@@ -541,6 +582,9 @@ async function run() {
     await page.locator(`a[title="${docDescription}"]`).waitFor({ state: 'attached', timeout: 30000 });
     await screenshot(page, 'after-add');
     console.log(`document "${docDescription}" added; navigation header intact`);
+
+    await cancellation.run(() => dismissDeleteDocument(page));
+    console.log(`Delete Document dismissed at its confirmation; "${docDescription}" kept`);
 
     await cancellation.run(() => deleteDocument(page));
     assertScheduleNavRetained(page, 'after deleting a document');

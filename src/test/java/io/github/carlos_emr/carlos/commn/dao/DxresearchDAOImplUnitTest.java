@@ -27,6 +27,8 @@ import jakarta.persistence.Query;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import java.util.Locale;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
@@ -81,4 +83,28 @@ class DxresearchDAOImplUnitTest extends CarlosUnitTestBase {
             .isInstanceOf(Character.class)
             .isEqualTo(expectedStatus);
     }
+    @Test
+    void shouldUseGregorianIsoDates_whenServerFormatLocaleIsThai() {
+        var patients = mock(DemographicDao.class);
+        registerMock(DemographicDao.class, patients);
+        var patient = mock(io.github.carlos_emr.carlos.commn.model.Demographic.class);
+        when(patients.getClientByDemographicNo(4174)).thenReturn(patient);
+        when(patient.getProviderNo()).thenReturn("999998");
+        when(patient.getPatientStatus()).thenReturn("AC");
+        var diagnosis = new io.github.carlos_emr.carlos.commn.model.Dxresearch();
+        diagnosis.setDemographicNo(4174);
+        diagnosis.setStatus('A');
+        diagnosis.setStartDate(java.sql.Date.valueOf("2024-05-01"));
+        diagnosis.setUpdateDate(java.sql.Timestamp.valueOf("2024-05-06 07:08:09"));
+        Locale previous = Locale.getDefault(Locale.Category.FORMAT);
+        try {
+            Locale.setDefault(Locale.Category.FORMAT, Locale.forLanguageTag("th-TH"));
+            var row = dao.getPatientRegisted(List.of(diagnosis), List.of("*")).getFirst();
+            assertThat(row.getStrStartDate()).isEqualTo("2024-05-01");
+            assertThat(row.getStrUpdateDate()).isEqualTo("2024-05-06 07:08:09");
+        } finally {
+            Locale.setDefault(Locale.Category.FORMAT, previous);
+        }
+    }
+
 }

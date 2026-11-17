@@ -29,15 +29,7 @@
 
 package io.github.carlos_emr.carlos.form;
 
-import net.sf.jasperreports.engine.JREmptyDataSource;
 import net.sf.jasperreports.engine.JRException;
-import net.sf.jasperreports.engine.JasperCompileManager;
-import net.sf.jasperreports.engine.JasperFillManager;
-import net.sf.jasperreports.engine.JasperPrint;
-import net.sf.jasperreports.engine.JasperReport;
-import net.sf.jasperreports.pdf.JRPdfExporter;
-import net.sf.jasperreports.export.SimpleExporterInput;
-import net.sf.jasperreports.export.SimpleOutputStreamExporterOutput;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.dao.forms.Rourke2020Dao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -45,30 +37,26 @@ import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import io.github.carlos_emr.carlos.form.model.FormRourke2020;
 import io.github.carlos_emr.carlos.form.util.JasperReportPdfPrint;
+import io.github.carlos_emr.carlos.form.util.Rourke2020PdfReport;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import java.io.OutputStream;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.URISyntaxException;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Enumeration;
-import java.util.GregorianCalendar;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmRourke2020Record extends FrmRecord implements JasperReportPdfPrint {
-    private final Logger logger = LoggerFactory.getLogger(FrmRourke2020Record.class);
 
     private static final String HEAD_CIRCUMFERENCE_GRAPH = "HEAD_CIRC";
     private static final String LENGTH_GRAPH = "LENGTH";
@@ -423,56 +411,24 @@ public class FrmRourke2020Record extends FrmRecord implements JasperReportPdfPri
     @Override
     public void PrintJasperPdf(OutputStream os, LoggedInInfo loggedInInfo, Integer demographicNo,
                                Integer formId, List<Integer> pagesToPrint) {
-        final String RESOURCE_PATH = "/oscar/form/rourke2020/";
-        ClassLoader cl = getClass().getClassLoader();
-
-        Properties recordData = getFormRecord(loggedInInfo, demographicNo, formId);
-        String checkImage = RESOURCE_PATH + "check.png";
-        String crossImage = RESOURCE_PATH + "cross.png";
-        recordData.setProperty("check_image", cl.getResource(checkImage).toString());
-        recordData.setProperty("cross_image", cl.getResource(crossImage).toString());
-
-
         try {
-            List<JasperPrint> pages = new ArrayList<>();
-            for (Integer pageNumber : pagesToPrint) {
-                String pageImage = RESOURCE_PATH + "page" + pageNumber + ".png";
-                String reportUri = RESOURCE_PATH + "page" + pageNumber + ".jrxml";
-                recordData.setProperty("background_image", cl.getResource(pageImage).toString());
-                JasperReport report = JasperCompileManager.compileReport(cl.getResource(reportUri).toURI().getPath());
-                JasperPrint jasperPrint = JasperFillManager.fillReport(report, (Map) recordData, new JREmptyDataSource());
-
-                pages.add(jasperPrint);
-            }
-
-            JRPdfExporter exporter = new JRPdfExporter();
-            exporter.setExporterInput(SimpleExporterInput.getInstance(pages));
-            exporter.setExporterOutput(new SimpleOutputStreamExporterOutput(os));
-            exporter.exportReport();
-
-        } catch (URISyntaxException e) {
-            logger.error("Could not get URI of the Rourke2020 pages for " + pagesToPrint.toString(), e);
-        } catch (NumberFormatException e) {
-            logger.error("Could not parse formId for " + 0);
+            Rourke2020PdfReport.write(os, getFormRecord(loggedInInfo, demographicNo, formId), pagesToPrint);
         } catch (JRException e) {
-            logger.error("Could not parse Report Template for the Rourke2020 form", e);
+            throw new IllegalStateException("Could not print the Rourke 2020 form", e);
         }
     }
 
-    private int calculateGestationalAgeInWeeks(Date pregnancyStartDate, Date birthDate) {
-
-        if (birthDate.before(pregnancyStartDate)) {
-            return 0;
-        }
-
-        Calendar cal = new GregorianCalendar();
-        cal.setTime(pregnancyStartDate);
-        int weeks = 0;
-        while (cal.getTime().before(birthDate)) {
-            // add another week
-            cal.add(Calendar.WEEK_OF_YEAR, 1);
-            weeks++;
-        }
-        return weeks - 1;
+    /** Counts completed calendar weeks, including a birth exactly on a weekly boundary. */
+    static int calculateGestationalAgeInWeeks(Date pregnancyStartDate, Date birthDate) {
+        Calendar start = Calendar.getInstance();
+        start.setTime(pregnancyStartDate);
+        Calendar end = Calendar.getInstance();
+        end.setTime(birthDate);
+        // Calendar fields also support java.sql.Date, whose toInstant() is unsupported.
+        LocalDate first = LocalDate.of(start.get(Calendar.YEAR), start.get(Calendar.MONTH) + 1,
+                start.get(Calendar.DAY_OF_MONTH));
+        LocalDate last = LocalDate.of(end.get(Calendar.YEAR), end.get(Calendar.MONTH) + 1,
+                end.get(Calendar.DAY_OF_MONTH));
+        return (int) Math.max(0, ChronoUnit.WEEKS.between(first, last));
     }
 }

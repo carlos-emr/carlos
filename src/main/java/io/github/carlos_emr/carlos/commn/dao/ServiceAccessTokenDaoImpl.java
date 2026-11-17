@@ -53,7 +53,9 @@ public class ServiceAccessTokenDaoImpl extends AbstractDaoImpl<ServiceAccessToke
 
     @Override
     public void remove(ServiceAccessToken token) {
-        this.entityManager.remove(token);
+        // Delegate so a token loaded in an earlier transaction (detached) is still removed; see
+        // AbstractDaoImpl#remove(AbstractModel) and issue #4129.
+        super.remove(token);
     }
 
     // @Override

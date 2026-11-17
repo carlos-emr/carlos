@@ -37,12 +37,16 @@ import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
 /**
  * @author root
  */
 public final class BillingCodeData implements Comparable {
+    /** The end date of a code that has no planned end. */
+    static final String OPEN_ENDED_TERMINATION_DATE = "9999-12-31";
+
     /**
      * DAO used for billing service persistence operations.
      */
@@ -156,6 +160,8 @@ public final class BillingCodeData implements Comparable {
         billingService.setValue(val);
         billingService.setPercentage("");
         billingService.setBillingserviceDate(new Date());
+        // Open-ended, as Ontario's add stores it; a NULL end date breaks the code's Edit page.
+        billingService.setTerminationDate(ConversionUtils.fromDateString(OPEN_ENDED_TERMINATION_DATE));
         billingService.setRegion("BC");
         billingService.setAnaesthesia("00");
         billingService.setGstFlag(false);

@@ -29,9 +29,12 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * integrations. The action integrates with Spring-managed business services through SpringUtils and maintains
  * healthcare context through LoggedInInfo session tracking.</p>
  *
- * <p><strong>Security Note:</strong> This action does not currently implement SecurityInfoManager privilege
- * checks. All methods require valid session context via LoggedInInfo but do not enforce role-based access
- * control for specialist registry access.</p>
+ * <p><strong>Security:</strong> every entry point requires {@code _con} read, the privilege
+ * {@link ProfessionalSpecialistsManager} enforces on the same reads. The callers are clinical: the Rich Text
+ * Letter's addressee search and the consultation request form's specialist details. The doctor role holds
+ * {@code _con} but not {@code _admin}, so the {@code _admin} read this action used to demand refused every
+ * clinician who was not also an administrator. Maintaining the directory remains an administration
+ * function on its own routes.</p>
  *
  * @since 2026-01-24
  * @see io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist
@@ -63,8 +66,8 @@ public class ProfessionalSpecialist2Action extends ActionSupport {
      */
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", "r", null)) {
+            throw new SecurityException("missing required sec object (_con)");
         }
 
 
@@ -111,8 +114,8 @@ public class ProfessionalSpecialist2Action extends ActionSupport {
      */
     public void get() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", "r", null)) {
+            throw new SecurityException("missing required sec object (_con)");
         }
         String specialistId = request.getParameter("id");
         ProfessionalSpecialist professionalSpecialist = null;
@@ -155,8 +158,8 @@ public class ProfessionalSpecialist2Action extends ActionSupport {
      */
     public void search() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", "r", null)) {
+            throw new SecurityException("missing required sec object (_con)");
         }
         String search_keyword = request.getParameter("keyword");
         List<ProfessionalSpecialist> professionalSpecialist = null;

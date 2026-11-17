@@ -627,6 +627,32 @@ class LogoutBroadcastFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should not inject script when CSRFGuard appended its marker to the AJAX header")
+    void shouldNotInjectScript_whenCsrfGuardAppendedItsAjaxMarker() throws Exception {
+        // CSRFGuard's client script calls setRequestHeader("X-Requested-With", ...) inside its
+        // XMLHttpRequest.send() hijack, and the XHR spec combines that with the value jQuery
+        // already set. Every jQuery $.ajax call in CARLOS therefore arrives in this shape; the
+        // previous exact-match AJAX check missed it and appended the heartbeat script to the reply,
+        // which callers rendering the response body showed as literal JavaScript on screen.
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/hospitalReportManager/Modify");
+        request.setContextPath("/carlos");
+        request.addHeader("X-Requested-With", "XMLHttpRequest, OWASP CSRFGuard Project");
+        request.getSession(true).setAttribute("user", "123");
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write("Success");
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getContentAsString()).isEqualTo("Success");
+        assertThat(response.getContentAsString()).doesNotContain("window.__carlosLogoutActive=true;");
+        assertThat(response.getSetBufferSizeCallCount()).isZero();
+    }
+
+    @Test
     @DisplayName("should preserve AJAX login failure content length without wrapping")
     void shouldPreserveAjaxLoginFailureContentLength_withoutWrapping() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/login");
@@ -1083,6 +1109,26 @@ class LogoutBroadcastFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should log a client abort below ERROR when the script cannot be written")
+    void shouldNotLogError_whenClientAbortsScriptWrite() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
+        ClientAbortingResponse response = new ClientAbortingResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.setContentLength(42);
+        };
+
+        try (LogCapture capture = LogCapture.forLogger(LogoutBroadcastFilter.class)) {
+            filter.doFilter(request, response, chain);
+
+            assertThat(capture.events()).noneSatisfy(event ->
+                    assertThat(event.getLevel()).isEqualTo(Level.ERROR));
+            assertThat(response.getHeader("Content-Length")).isNull();
+        }
+    }
+
+    @Test
     @DisplayName("should log error when writer and output stream append paths fail")
     void shouldLogError_whenWriterAndOutputStreamAppendPathsFail() throws Exception {
         MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
@@ -1393,6 +1439,18 @@ class LogoutBroadcastFilterUnitTest {
         @Override
         public void flushBuffer() throws IOException {
             throw new IOException("flush failed");
+        }
+    }
+
+    /** The flush fails the way it does when the browser has gone away (#4438). */
+    private static class ClientAbortingResponse extends HttpServletResponseWrapper {
+        ClientAbortingResponse() {
+            super(new MockHttpServletResponse());
+        }
+
+        @Override
+        public void flushBuffer() throws IOException {
+            throw new org.apache.catalina.connector.ClientAbortException("Broken pipe");
         }
     }
 

@@ -42,6 +42,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.util.ExtPrint;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -115,9 +116,9 @@ public class MeasurementPrint implements ExtPrint {
 
         Paragraph p = new Paragraph();
         p.setAlignment(Paragraph.ALIGN_CENTER);
-        Phrase phrase = new Phrase(engine.LEADING, "\n\n", engine.getFont());
+        Phrase phrase = PdfFonts.phrase(engine.LEADING, "\n\n", engine.getFont());
         p.add(phrase);
-        phrase = new Phrase(engine.LEADING, "Measurements", obsfont);
+        phrase = PdfFonts.phrase(engine.LEADING, "Measurements", obsfont);
         p.add(phrase);
         engine.getDocument().add(p);
 
@@ -138,9 +139,8 @@ public class MeasurementPrint implements ExtPrint {
             }
             if (newDate) {
                 p = new Paragraph();
-                phrase = new Phrase(engine.LEADING, "", engine.getFont());
-                Chunk chunk = new Chunk("Documentation Date: " + engine.getFormatter().format(measurement.getDateObserved()) + "\n\n", obsfont);
-                phrase.add(chunk);
+                phrase = PdfFonts.phrase(engine.LEADING, "", engine.getFont());
+                PdfFonts.addText(phrase, "Documentation Date: " + engine.getFormatter().format(measurement.getDateObserved()) + "\n\n", obsfont);
                 p.add(phrase);
                 table = new PdfPTable(2);
                 printMeasurementEntries(date, measurements, table);
@@ -330,7 +330,10 @@ public class MeasurementPrint implements ExtPrint {
             return;
         }
 
-        table.addCell(label);
-        table.addCell(measurementMap.get(type).getDataField());
+        // OpenPDF's default cell font is non-embedded Helvetica, which drops characters outside
+        // Cp1252; keep its 12pt size in the embedded face with fallback (#5046).
+        Font cellFont = PdfFonts.getFont(FontFactory.HELVETICA, 12);
+        table.addCell(PdfFonts.phrase(label, cellFont));
+        table.addCell(PdfFonts.phrase(measurementMap.get(type).getDataField(), cellFont));
     }
 }

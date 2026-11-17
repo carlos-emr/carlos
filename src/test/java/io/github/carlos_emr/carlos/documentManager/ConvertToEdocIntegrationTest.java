@@ -25,50 +25,87 @@
  */
 package io.github.carlos_emr.carlos.documentManager;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
 
-import io.github.carlos_emr.carlos.commn.model.EFormData;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
-import static org.assertj.core.api.Assertions.assertThatNoException;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
 
 /**
- * Integration test for {@link ConvertToEdoc}, verifying that eForm data can be
- * converted to an EDoc without errors.
- *
- * <p>Migrated from legacy JUnit 4 {@code ConvertToEdocTest}. The original test
- * had three identical methods testing thread safety; this modern version
- * consolidates them into one test that exercises the same conversion logic.</p>
- *
- * @see ConvertToEdoc
- * @see EFormData
- * @since 2015-01-01
+ * Exercises real HTML-to-PDF fallback rendering, temporary storage and EDoc metadata.
+ * Only the native converter and storage destination are replaced: this test does not
+ * depend on native wkhtmltox availability or write into the configured document store.
  */
-@Disabled("Production code issue: ConvertToEdoc.from() triggers EDocUtil class loading which calls " +
-        "SpringUtils.getBean() for ~10 managers in static field initializers, requiring full Spring context")
 @Tag("integration")
 @Tag("document")
 @DisplayName("ConvertToEdoc Integration Tests")
 class ConvertToEdocIntegrationTest {
 
-    private static final String FORM_DATA = "<!DOCTYPE html><html><head><meta http-equiv=\"content-type\" content=\"text/html; charset=UTF-8\"><title>Rich Text Letter</title><style type=\"text/css\">.butn {width: 140px;}</style></head><body bgcolor=\"FFFFFF\"><form action=\"../eform/addEForm\" method=\"POST\" name=\"RichTextLetter\"><input type=\"hidden\" value=\"Colcamex Test Clinic\" name=\"clinic_name\" id=\"clinic_name\"><input type=\"hidden\" value=\"TEST, MISTER\" name=\"patient_name\" id=\"patient_name\"><textarea name=\"Letter\" id=\"Letter\" style=\"width:600px; display: none;\"><section><div id=\"container\"><header><div id=\"returnaddress\"><span>Second Floor, 2405 Wesbrook Mall</span></div></header></div></section></textarea></form></body></html>";
+    @TempDir
+    Path tempDir;
 
-    private EFormData eformData;
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   ", "Referral letter"})
+    @DisplayName("should render readable PDF and preserve metadata for optional eForm subjects")
+    void shouldRenderPdf_whenSubjectIsOptional(String subject) throws Exception {
+        EFormData eform = new EFormData();
+        eform.setFormId(100);
+        eform.setDemographicId(17);
+        eform.setProviderNo("999001");
+        eform.setFormName("Test Form");
+        eform.setSubject(subject);
+        eform.setFormData("<html><body><p>Referral integration fixture</p></body></html>");
+        NioFileManager fileManager = mock(NioFileManager.class);
+        when(fileManager.saveTempFile(anyString(), any(ByteArrayOutputStream.class)))
+                .thenAnswer(invocation -> {
+                    Path destination = tempDir.resolve(invocation.getArgument(0, String.class));
+                    Files.write(destination, invocation.getArgument(1, ByteArrayOutputStream.class).toByteArray());
+                    return destination;
+                });
 
-    @BeforeEach
-    void setUp() {
-        eformData = new EFormData();
-        eformData.setFormId(100);
-        eformData.setFormName(" Test Form ");
-        eformData.setFormData(FORM_DATA);
-    }
-
-    @Test
-    @DisplayName("should convert eForm data to EDoc without throwing exception")
-    void shouldConvertEFormDataToEDoc_withoutThrowingException() {
-        assertThatNoException().isThrownBy(() -> ConvertToEdoc.from(eformData));
+        try (MockedStatic<SpringUtils> spring = mockStatic(SpringUtils.class);
+             MockedConstruction<InternalEDocConverter> nativeConverter = mockConstruction(
+                     InternalEDocConverter.class, (converter, context) ->
+                             doThrow(new IOException("Native renderer unavailable in fixture"))
+                                     .when(converter).convert(anyString(), any()))) {
+            spring.when(() -> SpringUtils.getBean(NioFileManager.class)).thenReturn(fileManager);
+            EDoc result = ConvertToEdoc.from(eform);
+            String expectedDescription = subject == null || subject.isBlank() ? "Test Form" : subject;
+            assertThat(result).isNotNull();
+            assertThat(result.getDescription()).isEqualTo(expectedDescription);
+            assertThat(result.getModuleId()).isEqualTo("17");
+            assertThat(result.getNumberOfPages()).isEqualTo(1);
+            Path pdfPath = Path.of(result.getFilePath()).resolve(result.getFileName());
+            assertThat(pdfPath).isRegularFile();
+            try (PDDocument pdf = Loader.loadPDF(pdfPath.toFile())) {
+                assertThat(pdf.getNumberOfPages()).isEqualTo(1);
+                assertThat(new PDFTextStripper().getText(pdf)).contains("Referral integration fixture");
+            }
+            // The pre-rendered overload must apply the same optional-subject fallback.
+            EDoc fromExistingPdf = ConvertToEdoc.from(eform, pdfPath);
+            assertThat(fromExistingPdf.getDescription()).isEqualTo(expectedDescription);
+            assertThat(fromExistingPdf.getNumberOfPages()).isEqualTo(1);
+            verify(fileManager).saveTempFile(anyString(), any(ByteArrayOutputStream.class));
+        }
     }
 }

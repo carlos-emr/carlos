@@ -43,21 +43,24 @@ class SmsProviderRateLimitDaoImplUnitTest {
     private Query nativeQuery;
 
     @Test
-    @DisplayName("insertIfMissing skips insert when SMS provider is missing")
+    @DisplayName("ensureExists skips insert when SMS provider is missing")
     void shouldSkipInsert_whenProviderIsMissing() {
         SmsProviderRateLimitDaoImpl dao = newDao();
 
-        dao.insertIfMissing(null, fixedDate());
+        dao.ensureExists(null, fixedDate());
 
         verify(entityManager, never()).createNativeQuery(anyString());
     }
 
     @Test
-    @DisplayName("insertIfMissing uses insert-ignore for SMS provider limiter rows")
-    void shouldInsertIgnore_whenProviderLimiterIsMissing() {
+    @DisplayName("ensureExists uses an atomic upsert for SMS provider limiter rows")
+    void shouldUpsert_whenEnsuringProviderLimiter() {
         SmsProviderRateLimitDaoImpl dao = newDao();
         Date now = fixedDate();
-        when(entityManager.createNativeQuery(contains("INSERT IGNORE INTO sms_provider_rate_limit")))
+        when(entityManager.createNativeQuery(contains(
+                "INSERT INTO sms_provider_rate_limit (provider_type, send_count, window_started_at, created_at, updated_at) "
+                        + "VALUES (?1, 0, ?2, ?3, ?4) ON DUPLICATE KEY UPDATE provider_type = provider_type"
+        )))
                 .thenReturn(nativeQuery);
         when(nativeQuery.setParameter(1, SmsProviderType.VOIPMS.name())).thenReturn(nativeQuery);
         when(nativeQuery.setParameter(2, now)).thenReturn(nativeQuery);
@@ -65,7 +68,7 @@ class SmsProviderRateLimitDaoImplUnitTest {
         when(nativeQuery.setParameter(4, now)).thenReturn(nativeQuery);
         when(nativeQuery.executeUpdate()).thenReturn(1);
 
-        dao.insertIfMissing(SmsProviderType.VOIPMS, now);
+        dao.ensureExists(SmsProviderType.VOIPMS, now);
 
         verify(nativeQuery).setParameter(1, SmsProviderType.VOIPMS.name());
         verify(nativeQuery).setParameter(2, now);

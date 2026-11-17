@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
@@ -39,6 +40,9 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 
 import java.io.IOException;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask;
+import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * Read-scope gate for the document annotation viewer.
@@ -63,6 +67,7 @@ public class AnnotateDocument2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
 
     private final transient SecurityInfoManager securityInfoManager;
+    private final transient CtlDocumentDao ctlDocumentDao;
 
     private int docId;
     private int pageCount;
@@ -72,11 +77,12 @@ public class AnnotateDocument2Action extends ActionSupport {
     private String message;
 
     public AnnotateDocument2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class));
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(CtlDocumentDao.class));
     }
 
-    AnnotateDocument2Action(SecurityInfoManager securityInfoManager) {
+    AnnotateDocument2Action(SecurityInfoManager securityInfoManager, CtlDocumentDao ctlDocumentDao) {
         this.securityInfoManager = securityInfoManager;
+        this.ctlDocumentDao = ctlDocumentDao;
     }
 
     @Override
@@ -102,13 +108,17 @@ public class AnnotateDocument2Action extends ActionSupport {
             return unavailable("That document could not be opened for annotation.");
         }
 
-        EDoc doc = EDocUtil.getDoc(String.valueOf(docId));
-        if (doc == null || StringUtils.isBlank(doc.getFileName())) {
-            return unavailable("The document could not be found.");
+        HttpServletResponse response = ServletActionContext.getResponse();
+        response.setHeader("Cache-Control", "no-store");
+        try {
+            DocumentPatientLink.requireAccess(loggedInInfo, docId, securityInfoManager, ctlDocumentDao);
+        } catch (SecurityException denied) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            throw denied;
         }
-
-        if (!"application/pdf".equalsIgnoreCase(StringUtils.trimToEmpty(doc.getContentType()))) {
-            return unavailable("Only PDF documents can be annotated.");
+        EDoc doc = EDocUtil.getDoc(String.valueOf(docId));
+        if (doc == null) {
+            return unavailable("The document could not be found.");
         }
 
         // module_id is only a demographic number when module is "demographic"; on a
@@ -120,6 +130,14 @@ public class AnnotateDocument2Action extends ActionSupport {
             throw new SecurityException("Unauthorized access to patient record");
         }
 
+        if (StringUtils.isBlank(doc.getFileName())) {
+            return unavailable("The document could not be found.");
+        }
+
+        if (!"application/pdf".equalsIgnoreCase(StringUtils.trimToEmpty(doc.getContentType()))) {
+            return unavailable("Only PDF documents can be annotated.");
+        }
+
         // The stored count is metadata: legacy rows carry zero and a row can drift from the file
         // it names. Defaulting a zero to 1 rendered a single page of a multi-page document and,
         // worse, let a document past the page ceiling that the save path then had to refuse. The
@@ -127,8 +145,14 @@ public class AnnotateDocument2Action extends ActionSupport {
         try {
             sourceDigest = AnnotatedDocumentService.sourceDigest(doc);
             pageCount = AnnotatedDocumentService.pageCountOf(doc);
+        } catch (BoundedPdfTask.BusyException e) {
+            request.setAttribute("documentCapacityBusy", true);
+            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            response.setHeader("Retry-After", String.valueOf(BoundedPdfTask.RETRY_AFTER_SECONDS));
+            response.setHeader("Cache-Control", "no-store");
+            return unavailable(e.getMessage());
         } catch (IOException | RuntimeException e) {
-            logger.warn("Could not read the page count for document {}", docId);
+            logger.warn("Could not read the page count for document {}", LogSafe.sanitizeObject(docId));
             return unavailable("This document could not be opened for annotation. "
                     + "It can still be faxed as it is.");
         }

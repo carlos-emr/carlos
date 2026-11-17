@@ -26,6 +26,8 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.model.*;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.List;
@@ -40,10 +42,11 @@ class ReviewedChartUpdateServiceUnitTest {
     private final ChartUpdateContext context = mock(ChartUpdateContext.class);
     private final ChartUpdateReceiptStore receipts = mock(ChartUpdateReceiptStore.class);
     private final TicklerManager ticklers = mock(TicklerManager.class);
+    private final TicklerAttachmentService attachments = mock(TicklerAttachmentService.class);
     private final CaseManagementManager notes = mock(CaseManagementManager.class);
     private final ProviderDao providers = mock(ProviderDao.class);
     private final LoggedInInfo user = mock(LoggedInInfo.class);
-    private final ReviewedChartUpdateService service = new ReviewedChartUpdateService(context, receipts, ticklers, notes, providers);
+    private final ReviewedChartUpdateService service = new ReviewedChartUpdateService(context, receipts, ticklers, attachments, notes, providers);
     private MockedStatic<CarlosProperties> settings;
     private CarlosProperties properties;
     private ChartUpdateReview review;
@@ -73,7 +76,6 @@ class ReviewedChartUpdateServiceUnitTest {
             tickler.setId(123);
             return true;
         });
-        when(ticklers.addTicklerLink(eq(user), any())).thenReturn(true);
     }
     @AfterEach void tearDown() { settings.close(); }
 
@@ -99,14 +101,15 @@ class ReviewedChartUpdateServiceUnitTest {
                 && tickler.getTaskAssignedTo().equals("101") && tickler.getStatus() == Tickler.STATUS.A
                 && tickler.getMessage().contains("Review symptoms\n\nSource document #42")
                 && tickler.getMessage().endsWith(proposal.evidence())));
-        verify(ticklers).addTicklerLink(eq(user), argThat(link -> link.getTableName().equals("DOC") && link.getTableId() == 42L));
-        var order = inOrder(context, receipts, ticklers);
+        verify(attachments).syncAttachments(eq(user), argThat(tickler -> tickler.getId() == 123),
+                eq(java.util.Map.of(DocumentType.DOC, List.of("42"))));
+        var order = inOrder(context, receipts, ticklers, attachments);
         order.verify(context).requireWrite(user, 3001, "tickler");
         order.verify(receipts).requireTransactionalTables(false, true);
         order.verify(receipts).lockPatient(3001);
         order.verify(context).load(user, 42);
         order.verify(ticklers).addTickler(eq(user), any());
-        order.verify(ticklers).addTicklerLink(eq(user), any());
+        order.verify(attachments).syncAttachments(eq(user), any(), any());
         order.verify(receipts).save(any());
         verifyNoInteractions(notes);
     }
@@ -230,7 +233,7 @@ class ReviewedChartUpdateServiceUnitTest {
     }
 
     @Test void shouldAvoidReceipt_whenNativeWriteOrLinkFails() {
-        when(ticklers.addTicklerLink(eq(user), any())).thenReturn(false);
+        doThrow(new SecurityException("Source link refused")).when(attachments).syncAttachments(eq(user), any(), any());
         assertThatThrownBy(() -> apply(valid())).hasMessageContaining("Source link");
         verify(receipts, never()).save(any());
         when(ticklers.addTickler(eq(user), any())).thenReturn(false);

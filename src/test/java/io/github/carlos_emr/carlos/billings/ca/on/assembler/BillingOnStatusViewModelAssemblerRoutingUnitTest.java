@@ -29,16 +29,20 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusLoader;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -47,27 +51,17 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Pins the simpler-vs-sorted query routing in
- * {@link BillingOnStatusViewModelAssembler}.
- *
- * <p>Before this test the {@code if ((serviceCode == null || billingForm == null)
- * && dx.length() < 2 && visitType.length() < 2)} branch was dead because
- * {@code serviceCode} and {@code billingForm} were both normalized to sentinel
- * values ({@code "%"} / {@code "---"}) one block above. The legacy scriptlet's
- * intent — route ad-hoc / URL-navigated calls without filter params to the
- * cheaper {@link BillingStatusLoader#getBills} query — was lost.
- *
- * <p>The fix captures the original null/empty state of the filter params
- * before normalization (booleans {@code serviceCodeFilterAbsent} and
- * {@code billingFormFilterAbsent}) and routes on those flags, preserving the
- * legacy OR semantics.
+ * Verifies invoice query routing and preservation of submitted filters.
+ * Omitted filter parameters retain the legacy simple-query route. Explicitly blank
+ * service codes use the same filtered, sorted query as the wildcard so unpaid
+ * claims stay visible and the other filter dimensions are preserved.
  *
  * @since 2026-04-29
  */
 @DisplayName("BillingOnStatusViewModelAssembler routing")
 @Tag("unit")
 @Tag("billing")
-class BillingOnStatusViewModelAssemblerRoutingUnitTest {
+class BillingOnStatusViewModelAssemblerRoutingUnitTest extends CarlosUnitTestBase {
 
     private SecurityInfoManager securityInfoManager;
     private BillingOnLookupService lookupService;
@@ -169,4 +163,25 @@ class BillingOnStatusViewModelAssemblerRoutingUnitTest {
                 any(), any(), any(), any(), any(), any(), any(), any(),
                 any(), any(), any(), any(), any(), any(), any(), any());
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", " ", " \t ", "%"})
+    void shouldKeepFilteredQueryAndSort_whenServiceCodeIsBlankOrWildcard(String code) {
+        MockHttpServletRequest req = baseRequest();
+        req.setParameter("serviceCode", code);
+        req.setParameter("billing_form", "X1");
+        req.setParameter("sortName", "LOCATION");
+        req.setParameter("sortOrder", "desc");
+        req.setParameter("claimNo", "12345678901");
+        req.setParameter("paymentStartDate", "2026-03-01");
+        req.setParameter("paymentEndDate", "2026-03-04");
+
+        assembler.assemble(req, loggedInInfo);
+
+        verify(statusPrep, never()).getBills(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(statusPrep).getBillsWithSorting(any(), any(), any(), any(), any(), any(), eq("%"),
+                eq(""), eq("-"), eq("X1"), any(), eq("LOCATION"), eq("desc"),
+                eq("2026-03-01"), eq("2026-03-04"), eq("12345678901"));
+    }
+
 }

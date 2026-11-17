@@ -17,6 +17,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -67,6 +69,63 @@ class RecurringAppointmentServiceIntegrationTest extends CarlosTestBase {
                 .setParameter("marker", "PW_RECURRENCE_INTEGRATION").getResultList();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"t", "N"})
+    void shouldRejectEntireSeries_whenALaterOccurrenceOverlapsDoNotBook(String status) {
+        Appointment block = new Appointment();
+        block.setProviderNo("999998");
+        block.setAppointmentDate(Date.valueOf("2027-02-07"));
+        block.setStartTime(java.sql.Time.valueOf("10:05:00"));
+        block.setEndTime(java.sql.Time.valueOf("10:30:00"));
+        block.setName("Do_Not_Book");
+        block.setProgramId(10016);
+        block.setDemographicNo(0);
+        block.setStatus(status);
+        appointments.persist(block);
+        em.flush();
+        assertThatThrownBy(() -> service.apply(user, values, 10016))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Do Not Book");
+        assertThat(rows()).isEmpty();
+    }
+
+    @Test
+    void shouldAllowSeries_whenDoNotBookBelongsToAnotherProviderOrTime() {
+        for (String provider : List.of("999998", "999997")) {
+            Appointment block = new Appointment();
+            block.setProviderNo(provider);
+            block.setAppointmentDate(Date.valueOf("2027-02-07"));
+            block.setStartTime(java.sql.Time.valueOf(provider.equals("999998") ? "10:15:00" : "10:00:00"));
+            block.setEndTime(java.sql.Time.valueOf("10:30:00"));
+            block.setName("Do_Not_Book");
+            block.setProgramId(10016);
+            block.setDemographicNo(0);
+            block.setStatus("t");
+            appointments.persist(block);
+        }
+        em.flush();
+        assertThat(service.apply(user, values, 10016)).isEqualTo(3);
+        assertThat(rows()).hasSize(3);
+    }
+
+    @Test
+    void shouldAllowSeries_whenBlocksAreCancelledDeletedOrInAnotherProgram() {
+        for (String status : List.of("C", "D", "t")) {
+            Appointment block = new Appointment();
+            block.setProviderNo("999998");
+            block.setAppointmentDate(Date.valueOf("2027-02-07"));
+            block.setStartTime(java.sql.Time.valueOf("10:00:00"));
+            block.setEndTime(java.sql.Time.valueOf("10:30:00"));
+            block.setName("Do_Not_Book");
+            block.setProgramId(status.equals("t") ? 10017 : 10016);
+            block.setDemographicNo(0);
+            block.setStatus(status);
+            appointments.persist(block);
+        }
+        em.flush();
+        assertThat(service.apply(user, values, 10016)).isEqualTo(3);
+        assertThat(rows()).hasSize(3);
+    }
+
     @Test void createsRepeatsFromSavedAppointmentAndRepeatedSubmitDoesNotDuplicate() {
         values.put("endDate", "31/01/2027");
         assertThat(service.apply(user, values, 10016)).isEqualTo(1);
@@ -82,6 +141,32 @@ class RecurringAppointmentServiceIntegrationTest extends CarlosTestBase {
         });
         assertThat(rows()).extracting(a -> a.getAppointmentDate().toString())
                 .containsExactly("2027-01-31", "2027-02-07", "2027-02-14");
+    }
+
+    @Test
+    void shouldExtendLegacyMultilineSeriesWithoutDuplicates_whenLineEndingsAreNormalized() {
+        values.put("endDate", "31/01/2027");
+        values.put("reason", "Legacy\r\nreason");
+        service.apply(user, values, 10016);
+        Appointment anchor = rows().getFirst();
+        // Hibernate uses field access: represent a pre-fix CRLF row without calling the new setters.
+        em.createNativeQuery("UPDATE appointment SET reason=:reason WHERE appointment_no=:id")
+                .setParameter("reason", "Legacy\r\nreason").setParameter("id", anchor.getId()).executeUpdate();
+        em.clear();
+        values.put("appointment_no", anchor.getId().toString());
+        values.put("endDate", "14/02/2027");
+
+        assertThat(service.apply(user, values, 10016)).isEqualTo(2);
+        em.flush();
+        em.clear();
+        assertThat(service.apply(user, values, 10016)).isZero();
+        assertThat(rows()).hasSize(3);
+        values.put("groupappt", "Group Update");
+        values.put("reason", "Updated\r\nreason");
+        assertThat(service.apply(user, values, 10016)).isEqualTo(3);
+        em.flush();
+        em.clear();
+        assertThat(rows()).hasSize(3).allSatisfy(a -> assertThat(a.getReason()).isEqualTo("Updated\nreason"));
     }
 
     @Test void updatesCancelsAndArchivesEveryMatchingDate() {

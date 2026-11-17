@@ -96,6 +96,9 @@ class DocumentSummaryAgentUnitTest {
         assertThat(result.points()).hasSize(1);
         assertThat(request.path("format").path("properties").has("points")).isTrue();
         assertThat(request.path("format").path("properties").has("claims")).isFalse();
+        assertThat(request.path("format").at("/properties/points/items/properties/evidence").has("uniqueItems")).isFalse();
+        assertThat(JSON.readTree(ClinicalSummaryAgentProtocol.resource("document-summary-schema.json"))
+                .at("/properties/points/items/properties/evidence").path("uniqueItems").booleanValue()).isTrue();
         assertThat(JSON.readTree(request.path("prompt").asText()).path("sources").get(0).path("title").asText())
                 .isEqualTo("Document");
         assertThat(inferenceCalls).isEqualTo(1);

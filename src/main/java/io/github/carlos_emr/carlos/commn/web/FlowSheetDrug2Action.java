@@ -30,23 +30,26 @@
 
 package io.github.carlos_emr.carlos.commn.web;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.FlowSheetDrugDao;
 import io.github.carlos_emr.carlos.commn.dao.FlowSheetDxDao;
 import io.github.carlos_emr.carlos.commn.model.FlowSheetDrug;
 import io.github.carlos_emr.carlos.commn.model.FlowSheetDx;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts 2 action for managing flowsheet drug and diagnosis associations.
@@ -63,124 +66,114 @@ import org.apache.struts2.ServletActionContext;
  * @since 2006-04-20
  */
 public class FlowSheetDrug2Action extends ActionSupport {
+    /** A patient number as the flowsheet page posts it. */
+    private static final Pattern DEMOGRAPHIC_NO = Pattern.compile("[1-9]\\d{0,8}");
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private static final Logger log2 = MiscUtils.getLogger();
     private FlowSheetDrugDao flowSheetDrugDao = SpringUtils.getBean(FlowSheetDrugDao.class);
     private FlowSheetDxDao flowSheetDxDao = SpringUtils.getBean(FlowSheetDxDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     /**
-     * Main execution method that routes to appropriate sub-methods based on method parameter.
+     * Links a diagnosis or a current drug to a flowsheet for one patient, then returns to the flowsheet.
      * <p>
-     * Routes to:
-     * <ul>
-     * <li>save() - Saves flowsheet-drug association</li>
-     * <li>dxSave() - Saves flowsheet-diagnosis association</li>
-     * </ul>
+     * The flowsheet's left panel posts {@code method=dxSave} (a diagnosis) or {@code method=save} (a drug, by ATC
+     * code). Patient write rights come first, then the request must be a POST, and a link
+     * the flowsheet already has is not saved again. The answer is a redirect back to the flowsheet, so a reload shows
+     * the flowsheet instead of posting the link again.
      *
-     * Expected request parameters:
-     * <ul>
-     * <li>method - String method name ("save" or "dxSave")</li>
-     * </ul>
+     * <p>Expected request parameters: {@code method}, {@code flowsheet} (the template name), {@code demographic}, and
+     * {@code dxCode} plus {@code dxCodeType}, or {@code atcCode}.</p>
      *
-     * @return String result from routed method, or null if no method specified
-     * @throws Exception if persistence or security check fails
+     * @return {@link #NONE}: the response is a redirect, or an error status for a refused or malformed request
+     * @throws SecurityException if the user lacks write rights for the patient
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: the target is this application's flowsheet route, with a numeric patient
+    // number and a URL-encoded template name, never a caller-supplied address.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is this application's flowsheet route with a numeric patient and an encoded template, not a caller-supplied address")
     @Override
     public String execute() throws Exception {
-        if ("save".equals(request.getParameter("method"))) {
-            return save();
-        }
-        if ("dxSave".equals(request.getParameter("method"))) {
-            return dxSave();
-        }
-        log2.debug("AnnotationAction-unspec");
-        return null;
-    }
-
-    /**
-     * Saves a flowsheet-drug association using ATC code.
-     * <p>
-     * Creates a new FlowSheetDrug record linking a flowsheet template to a specific
-     * drug identified by its ATC (Anatomical Therapeutic Chemical) code for a patient.
-     * Requires write privilege for the demographic.
-     *
-     * Expected request parameters:
-     * <ul>
-     * <li>flowsheet - String flowsheet template name</li>
-     * <li>demographic - String demographic number</li>
-     * <li>atcCode - String ATC code of the drug</li>
-     * </ul>
-     *
-     * @return String JSP path with query parameters for redirect to flowsheet
-     * @throws Exception if persistence fails
-     * @throws SecurityException if user lacks write privilege for demographic
-     */
-    public String save() throws Exception {
-        String flowsheet = request.getParameter("flowsheet");
         String demographicNo = request.getParameter("demographic");
-        String atcCode = request.getParameter("atcCode");
-
-        FlowSheetDrug cust = new FlowSheetDrug();
-        cust.setFlowsheet(flowsheet);
-        cust.setAtcCode(atcCode);
-        cust.setProviderNo((String) request.getSession().getAttribute("user"));
-        cust.setDemographicNo(Integer.parseInt(demographicNo));
-        cust.setCreateDate(new Date());
-
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", demographicNo)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
-        log2.debug("SAVE " + cust);
-
-        flowSheetDrugDao.persist(cust);
-
-        return "/encounter/oscarMeasurements/ViewTemplateFlowSheet?demographic_no=" + demographicNo + "&template=" + flowsheet;
+        // HTTP method names are case-sensitive (RFC 9110), so only an exact POST may link.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+        String method = request.getParameter("method");
+        String flowsheet = request.getParameter("flowsheet");
+        if (demographicNo == null || !DEMOGRAPHIC_NO.matcher(demographicNo).matches()
+                || flowsheet == null || flowsheet.isBlank()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        int demographic = Integer.parseInt(demographicNo);
+        boolean linked;
+        if ("save".equals(method)) {
+            linked = linkDrug(flowsheet, demographic, request.getParameter("atcCode"));
+        } else if ("dxSave".equals(method)) {
+            linked = linkDx(flowsheet, demographic, request.getParameter("dxCode"), request.getParameter("dxCodeType"));
+        } else {
+            linked = false;
+        }
+        if (!linked) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        response.sendRedirect(request.getContextPath() + "/encounter/oscarMeasurements/ViewTemplateFlowSheet?demographic_no="
+                + demographic + "&template=" + URLEncoder.encode(flowsheet, StandardCharsets.UTF_8));
+        return NONE;
     }
 
     /**
-     * Saves a flowsheet-diagnosis association using diagnosis code and type.
-     * <p>
-     * Creates a new FlowSheetDx record linking a flowsheet template to a specific
-     * diagnosis identified by its code and type (e.g., ICD-9, ICD-10) for a patient.
-     * Requires write privilege for the demographic.
+     * Links the drug with this ATC code to the flowsheet, unless the flowsheet already links it for the patient.
      *
-     * Expected request parameters:
-     * <ul>
-     * <li>flowsheet - String flowsheet template name</li>
-     * <li>demographic - String demographic number</li>
-     * <li>dxCode - String diagnosis code</li>
-     * <li>dxCodeType - String diagnosis code type (e.g., "icd9", "icd10")</li>
-     * </ul>
-     *
-     * @return String JSP path with query parameters for redirect to flowsheet
-     * @throws Exception if persistence fails
-     * @throws SecurityException if user lacks write privilege for demographic
+     * @return true when a link exists afterwards (saved now or before); false for a blank ATC code
      */
-    public String dxSave() throws Exception {
-        String flowsheet = request.getParameter("flowsheet");
-        String demographicNo = request.getParameter("demographic");
-        String dxCode = request.getParameter("dxCode");
-        String dxType = request.getParameter("dxCodeType");
-
-        FlowSheetDx cust = new FlowSheetDx();
-        cust.setFlowsheet(flowsheet);
-        cust.setDxCode(dxCode);
-        cust.setDxCodeType(dxType);
-        cust.setProviderNo((String) request.getSession().getAttribute("user"));
-        cust.setDemographicNo(Integer.parseInt(demographicNo));
-        cust.setCreateDate(new Date());
-
-        log2.debug("SAVE " + cust);
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+    private boolean linkDrug(String flowsheet, int demographic, String atcCode) {
+        if (atcCode == null || atcCode.isBlank()) {
+            return false;
         }
+        boolean linked = flowSheetDrugDao.getFlowSheetDrugs(flowsheet, demographic).stream()
+                .anyMatch(existing -> atcCode.equals(existing.getAtcCode()));
+        if (!linked) {
+            FlowSheetDrug cust = new FlowSheetDrug();
+            cust.setFlowsheet(flowsheet);
+            cust.setAtcCode(atcCode);
+            cust.setProviderNo((String) request.getSession().getAttribute("user"));
+            cust.setDemographicNo(demographic);
+            cust.setCreateDate(new Date());
+            flowSheetDrugDao.persist(cust);
+        }
+        return true;
+    }
 
-        flowSheetDxDao.persist(cust);
-
-        return "/encounter/oscarMeasurements/ViewTemplateFlowSheet?demographic_no=" + demographicNo + "&template=" + flowsheet;
+    /**
+     * Links the diagnosis with this code and coding system to the flowsheet, unless the flowsheet already links it
+     * for the patient.
+     *
+     * @return true when a link exists afterwards (saved now or before); false for a blank code or coding system
+     */
+    private boolean linkDx(String flowsheet, int demographic, String dxCode, String dxCodeType) {
+        if (dxCode == null || dxCode.isBlank() || dxCodeType == null || dxCodeType.isBlank()) {
+            return false;
+        }
+        // The map is keyed as the flowsheet page reads it: coding system then code.
+        if (!flowSheetDxDao.getFlowSheetDxMap(flowsheet, demographic).containsKey(dxCodeType + dxCode)) {
+            FlowSheetDx cust = new FlowSheetDx();
+            cust.setFlowsheet(flowsheet);
+            cust.setDxCode(dxCode);
+            cust.setDxCodeType(dxCodeType);
+            cust.setProviderNo((String) request.getSession().getAttribute("user"));
+            cust.setDemographicNo(demographic);
+            cust.setCreateDate(new Date());
+            flowSheetDxDao.persist(cust);
+        }
+        return true;
     }
 }

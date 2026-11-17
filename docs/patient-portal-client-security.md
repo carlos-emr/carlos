@@ -7,10 +7,43 @@ run in CARLOS before signing.
 
 ## Authenticating the portal server
 
+The portal is optional and off by default. It is used only when
+`patient_portal.enabled=true`; a clinic that does not use it sets nothing, and
+setting it back to `false` switches the portal off without removing its
+credentials. With the portal off, no portal call is made. The **Patient
+portal** entry on the patient record appears only while the portal is on. A
+portal JSON action that would call the portal (the panel read, invitation
+create, resend, recovery and revoke, account unlock and access) answers 503
+`portal_not_configured`, saying the portal is not switched on; an invitation is
+then neither prepared on the portal nor queued as an email. Requests refused for
+their method, patient, action name, invitation or delivery id, invitation details
+or privileges are refused as before (an account access request's `enabled` and
+`reason` are checked only once the portal is on). An invitation email whose
+delivery has not finished waits while the portal is off: Manage Emails still
+sends staff to the patient's portal page, which reports that the portal is not
+switched on. The email
+recovery page reports the portal as switched off or not set up correctly when a
+recovery is attempted. The rest of CARLOS is unaffected, with two exceptions.
+While `patient_portal.email.enabled=true`, every encrypted email is refused;
+setting it to `false` puts encrypted email back on staff-entered passwords. And
+whatever that setting, an email whose portal password still needs recovery
+cannot be recovered until the portal is switched on again. Case does not matter for
+`patient_portal.enabled` and a blank value counts as off, whereas
+`patient_portal.email.enabled` must be exactly `true` or `false` in lower case;
+for the switch, any value other than `true` or `false`, including one
+followed by a `#` comment on the same line, is a configuration error; only the
+portal's JSON actions name `patient_portal.enabled` in the log. A change takes
+effect when CARLOS restarts.
+
+Upgrading: an install that set up the portal before this switch existed, such as
+a staging server, has no `patient_portal.enabled` line. After the upgrade its
+portal is off, as described above, until `patient_portal.enabled=true` is added
+and CARLOS restarts. If any email is still waiting for its portal password to be
+recovered, add the line before upgrading.
+
 `patient_portal.certificate.pins` is required whenever the integration is
-configured. Missing, empty, or malformed pins prevent client initialization;
-there is no fallback to CA-only trust. Leaving the whole integration unconfigured
-still leaves the rest of CARLOS available. Existing deployments must provision
+enabled. Missing, empty, or malformed pins prevent client initialization;
+there is no fallback to CA-only trust. Existing deployments must provision
 verified pins before deploying this change and restarting CARLOS.
 
 CARLOS requires TLS 1.2/1.3, normal certificate validation, a matching hostname,
@@ -35,6 +68,12 @@ restart CARLOS before changing the TLS terminator's key. Confirm connectivity, t
 old pin and restart CARLOS again.
 Certificate renewal with the same public key preserves the pin. Operators must
 coordinate automated key rotation with this process; failures stop portal calls.
+
+[`patient-portal-tls-runbook.md`](patient-portal-tls-runbook.md) turns this into steps: choosing
+where HTTPS ends, setting and checking the first pin, renewing without changing the key, keeping a
+standby pin, rotating, responding to a compromised key, and diagnosing a mismatch. Each clinic
+records its own answers in a copy of
+[`patient-portal-deployment-record-template.md`](patient-portal-deployment-record-template.md).
 
 This authenticates the configured TLS endpoint. It does not protect a compromised
 portal, a stolen pinned private key, modified CARLOS configuration, or patients
@@ -74,6 +113,226 @@ not respond to cancellation retains its slot until it actually exits, preventing
 unbounded replacement threads. A timed-out mutation may already have applied;
 check current state before retrying.
 
+## Inviting a patient
+
+Staff invite a patient from the **Patient Portal** link on the demographic record. The link appears
+only when the portal is configured and the user holds `_portal.invite` or `_portal.account` read for
+the patient. Resolving an unfinished delivery needs `_portal.invite` and `_email` write, the same
+email privilege the rest of CARLOS requires to create or close an outbox row. Sending also needs
+`_edoc` write, because every sent email is archived as a patient document. Both are checked before the
+portal is asked for anything, and the page shows only the controls the user's rights allow.
+
+`V1.0.75` grants `doctor` full `_portal.invite`, because `doctor` is the only
+non-admin role the baseline grants `_email`. Read-only `_portal.account`, which the invitation panel
+uses to show whether the patient already has an account, comes from `V1.0.73`; `V1.0.75` does not
+grant it again, so a clinic that removed it keeps that choice. Unlocking a portal account stays with
+`admin`, where `V1.0.73` put it. Front-desk roles hold `_demographic` but not `_email`: granting
+them `_portal.invite` in Administration > Security lets them see and revoke invitations, but not
+send one or resolve an unfinished delivery.
+
+Two settings are required, and invitations are refused until both are set:
+
+| Property | Meaning |
+|---|---|
+| `patient_portal.public_base_url` | The address patients open, `https://` only. It is not the pinned internal API origin and usually differs from it. Unlike `base_url`, it may carry the path prefix the portal's patient pages are served under. |
+| `patient_portal.invite.sender_email` | The sender address of an active CARLOS email account. |
+
+The portal's two-phase contract decides the order of every invitation. `PortalInviteDeliveryService`
+records each step in `patient_portal_invite_delivery` before the next network call:
+
+1. **Prepare.** The portal returns an inactive code for a new operation id. A lost response is
+   retried once with the same operation id, which the portal answers with the same code.
+2. **Store.** The email carrying the code is written to `emailLog` as `PENDING`. This is the durable
+   job the portal requires before it activates anything.
+3. **Commit.** Inside `EmailManager.DispatchGate`, once the email row exists and the message is built and
+   archived, immediately before the transport sends it, CARLOS calls `commit-delivery` with
+   `delivery_reference=emaillog:<id>`. Every local step that could still fail has already succeeded, so a
+   commit is followed by nothing but the send. A lost answer is retried once; the portal treats a repeat
+   with the same operation id and reference as the same commit. The portal activates the code and starts
+   its seven-day lifetime. If the commit fails for any reason, nothing is sent.
+4. **Send.** The normal email stack sends the message, and the attempt records `SENT`, `SEND_FAILED`
+   or `SEND_UNCERTAIN`.
+
+Stopping an attempt before sending claims `ABANDONING`, and CARLOS revokes its code on the
+portal: a live preparation otherwise blocks every new invitation for the patient until it expires.
+Confirmed withdrawal finishes the attempt as `ABANDONED`; a failed withdrawal stays open for retry.
+After the commit, CARLOS never revokes on uncertainty; a refused send is fixed by a resend, which
+issues a new code and keeps the old one valid until the replacement is committed. The uncertain cases
+before the send are a commit whose answer is lost twice, and a commit the portal made that CARLOS could
+not record (a failed database write, or a crash, after which staff stop the attempt). CARLOS withdraws
+the new code, which never left, and records the commit as unconfirmed, never refused: since the portal
+may already have retired the old code while activating the new, the page tells staff that a replaced
+invitation may no longer work and a new one should be sent. A queued attempt without a recorded
+commit refusal keeps activation unconfirmed when stopped by staff: a remote commit may still complete
+after a status lookup, so observing the earlier invitation pending cannot prove that its replacement
+was never activated. A recorded commit refusal is preserved under the database row lock, including
+when the gate records it after recovery has read an older snapshot.
+
+Why an attempt stands where it does is stored as an `outcome` code (`PatientPortalInviteDelivery.Outcome`),
+with a separate `revoke_failed` flag when code withdrawal remains unconfirmed and needs a retry. The row holds no prose and nothing from a portal response; the staff page translates the codes.
+
+The email links to `<public_base_url>/auth/activate` and carries the code as text. The code is never
+placed in a URL, a log, or a browser-visible message. The email asks the patient to confirm their email
+address, date of birth and health card number, and to enter the number without its version code (the
+letters after the number on an Ontario card): CARLOS sends the portal the chart's health card number
+(`hin`) only, never the version code (`ver`), and the portal compares it exactly, ignoring only case,
+spaces and dashes.
+
+The code is a credential that activates a patient's account, so CARLOS keeps it no longer than it must.
+It lives in the outbox row only between the store and the send, which is the window the portal's
+contract requires; once the send resolves either way, or staff resolve an unfinished delivery, the
+stored body is replaced with a note saying the code is not kept. `EmailManager` also attempts this
+body-only cleanup when a synchronous failure precedes the dispatch gate, including consent snapshot,
+archive or authorization failures. Cleanup failure preserves the send result and is logged without
+email content. Process crashes can still leave stored bodies; this finalizer does not guarantee
+cleanup after process death.
+
+When cleanup does not happen because CARLOS stops mid-send or the body replacement fails, CARLOS retries cleanup for emails whose transport is known to
+have settled: `SUCCESS` (transport returned), `BLOCKED` (consent refused dispatch), or `FAILED` when
+the invitation attempt that names the email ended `SEND_FAILED` with outcome `SEND_REFUSED`. The send
+writes that itself, and only after a definite "not sent" once the code went live: the mail server
+refused the message, the connection or login was refused, or, rarely, the commit gate failed after the
+attempt was already recorded as committed. These are all the definite not-sent outcomes after the code
+went live, as approved by Ben (decision D22 A): in every one nothing was sent and the sender has
+finished. The state is final. Every other `FAILED` row is excluded:
+staff abandonment can also write `FAILED` while the original preparation is still running (its attempt
+ends `ABANDONED`), a permission refusal after the gate leaves the attempt `SEND_UNCERTAIN`, a refused
+or unrecorded commit ends it `ABANDONED`, and an error before the gate leaves no attempt naming the
+email. A `RESOLVED` email counts as settled only when staff recorded that it never arrived once the
+portal showed its code dead (attempt `NOT_ARRIVED`).
+
+Whatever its status, an invitation email is also cleared once its code is past its seven-day life plus
+a day (#4083, option B, approved by Ben on 2026-10-06). When the attempt naming the email recorded the
+portal's expiry, the email is cleared a day after that expiry. When none did (the code never went live,
+CARLOS never learned its expiry, or no attempt names the email), it is cleared once the email row has
+been unchanged for eight days: the row's timestamp is its creation time until its status changes and
+later afterwards, so this can only come later than eight days after creation, never earlier. The send asks
+the portal to activate a code seconds after saving the email, and CARLOS never sends a saved invitation
+email again, so by then the code has expired on the portal and nothing still needs it, even a send that
+never finished.
+It checks all ages in batches of at most 200 ids. Cleanup runs
+at startup and every 15 minutes after the preceding run completes. Each run processes at most 200
+rows, continuing from the preceding batch, then starts a new pass after reaching the end. A settled row must have been unchanged for 15 minutes. Both selection and the atomic
+body-only update check eligibility, so a concurrent status change cannot be overwritten. Failures are
+retried on a later pass without requiring another invitation; logs contain counts and exception class
+names, never credentials.
+
+**Deadline (#4083):** an idle timestamp does not prove that a sender on another server has stopped,
+so unfinished or manually resolved emails, and failed ones whose attempt did not end `SEND_FAILED`
+(such as a staff-abandoned or permission-refused send, a staff abort left `ABANDONING`, or a failure
+before the gate that no attempt names), are not cleared as settled. The age rule above clears them
+instead, once their code is past its life plus a day. So after a crash at any point, the code is gone
+from the saved email once a day has passed since its expiry, or eight days since the email's last change
+when CARLOS never recorded an expiry, at the next sweep after that (every 15 minutes, and at startup; a
+few sweeps later when more than 200 emails are waiting, since each sweep handles 200). This clears the
+stored body of an email whose sender might, in theory, still be running, which #4083 asked never to do;
+Ben accepted it (option B) because only the body changes and the code it held has expired by then.
+Clearing the saved body does not erase existing database backups.
+
+Administrators with database read access can check for remaining bodies without displaying any code.
+Run this count-only query against the CARLOS database:
+
+```sql
+SELECT COUNT(*) AS invitation_bodies_remaining
+FROM emailLog
+WHERE transactionType = 'PORTAL_INVITE'
+  AND (body IS NULL OR body <> CAST(REPLACE(TO_BASE64(
+    'This invitation''s code is not kept by CARLOS. Resend the invitation to issue a new code.'
+  ), CHAR(10), '') AS BINARY));
+```
+
+The count includes every age and status. A nonzero count is conservative: it includes active sends,
+unknown outcomes, null bodies, and any body that does not exactly match the removal note. Zero verifies
+that every current invitation row has the removal note at the time of the query; it says nothing about
+older backups. Do not print the bodies to investigate the count.
+
+The outbound email archive, a permanent patient
+document, never holds it: the service names the code in
+`EmailData.setArchiveRedactions`, and `EmailManager` archives the message with it replaced by
+`[redacted]` and the artifact type suffixed `_REDACTED` (`SMTP_RFC822_REDACTED` or
+`API_PAYLOAD_REDACTED`), so the copy is never mistaken for the
+exact bytes sent. If the code cannot be found verbatim in the prepared message, the send is refused
+before the portal activates anything. Reopening a portal invitation in the email compose window is refused outright, so the
+message history cannot hand the credential to a reader who holds email access but no portal rights.
+Manage Emails and the chart's email viewer send staff to the patient's portal page instead. While an
+invitation's delivery is open, Manage Emails does not resolve its outbox row by hand: the delivery
+record, not that row, says whether a code is live. Once the delivery has finished, the row resolves like
+any other, which clears one left pending by a status write that failed after the send. A
+patient who never received their email gets a resend, which issues a new code; CARLOS never re-sends the
+stored one. A replacement, whether from **Resend** or from inviting again over a pending
+invitation, keeps the identity details the original invitation was issued with: CARLOS sends none with
+it, and the portal copies the original's. So after correcting the patient's email address, date of birth
+or health card number on the chart, staff must revoke the invitation and invite again; a replacement
+would carry a code the patient can never activate. The page says so before it replaces an invitation. The email passes through the same consent gate as every patient email: `OPT_IN`, or
+`UNKNOWN` with a documented override reason. Text-message invitations are reserved until CARLOS has
+an SMS provider.
+
+An attempt that did not finish shows as incomplete on the page. After 15 minutes without a change,
+staff can resolve it: **Stop and withdraw the code** before the commit, or **It arrived** / **It did
+not arrive; revoke it** once the send call has returned with an uncertain outcome (`SEND_UNCERTAIN`).
+A `COMMITTED` attempt may still have a paused sender, so its code is never revoked from the page. It
+offers **It arrived**: confirm that choice from actual arrival evidence; it records that evidence without
+cancelling the sender or sending another email. It also offers **It did not arrive**, but only once its
+code is already dead. A code is dead when the portal lists its invitation as replaced by a newer one, as
+revoked (for example by **Revoke**), or as still pending but past its expiry by an hour (the margin
+allows for a difference between the two clocks). An invitation the portal no longer lists is dead only
+once its expiry is at least 30 days and an hour past: the portal's maintenance deletes expired, revoked
+and replaced invitations 30 days after their expiry by default, and never deletes an accepted one, so an
+invitation it no longer lists was, in practice, not used; either way its code no longer works. The portal
+lists a patient's newest 100 invitations, so an older one also drops out of the list; the same wait
+applies. CARLOS waits from the later of two times: the expiry the portal returned when it activated the
+code, and the attempt's last change plus the code's seven-day life (alone when no expiry was stored). So
+a portal clock running behind cannot shorten the wait (CARLOS keeps no separate activation time, and an
+activated attempt last changed when it was activated or later). Ben approved the later-of rule on 7
+October 2026. A younger invitation missing from the list is not counted, since it may be missing because
+of a portal fault. Ben approved counting revoked and deleted invitations this way on 6 October 2026. The
+page offers the choice from the portal's list read with the panel, never after a failed read, and CARLOS
+asks the portal again when staff choose it, refusing it if the code may still work, has been used (the
+email did arrive), or the portal cannot be reached. Nothing is revoked: the attempt finishes as
+`NOT_ARRIVED`, the stored email loses its code, its outbox row is resolved as not sent, the chart gets a
+note saying staff confirmed the email did not arrive, and the decision is audited like the others. A
+paused sender that resumes later can then deliver only a code that no longer works. While the code is
+live, the attempt stays open. This deliberately narrows the original recovery choices in #3854.
+Explicit **Revoke** is still available as intentional code invalidation; it does not claim that no email was sent and
+cannot cancel or recall an email already in progress. Stopping first atomically marks the attempt `ABANDONING`, before
+looking up or revoking any code. This blocks a paused sender from advancing to `COMMITTED` and
+sending; if the sender already advanced, stopping fails without revoking. The 15-minute wait only
+controls when recovery is offered and is not proof that a sender has stopped. An interrupted
+`ABANDONING` attempt stays unfinished and offers the same stop action again. A lost or refused
+withdrawal response also keeps that state, until a retry proves the code revoked or superseded.
+If the portal proves the invitation already activated an account, the stopped attempt records
+`CODE_ALREADY_USED`; it does not invent an email delivery confirmation or chart note. A preparation whose
+response arrives after that claim is discarded and withdrawn without sending. If replay cannot
+identify a lost preparation, list recovery matches its exact delivery operation id; it never guesses
+ownership from another attempt's age or missing invite id. No database row lock
+is held across a portal or email call. Deploy this recovery change to every CARLOS sender node
+together after draining or stopping existing sends: older nodes do not understand `ABANDONING`
+or `NOT_ARRIVED` and retain the old recovery protocol. "It did not arrive; revoke it" first marks the attempt `REVOKING`, which is
+unfinished, and marks it `REVOKED` only once the portal has confirmed the code dead; if that is
+interrupted or the call fails, the attempt stays `REVOKING` and staff can revoke it again after the
+same wait. A timeout can still apply remotely, so positive confirmation stays unavailable unless the
+portal proves the invitation was already accepted (an irreversible state that cannot be revoked). Recovery re-checks that the patient and the portal connection match
+the attempt, and the page offers no decision for an attempt made on another portal connection. Each
+decision is written to the CARLOS audit log as `PortalInviteDeliveryService.recover.<decision>`, with the
+delivery id, the patient, and the state and outcome codes it left; never the code. Recovery itself never
+runs in the background; only the code cleanup described above does, and it changes no attempt.
+
+An attempt stuck before the commit usually leaves a prepared code on the portal, which blocks every new
+invitation for that patient until it expires. So when staff next invite or resend, an attempt stuck that
+way for 15 minutes on the same portal connection is refused with `stale_attempt_exists`; the page asks
+whether to withdraw it, and on confirmation (`withdrawStale=true`) withdraws it exactly as **Stop and
+withdraw the code** would, then sends. Nothing from such an attempt reached the patient. An attempt
+whose code went live is never withdrawn this way: only staff can know whether its email arrived.
+
+A sent invitation is recorded on the patient's chart as a short signed note naming the address it went
+to, never the email itself: a chart note is permanent, and the email carries the account credential. The
+note is written when the send succeeds, or when staff confirm an uncertain one arrived. If the note
+cannot be written, the invitation stays sent and the attempt records `chart_note_failed`, which the page
+shows so staff can add the note by hand. When staff record that an activated invitation's email did not
+arrive (its code already replaced, revoked or expired), the note says so, again without the code; if it cannot
+be written, the attempt records `not_arrived_note_failed` for the same reason. Other patient emails can copy their full content to the chart;
+portal invitations must never be switched to that.
+
 ## Verification
 
 Run the CARLOS regression suite:
@@ -112,3 +371,150 @@ the wrong hostname receive no HTTP requests. It also verifies successful pinned
 connections during key overlap, rejection of untrusted chains even with matching
 pins, and rejection of a genuine certificate appended behind an impostor leaf.
 Settings and transport construction tests reject absent pins before any connection.
+
+## Booking prompt API draft (#3849)
+
+`PatientPortalService` can create, list, and withdraw the portal's fixed-vocabulary booking prompts.
+`portal.booking_prompt.manage` maps to `_portal.booking_prompt`. The JSON action is
+`POST demographic/portalBookingPrompt`, with `method=create|list|panel|withdraw` and `demographicNo`
+(withdraw also takes `promptId`).
+Every request checks patient-record access and the patient's booking privilege; list and panel require read,
+and create/withdraw require write. Create checks the narrow `booking-eligibility` endpoint before
+requesting a prompt, using only `portal.booking_prompt.manage`. The response contains clinic,
+patient, and an eligibility boolean; general account details and `_portal.account` are not needed.
+The CSRFGuard filter protects every POST, including list.
+
+Create accepts `operationId`, `urgency`, and `appointmentType`. Keep the same operation ID after
+an uncertain response. The portal returns HTTP 201 with `created=true` initially and also HTTP 201
+with `created=false` on a retry, without another notification. The staff action distinguishes those
+outcomes with HTTP 201/200 and the same `created` flag. A confirmed retry records the prompt ID as
+`create.confirmed`, allowing an earlier `create.unconfirmed` audit to be followed by a known result.
+The portal response does not echo `operation_id`; the client verifies patient scope and the supplied
+prompt fields, while the portal owns operation-ID matching.
+
+List returns the portal's latest 100 prompts, including read/unread and notice timestamps. Withdrawal
+first verifies the selected prompt belongs to the patient's list, then checks the returned prompt ID,
+patient, and withdrawn state. An ID omitted from that bounded list is refused. Provider attribution
+is optional; the action omits it until the staff UI has a server-verified provider selector, and never
+accepts a provider name from browser free text. Audit failures after a confirmed remote change do not
+turn that change into a retryable failure.
+
+The UI draft adds a shared box, styled like the record's Notes and placed after it on the master
+record, and at the bottom of the persisted appointment's form. It shows the newest request and how
+many are open; its "Ask / manage" button opens a dialog with the controls and the history.
+Changing the appointment's patient ID or editing/previewing its patient name blocks portal
+controls until save/reopen; every mutation rechecks the current inputs, including programmatic
+changes that emit no input event.
+The fragment checks patient access and booking read before rendering; create controls require
+booking write. The `panel` POST reports account eligibility, prompt history, and
+current create/withdraw capabilities. It checks eligibility only when the caller can create. Missing/inactive accounts return false;
+HTTP errors and malformed replies remain failures. No booking request calls the general account
+or invitation endpoints. Deploy the portal eligibility endpoint before this CARLOS change; there
+is no fallback to broader account access.
+
+The browser waits for CSRF bootstrap, uses fixed pick-lists and text-only rendering, and disables
+concurrent changes. An uncertain create retains its operation ID and fixed choices in tab-scoped
+session storage, keyed by actor and patient, across refresh/navigation. No provider names, patient
+names, or portal credentials are stored. Until confirmed, retries retain those choices and ID.
+A definite refusal (HTTP 400, 403 or 404, given before anything reached the portal or by the
+portal itself, or no CSRF token after a 15-second wait) drops the ID only if it was created for
+that attempt, and the panel says the request was not sent. An ID that was tried before, or was
+read back from storage after a reload, is kept, since that earlier attempt may have been stored.
+Session storage is per tab, though a window opened from the tab starts with a copy of it.
+Sending is disabled if storage cannot retain the retry identity. Withdrawal failures require a
+status refresh; no prompt is presented as withdrawn without the confirmed ID/state response.
+The latest-100 history and optional provider attribution limitations above still apply.
+
+The labels are translated in all five catalogs. Offered-slot selection, atomic appointment creation,
+the polling system principal, and decline/expiry ticklers belong to #3850.
+
+`V1.0.60` seeds `_portal.booking_prompt` and grants it (full) to `admin`, `receptionist`, `doctor`,
+`locum`, `psychiatrist`, `nurse`, `Nurse Manager`, `RN` and `RPN`. A role that already has a
+`_portal.booking_prompt` row keeps the clinic's own setting. Creating a prompt uses the booking
+eligibility check above, not `_portal.account`, so `receptionist` can create, list and withdraw
+prompts. Every request also needs `_demographic` read, which the baseline does not give `admin`, so
+a user whose only role is `admin` is refused.
+
+## Send to myCarlos draft (carlos-portal#41)
+
+Nothing here is built yet. This section records what CARLOS must do as the sender, so the
+build PRs (#4691 first) can be checked against it. The format itself is defined once, in the
+portal repository:
+[`docs/architecture/mycarlos-delivery.md`](https://github.com/carlos-emr/carlos-portal/blob/main/docs/architecture/mycarlos-delivery.md).
+It is under review in carlos-portal#42, and the link works once that merges. CARLOS doesn't keep
+its own copy of the spec.
+
+**What it is:** staff send a document to the patient's myCarlos app instead of by email.
+CARLOS signs the document and seals one copy to each of the patient's accepted myCarlos
+devices. The portal holds the sealed copies but can't open them. Each copy is deleted when the
+device picks it up, or after 7 days if nobody picks it up.
+
+**Off switch:** everything sits behind `patient_portal.mycarlos_delivery.enabled=false`, and
+behind the portal's own switch, `PATIENT_PORTAL_MYCARLOS_DELIVERY_ENABLED`.
+
+**What CARLOS does as the sender:**
+- **The clinic key (#4691):** one ECDSA P-256 key per clinic, in the PKCS#12 file named by
+  `pdf.signing.*`, signs two things:
+  - the PDF itself, with an embedded PAdES signature;
+  - the delivery manifest, as ES256 (64 bytes `r ‖ s`, not DER).
+
+  Use deterministic ECDSA (RFC 6979; Bouncy Castle's `HMacDSAKCalculator`), so the
+  manifest can be compared byte for byte with the shared vectors.
+
+  The signed PDF also carries an embedded document manifest, `carlos-document-manifest.json`,
+  added in the same update as the PAdES signature. Its format is defined in
+  `src/main/java/io/github/carlos_emr/carlos/utility/DocumentManifest.java`, which arrives
+  with #4691's second PR.
+
+  The signature binds that manifest directly too. Its CMS signed attributes carry
+  `id-aa-carlos-documentManifestSha256` (OID `2.25.132515939282652475535231260060469025505`):
+  one 32-byte OCTET STRING holding SHA-256 of the exact embedded bytes
+  (`PDFSigningUtil.DOCUMENT_MANIFEST_SHA256`). myCarlos checks the manifest against it, so the
+  binding also holds in a password-protected email copy, whose embedded file is encrypted. In a
+  copy without a password, the embedded file is stored uncompressed.
+- **The manifest** is RFC 8785 (JCS) JSON with exactly the claims the spec lists. That
+  includes the patient's name and birth date as on the chart, for filing on the device. Only
+  the device ever sees them, inside the seal.
+- **The seal:** one sealed copy per **accepted** device, using HPKE base mode
+  (X25519, HKDF-SHA256, ChaCha20-Poly1305) and a fresh random ephemeral key per copy.
+  - The AAD binds the delivery ID, the recipient ID and the device key ID.
+  - A device the portal lists, but CARLOS hasn't accepted, gets nothing. Ben's decision B: a
+    new device is trusted only once it is confirmed outside the portal, for example by staff.
+  - The recipient ID comes from the patient's portal link and is never typed in.
+- **What the portal receives:** only the outer record and the sealed bytes. The outer record
+  holds the delivery ID, recipient ID, device key ID, size, ciphertext SHA-256, and created and
+  expiry times. It never holds a title, a name or any content.
+- **Size:** a sealed copy is at most 20 MiB. This is below the 50 MiB email limit
+  (`SMTPEmailSender.MAX_PREPARED_MESSAGE_BYTES`). CARLOS refuses to build a larger copy, so
+  staff send that document another way.
+- **Receipts:** CARLOS checks each pickup receipt itself, not trusting the portal. The receipt
+  must be signed with the accepted device's Ed25519 key. Its delivery ID, the ciphertext hash of
+  the uploaded copy and the SHA-256 of the signed PDF must all match. CARLOS keeps the
+  receipt's `vault_head_link`, a per-link anchor of the patient's vault history. That is Ben's
+  decision L: a later rewrite of the patient's own history on the device then shows up. The
+  anchor is per link, so two clinics can't match a device by it. CARLOS can't recompute an
+  anchor: it only stores them and hands them back, for the device or an auditor to check.
+  - **De-duplication:** CARLOS records the first valid receipt for each delivery ID and device. A
+    re-sent receipt is byte-identical, with the same `jti`, and changes nothing.
+  - **Removing a device:** staff (through CARLOS) or the patient can remove a device. The
+    portal then deletes that link's waiting copies at once. CARLOS shows those copies as
+    "removed" and stops sending to that device; an upload for it would be refused with
+    `device_removed`.
+  - **Device keys:** they are per link. myCarlos makes a fresh pair for each portal link, so
+    a device key ID is never shared across devices or links. CARLOS's accepted-device list holds
+    one entry per device key ID.
+
+**Shared vectors:** `src/test/resources/patientportal/delivery-contract.json` is a byte-identical
+copy of the portal's `tests/fixtures/delivery-contract.json` at portal commit
+`c35649b6ba3244bd5bd01c42e55bc7706ea30dbe`. Every key in it is FAKE and derived from readable
+seed text, so the file holds no key material. Senders can't reproduce its seals, because the
+ephemeral key is random, so the CARLOS tests check by round trip:
+1. Build the manifest for `sender.manifest_claims` with the `clinic_a` test key, and compare it
+   byte for byte with `sender.manifest`.
+2. Check `sender.aad_hex` and `sender.plaintext_sha256`.
+3. Seal with a fresh ephemeral key, open the result with the `keys.device` test key, and
+   compare the plaintext.
+4. Reproduce RFC 9180 Appendix A.2.1, sequence 0, which is also in the fixture.
+
+When the format changes, the portal file changes first, then this copy is replaced whole and
+the commit above is updated. It is never edited here.

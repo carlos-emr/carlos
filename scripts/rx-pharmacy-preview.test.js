@@ -8,12 +8,12 @@ const test = require('node:test');
 const vm = require('node:vm');
 
 const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/rx/ViewScript2.jsp'), 'utf8');
-const start = jsp.indexOf('function pharmacyText(');
+const start = jsp.indexOf('var initialPharmacy =');
 const end = jsp.indexOf('</script>', start);
 assert.ok(start >= 0 && end > start);
 const source = jsp.slice(start, end).replace(/<fmt:message\b[^>]*\/>/g, 'paper-size warning');
 
-function setup(hasFrame = true, hasWarning = true) {
+function setup(hasFrame = true, hasWarning = true, initialPharmacy = null) {
   let target = null;
   let load;
   const frame = {
@@ -25,7 +25,10 @@ function setup(hasFrame = true, hasWarning = true) {
     document: { getElementById: (id) => id === 'preview' ? (hasFrame ? frame : null) : (hasWarning ? warning : null) },
     parent: { document: { querySelector: () => null } },
   });
-  vm.runInContext(source, context);
+  const rendered = source.replace('<carlos:encode value="<%= pharmacyPreviewJson %>" context="javaScript"/>',
+    JSON.stringify(JSON.stringify(initialPharmacy)).slice(1, -1).replace(/'/g, '\\x27'))
+    .replace('${carlos:forJavaScript(msg_removePharmacyInfo)}', 'Remove');
+  vm.runInContext(rendered, context);
   return { context, frame, warning, setTarget: (value) => { target = value; }, load: () => load() };
 }
 
@@ -73,3 +76,43 @@ for (const [hasFrame, hasWarning] of [[false, true], [true, false], [false, fals
     assert.equal(fixture.warning.hidden, true);
   });
 }
+
+
+test('the selected pharmacy is ready before the iframe loads without an asynchronous lookup', () => {
+  const fixture = setup(true, true, { id: '71', name: '<unsafe & pharmacy>', phone1: "x'1", phone2: null });
+  const target = { innerHTML: '' };
+  fixture.setTarget(target);
+  fixture.load();
+  assert.ok(target.innerHTML.includes('&lt;unsafe &amp; pharmacy&gt;'));
+  assert.ok(target.innerHTML.includes("name='pharmacyInfo' value='71'"));
+  assert.ok(target.innerHTML.includes('x&#39;1'));
+  assert.ok(!target.innerHTML.includes('null'));
+  fixture.context.reducePreview();
+  fixture.load();
+  assert.equal(target.innerHTML, '', 'an explicit remove must survive iframe reload');
+});
+
+for (const missing of [null, undefined, '', '   ']) {
+  test(`pharmacy preview omits empty lines, separators and labels (${String(missing)})`, () => {
+    const fixture = setup(true, true, { id: '71', name: ' Pharmacy ', address: missing,
+      city: missing, province: ' ON ', postalCode: missing, phone1: missing,
+      phone2: ' 555-0100 ', fax: missing, email: missing, notes: missing });
+    const target = { innerHTML: '' };
+    fixture.setTarget(target);
+    fixture.load();
+    assert.equal(target.innerHTML.split('<br><br>')[0], 'Pharmacy<br>ON<br>Tel:555-0100');
+    assert.ok(target.innerHTML.includes("name='pharmacyInfo' value='71'"));
+    assert.doesNotMatch(target.innerHTML, /Fax:|Email:|Note:|null|undefined|, /);
+  });
+}
+
+test('pharmacy preview keeps and encodes every populated contact field', () => {
+  const fixture = setup(true, true, { id: '71', name: 'A&B', address: '<Road>', city: 'City',
+    province: 'ON', postalCode: 'A1A 1A1', phone1: '111', phone2: '222', fax: '333',
+    email: 'a@example.test', notes: '<note>' });
+  const target = { innerHTML: '' };
+  fixture.setTarget(target);
+  fixture.load();
+  assert.equal(target.innerHTML.split('<br><br>')[0],
+    'A&amp;B<br>&lt;Road&gt;<br>City, ON, A1A 1A1<br>Tel:111 222<br>Fax:333<br>Email:a@example.test<br>Note:&lt;note&gt;');
+});

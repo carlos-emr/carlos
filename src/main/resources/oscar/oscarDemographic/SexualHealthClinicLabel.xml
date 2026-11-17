@@ -42,13 +42,13 @@
 		<expression><![CDATA[new java.lang.Integer($F{year_of_birth})]]></expression>
 	</variable>
 	<title height="60" splitType="Stretch">
-		<element kind="textField" stretchType="ContainerHeight" x="10" y="0" width="330" height="20" markup="html">
+		<element fontName="DejaVu Sans" kind="textField" stretchType="ContainerHeight" x="10" y="0" width="330" height="20" markup="html">
 			<expression><![CDATA["<b>Last:</b>" + $F{last_name} + ";<b>First:</b>" + $F{first_name} + ";<b>ID#:</b>" + $F{demographic_no}]]></expression>
 		</element>
-		<element kind="textField" stretchType="ContainerHeight" x="10" y="20" width="330" height="20" markup="html">
+		<element fontName="DejaVu Sans" kind="textField" stretchType="ContainerHeight" x="10" y="20" width="330" height="20" markup="html">
 			<expression><![CDATA["<b>HIN:</b>" + $F{hin} + " " + $F{ver} + ";<b>DOB (yyyy/mm/dd):</b>"  +$F{year_of_birth} + "/" + $F{month_of_birth} + "/" + $F{date_of_birth} + ";<b>Age:</b>" + $F{age} ]]></expression>
 		</element>
-		<element kind="textField" stretchType="ContainerHeight" x="10" y="40" width="330" height="20" markup="html">
+		<element fontName="DejaVu Sans" kind="textField" stretchType="ContainerHeight" x="10" y="40" width="330" height="20" markup="html">
 			<expression><![CDATA["<b>Sex:</b>" + $F{sex} + ";<b>Collect Date:</b>" + new java.text.SimpleDateFormat("dd/MM/yyyy").format(new Date()) + ";<b>Clinic:</b>" + $P{program} ]]></expression>
 		</element>
 	</title>

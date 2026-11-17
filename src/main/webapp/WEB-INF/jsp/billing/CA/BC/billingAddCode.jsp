@@ -89,7 +89,7 @@
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     </head>
 
-    <body class="BodyStyle" vlink="#0000FF" onLoad="setValues()">
+    <body class="BodyStyle" vlink="#0000FF">
     <!--  -->
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
@@ -101,8 +101,8 @@
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
                                 href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewHelp')"><fmt:message key="global.help"/></a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                                href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a> | <a
+                                href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>
@@ -110,7 +110,7 @@
         <tr>
             <td class="MainTableLeftColumn" valign="top">&nbsp; &nbsp;</td>
             <td class="MainTableRightColumn" valign="top">
-                <form action="${pageContext.request.contextPath}/billing/CA/BC/billingAddCode" method="post" onsubmit="return checkUnits();">
+                <form name="BillingAddCodeForm" action="${pageContext.request.contextPath}/billing/CA/BC/billingAddCode" method="post" onsubmit="return checkUnits();">
                 <%
                     if (request.getAttribute("returnMessage") != null) {
                 %>
@@ -131,7 +131,7 @@
 
                     <tr>
                         <td width="23%"><strong>Service Code:</strong></td>
-                        <td width="77%"><input type="checkbox" name="code" maxlength="5" /></td>
+                        <td width="77%"><input type="text" name="code" maxlength="5" /></td>
                     </tr>
                     <tr>
                         <td><strong>Description:</strong></td>
@@ -145,7 +145,7 @@
                         <td>&nbsp;</td>
                         <td>
                             <input type="submit" value="Add" />
-                            <button type="button" onclick="document.location = '<%= request.getContextPath() %>/billing/CA/BC/billingAddCode'">Back</button>
+                            <button type="button" onclick="document.location = '<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCodeAdjust'">Back</button>
                     </tr>
                 </table>
             </form></td>

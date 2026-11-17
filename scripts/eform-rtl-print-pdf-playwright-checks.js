@@ -17,28 +17,45 @@
  * way a clinician drives them, against a running CARLOS (devcontainer Tomcat or a packaged install
  * through nginx). It covers the defects that shipped green through every other check:
  *
- *   1. the form's own "PDF" / "Submit & PDF" buttons (printControl.js) produce a real PDF download
- *      (they used to be a plain Save: the print flag was never posted, and the server had no mapped
- *      result for it anyway); "PDF" leaves the window open, "Submit & PDF" auto-closes it after
- *      the download like a plain Submit;
- *   2. the toolbar's Download produces a real PDF for the letter just typed;
- *   3. the toolbar's Print ("Save and then print") prints the EDITOR IFRAME and then saves a new
- *      letter (typing never set the dirty flag before, so nothing was saved);
- *   4. the form's "Submit & Print" prints the iframe and submits through the CSP timer shim;
- *   5. the Preventions sidebar button loads through eform/rtlPreventions.do (unmapped before);
- *   6. optionally, a clinic .rtl template (RTL_TEMPLATE_NAME) loads into the editor unsandboxed and
- *      stays editable (any template other than blank.rtl used to be served with a sandbox CSP).
+ *   1. Save PDF Only produces a real PDF download and retains the editor window;
+ *   2. toolbar Download produces the same packet;
+ *   3. the form's own "PDF" / "Submit & PDF" buttons (printControl.js) still produce a real PDF
+ *      download (they used to be a plain Save: the print flag was never posted, and the server had
+ *      no mapped result for it anyway); "PDF" leaves the window open, "Submit & PDF" auto-closes it
+ *      after the download like a plain Submit. The floating toolbar hides these buttons, so the
+ *      check dispatches their click: forms and scripts that call them remain supported;
+ *   4. Print Only PDF prints current unsaved editor content without saving or navigating;
+ *   5. regular Print invokes the editor iframe and saves, and the form's own "Submit & Print"
+ *      (PrintSaveButton, also hidden by the toolbar) prints the iframe and submits through the CSP
+ *      timer shim;
+ *   6. the Preventions sidebar button loads through eform/rtlPreventions.do (unmapped before);
+ *   7. a clinic .rtl template loads into the editor unsandboxed and stays editable (any template
+ *      other than blank.rtl used to be served with a sandbox CSP). By default the check uses
+ *      clinic_letter.rtl, which EFormAssetDeployer seeds into the eForm images directory on every
+ *      install, so this step needs no fixture (#4412). RTL_TEMPLATE_NAME names a different one,
+ *      e.g. a clinic-uploaded template (deb-install-validation.md fixture c); if that template is
+ *      not installed the step falls back to the seeded one, and a run that otherwise passes reports
+ *      SKIP (exit 2) naming the missing fixture, rather than failing on a template it was never given.
  *
  * Every page is checked for uncaught JS errors and severe console errors; the only tolerated one is
- * the documented stamps.js 404 on stock installs.
+ * the stamps.js 404 of an install whose stamps.js placeholder was removed.
+ *
+ * The letters are saved for a FAKE patient this check creates (lib/owned-patient.js: last name = a FAKE-PW run marker): nothing it
+ * asserts depends on a demo patient's records (the Preventions button is checked for either a table or the empty-list message).
+ * The patient, the saved instances and their values are removed by the patient's key afterwards, where the application's own
+ * Delete only marks an instance removed; it used to leave six instances and 56 values on demo patient 1 per run. MYSQL_* reaches
+ * the database.
  *
  * Environment: BASE_URL (default http://127.0.0.1:8080/carlos), TEST_USER/TEST_PASSWORD/TEST_PIN,
- * RTL_DEMOGRAPHIC_NO (default 1), RTL_FORM_NAME (default "Rich Text Letter"), RTL_TEMPLATE_NAME
- * (optional, e.g. MissedAppointment.rtl), RTL_SCREENSHOT_DIR (default /tmp), CHROME_PATH (optional).
+ * RTL_FORM_NAME (default "Rich Text Letter"), RTL_TEMPLATE_NAME
+ * (default clinic_letter.rtl; e.g. MissedAppointment.rtl), RTL_SCREENSHOT_DIR (default /tmp),
+ * CHROME_PATH (optional).
  */
 
 const fs = require('fs');
 const { chromium } = require('playwright');
+const { createSqlRunner, readConfig, sqlString, shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
+const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const {
   assert,
   assertNoPageErrors,
@@ -56,16 +73,24 @@ const {
   wirePage,
 } = require('./eform-local-playwright-utils');
 
+// A non-blank starter template EFormAssetDeployer seeds on every install (see its ASSETS list), so
+// the template step has something to load on a fresh package install with no fixture staged.
+const SEEDED_TEMPLATE_NAME = 'clinic_letter.rtl';
+
 const config = {
   baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos'),
   chromePath: process.env.CHROME_PATH || '',
   testUser: process.env.TEST_USER || 'carlosdoc',
   testPassword: process.env.TEST_PASSWORD || 'carlos2026',
   testPin: process.env.TEST_PIN || '2026',
-  demographicNo: process.env.RTL_DEMOGRAPHIC_NO || '1',
+  // The owned patient, created in main (never a demo patient).
+  demographicNo: null,
   screenshotDir: process.env.RTL_SCREENSHOT_DIR || '/tmp',
   formName: process.env.RTL_FORM_NAME || 'Rich Text Letter',
-  templateName: process.env.RTL_TEMPLATE_NAME || '',
+  templateName: process.env.RTL_TEMPLATE_NAME || SEEDED_TEMPLATE_NAME,
+  // Only an operator-named template can be a missing fixture; the seeded default being absent is a
+  // deployment defect and fails like any other step.
+  templateIsFixture: Boolean(process.env.RTL_TEMPLATE_NAME),
 };
 
 const LETTER_TEXT = 'Dear Dr. Smith, the patient reports "chest pain" & <cough>. Playwright RTL check.';
@@ -74,7 +99,8 @@ function escapeLikeSaveRTL(s) {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;');
 }
 
-// stamps.js is never auto-deployed (clinic signature stamps), so a stock install logs a 404 + MIME
+// stamps.js holds clinic signature stamps: CARLOS seeds a comment-only placeholder and never
+// replaces a clinic's own, so only an install whose placeholder was removed logs a 404 + MIME
 // refusal for it on every letter. Documented in docs/ui-tests/deb-install-validation.md.
 function isKnownConsoleIssue(issue) {
   // Chromium's resource-load errors carry the URL in the message location, not in the text.
@@ -112,11 +138,19 @@ function editorFrame(page) {
 
 async function typeLetter(page, text = LETTER_TEXT) {
   const frame = editorFrame(page);
+  // Contenteditable can render typed spaces as non-breaking ones, so compare as plain text.
+  const plainText = () => frame.evaluate(() => document.body.innerText.replace(/\u00a0/g, ' '));
+  const before = await plainText();
   await frame.locator('body').click();
   await page.keyboard.press('End');
   await page.keyboard.type(text);
   const html = await frame.evaluate(() => document.body.innerHTML);
-  assert(html.includes('Playwright RTL check'), `typed text did not land in the editor: ${html.slice(0, 200)}`);
+  const landed = await plainText();
+  // Check the text this call typed, not a marker an earlier save may already have put in the
+  // letter: the editor must have grown by the typed text and hold one more copy of it.
+  const occurrences = (haystack) => haystack.split(text).length - 1;
+  assert(landed.length >= before.length + text.length && occurrences(landed) === occurrences(before) + 1,
+    `typed text did not land in the editor (${before.length} -> ${landed.length} chars): ${html.slice(0, 200)}`);
   return html;
 }
 
@@ -129,12 +163,25 @@ async function openNewLetter(context, recorder, fid, label) {
   return page;
 }
 
+// The legacy printControl.js / template buttons are hidden behind the floating toolbar, so a user
+// click cannot reach them; a dispatched click still runs their handlers exactly as a form's own
+// script calling them would.
+const dispatchClick = (locator) => locator.dispatchEvent('click');
+
+/** Waits (bounded) until the Node-side print recorder has seen `count` print() calls. */
+async function waitForPrints(printLog, count, timeoutMs = 10000) {
+  const deadline = Date.now() + timeoutMs;
+  while (printLog.length < count && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
 /** Clicks a control that ends in a browser download and returns the saved PDF's bytes. */
-async function clickAndDownloadPdf(page, locator, label) {
+async function clickAndDownloadPdf(page, locator, label, trigger = (target) => target.click()) {
   const downloadPromise = page.waitForEvent('download', { timeout: 120000 });
   const saveResponsePromise = page.waitForResponse(
     (r) => r.url().includes('/eform/addEForm') && r.request().method() === 'POST', { timeout: 120000 });
-  await locator.click();
+  await trigger(locator);
   const [download, saveResponse] = await Promise.all([downloadPromise, saveResponsePromise]);
   assert(saveResponse.status() < 400, `${label}: addEForm answered HTTP ${saveResponse.status()}`);
   // buildArtifactPath keeps the file under the validated artifact directory and creates it.
@@ -150,10 +197,10 @@ async function clickAndDownloadPdf(page, locator, label) {
 }
 
 /** Clicks a control whose handler ends in a save, and waits for that save's response and result page. */
-async function clickAndAwaitSave(page, locator) {
+async function clickAndAwaitSave(page, locator, trigger = (target) => target.click()) {
   const saveResponse = page.waitForResponse(
     (r) => r.url().includes('/eform/addEForm') && r.request().method() === 'POST', { timeout: 60000 });
-  await locator.click();
+  await trigger(locator);
   const response = await saveResponse;
   assert(response.status() < 400, `save POST to addEForm answered HTTP ${response.status()} (a WAF 403 means the letter was lost)`);
   await page.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
@@ -171,14 +218,24 @@ async function savedFdid(page) {
 (async () => {
   const recorder = createRecorder();
   const results = [];
+  let missingTemplate = '';
   const step = (name, ok, detail) => { results.push({ name, ok }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ' — ' + detail : ''}`); };
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   const printLog = [];
+  const sql = createSqlRunner(readConfig().mysql);
+  const ownedMarker = newOwnedMarker();
+  // Taken before anything is saved, so only the run's own attachment rows are ever deleted.
+  const ownedRows = eformRows(sql);
+  let ownedPatient = null;
   try {
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${sqlString(config.testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    ownedPatient = createOwnedPatient(sql, { marker: ownedMarker, provider });
+    config.demographicNo = ownedPatient;
     // A self-signed front door is only acceptable on the loopback install the runbook describes;
     // a remote HTTPS target must present a certificate the test user actually trusts.
     const loopbackTarget = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/i.test(config.baseUrl);
-    const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: loopbackTarget, viewport: { width: 1440, height: 1100 } });
+    const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
     // Record window.print() from EVERY frame on the Node side (the pages navigate right after printing),
     // and neutralize window.close() so the post-save auto-close does not tear the page down under us.
     await context.exposeBinding('__carlosRecordPrint', (source, info) => { printLog.push(info); });
@@ -220,21 +277,54 @@ async function savedFdid(page) {
     step('toolbar Download saves the letter and downloads a real PDF', dl1.bytes.length > 1024, `${dl1.name}, ${dl1.bytes.length} bytes, fdid ${fdidAfterDownload}`);
     await screenshot(page, config.screenshotDir, 'rtl-print-pdf-after-download');
 
-    // ---------- 3. Saved letter page: the form's own PDF button ----------
+    // ---------- 3. Saved letter page: Save PDF Only in the toolbar menu ----------
     const storedLetter = await page.locator('#Letter').inputValue();
     step('saved letter stores the typed text with saveRTL() escaping', storedLetter === escapeLikeSaveRTL(typed) || storedLetter.includes(escapeLikeSaveRTL('"chest pain" & <cough>')), storedLetter.slice(0, 120));
     const reopened = await editorFrame(page).evaluate(() => document.body.innerHTML);
     step('saved letter reopens in the editor as markup', reopened.includes('Playwright RTL check') && reopened.includes('&amp; &lt;cough&gt;'), reopened.slice(0, 120));
-    const dl2 = await clickAndDownloadPdf(page, page.locator('input[name="pdfButton"]'), 'form-pdf-button');
+    await page.locator("#remotePrintOptions summary").click();
+    const dl2 = await clickAndDownloadPdf(page, page.locator("#remoteSavePdfButton"), "toolbar-save-pdf");
     const fdidAfterPdfButton = await savedFdid(page);
-    step('form "PDF" button downloads a real PDF', dl2.bytes.length > 1024, `${dl2.name}, ${dl2.bytes.length} bytes, fdid ${fdidAfterPdfButton}`);
+    step('Save PDF Only downloads a real PDF', dl2.bytes.length > 1024, `${dl2.name}, ${dl2.bytes.length} bytes, fdid ${fdidAfterPdfButton}`);
     // "PDF" is a preview: the saved alert (5 s countdown) never shows and the window stays open.
     // Wait past that countdown before asserting, or the check would pass vacuously.
     await page.waitForTimeout(6500);
+    step('Save PDF Only leaves the window open (no auto-close)', !(await page.evaluate(() => window.__playwrightCloseIntercepted === true)), '');
+
+    // ---------- 3a. Saved letter page: the form's own "PDF" button (printControl.js, print=true) ----------
+    const dlLegacyPdf = await clickAndDownloadPdf(page, page.locator('input[name="pdfButton"]'), 'form-pdf-button', dispatchClick);
+    const fdidAfterLegacyPdf = await savedFdid(page);
+    step('form "PDF" button downloads a real PDF', dlLegacyPdf.bytes.length > 1024, `${dlLegacyPdf.name}, ${dlLegacyPdf.bytes.length} bytes, fdid ${fdidAfterLegacyPdf}`);
+    // "PDF" is a preview: the saved alert (5 s countdown) never shows and the window stays open.
+    await page.waitForTimeout(6500);
     step('form "PDF" button leaves the window open (no auto-close)', !(await page.evaluate(() => window.__playwrightCloseIntercepted === true)), '');
 
-    // ---------- 3b. Saved letter page: the form's own "Submit & PDF" downloads, then auto-closes ----------
-    const dl3 = await clickAndDownloadPdf(page, page.locator('input[name="pdfSaveButton"]'), 'form-submit-pdf-button');
+    // ---------- 3b. Print Only uses current unsaved editor content without a chart save ----------
+    const currentLetter = 'Current unsaved print-only letter';
+    await typeLetter(page, currentLetter);
+    printLog.length = 0;
+    const printOnlySaves = [];
+    const recordSave = request => {
+      if (request.method() === 'POST' && /\/eform\/addEForm/.test(request.url())) printOnlySaves.push(request.url());
+    };
+    page.on('request', recordSave);
+    const beforePrintOnlyUrl = page.url();
+    await page.locator('#remotePrintOptions summary').click();
+    await page.locator('#remotePrintPdfButton').click();
+    // Observe the print itself rather than guessing how long it takes, then keep sampling well past
+    // the legacy string-timer submit shim (1 s, see "Submit & Print" below): a regression that
+    // saved on a timer after printing would otherwise escape a short window.
+    await waitForPrints(printLog, 1);
+    await page.waitForTimeout(2500);
+    page.off('request', recordSave);
+    step('Print Only PDF prints current unsaved editor text', printLog.length === 1 && !printLog[0].isTop && printLog[0].body.includes(currentLetter), '');
+    step('Print Only PDF never saves or navigates', printOnlySaves.length === 0 && page.url() === beforePrintOnlyUrl && (await savedFdid(page)) === fdidAfterLegacyPdf, '');
+    step('Print Only PDF preserves the dirty flag and editable letter', (await page.evaluate(() => window.needToConfirm)) === true
+      && await page.locator('#remotePrintButton').isVisible()
+      && await editorFrame(page).evaluate((text) => document.body.innerText.includes(text), currentLetter), '');
+
+    // ---------- 3c. Saved letter page: the form's own "Submit & PDF" downloads, then auto-closes ----------
+    const dl3 = await clickAndDownloadPdf(page, page.locator('input[name="pdfSaveButton"]'), 'form-submit-pdf-button', dispatchClick);
     const fdidAfterSubmitPdf = await savedFdid(page);
     step('form "Submit & PDF" button downloads a real PDF', dl3.bytes.length > 1024, `${dl3.name}, ${dl3.bytes.length} bytes, fdid ${fdidAfterSubmitPdf}`);
     // A submission: the result page sets isSuccess_Autoclose, so the toolbar closes the window
@@ -264,20 +354,33 @@ async function savedFdid(page) {
     const printSave = page.locator('input[name="PrintSaveButton"]');
     // The form's own button submits through a 1s string timer (the CSP shim), so wait for the save
     // itself rather than for whatever load state the still-current page happens to report.
-    await clickAndAwaitSave(page, printSave);
+    await clickAndAwaitSave(page, printSave, dispatchClick);
     step('"Submit & Print" prints the editor iframe', printLog.length === 1 && !printLog[0].isTop, '');
     await assertNotErrorPage(page, 'rtl-form-print');
     const fdidAfterFormPrint = await savedFdid(page);
     step('"Submit & Print" submits through the string-timer shim and saves', /^\d+$/.test(fdidAfterFormPrint) && fdidAfterFormPrint !== fdidAfterPrint, `fdid ${fdidAfterFormPrint}`);
     await page.close();
 
-    // ---------- 6. Optional: a clinic .rtl template loads unsandboxed and stays editable ----------
-    if (config.templateName) {
-      page = await openNewLetter(context, recorder, fid, 'rtl-template');
-      const option = page.locator(`#template option[value="${config.templateName}"]`);
-      step(`template dropdown offers ${config.templateName}`, (await option.count()) === 1, '');
-      const templateResponse = page.waitForResponse((r) => r.url().includes(`imagefile=${encodeURIComponent(config.templateName)}`) || r.url().includes(`imagefile=${config.templateName}`), { timeout: 30000 });
-      await page.locator('#template').selectOption(config.templateName);
+    // ---------- 6. A clinic .rtl template loads unsandboxed and stays editable ----------
+    page = await openNewLetter(context, recorder, fid, 'rtl-template');
+    let templateName = config.templateName;
+    if (config.templateIsFixture && (await page.locator(`#template option[value="${templateName}"]`).count()) !== 1) {
+      // The operator named a template this install does not have: a missing fixture, not a defect.
+      // Waiting on selectOption() for it was the 30 s TimeoutError #4412 reported. The step still
+      // runs, against the seeded template, so the sandbox regression it guards stays covered.
+      missingTemplate = templateName;
+      templateName = SEEDED_TEMPLATE_NAME;
+      console.log(`[skip] RTL_TEMPLATE_NAME=${missingTemplate} is not in the template dropdown; `
+        + 'stage it in the eForm images directory (deb-install-validation.md fixture c). '
+        + `Testing the seeded ${SEEDED_TEMPLATE_NAME} instead.`);
+    }
+    const offered = (await page.locator(`#template option[value="${templateName}"]`).count()) === 1;
+    // The seeded template missing is a defect: EFormAssetDeployer did not run, or the
+    // template catalog (efmformrtl_templates) stopped listing the directory.
+    step(`template dropdown offers ${templateName}`, offered, templateName === SEEDED_TEMPLATE_NAME ? 'seeded by EFormAssetDeployer on every install' : '');
+    if (offered) {
+      const templateResponse = page.waitForResponse((r) => r.url().includes(`imagefile=${encodeURIComponent(templateName)}`) || r.url().includes(`imagefile=${templateName}`), { timeout: 30000 });
+      await page.locator('#template').selectOption(templateName);
       const tr = await templateResponse;
       const csp = tr.headers()['content-security-policy'] || '';
       step('clinic template is served without the sandbox CSP', tr.status() === 200 && !/sandbox/.test(csp), `${tr.status()} csp="${csp}"`);
@@ -289,10 +392,8 @@ async function savedFdid(page) {
         } catch (e) { return { ok: false, error: String(e) }; }
       });
       step('editor can read the clinic template frame (same-origin) with designMode on', editable.ok && editable.designMode === 'on' && editable.length > 0, JSON.stringify(editable));
-      await page.close();
-    } else {
-      console.log('[skip] RTL_TEMPLATE_NAME not set: clinic template check skipped');
     }
+    await page.close();
 
     // ---------- 7. No JS failures anywhere ----------
     assertNoPageErrors(recorder);
@@ -306,8 +407,22 @@ async function savedFdid(page) {
     results.push({ name: 'harness', ok: false });
   } finally {
     await browser.close();
+    try {
+      if (ownedPatient !== null) removeOwnedPatient(sql, ownedPatient, ownedMarker, ownedRows);
+    } catch (error) {
+      step('the saved letters and the owned patient were removed', false, error.message);
+    } finally {
+      sql.dispose();
+    }
   }
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
+  if (!failed.length && missingTemplate) {
+    // Exit 2 is the suite's SKIP (#3313): every step that could run passed, but the one the
+    // operator asked for had no fixture to run against, so this is not a clean PASS either.
+    console.log(`SKIP eform-rtl-print-pdf -- RTL_TEMPLATE_NAME=${missingTemplate} is not installed `
+      + `(deb-install-validation.md fixture c); every other step passed, the template step against ${SEEDED_TEMPLATE_NAME}`);
+    process.exit(2);
+  }
   process.exit(failed.length ? 1 : 0);
 })();

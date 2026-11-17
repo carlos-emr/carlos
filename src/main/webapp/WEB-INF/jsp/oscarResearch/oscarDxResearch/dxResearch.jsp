@@ -39,11 +39,14 @@
 
     Loaded via setupDxResearch from the patient encounter or demographic view.
 
-    Request Attributes:
+    Request Attributes (this request's own patient; set by setupDxResearch and by dxResearch's
+    validation-failure re-render, never read from the session, issue #4673):
     - demographicNo: Patient ID
     - providerNo: Current provider
-    - codingSystem: Available coding systems
     - allDiagnostics: Patient's current diagnoses
+
+    Session Attributes (the provider's configuration, no patient data):
+    - codingSystem: Available coding systems
     - allQuickLists / allQuickListItems: Quick list data (via dxQuickList.jsp include)
 
     Security:
@@ -266,6 +269,11 @@
                         <tr>
                             <td id="codeSelectorTable">
 
+                                <%-- The ICD-9 decimal-point hint (#3759) applies only where ICD-9 is a configured coding system. --%>
+                                <c:set var="icd9Configured" value="${false}"/>
+                                <c:forEach var="configuredSystem" items="${codingSystem.codingSystems}">
+                                    <c:if test="${configuredSystem.trim() eq 'icd9'}"><c:set var="icd9Configured" value="${true}"/></c:if>
+                                </c:forEach>
                                 <table>
                                     <tr>
                                         <td>
@@ -287,6 +295,7 @@
                                     </tr>
                                     <tr>
                                         <td><input type="text" class="form-control" name="xml_research1"
+                                                   <c:if test="${icd9Configured}">aria-describedby="icd9NoDecimalHint"</c:if>
                                                     <%=disabled%> />
                                             <input type="hidden" name="demographicNo"
                                                    value="${carlos:forHtmlAttribute(demographicNo)}">
@@ -295,20 +304,32 @@
                                     </tr>
                                     <tr>
                                         <td><input type="text" class="form-control" name="xml_research2"
+                                                   <c:if test="${icd9Configured}">aria-describedby="icd9NoDecimalHint"</c:if>
                                                        <%=disabled%>/></td>
                                     </tr>
                                     <tr>
                                         <td><input type="text" class="form-control" name="xml_research3"
+                                                   <c:if test="${icd9Configured}">aria-describedby="icd9NoDecimalHint"</c:if>
                                                        <%=disabled%>/></td>
                                     </tr>
                                     <tr>
                                         <td><input type="text" class="form-control" name="xml_research4"
+                                                   <c:if test="${icd9Configured}">aria-describedby="icd9NoDecimalHint"</c:if>
                                                        <%=disabled%>/></td>
                                     </tr>
                                     <tr>
                                         <td><input type="text" class="form-control" name="xml_research5"
+                                                   <c:if test="${icd9Configured}">aria-describedby="icd9NoDecimalHint"</c:if>
                                                        <%=disabled%>/></td>
                                     </tr>
+                                    <c:if test="${icd9Configured}">
+                                    <tr>
+                                        <td>
+                                            <%-- CARLOS stores almost all ICD-9 codes without the decimal point (151.9 is 1519), issue #3759 --%>
+                                            <div class="form-text" id="icd9NoDecimalHint"><fmt:message key="oscarResearch.oscarDxResearch.icd9NoDecimalHint"/></div>
+                                        </td>
+                                    </tr>
+                                    </c:if>
                                     <tr>
                                         <td>
                                             <input type="hidden" name="forward" value="none"/>

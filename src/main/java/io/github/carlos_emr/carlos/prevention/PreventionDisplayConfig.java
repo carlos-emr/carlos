@@ -66,8 +66,16 @@ public class PreventionDisplayConfig {
     private static Logger log = MiscUtils.getLogger();
     private static PreventionDisplayConfig preventionDisplayConfig = new PreventionDisplayConfig();
 
-    private HashMap<String, HashMap<String, String>> prevHash = null;
-    private ArrayList<HashMap<String, String>> prevList = null;
+    /**
+     * The prevention list and its by-name index, published together so a reader never pairs a
+     * list from one load with an index from another. Replaced wholesale by loadPreventions().
+     */
+    private record PreventionSnapshot(ArrayList<HashMap<String, String>> list,
+                                      HashMap<String, HashMap<String, String>> byName) {
+    }
+
+    private volatile PreventionSnapshot preventions = null;
+    private final Object preventionLoadLock = new Object();
 
     private HashMap<String, Map<String, Object>> configHash = null;
     private ArrayList<Map<String, Object>> configList = null;
@@ -83,35 +91,46 @@ public class PreventionDisplayConfig {
     }
 
     static public PreventionDisplayConfig getInstance() {
-        if (preventionDisplayConfig.prevList == null) {
-            preventionDisplayConfig.loadPreventions();
-        }
+        preventionDisplayConfig.snapshot();
         return preventionDisplayConfig;
     }
 
-    public ArrayList<HashMap<String, String>> getPreventions() {
-        if (prevList == null) {
+    private PreventionSnapshot snapshot() {
+        PreventionSnapshot current = preventions;
+        if (current == null) {
             loadPreventions();
+            current = preventions;
         }
-        return prevList;
+        return current;
+    }
+
+    public ArrayList<HashMap<String, String>> getPreventions() {
+        return snapshot().list();
     }
 
     public HashMap<String, String> getPrevention(String s) {
-        if (prevHash == null) {
-            loadPreventions();
-        }
         log.debug("getting " + s);
-        return prevHash.get(s);
+        return snapshot().byName().get(s);
+    }
+
+    public void loadPreventions() {
+        // Serialized so an older load cannot finish after, and overwrite, the post-update one.
+        synchronized (preventionLoadLock) {
+            loadPreventionsLocked();
+        }
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
-    public void loadPreventions() {
-        prevList = new ArrayList<HashMap<String, String>>();
-        prevHash = new HashMap<String, HashMap<String, String>>();
+    private void loadPreventionsLocked() {
+        // Build into locals and publish one snapshot at the end: this is re-run after a vaccine
+        // catalogue update while other requests read the cached list.
+        ArrayList<HashMap<String, String>> loadedList = new ArrayList<HashMap<String, String>>();
+        HashMap<String, HashMap<String, String>> loadedHash = new HashMap<String, HashMap<String, String>>();
         log.debug("STARTING2");
 
         InputStream is = null;
+        boolean loaded = true;
         try {
             if (CarlosProperties.getInstance().getProperty("PREVENTION_ITEMS") != null) {
                 String filename = CarlosProperties.getInstance().getProperty("PREVENTION_ITEMS");
@@ -156,8 +175,8 @@ public class PreventionDisplayConfig {
                 }
 
                 if (h.get("name") != null) {
-                    prevList.add(h);
-                    prevHash.put(h.get("name"), h);
+                    loadedList.add(h);
+                    loadedHash.put(h.get("name"), h);
                 }
             }
 
@@ -174,13 +193,14 @@ public class PreventionDisplayConfig {
                 h.put("snomedConceptCode", imm.getSnomedConceptId());
                 h.put("ispa", String.valueOf(imm.isIspa()));
                 if (!addedSnomeds.contains(imm.getSnomedConceptId()) && imm.getPicklistName() != null) {
-                    prevList.add(h);
-                    prevHash.put(h.get("name"), h);
+                    loadedList.add(h);
+                    loadedHash.put(h.get("name"), h);
                 }
             }
 
 
         } catch (Exception e) {
+            loaded = false;
             MiscUtils.getLogger().error("Error", e);
         } finally {
             try {
@@ -188,6 +208,12 @@ public class PreventionDisplayConfig {
             } catch (IOException e) {
                 log.error("Unexpected error", e);
             }
+        }
+        // A failed reload (XML or database error) keeps the snapshot already in use rather than
+        // replacing it with an empty or partial list; the very first load still publishes, as
+        // before, so callers never see null.
+        if (loaded || this.preventions == null) {
+            this.preventions = new PreventionSnapshot(loadedList, loadedHash);
         }
     }
 
@@ -255,11 +281,18 @@ public class PreventionDisplayConfig {
     }
 
 
-    public String getDisplay(LoggedInInfo loggedInInfo, Map<String, Object> setHash, String Demographic_no) {
+    /**
+     * Returns the style attribute for a configuration set on the prevention page.
+     *
+     * @param setHash the configuration set
+     * @param demograph the patient, already looked up by the caller through
+     *        {@code DemographicManager}, which checks the caller's privileges
+     * @return {@code ""} when the set has an age range or a sex and the patient meets every one
+     *         it has; otherwise {@code style="display:none;"}, which also covers a set with
+     *         neither and an error such as a missing patient
+     */
+    public String getDisplay(Map<String, Object> setHash, Demographic demograph) {
         String display = "style=\"display:none;\"";
-        DemographicData dData = new DemographicData();
-        log.debug("demoage " + Demographic_no);
-        Demographic demograph = dData.getDemographic(loggedInInfo, Demographic_no);
         try {
             String minAgeStr = (String) setHash.get("minAge");
             String maxAgeStr = (String) setHash.get("maxAge");
@@ -312,11 +345,27 @@ public class PreventionDisplayConfig {
     }
 
     public boolean display(LoggedInInfo loggedInInfo, Map<String, String> setHash, String Demographic_no, int numberOfPrevs) {
-        boolean display = false;
-        PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
         DemographicData dData = new DemographicData();
         log.debug("demoage " + Demographic_no);
         Demographic demograph = dData.getDemographic(loggedInInfo, Demographic_no);
+        return display(setHash, demograph, numberOfPrevs);
+    }
+
+    /**
+     * Whether a prevention type shows for the patient, as
+     * {@link #display(LoggedInInfo, Map, String, int)} decides, for a patient the caller has
+     * already looked up through {@code DemographicManager}, which checks the caller's privileges.
+     * In its default view the prevention page calls this once per type, passing the patient from
+     * its {@link PreventionPageData}.
+     *
+     * @param setHash the prevention type
+     * @param demograph the patient
+     * @param numberOfPrevs how many preventions of this type the patient has
+     * @return whether the type shows; {@code false} also on an error such as a missing patient
+     */
+    public boolean display(Map<String, String> setHash, Demographic demograph, int numberOfPrevs) {
+        boolean display = false;
+        PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
         try {
             if (preventionManager.hideItem(setHash.get("name")) && numberOfPrevs == 0) {
                 //move to hidden list

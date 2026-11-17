@@ -184,7 +184,9 @@ password.pastPasswordsToNotUse=0
 # Accepted true values are true/yes/on/1; unrecognized values fail secure as enabled.
 mandatory_password_reset=true
 
-# Forced-reset complexity policy
+# Shared account-creation / forced-reset complexity policy
+# Length must be positive; groups must be 1..4. Malformed or out-of-range
+# values fall back to 8 characters and 3 groups respectively.
 password_min_length = 8
 password_min_groups = 3
 password_group_lower_chars = abcdefghijklmnopqrstuvwxyz

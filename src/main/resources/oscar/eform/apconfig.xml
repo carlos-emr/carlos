@@ -171,7 +171,9 @@
 	<databaseap>
 		<ap-name>label</ap-name>
 		<ap-sql>SELECT * FROM demographic WHERE demographic_no=${demographic}</ap-sql>
-		<ap-output>${last_name}, ${first_name} \n${address}, ${city}, ${province} ${postal} \nTel:${phone}(H)  ${phone2}(W) \n${date_of_birth}/${month_of_birth}/${year_of_birth}(${sex}) HIN:${hin}${ver}
+		<!-- Brackets keep the home/work/sex markers legible without triggering CRS 933210
+		     on a saved eForm field containing this generated label. -->
+		<ap-output>${last_name}, ${first_name} \n${address}, ${city}, ${province} ${postal} \nTel:${phone}[H]  ${phone2}[W] \n${date_of_birth}/${month_of_birth}/${year_of_birth}[${sex}] HIN:${hin}${ver}
 		</ap-output>
 	</databaseap>
 	<databaseap>
@@ -1078,7 +1080,7 @@
 	</databaseap>
 	<databaseap>
 		<ap-name>bc_referral_address</ap-name>
-		<ap-sql>SELECT CONCAT( b.address1, IF( b.address1 ='', '', '\n' ), b.address2, IF( b.address2 ='', '', '\n' ) ,
+		<ap-sql>SELECT CONCAT( b.address1, IF( b.address1 ='', '', '&#10;' ), b.address2, IF( b.address2 ='', '', '&#10;' ) ,
 			b.city, ' ', b.province, ' ', b.postal ) AS raddress
 			FROM billingreferral b, demographic d
 			WHERE d.demographic_no=${demographic}
@@ -1130,8 +1132,8 @@
 	</databaseap>
 	<databaseap>
 		<ap-name>bc_family_doctor_address</ap-name>
-		<ap-sql>SELECT CONCAT( b.address1, IF( b.address1 ='', '', '\n' ),
-			b.address2, IF( b.address2 ='', '', '\n' ) , b.city, ' ', b.province,
+		<ap-sql>SELECT CONCAT( b.address1, IF( b.address1 ='', '', '&#10;' ),
+			b.address2, IF( b.address2 ='', '', '&#10;' ) , b.city, ' ', b.province,
 			' ', b.postal ) AS raddress
 			FROM billingreferral b, demographic d
 			WHERE d.demographic_no=${demographic}
@@ -1177,7 +1179,7 @@
 	<!-- CPP PATIENT HISTORY -->
 	<databaseap>
 		<ap-name>social_family_history</ap-name>
-		<ap-sql>SELECT GROUP_CONCAT(CONCAT(IFNULL(note, "Please contact support"), "\n") SEPARATOR ' ') AS
+		<ap-sql>SELECT GROUP_CONCAT(CONCAT(IFNULL(note, "Please contact support"), "&#10;") SEPARATOR ' ') AS
 			socialHistory,
 			demographic_no FROM casemgmt_note WHERE note_id IN (SELECT max(note_id) FROM casemgmt_note WHERE note_id IN
 			(SELECT cmgtin.note_id FROM casemgmt_issue_notes cmgtin,
@@ -1199,7 +1201,7 @@
 	</databaseap>
 	<databaseap>
 		<ap-name>other_medications_history</ap-name>
-		<ap-sql>SELECT GROUP_CONCAT(CONCAT(IFNULL(note, "Please contact support"), "\n") SEPARATOR ' ') AS
+		<ap-sql>SELECT GROUP_CONCAT(CONCAT(IFNULL(note, "Please contact support"), "&#10;") SEPARATOR ' ') AS
 			otherMedications,
 			demographic_no FROM casemgmt_note WHERE note_id IN (SELECT max(note_id) FROM casemgmt_note WHERE note_id IN
 			(SELECT cmgtin.note_id FROM casemgmt_issue_notes cmgtin,
@@ -1221,7 +1223,7 @@
 	</databaseap>
 	<databaseap>
 		<ap-name>family_history</ap-name>
-		<ap-sql>SELECT GROUP_CONCAT(CONCAT(IFNULL(note, "Please contact support"), "\n") SEPARATOR ' ') AS
+		<ap-sql>SELECT GROUP_CONCAT(CONCAT(IFNULL(note, "Please contact support"), "&#10;") SEPARATOR ' ') AS
 			familyHistory,
 			demographic_no FROM casemgmt_note WHERE note_id IN (SELECT max(note_id) FROM casemgmt_note WHERE note_id IN
 			(SELECT cmgtin.note_id FROM casemgmt_issue_notes cmgtin,
@@ -1244,7 +1246,7 @@
 
 	<databaseap>
 		<ap-name>medical_history</ap-name>
-		<ap-sql>SELECT GROUP_CONCAT(CONCAT(IFNULL(note, "Please contact support"), "\n") SEPARATOR ' ') AS
+		<ap-sql>SELECT GROUP_CONCAT(CONCAT(IFNULL(note, "Please contact support"), "&#10;") SEPARATOR ' ') AS
 			medicalHistory, demographic_no
 			FROM casemgmt_note
 			WHERE note_id IN (SELECT max(note_id)
@@ -1273,7 +1275,7 @@
 
 	<databaseap>
 		<ap-name>ongoingconcerns</ap-name>
-		<ap-sql>SELECT GROUP_CONCAT(CONCAT(IFNULL(note, "Please contact support"), "\n") SEPARATOR ' ') AS
+		<ap-sql>SELECT GROUP_CONCAT(CONCAT(IFNULL(note, "Please contact support"), "&#10;") SEPARATOR ' ') AS
 			ongoingConcerns,
 			demographic_no FROM casemgmt_note WHERE note_id IN (SELECT max(note_id) FROM casemgmt_note WHERE note_id IN
 			(SELECT cmgtin.note_id FROM casemgmt_issue_notes cmgtin,
@@ -1295,7 +1297,7 @@
 	</databaseap>
 	<databaseap>
 		<ap-name>past_ocular_history</ap-name>
-		<ap-sql>SELECT GROUP_CONCAT(CONCAT(IFNULL(note, "Please contact support"), "\n") SEPARATOR ' ') AS
+		<ap-sql>SELECT GROUP_CONCAT(CONCAT(IFNULL(note, "Please contact support"), "&#10;") SEPARATOR ' ') AS
 			past_ocular_history,
 			demographic_no FROM casemgmt_note WHERE note_id IN (SELECT max(note_id) FROM casemgmt_note WHERE note_id IN
 			(SELECT cmgtin.note_id FROM casemgmt_issue_notes cmgtin,
@@ -1409,7 +1411,7 @@
 			allergies.archived=1))>0,
 			CONCAT((SELECT GROUP_CONCAT(allergies.DESCRIPTION SEPARATOR ', ') FROM allergies, demographic WHERE
 			demographic.demographic_no=${demographic} AND allergies.demographic_no=demographic.demographic_no AND
-			allergies.archived != 1),' \n','archived allergies:',(SELECT GROUP_CONCAT(allergies.DESCRIPTION SEPARATOR ',
+			allergies.archived != 1),' &#10;','archived allergies:',(SELECT GROUP_CONCAT(allergies.DESCRIPTION SEPARATOR ',
 			') FROM allergies, demographic WHERE demographic.demographic_no=${demographic} AND
 			allergies.demographic_no=demographic.demographic_no AND allergies.archived = 1)),
 			(SELECT GROUP_CONCAT(allergies.DESCRIPTION SEPARATOR ', ') FROM allergies, demographic WHERE
@@ -1429,14 +1431,14 @@
 	</databaseap>
 	<databaseap>
 		<ap-name>recent_rx</ap-name>
-		<ap-sql>SELECT GROUP_CONCAT(CONCAT(p.date_prescribed,' ',SUBSTRING_INDEX(p.textView, '\n\n', -1)),' \n' ORDER BY
+		<ap-sql>SELECT GROUP_CONCAT(CONCAT(p.date_prescribed,' ',SUBSTRING_INDEX(p.textView, '&#10;&#10;', -1)),' &#10;' ORDER BY
 			p.date_prescribed DESC SEPARATOR '') AS rx FROM prescription p WHERE p.demographic_no=${demographic}
 		</ap-sql>
 		<ap-output>${rx}</ap-output>
 	</databaseap>
 	<databaseap>
 		<ap-name>current_rx</ap-name>
-		<ap-sql>SELECT TRIM(GROUP_CONCAT(REPLACE(X.special, '\n', ' '), '\n' ORDER BY X.rx_date DESC SEPARATOR '')) AS
+		<ap-sql>SELECT TRIM(GROUP_CONCAT(REPLACE(X.special, '&#10;', ' '), '&#10;' ORDER BY X.rx_date DESC SEPARATOR '')) AS
 			rx FROM ((SELECT d.special AS special, d.rx_date AS rx_date, d.position AS position, d.drugid AS drugid FROM
 			drugs d WHERE d.demographic_no = ${demographic} AND d.GCN_SEQNO &lt;&gt; 0 GROUP BY d.GCN_SEQNO ORDER BY
 			d.position DESC, d.rx_date DESC, d.drugid DESC) UNION (SELECT d.special AS special, d.rx_date AS rx_date,
@@ -1448,7 +1450,7 @@
 	</databaseap>
 	<databaseap>
 		<ap-name>current_rx_lt</ap-name>
-		<ap-sql>SELECT TRIM(GROUP_CONCAT(REPLACE(X.special, '\n', ' '), '\n' ORDER BY X.rx_date DESC SEPARATOR '')) AS
+		<ap-sql>SELECT TRIM(GROUP_CONCAT(REPLACE(X.special, '&#10;', ' '), '&#10;' ORDER BY X.rx_date DESC SEPARATOR '')) AS
 			rx FROM ((SELECT d.special AS special, d.rx_date AS rx_date, d.position AS position, d.drugid AS drugid FROM
 			drugs d WHERE d.demographic_no = ${demographic} AND d.long_term=1 AND d.GCN_SEQNO &lt;&gt; 0 GROUP BY
 			d.GCN_SEQNO ORDER BY d.position DESC, d.rx_date DESC, d.drugid DESC) UNION (SELECT d.special AS special,
@@ -1460,7 +1462,7 @@
 	</databaseap>
 	<databaseap>
 		<ap-name>today_rx</ap-name>
-		<ap-sql>SELECT GROUP_CONCAT(CONCAT(p.date_prescribed,' ',SUBSTRING_INDEX(p.textView, '\n\n', -1)),' \n' ORDER BY
+		<ap-sql>SELECT GROUP_CONCAT(CONCAT(p.date_prescribed,' ',SUBSTRING_INDEX(p.textView, '&#10;&#10;', -1)),' &#10;' ORDER BY
 			p.date_prescribed DESC SEPARATOR '') AS rx FROM prescription p WHERE p.demographic_no=${demographic} and
 			p.date_prescribed=LEFT(now(),10)
 		</ap-sql>
@@ -1468,7 +1470,7 @@
 	</databaseap>
 	<databaseap>
 		<ap-name>druglist</ap-name>
-		<ap-sql>SELECT GROUP_CONCAT( DISTINCT if(LENGTH(freqcode) &gt; 1, CONCAT(BN,' ',freqcode), BN) SEPARATOR '\n' )
+		<ap-sql>SELECT GROUP_CONCAT( DISTINCT if(LENGTH(freqcode) &gt; 1, CONCAT(BN,' ',freqcode), BN) SEPARATOR '&#10;' )
 			AS rxgen FROM drugs d WHERE d.demographic_no=${demographic} AND d.archived='0';
 		</ap-sql>
 		<ap-output>${rxgen}</ap-output>
@@ -1477,7 +1479,7 @@
 		<ap-name>druglist_generic</ap-name>
 		<ap-sql>SELECT GROUP_CONCAT(DISTINCT if(LENGTH(d.GN) &gt; 4, GN, d.customName) , if(d.takemax &gt; d.takemin,
 			CONCAT(' ',d.takemin,'-',d.takemax,' '), CONCAT(' ',d.takemin,' ')) , d.freqcode , if(d.prn=1,' prn','')
-			ORDER BY d.rx_date DESC SEPARATOR ' \n' ) AS rxgen
+			ORDER BY d.rx_date DESC SEPARATOR ' &#10;' ) AS rxgen
 			FROM drugs d WHERE d.demographic_no=${demographic} AND d.end_date &gt; DATE_ADD(CURDATE(), INTERVAL -1
 			WEEK);
 		</ap-sql>
@@ -1527,7 +1529,7 @@
 	</databaseap>
 	<databaseap>
 		<ap-name>today_notes</ap-name>
-		<ap-sql>SELECT GROUP_CONCAT(CONCAT(IFNULL(note, "Please contact support"), "\n") SEPARATOR ' ') AS notes,
+		<ap-sql>SELECT GROUP_CONCAT(CONCAT(IFNULL(note, "Please contact support"), "&#10;") SEPARATOR ' ') AS notes,
 			demographic_no FROM casemgmt_note WHERE note_id IN (SELECT max(note_id) FROM casemgmt_note WHERE
 			encounter_type='face to face encounter with client' AND update_date &gt; curdate() AND update_date &lt;
 			CURDATE() + INTERVAL 1 DAY AND demographic_no=${demographic} AND archived &lt;&gt; 1 GROUP BY uuid)
@@ -2522,7 +2524,7 @@
 			RANK() OVER (PARTITION BY me.val ORDER BY m.dateObserved DESC, m.id DESC) AS ranking,
 			m.id,
 			m.type,
-			TRIM(REGEXP_REPLACE(m.dataField, '[^[:alnum:]^\.]+', ' '))AS datafield,
+			TRIM(m.dataField) AS datafield,
 			m.dateObserved,
 			me.val AS loincCode,
 			m.measuringInstruction AS 'range'

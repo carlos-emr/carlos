@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.documentManager.annotation.DocumentWordBoxes;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -46,6 +47,7 @@ import org.apache.struts2.ServletActionContext;
 
 import java.io.File;
 import java.io.IOException;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -86,14 +88,16 @@ public class DocumentTextBoxes2Action extends ActionSupport {
     private static final int EXTRACT_TIMEOUT_SECONDS = 15;
 
     private final transient SecurityInfoManager securityInfoManager;
+    private final transient CtlDocumentDao ctlDocumentDao;
     private final transient ObjectMapper objectMapper = new ObjectMapper();
 
     public DocumentTextBoxes2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class));
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(CtlDocumentDao.class));
     }
 
-    DocumentTextBoxes2Action(SecurityInfoManager securityInfoManager) {
+    DocumentTextBoxes2Action(SecurityInfoManager securityInfoManager, CtlDocumentDao ctlDocumentDao) {
         this.securityInfoManager = securityInfoManager;
+        this.ctlDocumentDao = ctlDocumentDao;
     }
 
     // XSS_SERVLET: the body is an application/json document serialised by Jackson, never HTML,
@@ -139,8 +143,15 @@ public class DocumentTextBoxes2Action extends ActionSupport {
             return NONE;
         }
 
+        response.setHeader("Cache-Control", "no-store");
+        try {
+            DocumentPatientLink.requireAccess(loggedInInfo, docId, securityInfoManager, ctlDocumentDao);
+        } catch (SecurityException denied) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            throw denied;
+        }
         EDoc doc = EDocUtil.getDoc(String.valueOf(docId));
-        if (doc == null || StringUtils.isBlank(doc.getFileName())) {
+        if (doc == null) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             return NONE;
         }
@@ -151,12 +162,28 @@ public class DocumentTextBoxes2Action extends ActionSupport {
             throw new SecurityException("Unauthorized access to patient record");
         }
 
+        if (StringUtils.isBlank(doc.getFileName())) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
+
+        // HEAD has the same access and document checks as GET, but no response body and no
+        // PDF extraction. Sending JSON bytes on HEAD violates HTTP semantics and wastes a
+        // bounded worker for every metadata probe.
+        if ("HEAD".equalsIgnoreCase(method)) {
+            response.setStatus(HttpServletResponse.SC_OK);
+            response.setContentType("application/json");
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            return NONE;
+        }
+
         ArrayNode words = objectMapper.createArrayNode();
         // Tracked separately from the box count. A page can carry a text layer and still yield
         // no usable boxes, and an extraction that fails or times out yields none either — none
         // of which is the same statement as "this page was never OCR'd". Conflating them told
         // the viewer something that was not true.
         boolean extractionSucceeded = false;
+        boolean busy = false;
         try {
             File documentDir = PathValidationUtils.resolveConfiguredDirectory(
                     CarlosProperties.getInstance().getDocumentDirectory(), "DOCUMENT_DIR");
@@ -167,7 +194,7 @@ public class DocumentTextBoxes2Action extends ActionSupport {
             // same bound here, an oversized document turns every scroll into a full parse that
             // can only end at the deadline, and the deadline leaves the worker running.
             if (pdf.length() > AnnotatedDocumentService.MAX_ANNOTATABLE_BYTES) {
-                logger.warn("Word boxes refused for document {}: file exceeds the annotation size limit", docId);
+                logger.warn("Word boxes refused for document {}: file exceeds the annotation size limit", LogSafe.sanitizeObject(docId));
                 throw new IOException("Document is too large to extract word boxes from.");
             }
             List<double[]> extracted = BoundedPdfTask.runWithin(
@@ -183,11 +210,13 @@ public class DocumentTextBoxes2Action extends ActionSupport {
             }
         } catch (SecurityException e) {
             throw e;
+        } catch (BoundedPdfTask.BusyException e) {
+            busy = true;
         } catch (IOException | RuntimeException e) {
             // A page whose text cannot be read is not a viewer failure: it simply has no snap
             // targets, exactly like a page that was never OCR'd. Log and answer with an empty
             // list so the client falls back to free-hand rectangles.
-            logger.warn("Word boxes unavailable for document {} page {}", docId, page);
+            logger.warn("Word boxes unavailable for document {} page {}", LogSafe.sanitizeObject(docId), LogSafe.sanitizeObject(page));
         }
 
         ObjectNode payload = objectMapper.createObjectNode();
@@ -200,7 +229,12 @@ public class DocumentTextBoxes2Action extends ActionSupport {
         payload.put("textLayerRead", extractionSucceeded);
         payload.set("words", words);
 
-        response.setStatus(HttpServletResponse.SC_OK);
+        if (busy) {
+            payload.put("retryable", true);
+            response.setHeader("Retry-After", String.valueOf(BoundedPdfTask.RETRY_AFTER_SECONDS));
+            response.setHeader("Cache-Control", "no-store");
+        }
+        response.setStatus(busy ? HttpServletResponse.SC_SERVICE_UNAVAILABLE : HttpServletResponse.SC_OK);
         response.setContentType("application/json");
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         try (PrintWriter writer = response.getWriter()) {

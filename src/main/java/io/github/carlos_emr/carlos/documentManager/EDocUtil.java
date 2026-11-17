@@ -78,9 +78,10 @@ import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
-import io.github.carlos_emr.carlos.commn.model.TicklerLink;
+import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -232,8 +233,9 @@ public final class EDocUtil {
     private static ProgramManager programManager() { return SpringUtils.getBean(ProgramManager.class); }
     private static CaseManagementNoteLinkDAO caseManagementNoteLinkDao() { return SpringUtils.getBean(CaseManagementNoteLinkDAO.class); }
     private static CaseManagementNoteDAO caseManagementNoteDao() { return SpringUtils.getBean(CaseManagementNoteDAO.class); }
-    private static TicklerLinkDao ticklerLinkDao() { return SpringUtils.getBean(TicklerLinkDao.class); }
+    private static TicklerDocsDao ticklerDocsDao() { return SpringUtils.getBean(TicklerDocsDao.class); }
     private static TicklerManager ticklerManager() { return SpringUtils.getBean(TicklerManager.class); }
+    private static SecurityInfoManager securityInfoManager() { return SpringUtils.getBean(SecurityInfoManager.class); }
     private static ProviderDao providerDao() { return SpringUtils.getBean(ProviderDao.class); }
     private static CtlDocTypeDao ctldoctypedao() { return SpringUtils.getBean(CtlDocTypeDao.class); }
     private static DemographicManager demographicManager() { return SpringUtils.getBean(DemographicManager.class); }
@@ -447,6 +449,9 @@ public final class EDocUtil {
                 doc.setDocfilename(newDocument.getFileName());
                 doc.setContenttype(newDocument.getContentType());
                 doc.setContentdatetime(newDocument.getContentDateTime());
+                // The replacement's page count, as adding a document stores it (0 when it is not a PDF);
+                // the inbox view, the document display and Split read it.
+                doc.setNumberofpages(newDocument.getNumberOfPages());
             }
 
             doc.setAbnormal(Boolean.parseBoolean(newDocument.getAbnormal()));
@@ -921,8 +926,9 @@ public final class EDocUtil {
         }
 
         Document d = getDocumentDao().find(ConversionUtils.fromIntString(documentNo));
-        if (d != null) {
-            d.setStatus(status.toCharArray()[0]);
+        // A missing or blank control-row status cannot be indexed; leave the document as is.
+        if (d != null && status != null && !status.isEmpty()) {
+            d.setStatus(status.charAt(0));
             d.setUpdatedatetime(MyDateFormat.getSysDate(getDmsDateTime()));
             getDocumentDao().merge(d);
         }
@@ -1221,16 +1227,35 @@ public final class EDocUtil {
     public static String getHtmlTicklers(LoggedInInfo loggedInInfo, String docId) {
         assertNotOutboundEmailArchiveDocument(docId);
 
-        Long table_id = Long.valueOf(docId);
-        List<TicklerLink> linkList = ticklerLinkDao().getLinkByTableId("DOC", table_id);
+        // Attachments live in ticklerdocs (#3984); the legacy tickler_link rows were backfilled.
+        Integer documentNo = Integer.valueOf(docId);
+        List<TicklerDocs> attachments = ticklerDocsDao().findByDocument(documentNo, TicklerDocs.DOCTYPE_DOC);
         String HtmlTickler = "";
-        Integer ticklerNo;
 
-        if (linkList != null) {
-            for (TicklerLink tl : linkList) {
-                ticklerNo = tl.getTicklerNo();
-                Tickler t = ticklerManager().getTickler(loggedInInfo, ticklerNo);
-                HtmlTickler += "<br>" + Encode.forHtml(t.getMessage());
+        if (attachments != null && !attachments.isEmpty()) {
+            // The document's patients now: a tickler attached before the document was re-filed
+            // belongs to another patient and is not this document's tickler any more.
+            java.util.Set<Integer> documentPatients = new java.util.HashSet<Integer>();
+            List<CtlDocument> filings = ctlDocumentDao().findByDocumentNoAndModule(documentNo, "demographic");
+            if (filings != null) {
+                for (CtlDocument filing : filings) {
+                    if (filing.getId() != null) {
+                        documentPatients.add(filing.getId().getModuleId());
+                    }
+                }
+            }
+            for (TicklerDocs attachment : attachments) {
+                Tickler t = ticklerManager().getTickler(loggedInInfo, attachment.getTicklerId());
+                if (t == null || !documentPatients.contains(t.getDemographicNo())) {
+                    continue;
+                }
+                // getTickler proves the global _tickler right only; this is reached from an
+                // _edoc-gated page, and a patient-specific denial takes precedence, so the
+                // message is only rendered when the caller may read ticklers for that patient.
+                if (securityInfoManager().hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.READ,
+                        String.valueOf(t.getDemographicNo()))) {
+                    HtmlTickler += "<br>" + Encode.forHtml(t.getMessage());
+                }
             }
         }
         return HtmlTickler;
@@ -1335,14 +1360,12 @@ public final class EDocUtil {
         File documentDir = PathValidationUtils.resolveConfiguredDirectory(
                 CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
         File trustedFile;
-        try {
+        // resolvePath has already canonicalized the target. Check the allowed-temp branch
+        // before the document-only validator, which logs every containment rejection.
+        if (PathValidationUtils.isInAllowedTempDirectory(resolvedFile)) {
+            trustedFile = PathValidationUtils.resolveTrustedPath(resolvedFile);
+        } else {
             trustedFile = PathValidationUtils.validateExistingPath(resolvedFile, documentDir);
-        } catch (SecurityException e) {
-            if (PathValidationUtils.isInAllowedTempDirectory(resolvedFile)) {
-                trustedFile = PathValidationUtils.resolveTrustedPath(resolvedFile);
-            } else {
-                throw e;
-            }
         }
         // Guarded here rather than in each caller: this resolver is the single point every raw
         // document-file read passes through, and the name is only trustworthy once it has been
@@ -1403,18 +1426,16 @@ public final class EDocUtil {
             }
 
             // Get the canonical path to resolve any symbolic links or relative paths
-            String canonicalPath = inputFile.getCanonicalPath();
+            File canonicalFile = inputFile.getCanonicalFile();
 
-            // Use PathValidationUtils for validation
-            // First try document directory
+            // Preserve the existing allowed-temp policy, checking its canonical target before
+            // the document-only validator logs a rejection. Operate on that same canonical file.
+            if (PathValidationUtils.isInAllowedTempDirectory(canonicalFile)) {
+                return canonicalFile.getPath();
+            }
             try {
-                inputFile = PathValidationUtils.validateExistingPath(inputFile, documentDir);
-                return canonicalPath;
+                return PathValidationUtils.validateExistingPath(canonicalFile, documentDir).getPath();
             } catch (SecurityException e) {
-                // Not in document directory, check temp directories
-                if (PathValidationUtils.isInAllowedTempDirectory(inputFile)) {
-                    return canonicalPath;
-                }
                 logger.error("Security violation: Attempted to access file outside allowed directory");
                 throw new SecurityException("Access denied: File is outside the allowed directories");
             }

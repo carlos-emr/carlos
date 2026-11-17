@@ -176,8 +176,10 @@ class EncounterIssuePanelRegressionUnitTest extends CarlosUnitTestBase {
                 .contains("if (dao.hasInteractiveLeftHeading()) {")
                 .contains("<h3><carlos:encode value='<%= dao.getLeftHeading() %>' context=\"html\"/></h3>")
                 .contains("popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,")
-                .contains("<h3 onclick=\"<carlos:encode value='<%= dao.getLeftURL() + \"; return false;\" %>' "
-                        + "context=\"javaScriptAttribute\"/>\">");
+                // The interactive heading's handler sits on an anchor (release #4218) so it is
+                // reachable by keyboard; the static branch above stays a plain heading.
+                .contains("<h3><a href=\"javascript:void(0)\" onclick=\"<carlos:encode value='<%= dao.getLeftURL() "
+                        + "+ \"; return false;\" %>' context=\"javaScriptAttribute\"/>\">");
     }
 
     private String resultPath(Element action, String resultName) {

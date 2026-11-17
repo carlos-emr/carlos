@@ -70,8 +70,8 @@ public class ValidateSwipeCard2Action extends ActionSupport {
      * The magneticStripe property is populated automatically by Struts 2 from
      * the request parameter before this method is called.
      *
-     * @return String "success" to forward to the result page
-     * @throws Exception if magnetic stripe parsing or validation fails
+     * @return "success" for a parsed card, or "none" after rejecting malformed input with HTTP 400
+     * @throws Exception if authorization, the response, or health-card validation fails
      */
     @Override
     public String execute() throws Exception {
@@ -81,7 +81,13 @@ public class ValidateSwipeCard2Action extends ActionSupport {
         }
 
         String magneticStripe = this.getMagneticStripe();
-        HCMagneticStripe hcMagneticStripe = new HCMagneticStripe(magneticStripe);
+        HCMagneticStripe hcMagneticStripe;
+        try {
+            hcMagneticStripe = new HCMagneticStripe(magneticStripe);
+        } catch (IllegalArgumentException invalidStripe) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
 
         HCValidator validator = HCValidationFactory.getHCValidator();
         HCValidationResult validationResult = validator.validate(hcMagneticStripe.getHealthNumber(), hcMagneticStripe.getCardVersion());

@@ -202,7 +202,7 @@
                                                        onClick="popup(700,900,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>','
                                                            <fmt:message key="encounter.Index.popupPage2Window"/>');return false;"
                                                        title="<fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">Patient
-                    Information</a> <input type="hidden" name="id" id="id" value="<carlos:encode value='<%= StringUtils.noNull(form.getId()) %>' context="htmlAttribute"/>"/>
+                    Information</a>
                     <input type="hidden"
                            name="demographicNumber" id="demographicNumber"
                         value="<carlos:encode value='<%= StringUtils.noNull(form.getDemographicNumber()) %>' context="htmlAttribute"/>"/></td>
@@ -712,6 +712,7 @@
         <table width="100%">
         </table>
         <input type="hidden" name="billingNo" id="billingNo" value="<carlos:encode value='<%= StringUtils.noNull(form.getBillingNo()) %>' context="htmlAttribute"/>"/>
+        <%-- The page's only id field: Struts joins a repeated field ("41, 41"), which the save cannot read. --%>
         <input type="hidden" name="id" id="id" value="<carlos:encode value='<%= StringUtils.noNull(form.getId()) %>' context="htmlAttribute"/>"/>
         <table width="100%">
             <tr>

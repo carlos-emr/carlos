@@ -30,8 +30,10 @@ async function workflow(s) {
     }
   });
   for (const first of ['LabelOne', 'LabelTwo']) {
-    const id = s.sql.value(`INSERT INTO professionalSpecialists(fName,lName,address,salutation)
-      VALUES(${sqlString(first)},${sqlString(s.marker)},'123 Fixture Street',NULL); SELECT LAST_INSERT_ID()`);
+    // institutionId, departmentId, hideFromView and lastUpdated are NOT NULL with no default: strict sql_mode
+    // refuses a row that omits them.
+    const id = s.sql.value(`INSERT INTO professionalSpecialists(fName,lName,address,salutation,institutionId,departmentId,hideFromView,lastUpdated)
+      VALUES(${sqlString(first)},${sqlString(s.marker)},'123 Fixture Street',NULL,0,0,0,NOW()); SELECT LAST_INSERT_ID()`);
     assert(/^[1-9]\d*$/.test(id), 'Referral fixture was not created');
     ids.push(id);
   }

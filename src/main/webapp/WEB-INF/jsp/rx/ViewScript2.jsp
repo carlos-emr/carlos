@@ -28,8 +28,17 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Displays the authorized prescription workspace, preview and print/fax controls.
+    The action supplies prescription and patient context; pharmacyId selects the destination pharmacy.
+    Drug information links pass the generic description (GN) and optional product DIN to the local DrugRef view.
+    @since 2026-07-07
+--%>
 <%@ page
         import="io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.clinic.ClinicData, java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxReprintWorkspace" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxPreviewSnapshot" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -49,9 +58,9 @@
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProviderManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
@@ -95,11 +104,16 @@
         <title><fmt:message key="ViewScript.title"/></title>
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <c:if test="${empty sessionScope.RxSessionBean}">
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
+     or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
+     dereferences the bean (#3908). --%>
+<% { RxSessionBean rxResolvedBean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r"); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
+        <c:if test="${empty pageScope.RxSessionBean}">
             <c:redirect url="error.html"/>
         </c:if>
-        <c:if test="${not empty sessionScope.RxSessionBean}">
-            <c:set var="bean" value="${sessionScope.RxSessionBean}" scope="page"/>
+        <c:if test="${not empty pageScope.RxSessionBean}">
+            <c:set var="bean" value="${pageScope.RxSessionBean}" scope="page"/>
             <c:if test="${bean.valid == false}">
                 <c:redirect url="error.html"/>
             </c:if>
@@ -109,9 +123,9 @@
             ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
 
             /**
-             * The first candidate the fax/print servlet would accept as a script id, or "" when none
-             * qualify. This mirrors FrmCustomedPDFServlet.parsePositiveInt EXACTLY — 1-10 digits that
-             * parse to a positive {@code int} — so a value the servlet rejects (0, or a 10-digit value
+             * The first candidate the fax action and print servlet would accept as a script id, or "" when none
+             * qualify. This mirrors PrescriptionPdfComposer.parsePositiveInt EXACTLY — 1-10 digits that
+             * parse to a positive {@code int} — so a value the server rejects (0, or a 10-digit value
              * above Integer.MAX_VALUE such as 9999999999) can never "win" over a later valid source
              * and reintroduce the unsigned-fax failure this helper prevents. Used to resolve the
              * scriptId across the server-resolved request attribute and displayed stash.
@@ -124,7 +138,7 @@
                                 return candidate;
                             }
                         } catch (NumberFormatException ignored) {
-                            // > Integer.MAX_VALUE: the servlet would reject it, so skip to the next.
+                            // > Integer.MAX_VALUE: the server would reject it, so skip to the next.
                         }
                     }
                 }
@@ -133,6 +147,12 @@
         %>
         <%
             RxSessionBean bean = (RxSessionBean) pageContext.findAttribute("bean");
+            // The patient of the window that opened this preview. Every Rx request from this page
+            // names it so the server resolves that patient's bean, not the most recently opened
+            // chart's (per-patient Rx state, #3875).
+            int viewScriptDemographicNo = bean.getDemographicNo();
+            String viewScriptChartContext = java.util.Objects.toString(
+                    io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request), "");
             Provider provider = providerManager.getProvider(bean.getProviderNo());
             String providerFax = provider.getWorkPhone();
             if (providerFax == null) {
@@ -149,16 +169,14 @@
             vecPageSizeValues.add("PageSize.A6");
             vecPageSizeValues.add("PageSize.Letter");
 //are we printing in the past?
-//String reprint = (String)request.getAttribute("rePrint") != null ? (String)request.getAttribute("rePrint") : "false";
 
-            String reprint = (String) request.getSession().getAttribute("rePrint") != null ? (String) request.getSession().getAttribute("rePrint") : "false";
+            // Reprint state is per patient (#3908): only a reprint loaded for THIS window's patient
+            // switches the page into reprint mode, and only that patient's reprinted script renders.
+            RxReprintWorkspace.Entry reprintEntry = RxReprintWorkspace.findForRequest(request, session, viewScriptDemographicNo);
+            String reprint = reprintEntry != null ? "true" : "false";
 
-            String createAnewRx;
-            if (reprint.equalsIgnoreCase("true")) {
-                bean = (RxSessionBean) session.getAttribute("tmpBeanRX");
-                createAnewRx = "window.location.href = '" + request.getContextPath() + "/rx/searchDrug'";
-            } else {
-                createAnewRx = "javascript:clearPending('')";
+            if (reprintEntry != null) {
+                bean = reprintEntry.bean();
             }
             // Use the prescription resolved by the action, falling back to the displayed stash
             // for direct reprints. A caller-supplied scriptId must not override this identity:
@@ -167,25 +185,44 @@
             // all use this same server-selected target.
             String scriptIdForFax = firstValidScriptId(
                     request.getAttribute("scriptId") == null ? "" : String.valueOf(request.getAttribute("scriptId")),
-                    (bean.getStashSize() > 0 && bean.getStashItem(0).getScript_no() != null)
+                    (reprintEntry != null && bean.getStashSize() > 0 && bean.getStashItem(0).getScript_no() != null)
                             ? bean.getStashItem(0).getScript_no() : "");
+            RxPreviewSnapshot previewSnapshot = null;
+            if (!scriptIdForFax.isEmpty()) {
+                previewSnapshot = (RxPreviewSnapshot) request.getAttribute(RxPreviewSnapshot.REQUEST_ATTRIBUTE);
+                if (previewSnapshot == null) {
+                    previewSnapshot = RxPreviewSnapshot.load(viewScriptDemographicNo, scriptIdForFax);
+                }
+                if (previewSnapshot == null) {
+                    response.sendError(404);
+                    return;
+                }
+                bean = previewSnapshot.bean();
+            } else {
+                // An empty action result must stay empty if another request stages a drug
+                // before this JSP renders. The action alone selects ordinary saved scripts.
+                RxSessionBean emptyPreview = new RxSessionBean();
+                emptyPreview.setDemographicNo(viewScriptDemographicNo);
+                emptyPreview.setProviderNo(bean.getProviderNo());
+                bean = emptyPreview;
+            }
 // for satellite clinics
             Vector vecAddressName = null;
             Vector vecAddress = null;
             Vector vecAddressPhone = null;
             Vector vecAddressFax = null;
+            // The clinic site of this patient's current visit, preselected in the address list. It
+            // stays on this page: the session's RX_ADDR holds only the address the prescriber last
+            // chose by hand (rx/ViewSetDefaultAddr), so one patient's visit site cannot become the
+            // default for another patient's prescription (issue #4673).
+            String appointmentAddressIndex = null;
             CarlosProperties props = CarlosProperties.getInstance();
             if (bMultisites) {
-                String appt_no = (String) session.getAttribute("cur_appointment_no");
-                String location = null;
-                if (appt_no != null) {
-                    try {
-                        Appointment result = appointmentDao.find(Integer.parseInt(appt_no));
-                        if (result != null) location = result.getLocation();
-                    } catch (NumberFormatException e) {
-                        // Malformed appointment number in session — skip location lookup
-                    }
-                }
+                // The appointment this patient was opened for from the day sheet, never the one last
+                // opened for another patient.
+                Appointment currentAppointment = EncounterPatientContext.currentAppointment(request,
+                        String.valueOf(viewScriptDemographicNo), appointmentDao);
+                String location = currentAppointment == null ? null : currentAppointment.getLocation();
 
                 RxProviderData.Provider rxprovider = new RxProviderData().getProvider(bean.getProviderNo());
                 ProSignatureData sig = new ProSignatureData();
@@ -202,7 +239,7 @@
                 vecAddressPhone = new Vector();
                 vecAddressFax = new Vector();
 
-                java.util.ResourceBundle rb = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+                java.util.ResourceBundle rb = java.util.ResourceBundle.getBundle("oscarResources", io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request));
 
                 SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
                 // A cross-provider reprint still shows and faxes the persisted prescriber's clinic
@@ -217,14 +254,14 @@
                 for (int i = 0; i < sites.size(); i++) {
                     Site s = sites.get(i);
                     vecAddressName.add(s.getName());
-                    // One composer for this block on both ends: FrmCustomedPDFServlet parses the
+                    // One composer for this block on both ends: PrescriptionPdfComposer parses the
                     // chosen block back out of scAddress AND recomputes the blocks this prescriber was
                     // offered, so a fax cannot carry a clinic header the request made up.
                     String addressHtml = RxSatelliteClinicAddress.html(encodedDoctorName, s.getName(), s.getAddress(),
                             s.getCity(), s.getProvince(), s.getPostal(), s.getPhone(), s.getFax(), encodedTelLabel, encodedFaxLabel);
                     vecAddress.add(addressHtml);
                     if (s.getName().equals(location))
-                        session.setAttribute("RX_ADDR", String.valueOf(i));
+                        appointmentAddressIndex = String.valueOf(i);
                 }
 
 
@@ -251,7 +288,7 @@
                 String[] temp4 = props.getProperty("clinicSatellitePostal", "").split("\\|");
                 String[] temp5 = props.getProperty("clinicSatellitePhone", "").split("\\|");
                 String[] temp6 = props.getProperty("clinicSatelliteFax", "").split("\\|");
-                java.util.ResourceBundle rb = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+                java.util.ResourceBundle rb = java.util.ResourceBundle.getBundle("oscarResources", io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request));
 
                 String encodedDoctorName = SafeEncode.forHtml(doctorName);
                 String encodedTelLabel = SafeEncode.forHtml(rb.getString("RxPreview.msgTel"));
@@ -268,8 +305,9 @@
                     vecAddress.add(addressHtml);
                 }
             }
-            String comment = request.getSession().getAttribute("comment") != null ? request.getSession().getAttribute("comment").toString() : "";
-            request.getSession().removeAttribute("comment");
+            // The script comment belongs to this patient's reprint, never to another window's.
+            String comment = reprintEntry != null ? reprintEntry.comment()
+                    : previewSnapshot != null ? previewSnapshot.comment() : "";
             String pharmacyId = request.getParameter("pharmacyId");
             RxPharmacyData pharmacyData = new RxPharmacyData();
             PharmacyInfo pharmacy = null;
@@ -285,6 +323,17 @@
                     prefPharmacyId = prefPharmacyId.trim();
                 }
             }
+            // " Tel: <phone1 phone2>" for the "Rx faxed to" encounter note, or "" when no phone is on
+            // file so that note is unchanged for pharmacies without one (issue #3974).
+            String pharmacyPhone = RxPharmacyData.composePharmacyPhone(pharmacy);
+            String pharmacyPhoneSegment = pharmacyPhone.isEmpty() ? "" : " Tel: " + pharmacyPhone;
+            // The selected pharmacy is already loaded above. Send its snapshot with the page:
+            // a second asynchronous lookup can finish after a fast print/fax submission.
+            String pharmacyPreviewJson = pharmacy == null ? "null" : new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode()
+                    .put("id", prefPharmacyId).put("name", pharmacy.getName()).put("address", pharmacy.getAddress())
+                    .put("city", pharmacy.getCity()).put("province", pharmacy.getProvince()).put("postalCode", pharmacy.getPostalCode())
+                    .put("phone1", pharmacy.getPhone1()).put("phone2", pharmacy.getPhone2()).put("fax", pharmacy.getFax())
+                    .put("email", pharmacy.getEmail()).put("notes", pharmacy.getNotes()).toString();
 
             String userAgent = request.getHeader("User-Agent");
             String browserType = "";
@@ -301,6 +350,9 @@
         <script src="<%= request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
+        <script src="${pageContext.request.contextPath}/share/javascript/rx-patient-context.js"
+                data-demographic-no="<%= viewScriptDemographicNo %>"
+                data-chart-context="<%= SafeEncode.forHtmlAttribute(viewScriptChartContext) %>"></script>
 
         <%-- Pre-declare i18n messages used in JavaScript so they can be safely embedded
              in JavaScript string literals using OWASP forJavaScript() encoding --%>
@@ -309,6 +361,7 @@
         <fmt:message key="ViewScript.js.signatureDirty"    var="msg_signatureDirty"/>
         <fmt:message key="ViewScript.msgRemovePharmacyInfo" var="msg_removePharmacyInfo"/>
         <fmt:message key="tickler.ticklerMain.errorNoteSaveFailed" var="msg_noteSaveFailed"/>
+        <fmt:message key="SearchDrug.js.removeRefused" var="msg_removeRefused"/>
 
         <script type="text/javascript">
             /*
@@ -330,31 +383,44 @@
             function resetStash() {
                 cancelPendingFax();
                 var url = "${carlos:forJavaScript(ctx)}" + "/rx/deleteRx?parameterValue=clearStash";
-                fetch(url, {
+                return fetch(url, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
                     credentials: 'same-origin',
-                    body: ''
-                }).then(function() {
-                    parent.document.getElementById('rxText').textContent = "";//make pending prescriptions disappear.
-                    parent.document.getElementById('searchString').focus();
-                });
-            }
-
-            function resetReRxDrugList() {
-                var url = "${carlos:forJavaScript(ctx)}" + "/rx/deleteRx?parameterValue=clearReRxDrugList";
-                fetch(url, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
-                    credentials: 'same-origin',
-                    body: ''
+                    body: 'demographicNo=<%= viewScriptDemographicNo %>'
+                }).then(function(response) {
+                    if (!response.ok || response.redirected) throw new Error('Prescription reset was refused');
+                    if (typeof parent.clearStashDisplay === 'function') {
+                        parent.clearStashDisplay();
+                        var modalElement = parent.document.getElementById('carlosModal');
+                        var modalApi = parent.bootstrap || (typeof bootstrap !== 'undefined' ? bootstrap : null);
+                        var modal = modalElement && modalApi && modalApi.Modal
+                            ? modalApi.Modal.getInstance(modalElement) : null;
+                        if (modal && modalElement.classList.contains('show')) {
+                            // Bootstrap ignores hide() while its opening transition runs. Retry
+                            // after shown, and discard the retry when hidden so it cannot close
+                            // the next prescription opened in this same modal element.
+                            var hideAfterOpening = function () { modal.hide(); };
+                            modalElement.addEventListener('shown.bs.modal', hideAfterOpening, { once: true });
+                            modalElement.addEventListener('hidden.bs.modal', function () {
+                                modalElement.removeEventListener('shown.bs.modal', hideAfterOpening);
+                            }, { once: true });
+                            modal.hide();
+                        }
+                    } else {
+                        window.location.href = RxPatientContext.withPatient("${carlos:forJavaScript(ctx)}/rx/choosePatient?demographicNo=<%= viewScriptDemographicNo %>");
+                    }
+                    return true;
+                }).catch(function() {
+                    alert('${carlos:forJavaScript(msg_removeRefused)}');
+                    return false;
                 });
             }
 
 
             /*
              * The most recent Additional Notes save, so a fax can wait for it. A fax renders
-             * additNotes from the STORED prescription row (FrmCustomedPDFServlet.bindFaxContentToRecord
+             * additNotes from the STORED prescription row (PrescriptionPdfComposer.bindFaxContentToRecord
              * replaces the posted value, deliberately, so a caller cannot print arbitrary text above
              * another prescriber's signature). addNotes() saves that row with a fire-and-forget
              * fetch, and the textarea's own onchange fires as focus leaves it for the Fax button --
@@ -401,7 +467,12 @@
                 }
                 <%}
             }%>
-                let action = "<%= request.getContextPath() %>/form/createcustomedpdf?__title=Rx&__method=" + method + "&useSC=" + useSC + "&scAddress=" + scAddress + "&rxPageSize=" + rxPageSize + "&scriptId=" + scriptId;
+                let requestParams = "__title=Rx&useSC=" + useSC + "&scAddress=" + scAddress + "&rxPageSize=" + rxPageSize + "&scriptId=" + scriptId;
+                // A fax is a POST-only action of its own (issue #3108); print and preview stay on the
+                // read-only PDF servlet, which refuses fax requests.
+                let action = method === "oscarRxFax"
+                        ? "<%= request.getContextPath() %>/rx/faxPrescription?" + requestParams
+                        : "<%= request.getContextPath() %>/form/createcustomedpdf?__method=" + method + "&" + requestParams;
                 var previewForm = document.getElementById("preview").contentWindow.document.getElementById("preview2Form");
                 if (method === "oscarRxFax") {
                     if (!matchesFaxPreview(previewForm)) {
@@ -533,7 +604,9 @@
                     return;
                 }
                 if (!previewDocument) return;
-                var initialComment = '<%=SafeEncode.forJavaScript(comment)%>';
+                // Reloads must use the current edit, not the value rendered when this window opened.
+                var editor = document.getElementById('additionalNotes');
+                var initialComment = editor ? editor.value : '<%=SafeEncode.forJavaScript(comment)%>';
                 var notes = previewDocument.getElementById('additNotes');
                 if (notes) {
                     notes.style.whiteSpace = 'pre-wrap';
@@ -680,6 +753,9 @@
                             <% String timeStamp = new SimpleDateFormat("dd-MMM-yyyy hh:mm a").format(Calendar.getInstance().getTime()); %>
                             // %>
                             text = "[Rx faxed to " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getFax()):""%>';
+                            // Built here, before the fax is sent, so the text captured for a paste retry
+                            // already carries it and useCapturedPasteTextAsIs never appends it twice.
+                            text += '<%= SafeEncode.forJavaScript(pharmacyPhoneSegment) %>';
 
                             <%--    	 <% if (rxPreferencesMap.getOrDefault("rx_paste_provider_to_echart", false)) { %>--%>
                             text += " prescribed by <carlos:encode value='<%= loggedInInfo.getLoggedInProvider().getFormattedName() %>' context="javaScript"/>";
@@ -720,9 +796,7 @@
                     noteEditor = "noteEditor" + demographicNo;
                     var pasteResult = Promise.resolve(true);
                     if (window.parent.opener) {
-                        if (window.parent.opener.document.forms["caseManagementEntryForm"] != undefined &&
-                            window.parent.opener.document.forms["caseManagementEntryForm"].demographicNo &&
-                            window.parent.opener.document.forms["caseManagementEntryForm"].demographicNo.value === "<%=bean.getDemographicNo()%>") {
+                        if (matchesRxChart(window.parent.opener.document.forms["caseManagementEntryForm"])) {
                             //oscarLog("3");
                             faxPasteCanRetry = false;
                             if (window.parent.opener.pasteToEncounterNote(text) === false) {
@@ -732,16 +806,14 @@
                             if (print) {
                                 printIframe();
                             }
-                        } else if (window.parent.opener.document.encForm != undefined &&
-                            window.parent.opener.document.encForm.demographicNo &&
-                            window.parent.opener.document.encForm.demographicNo.value === "<%=bean.getDemographicNo()%>") {
+                        } else if (matchesRxChart(window.parent.opener.document.encForm)) {
                             //oscarLog("4");
                             faxPasteCanRetry = false;
                             window.parent.opener.document.encForm.enTextarea.value = window.parent.opener.document.encForm.enTextarea.value + text;
                             if (print) {
                                 printIframe();
                             }
-                        } else if (window.parent.opener.document.getElementById(noteEditor) != undefined) {
+                        } else if (<%= viewScriptChartContext.isEmpty() %> && window.parent.opener.document.getElementById(noteEditor) != undefined) {
                             faxPasteCanRetry = false;
                             window.parent.opener.document.getElementById(noteEditor).value = window.parent.opener.document.getElementById(noteEditor).value + text;
                             if (print) {
@@ -764,6 +836,12 @@
 
             }
 
+    function matchesRxChart(form) {
+        return form && form.elements.demographicNo
+            && form.elements.demographicNo.value === '<%= viewScriptDemographicNo %>'
+            && ((form.elements.chartContext && form.elements.chartContext.value) || '')
+                === '<%= SafeEncode.forJavaScript(viewScriptChartContext) %>';
+    }
 	function writeToEncounter(print, text) {
     	try {
 			var url = "<%=request.getContextPath() %>/rx/WriteToEncounter";
@@ -774,6 +852,8 @@
 				credentials: 'same-origin',
 				body: "prefPharmacy=" + encodeURIComponent(prefPharmacy) +
 						"&expectedDemographicNo=<%= bean.getDemographicNo() %>" +
+						"&demographicNo=<%= bean.getDemographicNo() %>" +
+						"<%= viewScriptChartContext.isEmpty() ? "" : "&chartContext=" + SafeEncode.forUriComponent(viewScriptChartContext) %>" +
 						"&additionalNotes=" +
 						"&body="+ encodeURIComponent(text)
 			};
@@ -811,14 +891,17 @@
                 var windowprops = "height=710,width=1024,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=20,left=20";
                 var currentDate = new Date().toISOString().substring(0, 10);
                 var url = "<%= request.getContextPath() %>/encounter/IncomingEncounter?providerNo=<%= bean.getProviderNo() %>&demographicNo=<%= bean.getDemographicNo() %>&curProviderNo=<%= bean.getProviderNo() %>&userName=<carlos:encode value='<%= ProviderData.getProviderName(bean.getProviderNo()) %>' context="uriComponent"/>&curDate=" + currentDate;
+                <% if (!viewScriptChartContext.isEmpty()) { %>
+                url += '&chartContext=<%= SafeEncode.forJavaScript(SafeEncode.forUriComponent(viewScriptChartContext)) %>';
+                <% } %>
 
-                if (window.parent.opener && window.parent.opener.document.forms["caseManagementEntryForm"] != undefined) {
+                if (window.parent.opener && matchesRxChart(window.parent.opener.document.forms["caseManagementEntryForm"])) {
                     // redirect if encounter window open
                     window.parent.opener.location = url;
                     return window.parent.opener;
                 }
 
-                return window.open(url, "encounter", windowprops);
+                return window.open(url, 'encounter<%= viewScriptDemographicNo %>_<%= SafeEncode.forJavaScript(viewScriptChartContext) %>', windowprops);
             }
 
             var rxToPaste = null;
@@ -828,11 +911,14 @@
                 encounterWindow.rxToPaste = rxToPaste;
             }
 
-            function addressSelect() {
+            // rememberChoice is true only when the prescriber picks an address. The page-load call
+            // passes false so the address preselected for this patient's visit site is shown
+            // without becoming the remembered default for other patients (issue #4673).
+            function addressSelect(rememberChoice) {
                 if (typeof hasPreview === 'undefined' || !hasPreview || !frames['preview']) return;
                 <% if(vecAddressName != null) {
                  %>
-                setDefaultAddr();
+                if (rememberChoice) setDefaultAddr();
                 <%      for(int i=0; i<vecAddressName.size(); i++) {%>
                 var clinicAddress = frames['preview'].document.getElementById("clinicAddress");
                 if (clinicAddress && document.getElementById("addressSel").value == "<%=i%>") {
@@ -872,7 +958,7 @@
             signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());
             imageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + signatureRequestId;
 
-            // Faxing persists a FaxJob, so FrmCustomedPDFServlet requires _rx WRITE for the script's
+            // Faxing persists a FaxJob, so RxFaxPrescription2Action requires _rx WRITE for the script's
             // patient; gate the Fax buttons on the same right so the page never offers a fax the
             // server will refuse (a read-only reprint of a signed script would otherwise show an
             // enabled Fax button and then a refusal).
@@ -888,7 +974,7 @@
             // 500 on the whole print/fax page rather than a disabled button. Any failure leaves the
             // gate false: Fax off, page still renders.
             // BOTH halves of the gate — may-I-fax and is-it-signed — must describe the SAME
-            // prescription, the one scriptIdForFax names, because that is the row the servlet signs
+            // prescription, the one scriptIdForFax names, because that is the row the fax action signs
             // from. Reading the permission from the persisted row and the signature from the session
             // stash would let a stash holding a different script decide whether Fax lights up.
             boolean canFaxScript = false;
@@ -917,13 +1003,13 @@
                 canFaxScript = false;
                 faxTargetSigned = false;
             }
-            // The third condition on the Fax buttons: the servlet refuses a fax whose destination is
+            // The third condition on the Fax buttons: the fax action refuses a fax whose destination is
             // not usable ("Valid fax number not found!"). Computed once here so the server-rendered
             // disabled state and the JavaScript gate cannot drift apart — the initial markup must
             // already reflect it, or the buttons render live until the first signature-pad event
-            // fires and a click in that window submits a fax the servlet rejects.
+            // fires and a click in that window submits a fax the fax action rejects.
             //
-            // Use the same provider-aware validator as the servlet. A destination may be
+            // Use the same provider-aware validator as the fax action. A destination may be
             // dialable through SRFax but not legacy middleware (or the reverse).
             java.util.Set<String> usableFaxSenderNumbers = new java.util.HashSet<>();
             List<FaxConfig> faxConfigs = java.util.Collections.emptyList();
@@ -1229,7 +1315,7 @@
             var hasFaxSenderAccount = <%= hasFaxSenderAccount ? "true" : "false" %>;
             var canFaxScript = <%= canFaxScript ? "true" : "false" %>;
             // The script already carries a stored signature (the prescriber's stamp applied on write,
-            // or a signature saved earlier). The fax servlet signs from it whenever no fresh pad
+            // or a signature saved earlier). The fax action signs from it whenever no fresh pad
             // capture is present, so pad strokes or Clear must not grey out Fax for such a script.
             var hasStoredSignature = <%= faxTargetSigned ? "true" : "false" %>;
             <% } %>
@@ -1305,7 +1391,9 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 		method: 'POST',
 		headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
 		credentials: 'same-origin',
+		// Names the window's patient: the server refuses a script of any other patient (#3908).
 		body: 'method=saveDigitalSignature&digitalSignatureId=' + encodeURIComponent(digitalSignatureId) + '&scriptId=' + encodeURIComponent(scriptId)
+			+ '&demographicNo=<%= viewScriptDemographicNo %>'
 	}).then(function (response) {
 		if (!response.ok || response.redirected || response.headers.get('X-Carlos-Signature-Write') !== 'written') {
             throw new Error('Signature association was not confirmed');
@@ -1354,9 +1442,8 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
     </head>
 
 <body topmargin="0" leftmargin="0" vlink="#0000FF"
-	onload="addressSelect();printPharmacy('<%=prefPharmacyId%>');showFaxWarning();">
+	onload="addressSelect(false);showFaxWarning();">
 
-    <!-- HSFO functionality removed -->
     <div id="bodyView">
         <p id="signatureAssociationError" class="alert alert-danger" role="alert" hidden><fmt:message key="ViewScript.js.signatureAssociationFailed"/></p>
 
@@ -1381,8 +1468,8 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 				<td>
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
-                                        <iframe id='preview' name='preview' width=420px height=890px
-							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/>"
+                                        <iframe id='preview' name='preview' width=420px height=890px onload="setComment()"
+							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&demographicNo=<%= viewScriptDemographicNo %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/><%= viewScriptChartContext.isEmpty() ? "" : "&amp;chartContext=" + SafeEncode.forHtmlAttribute(SafeEncode.forUriComponent(viewScriptChartContext)) %>"
 							align=center border=0 frameborder=0></iframe></div>
 					<% } %>
                                     <p id="selectedPharmacy" role="status" hidden><fmt:message key="oscarRx.printPharmacyInfo.paperSizeWarning"/></p>
@@ -1390,6 +1477,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 
                                 <td valign=top><form name="RxClearPendingForm" action="${pageContext.request.contextPath}/rx/clearPending" method="post">
                                     <input type="hidden" name="action" id="action" value=""/>
+                                    <input type="hidden" name="demographicNo" value="<%= viewScriptDemographicNo %>"/>
                                     <div class="warning-note" id="faxWarningNote">
                                         <strong><fmt:message key="ViewScript.msgWarning"/></strong> <fmt:message key="ViewScript.msgFaxWarning"/><br/><br/><fmt:message key="ViewScript.msgFaxWarningHelp"/>
                                     </div>
@@ -1411,37 +1499,37 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                             try { var m = parent.document.getElementById('carlosModal'); if (m) { var bs = (typeof parent.bootstrap !== 'undefined') ? parent.bootstrap : (typeof bootstrap !== 'undefined' ? bootstrap : null); if (bs) { var modal = bs.Modal.getInstance(m); if (modal) { modal.hide(); } } } } catch(e) { parent.window.location = '<%= request.getContextPath() %>/rx/close.html'; }
                                         }
 
-                                        function ShowDrugInfo(drug) {
-                                            window.open('${carlos:forJavaScript(ctx)}/rx/drugInfo?GN=' + encodeURIComponent(drug), "_blank",
+                                        function ShowDrugInfo(drug, din) {
+                                            window.open('${carlos:forJavaScript(ctx)}/rx/drugInfo?GN=' + encodeURIComponent(drug)
+                                                + (din && din !== "null" && din !== "0" ? "&DIN=" + encodeURIComponent(din) : ""), "_blank",
                                                 "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
                                         }
 
 
-                                function printPharmacy(id){
-                                    //ajax call to get all info about a pharmacy
-                                    //use json to write to html
-	                                if(! id) {
-										return;
-	                                }
-                                    var url="${carlos:forJavaScript(ctx)}"+"/rx/managePharmacy2?method=getPharmacyInfo&pharmacyId="+id;
-                                    fetch(url, {
-                                        method: 'GET',
-                                        headers: {'X-Requested-With': 'XMLHttpRequest'},
-                                        credentials: 'same-origin'
-                                    }).then(function(resp){ return resp.text(); }).then(function(responseText){
-                                        var json = JSON.parse(responseText);
+                                var initialPharmacy = JSON.parse('<carlos:encode value="<%= pharmacyPreviewJson %>" context="javaScript"/>');
+                                function printPharmacy(id) {
+                                    var json = initialPharmacy;
+                                    if (!json || String(json.id) !== String(id)) return;
+                                    var lines = [];
+                                    function addLine(label, values, separator) {
+                                        var value = values.map(function (item) {
+                                            return item == null ? '' : String(item).trim();
+                                        }).filter(function (item) { return item !== ''; }).join(separator);
+                                        if (value) lines.push(label + pharmacyText(value));
+                                    }
+                                    addLine('', [json.name], '');
+                                    addLine('', [json.address], '');
+                                    addLine('', [json.city, json.province, json.postalCode], ', ');
+                                    addLine('Tel:', [json.phone1, json.phone2], ' ');
+                                    addLine('Fax:', [json.fax], '');
+                                    addLine('Email:', [json.email], '');
+                                    addLine('Note:', [json.notes], '');
+                                    var text = lines.join('<br>');
 
-                                                    if (json != null) {
-                                                        var text = pharmacyText(json.name) + "<br>" + pharmacyText(json.address) + "<br>" + pharmacyText(json.city) + ", " + pharmacyText(json.province) + ", "
-                                                            + pharmacyText(json.postalCode) + "<br>Tel:" + pharmacyText(json.phone1) + " " + pharmacyText(json.phone2) + "<br>Fax:" + pharmacyText(json.fax) + "<br>Email:" + pharmacyText(json.email) + "<br>Note:" + pharmacyText(json.notes);
-
-                                                        text += '<br><br><a class="noprint" style="text-align:center;" onclick="parent.reducePreview();" href="javascript:void(0);">${carlos:forJavaScript(msg_removePharmacyInfo)}</a>';
-                                                        text += "<input type='hidden' name='pharmacyInfo' value='" + pharmacyText(id) + "' />";
-                                                        expandPreview(text);
-                                                    }
-                                                });
-
-                                        }
+                                    text += '<br><br><a class="noprint" style="text-align:center;" onclick="parent.reducePreview();" href="javascript:void(0);">${carlos:forJavaScript(msg_removePharmacyInfo)}</a>';
+                                    text += "<input type='hidden' name='pharmacyInfo' value='" + pharmacyText(id) + "' />";
+                                    expandPreview(text);
+                                }
 
                                         function pharmacyText(value) {
                                             return String(value == null ? '' : value).replace(/[&<>"']/g, function (character) {
@@ -1485,6 +1573,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         var pharmacyPreviewFrame = document.getElementById('preview');
                                         if (pharmacyPreviewFrame) {
                                             pharmacyPreviewFrame.addEventListener('load', applyPharmacyPreview);
+                                            printPharmacy(initialPharmacy ? initialPharmacy.id : '');
                                         }
                                     </script>
 
@@ -1492,10 +1581,11 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         <% //vecAddress=null;
                                             if (vecAddress != null) { %>
                                         <tr>
-                                            <td align="left" colspan=2><fmt:message key="ViewScript.msgAddress"/>
-                                                <select name="addressSel" id="addressSel" onChange="addressSelect()"
+                                            <td align="left" colspan=2><label for="addressSel"><fmt:message key="ViewScript.msgAddress"/></label>
+                                                <select name="addressSel" id="addressSel" onChange="addressSelect(true)"
                                                         style="width:200px;">
-                                                    <% String rxAddr = (String) session.getAttribute("RX_ADDR");
+                                                    <% String rxAddr = appointmentAddressIndex != null
+                                                            ? appointmentAddressIndex : (String) session.getAttribute("RX_ADDR");
                                                         for (int i = 0; i < vecAddressName.size(); i++) {
                                                             String te = (String) vecAddressName.get(i);
                                                             String tf = (String) vecAddress.get(i);%>
@@ -1627,7 +1717,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                              value="<fmt:message key="ViewScript.msgCreateNewRx"/>"
                                                              class="btn btn-outline-secondary"
                                                              style="width: 210px"
-                                                             onClick="resetStash();resetReRxDrugList();try{var m=parent.document.getElementById('carlosModal');if(m){var bs=(typeof parent.bootstrap!=='undefined')?parent.bootstrap:(typeof bootstrap!=='undefined'?bootstrap:null);if(bs){var modal=bs.Modal.getInstance(m);if(modal){modal.hide();}}}}catch(e){}"/></span>
+                                                             onClick="resetStash();"/></span>
                                             </td>
                                         </tr>
                                         <tr>
@@ -1638,7 +1728,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                             </td>
                                         </tr>
                                         <%
-                                            if (request.getSession().getAttribute("rePrint") == null) {%>
+                                            if (reprintEntry == null) {%>
 
                                         <tr>
                                             <td colspan=2 style="font-weight: bold"><span><fmt:message key="ViewScript.msgAddNotesRx"/></span></td>
@@ -1647,7 +1737,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                             <!--td width=10px></td-->
                                             <td>
                                                 <textarea id="additionalNotes" style="width: 200px"
-                                                          onchange="javascript:addNotes();"></textarea>
+                                                          onchange="javascript:addNotes();"><carlos:encode value='<%= comment %>'/></textarea>
                                                 <input type="button" id="saveAdditionalNotes" value="<fmt:message key="ViewScript.msgAdditionalRxNotes"/>"
                                                        class="btn btn-outline-secondary" onclick="javascript:addNotes();"/>
                                                 <p id="additionalNotesSaveError" class="alert alert-danger" role="alert" hidden><fmt:message key="tickler.ticklerMain.errorNoteSaveFailed"/></p>
@@ -1689,7 +1779,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         %>
                                         <tr>
                                             <td><span><a
-                                                    href="javascript:ShowDrugInfo('<carlos:encode value='<%= rx.getGenericName() %>' context="javaScriptAttribute"/>');">
+                                                    href="${pageContext.request.contextPath}/rx/drugInfo?GN=<carlos:encode value='<%= rx.getGenericName() %>' context="uriComponent"/><% if (rx.getRegionalIdentifier() != null && !rx.getRegionalIdentifier().isEmpty() && !"null".equals(rx.getRegionalIdentifier()) && !"0".equals(rx.getRegionalIdentifier())) { %>&amp;DIN=<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="uriComponent"/><% } %>" onclick="ShowDrugInfo('<carlos:encode value='<%= rx.getGenericName() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="javaScriptAttribute"/>'); return false;">
 						<carlos:encode value='<%= rx.getGenericName() %>' context="html"/> (<carlos:encode value='<%= rx.getBrandName() %>' context="html"/>) </a></span></td>
                                         </tr>
                                         <%

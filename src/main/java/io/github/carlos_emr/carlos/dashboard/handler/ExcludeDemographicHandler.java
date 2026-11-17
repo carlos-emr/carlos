@@ -99,26 +99,25 @@ public class ExcludeDemographicHandler {
         return demoExts;
     }
 
-    public void excludeDemoId(Integer demographicNo, String indicatorName) {
-        if (demographicNo == null || indicatorName == null || indicatorName.isEmpty()) return;
-        String providerNo = getProviderNo();
-        // It is possible that there is already a exclusion present in demographicExt but the
-        // exclusion is no longer current.  The old one could be removed, its creation date
-        // could be updated to the current date, or we can just ignore it.  For the moment we
-        // will ignore non-current entries.  There probably wouldn't be many and they serve as
-        // a record that the patient was excluded from the indicator in the past.
-        demographicExtDao.addKey(providerNo, demographicNo, excludeIndicator, indicatorName);
-        logger.info("demo: " + demographicNo + " excluded from indicatorTemplate " + indicatorName);
+    public boolean excludeDemoId(Integer demographicNo, String indicatorName) {
+        if (demographicNo == null || indicatorName == null || indicatorName.isEmpty()) return false;
+        // Retain historical exclusions while making current exclusions idempotent.
+        Date since = new Date(System.currentTimeMillis() - java.util.concurrent.TimeUnit.DAYS.toMillis(365));
+        if (demographicExtDao.addKeyIfAbsentSince(getProviderNo(), demographicNo,
+                excludeIndicator, indicatorName, since)) {
+            logger.info("demo: {} excluded from indicatorTemplate {}", demographicNo, LogSafe.sanitize(indicatorName));
+            return true;
+        }
+        return false;
     }
 
-    public void excludeDemoIds(List<Integer> demographicNos, String indicatorName) {
-        if (demographicNos == null || demographicNos.isEmpty() || indicatorName == null || indicatorName.isEmpty())
-            return;
-        String providerNo = getProviderNo();
-        for (Integer demographicNo : demographicNos) {
-            demographicExtDao.addKey(providerNo, demographicNo, excludeIndicator, indicatorName);
-            logger.info("demo: " + demographicNo + " excluded from indicatorTemplate " + indicatorName);
+    public List<Integer> excludeDemoIds(List<Integer> demographicNos, String indicatorName) {
+        List<Integer> inserted = new ArrayList<>();
+        if (demographicNos == null || demographicNos.isEmpty() || indicatorName == null || indicatorName.isEmpty()) return inserted;
+        for (Integer demographicNo : new java.util.LinkedHashSet<>(demographicNos)) {
+            if (excludeDemoId(demographicNo, indicatorName)) inserted.add(demographicNo);
         }
+        return inserted;
     }
 
     public void unExcludeDemoIds(List<Integer> demographicNos, String indicatorName) {
@@ -137,14 +136,8 @@ public class ExcludeDemographicHandler {
     }
 
     public void excludeDemoIds(String jsonString, String indicatorName) {
-        String providerNo = getProviderNo();
         if (jsonString == null || jsonString.isEmpty() || indicatorName == null || indicatorName.isEmpty()) return;
-
-        List<Integer> ids = parseIntegerArray(jsonString);
-        for (Integer id : ids) {
-            demographicExtDao.addKey(providerNo, id, excludeIndicator, indicatorName);
-            logger.info("demo: {} excluded from indicatorTemplate {}", id, indicatorName);
-        }
+        excludeDemoIds(parseIntegerArray(jsonString), indicatorName);
     }
 
     public void unExcludeDemoIds(String jsonString, String indicatorName) {

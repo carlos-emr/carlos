@@ -65,6 +65,9 @@ public interface DemographicExtDao extends AbstractDao<DemographicExt> {
 
     public void addKey(String providerNo, Integer demo, String key, String value);
 
+    /** Atomically adds a matching key only when no row was created at or after since. */
+    boolean addKeyIfAbsentSince(String providerNo, Integer demo, String key, String value, Date since);
+
     public void addKey(String providerNo, Integer demo, String key, String newValue, String oldValue);
 
     public List<String[]> getListOfValuesForDemo(Integer demo);

@@ -156,6 +156,56 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should accept backslash escapes that cannot end the literal, as in the bundled eForm AP SQL")
+    void shouldAcceptBackslashEscapes_whenTheyCannotEndTheLiteral() {
+        // apconfig.xml joins chart notes and address lines with "\n". NO_BACKSLASH_ESCAPES changes
+        // what such a literal contains, never where it ends, so these statements have the same
+        // structure under every sql_mode. Refusing them blanked the Rich Text Letter's allergy,
+        // prescription and history fields.
+        List<String> modeIndependentSql = List.of(
+                "select group_concat(concat(ifnull(note, \"Please contact support\"), \"\\n\") separator ' ')"
+                        + " as familyHistory from casemgmt_note",
+                "select concat(b.address1, if(b.address1 = '', '', '\\n'), b.city) as address from billingreferral b",
+                "select 'a\\\\' as trailingBackslash from demographic",
+                "select '\\t\\\\n' as escapes from demographic");
+
+        for (String sql : modeIndependentSql) {
+            assertThat(LegacyJdbcQuery.containsUnsafeSqlControlToken(sql)).as(sql).isFalse();
+            assertThatCode(() -> LegacyJdbcQuery.trustedReportSelectSql(sql)).as(sql).doesNotThrowAnyException();
+            assertThatCode(() -> LegacyJdbcQuery.trustedSelectSql(sql)).as(sql).doesNotThrowAnyException();
+        }
+    }
+
+    @Test
+    @DisplayName("should reject a backslash run that can escape the closing quote")
+    void shouldRejectBackslashRun_whenItCanEscapeTheClosingQuote() {
+        // An odd run of backslashes before the active quote escapes it under the default sql_mode
+        // and is plain text under NO_BACKSLASH_ESCAPES, so the literal ends in a different place
+        // and the rest of the statement is parsed differently.
+        List<String> modeDependentSql = List.of(
+                "select 'safe\\\\\\' union select provider_no from provider",
+                "select \"safe\\\" union select provider_no from provider",
+                "select 'safe\\'' as value from provider");
+
+        for (String sql : modeDependentSql) {
+            assertThat(LegacyJdbcQuery.containsUnsafeSqlControlToken(sql)).as(sql).isTrue();
+            assertThatThrownBy(() -> LegacyJdbcQuery.trustedReportSelectSql(sql)).as(sql)
+                    .isInstanceOf(SQLException.class)
+                    .hasMessageContaining("comment or statement separator");
+        }
+    }
+
+    @Test
+    @DisplayName("should still find a comment that follows a literal ending in an escaped backslash")
+    void shouldRejectComment_whenLiteralEndsInEscapedBackslash() {
+        // 'a\\' ends at its third quote in every sql_mode, so the comment after it is real SQL.
+        assertThatThrownBy(() -> LegacyJdbcQuery.trustedReportSelectSql(
+                "select 'a\\\\' as value from demographic -- hidden"))
+                .isInstanceOf(SQLException.class)
+                .hasMessageContaining("comment or statement separator");
+    }
+
+    @Test
     @DisplayName("shouldRejectBlockedPatterns_forAdminReportBoundary")
     void shouldRejectBlockedPatterns_forAdminReportBoundary() {
         List<String> unsafeSql = List.of(
@@ -190,6 +240,27 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
                     .as(sql)
                     .isInstanceOf(SQLException.class);
         }
+    }
+
+    @Test
+    @DisplayName("should refuse file-access clauses whatever whitespace separates their words")
+    void shouldRejectFileAccessClauses_withAnyWhitespaceBetweenWords() {
+        // MariaDB accepts a newline or a tab between INTO and OUTFILE as readily as a space.
+        List<String> fileAccess = List.of(
+                "select * from demographic into\noutfile '/tmp/out'",
+                "select * from demographic INTO\tOUTFILE '/tmp/out'",
+                "select * from demographic into  \r\n dumpfile '/tmp/out'",
+                "select * from demographic load\ndata infile '/tmp/in'");
+
+        for (String sql : fileAccess) {
+            assertThatThrownBy(() -> validateSafeSelectQuery(sql)).as("generic: %s", sql)
+                    .isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> LegacyJdbcQuery.trustedReportSelectSql(sql)).as("report: %s", sql)
+                    .isInstanceOf(SQLException.class);
+        }
+        // A column that merely starts with the word is not a file-access clause.
+        assertThatCode(() -> LegacyJdbcQuery.trustedReportSelectSql("select into_date, loaded from demographic"))
+                .doesNotThrowAnyException();
     }
 
     @Test

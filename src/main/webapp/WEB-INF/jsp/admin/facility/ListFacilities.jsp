@@ -55,8 +55,8 @@
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="admin.facility.list.title"/></title>
-        <link rel="stylesheet" type="text/css" href='${request.contextPath}/css/tigris.css'/>
-        <link rel="stylesheet" type="text/css" href='${request.contextPath}/css/displaytag.css'/>
+        <link rel="stylesheet" type="text/css" href='${pageContext.request.contextPath}/css/tigris.css'/>
+        <link rel="stylesheet" type="text/css" href='${pageContext.request.contextPath}/css/displaytag.css'/>
 
         <script>
             function ConfirmDelete(name) {

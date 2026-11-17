@@ -36,6 +36,7 @@ import java.util.*;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
+import ca.uhn.hl7v2.model.Segment;
 import ca.uhn.hl7v2.HL7Exception;
 import ca.uhn.hl7v2.model.v23.datatype.XCN;
 import ca.uhn.hl7v2.model.v23.message.ORU_R01;
@@ -415,6 +416,12 @@ public class MEDITECHHandler implements MessageHandler {
         } catch (Exception e) {
             return ("");
         }
+    }
+
+    /** The OBX segment for the {@link MessageHandler} ED.5/ED.4 accessors; see {@link EdObservationValue}. */
+    @Override
+    public Segment getOBXSegment(int i, int j) throws Exception {
+        return msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX();
     }
 
     @Override

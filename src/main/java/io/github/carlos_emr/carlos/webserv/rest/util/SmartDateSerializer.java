@@ -19,6 +19,20 @@ import java.util.Date;
  * - Dates with time component 00:00:00 are serialized as "yyyy-MM-dd" strings
  * - Dates with actual time components are serialized as epoch timestamps
  * - Respects @JsonFormat annotations (epoch format takes precedence)
+ *
+ * <p>It is registered (through {@link SmartDateModule}) only on the OAuth {@code /ws/services}
+ * mapper, the surface third-party integrations such as Ocean call; the session {@code /ws/rs}
+ * mapper writes every unannotated {@code Date} as epoch milliseconds.
+ *
+ * <p>The shape is chosen from the value, not the field, so it is stable only for a field that
+ * always holds the same kind of value: a calendar date (a {@code DATE} column, always midnight)
+ * or a clock time (a {@code TIME} column, always on 1970-01-01). A field that holds a full
+ * timestamp would otherwise turn into a string whenever its value happened to fall on midnight,
+ * and integrations that read epoch milliseconds break on it (issue #3877). Such a field must carry
+ * {@code @JsonFormat(shape = JsonFormat.Shape.NUMBER)}, including on an entity a REST response
+ * embeds. {@code RestTransferObjectDateShapeContractUnitTest} walks every {@code Date} a
+ * {@code /ws/services} response can carry and fails the build for one that is neither epoch-shaped
+ * nor listed there as a calendar date or clock time.
  */
 public class SmartDateSerializer extends JsonSerializer<Date> implements ContextualSerializer {
 

@@ -24,8 +24,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -80,8 +84,9 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
         @Test
         @DisplayName("should return 200 with measurements when types provided")
         void shouldReturn200_whenMeasurementsExist() {
-            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("r"), any()))
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("r"), eq("123")))
                 .thenReturn(true);
+            when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(123))).thenReturn(true);
 
             Measurement m = new Measurement();
             m.setType("BP");
@@ -103,13 +108,48 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
             assertThat(wireJson.at("/measurements/BP")).hasSize(1);
             assertThat(wireJson.at("/measurements/BP/0/dataField").textValue()).isEqualTo("120/80");
             assertThat(wireJson.at("/measurements/BP/0/type").textValue()).isEqualTo("BP");
+            verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("r"), eq("123"));
+            verify(mockSecurityInfoManager).isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(123));
+        }
+
+        @Test
+        @DisplayName("should write the measurement entity's midnight timestamps as epoch milliseconds")
+        void shouldWriteEntityTimestampsAsEpochMillis_whenTheyFallOnMidnight() {
+            // MeasurementResponse carries Measurement entities, not MeasurementTo1, so the entity's
+            // own DATETIME fields need the epoch shape too (issue #3877).
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("r"), eq("123")))
+                .thenReturn(true);
+            when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(123))).thenReturn(true);
+            Calendar calendar = Calendar.getInstance();
+            calendar.clear();
+            calendar.set(2026, Calendar.MARCH, 11);
+            Date midnight = calendar.getTime();
+            Measurement m = new Measurement();
+            m.setType("WT");
+            m.setDataField("70");
+            m.setDateObserved(midnight);
+            m.setCreateDate(midnight);
+            when(mockMeasurementManager.getMeasurementByType(any(LoggedInInfo.class), eq(123), any()))
+                .thenReturn(List.of(m));
+
+            Response response = request().path("/measurements/123")
+                .post(Entity.json("{\"types\":[\"WT\"]}"));
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            var wireJson = responseJson(response);
+            for (String field : List.of("dateObserved", "createDate")) {
+                var value = wireJson.at("/measurements/WT/0/" + field);
+                assertThat(value.isIntegralNumber()).as("%s on the wire: %s", field, value).isTrue();
+                assertThat(value.longValue()).as(field).isEqualTo(midnight.getTime());
+            }
         }
 
         @Test
         @DisplayName("should return 200 with empty response when no types match")
         void shouldReturn200WithEmptyResponse_whenNoTypesMatch() {
-            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("r"), any()))
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("r"), eq("456")))
                 .thenReturn(true);
+            when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(456))).thenReturn(true);
             when(mockMeasurementManager.getMeasurementByType(any(LoggedInInfo.class), eq(456), any()))
                 .thenReturn(Collections.emptyList());
 
@@ -130,8 +170,9 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
         @Test
         @DisplayName("should return 200 with empty response when types array is empty")
         void shouldReturn200WithEmptyResponse_whenTypesArrayIsEmpty() {
-            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("r"), any()))
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("r"), eq("789")))
                 .thenReturn(true);
+            when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(789))).thenReturn(true);
 
             ObjectMapper mapper = new ObjectMapper();
             ObjectNode json = mapper.createObjectNode();
@@ -144,6 +185,41 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
             var wireJson = responseJson(response);
             assertThat(wireJson.at("/measurements").isObject()).isTrue();
             assertThat(wireJson.at("/measurements")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should deny patient-specific measurement access before querying data")
+        void shouldReturn403_whenPatientMeasurementAccessDenied() {
+            Response response = request().path("/measurements/123")
+                .post(Entity.json("{\"types\":[\"BP\"]}"));
+
+            assertThat(response.getStatus()).isEqualTo(403);
+            verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("r"), eq("123"));
+            verifyNoInteractions(mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should deny a blocked chart even when measurement privileges allow reading")
+        void shouldReturn403_whenPatientRecordAccessDenied() {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("r"), eq("123")))
+                .thenReturn(true);
+
+            Response response = request().path("/measurements/123")
+                .post(Entity.json("{\"types\":[\"BP\"]}"));
+
+            assertThat(response.getStatus()).isEqualTo(403);
+            verify(mockSecurityInfoManager).isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(123));
+            verifyNoInteractions(mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should reject nonpositive patient identifiers before querying data")
+        void shouldReturn400_whenPatientIdentifierInvalid() {
+            Response response = request().path("/measurements/0")
+                .post(Entity.json("{\"types\":[\"BP\"]}"));
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockSecurityInfoManager, mockMeasurementManager);
         }
     }
 }

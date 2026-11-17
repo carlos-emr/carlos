@@ -150,16 +150,6 @@
     pageContext.setAttribute("isPreventionWarningDisabled", providerPreventionManager.isDisabled());
 %>
 <%!
-    //multisite starts =====================
-    private boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
-    private List<Site> sites = new ArrayList<Site>();
-    private List<Site> curUserSites = new ArrayList<Site>();
-    private List<String> siteProviderNos = new ArrayList<String>();
-    private List<String> siteGroups = new ArrayList<String>();
-    private String selectedSite = null;
-    private HashMap<String, String> siteBgColor = new HashMap<String, String>();
-    private HashMap<String, String> CurrentSiteMap = new HashMap<String, String>();
-
    private void appendTooltipLine(StringBuilder tooltip, String labelHtml, String value) {
     if (value == null) return;
     String trimmedValue = value.trim(); 
@@ -172,25 +162,35 @@
   }
 %>
 <%
+    // Multisite state belongs to this request only. These are locals of the page's service method: a JSP
+    // declaration would make them fields of the one servlet instance that every login shares.
+    boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
+    List<Site> sites = new ArrayList<Site>();
+    List<Site> curUserSites = new ArrayList<Site>();
+    List<String> siteProviderNos = new ArrayList<String>();
+    List<String> siteGroups = new ArrayList<String>();
+    String selectedSite = null;
+    HashMap<String, String> siteBgColor = new HashMap<String, String>();
+    HashMap<String, String> CurrentSiteMap = new HashMap<String, String>();
     if (bMultisites) {
         sites = siteDao.getAllActiveSites();
-        selectedSite = (String) session.getAttribute("site_selected");
+        String siteManagerProviderNo = (String) session.getAttribute("user");
+        if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
+            curUserSites = siteDao.getActiveSitesByProviderNo(siteManagerProviderNo);
+        } else {
+            curUserSites = sites;
+        }
+        // The remembered clinic counts only while it is one this login is offered; anything else is All Clinics.
+        selectedSite = io.github.carlos_emr.carlos.commn.SiteChoice.offeredOrNull(
+                (String) session.getAttribute("site_selected"), curUserSites);
 
         if (selectedSite != null) {
             //get site providers list
             siteProviderNos = siteDao.getProviderNoBySiteLocation(selectedSite);
             siteGroups = siteDao.getGroupBySiteLocation(selectedSite);
-        }
-
-        if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
-            String siteManagerProviderNo = (String) session.getAttribute("user");
-            curUserSites = siteDao.getActiveSitesByProviderNo(siteManagerProviderNo);
-            if (selectedSite == null) {
-                siteProviderNos = siteDao.getProviderNoBySiteManagerProviderNo(siteManagerProviderNo);
-                siteGroups = siteDao.getGroupBySiteManagerProviderNo(siteManagerProviderNo);
-            }
-        } else {
-            curUserSites = sites;
+        } else if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
+            siteProviderNos = siteDao.getProviderNoBySiteManagerProviderNo(siteManagerProviderNo);
+            siteGroups = siteDao.getGroupBySiteManagerProviderNo(siteManagerProviderNo);
         }
 
         for (Site s : curUserSites) {
@@ -550,10 +550,6 @@
 
             function tsr(s) {
                 popupPage(600, 860, ('<%= request.getContextPath() %>/appointment/editappointment?dboperation=search&' + s));
-            }
-
-            function goFilpView(s) {
-                self.location.href = "<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= request.getContextPath() %>/provider/providercontrol&startDate=<%=year+"-"+month+"-"+day%>" + "&provider_no=" + s;
             }
 
             function goWeekView(s) {
@@ -1095,9 +1091,9 @@
 
 
                             <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                                <security:oscarSec roleName="<%=roleName$%>"
-                                                   objectName="_admin,_admin.userAdmin,_admin.schedule,_admin.billing,_admin.resource,_admin.reporting,_admin.backup,_admin.messenger,_admin.eform,_admin.encounter,_admin.misc,_admin.fax,_admin.flowsheet"
-                                                   rights="r">
+                                <%-- One oscarSec tag per object: see administration-menu-gate.jspf (issues #4238, #4623). --%>
+                                <%@ include file="/WEB-INF/jspf/administration-menu-gate.jspf" %>
+                                <c:if test="${canOpenAdministration}">
 
                                     <li id="admin2">
                                         <a href="javascript:void(0)" id="admin-panel"
@@ -1105,7 +1101,7 @@
                                        onclick="return openScheduleSection('<%=scheduleAdministrationUrlForJsAttribute%>', function(u){ newWindow(u,'admin'); }, event);"><fmt:message key="provider.mainMenu.administration"/></a>
                                     </li>
 
-                                </security:oscarSec>
+                                </c:if>
                             </caisi:isModuleLoad>
 
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_dashboardDisplay" rights="r">
@@ -1453,15 +1449,15 @@
                                         </script>
 
                                         <select id="site" name="site" onchange="changeSite(this)"
-                                                style="background-color: <%=( selectedSite == null || siteBgColor.get(selectedSite) == null ? "#FFFFFF" : siteBgColor.get(selectedSite))%>">
+                                                style="background-color: <carlos:encode value='<%= io.github.carlos_emr.carlos.commn.SiteChoice.cssColor(selectedSite == null ? null : siteBgColor.get(selectedSite), "#FFFFFF") %>' context="htmlAttribute"/>">
                                             <option value="none" style="background-color:white"><fmt:message key="provider.appointmentprovideradminmonth.formAllClinics"/></option>
                                             <%
                                                 for (int i = 0; i < curUserSites.size(); i++) {
                                             %>
-                                            <option value="<%=curUserSites.get(i).getName()%>"
-                                                    style="background-color:<%=curUserSites.get(i).getBgColor()%>"
+                                            <option value="<carlos:encode value='<%= curUserSites.get(i).getName() %>' context="htmlAttribute"/>"
+                                                    style="background-color:<carlos:encode value='<%= io.github.carlos_emr.carlos.commn.SiteChoice.cssColor(curUserSites.get(i).getBgColor(), "") %>' context="htmlAttribute"/>"
                                                     <%=(curUserSites.get(i).getName().equals(selectedSite)) ? " selected " : ""%> >
-                                                <%=curUserSites.get(i).getName()%>
+                                                <carlos:encode value='<%= curUserSites.get(i).getName() %>'/>
                                             </option>
                                             <%
                                                 }
@@ -1538,7 +1534,7 @@
 
                                     <!-- caisi infirmary view extension add fffffffffffff-->
                                     <caisi:isModuleLoad moduleName="caisi">
-                                    <jsp:include page="infirmaryviewprogramlist.jspf"/>
+                                    <jsp:include page="infirmaryviewprogramlist.jsp"/>
                                 </td>
                             </tr>
                         </table>
@@ -1714,6 +1710,8 @@
                                 <tr>
                                     <td class="infirmaryView" NOWRAP ALIGN="center"
                                         BGCOLOR="<%=bColor?"#bfefff":"silver"%>">
+                                        <%-- Keeps the name in view within its own column (receptionistapptstyle.css). --%>
+                                        <span class="providerNameSticky">
                                         <!-- caisi infirmary view extension modify ffffffffffff-->
                                         <c:if test="${infirmaryView_isOscar != 'false'}">
                                             <%
@@ -1741,16 +1739,19 @@
                                                    onClick="goSearchView('<%=curProvider_no[nProvider]%>')"
                                                    title="<fmt:message key="provider.appointmentProviderAdminDay.searchView"/>"
                                                    style="color:black" class="noprint">
-                                            <input type='radio' name='flipview' class="noprint"
-                                                   onClick="goFilpView('<%=curProvider_no[nProvider]%>')"
-                                                   title="<fmt:message key="schedule.scheduleflipview.title"/>">
                                             <a href=#
                                                onClick="goZoomView('<%=curProvider_no[nProvider]%>','<carlos:encode value='<%= curProviderName[nProvider] %>' context="javaScriptAttribute"/>')"
-                                               onDblClick="goFilpView('<%=curProvider_no[nProvider]%>')"
                                                title='<fmt:message key="provider.appointmentProviderAdminDay.zoomView"/>'>
                                                 <carlos:encode value='<%= curProviderName[nProvider] + " (" + appointmentCount + ") " %>' context="html"/>
                                             </a>
-                                                <oscar:oscarPropertiesCheck value="yes" property="TOGGLE_REASON_BY_PROVIDER" defaultVal="yes">
+                                            <a class="provider-availability-link noprint"
+                                               href="<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= SafeEncode.forUriComponent(request.getContextPath() + "/provider/providercontrol") %>&amp;startDate=<carlos:encode value='<%= String.format(Locale.ROOT, "%04d-%02d-%02d", year, month, day) %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no[nProvider] %>' context="uriComponent"/>"
+                                               title="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>"
+                                               aria-label="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>">
+                                                <span class="fa-solid fa-calendar-days" aria-hidden="true"></span>
+                                                <span><fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/></span>
+                                            </a>
+                                                <oscar:oscarPropertiesCheck value="yes" property="TOGGLE_REASON_BY_PROVIDER" defaultVal="true">
                                                     <a href="#"
                                                        class="expand-reason-btn"
                                                        data-provider="<%= curProvider_no[nProvider] %>"
@@ -1784,8 +1785,30 @@
                                             </c:forEach>
                                         </c:if>
                                         <!-- caisi infirmary view extension modify end ffffffffffffffff-->
+                                        </span>
                                     </td>
                                 </tr>
+                                <%-- Mirrors the desktop availability link above, which the mobile
+                                     stylesheet hides with the rest of the provider header. Keep it
+                                     under the same infirmary-view guard so CAISI infirmary mode
+                                     suppresses both entry points, not just the desktop one. The week
+                                     view shows no desktop link either, and this row would repeat
+                                     under each of its seven day columns. --%>
+                                <c:if test="${infirmaryView_isOscar != 'false'}">
+                                <% if (!isWeekView) { %>
+                                <tr class="provider-availability-mobile-row noprint">
+                                    <td class="noGrid" align="center">
+                                        <a class="provider-availability-link"
+                                           href="<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= SafeEncode.forUriComponent(request.getContextPath() + "/provider/providercontrol") %>&amp;startDate=<carlos:encode value='<%= String.format(Locale.ROOT, "%04d-%02d-%02d", year, month, day) %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no[nProvider] %>' context="uriComponent"/>"
+                                           title="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>"
+                                           aria-label="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>">
+                                            <span class="fa-solid fa-calendar-days" aria-hidden="true"></span>
+                                            <span><fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/></span>
+                                        </a>
+                                    </td>
+                                </tr>
+                                <% } %>
+                                </c:if>
                                 <!-- END for the first providers's name -->
                                 <tr>
 
@@ -1794,7 +1817,10 @@
                                         <!-- caisi infirmary view exteion add -->
                                         <!--  fffffffffffffffffffffffffffffffffffffffffff-->
                                         <caisi:isModuleLoad moduleName="caisi">
-                                            <jsp:include page="infirmarydemographiclist.jspf"/>
+                                            <jsp:include page="infirmarydemographiclist.jsp">
+                                                <jsp:param name="userAvail" value="<%= userAvail %>"/>
+                                                <jsp:param name="strDate" value="<%= strDate %>"/>
+                                            </jsp:include>
                                         </caisi:isModuleLoad>
 
                                         <c:if test="${infirmaryView_isOscar != 'false'}">
@@ -1926,6 +1952,8 @@
                                                               String name = ".";
                                                               if (demographic_no != 0) {
                                                                   demographic = demographicManager.getDemographic(loggedInInfo1, demographic_no);
+                                                              }
+                                                              if (demographic != null) {
                                                                   StringBuilder nameBuilder = new StringBuilder();
 																  nameBuilder.append(UtilMisc.toUpperLowerCase(demographic.getLastName()))
 																  .append(", ")
@@ -2062,8 +2090,8 @@
                                                         nowrap>
                                                         <!-- multisites : add colour-coded to the "location" value of that appointment. -->
                                                         <%if (bMultisites) {%>
-                                                        <span title="<%= sitename %>"
-                                                              style="background-color:<%=siteBgColor.get(sitename)%>;">&nbsp;</span>|
+                                                        <span title="<carlos:encode value='<%= sitename %>' context="htmlAttribute"/>"
+                                                              style="background-color:<carlos:encode value='<%= io.github.carlos_emr.carlos.commn.SiteChoice.cssColor(siteBgColor.get(sitename), "") %>' context="htmlAttribute"/>;">&nbsp;</span>|
                                                         <%} %>
 
                                                         <%
@@ -2387,7 +2415,7 @@
 
                                                         <!-- add one link to caisi Program Management Module -->
                                                         <caisi:isModuleLoad moduleName="caisi">
-                                                            <a href=${pageContext.servletContext.contextPath}'/PMmodule/ClientManager?id=<%=demographic_no%>'
+                                                            <a href="${pageContext.servletContext.contextPath}/PMmodule/ClientManager?id=<%=demographic_no%>"
                                                                title="<fmt:message key="provider.appointmentProviderAdminDay.programManagement"/>">|P</a>
                                                         </caisi:isModuleLoad>
 

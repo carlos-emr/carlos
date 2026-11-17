@@ -41,6 +41,9 @@ public interface OutboundEmailArchiveService {
     /**
      * Stores the finalized outbound artifact through eDoc and persists archive metadata.
      *
+     * <p>The artifact is encrypted under the archive keyring's current key before it reaches the
+     * document store (#3448); the recorded SHA-256 and byte size are those of the plaintext.</p>
+     *
      * <p>Requires {@code _edoc w} plus access to the email log's patient record. Unlike the
      * three privileged operations below, this is the archive-creation gate, not the
      * admin gate.</p>
@@ -52,7 +55,8 @@ public interface OutboundEmailArchiveService {
      *         does not exist, or attachment metadata is invalid
      * @throws SecurityException when the caller lacks {@code _edoc w}, lacks access to the
      *         patient record, or supplies an attachment document belonging to another patient
-     * @throws IOException when eDoc storage fails
+     * @throws IOException when encryption or eDoc storage fails
+     * @throws IllegalStateException when the archive keyring was not loaded at startup
      */
     OutboundEmailArchive archive(LoggedInInfo loggedInInfo, OutboundEmailArchiveDto request) throws IOException;
 
@@ -129,6 +133,12 @@ public interface OutboundEmailArchiveService {
      * read error: the mismatch is audited before the failure propagates. Callers get an
      * {@link IOException} and no bytes, never partially-verified content.</p>
      *
+     * <p>Artifacts are stored encrypted (#3448). The artifact is decrypted only after the privilege
+     * and patient-record checks pass, and the recorded size and SHA-256 are verified against the
+     * decrypted plaintext. A decryption or authentication failure, or a key missing from the archive
+     * keyring, is audited like an integrity failure. Artifacts written before #3448 are stored as
+     * plaintext and are read unchanged.</p>
+     *
      * <p>The row is read under a write lock so the archive cannot transition to its logically
      * deleted state between authorization and completion of the read. Controlled deletion
      * deliberately retains the stored bytes.</p>
@@ -139,8 +149,9 @@ public interface OutboundEmailArchiveService {
      * @throws IllegalArgumentException when the identifier is null or names no archive
      * @throws IllegalStateException when the archive, or the eDoc behind it, has been deleted
      * @throws SecurityException when the caller lacks {@code _edoc r} or access to the patient
-     * @throws IOException when metadata is missing, the file is absent or unreadable, or the
-     *         bytes do not match the recorded size or hash
+     * @throws IOException when metadata is missing, the file is absent or unreadable, the bytes do
+     *         not match the recorded size or hash, or an encrypted artifact cannot be authenticated
+     *         or its key is not in the archive keyring
      * @since 2026-08-19
      */
     byte[] readArchivedArtifact(LoggedInInfo loggedInInfo, Integer archiveId) throws IOException;

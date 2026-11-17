@@ -32,6 +32,7 @@ import java.util.Locale;
 import java.util.ResourceBundle;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.Produces;
 
@@ -94,11 +95,15 @@ public abstract class AbstractServiceImpl {
         Message message = PhaseInterceptorChain.getCurrentMessage();
         HttpServletRequest request = (HttpServletRequest) message.get(AbstractHTTPDestination.HTTP_REQUEST);
 
-        LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        if (info != null && info.getLoggedInProvider() == null) {
-            // It's possible in the OAuth situation that the session is empty, but we have a valid LoggedInInfo on the request.
-            info = LoggedInInfo.getLoggedInInfoFromRequest(request);
+        // The request first: only server code puts a principal there, and on /ws/services it is the
+        // provider OAuthInterceptor just authenticated from the signed access token. That caller has
+        // no session, so the old session-first lookup failed every OAuth data call (issue #3446).
+        // The session /ws/rs surface keeps its principal in the session. getSession(false), so an
+        // OAuth call does not leave a session behind.
+        LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromRequest(request);
+        if (info == null) {
+            HttpSession session = request.getSession(false);
+            info = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
         }
 
         if (info == null) {

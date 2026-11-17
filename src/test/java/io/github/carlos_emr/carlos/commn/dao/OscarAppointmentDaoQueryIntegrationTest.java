@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.commn.model.MyGroup;
 import io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -763,13 +764,39 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
     // ========================================================================
 
     /**
-     * Tests for {@link OscarAppointmentDao#search_unbill_history_daterange(String, Date, Date)}.
-     * Finds unbilled appointments (status not starting with 'B') for a provider in a date range.
+     * Tests for {@link OscarAppointmentDao#search_unbill_history_daterange(String, Date, Date)}
+     * and its include-flag overload. Finds appointments that still need billing (status not
+     * starting with 'B', and by default not 'C' Cancelled or 'N' No-Show) for a provider in a
+     * date range (issue #3960).
+     *
+     * <p>Case sensitivity of the status prefixes (lowercase {@code c} "Customized 3" must stay
+     * listed) depends on the production {@code utf8mb4_bin} collation of {@code appointment.status},
+     * which H2's MySQL mode does not model; it is asserted against MariaDB by
+     * {@code scripts/billing-unbilled-report-playwright-checks.js}.</p>
      */
     @Nested
     @DisplayName("search_unbill_history_daterange")
     @Tag("read")
     class SearchUnbillHistoryDateRange {
+
+        @Test
+        @DisplayName("should keep provider and inclusive date boundaries with every include combination")
+        void shouldKeepProviderAndDateScope_whenIncludeFlagsChange() {
+            // Given
+            Appointment first = createAndPersist(yesterday, PROVIDER_NO, 100, "t");
+            Appointment last = createAndPersist(tomorrow, PROVIDER_NO, 101, "t");
+            Appointment outside = createAndPersist(lastWeek, PROVIDER_NO, 102, "t");
+            Appointment other = createAndPersist(today, "other-provider", 103, "t");
+            // When / Then
+            for (boolean noShow : new boolean[]{false, true}) {
+                for (boolean cancelled : new boolean[]{false, true}) {
+                    assertThat(oscarAppointmentDao.findUnbilledAppointments(
+                            PROVIDER_NO, yesterday, tomorrow, noShow, cancelled))
+                            .extracting(Appointment::getId).contains(first.getId(), last.getId())
+                            .doesNotContain(outside.getId(), other.getId());
+                }
+            }
+        }
 
         @Test
         @DisplayName("should return unbilled appointments in date range")
@@ -816,6 +843,99 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
             assertThat(result).hasSizeGreaterThanOrEqualTo(2);
             assertThat(result.get(0).getId()).isEqualTo(newer.getId());
             assertThat(result.get(1).getId()).isEqualTo(older.getId());
+        }
+
+        @Test
+        @DisplayName("should exclude cancelled and no-show appointments by default")
+        void shouldExcludeCancelledAndNoShow_byDefault() {
+            // Given
+            Appointment pending = createAndPersist(today, PROVIDER_NO, 100, "t");
+            Appointment cancelled = createAndPersist(today, PROVIDER_NO, 101, "C");
+            Appointment cancelledSigned = createAndPersist(today, PROVIDER_NO, 102, "CS");
+            Appointment noShow = createAndPersist(today, PROVIDER_NO, 103, "N");
+            Appointment noShowVerified = createAndPersist(today, PROVIDER_NO, 104, "NV");
+
+            // When
+            List<Appointment> result = oscarAppointmentDao.search_unbill_history_daterange(
+                    PROVIDER_NO, yesterday, tomorrow);
+
+            // Then
+            assertThat(result).extracting(Appointment::getId).contains(pending.getId())
+                    .doesNotContain(cancelled.getId(), cancelledSigned.getId(),
+                            noShow.getId(), noShowVerified.getId());
+        }
+
+        @Test
+        @DisplayName("should match the three-argument form when both include flags are false")
+        void shouldMatchDefaultOverload_whenIncludeFlagsFalse() {
+            // Given
+            createAndPersist(today, PROVIDER_NO, 100, "H");
+            createAndPersist(today, PROVIDER_NO, 101, "C");
+            createAndPersist(today, PROVIDER_NO, 102, "N");
+            createAndPersist(today, PROVIDER_NO, 103, "B");
+
+            // When
+            List<Appointment> defaults = oscarAppointmentDao.search_unbill_history_daterange(
+                    PROVIDER_NO, yesterday, tomorrow);
+            List<Appointment> explicit = oscarAppointmentDao.findUnbilledAppointments(
+                    PROVIDER_NO, yesterday, tomorrow, false, false);
+
+            // Then
+            assertThat(explicit).extracting(Appointment::getId)
+                    .containsExactlyElementsOf(defaults.stream().map(Appointment::getId).toList());
+        }
+
+        @Test
+        @DisplayName("should include no-show appointments only when requested")
+        void shouldIncludeNoShowOnly_whenNoShowFlagSet() {
+            // Given
+            Appointment noShow = createAndPersist(today, PROVIDER_NO, 100, "N");
+            Appointment cancelled = createAndPersist(today, PROVIDER_NO, 101, "C");
+            Appointment billed = createAndPersist(today, PROVIDER_NO, 102, "B");
+
+            // When
+            List<Appointment> result = oscarAppointmentDao.findUnbilledAppointments(
+                    PROVIDER_NO, yesterday, tomorrow, true, false);
+
+            // Then
+            assertThat(result).extracting(Appointment::getId).contains(noShow.getId())
+                    .doesNotContain(cancelled.getId(), billed.getId());
+        }
+
+        @Test
+        @DisplayName("should include cancelled appointments only when requested")
+        void shouldIncludeCancelledOnly_whenCancelledFlagSet() {
+            // Given
+            Appointment noShow = createAndPersist(today, PROVIDER_NO, 100, "N");
+            Appointment cancelled = createAndPersist(today, PROVIDER_NO, 101, "C");
+            Appointment billed = createAndPersist(today, PROVIDER_NO, 102, "B");
+
+            // When
+            List<Appointment> result = oscarAppointmentDao.findUnbilledAppointments(
+                    PROVIDER_NO, yesterday, tomorrow, false, true);
+
+            // Then
+            assertThat(result).extracting(Appointment::getId).contains(cancelled.getId())
+                    .doesNotContain(noShow.getId(), billed.getId());
+        }
+
+        @Test
+        @DisplayName("should still exclude billed appointments when both include flags are set")
+        void shouldExcludeBilled_whenBothIncludeFlagsSet() {
+            // Given
+            Appointment noShow = createAndPersist(today, PROVIDER_NO, 100, "N");
+            Appointment cancelled = createAndPersist(today, PROVIDER_NO, 101, "C");
+            Appointment billed = createAndPersist(today, PROVIDER_NO, 102, "B");
+            Appointment zeroDemo = createAndPersist(today, PROVIDER_NO, 0, "N");
+
+            // When
+            List<Appointment> result = oscarAppointmentDao.findUnbilledAppointments(
+                    PROVIDER_NO, yesterday, tomorrow, true, true);
+
+            // Then
+            assertThat(result).extracting(Appointment::getId)
+                    .contains(noShow.getId(), cancelled.getId())
+                    .doesNotContain(billed.getId(), zeroDemo.getId());
         }
     }
 
@@ -1129,10 +1249,13 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
         @DisplayName("should return null when no appointment exists today")
         void shouldReturnNull_whenNoAppointmentToday() {
             // When
-            Appointment result = oscarAppointmentDao.findDemoAppointmentToday(99999);
+            try (LogCapture capture = LogCapture.forLogger(OscarAppointmentDaoImpl.class)) {
+                Appointment result = oscarAppointmentDao.findDemoAppointmentToday(99999);
 
-            // Then
-            assertThat(result).isNull();
+                // Then: absence is routine and must not disclose the searched patient.
+                assertThat(result).isNull();
+                assertThat(capture.events()).isEmpty();
+            }
         }
 
         @Test
@@ -1151,12 +1274,20 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
             entityManager.clear();
 
             // When
-            Appointment result = oscarAppointmentDao.findDemoAppointmentToday(12345);
+            try (LogCapture capture = LogCapture.forLogger(OscarAppointmentDaoImpl.class)) {
+                Appointment result = oscarAppointmentDao.findDemoAppointmentToday(12345);
 
-            // Then
-            assertThat(result).isNotNull();
-            assertThat(result.getId()).isEqualTo(earlier.getId());
-            assertThat(result.getId()).isNotEqualTo(later.getId());
+                // Then: preserve selection and useful diagnostics without patient data or exceptions.
+                assertThat(result).isNotNull();
+                assertThat(result.getId()).isEqualTo(earlier.getId());
+                assertThat(result.getId()).isNotEqualTo(later.getId());
+                assertThat(capture.messages()).containsExactly(
+                        "Multiple appointments found today; returning earliest appointment");
+                assertThat(capture.events()).allSatisfy(event -> {
+                    assertThat(event.getThrown()).isNull();
+                    assertThat(event.getMessage().getParameters()).isNullOrEmpty();
+                });
+            }
         }
     }
 

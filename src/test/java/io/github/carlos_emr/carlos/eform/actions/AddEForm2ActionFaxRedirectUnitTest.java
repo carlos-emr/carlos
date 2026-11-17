@@ -42,8 +42,8 @@ import static org.mockito.Mockito.mockStatic;
 /**
  * Unit tests for the prepared-fax POST handoff helper in {@link AddEForm2Action}.
  *
- * <p>Both eForm fax branches (current and previous revision) route through the shared
- * {@code prepareFaxHandoff(...)} helper. These tests pin the security-relevant URL contract:
+ * <p>Every save-and-fax submission routes through the {@code prepareFaxHandoff(...)} helper.
+ * These tests pin the security-relevant URL contract:
  * optional recipient parameters MUST be URL-encoded (a raw {@code &}/{@code #} would otherwise
  * split or truncate the form-action query string) and empty optional parameters MUST be omitted
  * rather than emitted as dangling {@code &recipient=} pairs.</p>
@@ -150,10 +150,16 @@ class AddEForm2ActionFaxRedirectUnitTest extends CarlosUnitTestBase {
                 "src/main/webapp/WEB-INF/jsp/eform/EFormFaxPreparation.jsp"));
         assertThat(jsp).contains("method=\"post\"", "<csrf:tokenname/>", "<csrf:tokenvalue/>",
                 "${requestScope.preparedFaxTarget}", "context=\"htmlAttribute\"", "form.requestSubmit()");
-        assertThat(jsp).doesNotContain("paramValues", "parameterMap", "openosp-image-link", "sendRedirect");
+        assertThat(jsp).doesNotContain("paramValues", "parameterMap", "carlos-image-link", "sendRedirect");
         assertThat(jsp.split("<input ", -1)).hasSize(2);
         String mappings = java.nio.file.Files.readString(java.nio.file.Path.of(
                 "src/main/webapp/WEB-INF/classes/struts-eform.xml"));
         assertThat(mappings).contains("<result name=\"faxPreparation\">/WEB-INF/jsp/eform/EFormFaxPreparation.jsp</result>");
+        // A dispatcher result into the fax action would run preparation inside the save request and
+        // leave the browser on the save POST, where a reload replays the clinical save.
+        int start = mappings.indexOf("<action name=\"eform/addEForm\"");
+        assertThat(start).isNotNegative();
+        String addEFormMapping = mappings.substring(start, mappings.indexOf("</action>", start));
+        assertThat(addEFormMapping).doesNotContain("faxAction", "<result name=\"fax\">");
     }
 }

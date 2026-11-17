@@ -70,6 +70,9 @@ public class ViewBillingPreferences2Action
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
+        // The page shows and saves the signed-in provider's own preferences, not those of a provider number taken from
+        // the request (issue #4936).
+        this.providerNo = loggedInInfo.getLoggedInProviderNo();
         List<Property> propList = propertyDao.findByNameAndProvider(Property.PROPERTY_KEY.invoice_payee_info, this.getProviderNo());
         Property invoicePayeeInfo = propList.isEmpty() ? null : propList.get(0);
 
@@ -100,10 +103,15 @@ public class ViewBillingPreferences2Action
         this.setDefaultBillingForm(defaultBillingFormPropertyList.isEmpty() ? null : defaultBillingFormPropertyList.get(0).getValue());
 
         List<Property> defaultBillingProviderPropertyList = propertyDao.findByNameAndProvider(Property.PROPERTY_KEY.default_billing_provider, this.getProviderNo());
-        this.setDefaultBillingProvider(defaultBillingProviderPropertyList.isEmpty() ? null : defaultBillingProviderPropertyList.get(0).getValue());
+        // With nothing saved, the page shows "Clinic Default" rather than the first provider listed, so a first Save does
+        // not store a billing-provider override nobody chose (issue #4936).
+        this.setDefaultBillingProvider(defaultBillingProviderPropertyList.isEmpty() ? Property.PROPERTY_VALUE.clinicdefault.name()
+                : defaultBillingProviderPropertyList.get(0).getValue());
 
         this.setReferral(String.valueOf(pref.getReferral()));
-        this.setPayeeProviderNo(String.valueOf(pref.getDefaultPayeeNo()));
+        // Likewise no payee ("NONE") rather than the first provider listed, when none is saved (a new record holds "").
+        String savedPayeeNo = pref.getDefaultPayeeNo();
+        this.setPayeeProviderNo(savedPayeeNo == null || savedPayeeNo.isEmpty() ? "NONE" : savedPayeeNo);
 
         List<Provider> providerList = providerDao.getBillableProvidersInBC(loggedInInfo);
         // add a selection to trigger a "custom" option

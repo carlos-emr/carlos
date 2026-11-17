@@ -56,9 +56,12 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.commn.model.Validations;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
-import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+
 
 /**
  * Renders scatter plot and line chart images (JPEG) for clinical measurements
@@ -75,15 +78,41 @@ public class ScatterPlotChartServlet extends HttpServlet {
     public void service(HttpServletRequest request, HttpServletResponse httpServletResponse) throws ServletException, IOException {
         String type = request.getParameter("type");
         String mInstrc = request.getParameter("mInstrc");
-        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-        String demographicNo = null;
-
-        if (request.getParameter("demographicNo") != null) {
-            demographicNo = request.getParameter("demographicNo");
+        String demographicNo;
+        try {
+            demographicNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+            return;
+        }
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            httpServletResponse.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
         }
 
-        if (demographicNo == null && bean != null) {
-            demographicNo = bean.getDemographicNo();
+        Integer demographicNoInt;
+        try {
+            demographicNoInt = Integer.valueOf(demographicNo);
+            if (demographicNoInt <= 0) {
+                httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return;
+            }
+        } catch (NumberFormatException e) {
+            httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+
+        // Authorization and DAO lookups must name the same patient, including for
+        // inputs such as 00123. Patient-specific overrides take precedence over
+        // general privileges; explicit chart restrictions are checked separately.
+        demographicNo = demographicNoInt.toString();
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", demographicNo)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNoInt)) {
+            httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
         }
 
         try {

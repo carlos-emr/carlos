@@ -94,7 +94,7 @@
 %>
 
 <div style="display:block; width:100%;">
-    <img alt="copyright" width="80%" src="graphics/Rourke2020Banner.png"
+    <img alt="copyright" width="80%" src="${pageContext.request.contextPath}/form/graphics/Rourke2020Banner.png"
          onMouseOver="popLayer('<fmt:message key="encounter.formRourke2009.formCopyRight"/>')"
          onMouseOut="hideLayer()">
 </div>
@@ -198,8 +198,8 @@
                     <input type="text" ondblclick="htEnglish2Metric(this);" name="c_length" size="6" maxlength="6"
                            value="<carlos:encode value='<%= props.getProperty("c_length", "") %>' context="htmlAttribute"/>"/>
                     <fmt:message key="encounter.formRourke1.msgLenghtUnit"/> &nbsp;&nbsp;
-                    <fmt:message key="encounter.formRourke1.msgHeadCirc"/>:
-                    <input type="text" ondblclick="htEnglish2Metric(this);" name="c_headCirc" size="6" maxlength="6"
+                    <button type="button" id="c_headCircLabel" class="measurement-button" onclick="displayDemographicMeasurements('c_headCirc', 'HEAD', '<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= demographic.getFormattedDob() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= appointmentNo %>' context="javaScriptAttribute"/>');"><fmt:message key="encounter.formRourke1.msgHeadCirc"/>:</button>
+                    <input type="text" ondblclick="htEnglish2Metric(this);" name="c_headCirc" id="c_headCirc" aria-labelledby="c_headCircLabel" size="6" maxlength="6"
                            value="<carlos:encode value='<%= props.getProperty("c_headCirc", "") %>' context="htmlAttribute"/>"/>
                     <fmt:message key="encounter.formRourke1.msgHeadCircUnit"/>
                     &nbsp;&nbsp; <a href="javascript:void(0)"
@@ -331,7 +331,7 @@
                 <fmt:message key="encounter.formRourke1.formWt"/>
             </a>
         </td>
-        <td><fmt:message key="encounter.formRourke2006_3.formHdCirc"/></td>
+        <td><button type="button" id="p1_hc1wLabel" class="measurement-button" onclick="displayDemographicMeasurements('p1_hc1w', 'HEAD', '<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= demographic.getFormattedDob() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= appointmentNo %>' context="javaScriptAttribute"/>');"><fmt:message key="encounter.formRourke2006_3.formHdCirc"/></button></td>
         <td>
             <a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p1_ht2w', 'HT', '<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="javaScriptAttribute"/>',
@@ -346,7 +346,7 @@
                 <fmt:message key="encounter.formRourke1.formWt"/>
             </a>
         </td>
-        <td><fmt:message key="encounter.formRourke2006_3.formHdCirc"/></td>
+        <td><button type="button" id="p1_hc2wLabel" class="measurement-button" onclick="displayDemographicMeasurements('p1_hc2w', 'HEAD', '<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= demographic.getFormattedDob() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= appointmentNo %>' context="javaScriptAttribute"/>');"><fmt:message key="encounter.formRourke2006_3.formHdCirc"/></button></td>
         <td>
             <a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p1_ht1m', 'HT', '<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="javaScriptAttribute"/>',
@@ -361,7 +361,7 @@
                 <fmt:message key="encounter.formRourke1.formWt"/>
             </a>
         </td>
-        <td><fmt:message key="encounter.formRourke2006_3.formHdCirc"/></td>
+        <td><button type="button" id="p1_hc1mLabel" class="measurement-button" onclick="displayDemographicMeasurements('p1_hc1m', 'HEAD', '<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= demographic.getFormattedDob() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= appointmentNo %>' context="javaScriptAttribute"/>');"><fmt:message key="encounter.formRourke2006_3.formHdCirc"/></button></td>
     </tr>
     <tr align="center" id="growthBp1">
         <td>
@@ -373,7 +373,7 @@
                    maxlength="5" value="<carlos:encode value='<%= props.getProperty("p1_wt1w", "") %>' context="htmlAttribute"/>">
         </td>
         <td>
-            <input type="text" class="wide" ondblclick="htEnglish2Metric(this);" name="p1_hc1w" size="4" maxlength="5"
+            <input type="text" class="wide" ondblclick="htEnglish2Metric(this);" name="p1_hc1w" id="p1_hc1w" aria-labelledby="p1_hc1wLabel" size="4" maxlength="5"
                    value="<carlos:encode value='<%= props.getProperty("p1_hc1w", "") %>' context="htmlAttribute"/>">
         </td>
         <td>
@@ -385,7 +385,7 @@
                    maxlength="5" value="<carlos:encode value='<%= props.getProperty("p1_wt2w", "") %>' context="htmlAttribute"/>">
         </td>
         <td>
-            <input type="text" class="wide" ondblclick="htEnglish2Metric(this);" name="p1_hc2w" size="4" maxlength="5"
+            <input type="text" class="wide" ondblclick="htEnglish2Metric(this);" name="p1_hc2w" id="p1_hc2w" aria-labelledby="p1_hc2wLabel" size="4" maxlength="5"
                    value="<carlos:encode value='<%= props.getProperty("p1_hc2w", "") %>' context="htmlAttribute"/>">
         </td>
         <td>
@@ -397,7 +397,7 @@
                    maxlength="5" value="<carlos:encode value='<%= props.getProperty("p1_wt1m", "") %>' context="htmlAttribute"/>">
         </td>
         <td>
-            <input type="text" class="wide" ondblclick="htEnglish2Metric(this);" name="p1_hc1m" size="4" maxlength="5"
+            <input type="text" class="wide" ondblclick="htEnglish2Metric(this);" name="p1_hc1m" id="p1_hc1m" aria-labelledby="p1_hc1mLabel" size="4" maxlength="5"
                    value="<carlos:encode value='<%= props.getProperty("p1_hc1m", "") %>' context="htmlAttribute"/>">
         </td>
     </tr>
@@ -413,14 +413,14 @@
     <tr align="center" id="nutritionp1">
 
         <td class="column"><a><fmt:message key="encounter.formRourke1.msgNutrition"/>*</a><br/>
-            <img height="15" width="20" src="graphics/Checkmark_Lwhite.gif">
+            <img height="15" width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_Lwhite.gif">
             <fmt:message key="encounter.formRourke2020.msgNutritionLegend"/>
         </td>
         <td colspan="3">
             <table id="ntp11" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                     <td style="padding-right: 5pt" valign="top" onclick="selectAllOkRadioButtons(this)">
-                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="graphics/Checkmark_L.gif">
+                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif">
                         </div>
                     </td>
                     <td class="edcol" valign="top">X</td>
@@ -491,7 +491,7 @@
             <table id="ntp12" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                     <td style="padding-right: 5pt" valign="top" onclick="selectAllOkRadioButtons(this)">
-                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="graphics/Checkmark_L.gif">
+                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif">
                         </div>
                     </td>
                     <td class="edcol" valign="top">X</td>
@@ -559,7 +559,7 @@
             <table id="ntp13" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                     <td style="padding-right: 5pt" valign="top" onclick="selectAllOkRadioButtons(this)">
-                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="graphics/Checkmark_L.gif">
+                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif">
                         </div>
                     </td>
                     <td class="edcol" valign="top">X</td>
@@ -633,7 +633,7 @@
         <td class="column">
             <fmt:message key="encounter.formRourke1.msgEducational"/><br/>
             <small><fmt:message key="encounter.formRourke1.msgEducationalSubtitle"/></small><br/>
-            <img height="15" width="20" src="graphics/Checkmark_Lwhite.gif"><fmt:message key="encounter.formRourke2006.msgEducationalLegend"/>
+            <img height="15" width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_Lwhite.gif"><fmt:message key="encounter.formRourke2006.msgEducationalLegend"/>
         </td>
         <td colspan="9">
             <table id="edt1" style="font-size: 9pt;" cellpadding="0" cellspacing="0" width="100%">
@@ -645,25 +645,25 @@
                 </tr>
                 <tr>
                     <td style="padding-right: 5pt" valign="top" onclick="selectAllOkRadioButtons(this)">
-                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="graphics/Checkmark_L.gif">
+                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif">
                         </div>
                     </td>
                     <td class="edcol" valign="top">X</td>
                     <td class="edcol" valign="top" colspan="2"><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                     <td style="padding-right: 5pt" valign="top" onclick="selectAllOkRadioButtons(this)">
-                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="graphics/Checkmark_L.gif">
+                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif">
                         </div>
                     </td>
                     <td class="edcol" valign="top">X</td>
                     <td class="edcol" valign="top" colspan="2"><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                     <td style="padding-right: 5pt" valign="top" onclick="selectAllOkRadioButtons(this)">
-                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="graphics/Checkmark_L.gif">
+                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif">
                         </div>
                     </td>
                     <td class="edcol" valign="top">X</td>
                     <td class="edcol" valign="top" colspan="2"><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                     <td style="padding-right: 5pt" valign="top" onclick="selectAllOkRadioButtons(this)">
-                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="graphics/Checkmark_L.gif">
+                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif">
                         </div>
                     </td>
                     <td class="edcol" valign="top">X</td>
@@ -928,14 +928,14 @@
         <td class="column">
             <a><fmt:message key="encounter.formRourke2009.msgDevelopment"/>**</a><br>
             <fmt:message key="encounter.formRourke2020.msgDevelopmentDesc"/><br/>
-            <img height="15" width="20" src="graphics/Checkmark_Lwhite.gif">
+            <img height="15" width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_Lwhite.gif">
             <fmt:message key="encounter.formRourke2006_1.msgDevelopmentLegend"/>
         </td>
         <td colspan="3" align="center">
             <table id="dt11" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                     <td style="padding-right: 5pt" valign="top" onclick="selectAllOkRadioButtons(this)">
-                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="graphics/Checkmark_L.gif">
+                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif">
                         </div>
                     </td>
                     <td class="edcol" valign="top">X</td>
@@ -958,7 +958,7 @@
             <table id="dt12" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                     <td style="padding-right: 5pt" valign="top" onclick="selectAllOkRadioButtons(this)">
-                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="graphics/Checkmark_L.gif">
+                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif">
                         </div>
                     </td>
                     <td class="edcol" valign="top">X</td>
@@ -986,7 +986,7 @@
             <table id="dt13" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                     <td style="padding-right: 5pt" valign="top" onclick="selectAllOkRadioButtons(this)">
-                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="graphics/Checkmark_L.gif">
+                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif">
                         </div>
                     </td>
                     <td class="edcol" valign="top">X</td>
@@ -1030,14 +1030,14 @@
         <td class="column">
             <a><fmt:message key="encounter.formRourke1.msgPhysicalExamination"/>**</a><br>
             <fmt:message key="encounter.formRourke1.msgPhysicalExaminationDesc"/><br>
-            <img height="15" width="20" src="graphics/Checkmark_Lwhite.gif">
+            <img height="15" width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_Lwhite.gif">
             <fmt:message key="encounter.formRourke2009.msgPhysicalExaminationLegend"/>
         </td>
         <td colspan="3">
             <table id="pt11" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                     <td style="padding-right: 5pt" valign="top" onclick="selectAllOkRadioButtons(this)">
-                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="graphics/Checkmark_L.gif">
+                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif">
                         </div>
                     </td>
                     <td class="edcol" valign="top">X</td>
@@ -1160,7 +1160,7 @@
             <table id="pt12" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                     <td style="padding-right: 5pt" valign="top" onclick="selectAllOkRadioButtons(this)">
-                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="graphics/Checkmark_L.gif">
+                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif">
                         </div>
                     </td>
                     <td class="edcol" valign="top">X</td>
@@ -1280,7 +1280,7 @@
             <table id="pt13" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                     <td style="padding-right: 5pt" valign="top" onclick="selectAllOkRadioButtons(this)">
-                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="graphics/Checkmark_L.gif">
+                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif">
                         </div>
                     </td>
                     <td class="edcol" valign="top">X</td>
@@ -1375,7 +1375,7 @@
         <td class="column">
             <a><fmt:message key="encounter.formRourke2020.msgProblemsAndPlans"/>/<fmt:message key="encounter.formRourke2020.msgCurrentAndNewReferrals"/></a><br/>
             <small><fmt:message key="encounter.formRourke2020.msgPlansAndReferralsDescription"/></small><br/>
-            <img height="15" width="20" src="graphics/Checkmark_Lwhite.gif"><fmt:message key="encounter.formRourke2009.msgProblemsLegend"/>
+            <img height="15" width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_Lwhite.gif"><fmt:message key="encounter.formRourke2009.msgProblemsLegend"/>
         </td>
         <td colspan="3" style="vertical-align:bottom;">
             <textarea id="p1_problems1w" name="p1_problems1w" rows="5" cols="25" class="wide limit-rows"
@@ -1394,14 +1394,14 @@
         <td class="column">
             <a><fmt:message key="encounter.formRourke2020.msgInvestigationsScreeningAndImmunization"/></a><br>
             <fmt:message key="encounter.formRourke2020.msgInvestigationsScreeningAndImmunizationDesc"/><br/>
-            <img height="15" width="20" src="graphics/Checkmark_Lwhite.gif">
+            <img height="15" width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_Lwhite.gif">
             <fmt:message key="encounter.formRourke2009.msgProblemsLegend"/>
         </td>
         <td colspan="3">
             <table id="immt11" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                     <td style="padding-right: 5pt" valign="top" onclick="selectAllOkRadioButtons(this)">
-                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="graphics/Checkmark_L.gif">
+                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif">
                         </div>
                     </td>
                     <td class="edcol" valign="top">X</td>
@@ -1465,7 +1465,7 @@
             <table id="immt13" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                     <td style="padding-right: 5pt" valign="top" onclick="selectAllOkRadioButtons(this)">
-                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="graphics/Checkmark_L.gif">
+                        <div class="checkmark-img-wrapper"><img height="15" width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif">
                         </div>
                     </td>
                     <td class="edcol" valign="top">X</td>
@@ -1522,7 +1522,7 @@
         </td>
         <td align="center">
             <% if (formId > 0) { %> <a name="length" href="#"
-                                       onclick="onGraph('<%=request.getContextPath()%>/form/formname?submit=graph&form_class=Rourke2020&__title=Baby+Head+Circumference&__cfgfile=<%=growthCharts[0]%>&demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>','<%= "growth1" + demoNo %>');return false;">
+                                       onclick="onGraph('<%=request.getContextPath()%>/form/formname?submit=graph&form_class=Rourke2020&__title=Baby+Growth+Graph1&__cfgfile=<%=growthCharts[0]%>&demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>','<%= "growth1" + demoNo %>');return false;">
             <fmt:message key="encounter.formRourke1.btnGraphLenghtWeight"/></a><br>
             <a name="headCirc" href="#"
                onclick="onGraph('<%=request.getContextPath()%>/form/formname?submit=graph&form_class=Rourke2020&__title=Baby+Head+Circumference&__cfgfile=<%=growthCharts[1]%>&demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>','<%= "growth2" + demoNo %>');return false;">

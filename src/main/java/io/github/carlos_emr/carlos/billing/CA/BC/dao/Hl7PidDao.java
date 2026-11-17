@@ -102,14 +102,18 @@ public class Hl7PidDao extends AbstractDaoImpl<Hl7Pid> {
         return query.getResultList();
     }
 
+    /**
+     * Broad version candidates: message ID, latest report date and raw filler identifier.
+     * Callers must compare exact parsed accessions before treating these LIKE hits as versions.
+     */
     public List<Object[]> findByFillerOrderNumber(String fillerOrderNumber) {
-        String sql = "SELECT DISTINCT pid.messageId, MAX(obr.resultsReportStatusChange) " +
+        String sql = "SELECT pid.messageId, MAX(obr.resultsReportStatusChange), orc.fillerOrderNumber " +
                 "FROM Hl7Pid pid, Hl7Orc orc, Hl7Obr obr " +
                 "WHERE orc.fillerOrderNumber like :fillerOrderNumber " +
                 "AND orc.pidId = pid.id " +
                 "AND obr.pidId = pid.id " +
-                "GROUP BY pid.messageId " +
-                "ORDER BY obr.resultsReportStatusChange";
+                "GROUP BY pid.messageId, orc.fillerOrderNumber " +
+                "ORDER BY MAX(obr.resultsReportStatusChange), pid.messageId";
         Query query = entityManager.createQuery(sql);
         query.setParameter("fillerOrderNumber", fillerOrderNumber);
         return query.getResultList();

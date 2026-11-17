@@ -31,90 +31,113 @@
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
-import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupDao;
-import io.github.carlos_emr.carlos.commn.model.MeasurementGroup;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctTypeDisplayNameBeanHandler;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.service.MeasurementGroupCreationService;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.service.MeasurementGroupCreationService.Outcome;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Second step of Customize Measurements ▸ Add Measurement Group: creates the group named in
+ * the Define step together with the measurement types chosen for it.
+ *
+ * <p>The group and its members are written by {@link MeasurementGroupCreationService} in one
+ * transaction, so the charts' measurement menus never list a group without types. A submit
+ * with no type chosen, or for a name that has meanwhile been taken, writes nothing and shows
+ * the page again with the reason. On success the editor for the new group opens, as before.</p>
+ *
+ * <p>POST only. The page offers only "add": a group that does not exist yet has no member to
+ * remove, and members of existing groups are edited through {@code EditMeasurementGroup}.</p>
+ */
 public class EctAddMeasurementGroup2Action extends ActionSupport {
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
 
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient MeasurementGroupCreationService creationService;
 
-    private MeasurementGroupDao dao = SpringUtils.getBean(MeasurementGroupDao.class);
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    public EctAddMeasurementGroup2Action(SecurityInfoManager securityInfoManager,
+                                         MeasurementGroupCreationService creationService) {
+        this.securityInfoManager = securityInfoManager;
+        this.creationService = creationService;
+    }
 
+    @Override
+    public String execute() throws IOException {
+        HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
 
-    public String execute()
-            throws ServletException, IOException {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
-        if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.measurements", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.measurements)");
+        }
 
-            String groupName = this.getGroupName();
-            // CWE-501: validate groupName BEFORE any use or session storage
-            if (groupName != null && (groupName.length() > 100 || !groupName.matches("[^\\p{Cntrl}]+"))) {
-                throw new SecurityException("Invalid measurement group name");
-            }
-            // nosemgrep: tainted-session-from-http-request -- groupName validated via regex [^\\p{Cntrl}]+, length-capped to 100; admin-only action guarded by _admin/_admin.measurements write privilege
-            request.getSession().setAttribute("groupName", groupName);
+        // The Define step accepted only such names, so anything else here was not typed into
+        // that form. Refused before any use or session storage (CWE-501).
+        if (!MeasurementGroupCreationService.isValidGroupName(groupName)) {
+            throw new SecurityException("Invalid measurement group name");
+        }
+        HttpSession session = request.getSession();
+        // nosemgrep: tainted-session-from-http-request -- groupName passed isValidGroupName ([\w ,.?], at most 100 characters); admin-only action
+        session.setAttribute("groupName", groupName);
+        int cssId = MeasurementGroupCreationService.parseCssId(styleSheet);
 
-            String requestId = "";
-
-            if (this.getForward() != null) {
-
-
-                if (this.getForward().compareTo("add") == 0) {
-                    MiscUtils.getLogger().debug("the add button is pressed");
-                    String[] selectedAddTypes = this.getSelectedAddTypes();
-                    if (selectedAddTypes != null) {
-                        for (int i = 0; i < selectedAddTypes.length; i++) {
-                            MiscUtils.getLogger().debug(selectedAddTypes[i]);
-                            MeasurementGroup mg = new MeasurementGroup();
-                            mg.setName(groupName);
-                            mg.setTypeDisplayName(selectedAddTypes[i]);
-                            dao.persist(mg);
-                            requestId = mg.getId().toString();
-                        }
-                    }
-                } else if (this.getForward().compareTo("delete") == 0) {
-                    MiscUtils.getLogger().debug("the delete button is pressed");
-                    String[] selectedDeleteTypes = this.getSelectedDeleteTypes();
-                    if (selectedDeleteTypes != null) {
-                        for (int i = 0; i < selectedDeleteTypes.length; i++) {
-                            MiscUtils.getLogger().debug(selectedDeleteTypes[i]);
-                            List<MeasurementGroup> mts = dao.findByNameAndTypeDisplayName(groupName, selectedDeleteTypes[i]);
-                            for (MeasurementGroup mt : mts) {
-                                dao.remove(mt.getId());
-                            }
-                        }
-                    }
-                }
-
-            }
-
-            return SUCCESS;
-
-        } else {
-            throw new SecurityException("Access Denied!"); //missing required sec object (_admin)
+        // Anything but the Add button (the form's default forward is "error") writes nothing.
+        Outcome outcome = Outcome.NO_TYPES;
+        if ("add".equals(forward)) {
+            List<String> types = selectedAddTypes == null ? List.of() : Arrays.asList(selectedAddTypes);
+            outcome = creationService.create(groupName, cssId, types);
+        }
+        switch (outcome) {
+            case CREATED:
+                return SUCCESS;
+            case DUPLICATE_NAME:
+                return showAgain(request, session, cssId,
+                        "error.encounter.addNewMeasurementGroup.duplicateGroupName");
+            default:
+                return showAgain(request, session, cssId,
+                        "error.encounter.addNewMeasurementGroup.noTypesSelected");
         }
     }
+
+    /**
+     * Shows the type-selection page again with one error. The type list is reloaded because
+     * the session copy is shared with the group editor, which stores a different list there.
+     */
+    private String showAgain(HttpServletRequest request, HttpSession session, int cssId, String errorKey) {
+        // Error-bundle entries contain embedded HTML (<li>...</li>) and the JSP renders
+        // actionErrors unencoded, so the {0} substitution must be HTML-encoded here.
+        List<String> errors = new ArrayList<>();
+        errors.add(getText(errorKey, new String[]{SafeEncode.forHtmlContent(groupName)}));
+        request.setAttribute("actionErrors", errors);
+        request.setAttribute("styleSheet", cssId);
+        // nosemgrep: tainted-session-from-http-request -- DAO result list from EctTypeDisplayNameBeanHandler (all types)
+        session.setAttribute("allTypeDisplayNames", new EctTypeDisplayNameBeanHandler().getTypeDisplayNameVector());
+        return INPUT;
+    }
+
     private String[] selectedAddTypes;
-    private String[] selectedDeleteTypes;
     private String forward;
     private String groupName;
+    private String styleSheet;
 
     public String[] getSelectedAddTypes() {
         return selectedAddTypes;
@@ -123,15 +146,6 @@ public class EctAddMeasurementGroup2Action extends ActionSupport {
     @StrutsParameter
     public void setSelectedAddTypes(String[] selectedAddTypes) {
         this.selectedAddTypes = selectedAddTypes;
-    }
-
-    public String[] getSelectedDeleteTypes() {
-        return selectedDeleteTypes;
-    }
-
-    @StrutsParameter
-    public void setSelectedDeleteTypes(String[] selectedDeleteTypes) {
-        this.selectedDeleteTypes = selectedDeleteTypes;
     }
 
     public String getForward() {
@@ -150,5 +164,14 @@ public class EctAddMeasurementGroup2Action extends ActionSupport {
     @StrutsParameter
     public void setGroupName(String groupName) {
         this.groupName = groupName;
+    }
+
+    public String getStyleSheet() {
+        return styleSheet;
+    }
+
+    @StrutsParameter
+    public void setStyleSheet(String styleSheet) {
+        this.styleSheet = styleSheet;
     }
 }

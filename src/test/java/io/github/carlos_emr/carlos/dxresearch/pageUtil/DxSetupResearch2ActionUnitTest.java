@@ -22,6 +22,14 @@
 package io.github.carlos_emr.carlos.dxresearch.pageUtil;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.commn.dao.QuickListDao;
+import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListBeanHandler;
+import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListItemsHandler;
+import io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler;
+import io.github.carlos_emr.carlos.dxresearch.util.dxResearchCodingSystem;
+import java.util.List;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -52,12 +60,18 @@ class DxSetupResearch2ActionUnitTest extends CarlosWebTestBase {
     private static final String TEST_PROVIDER = "999998";
 
     private dxSetupResearch2Action action;
+    private QuickListDao quickListDao;
 
     @BeforeEach
     void setUp() throws Exception {
         MockitoAnnotations.openMocks(this);
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
+        quickListDao = mock(QuickListDao.class);
+        replaceSpringUtilsBean(QuickListDao.class, quickListDao);
+        when(quickListDao.findDistinct()).thenReturn(List.of());
 
+        when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyString())).thenReturn(true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
         String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
         setSessionAttribute(key, mockLoggedInInfo);
@@ -74,13 +88,38 @@ class DxSetupResearch2ActionUnitTest extends CarlosWebTestBase {
     class SecurityEnforcement {
 
         @Test
-        @DisplayName("should throw RuntimeException when user lacks _dxresearch read privilege")
-        void shouldThrowRuntimeException_whenUserLacksDxresearchReadPrivilege() {
+        @DisplayName("should throw SecurityException when user lacks _dxresearch read privilege")
+        void shouldThrowSecurityException_whenUserLacksDxresearchReadPrivilege() {
             denyPrivilege("_dxresearch", "r");
 
             assertThatThrownBy(() -> executeAction(action))
-                    .isInstanceOf(RuntimeException.class)
+                    .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("missing required sec object (_dxresearch)");
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"_dxresearch", "_demographic"})
+        void shouldDenyRegistry_whenPatientPrivilegeIsMissing(String object) {
+            allowPrivilege("_dxresearch", "r");
+            addRequestParameter("demographicNo", VALID_DEMO_NO);
+            when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, object, "r", VALID_DEMO_NO))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> executeAction(action)).isInstanceOf(SecurityException.class);
+            verifyNoInteractions(quickListDao);
+            assertThat(mockRequest.getAttribute("allDiagnostics")).isNull();
+        }
+
+        @Test
+        void shouldDenyRegistry_whenPatientRecordIsRestricted() {
+            allowPrivilege("_dxresearch", "r");
+            addRequestParameter("demographicNo", VALID_DEMO_NO);
+            when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo, 12345))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> executeAction(action)).isInstanceOf(SecurityException.class);
+            verifyNoInteractions(quickListDao);
+            assertThat(mockRequest.getAttribute("allDiagnostics")).isNull();
         }
     }
 
@@ -142,6 +181,35 @@ class DxSetupResearch2ActionUnitTest extends CarlosWebTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.ERROR);
         }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"0", "2147483648", "99999999999"})
+        void shouldReturnError_whenPatientIdentifierIsOutsidePositiveIntegerRange(String patient) throws Exception {
+            addRequestParameter("demographicNo", patient);
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.ERROR);
+            verifyNoInteractions(quickListDao);
+            assertThat(mockRequest.getAttribute("demographicNo")).isNull();
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"1000000000", "2147483647", "0000012345"})
+        void shouldRenderAuthorizedPatient_whenValidIdentifierUsesTenDigits(String patient) throws Exception {
+            addRequestParameter("demographicNo", patient);
+            String canonicalPatient = Integer.toString(Integer.parseInt(patient));
+            try (var coding = mockConstruction(dxResearchCodingSystem.class);
+                 var diagnostics = mockConstruction(dxResearchBeanHandler.class);
+                 var lists = mockConstruction(dxQuickListBeanHandler.class,
+                         (mock, context) -> when(mock.getLastUsedQuickList()).thenReturn("Default"));
+                 var items = mockConstruction(dxQuickListItemsHandler.class)) {
+                assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+                verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_dxresearch", "r", canonicalPatient);
+                verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_demographic", "r", canonicalPatient);
+                assertThat(mockRequest.getAttribute("demographicNo")).isEqualTo(canonicalPatient);
+                assertThat(diagnostics.constructed()).hasSize(1);
+                assertThat(mockRequest.getAttribute("allDiagnostics")).isSameAs(diagnostics.constructed().getFirst());
+            }
+        }
     }
 
     @Nested
@@ -186,14 +254,64 @@ class DxSetupResearch2ActionUnitTest extends CarlosWebTestBase {
         }
 
         @Test
-        @DisplayName("should return ERROR when quickList is non-numeric")
-        void shouldReturnError_whenQuickListIsNonNumeric() throws Exception {
+        @DisplayName("should reject a quick-list name absent from stored lists")
+        void shouldReturnError_whenQuickListIsUnknown() throws Exception {
             addRequestParameter("demographicNo", VALID_DEMO_NO);
             addRequestParameter("quickList", "injected-name");
 
             String result = executeAction(action);
 
             assertThat(result).isEqualTo(ActionSupport.ERROR);
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"Diabetes", "Clinic \"A\"&", "123"})
+        void shouldLoadStoredListByItsLiteralName(String name) throws Exception {
+            when(quickListDao.findDistinct()).thenReturn(List.of(name));
+            addRequestParameter("quickList", name);
+            assertLoadsList(name);
+        }
+
+        @Test
+        void shouldKeepDefaultList_whenSelectionIsEmpty() throws Exception {
+            addRequestParameter("quickList", "");
+            assertLoadsList("Default");
+            verifyNoInteractions(quickListDao);
+        }
+
+        private void assertLoadsList(String expectedName) throws Exception {
+            addRequestParameter("demographicNo", VALID_DEMO_NO);
+            Object sessionPatientBefore = mockSession.getAttribute("demographicNo");
+            Object sessionDiagnosesBefore = mockSession.getAttribute("allDiagnostics");
+            try (var coding = mockConstruction(dxResearchCodingSystem.class);
+                 var diagnostics = mockConstruction(dxResearchBeanHandler.class);
+                 var lists = mockConstruction(dxQuickListBeanHandler.class,
+                         (mock, context) -> when(mock.getLastUsedQuickList()).thenReturn("Default"));
+                 var items = mockConstruction(dxQuickListItemsHandler.class, (mock, context) ->
+                         assertThat(context.arguments()).isEqualTo(List.of(expectedName, TEST_PROVIDER)))) {
+                assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+                assertThat(items.constructed()).hasSize(1);
+                assertThat(mockSession.getAttribute("allQuickListItems")).isSameAs(items.constructed().getFirst());
+                // The page's patient and diagnoses belong to this request, never to the login:
+                // in the session they were the registry opened last in any window (issue #4673).
+                assertThat(mockRequest.getAttribute("demographicNo")).isEqualTo(VALID_DEMO_NO);
+                assertThat(mockRequest.getAttribute("allDiagnostics")).isSameAs(diagnostics.constructed().getFirst());
+                assertThat(mockRequest.getAttribute("providerNo")).isEqualTo(TEST_PROVIDER);
+                // Nothing about this patient is written to the session.
+                assertThat(mockSession.getAttribute("demographicNo")).isSameAs(sessionPatientBefore);
+                assertThat(mockSession.getAttribute("allDiagnostics")).isSameAs(sessionDiagnosesBefore);
+                assertThat(diagnostics.constructed()).hasSize(1);
+            }
+        }
+
+        @Test
+        void shouldRenderItsOwnPatient_whenAnotherWindowOpenedARegistryLast() throws Exception {
+            // Another window's registry, under the names the page used to read from the session.
+            mockSession.setAttribute("demographicNo", "67890");
+            mockSession.setAttribute("allDiagnostics", "patient 67890's diagnoses");
+            addRequestParameter("quickList", "");
+            assertLoadsList("Default");
+            assertThat(mockRequest.getAttribute("demographicNo")).isEqualTo(VALID_DEMO_NO);
         }
 
         @Test

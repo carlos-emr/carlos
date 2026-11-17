@@ -26,7 +26,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.text.Normalizer;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
@@ -39,6 +41,55 @@ public final class DocumentSummaryService {
     public static final String ENABLED_PROPERTY = "clinical.ai_document_summary.enabled";
     private static final Semaphore CAPACITY = new Semaphore(1);
     private static final Pattern WORD = Pattern.compile("[\\p{L}\\p{N}]+");
+    /**
+     * Words that assert an action status. A point may use one only when one of its own excerpts uses a
+     * word of the same family; the overview only when the document does. Families rather than stems:
+     * "prescrit" supports "prescrite", "prescription" supports "prescribed". A fixed list in English and
+     * French: the rule is a provenance check on wording the model added, not a clinical judgement.
+     * Deliberately absent: "instruction" (an overview rightly calls an imperative line an instruction),
+     * French "prévu" (planned, the dated-plan paraphrase, not a booking), and the everyday families
+     * given/donné and taken/pris ("étant donné", "given the history", "prise de sang", "prise en charge",
+     * "taking into account", "take care"), which say nothing about a medication's status.
+     */
+    static final List<Set<String>> STATUS_FAMILIES = List.of(
+            Set.of("prescribed", "prescribe", "prescribes", "prescribing", "prescription",
+                    "prescrit", "prescrite", "prescrits", "prescrites", "prescrire"),
+            Set.of("administered", "administer", "administers", "administering", "administration",
+                    "administré", "administrée", "administrés", "administrées", "administrer"),
+            Set.of("started", "start", "starts", "starting", "commenced", "initiated",
+                    "commencé", "commencée", "commencés", "commencées", "commencer", "débuté", "débutée", "instauré", "instaurée"),
+            Set.of("scheduled", "schedule", "schedules", "scheduling",
+                    "programmé", "programmée", "programmés", "programmées",
+                    "planifié", "planifiée", "planifiés", "planifiées"),
+            Set.of("booked", "book", "books", "booking",
+                    "réservé", "réservée", "réservés", "réservées"),
+            Set.of("arranged", "arrange", "arranges", "arranging",
+                    "organisé", "organisée", "organisés", "organisées", "convenu", "convenue", "convenus", "convenues"));
+    /**
+     * A refusal by one named rule. The rule id is safe to show a clinician: it never carries text of the
+     * document or of the summary.
+     */
+    static final class RuleRefusal extends IllegalArgumentException {
+        private final String rule;
+
+        RuleRefusal(String rule, String message) {
+            super(message);
+            this.rule = rule;
+        }
+
+        String rule() { return rule; }
+    }
+
+    private static final org.apache.logging.log4j.Logger LOG = org.apache.logging.log4j.LogManager.getLogger(DocumentSummaryService.class);
+
+    /**
+     * A rule that is measured but not yet allowed to refuse: only its name is logged, never a word of the
+     * document or the summary.
+     */
+    private static void reportRuleHit(String rule) {
+        LOG.info("Document summary rule hit (report only): {}", rule);
+    }
+
     private final ClinicalSummaryAgent agent;
 
     public DocumentSummaryService() { this(ClinicalSummaryAgents.configuredDocument()); }
@@ -80,6 +131,9 @@ public final class DocumentSummaryService {
             throw new ClinicalSummaryGenerationException("Document summarization timed out. The original document is unchanged.");
         } catch (IOException unavailable) {
             throw new ClinicalSummaryGenerationException("The configured agent is unavailable or returned an unreadable response. The original document is unchanged.");
+        } catch (RuleRefusal refused) {
+            throw new ClinicalSummaryGenerationException("The agent response failed validation (rule: " + refused.rule()
+                    + "). The original document is unchanged.");
         } catch (RuntimeException invalid) {
             throw new ClinicalSummaryGenerationException("The agent response failed validation. The original document is unchanged.");
         } finally {
@@ -116,8 +170,43 @@ public final class DocumentSummaryService {
             if (!sharesWord(statement, excerpts.toString())) {
                 throw new IllegalArgumentException("Summary point lacks lexical support");
             }
+            String status = statusWordWithoutSupport(statement, excerpts.toString());
+            if (status != null) throw new RuleRefusal("status_word", "Summary point adds a status its evidence does not state: " + status);
+            String possessor = DocumentSummaryFidelityValidator.possessorOfAnotherPerson(statement, excerpts.toString());
+            if (possessor != null) reportRuleHit("possessor");
+            List<String> quoted = new ArrayList<>();
+            evidence.forEach(item -> quoted.add(item.asText()));
+            if (DocumentSummaryFidelityValidator.evidenceInInjectedLine(quoted, source)) {
+                throw new RuleRefusal("ai_addressed_text", "Summary point cites text addressed to an AI");
+            }
+            String command = DocumentSummaryFidelityValidator.injectedCommandWord(statement, source);
+            if (command != null) throw new RuleRefusal("ai_addressed_text", "Summary point describes text addressed to an AI: " + command);
         }
         if (!sharesWord(overview, source)) throw new IllegalArgumentException("Overview lacks lexical support");
+        String status = statusWordWithoutSupport(overview, source);
+        if (status != null) throw new RuleRefusal("status_word", "Overview adds a status the document does not state: " + status);
+        String possessor = DocumentSummaryFidelityValidator.possessorOfAnotherPerson(overview, source);
+        if (possessor != null) reportRuleHit("possessor");
+        String command = DocumentSummaryFidelityValidator.injectedCommandWord(overview, source);
+        if (command != null) throw new RuleRefusal("ai_addressed_text", "Overview describes text addressed to an AI: " + command);
+    }
+
+    /** The first status word in {@code statement} whose family is absent from {@code reference}, else null. */
+    static String statusWordWithoutSupport(String statement, String reference) {
+        Set<String> stated = allWords(statement);
+        Set<String> supporting = allWords(reference);
+        for (Set<String> family : STATUS_FAMILIES) {
+            if (supporting.stream().anyMatch(family::contains)) continue;
+            for (String word : stated) if (family.contains(word)) return word;
+        }
+        return null;
+    }
+
+    private static Set<String> allWords(String value) {
+        var result = new HashSet<String>();
+        var matcher = WORD.matcher(Normalizer.normalize(value, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT));
+        while (matcher.find()) result.add(matcher.group());
+        return result;
     }
 
     private static String text(JsonNode object, String field, int max) {

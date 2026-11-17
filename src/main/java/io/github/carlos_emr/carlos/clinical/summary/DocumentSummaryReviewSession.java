@@ -93,12 +93,25 @@ public final class DocumentSummaryReviewSession implements HttpSessionBindingLis
     public static DocumentSummaryReviewSession generate(DocumentSummaryReviewBinding.Scope scope,
             DocumentSummaryReviewBinding.Metadata metadata, SourceLoader loader, DocumentSummaryService generator,
             String modelIdentity, LoggedInInfo actor) throws IOException, ClinicalSummaryGenerationException {
-        return generate(scope, metadata, loader, generator, modelIdentity, actor, Clock.systemUTC());
+        return generate(scope, metadata, loader, generator, modelIdentity, actor, "en", Clock.systemUTC());
+    }
+
+    /** As above, with the patient notice in {@code noticeLanguage} ("en" or "fr", from the patient's record). */
+    public static DocumentSummaryReviewSession generate(DocumentSummaryReviewBinding.Scope scope,
+            DocumentSummaryReviewBinding.Metadata metadata, SourceLoader loader, DocumentSummaryService generator,
+            String modelIdentity, LoggedInInfo actor, String noticeLanguage) throws IOException, ClinicalSummaryGenerationException {
+        return generate(scope, metadata, loader, generator, modelIdentity, actor, noticeLanguage, Clock.systemUTC());
     }
 
     static DocumentSummaryReviewSession generate(DocumentSummaryReviewBinding.Scope scope,
             DocumentSummaryReviewBinding.Metadata metadata, SourceLoader loader, DocumentSummaryService generator,
             String modelIdentity, LoggedInInfo actor, Clock clock) throws IOException, ClinicalSummaryGenerationException {
+        return generate(scope, metadata, loader, generator, modelIdentity, actor, "en", clock);
+    }
+
+    static DocumentSummaryReviewSession generate(DocumentSummaryReviewBinding.Scope scope,
+            DocumentSummaryReviewBinding.Metadata metadata, SourceLoader loader, DocumentSummaryService generator,
+            String modelIdentity, LoggedInInfo actor, String noticeLanguage, Clock clock) throws IOException, ClinicalSummaryGenerationException {
         requireActor(actor);
         String provider = actor.getLoggedInProvider().getProviderNo();
         int securityId = actor.getLoggedInSecurity().getSecurityNo();
@@ -121,7 +134,7 @@ public final class DocumentSummaryReviewSession implements HttpSessionBindingLis
             String text = capture.source().extraction().text();
             if (text.isBlank()) throw new IllegalStateException("Readable source text is required for review.");
             var summary = generator.summarize(text);
-            var draft = binding.prepare(capture.source(), summary, modelIdentity, "en");
+            var draft = binding.prepare(capture.source(), summary, modelIdentity, noticeLanguage);
             var review = new DocumentSummaryReviewSession(scope, provider, securityId, capture, draft, binding, clock);
             synchronized (LOCK) { ACTIVE.add(review); }
             retained = true;

@@ -29,6 +29,7 @@ import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReportControlViewModel;
+import io.github.carlos_emr.carlos.billings.ca.report.UnbilledReportStatusParameters;
 import io.github.carlos_emr.carlos.commn.dao.ReportProviderDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -57,7 +58,8 @@ public class BillingReportControlViewModelAssembler {
      *
      * @param request live request — supplies {@code reportAction},
      *                {@code providerview}, {@code xml_vdate},
-     *                {@code xml_appointment_date}
+     *                {@code xml_appointment_date}, and the unbilled report's
+     *                {@code includeNoShow} / {@code includeCancelled} checkboxes
      */
     public BillingReportControlViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         BillingReportControlViewModel.Builder b = BillingReportControlViewModel.builder();
@@ -71,6 +73,8 @@ public class BillingReportControlViewModelAssembler {
         b.providerView(providerView == null ? "all" : providerView);
         b.xmlVdate(xmlVdate == null ? "" : xmlVdate);
         b.xmlAppointmentDate(xmlAppointmentDate == null ? "" : xmlAppointmentDate);
+        b.includeNoShow(UnbilledReportStatusParameters.includeNoShow(request));
+        b.includeCancelled(UnbilledReportStatusParameters.includeCancelled(request));
 
         GregorianCalendar now = new GregorianCalendar();
         b.curYear(now.get(Calendar.YEAR));

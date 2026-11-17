@@ -29,6 +29,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page import="java.util.List, org.apache.commons.lang3.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
@@ -43,6 +44,11 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <security:oscarSec roleName="${ sessionScope.userrole }" objectName="_demographic" rights="r" reverse="${ false }">
+
+    <%-- The master record pulls this page in with <jsp:include>, which has its own page scope, so the
+         message bundle must be set here for the embedded view as well as the detached one (issue #4684);
+         set only inside the detached branch, the embedded heading printed ???key???. --%>
+    <fmt:setBundle basename="oscarResources"/>
 
     <%
         List<DemographicContact> demographicContacts = null;
@@ -68,8 +74,6 @@
     <%-- DETACHED VIEW ENABLED  --%>
     <c:if test="${ param.view eq 'detached' }">
 
-        <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<fmt:setBundle basename="oscarResources"/>
         <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
@@ -137,10 +141,7 @@
                         </td>
                         <td style="text-align: right">
 
-                            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')">
-                                <fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')">
-                            <fmt:message key="global.license"/></a></td>
+                            <%@ include file="/WEB-INF/jsp/includes/about-license-links.jspf" %></td>
                     </tr>
                 </table>
             </td>

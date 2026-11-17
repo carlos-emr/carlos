@@ -120,6 +120,14 @@ class PatientPortalInviteCallsUnitTest {
         return new String(request.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8);
     }
 
+    @Test
+    void shouldPreserveExactOperationId_whenListingAPreparedInvitation() {
+        PatientPortalService service = new PatientPortalService(settings(),
+                new RecordingExchange(200, "[" + PREPARED_INVITE_JSON + "]"));
+        assertThat(service.listInvites(123, staff())).singleElement()
+                .extracting(PatientPortalInviteDto::deliveryOperationId).isEqualTo(OPERATION_ID);
+    }
+
     @Nested
     @DisplayName("create")
     class Create {

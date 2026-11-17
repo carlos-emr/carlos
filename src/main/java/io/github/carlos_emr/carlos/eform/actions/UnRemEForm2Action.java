@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -54,6 +55,16 @@ public class UnRemEForm2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
             throw new SecurityException("missing required sec object (_eform)");
         }
+        // Restoring an eForm is a write; its two list pages post it (carlosPostForm).
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            try {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            } catch (java.io.IOException e) {
+                MiscUtils.getLogger().info("Could not send 405 for an eForm restore: {}", e.getClass().getSimpleName());
+            }
+            return NONE;
+        }
 
         String fdid = request.getParameter("fdid");
         if (!(fdid == null)) {
@@ -63,10 +74,22 @@ public class UnRemEForm2Action extends ActionSupport {
             eFormDataDao.merge(eFormData);
         }
 
-        if ("independent".equals(request.getParameter("callpage"))) {
-            return "independent";
-        }
         return SUCCESS;
+    }
+
+    /**
+     * Where the POST/redirect/GET result sends the operator after a restore: the deleted-list
+     * page the restore link lived on ({@code callpage}), with that page's context carried over.
+     * See {@link EFormListRedirect} for why this must be a redirect, not a forward.
+     *
+     * @return the application-relative list route, read by the struts result via OGNL
+     */
+    public String getRedirectTarget() {
+        if ("independent".equals(request.getParameter("callpage"))) {
+            return EFormListRedirect.to("/eform/efmmanageindependentdeleted", request, "orderby");
+        }
+        return EFormListRedirect.to("/eform/efmpatientformlistdeleted", request,
+                "demographic_no", "parentAjaxId", "appointment", "orderby");
     }
 
 }

@@ -139,14 +139,15 @@ public class EConsult2Action extends ActionSupport {
                     task,
                     demographicNo);
             sendConfiguredEconsultRedirect(response, redirectUrl, frontendEconsultUrl, FRONTEND_ECONSULT_URL_PROPERTY);
+            return NONE;
         } catch (IOException e) {
             MiscUtils.getLogger().error("There was a problem with the eConsult frontend redirect", e);
+            return ERROR_RESULT;
         } catch (IllegalArgumentException e) {
             MiscUtils.getLogger().error("Invalid eConsult frontend redirect configuration", e);
             return ERROR_RESULT;
         }
 
-        return null;
     }
 
     /**
@@ -171,14 +172,15 @@ public class EConsult2Action extends ActionSupport {
                     oscarReturnUrl,
                     new Date().getTime() / 1000);
             sendConfiguredEconsultRedirect(response, redirectUrl, backendEconsultUrl, BACKEND_ECONSULT_URL_PROPERTY);
+            return NONE;
         } catch (IOException e) {
             MiscUtils.getLogger().error("There was a problem with the eConsult login redirect", e);
+            return ERROR_RESULT;
         } catch (IllegalArgumentException e) {
             MiscUtils.getLogger().error("Invalid eConsult backend redirect configuration", e);
             return ERROR_RESULT;
         }
 
-        return null;
     }
 
     /**
@@ -385,13 +387,6 @@ public class EConsult2Action extends ActionSupport {
         
         // Prevent path traversal attacks
         if (task.contains("..") || task.contains("//") || task.contains("\\")) {
-            return false;
-        }
-        
-        // Prevent protocol injection (http://, https://, javascript:, etc.)
-        String lowerTask = task.toLowerCase();
-        if (lowerTask.contains("://") || lowerTask.startsWith("javascript:") 
-            || lowerTask.startsWith("data:") || lowerTask.startsWith("vbscript:")) {
             return false;
         }
         

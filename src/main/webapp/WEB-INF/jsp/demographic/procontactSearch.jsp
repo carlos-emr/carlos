@@ -29,6 +29,23 @@
 
 --%>
 
+<%--
+    Search popup for professional contacts, opened by the Contacts editor
+    (ManageContacts.jsp) and by the Health Care Team panel (manageHealthCareTeam.jsp).
+    Features: name search over external professional contacts (or, with list=all,
+    professional specialists too), paging, and "Add/Edit Professional Contact".
+    Parameters: form, elementName and elementId name the opener's fields that a
+    picked result fills (or the popUpData callback when the opener has one);
+    keyword and contactRole prefill the add form; contactType is the kind of
+    contact the opener is choosing: 2 (DemographicContact.TYPE_CONTACT) from the
+    Contacts editor's External row, which creates an external professional contact;
+    anything else, including no value, is treated as 3
+    (TYPE_PROFESSIONALSPECIALIST), the Health Care Team panel's choice.
+    The Add link hands form/elementName/elementId on to the add form as
+    parentForm/parentElementName/parentElementId so it can fill the row.
+    @since 2026.08 (#4987)
+--%>
+
 <!--
 /*
 *
@@ -54,6 +71,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalContact" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Contact" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
 <%@ page import="org.apache.commons.text.WordUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -78,6 +96,13 @@
     String elementId = request.getParameter("elementId") == null ? "" : request.getParameter("elementId");
     String keyword = request.getParameter("keyword");
     String contactRole = request.getParameter("contactRole") == null ? "" : request.getParameter("contactRole");
+    // The type of contact the opener is choosing. The Contacts editor's External row asks for an external
+    // professional contact (TYPE_CONTACT), which is the only kind its search lists, so "Add/Edit Professional
+    // Contact" must create that kind. The Health Care Team panel sends no type and adds professional specialists
+    // (TYPE_PROFESSIONALSPECIALIST). Anything else is treated as the panel's request (#4987).
+    String contactType = String.valueOf(DemographicContact.TYPE_CONTACT).equals(request.getParameter("contactType"))
+            ? String.valueOf(DemographicContact.TYPE_CONTACT)
+            : String.valueOf(DemographicContact.TYPE_PROFESSIONALSPECIALIST);
 
     if (request.getParameter("submit") != null
             && (request.getParameter("submit").equals("Search")
@@ -184,8 +209,8 @@
                             <td>&nbsp;</td>
                             <td>&nbsp;</td>
                             <td style="text-align: right"><a
-                                    href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                                    href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                                    href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a> | <a
+                                    href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a></td>
                         </tr>
                     </table>
                 </td>
@@ -219,6 +244,7 @@
         <input type='hidden' name='form' value="<carlos:encode value='<%= form %>' context="htmlAttribute"/>"/>
         <input type='hidden' name='elementName' value="<carlos:encode value='<%= elementName %>' context="htmlAttribute"/>"/>
         <input type='hidden' name='elementId' value="<carlos:encode value='<%= elementId %>' context="htmlAttribute"/>"/>
+        <input type='hidden' name='contactType' value="<carlos:encode value='<%= contactType %>' context="htmlAttribute"/>"/>
 
     </form>
 
@@ -244,12 +270,12 @@
                 jakarta.servlet.jsp.jstl.core.LoopTagStatus i = (jakarta.servlet.jsp.jstl.core.LoopTagStatus) pageContext.getAttribute("i");
                 String bgColor = i.getIndex() % 2 == 0 ? "#EEEEFF" : "ivory";
                 String strOnClick;
-                strOnClick = "selectResult('" + contact.getSystemId() + "_" + contact.getId() + "','" + SafeEncode.forJavaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
+                strOnClick = "selectResult('" + SafeEncode.forJavaScript(contact.getSystemId() + "_" + contact.getId()) + "','" + SafeEncode.forJavaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
 
             %>
             <tr bgcolor="<%=bgColor%>"
                 onMouseOver="this.style.cursor='pointer';this.style.backgroundColor='pink';"
-                onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<carlos:encode value='<%= strOnClick %>' context="javaScriptAttribute"/>">
+                onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<carlos:encode value='<%= strOnClick %>' context="htmlAttribute"/>">
                 <td>${carlos:forHtml(contact.lastName)}</td>
                 <td>${carlos:forHtml(contact.firstName)}</td>
                 <td>${carlos:forHtml(contact.residencePhone)}</td>
@@ -295,7 +321,7 @@
 
         <tr>
             <td>
-                <a href="<%= request.getContextPath() %>/demographic/Contact?method=addProContact&keyword=<carlos:encode value='<%= StringUtils.noNull(keyword) %>' context="uriComponent"/>&contactRole=<carlos:encode value='<%= contactRole %>' context="uriComponent"/>&contactType=3"
+                <a href="<%= request.getContextPath() %>/demographic/Contact?method=addProContact&keyword=<carlos:encode value='<%= StringUtils.noNull(keyword) %>' context="uriComponent"/>&contactRole=<carlos:encode value='<%= contactRole %>' context="uriComponent"/>&contactType=<carlos:encode value='<%= contactType %>' context="uriComponent"/>&parentForm=<carlos:encode value='<%= form %>' context="uriComponent"/>&parentElementName=<carlos:encode value='<%= elementName %>' context="uriComponent"/>&parentElementId=<carlos:encode value='<%= elementId %>' context="uriComponent"/>"
                    style="font:inherit;display:block;margin:10px;">
                     Add/Edit Professional Contact
              <c:set var="__enc_1"><carlos:encode value='<%= form %>' context="uriComponent"/></c:set>
@@ -319,7 +345,7 @@
             <c:set var="__enc_4"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="uriComponent"/></c:set>
             <c:set var="__enc_5"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' context="uriComponent"/></c:set>
             <c:set var="__enc_6"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' context="uriComponent"/></c:set>
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProContactSearch?form=<carlos:encode value='${__enc_1}' context="javaScript"/>&elementName=<carlos:encode value='${__enc_2}' context="javaScript"/>&elementId=<carlos:encode value='${__enc_3}' context="javaScript"/>&keyword=<carlos:encode value='${__enc_4}' context="javaScript"/>&search_mode=<carlos:encode value='${__enc_5}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_6}' context="javaScript"/>&limit1=<%=nLastPage%>&limit2=<carlos:encode value='<%= strLimit2 %>' context="javaScript"/>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProContactSearch?form=<carlos:encode value='${__enc_1}' context="javaScript"/>&elementName=<carlos:encode value='${__enc_2}' context="javaScript"/>&elementId=<carlos:encode value='${__enc_3}' context="javaScript"/>&keyword=<carlos:encode value='${__enc_4}' context="javaScript"/>&search_mode=<carlos:encode value='${__enc_5}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_6}' context="javaScript"/>&contactType=<carlos:encode value='<%= contactType %>' context="javaScript"/>&limit1=<%=nLastPage%>&limit2=<carlos:encode value='<%= strLimit2 %>' context="javaScript"/>";
             document.nextform.submit();
         }
 
@@ -330,7 +356,7 @@
             <c:set var="__enc_10"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="uriComponent"/></c:set>
             <c:set var="__enc_11"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' context="uriComponent"/></c:set>
             <c:set var="__enc_12"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' context="uriComponent"/></c:set>
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProContactSearch?form=<carlos:encode value='${__enc_7}' context="javaScript"/>&elementName=<carlos:encode value='${__enc_8}' context="javaScript"/>&elementId=<carlos:encode value='${__enc_9}' context="javaScript"/>&keyword=<carlos:encode value='${__enc_10}' context="javaScript"/>&search_mode=<carlos:encode value='${__enc_11}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_12}' context="javaScript"/>&limit1=<%=nNextPage%>&limit2=<carlos:encode value='<%= strLimit2 %>' context="javaScript"/>";
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProContactSearch?form=<carlos:encode value='${__enc_7}' context="javaScript"/>&elementName=<carlos:encode value='${__enc_8}' context="javaScript"/>&elementId=<carlos:encode value='${__enc_9}' context="javaScript"/>&keyword=<carlos:encode value='${__enc_10}' context="javaScript"/>&search_mode=<carlos:encode value='${__enc_11}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_12}' context="javaScript"/>&contactType=<carlos:encode value='<%= contactType %>' context="javaScript"/>&limit1=<%=nNextPage%>&limit2=<carlos:encode value='<%= strLimit2 %>' context="javaScript"/>";
             document.nextform.submit();
         }
 

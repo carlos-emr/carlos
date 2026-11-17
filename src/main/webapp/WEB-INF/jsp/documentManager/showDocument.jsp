@@ -128,6 +128,7 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.IncomingDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.ProviderBeanResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.*" %>
 <%@ page import="io.github.carlos_emr.carlos.log.*" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
@@ -217,6 +218,12 @@
     }
     LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, documentNo, request.getRemoteAddr(),demographicID);
     String docId = curdoc.getDocId();
+    String sourceRevision = "";
+    try {
+        sourceRevision = io.github.carlos_emr.carlos.documentManager.StoredDocumentRevision.forDocumentFile(curdoc.getFileName());
+    } catch (java.io.IOException | SecurityException unavailableRevision) {
+        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn("Document revision could not be observed; page edits require refresh");
+    }
     String ackFunc;
     if(skipComment) {
       ackFunc = "updateStatus('acknowledgeForm_" + SafeEncode.forJavaScript(docId) + "'," + inQueueB + ");";
@@ -382,29 +389,6 @@
             }
 
 
-            function rotate90(id) {
-                var btn = document.getElementById('rotate90btn_' + id);
-                if (btn) btn.disabled = true;
-
-                fetch(contextpath + "/documentManager/SplitDocument", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: "method=rotate90&document=" + encodeURIComponent(id) + "&CSRF-TOKEN=" + encodeURIComponent(getCsrfToken())
-                })
-                .then(function(response) {
-                    if (btn) btn.disabled = false;
-                    var img = document.getElementById('docImg_' + id);
-                    if (img) img.src = contextpath + "/documentManager/ManageDocument?method=showPage&doc_no=" + encodeURIComponent(id) + "&page=1&rand=" + (new Date().getTime());
-                })
-                .catch(function(error) {
-                    console.error('Error:', error);
-                    if (btn) btn.disabled = false;
-                });
-            }
-
-
             function split(id, demoName) {
                 var loc = "${pageContext.servletContext.contextPath}";
                 loc = loc + "/oscarMDS/ViewSplit?document=";
@@ -451,7 +435,9 @@
             }
         }
     %>
-    <form name="acknowledgeForm_<%=docId%>" id="acknowledgeForm_<%=docId%>" onsubmit="<carlos:encode value='<%= ackFunc %>' context="javaScriptAttribute"/>" method="post"
+    <%-- ackFunc is a whole statement whose values are JavaScript-encoded where it is built, so the attribute takes HTML-attribute
+         encoding: JavaScript-string encoding would escape the statement's own quotes and the handler would never run (#3941). --%>
+    <form name="acknowledgeForm_<%=docId%>" id="acknowledgeForm_<%=docId%>" onsubmit="<carlos:encode value='<%= ackFunc %>' context="htmlAttribute"/>" method="post"
           action="javascript:void(0);">
         <input type="hidden" name="CSRF-TOKEN" value="">
         <input type="hidden" name="segmentID" value="<carlos:encode value='<%= docId %>' context="htmlAttribute"/>">
@@ -603,8 +589,7 @@
                     <%} %>
                 </div>
                 <% if (displayDocumentAs.equals(UserProperty.IMAGE)) { %>
-                <a href="<%=url2%>" target="_blank"><img alt="document" id="docImg_<%=docId%>" src="<%=url%>"
-                                                         onerror="this.src='<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptAttribute"/>/images/icon_alert.gif'"/></a>
+                <a href="<%=url2%>" target="_blank"><img alt="document" id="docImg_<%=docId%>" data-document-image-src="<carlos:encode value='<%=url%>' context="htmlAttribute"/>"/></a>
                 <%} else {%>
                 <div id="docDispPDF_<%=docId%>"></div>
                 <%}%>
@@ -651,15 +636,21 @@
                                     %>
                                 </oscar:oscarPropertiesCheck>
                                 <div style="<%=updatableContent==true?"":"visibility: hidden"%>">
+                                    <input type="hidden" id="sourceRevision_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>"
+                                           value="<carlos:encode value='<%= sourceRevision %>' context="htmlAttribute"/>">
+                                    <% if (sourceRevision.isEmpty()) { %><p role="alert"><fmt:message key="documentMutation.sourceUnavailable"/></p><% } %>
                                     <input onclick="split('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','${carlos:forJavaScript(demoName)}')"
                                            type="button" class=" btn btn-light btn-sm" value="<fmt:message key="inboxmanager.document.split"/>">
                                     <input id="rotate180btn_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" onclick="rotate180('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>')"
+                                           <%=sourceRevision.isEmpty() ? "disabled" : ""%>
                                            type="button" class=" btn btn-light btn-sm"
                                            value="<fmt:message key="inboxmanager.document.rotate180"/>">
                                     <input id="rotate90btn_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" onclick="rotate90('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>')"
+                                           <%=sourceRevision.isEmpty() ? "disabled" : ""%>
                                             type="button" class=" btn btn-light btn-sm"
                                            value="<fmt:message key="inboxmanager.document.rotate90"/>">
                                     <% if (numOfPage > 1) { %><input id="removeFirstPagebtn_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>"
+                                            <%=sourceRevision.isEmpty() ? "disabled" : ""%>
                                             onclick="removeFirstPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>')"
                                             type="button" class=" btn btn-light btn-sm"
                                             value="<fmt:message key="inboxmanager.document.removeFirstPage"/>"><% } %>
@@ -791,9 +782,9 @@
                                 <td colspan="2">
                                     <fmt:message key="inboxmanager.document.LinkedProvidersMsg"/>
                                     <%
-                                        Properties p = (Properties) session.getAttribute("providerBean");
+                                        Properties p = ProviderBeanResolver.resolve(session, docId);
                                         List<ProviderInboxItem> routeList = Collections.emptyList();
-                                        if (docId != null) {
+                                        if (docId != null && !docId.trim().isEmpty()) {
                                             routeList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", Integer.parseInt(docId));
                                         }
                                     %>
@@ -935,6 +926,8 @@
 
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/library/dompurify/purify.min.js"></script>
+<script src="${pageContext.servletContext.contextPath}/js/documentImageLoader.js"></script>
+    <%@ include file="/WEB-INF/jsp/documentManager/documentMutationScripts.jspf" %>
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
 <script type="text/javascript" src="showDocument.js"></script>
@@ -964,28 +957,7 @@
          * The inbox list view keeps its original removeLink from oscarMDSIndex.js.
          */
         window.removeLink = function(docTypeStr, docId, providerNo, e) {
-            var data = new URLSearchParams({
-                method: 'removeLinkFromDocument',
-                docType: docTypeStr,
-                docId: docId,
-                providerNo: providerNo,
-                'CSRF-TOKEN': getCsrfToken()
-            });
-            fetch(contextpath + '/documentManager/ManageDocument', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: data.toString()
-            }).then(function(response) {
-                if (response.ok) {
-                    if (e && e.parentNode) {
-                        e.parentNode.remove();
-                    }
-                } else {
-                    console.error('Error removing provider link: ' + response.statusText);
-                }
-            }).catch(function(error) {
-                console.error('Error removing provider link:', error);
-            });
+            return window.CarlosDocumentMetadata.unlink(docTypeStr, docId, providerNo, e);
         };
     }
 

@@ -72,6 +72,11 @@
     Properties oscarVariables = CarlosProperties.getInstance();
     String prov = (oscarVariables.getProperty("billregion", "")).trim().toUpperCase();
     String resourcebaseurl = oscarVariables.getProperty("resource_base_url");
+    UserProperty savedHelpUrl = userPropertyDao.getProp("resource_baseurl");
+    if (savedHelpUrl != null && savedHelpUrl.getValue() != null && !savedHelpUrl.getValue().isBlank()) {
+        resourcebaseurl = savedHelpUrl.getValue();
+    }
+    pageContext.setAttribute("clinicHelpUrl", resourcebaseurl);
     String curUser_no = (String) session.getAttribute("user");
 
     String resourcehelpHtml = "";
@@ -274,16 +279,16 @@
                         </oscar:oscarPropertiesCheck>
 
                         <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                            <security:oscarSec roleName="<%=roleName$%>"
-                                               objectName="_admin,_admin.userAdmin,_admin.schedule,_admin.billing,_admin.resource,_admin.reporting,_admin.backup,_admin.messenger,_admin.eform,_admin.encounter,_admin.misc,_admin.fax,_admin.flowsheet"
-                                               rights="r">
+                            <%-- One oscarSec tag per object: see administration-menu-gate.jspf (issues #4238, #4623). --%>
+                            <%@ include file="/WEB-INF/jspf/administration-menu-gate.jspf" %>
+                            <c:if test="${canOpenAdministration}">
 
                                 <li id="admin2" class="<%= adminTabActive ? "nav-active" : "" %>">
                                     <a href="javascript:void(0)" id="admin-panel" TITLE='<fmt:message key="admin.admin.page.title"/>'
                                        onclick="return openScheduleMenuSection('<%=SafeEncode.forJavaScriptAttribute(administrationUrl)%>', function(u){ newWindow(u,'admin'); }, event);"><fmt:message key="provider.mainMenu.administration"/></a>
                                 </li>
 
-                            </security:oscarSec>
+                            </c:if>
                         </caisi:isModuleLoad>
 
                         <security:oscarSec roleName="<%=roleName$%>" objectName="_dashboardDisplay" rights="r">
@@ -323,9 +328,17 @@
 
                         </security:oscarSec>
                         <li id="helpLink">
-                            <%if (resourcehelpHtml == "") { %>
+                            <%if (resourcehelpHtml == null || resourcehelpHtml.isEmpty()) { %>
                             <a href="javascript:void(0)"
-                               onClick="popupPage(600,750,'<%=resourcebaseurl%>')"><fmt:message key="global.help"/></a>
+                               data-help-url="${carlos:forHtmlAttribute(clinicHelpUrl)}"
+                               onclick="if (!this.dataset.helpUrl.trim()) return false;
+                                   try {
+                                   var helpUrl = new window.URL(this.dataset.helpUrl, window.location.href);
+                                   if (helpUrl.protocol === 'https:' || helpUrl.protocol === 'http:') {
+                                       popupPage(600,750,helpUrl.href);
+                                   }
+                                   } catch (invalidHelpUrl) { /* Invalid saved URLs cannot be opened. */ }
+                                   return false;"><fmt:message key="global.help"/></a>
                             <%} else {%>
                             <div id="help-link">
                                 <a href="javascript:void(0)"

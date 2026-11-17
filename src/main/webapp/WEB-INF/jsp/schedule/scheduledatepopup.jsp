@@ -29,11 +29,19 @@
 
 --%>
 
+<%--
+    Schedule date editor: loads the active generated day or manual override directly
+    for the requested provider and date, including availability, hours and reason.
+    Parameters: provider_no, year, month, day. Saves through schedule/DateSave.
+    Since 2026.08, generated days are visible without requiring a session cache entry.
+--%>
 <%! boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable(); %>
 
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ScheduleDate" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplate" %>
 <%
     ScheduleTemplateDao scheduleTemplateDao = SpringUtils.getBean(ScheduleTemplateDao.class);
@@ -45,7 +53,6 @@
 
 
 
-<jsp:useBean id="scheduleDateBean" class="java.util.Hashtable" scope="session"/>
 <%
     String[] bgColors = null;
     String year = request.getParameter("year");
@@ -57,12 +64,14 @@
     String submitSave = scheduleBundle.getString("schedule.scheduledatepopup.btnSave");
     String submitDelete = scheduleBundle.getString("schedule.scheduledatepopup.btnDelete");
     strCreator = scheduleBundle.getString("schedule.scheduledatepopup.me");
-    HScheduleDate aHScheduleDate = (HScheduleDate) scheduleDateBean.get(year + "-" + month + "-" + day);
-    if (aHScheduleDate != null) {
-        available = aHScheduleDate.available.compareTo("1") == 0 ? "checked" : "";
-        strHour = aHScheduleDate.hour;
-        strReason = aHScheduleDate.reason;
-        strCreator = aHScheduleDate.creator;
+    // The session map contains manual overrides only; read the active day for this provider.
+    ScheduleDate scheduleDate = SpringUtils.getBean(ScheduleDateDao.class).findByProviderNoAndDate(
+            request.getParameter("provider_no"), MyDateFormat.getSysDate(year + "-" + month + "-" + day));
+    if (scheduleDate != null) {
+        available = scheduleDate.getAvailable() == '1' ? "checked" : "";
+        strHour = scheduleDate.getHour();
+        strReason = scheduleDate.getReason();
+        strCreator = scheduleDate.getCreator();
     }
 
 %>
@@ -135,7 +144,7 @@
 
                                 %>
                                 <option value="<carlos:encode value='<%= st.getId().getName() %>' context="htmlAttribute"/>"
-                                        <%=strHour.equals(st.getId().getName()) ? "selected" : ""%>><carlos:encode value='<%= st.getId().getName() + " |" + st.getSummary() %>' context="html"/>
+                                        <%=Objects.equals(strHour, st.getId().getName()) ? "selected" : ""%>><carlos:encode value='<%= st.getId().getName() + " |" + st.getSummary() %>' context="html"/>
                                 </option>
                                 <% }
                                     for (ScheduleTemplate st : scheduleTemplateDao.findByProviderNo(request.getParameter("provider_no"))) {
@@ -180,7 +189,7 @@
                                         onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                                 <% for (int i = 0; i < siteList.length; i++) { %>
                                 <option value="<carlos:encode value='<%= siteList[i] %>' context="htmlAttribute"/>" <%=(bMultisites ? " style='background-color:" + SafeEncode.forCssString(bgColors[i]) + "'" : "")%>
-                                        <%=strReason.equals(siteList[i]) ? "selected" : ""%>><b><carlos:encode value='<%= siteList[i] %>' context="html"/>
+                                        <%=Objects.equals(strReason, siteList[i]) ? "selected" : ""%>><b><carlos:encode value='<%= siteList[i] %>' context="html"/>
                                 </b></option>
                                 <% } %>
                             </select></td>

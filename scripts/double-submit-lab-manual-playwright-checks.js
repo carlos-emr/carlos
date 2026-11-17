@@ -1,0 +1,141 @@
+#!/usr/bin/env node
+/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+/*
+ * Double-submit check: manual lab entry "Submit to EMR" (a duplicate lab result is clinically significant).
+ *
+ * User path: Schedule > Inbox > Create Lab (oscarMDS/ViewCreateLab) > fill the CML lab with one test > Submit to
+ * EMR (confirm()). For each rapid activation (dblclick(), two back-to-back clicks, double Enter in the
+ * accession field, slow-response re-click) the check files ONE lab under its own accession number and asserts
+ * EXACTLY ONE hl7TextInfo row for that accession. Completed submissions must redirect to the GET form;
+ * refreshing that form must not send another POST, repeat a notice or create another stored message.
+ *
+ * Fixtures: the owned FAKE- patient and the labs filed (unique accessions); cleanup removes every owned lab's
+ * routing, measurement, message and checksum rows and archived file (removeOwnedHl7Labs) and asserts it.
+ * Wave-6 pattern sweep "double-submit".
+ */
+const crypto = require('node:crypto');
+const h = require('./lib/playwright-harness');
+const ui = require('./lib/playwright-ui');
+const { runWorkflow } = require('./lib/workflow-session');
+const { removeOwnedHl7Labs } = require('./lab-forwarding-rules-playwright-checks');
+const { MODES_REPLAY: MODES, rapid, settledCount, watchPosts, verdicts, armSlowServer, sleep } = require('./lib/double-submit-helpers');
+
+/** Accept a completed submission or duplicate, while still rejecting generic failure notices. */
+async function assertCompletedNotice(form) {
+  const notice = form.locator('.alert-success, .alert-danger');
+  await notice.first().waitFor({ state: 'visible', timeout: 10000 });
+  h.assert(await notice.count() === 1, 'Completed lab submission must render exactly one notice');
+  const text = (await notice.innerText()).trim();
+  h.assert(text === 'Lab submitted successfully. It will appear in your inbox shortly.'
+    || text === 'This lab file has already been submitted (duplicate detected).',
+    'The result did not report a successful or already-recorded lab');
+}
+
+async function workflow(s) {
+  const { sql, marker, provider } = s;
+  const accessions = [];
+  s.cleanup(() => {
+    const labs = [];
+    for (const accession of accessions) {
+      labs.push(...sql.rows(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`).map(([id]) => id));
+    }
+    removeOwnedHl7Labs(sql, labs);
+    for (const accession of accessions) {
+      h.assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`) === '0', 'An owned lab was not removed');
+    }
+  });
+  const v = verdicts('lab-manual-entry');
+
+  for (const mode of MODES) {
+    await s.step(`Submit to EMR via ${mode.label} files exactly one lab`, async () => {
+      const accession = `DS${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+      h.assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`) === '0', 'The accession is already in use');
+      accessions.push(accession);
+      const { page: inbox, isPopup: opened } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#inboxLink').first(),
+        { context: s.context, recorder: s.recorder, label: 'manual-lab-inbox', timeout: 30000 });
+      const form = await s.popup(inbox, inbox.locator('a[href*="oscarMDS/ViewCreateLab"]').first(), 'manual-lab-create');
+      await form.locator('#labname').selectOption('CML');
+      await form.locator('#accession').fill(accession);
+      await form.locator('#lab_req_date').fill('2026-09-30 08:30');
+      await form.locator('#lastname').fill(marker);
+      await form.locator('#firstname').fill('Workflow');
+      await form.locator('#sex').selectOption('F');
+      await form.locator('#dob').fill('1980-01-02');
+      await form.getByRole('link', { name: 'Add Test' }).click();
+      const field = (name) => form.locator(`[id="test_1.${name}"]`);
+      await field('valDate').waitFor({ state: 'visible', timeout: 30000 });
+      await field('valDate').fill('2026-09-30 09:00');
+      await field('code').fill('2010');
+      await field('lab_test_name').fill('HEMOGLOBIN');
+      await field('codeVal').fill('137');
+      await field('codeUnit').fill('g/L');
+      await field('refRangeLow').fill('120');
+      await field('refRangeHigh').fill('160');
+      await field('flag').selectOption('N');
+      const route = /\/oscarMDS\/SubmitLab(?:\?|$)/;
+      const posts = watchPosts(form.context(), route);
+      const statuses = [];
+      const recordResponse = (response) => {
+        if (response.request().method() === 'POST' && route.test(new URL(response.url()).pathname)) {
+          statuses.push(response.status());
+        }
+      };
+      form.on('response', recordResponse);
+      const disarm = mode.key === 'slowResubmit' ? await armSlowServer(s.context, route) : null;
+      const dialogs = await h.withExpectedDialogs(form, async () => {
+        const submit = form.locator('form[name="testForm"] button[type="submit"]');
+        if (mode.key === 'replay') {
+          await submit.click({ noWaitAfter: true });
+          await form.waitForURL((url) => url.pathname.endsWith('/oscarMDS/ViewCreateLab'),
+            { waitUntil: 'domcontentloaded', timeout: 20000 });
+          await assertCompletedNotice(form);
+          await sleep(2500);
+          const firstReload = await form.reload({ waitUntil: 'domcontentloaded' });
+          h.assert(firstReload.request().method() === 'GET', 'First result reload must use GET');
+          h.assert(await form.locator('.alert-success, .alert-danger').count() === 0,
+            'First result reload repeated the consumed submission notice');
+        } else {
+          await rapid(mode.key, submit, { textField: form.locator('#accession') });
+        }
+        await sleep(1500);
+      });
+      const count = await settledCount(sql, `SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`,
+        { min: 1, quietMs: 3500 });
+      if (disarm) await disarm();
+      console.log(`    (${dialogs.length} confirm dialog(s); ${posts.seen.length} SubmitLab POST(s))`);
+      v.record(mode.label, count, { exactly: 1 });
+      h.assert(new URL(form.url()).pathname.endsWith('/oscarMDS/ViewCreateLab'),
+        'Completed lab submission did not redirect to the read-only form');
+      h.assert(statuses.length > 0 && statuses.every((status) => status === 303),
+        `Completed lab submission must use HTTP 303; received ${statuses.join(', ')}`);
+      if (mode.key === 'replay') {
+        h.assert(posts.seen.length === 1, 'Reload sent another SubmitLab POST');
+      } else {
+        await assertCompletedNotice(form);
+      }
+      const beforeReload = posts.seen.length;
+      const reloaded = await form.reload({ waitUntil: 'domcontentloaded' });
+      h.assert(reloaded.request().method() === 'GET', 'Reload must use GET');
+      h.assert(posts.seen.length === beforeReload, 'Reload repeated the lab submission');
+      h.assert(await form.locator('.alert-success, .alert-danger').count() === 0,
+        'Reload repeated a consumed submission notice');
+      h.assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo i
+        JOIN hl7TextMessage m ON m.lab_id=i.lab_no JOIN fileUploadCheck f ON f.id=m.fileUploadCheck_id
+        WHERE i.accessionNum=${h.sqlString(accession)}`) === '1',
+        'Reload must retain exactly one lab message and its upload checksum');
+      h.assert(sql.value(`SELECT COUNT(*) FROM providerLabRouting r
+        JOIN hl7TextInfo i ON i.lab_no=r.lab_no WHERE r.lab_type='HL7'
+        AND r.provider_no=${h.sqlString(provider)} AND i.accessionNum=${h.sqlString(accession)}`) === '1',
+        'The submitted lab must be routed exactly once to the submitting provider');
+      posts.stop();
+      form.off('response', recordResponse);
+      if (!form.isClosed()) await form.close().catch(() => {});
+      if (opened && !inbox.isClosed()) await inbox.close().catch(() => {});
+      if (!opened) await h.gotoApp(s.schedule, s.config.baseUrl, '/provider/providercontrol?displaymode=day&dboperation=searchappointmentday&viewall=1');
+    });
+  }
+  v.finish();
+}
+
+module.exports = { workflow };
+if (require.main === module) runWorkflow('double-submit-lab-manual', workflow, { openPatient: true, openMaster: false });

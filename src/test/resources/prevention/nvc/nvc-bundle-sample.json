@@ -1,0 +1,2074 @@
+{
+ "resourceType": "Bundle",
+ "id": "NVC",
+ "type": "collection",
+ "entry": [
+  {
+   "fullUrl": "https://nvc-cnv.canada.ca/fhir/v2/ValueSet/Generic",
+   "resource": {
+    "resourceType": "ValueSet",
+    "id": "Generic",
+    "meta": {
+     "lastUpdated": "2026-09-03T15:23:36Z"
+    },
+    "url": "https://nvc-cnv.canada.ca/fhir/v2/ValueSet/Generic",
+    "version": "1.130",
+    "status": "active",
+    "date": "2026-09-03",
+    "description": "The generic immunizing agent subset includes vaccines and passive immunizing agents that are currently authorized for use in Canada, those obtained through special access programs (generic description), and vaccines that have been discontinued and/or never licensed in Canada (with a tradename). This subset is a direct extension of the Canadian SNOMED CT Reference Sets developed by Canada Health Infoway. Where available, each SNOMED CT generic immunizing agent is also linked to its corresponding SNOMED CT tradename (representing the vaccine brand name), vaccine-preventable disease concept (indicating the disease the vaccine protects against), and antigen concept (representing the active ingredient triggering an immune response).",
+    "compose": {
+     "include": [
+      {
+       "system": "http://snomed.info/sct",
+       "version": "http://snomed.info/sct/20611000087101",
+       "concept": [
+        {
+         "extension": [
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-status",
+           "valueString": "active"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-version",
+           "valueString": "20220331"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-last-updated",
+           "valueDate": "2025-08-11"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-passive-immunizing-agent",
+           "valueBoolean": false
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-product-status",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-product-status",
+              "code": "approved",
+              "display": "Approved"
+             }
+            ],
+            "text": "Approved"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-product-status",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-product-status",
+              "code": "marketed",
+              "display": "Marketed"
+             }
+            ],
+            "text": "Marketed"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-product-status",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-product-status",
+              "code": "cancelled_pre_market",
+              "display": "Cancelled Pre Market"
+             }
+            ],
+            "text": "Cancelled Pre Market"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-product-status",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-product-status",
+              "code": "cancelled",
+              "display": "Cancelled Post Market"
+             }
+            ],
+            "text": "Cancelled Post Market"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-contains-antigen",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "1119343008",
+              "display": "Severe acute respiratory syndrome coronavirus 2 mRNA"
+             }
+            ],
+            "text": "Severe acute respiratory syndrome coronavirus 2 mRNA"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-protects-against-disease",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "840539006",
+              "display": "COVID-19"
+             }
+            ],
+            "text": "COVID-19"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "38821000087105",
+              "display": "[COVID-19] COMIRNATY Original & Omicron BA.4/BA.5 pediatric 3 mcg/0.2mL"
+             }
+            ],
+            "text": "[COVID-19] COMIRNATY Original & Omicron BA.4/BA.5 pediatric 3 mcg/0.2mL"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "51511000087105",
+              "display": "[COVID-19] COMIRNATY Omicron XBB.1.5 pediatric 3 mcg/0.2 mL"
+             }
+            ],
+            "text": "[COVID-19] COMIRNATY Omicron XBB.1.5 pediatric 3 mcg/0.2 mL"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "37701000087106",
+              "display": "[COVID-19] COMIRNATY Original & Omicron BA.4/BA.5 pediatric 10 mcg/0.2mL"
+             }
+            ],
+            "text": "[COVID-19] COMIRNATY Original & Omicron BA.4/BA.5 pediatric 10 mcg/0.2mL"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "51501000087108",
+              "display": "[COVID-19] COMIRNATY Omicron XBB.1.5 pediatric 10 mcg/0.3 mL"
+             }
+            ],
+            "text": "[COVID-19] COMIRNATY Omicron XBB.1.5 pediatric 10 mcg/0.3 mL"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "38591000087106",
+              "display": "[COVID-19] SPIKEVAX Bivalent (Original / Omicron BA.4/BA.5) 10 mcg/0.2 mL"
+             }
+            ],
+            "text": "[COVID-19] SPIKEVAX Bivalent (Original / Omicron BA.4/BA.5) 10 mcg/0.2 mL"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "34611000087105",
+              "display": "[COVID-19] COMIRNATY (original strain) pediatric 3 mcg/0.2 mL"
+             }
+            ],
+            "text": "[COVID-19] COMIRNATY (original strain) pediatric 3 mcg/0.2 mL"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "51621000087101",
+              "display": "[COVID-19] COMIRNATY Omicron XBB.1.5 pediatric 10 mcg/0.2 mL"
+             }
+            ],
+            "text": "[COVID-19] COMIRNATY Omicron XBB.1.5 pediatric 10 mcg/0.2 mL"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "60831000087103",
+              "display": "[COVID-19] COMIRNATY pediatric 10 mcg/0.2 mL"
+             }
+            ],
+            "text": "[COVID-19] COMIRNATY pediatric 10 mcg/0.2 mL"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "60841000087109",
+              "display": "[COVID-19] COMIRNATY pediatric 10 mcg/0.3 mL"
+             }
+            ],
+            "text": "[COVID-19] COMIRNATY pediatric 10 mcg/0.3 mL"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "60891000087102",
+              "display": "[COVID-19] COMIRNATY pediatric 3 mcg/0.2 mL"
+             }
+            ],
+            "text": "[COVID-19] COMIRNATY pediatric 3 mcg/0.2 mL"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "61431000087108",
+              "display": "[COVID-19] COMIRNATY pediatric 3 mcg/0.3 mL"
+             }
+            ],
+            "text": "[COVID-19] COMIRNATY pediatric 3 mcg/0.3 mL"
+           }
+          }
+         ],
+         "code": "33581000087104",
+         "display": "[COVID-19] Pediatric mRNA COVID-19 vaccine",
+         "designation": [
+          {
+           "language": "en",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000003001",
+            "display": "Fully Specified Name"
+           },
+           "value": "Pediatric vaccine product containing only Severe acute respiratory syndrome coronavirus 2 messenger ribonucleic acid (medicinal product)"
+          },
+          {
+           "language": "en",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000013009",
+            "display": "Synonym"
+           },
+           "value": "[COVID-19] Pediatric mRNA COVID-19 vaccine"
+          },
+          {
+           "language": "fr",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000013009",
+            "display": "Synonym"
+           },
+           "value": "[COVID-19] vaccin pédiatrique à ARNm contre la COVID-19"
+          },
+          {
+           "language": "en",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "enPublicPicklist",
+            "display": "english public picklist"
+           },
+           "value": "COVID-19 vaccine"
+          },
+          {
+           "language": "fr",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "frPublicPicklist",
+            "display": "french public picklist"
+           },
+           "value": "vaccin contre la COVID-19"
+          },
+          {
+           "language": "en",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "enAbbreviation",
+            "display": "english abbreviation"
+           },
+           "value": "COVID-19"
+          },
+          {
+           "language": "fr",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "frAbbreviation",
+            "display": "french abbreviation"
+           },
+           "value": "COVID-19"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "system": "http://snomed.info/sct",
+       "version": "http://snomed.info/sct/20611000087101",
+       "concept": [
+        {
+         "extension": [
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-status",
+           "valueString": "active"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-version",
+           "valueString": "20200930"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-last-updated",
+           "valueDate": "2025-08-11"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-passive-immunizing-agent",
+           "valueBoolean": false
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-product-status",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-product-status",
+              "code": "marketed",
+              "display": "Marketed"
+             }
+            ],
+            "text": "Marketed"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-product-status",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-product-status",
+              "code": "cancelled_pre_market",
+              "display": "Cancelled Pre Market"
+             }
+            ],
+            "text": "Cancelled Pre Market"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-product-status",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-product-status",
+              "code": "cancelled",
+              "display": "Cancelled Post Market"
+             }
+            ],
+            "text": "Cancelled Post Market"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-product-status",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-product-status",
+              "code": "dormant",
+              "display": "Dormant"
+             }
+            ],
+            "text": "Dormant"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-contains-antigen",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "260210008",
+              "display": "Influenza virus antigen"
+             }
+            ],
+            "text": "Influenza virus antigen"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-contains-antigen",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "442269004",
+              "display": "Influenza A virus subtype H1N1 antigen"
+             }
+            ],
+            "text": "Influenza A virus subtype H1N1 antigen"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-protects-against-disease",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "6142004",
+              "display": "Influenza"
+             }
+            ],
+            "text": "Influenza"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "19291000087108",
+              "display": "[Inf] Xanaflu"
+             }
+            ],
+            "text": "[Inf] Xanaflu"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "22681000087109",
+              "display": "[Inf] INFLUVAC (BGP)"
+             }
+            ],
+            "text": "[Inf] INFLUVAC (BGP)"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "22971000087103",
+              "display": "[Inf] AGRIFLU (SEQ)"
+             }
+            ],
+            "text": "[Inf] AGRIFLU (SEQ)"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "22981000087101",
+              "display": "[Inf] FLUAD (SEQ)"
+             }
+            ],
+            "text": "[Inf] FLUAD (SEQ)"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "28391000087101",
+              "display": "[Inf] FLUAD Pediatric"
+             }
+            ],
+            "text": "[Inf] FLUAD Pediatric"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "7571000087100",
+              "display": "[Inf] FLUMIST"
+             }
+            ],
+            "text": "[Inf] FLUMIST"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "7621000087103",
+              "display": "[Inf] INFLUVAC (API)"
+             }
+            ],
+            "text": "[Inf] INFLUVAC (API)"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "7561000087109",
+              "display": "[Inf] Vaxigrip"
+             }
+            ],
+            "text": "[Inf] Vaxigrip"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "7611000087106",
+              "display": "[Inf] Intanza 15 mcg/ 0.1 mL"
+             }
+            ],
+            "text": "[Inf] Intanza 15 mcg/ 0.1 mL"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "7541000087108",
+              "display": "[Inf] FLUVIRAL"
+             }
+            ],
+            "text": "[Inf] FLUVIRAL"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "7581000087103",
+              "display": "[Inf] Agriflu (NVD)"
+             }
+            ],
+            "text": "[Inf] Agriflu (NVD)"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "7591000087101",
+              "display": "[Inf] FLUAD (NVD)"
+             }
+            ],
+            "text": "[Inf] FLUAD (NVD)"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "7601000087109",
+              "display": "[Inf] Intanza 9 mcg/ 0.1 mL"
+             }
+            ],
+            "text": "[Inf] Intanza 9 mcg/ 0.1 mL"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "268981000087103",
+              "display": "[Inf] FLUCELVAX"
+             }
+            ],
+            "text": "[Inf] FLUCELVAX"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "271421000087109",
+              "display": "[Inf] FLUZONE Trivalent"
+             }
+            ],
+            "text": "[Inf] FLUZONE Trivalent"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "547531000087108",
+              "display": "[Inf] FLUZONE Trivalent low dose (SP)"
+             }
+            ],
+            "text": "[Inf] FLUZONE Trivalent low dose (SP)"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "547521000087106",
+              "display": "[Inf] FLUZONE Trivalent standard dose (SP)"
+             }
+            ],
+            "text": "[Inf] FLUZONE Trivalent standard dose (SP)"
+           }
+          }
+         ],
+         "code": "7691000087100",
+         "display": "[Inf] Influenza trivalent vaccine",
+         "designation": [
+          {
+           "language": "en",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000003001",
+            "display": "Fully Specified Name"
+           },
+           "value": "Vaccine product containing only Influenza virus 3 strains antigens (medicinal product)"
+          },
+          {
+           "language": "en",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000013009",
+            "display": "Synonym"
+           },
+           "value": "[Inf] Influenza trivalent vaccine"
+          },
+          {
+           "language": "fr",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000013009",
+            "display": "Synonym"
+           },
+           "value": "[Inf] vaccin trivalent contre l'influenza"
+          },
+          {
+           "language": "en",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "enPublicPicklist",
+            "display": "english public picklist"
+           },
+           "value": "Influenza (flu) vaccine"
+          },
+          {
+           "language": "fr",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "frPublicPicklist",
+            "display": "french public picklist"
+           },
+           "value": "vaccin contre l'influenza (grippe)"
+          },
+          {
+           "language": "en",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "enAbbreviation",
+            "display": "english abbreviation"
+           },
+           "value": "Inf"
+          },
+          {
+           "language": "fr",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "frAbbreviation",
+            "display": "french abbreviation"
+           },
+           "value": "Inf"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "system": "http://snomed.info/sct",
+       "version": "http://snomed.info/sct/20611000087101",
+       "concept": [
+        {
+         "extension": [
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-status",
+           "valueString": "inactive"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-version",
+           "valueString": "20200930"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-last-updated",
+           "valueDate": "2025-08-11"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-passive-immunizing-agent",
+           "valueBoolean": false
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-replaced-by-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "28441000087100",
+              "display": "Vaccine product containing only Human alphaherpesvirus 3 antigen for varicella prevention (medicinal product)"
+             }
+            ],
+            "text": "Vaccine product containing only Human alphaherpesvirus 3 antigen for varicella prevention (medicinal product)"
+           }
+          }
+         ],
+         "code": "108729007",
+         "display": "Varicella virus vaccine",
+         "designation": [
+          {
+           "language": "en",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000003001",
+            "display": "Fully Specified Name"
+           },
+           "value": "Varicella virus vaccine (product)"
+          },
+          {
+           "language": "en",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000013009",
+            "display": "Synonym"
+           },
+           "value": "Varicella virus vaccine"
+          },
+          {
+           "language": "fr",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000013009",
+            "display": "Synonym"
+           },
+           "value": "Var varicelle non spécifié"
+          },
+          {
+           "language": "en",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "enAbbreviation",
+            "display": "english abbreviation"
+           },
+           "value": "Varicella"
+          },
+          {
+           "language": "fr",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "frAbbreviation",
+            "display": "french abbreviation"
+           },
+           "value": "Var"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "fullUrl": "https://nvc-cnv.canada.ca/fhir/v2/ValueSet/Tradename",
+   "resource": {
+    "resourceType": "ValueSet",
+    "id": "Tradename",
+    "meta": {
+     "lastUpdated": "2026-09-03T15:23:36Z"
+    },
+    "url": "https://nvc-cnv.canada.ca/fhir/v2/ValueSet/Tradename",
+    "version": "1.130",
+    "status": "active",
+    "date": "2026-09-03",
+    "description": "The tradename immunizing agent subset includes tradenames (representing the vaccine brand name) of authorized vaccines and passive immunizing agents (such as immunoglobulins and antitoxins, with ready-made antibodies) in Canada. This subset is a direct extension of the Canadian SNOMED CT Reference Sets developed by Canada Health Infoway. Where available, each SNOMED CT tradename is also linked to its corresponding Health Canada issued unique Drug Identification Number (DIN), lot numbers (assigned by the manufacturer to each vaccine batch), SNOMED CT generic immunization agent concept (representing the non-brand name), vaccine-preventable disease concept (indicating the disease the vaccine protects against), market authorization holder (representing the legal entity authorized by Health Canada for distributing the immunizing agent in Canada), and antigen concept (representing the active ingredient triggering an immune response).",
+    "compose": {
+     "include": [
+      {
+       "system": "http://snomed.info/sct",
+       "version": "http://snomed.info/sct/20611000087101",
+       "concept": [
+        {
+         "extension": [
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-status",
+           "valueString": "active"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-version",
+           "valueString": "20230930"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-last-updated",
+           "valueDate": "2025-08-11"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-passive-immunizing-agent",
+           "valueBoolean": false
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-product-status",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-product-status",
+              "code": "cancelled",
+              "display": "Cancelled Post Market"
+             }
+            ],
+            "text": "Cancelled Post Market"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-generic-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "33581000087104",
+              "display": "[COVID-19] Pediatric mRNA COVID-19 vaccine"
+             }
+            ],
+            "text": "[COVID-19] Pediatric mRNA COVID-19 vaccine"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-contains-antigen",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "1119343008",
+              "display": "Severe acute respiratory syndrome coronavirus 2 mRNA"
+             }
+            ],
+            "text": "Severe acute respiratory syndrome coronavirus 2 mRNA"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-protects-against-disease",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "840539006",
+              "display": "COVID-19"
+             }
+            ],
+            "text": "COVID-19"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-to-market-authorization-holder",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "29141000087103",
+              "display": "BIONTECH MANUFACTURING GMBH (supplier)"
+             }
+            ],
+            "text": "BIONTECH MANUFACTURING GMBH (supplier)"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-lot",
+           "valueCoding": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-vaccine-lot-id",
+            "code": "HH6775"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-lot",
+           "valueCoding": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-vaccine-lot-id",
+            "code": "HL2950"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-typical-dose-size",
+           "valueString": "0.2"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-typical-dose-size-uom",
+           "valueString": "ML"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-strength",
+           "valueString": "3"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-din",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://hl7.org/fhir/NamingSystem/ca-hc-din",
+              "code": "02541866",
+              "display": "02541866"
+             }
+            ],
+            "text": "02541866"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-route-of-admin",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "78421000",
+              "display": "Intramuscular: IM"
+             }
+            ],
+            "text": "Intramuscular: IM"
+           }
+          }
+         ],
+         "code": "51511000087105",
+         "display": "COMIRNATY Omicron XBB.1.5 messenger ribonucleic acid 3 micrograms per 0.2 milliliter suspension for injection BioNTech Manufacturing GmbH (real clinical drug)",
+         "designation": [
+          {
+           "language": "en",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000003001",
+            "display": "Fully Specified Name"
+           },
+           "value": "COMIRNATY Omicron XBB.1.5 messenger ribonucleic acid 3 micrograms per 0.2 milliliter suspension for injection BioNTech Manufacturing GmbH (real clinical drug)"
+          },
+          {
+           "language": "en",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000013009",
+            "display": "Synonym"
+           },
+           "value": "[COVID-19] COMIRNATY Omicron XBB.1.5 pediatric 3 mcg/0.2 mL"
+          },
+          {
+           "language": "fr",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000013009",
+            "display": "Synonym"
+           },
+           "value": "[COVID-19] COMIRNATY Omicron XBB.1.5 pédiatrique 3 mcg/0.2 mL"
+          },
+          {
+           "language": "en",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "enPublicPicklist",
+            "display": "english public picklist"
+           },
+           "value": "COMIRNATY Omicron XBB.1.5"
+          },
+          {
+           "language": "fr",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "frPublicPicklist",
+            "display": "french public picklist"
+           },
+           "value": "COMIRNATY Omicron XBB.1.5"
+          },
+          {
+           "language": "en",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "enAbbreviation",
+            "display": "english abbreviation"
+           },
+           "value": "COVID-19"
+          },
+          {
+           "language": "fr",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "frAbbreviation",
+            "display": "french abbreviation"
+           },
+           "value": "COVID-19"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "system": "http://snomed.info/sct",
+       "version": "http://snomed.info/sct/20611000087101",
+       "concept": [
+        {
+         "extension": [
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-status",
+           "valueString": "active"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-version",
+           "valueString": "20190430"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-last-updated",
+           "valueDate": "2025-08-11"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-passive-immunizing-agent",
+           "valueBoolean": false
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-generic-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "7691000087100",
+              "display": "[Inf] Influenza trivalent vaccine"
+             }
+            ],
+            "text": "[Inf] Influenza trivalent vaccine"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-contains-antigen",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "260210008",
+              "display": "Influenza virus antigen"
+             }
+            ],
+            "text": "Influenza virus antigen"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-contains-antigen",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "442269004",
+              "display": "Influenza A virus subtype H1N1 antigen"
+             }
+            ],
+            "text": "Influenza A virus subtype H1N1 antigen"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-protects-against-disease",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "6142004",
+              "display": "Influenza"
+             }
+            ],
+            "text": "Influenza"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-to-market-authorization-holder",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "27041000087109",
+              "display": "Drug Safety, Abbott Laboratories, Limited (supplier)"
+             }
+            ],
+            "text": "Drug Safety, Abbott Laboratories, Limited (supplier)"
+           }
+          }
+         ],
+         "code": "19291000087108",
+         "display": "Xanaflu 15 micrograms per 0.5 milliliter suspension for injection Drug Safety, Abbott Laboratories, Limited (real clinical drug)",
+         "designation": [
+          {
+           "language": "en",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000003001",
+            "display": "Fully Specified Name"
+           },
+           "value": "Xanaflu 15 micrograms per 0.5 milliliter suspension for injection Drug Safety, Abbott Laboratories, Limited (real clinical drug)"
+          },
+          {
+           "language": "en",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000013009",
+            "display": "Synonym"
+           },
+           "value": "[Inf] Xanaflu"
+          },
+          {
+           "language": "fr",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000013009",
+            "display": "Synonym"
+           },
+           "value": "[Inf] Xanaflu"
+          },
+          {
+           "language": "en",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "enPublicPicklist",
+            "display": "english public picklist"
+           },
+           "value": "Xanaflu"
+          },
+          {
+           "language": "fr",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "frPublicPicklist",
+            "display": "french public picklist"
+           },
+           "value": "Xanaflu"
+          },
+          {
+           "language": "en",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "enAbbreviation",
+            "display": "english abbreviation"
+           },
+           "value": "Inf"
+          },
+          {
+           "language": "fr",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "frAbbreviation",
+            "display": "french abbreviation"
+           },
+           "value": "Inf"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "system": "http://snomed.info/sct",
+       "version": "http://snomed.info/sct/20611000087101",
+       "concept": [
+        {
+         "extension": [
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-status",
+           "valueString": "inactive"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-version",
+           "valueString": "20240531"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-last-updated",
+           "valueDate": "2025-08-11"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-passive-immunizing-agent",
+           "valueBoolean": false
+          }
+         ],
+         "code": "37901000087108",
+         "display": "Vivotif 10 billion units enteric coated capsule Emergent Travel Health Inc. (real clinical drug)",
+         "designation": [
+          {
+           "language": "en",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000003001",
+            "display": "Fully Specified Name"
+           },
+           "value": "Vivotif 10 billion units enteric coated capsule Emergent Travel Health Inc. (real clinical drug)"
+          },
+          {
+           "language": "en",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000013009",
+            "display": "Synonym"
+           },
+           "value": "Typh-O Vivotif ETH"
+          },
+          {
+           "language": "fr",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000013009",
+            "display": "Synonym"
+           },
+           "value": "Typh-O Vivotif ETH"
+          },
+          {
+           "language": "en",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "enAbbreviation",
+            "display": "english abbreviation"
+           },
+           "value": "Typh-O"
+          },
+          {
+           "language": "fr",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "frAbbreviation",
+            "display": "french abbreviation"
+           },
+           "value": "Typh-O"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "fullUrl": "https://nvc-cnv.canada.ca/fhir/v2/ValueSet/AnatomicalSite",
+   "resource": {
+    "resourceType": "ValueSet",
+    "id": "AnatomicalSite",
+    "meta": {
+     "lastUpdated": "2025-08-11T17:53:51Z"
+    },
+    "url": "https://nvc-cnv.canada.ca/fhir/v2/ValueSet/AnatomicalSite",
+    "version": "1.130",
+    "status": "active",
+    "date": "2025-08-11",
+    "description": "The immunization administration anatomical site subset describes specific locations of the human body where vaccines are administered. This subset is a direct extension of the Canadian SNOMED CT Reference Sets developed by Canada Health Infoway.",
+    "compose": {
+     "include": [
+      {
+       "system": "http://snomed.info/sct",
+       "version": "http://snomed.info/sct/20611000087101",
+       "concept": [
+        {
+         "extension": [
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-status",
+           "valueString": "active"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-version",
+           "valueString": "20240531"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-last-updated",
+           "valueDate": "2025-08-11"
+          }
+         ],
+         "code": "1217006009",
+         "display": "Structure of right vastus lateralis muscle (body structure)",
+         "designation": [
+          {
+           "language": "en",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000003001",
+            "display": "Fully Specified Name"
+           },
+           "value": "Structure of right vastus lateralis muscle (body structure)"
+          },
+          {
+           "language": "en",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "enDisplayTerm",
+            "display": "english display term"
+           },
+           "value": "Right vastus lateralis muscle"
+          },
+          {
+           "language": "fr",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "frDisplayTerm",
+            "display": "french display term"
+           },
+           "value": "muscle vaste latéral droit"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "system": "http://snomed.info/sct",
+       "version": "http://snomed.info/sct/20611000087101",
+       "concept": [
+        {
+         "extension": [
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-status",
+           "valueString": "active"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-version",
+           "valueString": "20240531"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-last-updated",
+           "valueDate": "2025-08-11"
+          }
+         ],
+         "code": "1217007000",
+         "display": "Structure of left vastus lateralis muscle (body structure)",
+         "designation": [
+          {
+           "language": "en",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000003001",
+            "display": "Fully Specified Name"
+           },
+           "value": "Structure of left vastus lateralis muscle (body structure)"
+          },
+          {
+           "language": "en",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "enDisplayTerm",
+            "display": "english display term"
+           },
+           "value": "Left vastus lateralis muscle"
+          },
+          {
+           "language": "fr",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "frDisplayTerm",
+            "display": "french display term"
+           },
+           "value": "muscle vaste latéral gauche"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "fullUrl": "https://nvc-cnv.canada.ca/fhir/v2/ValueSet/RouteOfAdmin",
+   "resource": {
+    "resourceType": "ValueSet",
+    "id": "RouteOfAdmin",
+    "meta": {
+     "lastUpdated": "2026-06-08T18:08:10Z"
+    },
+    "url": "https://nvc-cnv.canada.ca/fhir/v2/ValueSet/RouteOfAdmin",
+    "version": "1.130",
+    "status": "active",
+    "date": "2026-06-08",
+    "description": "The immunization route of administration subset describes the path the administered immunization takes to get into the body. The subset has been curated specifically to capture only routes of administration relevant to immunization. This is a direct extension of the Canadian SNOMED CT Reference Sets developed by Canada Health Infoway.",
+    "compose": {
+     "include": [
+      {
+       "system": "http://snomed.info/sct",
+       "version": "http://snomed.info/sct/20611000087101",
+       "concept": [
+        {
+         "extension": [
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-status",
+           "valueString": "active"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-version",
+           "valueString": "20240229"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-last-updated",
+           "valueDate": "2026-06-08"
+          }
+         ],
+         "code": "718329006",
+         "display": "Infiltration route (qualifier value)",
+         "designation": [
+          {
+           "language": "en",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000003001",
+            "display": "Fully Specified Name"
+           },
+           "value": "Infiltration route (qualifier value)"
+          },
+          {
+           "language": "en",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "enDisplayTerm",
+            "display": "english display term"
+           },
+           "value": "Infiltrate: INFL"
+          },
+          {
+           "language": "fr",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "frDisplayTerm",
+            "display": "french display term"
+           },
+           "value": "par infiltration"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "system": "http://snomed.info/sct",
+       "version": "http://snomed.info/sct/20611000087101",
+       "concept": [
+        {
+         "extension": [
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-status",
+           "valueString": "active"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-version",
+           "valueString": "20240229"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-last-updated",
+           "valueDate": "2026-06-08"
+          }
+         ],
+         "code": "372464004",
+         "display": "Intradermal route (qualifier value)",
+         "designation": [
+          {
+           "language": "en",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000003001",
+            "display": "Fully Specified Name"
+           },
+           "value": "Intradermal route (qualifier value)"
+          },
+          {
+           "language": "en",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "enDisplayTerm",
+            "display": "english display term"
+           },
+           "value": "Intradermal: ID"
+          },
+          {
+           "language": "fr",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "frDisplayTerm",
+            "display": "french display term"
+           },
+           "value": "voie intradermique: ID"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "fullUrl": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-vaccine-lot-id",
+   "resource": {
+    "resourceType": "CodeSystem",
+    "id": "nvc-vaccine-lot-id",
+    "url": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-vaccine-lot-id",
+    "version": "1.130",
+    "name": "nvc-vaccine-lot-id",
+    "title": "Vaccine lots used in the National Vaccine Catalogue (NVC)",
+    "status": "active",
+    "experimental": false,
+    "date": "2026-09-17",
+    "publisher": "Public Health Agency of Canada (PHAC)",
+    "contact": [
+     {
+      "telecom": [
+       {
+        "system": "email",
+        "value": "NVC-CNV@phac-aspc.gc.ca"
+       }
+      ]
+     }
+    ],
+    "description": "This code system represents all of the vaccine lots published in the National Vaccine Catalogue (NVC). Codes are pairs of lot numbers and unique IDs separated by an underscore.",
+    "caseSensitive": false,
+    "content": "complete",
+    "count": 4,
+    "property": [
+     {
+      "code": "drugIdentificationNumber",
+      "description": "The DIN associated with the drug associated with this vaccine lot",
+      "type": "Coding"
+     },
+     {
+      "code": "lotNumber",
+      "description": "The lot number associated to this vaccine lot",
+      "type": "string"
+     },
+     {
+      "code": "internationallySourced",
+      "description": "A boolean value indicating Whether this vaccine lot was internationally sourced",
+      "type": "boolean"
+     },
+     {
+      "code": "healthCanadaApprovalDate",
+      "description": "The date (YYYY-MM-DD) when Health Canada approved the vaccine lot for distribution",
+      "type": "dateTime"
+     },
+     {
+      "code": "originalExpiryDate",
+      "description": "The date (YYYY-MM-DD) representing the manufacturer's original/initial expiration date for the vaccine lot number",
+      "type": "dateTime"
+     },
+     {
+      "code": "expiryDate",
+      "description": "The current expiration date (YYYY-MM-DD) of the vaccine lot. This may be the original date or an extended date if Health canada has approved a shelf-life extension",
+      "type": "dateTime"
+     },
+     {
+      "code": "shelfLifeExtensionApprovalDate",
+      "description": "The Date (YYYY-MM-DD) when a shelf-life extension was approved by Health Canada",
+      "type": "dateTime"
+     }
+    ],
+    "concept": [
+     {
+      "extension": [
+       {
+        "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+        "valueCodeableConcept": {
+         "coding": [
+          {
+           "system": "http://snomed.info/sct/20611000087101",
+           "code": "51511000087105",
+           "display": "[COVID-19] COMIRNATY Omicron XBB.1.5 pediatric 3 mcg/0.2 mL"
+          }
+         ],
+         "text": "[COVID-19] COMIRNATY Omicron XBB.1.5 pediatric 3 mcg/0.2 mL"
+        }
+       },
+       {
+        "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-to-market-authorization-holder",
+        "valueCodeableConcept": {
+         "coding": [
+          {
+           "system": "http://snomed.info/sct/20611000087101",
+           "code": "29141000087103",
+           "display": "BIONTECH MANUFACTURING GMBH (supplier)"
+          }
+         ],
+         "text": "BIONTECH MANUFACTURING GMBH (supplier)"
+        }
+       }
+      ],
+      "code": "HH6775_[1671]",
+      "property": [
+       {
+        "code": "internationallySourced",
+        "valueBoolean": false
+       },
+       {
+        "code": "lotNumber",
+        "valueString": "HH6775"
+       },
+       {
+        "code": "healthCanadaApprovalDate",
+        "valueDateTime": "2023-10-13"
+       },
+       {
+        "code": "originalExpiryDate",
+        "valueDateTime": "2024-10-31"
+       },
+       {
+        "code": "expiryDate",
+        "valueDateTime": "2024-10-31"
+       },
+       {
+        "code": "drugIdentificationNumber",
+        "valueCoding": {
+         "system": "http://hl7.org/fhir/NamingSystem/ca-hc-din",
+         "code": "02541866"
+        }
+       }
+      ]
+     },
+     {
+      "extension": [
+       {
+        "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+        "valueCodeableConcept": {
+         "coding": [
+          {
+           "system": "http://snomed.info/sct/20611000087101",
+           "code": "51511000087105",
+           "display": "[COVID-19] COMIRNATY Omicron XBB.1.5 pediatric 3 mcg/0.2 mL"
+          }
+         ],
+         "text": "[COVID-19] COMIRNATY Omicron XBB.1.5 pediatric 3 mcg/0.2 mL"
+        }
+       },
+       {
+        "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-to-market-authorization-holder",
+        "valueCodeableConcept": {
+         "coding": [
+          {
+           "system": "http://snomed.info/sct/20611000087101",
+           "code": "29141000087103",
+           "display": "BIONTECH MANUFACTURING GMBH (supplier)"
+          }
+         ],
+         "text": "BIONTECH MANUFACTURING GMBH (supplier)"
+        }
+       }
+      ],
+      "code": "HL2950_[1685]",
+      "property": [
+       {
+        "code": "internationallySourced",
+        "valueBoolean": false
+       },
+       {
+        "code": "lotNumber",
+        "valueString": "HL2950"
+       },
+       {
+        "code": "healthCanadaApprovalDate",
+        "valueDateTime": "2023-11-03"
+       },
+       {
+        "code": "originalExpiryDate",
+        "valueDateTime": "2025-02-28"
+       },
+       {
+        "code": "expiryDate",
+        "valueDateTime": "2025-02-28"
+       },
+       {
+        "code": "drugIdentificationNumber",
+        "valueCoding": {
+         "system": "http://hl7.org/fhir/NamingSystem/ca-hc-din",
+         "code": "02541866"
+        }
+       }
+      ]
+     },
+     {
+      "extension": [
+       {
+        "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+        "valueCodeableConcept": {
+         "coding": [
+          {
+           "system": "http://snomed.info/sct/20611000087101",
+           "code": "28571000087109",
+           "display": "[COVID-19] SPIKEVAX (original strain) 0.20 mg/mL"
+          }
+         ],
+         "text": "[COVID-19] SPIKEVAX (original strain) 0.20 mg/mL"
+        }
+       },
+       {
+        "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-to-market-authorization-holder",
+        "valueCodeableConcept": {
+         "coding": [
+          {
+           "system": "http://snomed.info/sct/20611000087101",
+           "code": "51461000087108",
+           "display": "MODERNA BIOPHARMA CANADA CORPORATION (supplier)"
+          }
+         ],
+         "text": "MODERNA BIOPHARMA CANADA CORPORATION (supplier)"
+        }
+       }
+      ],
+      "code": "042D21A_[1]",
+      "property": [
+       {
+        "code": "internationallySourced",
+        "valueBoolean": true
+       },
+       {
+        "code": "lotNumber",
+        "valueString": "042D21A"
+       },
+       {
+        "code": "healthCanadaApprovalDate",
+        "valueDateTime": "2021-06-13"
+       },
+       {
+        "code": "originalExpiryDate",
+        "valueDateTime": "2022-02-07"
+       },
+       {
+        "code": "expiryDate",
+        "valueDateTime": "2022-02-07"
+       }
+      ]
+     },
+     {
+      "extension": [
+       {
+        "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+        "valueCodeableConcept": {
+         "coding": [
+          {
+           "system": "http://snomed.info/sct/20611000087101",
+           "code": "51511000087105",
+           "display": "[COVID-19] COMIRNATY Omicron XBB.1.5 pediatric 3 mcg/0.2 mL"
+          }
+         ],
+         "text": "[COVID-19] COMIRNATY Omicron XBB.1.5 pediatric 3 mcg/0.2 mL"
+        }
+       },
+       {
+        "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-to-market-authorization-holder",
+        "valueCodeableConcept": {
+         "coding": [
+          {
+           "system": "http://snomed.info/sct/20611000087101",
+           "code": "29141000087103",
+           "display": "BIONTECH MANUFACTURING GMBH (supplier)"
+          }
+         ],
+         "text": "BIONTECH MANUFACTURING GMBH (supplier)"
+        }
+       }
+      ],
+      "code": "HH6775_[1671]_dup",
+      "property": [
+       {
+        "code": "internationallySourced",
+        "valueBoolean": false
+       },
+       {
+        "code": "lotNumber",
+        "valueString": "HH6775"
+       },
+       {
+        "code": "healthCanadaApprovalDate",
+        "valueDateTime": "2023-10-13"
+       },
+       {
+        "code": "originalExpiryDate",
+        "valueDateTime": "2024-10-31"
+       },
+       {
+        "code": "expiryDate",
+        "valueDateTime": "2024-10-31"
+       },
+       {
+        "code": "drugIdentificationNumber",
+        "valueCoding": {
+         "system": "http://hl7.org/fhir/NamingSystem/ca-hc-din",
+         "code": "02541866"
+        }
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "fullUrl": "https://nvc-cnv.canada.ca/fhir/v2/ValueSet/Disease",
+   "resource": {
+    "resourceType": "ValueSet",
+    "id": "Disease",
+    "meta": {
+     "lastUpdated": "2026-09-03T15:23:36Z"
+    },
+    "url": "https://nvc-cnv.canada.ca/fhir/v2/ValueSet/Disease",
+    "version": "1.130",
+    "status": "active",
+    "date": "2026-09-03",
+    "description": "The vaccine-preventable disease subset provides code references to vaccine-preventable diseases. This subset is a direct extension of the Canadian SNOMED CT Reference Sets developed by Canada Health Infoway. Where available, each SNOMED CT vaccine-preventable disease is also linked to its corresponding SNOMED CT tradename (representing the vaccine brand name), generic immunization agent concept (representing the non-brand name), and antigen concept (representing the active ingredient triggering an immune response).",
+    "compose": {
+     "include": [
+      {
+       "system": "http://snomed.info/sct",
+       "version": "http://snomed.info/sct/20611000087101",
+       "concept": [
+        {
+         "extension": [
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-status",
+           "valueString": "active"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-version",
+           "valueString": "20190430"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-concept-last-updated",
+           "valueDate": "2025-08-11"
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-contains-antigen",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "120980007",
+              "display": "Rabies lyssavirus antigen"
+             }
+            ],
+            "text": "Rabies lyssavirus antigen"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-contains-antigen",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "422303009",
+              "display": "Rabies immunoglobulin"
+             }
+            ],
+            "text": "Rabies immunoglobulin"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "21711000087102",
+              "display": "[Rab] RabAvert (GSK)"
+             }
+            ],
+            "text": "[Rab] RabAvert (GSK)"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "33231000087100",
+              "display": "[Rab] RABAVERT (BN)"
+             }
+            ],
+            "text": "[Rab] RABAVERT (BN)"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "7381000087106",
+              "display": "[Rab] Imovax Rabies"
+             }
+            ],
+            "text": "[Rab] Imovax Rabies"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "7391000087108",
+              "display": "[Rab] RabAvert (NVD)"
+             }
+            ],
+            "text": "[Rab] RabAvert (NVD)"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "7971000087108",
+              "display": "[RabIg] IMOGAM"
+             }
+            ],
+            "text": "[RabIg] IMOGAM"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "7961000087104",
+              "display": "[RabIg] HYPERRAB S/D"
+             }
+            ],
+            "text": "[RabIg] HYPERRAB S/D"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "28361000087109",
+              "display": "[RabIg] KamRAB"
+             }
+            ],
+            "text": "[RabIg] KamRAB"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-tradename-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "31551000087108",
+              "display": "[RabIg] HyperRAB"
+             }
+            ],
+            "text": "[RabIg] HyperRAB"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-generic-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "871726005",
+              "display": "[Rab] Rabies vaccine"
+             }
+            ],
+            "text": "[Rab] Rabies vaccine"
+           }
+          },
+          {
+           "url": "https://nvc-cnv.canada.ca/fhir/v2/StructureDefinition/nvc-linked-generic-concept",
+           "valueCodeableConcept": {
+            "coding": [
+             {
+              "system": "http://snomed.info/sct/20611000087101",
+              "code": "80834004",
+              "display": "[RabIg] Rabies immunoglobulin"
+             }
+            ],
+            "text": "[RabIg] Rabies immunoglobulin"
+           }
+          }
+         ],
+         "code": "14168008",
+         "display": "Rabies (disorder)",
+         "designation": [
+          {
+           "language": "en",
+           "use": {
+            "system": "http://snomed.info/sct",
+            "code": "900000000000003001",
+            "display": "Fully Specified Name"
+           },
+           "value": "Rabies (disorder)"
+          },
+          {
+           "language": "en",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "enDisplayTerm",
+            "display": "english display term"
+           },
+           "value": "Rabies"
+          },
+          {
+           "language": "fr",
+           "use": {
+            "system": "https://nvc-cnv.canada.ca/fhir/v2/CodeSystem/nvc-designation",
+            "code": "frDisplayTerm",
+            "display": "french display term"
+           },
+           "value": "rage"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   }
+  }
+ ]
+}

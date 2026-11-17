@@ -11,6 +11,7 @@ import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.RxManager;
@@ -55,7 +56,9 @@ public final class ChartClinicalSummaryProvider implements ClinicalSummaryArtifa
             throw new NoSuchElementException("Patient record unavailable");
         }
         requirePatient(demographicNo, patient.getDemographicNo());
-        LogAction.addLogSynchronous(user, "ClinicalSummary.read", "demographicNo=" + demographicNo);
+        // A chart-level row: no document, so contentId stays empty and the patient is the key.
+        LogAction.addLogSynchronous(user, "ClinicalSummary.read", LogConst.CON_AI_CLINICAL_SUMMARY, null,
+                demographicNo, "demographicNo=" + demographicNo);
 
         ObjectNode artifact = new ObjectMapper().createObjectNode();
         String patientId = "demographic-" + demographicNo;

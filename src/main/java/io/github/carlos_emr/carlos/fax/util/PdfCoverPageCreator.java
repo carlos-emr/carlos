@@ -28,6 +28,8 @@
  */
 package io.github.carlos_emr.carlos.fax.util;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -87,7 +89,7 @@ public class PdfCoverPageCreator {
     public PdfCoverPageCreator(String note) {
         this.note = note;
         try {
-            basefont = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            basefont = PdfFonts.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
             body = new Font(basefont, 11, Font.NORMAL);
             footer = new Font(basefont, 10, Font.NORMAL);
             heading_bold = new Font(basefont, 11, Font.BOLD);
@@ -188,7 +190,7 @@ public class PdfCoverPageCreator {
 
             // memo
             PdfPTable memoTable = new PdfPTable(1);
-            cell = new PdfPCell(new Phrase(note, body));
+            cell = new PdfPCell(PdfFonts.phrase(note, body));
             cell.setPaddingTop(10);
             cell.setPaddingBottom(10);
             cell.setBorder(0);
@@ -199,7 +201,7 @@ public class PdfCoverPageCreator {
 
             // footer
             PdfPTable footerTable = new PdfPTable(1);
-            cell = new PdfPCell(new Phrase(CarlosProperties.getConfidentialityStatement(), footer));
+            cell = new PdfPCell(PdfFonts.phrase(CarlosProperties.getConfidentialityStatement(), footer));
             cell.setPaddingTop(0);
             cell.setBorder(0);
             cell.setColspan(1);
@@ -233,7 +235,7 @@ public class PdfCoverPageCreator {
             return infoTable;
         }
 
-        PdfPCell cell = new PdfPCell(new Phrase(sender.getFaxNumberOwner(), LETTERHEAD));
+        PdfPCell cell = new PdfPCell(PdfFonts.phrase(sender.getFaxNumberOwner(), LETTERHEAD));
         cell.setBorder(0);
         cell.setPadding(0);
         cell.setIndent(10);
@@ -242,26 +244,26 @@ public class PdfCoverPageCreator {
         infoTable.addCell(cell);
 
         // add the address details
-        Phrase addressPhrase = new Phrase("", LETTERHEAD);
+        Phrase addressPhrase = PdfFonts.phrase("", LETTERHEAD);
         if (sender.getAddress() != null && sender.getAddress().length() > 0) {
-            addressPhrase.add(String.format("%s", sender.getAddress()));
+            PdfFonts.addText(addressPhrase, String.format("%s", sender.getAddress()), addressPhrase.getFont());
         }
 
         cell.setPhrase(addressPhrase);
         infoTable.addCell(cell);
 
         // add the telecom info
-        Phrase telecomPhonePhrase = new Phrase("", LETTERHEAD);
+        Phrase telecomPhonePhrase = PdfFonts.phrase("", LETTERHEAD);
         if (sender.getPhone() != null && sender.getPhone().trim().length() > 0) {
-            telecomPhonePhrase.add(String.format("Phone: %s", sender.getPhone()));
+            PdfFonts.addText(telecomPhonePhrase, String.format("Phone: %s", sender.getPhone()), telecomPhonePhrase.getFont());
         }
 
         cell.setPhrase(telecomPhonePhrase);
         infoTable.addCell(cell);
 
-        Phrase telecomFaxPhrase = new Phrase("", LETTERHEAD);
+        Phrase telecomFaxPhrase = PdfFonts.phrase("", LETTERHEAD);
         if (sender.getFax() != null && sender.getFax().trim().length() > 0) {
-            telecomFaxPhrase.add(String.format("Fax: %s", sender.getFax()));
+            PdfFonts.addText(telecomFaxPhrase, String.format("Fax: %s", sender.getFax()), telecomFaxPhrase.getFont());
         }
 
         cell.setPhrase(telecomFaxPhrase);
@@ -288,15 +290,15 @@ public class PdfCoverPageCreator {
         column1Cell.setHorizontalAlignment(PdfPCell.ALIGN_LEFT);
         column1Cell.setVerticalAlignment(PdfPCell.ALIGN_TOP);
 
-        column1Cell.setPhrase(new Phrase("To: " + recipient.getName(), body));
+        column1Cell.setPhrase(PdfFonts.phrase("To: " + recipient.getName(), body));
         column1Table.addCell(column1Cell);
-        column1Cell.setPhrase(new Phrase("From: " + sender.getLetterheadName(), body));
+        column1Cell.setPhrase(PdfFonts.phrase("From: " + sender.getLetterheadName(), body));
         column1Table.addCell(column1Cell);
         Date today = new Date();
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy/MM/dd");
         column1Cell.setFixedHeight(0f);
         column1Cell.setPaddingBottom(5f);
-        column1Cell.setPhrase(new Phrase("Date: " + simpleDateFormat.format(today), body));
+        column1Cell.setPhrase(PdfFonts.phrase("Date: " + simpleDateFormat.format(today), body));
         column1Table.addCell(column1Cell);
 
         addTable(infolineborder, column1Table);
@@ -307,11 +309,11 @@ public class PdfCoverPageCreator {
         column2Cell.setBorder(0);
         column2Cell.setFixedHeight(50f);
         column2Cell.enableBorderSide(PdfPCell.LEFT);
-        column2Cell.setPhrase(new Phrase("Fax: \n" + recipient.getFax(), body));
+        column2Cell.setPhrase(PdfFonts.phrase("Fax: \n" + recipient.getFax(), body));
         column2Table.addCell(column2Cell);
         column2Cell.setFixedHeight(0f);
         column2Cell.setPaddingBottom(5f);
-        column2Cell.setPhrase(new Phrase("Total pages including fax cover: " + (numberPages + 1), body));
+        column2Cell.setPhrase(PdfFonts.phrase("Total pages including fax cover: " + (numberPages + 1), body));
         column2Table.addCell(column2Cell);
         addTable(infolineborder, column2Table);
 
@@ -333,11 +335,11 @@ public class PdfCoverPageCreator {
         PdfPCell column1Cell = new PdfPCell();
         column1Cell.setPaddingTop(0);
         column1Cell.setBorder(0);
-        column1Cell.setPhrase(new Phrase("Fax Transmittal:", heading_bold));
+        column1Cell.setPhrase(PdfFonts.phrase("Fax Transmittal:", heading_bold));
         column1Table.addCell(column1Cell);
 
         column1Cell.setFixedHeight(25f);
-        column1Cell.setPhrase(new Phrase(sender.getSubText(), body));
+        column1Cell.setPhrase(PdfFonts.phrase(sender.getSubText(), body));
         column1Table.addCell(column1Cell);
 
         addTable(titlelineborder, column1Table);
@@ -348,11 +350,11 @@ public class PdfCoverPageCreator {
         column2Cell.setBorder(0);
         column2Cell.setHorizontalAlignment(PdfPCell.ALIGN_CENTER);
         column2Cell.setVerticalAlignment(PdfPCell.ALIGN_TOP);
-        column2Cell.setPhrase(new Phrase("CONFIDENTIAL", heading_bold));
+        column2Cell.setPhrase(PdfFonts.phrase("CONFIDENTIAL", heading_bold));
         titlelineborder.addCell(column2Cell);
 
         // column 3
-        column2Cell.setPhrase(new Phrase("", body));
+        column2Cell.setPhrase(PdfFonts.phrase("", body));
 
         titlelineborder.addCell(column2Cell);
 

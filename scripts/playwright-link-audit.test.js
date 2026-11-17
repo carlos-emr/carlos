@@ -3,13 +3,14 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
-  ERROR_PAGE_RE, auditCatalogue, catalogueLinks, dedupe, findingsSince, itemLocator, snapshotRecorder,
+  ERROR_PAGE_RE, auditCatalogue, catalogueLinks, dedupe, findingsSince, itemLocator, snapshotRecorder, resolveAuditLink,
 } = require('./lib/playwright-link-audit');
 const { createRecorder } = require('./lib/playwright-harness');
 
 const adminSkips = require('./admin-index-links-playwright-checks').SKIP_ITEMS;
 const masterSkips = require('./master-record-tabs-playwright-checks').SKIP_ITEMS;
 const chartSkips = require('./echart-navbar-modules-playwright-checks').SKIP_ITEMS;
+const { watchPopupModuleRefresh } = require('./echart-navbar-modules-playwright-checks');
 
 test('the same item rendered in two permission branches is opened once', () => {
   // admin.jsp renders several groups twice, once per oscarSec branch, so an
@@ -1172,4 +1173,296 @@ test('an invalid Unicode code point fails the audit instead of inventing a route
   await assert.rejects(() => catalogue([anchorDouble({
     href: '#', onclick: String.raw`popup('/carlos/\u{110000}')`,
   }, 'Open')]), RangeError);
+});
+
+test('popup teardown awaits its cleanup and still closes the popup if cleanup fails', async () => {
+  for (const failCleanup of [false, true]) {
+    const popup = fakePopup('a chart destination');
+    const pages = [{}];
+    const fake = fakeAuditPage({ textFor: () => 'Chart', onClick: () => { pages.push(popup.page); } });
+    let cleaned = false;
+    const audit = auditCatalogue({
+      context: { pages: () => pages }, hostPage: fake.page,
+      items: [{ text: 'Chart', index: 0, selector: 'a', href: '/x', opensPopup: false }],
+      recorder: createRecorder(), labelPrefix: 'master', timeout: 1000,
+      async beforePopupClose(page) {
+        assert.equal(page, popup.page);
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(popup.closed, false, 'the chart must remain alive until its release finishes');
+        cleaned = true;
+        if (failCleanup) throw new Error('Release failed');
+      },
+    });
+    if (failCleanup) await assert.rejects(audit, /Release failed/);
+    else assert.deepEqual((await audit).failures, []);
+    assert.equal(cleaned, true);
+    assert.equal(popup.closed, true);
+  }
+});
+
+function popupRefreshFixture({registered = true, status = 200} = {}) {
+  const vm = require('node:vm');
+  const deferred = () => {
+    let resolve;
+    const promise = new Promise(done => { resolve = done; });
+    return {promise, resolve};
+  };
+  const response = deferred(); const body = deferred(); const detached = deferred(); const retired = deferred();
+  const window = {name: 'formWindow', openWindows: {}, reloadWindows: {}};
+  if (registered) {
+    window.openWindows.formWindow = {closed: false};
+    window.reloadWindows.formWindow = '/carlos/encounter/displayForms?demographicNo=123';
+    window.reloadWindows.formWindowdiv = 'forms';
+  }
+  const state = {armed: false, disposed: 0, domWaits: 0, predicate: null};
+  const previous = {isConnected: true, dispose: async () => { state.disposed++; }};
+  const document = {baseURI: 'https://fixture.invalid/carlos/', getElementById: id => id === 'forms' ? {children: [{}]} : null};
+  const evaluate = (fn, argument) => vm.runInNewContext(`(${fn.toString()})(argument)`, {window, document, URL, argument});
+  const chart = {
+    evaluate: async (fn, argument) => evaluate(fn, argument),
+    locator(selector) {
+      assert.equal(selector, 'id=forms');
+      return {locator: () => ({first: () => ({elementHandle: async () => previous})})};
+    },
+    waitForResponse(predicate) { state.armed = true; state.predicate = predicate; return response.promise; },
+    async waitForFunction(fn, argument) {
+      state.domWaits++;
+      await (argument === previous ? detached.promise : retired.promise);
+      assert.equal(evaluate(fn, argument), true);
+    },
+  };
+  const popup = {isClosed: () => false, evaluate: async fn => evaluate(fn)};
+  const request = (method = 'POST', url = 'https://fixture.invalid/carlos/encounter/displayForms?demographicNo=123') => ({
+    request: () => ({method: () => method}), url: () => url,
+    status: () => status, finished: () => body.promise,
+  });
+  return {chart, popup, state, request, response, body, detached, retired, previous, window};
+}
+
+test('chart popup refresh waits for its exact response, DOM replacement and retired close callback before the next link', async () => {
+  const fixture = popupRefreshFixture();
+  const watcher = await watchPopupModuleRefresh(fixture.chart, fixture.popup, 1000);
+  assert.equal(fixture.state.armed, true, 'Response observation must precede popup closure');
+  assert.equal(fixture.state.predicate(fixture.request()), true);
+  assert.equal(fixture.state.predicate(fixture.request('GET')), false);
+  assert.equal(fixture.state.predicate(fixture.request('POST', 'https://fixture.invalid/carlos/encounter/displayForms?demographicNo=456')), false);
+  let complete = false;
+  watcher.settled.then(() => { complete = true; });
+  fixture.response.resolve(fixture.request());
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(complete, false, 'Headers alone do not finish the refresh');
+  fixture.body.resolve();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(complete, false, 'An old attached module cannot be resolved for the next click');
+  fixture.previous.isConnected = false;
+  fixture.detached.resolve();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(complete, false, 'The close callback must finish removing its registered window');
+  delete fixture.window.openWindows.formWindow;
+  delete fixture.window.reloadWindows.formWindow;
+  fixture.retired.resolve();
+  await watcher.settled;
+  assert.equal(complete, true);
+  assert.equal(fixture.state.disposed, 1);
+});
+
+test('chart popup refresh reports an unsuccessful response without retrying or accepting replacement markup', async () => {
+  const fixture = popupRefreshFixture({status: 500});
+  const watcher = await watchPopupModuleRefresh(fixture.chart, fixture.popup, 1000);
+  fixture.response.resolve(fixture.request()); fixture.body.resolve();
+  await assert.rejects(watcher.settled, /module refresh failed/);
+  assert.equal(fixture.state.domWaits, 0);
+  assert.equal(fixture.state.disposed, 1);
+});
+
+test('unregistered and already closed popups do not invent a module refresh', async () => {
+  const fixture = popupRefreshFixture({registered: false});
+  assert.equal(await watchPopupModuleRefresh(fixture.chart, fixture.popup, 1000), null);
+  assert.equal(await watchPopupModuleRefresh(fixture.chart, {isClosed: () => true}, 1000), null);
+  assert.equal(fixture.state.armed, false);
+  assert.equal(fixture.state.disposed, 0);
+});
+
+function identityAnchor(text, attributes, module = 'docs', navbar = 'leftNavBar') {
+  return {
+    textContent: text, attributes: { ...attributes }, isConnected: true,
+    parentElement: { id: module, parentElement: { id: navbar, parentElement: null } },
+    getAttribute(name) { return this.attributes[name] ?? null; },
+  };
+}
+
+function identityPage(initialAnchors) {
+  const state = { anchors: initialAnchors, clicked: [], disposed: 0, beforePin: null,
+    baseURI: 'https://127.0.0.1/carlos/encounter' };
+  const inDocument = callback => {
+    const before = global.document;
+    global.document = { baseURI: state.baseURI };
+    try { return callback(); }
+    finally { if (before === undefined) delete global.document; else global.document = before; }
+  };
+  const page = {
+    $$eval: async (_selector, fn) => inDocument(() => fn(state.anchors)),
+    locator: () => ({ nth: index => ({ async elementHandle() {
+      if (state.beforePin) state.beforePin();
+      const anchor = state.anchors[index];
+      if (!anchor) return null;
+      return {
+        evaluate: async fn => inDocument(() => fn(anchor)),
+        click: async () => state.clicked.push(anchor),
+        dispose: async () => { state.disposed += 1; },
+      };
+    } }) }),
+  };
+  return { page, state };
+}
+
+async function identityItem(page, text) {
+  const items = await catalogueLinks(page, { selector: '#leftNavBar a, #rightNavBar a', identity: true });
+  return items.find(item => item.text === text);
+}
+
+test('refreshed navbar positions re-resolve the original destination inside its recorded module', async () => {
+  const docs = identityAnchor('Documents', { href: '#', onclick: "popup('/carlos/docs?demographicNo=1')" });
+  const { page, state } = identityPage([docs]);
+  const item = await identityItem(page, 'Documents');
+  state.anchors.unshift(identityAnchor('Td', { href: '/carlos/preventions?type=Td' }, 'preventions'));
+  const link = await resolveAuditLink(page, item, 100);
+  await link.click();
+  await link.dispose();
+  assert.deepEqual(state.clicked, [docs]);
+  assert.equal(item.index, 0, 'the original evidence index is retained, not silently rewritten');
+});
+
+test('same-label destinations are resolved by the complete handler and original container', async () => {
+  const first = identityAnchor('Documents', { href: '#', onclick: "popup('/carlos/docs?demographicNo=1')" });
+  const second = identityAnchor('Documents', { href: '#', onclick: "popup('/carlos/docs?demographicNo=2')" });
+  const { page, state } = identityPage([first, second]);
+  const items = await catalogueLinks(page, { identity: true });
+  state.anchors.reverse();
+  const link = await resolveAuditLink(page, items[1], 100);
+  await link.click();
+  await link.dispose();
+  assert.deepEqual(state.clicked, [second]);
+});
+
+test('changed destination attributes cannot pass because the visible text stayed the same', async () => {
+  for (const [name, changed] of [['href', '/carlos/other'], ['onclick', "popup('/carlos/other')"],
+    ['rel', '/carlos/other'], ['target', '_blank'], ['id', 'replacement-link']]) {
+    const anchor = identityAnchor('Documents', { href: '/carlos/docs', onclick: '', rel: '', target: '', id: 'original-link' });
+    const { page, state } = identityPage([anchor]);
+    const item = await identityItem(page, 'Documents');
+    anchor.attributes[name] = changed;
+    await assert.rejects(resolveAuditLink(page, item, 100), /missing or changed/);
+    assert.deepEqual(state.clicked, []);
+  }
+});
+
+test('identical text and destination in another module cannot replace a missing original link', async () => {
+  const original = identityAnchor('Documents', { href: '/carlos/docs' }, 'docs');
+  const { page, state } = identityPage([original]);
+  const item = await identityItem(page, 'Documents');
+  state.anchors = [identityAnchor('Documents', { href: '/carlos/docs' }, 'other-module')];
+  await assert.rejects(resolveAuditLink(page, item, 100), /missing or changed/);
+  assert.deepEqual(state.clicked, []);
+});
+
+test('the same extracted destination does not excuse a changed JavaScript opener', async () => {
+  const original = identityAnchor('Documents', { href: "javascript:popup('/carlos/docs')" });
+  const { page, state } = identityPage([original]);
+  const item = await identityItem(page, 'Documents');
+  original.attributes.href += ';deleteSomething()';
+  assert.equal((await identityItem(page, 'Documents')).route, item.route);
+  await assert.rejects(resolveAuditLink(page, item, 100), /missing or changed/);
+  assert.deepEqual(state.clicked, []);
+});
+
+test('a changed document base cannot silently redirect an unchanged relative destination', async () => {
+  const { page, state } = identityPage([identityAnchor('Documents', { href: 'docs' })]);
+  const item = await identityItem(page, 'Documents');
+  state.baseURI = 'https://127.0.0.1/other/encounter';
+  await assert.rejects(resolveAuditLink(page, item, 100), /missing or changed/);
+  assert.deepEqual(state.clicked, []);
+});
+
+test('duplicate full identities are rejected instead of blindly selecting the first', async () => {
+  const original = identityAnchor('Documents', { href: '/carlos/docs' });
+  const { page, state } = identityPage([original]);
+  const item = await identityItem(page, 'Documents');
+  state.anchors.push(identityAnchor('Documents', { href: '/carlos/docs' }));
+  await assert.rejects(resolveAuditLink(page, item, 100), /ambiguous/);
+  assert.deepEqual(state.clicked, []);
+});
+
+test('a second refresh between matching and pinning is verified before returning any click target', async () => {
+  const { page, state } = identityPage([identityAnchor('Documents', { href: '/carlos/docs' })]);
+  const item = await identityItem(page, 'Documents');
+  state.beforePin = () => state.anchors.unshift(identityAnchor('Wrong destination', { href: '/carlos/delete' }));
+  await assert.rejects(resolveAuditLink(page, item, 100), /changed after identity resolution/);
+  assert.deepEqual(state.clicked, []);
+  assert.equal(state.disposed, 1);
+});
+
+test('a pinned node cannot retarget after another link is inserted ahead of it', async () => {
+  const original = identityAnchor('Documents', { href: '/carlos/docs' });
+  const { page, state } = identityPage([original]);
+  const item = await identityItem(page, 'Documents');
+  const link = await resolveAuditLink(page, item, 100);
+  state.anchors.unshift(identityAnchor('Delete', { href: '/carlos/delete' }));
+  await link.click();
+  await link.dispose();
+  assert.deepEqual(state.clicked, [original]);
+});
+
+test('a pinned link whose handler changes is refused immediately before clicking', async () => {
+  const original = identityAnchor('Documents', { href: '#', onclick: "popup('/carlos/docs')" });
+  const { page, state } = identityPage([original]);
+  const item = await identityItem(page, 'Documents');
+  const link = await resolveAuditLink(page, item, 100);
+  original.attributes.onclick = "popup('/carlos/delete')";
+  await assert.rejects(link.click(), /changed after identity resolution/);
+  await link.dispose();
+  assert.deepEqual(state.clicked, []);
+});
+
+test('a detached pinned link cannot transfer its click to a replacement node', async () => {
+  const original = identityAnchor('Documents', { href: '/carlos/docs' });
+  const { page, state } = identityPage([original]);
+  const item = await identityItem(page, 'Documents');
+  const link = await resolveAuditLink(page, item, 100);
+  original.isConnected = false;
+  state.anchors = [identityAnchor('Documents', { href: '/carlos/docs' })];
+  await assert.rejects(link.click(), /changed after identity resolution/);
+  await link.dispose();
+  assert.deepEqual(state.clicked, []);
+});
+
+test('identity-aware deduplication keeps otherwise identical destinations from separate modules', async () => {
+  const { page } = identityPage([
+    identityAnchor('Documents', { href: '/carlos/docs' }, 'docs'),
+    identityAnchor('Documents', { href: '/carlos/docs' }, 'other-module'),
+  ]);
+  assert.equal(dedupe(await catalogueLinks(page, { identity: true })).length, 2);
+});
+
+test('the audit awaits fresh-module readiness before resolving or clicking the next item', async () => {
+  let ready = false;
+  const fake = fakeAuditPage({ textFor: () => ready ? 'Documents' : 'Still refreshing', actsInPlace: true });
+  const result = await auditCatalogue({ context: { pages: () => [] }, hostPage: fake.page,
+    items: [{ text: 'Documents', index: 0, href: '/carlos/docs' }], recorder: createRecorder(), timeout: 100,
+    async beforeItem() { await new Promise(resolve => setImmediate(resolve)); ready = true; },
+  });
+  assert.deepEqual(result.failures, []);
+  assert.deepEqual(result.opened, ['Documents']);
+});
+
+test('failed module readiness remains a finding and never clicks stale markup', async () => {
+  let clicked = false;
+  const fake = fakeAuditPage({ textFor: () => 'Documents', onClick: () => { clicked = true; } });
+  const result = await auditCatalogue({ context: { pages: () => [] }, hostPage: fake.page,
+    items: [{ text: 'Documents', index: 0, href: '/carlos/docs' }], recorder: createRecorder(), timeout: 100,
+    async beforeItem() { throw new Error('The refreshed documents module failed'); },
+  });
+  assert.equal(clicked, false);
+  assert.deepEqual(result.opened, []);
+  assert.match(result.failures[0], /refreshed documents module failed/);
 });

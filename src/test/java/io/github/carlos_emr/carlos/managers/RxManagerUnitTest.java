@@ -554,6 +554,45 @@ class RxManagerUnitTest extends RxManagerImpl {
         }
     }
 
+    /**
+     * Ownership contract for {@code archiveDrug}. Callers such as the re-prescribe flow stage drug
+     * ids from the request and rely on this method to refuse ids belonging to another patient, so
+     * both of its {@code false} branches are pinned here rather than trusted from the caller side.
+     */
+    @Nested
+    @DisplayName("archiveDrug")
+    class ArchiveDrug {
+
+        @Test
+        @DisplayName("should return false when the drug belongs to another demographic")
+        void shouldReturnFalse_whenDrugBelongsToAnotherDemographic() {
+            // A victim's drug, owned by demographic 9.
+            Drug victim = new Drug();
+            victim.setId(3);
+            victim.setDemographicId(9);
+            victim.setBrandName("Aspirin");
+            victim.setArchived(false);
+            ((MockDrugDao) drugDao).seed(victim);
+
+            // The caller is authorized for demographic 1 (passes writeCheck's <5 rule) but points
+            // the drug id at the victim's drug.
+            LoggedInInfo info = new LoggedInInfo();
+
+            assertThat(archiveDrug(info, 3, 1, Drug.REPRESCRIBED)).isFalse();
+            assertThat(mergedDrug).isNull();
+            assertThat(victim.isArchived()).isFalse();
+        }
+
+        @Test
+        @DisplayName("should return false when no drug matches the id")
+        void shouldReturnFalse_whenDrugNotFound() {
+            LoggedInInfo info = new LoggedInInfo();
+
+            assertThat(archiveDrug(info, 20, 1, Drug.REPRESCRIBED)).isFalse();
+            assertThat(mergedDrug).isNull();
+        }
+    }
+
     // =========== HELPER METHODS =================
 
     private Drug createTestDrug() {

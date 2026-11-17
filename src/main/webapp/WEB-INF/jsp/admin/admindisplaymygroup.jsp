@@ -33,6 +33,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -108,13 +109,16 @@
             %>
             <tr class="<%=toggleLine?"":"table-info"%>">
                 <td width="20px">
+                    <%-- AdminNewGroup2Action reads a membership from this pair: the name is
+                         <mygroup_no><provider_no> and the value <mygroup_no> (see
+                         MyGroupMembershipService). Encoding keeps both exact for any group name. --%>
                     <input type="checkbox"
-                           name="<%=myGroup.getId().getMyGroupNo() + myGroup.getId().getProviderNo()%>"
-                           value="<%=myGroup.getId().getMyGroupNo()%>">
+                           name="<carlos:encode value='<%= myGroup.getId().getMyGroupNo() + myGroup.getId().getProviderNo() %>' context="htmlAttribute"/>"
+                           value="<carlos:encode value='<%= myGroup.getId().getMyGroupNo() %>' context="htmlAttribute"/>">
                 </td>
-                <td><%=myGroup.getId().getMyGroupNo()%>
+                <td><carlos:encode value='<%= myGroup.getId().getMyGroupNo() %>'/>
                 </td>
-                <td><%=myGroup.getLastName() + "," + myGroup.getFirstName()%>
+                <td><carlos:encode value='<%= myGroup.getLastName() + "," + myGroup.getFirstName() %>'/>
                 </td>
             </tr>
             <%
@@ -142,7 +146,7 @@
                 return true;
             } else {
                 // none is checked
-                alert('please select providers(s)');
+                alert('please select provider(s)');
                 return false;
             }
         }

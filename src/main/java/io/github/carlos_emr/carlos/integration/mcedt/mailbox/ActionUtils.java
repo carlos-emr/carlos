@@ -40,7 +40,10 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.text.SimpleDateFormat;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -74,6 +77,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class ActionUtils {
     private static Logger logger = MiscUtils.getLogger();
+    private static final Object OUTBOX_STAGING_LOCK = new Object();
 
     static Detail getDetails(HttpServletRequest request) {
         Detail result = (Detail) request.getSession().getAttribute(McedtConstants.SESSION_KEY_RESOURCE_LIST);
@@ -266,6 +270,10 @@ public class ActionUtils {
     }
 
     public static boolean isOHIPFile(String filename) {
+        // A stray name shorter than the H<month> prefix used to throw here and abort staging.
+        if (filename == null || filename.length() < 2) {
+            return false;
+        }
         String suffix = filename.substring(filename.lastIndexOf(".") + 1);
         String prefix = filename.substring(0, 2);
         if (suffix.length() == 3 && suffix.matches("\\d+") && prefix.matches("H[A-L]")) {
@@ -287,35 +295,94 @@ public class ActionUtils {
         return suffix.equalsIgnoreCase("txt") && prefix.equals("OBEC");
     }
 
-    public static void moveOhipToOutBox(Date startDate, Date endDate) {
+    /**
+     * What opening the Upload tab does: copies the claim files Generate OHIP File wrote to
+     * HOME_DIR since the last open into ONEDT_OUTBOX, then records how far that got as the
+     * last open. The record never moves past a claim file that could not be copied (a full
+     * disk, a permission problem), so the next open retries it; the files copied before it
+     * are not copied again, since they may have been sent in the meantime.
+     *
+     * <p>One open at a time. Two opens that read the same last open both copy the same
+     * files, each deleting the other's copy first, and the later record wins: a file one
+     * of them failed to copy could then be left out of every later window.</p>
+     *
+     * <p>Nothing is copied while the record cannot be written: every open would copy the
+     * same files again, including ones sent in between.</p>
+     *
+     * @return {@code true} when every claim file generated since the last open is in the
+     *         outbox; {@code false} when one may be missing, so the Upload tab can say so.
+     *         The reason is in the server log.
+     */
+    public static boolean stageGeneratedClaimFiles() {
+        synchronized (OUTBOX_STAGING_LOCK) {
+            LastOpen lastOpen = readLastOpen();
+            if (!canRecordLastOpen()) {
+                logger.error("The MCEDT outbox timestamp file cannot be written; generated OHIP claim files"
+                        + " are not copied to the outbox until it can be.");
+                return false;
+            }
+            Date endDate = new Date();
+            Date stagedTo = moveOhipToOutBox(lastOpen.at(), endDate);
+            boolean recorded = recordLastOpen(stagedTo);
+            return lastOpen.known() && recorded && stagedTo.equals(endDate);
+        }
+    }
+
+    /**
+     * Copies the claim files in HOME_DIR modified inside the window into ONEDT_OUTBOX, oldest
+     * first, stopping at the first one that cannot be copied. The window excludes its start
+     * and includes its end, so the next window, which starts where this one is staged to,
+     * neither repeats nor skips a file.
+     *
+     * @return how far the window is staged: {@code endDate} when every claim file in it was
+     *         copied, just before the first one that was not, or {@code startDate} when the
+     *         folders cannot be read
+     */
+    public static Date moveOhipToOutBox(Date startDate, Date endDate) {
+        File outbox;
+        File[] listed;
         try {
             CarlosProperties props = CarlosProperties.getInstance();
             File generatedFiles = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("HOME_DIR", ""), "HOME_DIR");
-            File outbox = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
+            outbox = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
             FileFilter fileFilter = new FileFilter() {
                 public boolean accept(File file) {
                     return (file.isFile() && !file.isHidden() && ActionUtils.isOHIPFile(file.getName()));
                 }
             };
-            File[] toOutbox = generatedFiles.listFiles(fileFilter);
-            if (toOutbox != null) {
-                Arrays.sort(toOutbox, new Comparator<File>() {
-                    public int compare(File f1, File f2) {
-                        return Long.valueOf(f1.lastModified()).compareTo(f2.lastModified());
-                    }
-                });
-                for (File file : toOutbox) {
-                    if (new Date(file.lastModified()).after(startDate) && new Date(file.lastModified()).before(endDate))
-                        copyFileToDirectory(file, outbox, false, true);
-                }
-            }
-//			for (File file : toOutbox) {
-//				if (new Date(file.lastModified()).after(startDate) && new Date(file.lastModified()).before(endDate)) copyFileToDirectory(file, outbox,false, true);
-//			}
+            listed = generatedFiles.listFiles(fileFilter);
         } catch (Exception e) {
             logger.error("Unable to copy OHIP files to outbox", e);
+            return startDate;
         }
+        if (listed == null) {
+            // Unreadable or missing: nothing is known to be staged, so the window stays open.
+            logger.error("HOME_DIR cannot be listed; generated OHIP claim files are not copied to the outbox.");
+            return startDate;
+        }
+        // Each file's time is read once. Read again after a failed copy it is 0 for a file
+        // that has gone (a failed generation deletes its own), which reopened the window back
+        // to 1970; read again while sorting, a file replaced meanwhile broke the sort.
+        List<ClaimFile> claimFiles = new ArrayList<>(listed.length);
+        for (File file : listed) {
+            claimFiles.add(new ClaimFile(file, file.lastModified()));
+        }
+        claimFiles.sort(Comparator.comparingLong(ClaimFile::modified));
+        for (ClaimFile claimFile : claimFiles) {
+            if (claimFile.modified() > startDate.getTime() && claimFile.modified() <= endDate.getTime()) {
+                try {
+                    copyFileToDirectory(claimFile.file(), outbox, false, true);
+                } catch (Exception e) {
+                    logger.error("Unable to copy OHIP files to outbox", e);
+                    return new Date(claimFile.modified() - 1);
+                }
+            }
+        }
+        return endDate;
     }
+
+    /** A listed claim file and its modification time, read once. */
+    private record ClaimFile(File file, long modified) { }
 
     /*
 	 * The method ActionUtils.moveObecToOutBox is slow with many files in 'OscarDocument/oscar/document/'.
@@ -361,39 +428,89 @@ public class ActionUtils {
         if (!dateDir.exists()) dateDir.mkdirs();
     }
 
+    /**
+     * The time of the last Upload-tab open: generated OHIP claim files written to HOME_DIR
+     * after it are copied into the outbox on the next open. With no recorded open (a first
+     * open, or an empty file) the window starts now, so earlier claim files are never staged
+     * all at once.
+     *
+     * <p>The open is kept as an ISO-8601 instant to the millisecond. It used to be kept to
+     * the minute ({@code dd-MM-yyyy HH:mm}), so the next window began at the top of that
+     * minute and copied a file written earlier in it, already staged and possibly sent, into
+     * the outbox again. A value in that form (from an earlier build, or from OSCAR, whose
+     * document tree an import restores as it was) counts as no recorded open: it may be
+     * months old, and staging from it would copy every claim file written since.</p>
+     */
     public static Date getOutboxTimestamp() {
-        Date startDate = new Date();
-        try {
-            SimpleDateFormat formatter = new SimpleDateFormat("dd-MM-yyyy HH:mm");
-            CarlosProperties props = CarlosProperties.getInstance();
-            File dateDir = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
-            if (!dateDir.exists()) dateDir.mkdirs();
-            File dateFile = PathValidationUtils.validateGeneratedChildPath(".timestamp", dateDir);
-            if (!dateFile.exists()) dateFile.createNewFile();
-            BufferedReader br = new BufferedReader(new FileReader(dateFile));
-            String temp = br.readLine().trim();
-            if (temp != null) {
-                startDate = formatter.parse(temp);
-            }
-            br.close();
-        } catch (Exception e) {
-            logger.error("Unable to open outbox timestamp file", e);
-        }
-        return startDate;
+        return readLastOpen().at();
     }
 
+    /** Records the last Upload-tab open; see {@link #getOutboxTimestamp()} for the format. */
     public static void setOutboxTimestamp(Date endDate) {
+        recordLastOpen(endDate);
+    }
+
+    /**
+     * The last open to stage from. {@code known} is {@code false} when the window starts now
+     * because the record could not be used (unreadable, or in the old minute form), so claim
+     * files generated since the real last open may be missing from the outbox; a first open
+     * with no record yet has nothing to miss.
+     */
+    private record LastOpen(Date at, boolean known) { }
+
+    private static LastOpen readLastOpen() {
+        Date now = new Date();
         try {
-            SimpleDateFormat formatter = new SimpleDateFormat("dd-MM-yyyy HH:mm");
-            CarlosProperties props = CarlosProperties.getInstance();
-            File dateFile = PathValidationUtils.validateGeneratedSiblingPath(props.getProperty("ONEDT_OUTBOX", ""), ".timestamp", "ONEDT_OUTBOX timestamp");
+            File dateFile = outboxTimestampFile();
             if (!dateFile.exists()) dateFile.createNewFile();
-            BufferedWriter bw = new BufferedWriter(new FileWriter(dateFile));
-            bw.write(formatter.format(endDate));
-            bw.close();
+            try (BufferedReader br = new BufferedReader(new FileReader(dateFile))) {
+                String temp = br.readLine();
+                if (temp == null || temp.isBlank()) {
+                    return new LastOpen(now, true);
+                }
+                return new LastOpen(Date.from(Instant.parse(temp.trim())), true);
+            }
+        } catch (DateTimeParseException e) {
+            logger.warn("The last MCEDT Upload-tab open is not recorded in the current format; claim files"
+                    + " generated before this open are not copied to the outbox. Add any still to be sent"
+                    + " from the Upload tab.");
         } catch (Exception e) {
             logger.error("Unable to open outbox timestamp file", e);
         }
+        return new LastOpen(now, false);
+    }
+
+    private static boolean recordLastOpen(Date endDate) {
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(outboxTimestampFile()))) {
+            bw.write(endDate.toInstant().toString());
+            return true;
+        } catch (Exception e) {
+            logger.error("Unable to open outbox timestamp file", e);
+            return false;
+        }
+    }
+
+    private static boolean canRecordLastOpen() {
+        try {
+            Path record = outboxTimestampFile().toPath();
+            return Files.isRegularFile(record) && Files.isWritable(record);
+        } catch (Exception e) {
+            logger.error("Unable to open outbox timestamp file", e);
+            return false;
+        }
+    }
+
+    /**
+     * {@code <ONEDT_OUTBOX>/.timestamp}, for both the read and the write. The writer used
+     * validateGeneratedSiblingPath, which appends to the directory's own name, so it wrote
+     * {@code <parent>/outbox.timestamp} while the reader opened this file: the window was
+     * always empty and no generated claim file was ever staged (#4577).
+     */
+    private static File outboxTimestampFile() {
+        File dateDir = PathValidationUtils.resolveConfiguredDirectory(
+                CarlosProperties.getInstance().getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
+        if (!dateDir.exists()) dateDir.mkdirs();
+        return PathValidationUtils.validateGeneratedChildPath(".timestamp", dateDir);
     }
 
 

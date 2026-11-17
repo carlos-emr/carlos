@@ -98,6 +98,9 @@ public class LookupListManager2Action extends ActionSupport {
 
     @SuppressWarnings("unused")
     public String order() {
+        if (!requirePost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String lookupListItemId = request.getParameter("lookupListItemId");
@@ -116,6 +119,9 @@ public class LookupListManager2Action extends ActionSupport {
 
     @SuppressWarnings("unused")
     public String add() {
+        if (!requirePost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String lookupListItemLabel = request.getParameter("lookupListItemLabel");
@@ -158,6 +164,9 @@ public class LookupListManager2Action extends ActionSupport {
 
     @SuppressWarnings("unused")
     public String remove() {
+        if (!requirePost()) {
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String lookupListItemId = request.getParameter("lookupListItemId");
@@ -174,5 +183,15 @@ public class LookupListManager2Action extends ActionSupport {
         request.setAttribute("lookupLists", lookupListManager.findAllActiveLookupLists(loggedInInfo));
 
         return SUCCESS;
+    }
+
+    /** Refuses mutations before looking up or changing any list items. */
+    private boolean requirePost() {
+        if ("POST".equals(request.getMethod())) {
+            return true;
+        }
+        response.setHeader("Allow", "POST");
+        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return false;
     }
 }

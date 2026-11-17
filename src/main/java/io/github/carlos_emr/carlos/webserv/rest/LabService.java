@@ -32,13 +32,13 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.io.File;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.Consumes;
@@ -112,20 +112,22 @@ public class LabService extends AbstractServiceImpl {
 	public Response uploadHl7Lab(Hl7TextMessageTo1 labT, @Context HttpServletRequest request) {
 		LoggedInInfo loggedInInfo = getLoggedInInfo();
 
-		String type = labT.getType();
+		String type = labT == null ? null : labT.getType();
 		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, "")) {
 			logger.error("Write Access Denied _lab for provider {}", loggedInInfo.getLoggedInProviderNo());
-			return Response.status(Response.Status.FORBIDDEN).entity(createResponseMap(labT.getFileName(), "Failed", "Access Denied", null, type)).build();
+			return Response.status(Response.Status.FORBIDDEN).entity(createResponseMap(labT == null ? null : labT.getFileName(), "Failed", "Access Denied", null, type)).build();
 		}
 
 		// Validate input
-        if (isInvalidHl7TextMessageTo1(labT)) { return Response.status(Response.Status.BAD_REQUEST).entity(createResponseMap(labT.getFileName(), "Failed", "Missing required fields: fileName, message, or type", null, type)).build(); }
+        if (isInvalidHl7TextMessageTo1(labT)) { return Response.status(Response.Status.BAD_REQUEST).entity(createResponseMap(labT == null ? null : labT.getFileName(), "Failed", "Missing required fields: fileName, message, or type", null, type)).build(); }
 
 		String filePath;
 		try (InputStream inputStream = new ByteArrayInputStream(Base64.getDecoder().decode(labT.getBase64EncodedeMessage()))) {
 			filePath = Utilities.saveFile(inputStream, labT.getFileName());
-		} catch (IOException e) {
-			logger.error("Error occurred while saving " + labT.getFileName() + " file", e);
+		} catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST).entity(createResponseMap(labT.getFileName(), "Failed", "Invalid encoded file", null, type)).build();
+        } catch (IOException e) {
+			logger.error("Lab file could not be saved");
 			return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(labT.getFileName(), "Failed", "File save failed due to server error", null, type)).build();
 		}
 
@@ -135,42 +137,54 @@ public class LabService extends AbstractServiceImpl {
 			return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(labT.getFileName(), "Failed", "File save failed due to server error", null, type)).build();
 		}
 
-		int checkFileUploadedSuccessfully;
         File savedLabFile;
+        File documentDir;
         try {
             savedLabFile = PathValidationUtils.validateExistingDocumentPath(filePath);
+            documentDir = PathValidationUtils.getRequiredDocumentDirectory();
             // Use the containment-validated path for all downstream consumers (e.g. msgHandler.parse below).
             filePath = savedLabFile.getPath();
         } catch (IOException | SecurityException e) {
             logger.error("Invalid saved lab file path", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(labT.getFileName(), "Failed", "Error occurred while processing the file", null, type)).build();
         }
-        try (InputStream localFileInputStream = Files.newInputStream(savedLabFile.toPath())) {
-            checkFileUploadedSuccessfully = FileUploadCheck.addFile(savedLabFile.getName(), localFileInputStream, loggedInInfo.getLoggedInProviderNo());
-        } catch (IOException e) {
-            logger.error("Error occurred while processing " + labT.getFileName() + " file", e);
+        MessageHandler msgHandler = HandlerClassFactory.getHandler(type);
+        if (msgHandler == null) {
+            FileUploadCheck.discardUnreferenced(savedLabFile, documentDir);
+            return Response.status(Response.Status.BAD_REQUEST).entity(createResponseMap(labT.getFileName(), "Failed", "Unsupported lab type", null, type)).build();
+        }
+        AtomicReference<Hl7TextMessageTo1> responseBody = new AtomicReference<>(labT);
+        try {
+            // The saved copy is removed unless the stored lab may reference it, so a duplicate or a
+            // failed upload does not leave an orphan in DOCUMENT_DIR for every client retry.
+            FileUploadCheck.StoreOutcome outcome = FileUploadCheck.storeSavedFileIfNew(savedLabFile, documentDir,
+                    savedLabFile.getName(), loggedInInfo.getLoggedInProviderNo(),
+                    checksumId -> {
+                        if (msgHandler.parse(loggedInInfo, getClass().getSimpleName(),
+                                savedLabFile.getPath(), checksumId, request.getRemoteAddr()) == null) return false;
+                        Integer lastLabNo = Optional.ofNullable(msgHandler.getLastLabNo()).filter(n -> n > 0).orElse(null);
+                        if (lastLabNo != null) {
+                            // Prepare the response before committing. A failed lookup/conversion
+                            // must not report a retryable error after permanently claiming the bytes.
+                            Hl7TextMessage message = labManager.getHl7Message(loggedInInfo, lastLabNo);
+                            Hl7TextMessageTo1 result = new Hl7TextMessageConverter().getAsTransferObject(loggedInInfo, message);
+                            result.setFileName(savedLabFile.getName());
+                            responseBody.set(result);
+                        }
+                        return true;
+                    });
+            if (outcome == FileUploadCheck.StoreOutcome.ALREADY_RECORDED) {
+                return Response.status(Response.Status.CONFLICT).entity(createResponseMap(labT.getFileName(), "Failed", "The lab already exists", null, type)).build();
+            }
+            if (outcome != FileUploadCheck.StoreOutcome.STORED) {
+                return Response.status(Response.Status.BAD_REQUEST).entity(createResponseMap(labT.getFileName(), "Failed", "File processing failed. Invalid file", null, type)).build();
+            }
+        } catch (Exception e) {
+            logger.error("Lab import failed: {}", io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(e));
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(labT.getFileName(), "Failed", "Error occurred while processing the file", null, type)).build();
         }
 
-		if (checkFileUploadedSuccessfully == FileUploadCheck.UNSUCCESSFUL_SAVE) {
-			return Response.status(Response.Status.CONFLICT).entity(createResponseMap(labT.getFileName(), "Failed", "The lab already exists", null, type)).build();
-		}
-
-        MessageHandler msgHandler = HandlerClassFactory.getHandler(type);
-        if ((msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, request.getRemoteAddr())) == null) {
-			return Response.status(Response.Status.BAD_REQUEST).entity(createResponseMap(labT.getFileName(), "Failed", "File processing failed. Invalid file", null, type)).build();
-        }
-
-		Integer lastLabNo = Optional.ofNullable(msgHandler.getLastLabNo())
-									.filter(n -> n > 0)
-									.orElse(null);
-		if (lastLabNo != null) {
-			Hl7TextMessage hl7TextMessage = labManager.getHl7Message(loggedInInfo, lastLabNo);
-			Hl7TextMessageConverter converter = new Hl7TextMessageConverter();
-			labT = converter.getAsTransferObject(loggedInInfo, hl7TextMessage);
-			labT.setFileName(savedLabFile.getName());
-		}
-		return Response.ok(labT).build();
+        return Response.ok(responseBody.get()).build();
 	}
 
 	private Map<String, Object> createResponseMap(String fileName, String status, String message, Integer labNo, String type) {

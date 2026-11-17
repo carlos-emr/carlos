@@ -992,6 +992,12 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
         return d;
     }
 
+    private static boolean isNamedFlowsheet(Element root) {
+        String name = root.getAttributeValue("name");
+        return "flowsheet".equals(root.getName()) && root.getNamespaceURI().isEmpty()
+                && name != null && !name.isBlank();
+    }
+
     /**
      * Validates a flowsheet XML string by attempting to parse it into a {@link MeasurementFlowSheet}.
      *
@@ -1008,6 +1014,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
      *         cannot be parsed or contains structural errors
      */
     public MeasurementFlowSheet validateFlowsheet(String data) {
+        if (data == null || data.isBlank()) return null;
         InputStream is = null;
         try {
             is = new ByteArrayInputStream(data.getBytes("UTF-8"));
@@ -1022,6 +1029,9 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
             SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
             Document doc = parser.build(is);
             Element root = doc.getRootElement();
+            // Reject unrelated XML before importing any measurement types or modifying registries.
+            if (!isNamedFlowsheet(root)) return null;
+
 
             XMLOutputter outp = new XMLOutputter();
 
@@ -1045,9 +1055,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
             d.setItemHeirarchy(aItems);
 
             // Extract flowsheet-level attributes
-            if (root.getAttribute("name") != null) {
-                d.setName(root.getAttribute("name").getValue());
-            }
+            d.setName(root.getAttributeValue("name"));
             if (root.getAttribute("display_name") != null) {
                 d.setDisplayName(root.getAttribute("display_name").getValue());
             }
@@ -1250,12 +1258,33 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
      * @see FlowSheetCustomization
      */
     public MeasurementFlowSheet getFlowSheet(String flowsheetName, List<FlowSheetCustomization> list) {
+        return customizeFlowSheet(getFlowSheet(flowsheetName), list);
+    }
+
+    /**
+     * Resolves the patient/provider/clinic definition before applying item customizations.
+     * Changes are applied to an independent copy so another patient's cached definition
+     * is not modified. If customization fails, the resolved definition is retained.
+     *
+     * @param flowsheetName internal flowsheet identifier
+     * @param providerNo current provider number
+     * @param demographicNo patient demographic number
+     * @param list ordered item customizations for this patient and provider
+     * @return customized copy, or the resolved definition when no changes apply
+     */
+    public MeasurementFlowSheet getFlowSheet(String flowsheetName, String providerNo,
+            Integer demographicNo, List<FlowSheetCustomization> list) {
+        return customizeFlowSheet(getFlowSheet(flowsheetName, providerNo, demographicNo), list);
+    }
+
+    private MeasurementFlowSheet customizeFlowSheet(MeasurementFlowSheet baseFlowsheet,
+            List<FlowSheetCustomization> list) {
         log.debug("IN CUSTOMIZED FLOWSHEET ");
         if (list.size() > 0) {
             log.debug("IN CUSTOMIZED FLOWSHEET " + list.size());
             try {
                 // Create a deep copy of the base flowsheet via XML round-trip
-                MeasurementFlowSheet personalizedFlowsheet = makeNewFlowsheet(getFlowSheet(flowsheetName));
+                MeasurementFlowSheet personalizedFlowsheet = makeNewFlowsheet(baseFlowsheet);
 
                 // Apply each customization action in order
                 for (FlowSheetCustomization cust : list) {
@@ -1267,9 +1296,18 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
                             KieBase rb = personalizedFlowsheet.loadMeasurementRuleBase(item.getTargetColour());
                             item.setRuleBase(rb);
                         }
-                        personalizedFlowsheet.addAfter(cust.getMeasurement(), item);
+                        // A scoped definition may omit an anchor from a broader scope.
+                        // Keep the added item by appending it when that anchor is absent.
+                        String anchor = cust.getMeasurement();
+                        if (!personalizedFlowsheet.getMeasurementList().contains(anchor)) {
+                            anchor = null;
+                        }
+                        personalizedFlowsheet.addAfter(anchor, item);
                     } else if (FlowSheetCustomization.UPDATE.equals(cust.getAction())) {
                         log.debug(" CUST UPDATING");
+                        if (!personalizedFlowsheet.getMeasurementList().contains(cust.getMeasurement())) {
+                            continue;
+                        }
                         FlowSheetItem item = getItemFromString(cust.getPayload());
                         if (item.getTargetColour() != null && item.getTargetColour().size() > 0) {
                             KieBase rb = personalizedFlowsheet.loadMeasurementRuleBase(item.getTargetColour());
@@ -1279,21 +1317,23 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
 
 
                     } else if (FlowSheetCustomization.DELETE.equals(cust.getAction())) {
-                        personalizedFlowsheet.setToHidden(cust.getMeasurement());
+                        if (personalizedFlowsheet.getMeasurementList().contains(cust.getMeasurement())) {
+                            personalizedFlowsheet.setToHidden(cust.getMeasurement());
+                        }
                         log.debug(" CUST DELETE");
                     } else {
                         log.debug("ERR" + cust);
                     }
                 }
                 // Recompile the Drools rule base after all customizations are applied
-                personalizedFlowsheet.loadRuleBase();
+                personalizedFlowsheet.loadCustomizedRuleBase();
                 return personalizedFlowsheet;
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
             }
         }
         log.debug("Returning normal flowsheet");
-        return getFlowSheet(flowsheetName);
+        return baseFlowsheet;
     }
 
     /**
@@ -1441,6 +1481,10 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
      * independent copy that can be safely modified (e.g., for per-patient customizations)
      * without affecting the cached base flowsheet.</p>
      *
+     * <p>The copy shares the base's compiled flowsheet-level ({@code ds_rules}) rules through
+     * {@link MeasurementFlowSheet#useFlowsheetRulesOf(MeasurementFlowSheet)} rather than loading
+     * the DRL file again; compiled rule bases are immutable, so sharing them is safe.</p>
+     *
      * @param mFlowsheet MeasurementFlowSheet the source flowsheet to copy
      * @return MeasurementFlowSheet a new independent copy of the flowsheet
      * @throws Exception if XML serialization or parsing fails
@@ -1448,6 +1492,9 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
     public MeasurementFlowSheet makeNewFlowsheet(MeasurementFlowSheet mFlowsheet) throws Exception {
         XMLOutputter outp = new XMLOutputter();
         Element va = getExportFlowsheet(mFlowsheet);
+        // The copy takes the base's compiled ds_rules below instead of loading the file again, so
+        // it runs exactly the rules its base runs and a page view never reads or compiles DRL.
+        va.removeAttribute("ds_rules");
 
         // Serialize to XML bytes and re-parse to create an independent copy
         ByteArrayOutputStream byteArrayout = new ByteArrayOutputStream();
@@ -1457,6 +1504,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
 
         EctMeasurementTypeBeanHandler mType = new EctMeasurementTypeBeanHandler();
         MeasurementFlowSheet d = createflowsheet(mType, is);
+        d.useFlowsheetRulesOf(mFlowsheet);
 
         return d;
 
@@ -1603,7 +1651,8 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
      * <p>This method produces a complete XML representation of a {@link MeasurementFlowSheet},
      * including:</p>
      * <ul>
-     *   <li>Flowsheet-level attributes (name, display name, colours, triggers, HTML header).</li>
+     *   <li>Flowsheet-level attributes (name, display name, colours, triggers, HTML header file,
+     *       flowsheet-level {@code ds_rules} file, and the universal/medical flags).</li>
      *   <li>Indicator colour definitions (e.g., HIGH_1 = red, LOW = blue).</li>
      *   <li>All measurement and prevention items with their rules.</li>
      *   <li>Measurement type definitions via {@link ExportMeasurementType}, allowing the
@@ -1621,14 +1670,26 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
         Element va = new Element("flowsheet");
 
 
-        // Serialize flowsheet-level attributes
+        // Serialize flowsheet-level attributes. makeNewFlowsheet re-parses this element to copy a
+        // flowsheet for customization, so every root attribute createflowsheet reads must be
+        // written here, in the form createflowsheet reads it, or the copy silently loses it (#4433).
         addAttributeifValueNotNull(va, "name", mFlowsheet.getName());
         addAttributeifValueNotNull(va, "display_name", mFlowsheet.getDisplayName());
         addAttributeifValueNotNull(va, "warning_colour", mFlowsheet.getWarningColour());
         addAttributeifValueNotNull(va, "recommendation_colour", mFlowsheet.getRecommendationColour());
-        addAttributeifValueNotNull(va, "top_HTML", mFlowsheet.getTopHTMLStream());
+        // top_HTML is a file name; the rendered HTML (getTopHTMLStream) would be re-read as a name.
+        addAttributeifValueNotNull(va, "top_HTML", mFlowsheet.getTopHTMLFileName());
+        // Without ds_rules the copy never loads the flowsheet's DRL and has no decision support.
+        addAttributeifValueNotNull(va, "ds_rules", mFlowsheet.getDsRulesFileName());
         addAttributeifValueNotNull(va, "dxcode_triggers", mFlowsheet.getDxTriggersString());
         addAttributeifValueNotNull(va, "program_triggers", mFlowsheet.getProgramTriggersString());
+        // Flags are written only when they differ from createflowsheet's defaults.
+        if (mFlowsheet.isUniversal()) {
+            va.setAttribute("is_universal", "true");
+        }
+        if (!mFlowsheet.isMedical()) {
+            va.setAttribute("is_medical", "false");
+        }
 
         // Serialize indicator colour mappings (severity key -> CSS colour)
         Hashtable indicatorHash = mFlowsheet.getIndicatorHashtable();
@@ -1663,36 +1724,35 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
                 addAttributeifValueNotNull(item, "graphable", (String) h2.get("graphable"));
                 addAttributeifValueNotNull(item, "value_name", (String) h2.get("value_name"));
                 addAttributeifValueNotNull(item, "ds_rules", (String) h2.get("ds_rules"));
-                if (h2.get("measurement_type") != null) {
-                    log.debug("MEASUREMENT TYPE " + (String) h2.get("measurement_type"));
 
-                    // Serialize time-based recommendations into <rules> child element
-                    List<Recommendation> dsR = mFlowsheet.getDSElements((String) h2.get("measurement_type"));
-                    log.debug(h2.get("measurement_type") + " LIST DSR " + dsR);
-                    if (dsR != null) {
-                        Element rules = new Element("rules");
-                        for (Recommendation e : dsR) {
-                            log.debug("BEFORE ADDING ");
-                            rules.addContent(e.getFlowsheetXML());
-                            log.debug(rules);
-                        }
-                        item.addContent(rules);
+                // Rules are exported for prevention items as well as measurement items: processItems()
+                // attaches <rules> to both (Flu, PAP, MAM, ... on Diabetes, HIV and Periodic Health
+                // Visit), and customizeFlowSheet() rebuilds every customized copy from this export, so a
+                // measurement-only guard here silently dropped those reminders (#4433). Items are keyed
+                // by their measurement or prevention type, which is mstring.
+                // Serialize time-based recommendations into <rules> child element
+                List<Recommendation> dsR = mFlowsheet.getDSElements(mstring);
+                log.debug("{} LIST DSR {}", mstring, dsR);
+                if (dsR != null) {
+                    Element rules = new Element("rules");
+                    for (Recommendation e : dsR) {
+                        rules.addContent(e.getFlowsheetXML());
                     }
+                    item.addContent(rules);
+                }
 
-                    // Serialize value-based threshold rules into <ruleset> child element
-                    FlowSheetItem fsi = mFlowsheet.getFlowSheetItem(mstring);  //TODO: MOVE THIS UP AND REPLACE THE CODE ABOVE
-                    List<TargetColour> targetColour = fsi.getTargetColour();
-                    log.debug("TARGET COLOURS" + targetColour);
+                // Serialize value-based threshold rules into <ruleset> child element
+                FlowSheetItem fsi = mFlowsheet.getFlowSheetItem(mstring);
+                List<TargetColour> targetColour = fsi.getTargetColour();
+                log.debug("TARGET COLOURS" + targetColour);
 
-                    if (targetColour != null) {
-                        Element ruleset = new Element("ruleset");
+                if (targetColour != null) {
+                    Element ruleset = new Element("ruleset");
 
-                        for (TargetColour t : targetColour) {
-                            ruleset.addContent(t.getFlowsheetXML());
-                        }
-                        item.addContent(ruleset);
+                    for (TargetColour t : targetColour) {
+                        ruleset.addContent(t.getFlowsheetXML());
                     }
-
+                    item.addContent(ruleset);
                 }
 
                 va.addContent(item);

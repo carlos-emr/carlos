@@ -89,12 +89,21 @@ public interface CaseManagementNoteDAO {
      */
     public CaseManagementNote getNote(Long id);
 
+    /**
+     * Loads the current row under a write lock for legacy chain initialization.
+     * Detaches any cached copy first so an edited draft cannot be flushed into the historical row.
+     */
+    CaseManagementNote getNoteForUpdate(Long id);
+
     public List<CaseManagementNote> getNotes(List<Long> ids);
 
     /**
      * Retrieves the most recent case management note for the specified UUID.
      */
     public CaseManagementNote getMostRecentNote(String uuid);
+
+    /** Locks a revision chain until the caller's transaction completes. */
+    CaseManagementNote getMostRecentNoteForUpdate(String uuid);
 
     /**
      * Retrieves a list of case management notes associated with the specified UUID.
@@ -168,7 +177,12 @@ public interface CaseManagementNoteDAO {
                                                                              String[] issueCodes);
 
     /**
-     * Retrieves case management notes based on demographic and date range.
+     * Finds latest note versions observed at or after startDate and strictly before endDate.
+     *
+     * @param demographic_no patient identifier
+     * @param startDate inclusive observation timestamp
+     * @param endDate exclusive observation timestamp
+     * @return matching note versions
      */
     public List<CaseManagementNote> getNotesByDemographicDateRange(String demographic_no, Date startDate, Date endDate);
 

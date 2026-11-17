@@ -24,12 +24,29 @@ const leakPatterns = [
   /clearReferencesThreads[^\n]+\bQueueCache\b/,
   /clearReferencesThreads[^\n]+mysql-cj-abandoned-connection-cleanup/,
   /clearReferencesThreads[^\n]+AbandonedConnectionCleanupThread/,
+  /clearReferencesThreads[^\n]+HikariPool-/,
   /clearReferencesJdbc[^\n]+registered the JDBC driver/,
   /clearReferencesThreads[^\n]+ForkJoinPool-\d+-worker/,
+  /clearReferencesThreads[^\n]+ForkJoinPool\.commonPool-delayScheduler/,
   /clearReferencesThreads[^\n]+drools-worker-\d+/,
   /clearReferencesThreadLocals[^\n]+com\.github\.javaparser\.ParserConfiguration/,
   /clearReferencesThreadLocals[^\n]+StaticJavaParser/,
 ];
+
+function shutdownLeakFindings(output, targetUrl) {
+  const context = new URL(targetUrl).pathname.replace(/^\/|\/$/g, '');
+  const owned = [];
+  const otherApplications = [];
+  for (const line of output.split('\n')) {
+    if (!leakPatterns.some(pattern => pattern.test(line))) continue;
+    const application = line.match(/The web application \[([^\]]*)\]/);
+    // An unfamiliar warning format must fail conservatively, not disappear as
+    // an assumed warning from another deployment.
+    if (!application || application[1] === context) owned.push(line);
+    else otherApplications.push(line);
+  }
+  return { owned, otherApplications };
+}
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -91,14 +108,21 @@ async function main() {
     }
   }
 
-  const leaks = leakPatterns.filter((pattern) => pattern.test(output.text));
-  if (leaks.length > 0) {
-    throw new Error(`Tomcat shutdown leak smoke failed; matched ${leaks.map(String).join(', ')}`);
+  const leaks = shutdownLeakFindings(output.text, baseUrl);
+  if (leaks.otherApplications.length) {
+    console.warn(`Other deployed applications reported ${leaks.otherApplications.length} shutdown warnings; see the captured Tomcat log`);
+  }
+  if (leaks.owned.length > 0) {
+    throw new Error(`Tomcat shutdown leak smoke failed: ${leaks.owned.length} target-webapp warning(s)\n${leaks.owned.join('\n')}`);
   }
   console.log('Tomcat shutdown leak smoke passed');
 }
 
-main().catch((error) => {
-  console.error(error.stack || error.message);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error.stack || error.message);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { shutdownLeakFindings };

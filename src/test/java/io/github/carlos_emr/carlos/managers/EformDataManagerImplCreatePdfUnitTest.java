@@ -93,6 +93,27 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldAttributeFiledDocument_toAuthenticatedProvider() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_eform"),
+                eq(SecurityInfoManager.UPDATE), eq("123"))).thenReturn(true);
+        Path pdf = Path.of("/tmp/synthetic-eform.pdf");
+        var document = new io.github.carlos_emr.carlos.documentManager.EDoc();
+        document.setCreatorId("-1");
+        when(documentManager.saveDocument(loggedInInfo, document)).thenAnswer(invocation -> {
+            assertThat(document.getCreatorId()).isEqualTo("999998");
+            return 42;
+        });
+        try (var converter = org.mockito.Mockito.mockStatic(
+                io.github.carlos_emr.carlos.documentManager.ConvertToEdoc.class)) {
+            converter.when(() -> io.github.carlos_emr.carlos.documentManager.ConvertToEdoc.from(
+                    eFormDataDao.find(77), pdf)).thenReturn(document);
+            manager.saveEFormWithAttachmentsAsEDoc(loggedInInfo, "77", "123", pdf);
+            verify(documentManager).saveDocument(loggedInInfo, document);
+            assertThat(document.getCreatorId()).isEqualTo("999998");
+        }
+    }
+
+    @Test
     @DisplayName("should return the readable PDF path from the browser renderer")
     void shouldReturnReadablePdfPath_whenBrowserRendererSucceeds() throws Exception {
         // Filename must match the RenderedEformPdf guard prefix (the real renderer output name).

@@ -43,7 +43,7 @@ public final class RxSearchPatient2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
-            throw new RuntimeException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required sec object (_demographic)");
         }
 
         String surname = StringUtils.trimToEmpty(request.getParameter("surname"));

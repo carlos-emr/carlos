@@ -24,7 +24,6 @@ package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanC12;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -51,6 +50,15 @@ public class TeleplanC12DaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private TeleplanC12Dao dao;
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"OPEN", " O"})
+    void shouldRejectInvalidStatus_beforeExecutingQuery(String status) {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> dao.select_c12_record(status, "CLM-TEST"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Teleplan status must be exactly one character");
+    }
 
     @Nested
     @DisplayName("CRUD operations")
@@ -154,7 +162,6 @@ public class TeleplanC12DaoIntegrationTest extends CarlosTestBase {
     @DisplayName("select_c12_record")
     class SelectC12Record {
 
-        @Disabled("Production DAO passes String to HQL Character parameter — needs DAO fix")
         @Test
         @Tag("read")
         @DisplayName("should return records matching both status and claim number")
@@ -178,7 +185,6 @@ public class TeleplanC12DaoIntegrationTest extends CarlosTestBase {
             assertThat(results.get(0).getOfficeFolioClaimNo()).isEqualTo("CLM-300");
         }
 
-        @Disabled("Production DAO passes String to HQL Character parameter — needs DAO fix")
         @Test
         @Tag("read")
         @DisplayName("should return empty list when no records match status and claim number")
