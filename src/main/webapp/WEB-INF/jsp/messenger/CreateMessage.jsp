@@ -292,24 +292,18 @@
 <fmt:message key="messenger.CreateMessage.msgEmptyMessage" var="msg_EmptyMessage"/>
 <fmt:message key="messenger.CreateMessage.msgNoProvider" var="msg_NoProvider"/>
 <fmt:message key="messenger.CreateMessage.msgSubjectTooLong" var="msg_SubjectTooLong"/>
-<fmt:message key="messenger.CreateMessage.archiveFailed" var="msg_ArchiveFailed"/>
-<fmt:message key="messenger.CreateMessage.archiveError" var="msg_ArchiveError"/>
-<fmt:message key="messenger.CreateMessage.archiveTimeout" var="msg_ArchiveTimeout"/>
 <fmt:message key="messenger.CreateMessage.msgSelectDemographic" var="msg_SelectDemographic"/>
 
 <script>
 
 // Encoded i18n strings for use in JavaScript — single quotes in French translations
-// (e.g. "n'a", "L'archivage") are safely escaped by forJavaScript()
+// (e.g. "n'a") are safely escaped by forJavaScript()
 var msgEmptyMessage     = '${carlos:forJavaScript(msg_EmptyMessage)}';
 var msgNoProvider       = '${carlos:forJavaScript(msg_NoProvider)}';
 var msgSubjectTooLong   = '${carlos:forJavaScript(msg_SubjectTooLong)}';
 // messagetbl.thesubject counts Unicode code points (utf8mb4), as Array.from does; MsgCreateMessage2Action
 // refuses a longer subject too, and that is the check that holds.
 var subjectMaxLength    = <%= MessageTbl.SUBJECT_MAX_LENGTH %>;
-var msgArchiveFailed    = '${carlos:forJavaScript(msg_ArchiveFailed)}';
-var msgArchiveError     = '${carlos:forJavaScript(msg_ArchiveError)}';
-var msgArchiveTimeout   = '${carlos:forJavaScript(msg_ArchiveTimeout)}';
 var msgSelectDemographic = '${carlos:forJavaScript(msg_SelectDemographic)}';
 
 // Displays a dismissable Bootstrap alert in the fixed alert container at the top of the page.

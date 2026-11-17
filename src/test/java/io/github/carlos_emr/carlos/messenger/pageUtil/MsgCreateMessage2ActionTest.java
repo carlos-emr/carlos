@@ -455,6 +455,40 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
             verify(mockDemoManager, times(1)).attachDemographicToMessage(any(), eq(77), eq(101));
             // The repeat neither takes nor restores this window's attachments.
             assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
+            // A clean send's repeat shows no after-send warning either.
+            assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.PATIENT_LINK_AFTER_SEND_FAILED)).isNull();
+            assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ATTACHMENTS_AFTER_SEND_FAILED)).isNull();
+            assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND_FAILED)).isNull();
+        }
+
+        @Test
+        @DisplayName("should show the first send's after-send warnings again when the same form is submitted twice")
+        void shouldRepeatTheFirstSendsWarnings_whenTheSameRenderedFormIsSubmittedAgain() throws Exception {
+            String token = FormSubmissionGuard.issue(getMockSession(), FormSubmissionGuard.Scope.MESSENGER_SEND, null);
+            doThrow(new IllegalStateException("FAKE patient link failed"))
+                    .when(mockDemoManager).attachDemographicToMessage(any(), eq(77), eq(101));
+            try (MockedStatic<MsgAttachmentStaging> staging = mockStatic(MsgAttachmentStaging.class, CALLS_REAL_METHODS)) {
+                staging.when(() -> MsgAttachmentStaging.releaseSource(any(), eq(thisWindow), any()))
+                        .thenThrow(new IllegalStateException("FAKE cleanup failed"));
+                repeatSubmission(token);
+                assertThat(send()).isEqualTo("success");
+                assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.PATIENT_LINK_AFTER_SEND_FAILED))
+                        .isEqualTo(Boolean.TRUE);
+
+                // The browser ends on the repeat's page: a double click, or a reload of the sent page.
+                repeatSubmission(token);
+                assertThat(send()).isEqualTo("success");
+            }
+
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(getMockRequest().getAttribute("SentMessageProvs")).isEqualTo(RECIPIENT);
+            assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.PATIENT_LINK_AFTER_SEND_FAILED))
+                    .isEqualTo(Boolean.TRUE);
+            assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ATTACHMENTS_AFTER_SEND_FAILED))
+                    .isEqualTo(Boolean.TRUE);
+            assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND_FAILED)).isNull();
+            // The repeat retries none of the after-send steps.
+            verify(mockDemoManager, times(1)).attachDemographicToMessage(any(), eq(77), eq(101));
         }
 
         @Test
@@ -870,6 +904,31 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
                 verify(messageListDao, times(1)).merge(ownCopy);
                 assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
                 assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow).pdfDemographicNo()).isEqualTo(202);
+            }
+
+            @Test
+            void shouldRepeatTheArchiveWarning_whenTheSameReplyFormIsSubmittedAgainAfterArchivingFailed() throws Exception {
+                String token = FormSubmissionGuard.issue(getMockSession(), FormSubmissionGuard.Scope.MESSENGER_SEND, null);
+                doThrow(new org.springframework.dao.DataRetrievalFailureException("FAKE archive failed"))
+                        .when(messageListDao).findByProviderNoAndMessageNo(TEST_PROVIDER, 55L);
+                repeatSubmission(token);
+                getMockRequest().setParameter("archiveMessageId", "55");
+                getMockRequest().setParameter(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND, "1");
+                assertThat(send()).isEqualTo("success");
+                assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND_FAILED))
+                        .isEqualTo(Boolean.TRUE);
+
+                repeatSubmission(token);
+                getMockRequest().setParameter("archiveMessageId", "55");
+                getMockRequest().setParameter(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND, "1");
+                assertThat(send()).isEqualTo("success");
+
+                assertThat(sends.get()).isEqualTo(1);
+                assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND_FAILED))
+                        .isEqualTo(Boolean.TRUE);
+                assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.PATIENT_LINK_AFTER_SEND_FAILED)).isNull();
+                // The repeat does not try to archive again.
+                verify(messageListDao, times(1)).findByProviderNoAndMessageNo(TEST_PROVIDER, 55L);
             }
 
             @Test

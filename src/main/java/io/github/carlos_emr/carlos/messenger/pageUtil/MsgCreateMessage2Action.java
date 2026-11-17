@@ -198,8 +198,20 @@ public class MsgCreateMessage2Action extends ActionSupport {
                 // Attachments staged for this window after it sent are not part of what was sent.
                 && MsgAttachmentStaging.peek(session, attachmentKey) == null;
         if (sameMessage) {
-            // Confirm what the first send delivered, never what this repeat carries.
-            request.setAttribute("SentMessageProvs", saved[2]);
+            // Confirm what the first send delivered, never what this repeat carries, with the same
+            // after-send warnings: the browser ends on this page, so a warning the first send
+            // raised ("sent, but not linked to the patient") would otherwise never be seen. The
+            // repeat retries none of those steps.
+            String sentTo = saved[2];
+            if (AFTER_SEND_WARNINGS.matcher(sentTo).lookingAt()) {
+                for (int i = 0; i < AFTER_SEND_FAILURES.length; i++) {
+                    if (sentTo.charAt(i) == '1') {
+                        request.setAttribute(AFTER_SEND_FAILURES[i], Boolean.TRUE);
+                    }
+                }
+                sentTo = sentTo.substring(AFTER_SEND_FAILURES.length + 1);
+            }
+            request.setAttribute("SentMessageProvs", sentTo);
             return SUCCESS;
         }
         MiscUtils.getLogger().info("Refused a changed message submitted from a compose form that had already sent");
@@ -213,9 +225,25 @@ public class MsgCreateMessage2Action extends ActionSupport {
                 ConversionUtils.fromIntString(linkedPatient));
     }
 
-    /** What a saved send records for its repeats: the message id, what was submitted, and who it was sent to. */
-    private String savedResult(String messageId, String sentToWho) {
-        return messageId + ":" + contentDigest() + ":" + (sentToWho == null ? "" : sentToWho);
+    /**
+     * What a saved send records for its repeats: the message id, what was submitted, and who it was
+     * sent to, the last led by one digit per {@link #AFTER_SEND_FAILURES} entry once the after-send
+     * steps have run ({@code "100:"} for a failed patient link; {@code "000:"} before they run, so a
+     * recipient part never starts unannounced with what reads as digits). A result without the
+     * digits, recorded by an earlier version, confirms the send with no warning.
+     */
+    private String savedResult(String messageId, String sentToWho, String afterSendWarnings) {
+        return messageId + ":" + contentDigest() + ":" + (afterSendWarnings == null ? "" : afterSendWarnings + ":")
+                + (sentToWho == null ? "" : sentToWho);
+    }
+
+    /** The after-send warnings of this request, as {@link #savedResult} records them. */
+    private String afterSendWarnings() {
+        StringBuilder digits = new StringBuilder(AFTER_SEND_FAILURES.length);
+        for (String attribute : AFTER_SEND_FAILURES) {
+            digits.append(Boolean.TRUE.equals(request.getAttribute(attribute)) ? '1' : '0');
+        }
+        return digits.toString();
     }
 
     /**
@@ -356,7 +384,9 @@ public class MsgCreateMessage2Action extends ActionSupport {
             });
             sent = messageId != null && !messageId.isEmpty();
             if (claim != null && sent) {
-                claim.saved(savedResult(messageId, sentToWho));
+                // Recorded now, so a failure in the steps below still leaves the form sent; the
+                // repeat is answered only once the claim closes, with what is recorded last.
+                claim.saved(savedResult(messageId, sentToWho, "000"));
             }
 
             if (messageId == null || messageId.isEmpty()) {
@@ -390,6 +420,10 @@ public class MsgCreateMessage2Action extends ActionSupport {
 
             if ("1".equals(request.getParameter(ARCHIVE_AFTER_SEND))) {
                 archiveRepliedMessage(userNo);
+            }
+            if (claim != null) {
+                // A repeat of this form (a double click, a reload) shows these warnings too.
+                claim.saved(savedResult(messageId, sentToWho, afterSendWarnings()));
             }
             return SUCCESS;
         } catch (RuntimeException e) {
@@ -431,6 +465,11 @@ public class MsgCreateMessage2Action extends ActionSupport {
     static final String PATIENT_LINK_AFTER_SEND_FAILED = "patientLinkAfterSendFailed";
     /** The message was sent, but saved chart attachments could not be released. */
     static final String ATTACHMENTS_AFTER_SEND_FAILED = "attachmentsAfterSendFailed";
+    /** The sent page's warnings that a repeat of the same form shows again, in their recorded order. */
+    private static final String[] AFTER_SEND_FAILURES = {
+            PATIENT_LINK_AFTER_SEND_FAILED, ATTACHMENTS_AFTER_SEND_FAILED, ARCHIVE_AFTER_SEND_FAILED};
+    /** The recorded warning digits at the start of a saved result's recipient part ({@link #savedResult}). */
+    private static final java.util.regex.Pattern AFTER_SEND_WARNINGS = java.util.regex.Pattern.compile("[01]{3}:");
 
     private void reportAfterSendFailure(String attribute, String operation, RuntimeException failed) {
         // Exception messages can include clinical values; log only the operation and type.
