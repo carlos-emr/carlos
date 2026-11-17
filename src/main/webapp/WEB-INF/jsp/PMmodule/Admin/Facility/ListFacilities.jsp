@@ -46,7 +46,6 @@
         </tr>
     </table>
 </div>
-<form action="${pageContext.request.contextPath}/PMmodule/FacilityManager" method="post">
     <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
 <c:if test="${not empty facilities}">
 <table class="carlos-table-spaced simple" id="facility" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
@@ -103,7 +102,6 @@
 </table>
 </c:if>
 <c:if test="${empty facilities}">No facilities found.</c:if>
-</form>
 <div>
     <p><a
             href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=add">
