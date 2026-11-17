@@ -16,6 +16,7 @@ const CONTEXT = '/carlos';
 const STORED = `${CONTEXT}/imageRenderingServlet?source=signature_stored&digitalSignatureId=`;
 /** The note's text in the rendered library; the server writes the translated note here. */
 const NOTE = 'FAKE note: the saved signature cannot be shown here.';
+const NOT_ADDED = 'FAKE note: the new signature could not be added to this form.';
 
 /** The library as the server sends it, with eForm signatures on. */
 function render(contextPath) {
@@ -24,8 +25,11 @@ function render(contextPath) {
     .replace(/<%@[\s\S]*?%>/g, '')
     .replaceAll('<%= request.getContextPath() %>', contextPath)
     .replace(/<%[\s\S]*?%>/g, '')
-    .replace(/<fmt:[^>]*\/>/g, '')
-    .replaceAll('${carlos:forJavaScript(signatureNotShownNote)}', NOTE);
+    // Only the tags that print nothing: a message without var= would write text into the script.
+    .replace(/<fmt:(?:setLocale|setBundle)\b[^>]*\/>/g, '')
+    .replace(/<fmt:message\b[^>]*\bvar="[^"]+"[^>]*\/>/g, '')
+    .replaceAll('${carlos:forJavaScript(signatureNotShownNote)}', NOTE)
+    .replaceAll('${carlos:forJavaScript(signatureNotAddedNote)}', NOT_ADDED);
   assert.doesNotMatch(script, /<%|<fmt:|\$\{/, 'the library carries a server expression this test does not render');
   return script;
 }
@@ -133,6 +137,9 @@ for (const [label, saved] of [
   ['a fragment', `${STORED}1#top`],
   ['plain text', 'FAKE signature text'],
   ['a dot segment in the path', `/carlos/../imageRenderingServlet?source=signature_stored&digitalSignatureId=1`],
+  ['a single-dot segment in the path', `/carlos/./imageRenderingServlet?source=signature_stored&digitalSignatureId=1`],
+  ['an escaped id after a plain separator mix', `${CONTEXT}/imageRenderingServlet?source=signature_stored&amp;digitalSignatureId=1&r=2`],
+  ['a plain id after an escaped refresh mix', `${CONTEXT}/imageRenderingServlet?source=signature_stored&digitalSignatureId=1&amp;r=2`],
   ['an escaped address with markup after the id', `${CONTEXT}/imageRenderingServlet?source=signature_stored&amp;digitalSignatureId=1' data-extra='1`],
   ['a doubly escaped address', `${CONTEXT}/imageRenderingServlet?source=signature_stored&amp;amp;digitalSignatureId=1`],
   ['an escape in place of the query mark', `${CONTEXT}/imageRenderingServlet?amp;source=signature_stored&amp;digitalSignatureId=1`],
@@ -192,12 +199,21 @@ test('a signature saved from the pad is shown and kept as the stored-signature a
   assert.deepEqual(markupWith(nodes, '<img'), []);
 });
 
-test('a pad save the check refuses keeps the saved value and shows the note', () => {
+test('a pad save the check refuses keeps the earlier signature and says the new one was not added', () => {
   const saved = `${STORED}5`;
   const { context, nodes } = page(saved);
   context.signatureControl.initialize({ eform: true });
   context.signatureHandler({ isDirty: false, isSave: true, storedImageUrl: `/car los/imageRenderingServlet?source=signature_stored&digitalSignatureId=99` });
-  assert.deepEqual(images(nodes), []);
-  assert.deepEqual(notes(nodes), [NOTE]);
+  assert.deepEqual(images(nodes), [{ src: saved, alt: 'signature' }]);
+  assert.deepEqual(notes(nodes), [NOT_ADDED]);
   assert.equal(nodes['#signatureValue'].value, saved);
+});
+
+test('a refused pad save on an unsigned form adds nothing and says so', () => {
+  const { context, nodes } = page('');
+  context.signatureControl.initialize({ eform: true });
+  context.signatureHandler({ isDirty: false, isSave: true, storedImageUrl: `/car los/imageRenderingServlet?source=signature_stored&digitalSignatureId=99` });
+  assert.deepEqual(images(nodes), []);
+  assert.deepEqual(notes(nodes), [NOT_ADDED]);
+  assert.equal(nodes['#signatureValue'].value, '');
 });

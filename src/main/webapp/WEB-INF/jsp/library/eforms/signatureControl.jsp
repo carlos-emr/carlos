@@ -22,6 +22,7 @@
     <fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
     <fmt:setBundle basename="oscarResources"/>
     <fmt:message key="tabletSignature.msgSavedSignatureNotShown" var="signatureNotShownNote"/>
+    <fmt:message key="tabletSignature.msgNewSignatureNotAdded" var="signatureNotAddedNote"/>
 
     <%
     CarlosProperties props = CarlosProperties.getInstance();
@@ -45,6 +46,7 @@
     // "&amp;" separators are turned back into "&" before the check above; nothing else is decoded.
     var escapedStoredSignatureAddress = /^((?:\/(?!\.{1,2}\/)[A-Za-z0-9._~-]+)*\/imageRenderingServlet\?source=signature_stored)&amp;(digitalSignatureId=[0-9]+)(?:&amp;(r=[0-9]+))?$/;
     var signatureNotShownNote = "${carlos:forJavaScript(signatureNotShownNote)}";
+    var signatureNotAddedNote = "${carlos:forJavaScript(signatureNotAddedNote)}";
     // The stored-signature address a saved value stands for, or null when it is not one.
     function storedSignatureAddressOf(value) {
         if (typeof value !== "string") {
@@ -58,6 +60,7 @@
             return null;
         }
         var address = escaped[1] + "&" + escaped[2] + (escaped[3] ? "&" + escaped[3] : "");
+        // The pieces can only rebuild a canonical address; checked again so this never depends on that.
         return storedSignatureAddress.test(address) ? address : null;
     }
     // An image size option: a whole number of pixels, or a percentage.
@@ -139,12 +142,15 @@
 
                 element.refreshImage =
                     function (e) {
-                        // The form keeps only an address the check accepts; otherwise its saved value
-                        // stays as it was and the note says the signature cannot be shown.
-                        var address = element.showSignature(e.storedImageUrl + "&r=" + Math.floor(Math.random() * 1001));
-                        if (address != null) {
-                            jQuery(element.signatureValue).val(address);
+                        // The form keeps only an address the check accepts. Otherwise the form's value
+                        // and its image stay as they were, and a note says the new signature was not added.
+                        var address = storedSignatureAddressOf(e.storedImageUrl + "&r=" + Math.floor(Math.random() * 1001));
+                        if (address == null) {
+                            jQuery(element.signatureDisplay).append(jQuery("<span>").text(signatureNotAddedNote));
+                            return;
                         }
+                        element.showSignature(address);
+                        jQuery(element.signatureValue).val(address);
                     };
 
             }
