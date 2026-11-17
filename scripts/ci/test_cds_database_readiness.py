@@ -88,13 +88,18 @@ class OwnedDatabaseReadinessTest(unittest.TestCase):
             wait_for_database(client, execute, monotonic=lambda: next(clock))
 
     def test_both_ci_adapters_forward_the_probe_timeout_to_the_subprocess(self):
-        for filename in ('run-cds-performance-ci.py', 'run-cds-export-installed-ci.py'):
+        for filename, function in (('run-cds-performance-ci.py', 'execute'),
+                                   ('run-cds-export-installed-ci.py', 'execute'),
+                                   ('run-cds-native-tier.py', 'run')):
             with self.subTest(adapter=filename):
                 tree = ast.parse(Path(__file__).with_name(filename).read_text())
                 execute = next(node for node in ast.walk(tree)
-                               if isinstance(node, ast.FunctionDef) and node.name == 'execute')
+                               if isinstance(node, ast.FunctionDef) and node.name == function)
                 process = Mock(return_value=SimpleNamespace(returncode=0))
                 namespace = {'subprocess': SimpleNamespace(run=process, PIPE=-1), 'log': io.StringIO()}
                 exec(compile(ast.Module(body=[execute], type_ignores=[]), filename, 'exec'), namespace)
-                namespace['execute'](['docker', 'exec', 'owned-database', 'mariadb'], check=False, timeout=3)
+                args = [['docker', 'exec', 'owned-database', 'mariadb']]
+                if function == 'run':
+                    args.append(namespace['log'])
+                namespace[function](*args, check=False, timeout=3)
                 self.assertEqual(process.call_args.kwargs['timeout'], 3)
