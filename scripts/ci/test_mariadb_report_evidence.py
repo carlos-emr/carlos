@@ -94,6 +94,7 @@ TICKLER_REQUIRED_CASES = {
 MERGE_REQUIRED_CASES = {"shouldRefuseDeniedParticipants_beforeAnyDatabaseOrAuditChange"}
 
 UNMERGE_REQUIRED_CASES = {
+    "shouldRollbackEveryParticipant_whenALaterStorageValueIsMalformed",
     'shouldCanonicalizeAndDeduplicate_whenSelectedIdsHaveEquivalentSpellings',
     'shouldCommitOnlySelectedParticipants_whenTheBatchSucceeds',
     'shouldKeepTheFailureOutcome_whenTheSelectionIsEmpty',

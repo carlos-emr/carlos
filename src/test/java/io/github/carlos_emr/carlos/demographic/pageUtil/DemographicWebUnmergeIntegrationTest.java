@@ -194,6 +194,23 @@ class DemographicWebUnmergeIntegrationTest {
     }
 
     @Test
+    void shouldRollbackEveryParticipant_whenALaterStorageValueIsMalformed() {
+        selectedRecycle = mock(RecycleBinDao.class);
+        var writes = new AtomicInteger();
+        doAnswer(invocation -> {
+            if (writes.incrementAndGet() == 2) throw new NumberFormatException("Synthetic malformed stored value");
+            recycle.persist(invocation.getArgument(0));
+            return null;
+        }).when(selectedRecycle).persist(any(RecycleBin.class));
+        Throwable failure = org.assertj.core.api.Assertions.catchThrowable(() ->
+                unmerge("999998", Integer.toString(first), Integer.toString(second)));
+        assertThat(writes.get()).isEqualTo(2);
+        org.junit.jupiter.api.Assertions.assertAll(
+                () -> assertThat(failure).isInstanceOf(NumberFormatException.class),
+                () -> assertStillMerged(first), () -> assertStillMerged(second), () -> assertStillMerged(untouched));
+    }
+
+    @Test
     void shouldRollbackEveryParticipant_whenTheLaterAuditWriteFails() {
         var failing = mock(OscarLogDao.class);
         var writes = new AtomicInteger();

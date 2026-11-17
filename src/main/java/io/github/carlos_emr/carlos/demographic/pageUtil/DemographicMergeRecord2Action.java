@@ -134,26 +134,26 @@ public class DemographicMergeRecord2Action extends ActionSupport {
 
     /** Validates and locks the whole selection before any unmerge, privilege, recycle or audit write. */
     private boolean unmergeRecords(DemographicMerged dmDAO, LoggedInInfo loggedInInfo, List<String> records) {
+        Set<Integer> recordIds = new LinkedHashSet<>();
         try {
-            Set<Integer> recordIds = new LinkedHashSet<>();
             for (String record : records) {
                 recordIds.add(Integer.valueOf(record));
             }
-            if (recordIds.stream().anyMatch(id -> id <= 0)) {
-                return false;
-            }
-            for (Integer id : recordIds.stream().sorted().toList()) {
-                if (demographicDao.findForUpdate(id) == null) {
-                    return false;
-                }
-            }
-            for (Integer id : recordIds) {
-                dmDAO.UnMerge(loggedInInfo, id.toString(), loggedInInfo.getLoggedInProviderNo());
-            }
-            return true;
         } catch (NumberFormatException _) {
             return false;
         }
+        if (recordIds.stream().anyMatch(id -> id <= 0)) {
+            return false;
+        }
+        for (Integer id : recordIds.stream().sorted().toList()) {
+            if (demographicDao.findForUpdate(id) == null) {
+                return false;
+            }
+        }
+        for (Integer id : recordIds) {
+            dmDAO.UnMerge(loggedInInfo, id.toString(), loggedInInfo.getLoggedInProviderNo());
+        }
+        return true;
     }
 
     /**
