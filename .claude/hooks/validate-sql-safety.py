@@ -647,6 +647,11 @@ def has_sql_context(statement: str) -> bool:
         return True
 
     sql_structure = re.compile(
+        # Expression predicates need not start with a bare column: lower(...),
+        # CAST(...), CASE and quoted disjunctions can all embed raw values.
+        # A bare quote also starts an IN-list value assembled by a generic
+        # builder. Ordinary prose ending in a quote supplies neither signal.
+        r"(?:[=<>!]|LIKE\b)\s*'\s*$|"
         # A literal containing only a clause starter is a query fragment, not
         # a keyword embedded in a sentence ("Error reading XML from ...").
         r'^\s*(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|INTO|VALUES|SET|JOIN)\s*$|'
@@ -664,7 +669,12 @@ def has_sql_context(statement: str) -> bool:
         re.IGNORECASE
     )
     return any(
-        sql_structure.search(literal.group(1))
+        (sql_structure.search(literal.group(1))
+         or (literal.group(1).strip() == "'"
+             # A closing quote after + raw + is also a bare literal; it must
+             # not turn ordinary prose ("Invalid values from '" + x + "'")
+             # into SQL context. The opening IN-list quote is the signal.
+             and not statement[:literal.start()].rstrip().endswith('+')))
         and not is_message_literal(statement, literal.start())
         for literal in literals
     )

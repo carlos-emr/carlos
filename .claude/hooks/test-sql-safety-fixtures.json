@@ -1317,5 +1317,149 @@
         "content": "logger.warning(\"AND status = '\" + userStatus + \"'\");"
       }
     }
+  },
+  {
+    "section": "Quote sandwiches without bare-column predicates (#5888)",
+    "description": "QS-context: function predicate lower",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "String nameFilter = \"lower(d.last_name) = '\" + lastName + \"'\";"
+      }
+    }
+  },
+  {
+    "section": "Quote sandwiches without bare-column predicates (#5888)",
+    "description": "QS-context: function predicate DATE",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "String cond = \"DATE(a.appointment_date) = '\" + day + \"'\";"
+      }
+    }
+  },
+  {
+    "section": "Quote sandwiches without bare-column predicates (#5888)",
+    "description": "QS-context: collection predicate lower",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "filters.add(\"lower(last_name) = '\" + name + \"'\");"
+      }
+    }
+  },
+  {
+    "section": "Quote sandwiches without bare-column predicates (#5888)",
+    "description": "QS-context: collection predicate CAST",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "conditions.add(\"CAST(dob AS DATE) = '\" + dob + \"'\");"
+      }
+    }
+  },
+  {
+    "section": "Quote sandwiches without bare-column predicates (#5888)",
+    "description": "QS-context: CASE expression predicate",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "String caseValue = \"CASE WHEN status = '\" + status + \"' THEN 1 END\";"
+      }
+    }
+  },
+  {
+    "section": "Quote sandwiches without bare-column predicates (#5888)",
+    "description": "QS-context: leading quoted disjunction",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "String filter = \"' OR last_name = '\" + name + \"'\";"
+      }
+    }
+  },
+  {
+    "section": "Quote sandwiches without bare-column predicates (#5888)",
+    "description": "QS-context: generic builder quoted IN value",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "sb.append(\"'\" + term + \"'\");"
+      }
+    }
+  },
+  {
+    "section": "Quote sandwiches without bare-column predicates (#5888)",
+    "description": "QS-context: parameter evidence cannot excuse quoted IN value",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "sb.append(\"'\" + term + \"'\"); query.setParameter(\"id\", id);"
+      }
+    }
+  },
+  {
+    "section": "Quote sandwiches without bare-column predicates (#5888)",
+    "description": "QS-context: logger quote control",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "logger.warn(\"lower(name) = '\" + name + \"'\");"
+      }
+    }
+  },
+  {
+    "section": "Quote sandwiches without bare-column predicates (#5888)",
+    "description": "QS-context: exception quote control",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "throw new IllegalArgumentException(\"DATE(value) = '\" + value + \"'\");"
+      }
+    }
+  },
+  {
+    "section": "Quote sandwiches without bare-column predicates (#5888)",
+    "description": "QS-context: nested query inside logger is not message text",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "logger.warn(database.query(\"lower(name) = '\" + name + \"'\"));"
+      }
+    }
+  },
+  {
+    "section": "Quote sandwiches without bare-column predicates (#5888)",
+    "description": "QS-context: placeholder function predicate control",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "filters.add(\"lower(last_name) = :name\"); query.setParameter(\"name\", name);"
+      }
+    }
   }
 ]
