@@ -31,3 +31,18 @@ regressions together: three passes, zero failures/skips. The application source
 is `e0601ced004c`, Ubuntu 26.04, Chromium 149.0.7827.55. Exact template/instance/
 asset/download/server-PDF cleanup passes; complete preexisting library rows and
 preexisting asset hashes remain unchanged. Full release qualification is separate.
+
+Image publication shares a lease with image uploads. Extraction and budget
+checks finish before the lease is acquired; another import cannot adopt a
+provisional image, or an upload replace its inode, until publication or rollback
+finishes. A JVM guard and filesystem lock coordinate cooperating application JVMs
+using the same image directory. Form registration remains outside the lease.
+
+The empty `extractFolder/.publication.lock` inode is permanent coordination
+metadata. Keep it when checking or cleaning staging residue: removing it can
+split waiting processes across different lock inodes. Successful-import tests
+require this exact file and no leftover extraction directories. Refused ZIPs
+must preserve the preexisting staging snapshot without creating this metadata.
+The ownership and lock unit suites exercise both consumer races, a separate JVM,
+and refused lock operations. These checks do not extend the historical installed
+qualification above to the newer production source.
