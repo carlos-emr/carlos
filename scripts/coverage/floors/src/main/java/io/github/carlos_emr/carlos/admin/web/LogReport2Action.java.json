@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/admin/web/LogReport2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "288861bb04bc23ce073a65e02d75511ab4758c48"
+  },
+  "evidenceSha256": "28d44a4f84d81d4431cb183a953c5bba73f6f35913c82968649c9f76cb29aab5"
+}
