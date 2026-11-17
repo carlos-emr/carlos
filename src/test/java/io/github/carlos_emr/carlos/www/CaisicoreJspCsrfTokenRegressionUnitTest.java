@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
@@ -57,6 +58,8 @@ class CaisicoreJspCsrfTokenRegressionUnitTest {
     private static final String CONTEXT = "/carlos";
     private static final String CLIENT_SCRIPT = "<script src=\"" + CONTEXT + "/csrfguard\"></script>";
     private static final String TOKEN_BOOTSTRAP = "/WEB-INF/jspf/csrf-token.jspf";
+    private static final Pattern TOKEN_BOOTSTRAP_INCLUDE = Pattern.compile(
+            "<%@\\s*include\\s+file\\s*=\\s*([\"'])" + Pattern.quote(TOKEN_BOOTSTRAP) + "\\1\\s*%>");
 
     /** Every caisicore JSP whose rendered template text holds a real POST form, in name order. */
     static Stream<Path> pagesWithPostForms() throws IOException {
@@ -83,7 +86,7 @@ class CaisicoreJspCsrfTokenRegressionUnitTest {
     @DisplayName("should receive the CSRFGuard client, or bootstrap the token itself, when it has a POST form")
     void shouldReceiveCsrfGuardClient_whenPageHasPostForm(Path page) throws Exception {
         String source = read(page);
-        if (source.contains(TOKEN_BOOTSTRAP)) {
+        if (hasActiveTokenBootstrap(source)) {
             return;
         }
 
@@ -114,6 +117,33 @@ class CaisicoreJspCsrfTokenRegressionUnitTest {
 
         assertThat(rendered).doesNotContain("</head>").doesNotContain("</body>");
         assertThat(hasRealPostForm(rendered)).isTrue();
+    }
+
+    @Test
+    void shouldRequireClient_whenBootstrapPathOnlyAppearsInComment() throws Exception {
+        String form = "<form action=\"/carlos/issueAdmin\" method=\"post\"></form>";
+        for (String comment : List.of("<%-- See " + TOKEN_BOOTSTRAP + " --%>",
+                "<%-- <%@ include file=\"" + TOKEN_BOOTSTRAP + "\" %> --%>",
+                "<!-- <%@ include file=\"" + TOKEN_BOOTSTRAP + "\" %> -->")) {
+            String source = comment + form;
+            assertThat(hasActiveTokenBootstrap(source)).isFalse();
+            assertThat(hasRealPostForm(rendered(source))).isTrue();
+            assertThat(serveThroughFilter(rendered(source))).doesNotContain(CLIENT_SCRIPT);
+        }
+    }
+
+    @Test
+    void shouldRecognizeActiveBootstrapInclude_withEitherQuoteStyle() {
+        for (String quote : List.of("\"", "'")) {
+            assertThat(hasActiveTokenBootstrap("<%@ include file=" + quote
+                    + TOKEN_BOOTSTRAP + quote + " %>")).isTrue();
+        }
+    }
+
+    private static boolean hasActiveTokenBootstrap(String source) {
+        String active = source.replaceAll("(?s)<%--.*?--%>", "")
+                .replaceAll("(?s)<!--.*?-->", "");
+        return TOKEN_BOOTSTRAP_INCLUDE.matcher(active).find();
     }
 
     /** True when the page has a POST form whose action is a URL, the forms CSRFGuard's client fills in. */
