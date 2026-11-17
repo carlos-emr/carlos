@@ -42,6 +42,7 @@ RELEASE_BUILD_INPUTS = frozenset({
     "scripts/check-war-container-apis.py",
     "scripts/test-o19-input-lifecycle.py",
     "scripts/migration/o19/generate_manifests.py",
+    "scripts/ci/check-release-base-image.sh",
     ".github/workflows/deb-packages.yml",
     ".github/workflows/publish-release.yml",
 })
