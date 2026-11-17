@@ -196,6 +196,62 @@ case("a new enclosing condition is still a changed finding", 2,
 case("unchanged repeated legacy statements retain multiplicity", 0,
      [{"old_string": "original comment", "new_string": "updated"}],
      content=legacy.replace(sql, sql + "\n" + sql), warning="required")
+
+# Review regressions: these strings are fixture data, never executed as SQL.
+lambda_legacy = '''class Legacy {
+  void run(String userId) {
+    run(() -> {
+      int n = 1;
+      if (ready) {
+        String sql = "WHERE id = '" + userId + "'";
+      }
+    });
+  }
+}
+'''
+case("unrelated lambda statement does not change the SQL scope", 0,
+     [{"old_string": "int n = 1;", "new_string": "int n = 2;"}],
+     content=lambda_legacy, warning="required")
+case("changed lambda condition still blocks", 2,
+     [{"old_string": "if (ready)", "new_string": "if (allowed)"}],
+     content=lambda_legacy)
+case("changed raw operand in a lambda still blocks", 2,
+     [{"old_string": "+ userId +", "new_string": "+ otherId +"}],
+     content=lambda_legacy)
+for_legacy = lambda_legacy.replace("if (ready)", "for (int i = 0; i < limit; i++)")
+case("changed for initializer remains part of the SQL scope", 2,
+     [{"old_string": "int i = 0", "new_string": "int i = 1"}],
+     content=for_legacy)
+case("changed for condition remains part of the SQL scope", 2,
+     [{"old_string": "i < limit", "new_string": "i < otherLimit"}],
+     content=for_legacy)
+text_block = '''class Legacy {
+  // original comment
+  void run(String name) {
+    String sql = """
+      SELECT * FROM t WHERE marker = '"' AND name = '%s'
+      """.formatted(name);
+  }
+}
+'''
+case("changed embedded quote in a SQL text block still blocks", 2,
+     [{"old_string": """marker = '"'""", "new_string": "marker = ' '"}],
+     content=text_block)
+case("changed literal whitespace in a SQL text block still blocks", 2,
+     [{"old_string": "SELECT * FROM", "new_string": "SELECT  * FROM"}],
+     content=text_block)
+case("unrelated comment around a SQL text block warns without blocking", 0,
+     [{"old_string": "original comment", "new_string": "updated comment"}],
+     content=text_block, warning="required")
+case("Write detects a parenthesized raw SQL predicate operand", 2, [], tool="Write",
+     content='String filter = "lower(last_name) = \'" + (lastName) + "\'";')
+case("Write allows a parenthesized constant SQL operand", 0, [], tool="Write",
+     content='String filter = "lower(last_name) = \'" + ("Smith") + "\'";')
+case("Write allows parenthesized prose concatenation", 0, [], tool="Write",
+     content='String message = "Message from " + (senderName);')
+case("Write allows a parenthesized SQL placeholder counter", 0, [], tool="Write",
+     content='String sql = "SELECT * FROM t WHERE id = ?" + (paramIndex++);')
+
 for name, expected, payload, warning in cases:
     print("\t".join((name, str(expected), json.dumps(payload), warning)))
 PYEDIT
