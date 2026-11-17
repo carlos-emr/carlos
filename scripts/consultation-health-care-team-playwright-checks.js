@@ -6,6 +6,22 @@ const h = require('./lib/playwright-harness');
 const {runWorkflow} = require('./lib/workflow-session');
 const {createConsultationSubmitFixture} = require('./lib/consultation-submit-fixture');
 
+// Reopening a stamped HCT form can create another signature before a request
+// references it. Only a verified run-owned patient may lose those unreferenced
+// consultation signatures; linked signatures and other module types survive.
+function cleanupUnusedHctSignatures(sql, patient, marker) {
+  h.assert(/^[1-9]\d*$/.test(String(patient)) && /^FAKE-PW[0-9a-f]{16}$/.test(marker),
+    'Invalid HCT fixture owner');
+  h.assert(sql.value('SELECT COUNT(*) FROM demographic WHERE demographic_no=? AND last_name=?',
+    [patient, marker]) === '1', 'HCT patient fixture ownership changed');
+  const unused = `demographicId=? AND ModuleType='CONSULTATION'
+    AND NOT EXISTS (SELECT 1 FROM consultationRequests WHERE signature_img=CAST(DigitalSignature.id AS CHAR))
+    AND NOT EXISTS (SELECT 1 FROM consultationRequestsArchive WHERE signature_img=CAST(DigitalSignature.id AS CHAR))`;
+  sql.execute('DELETE FROM DigitalSignature WHERE ' + unused, [patient]);
+  h.assert(sql.value('SELECT COUNT(*) FROM DigitalSignature WHERE ' + unused, [patient]) === '0',
+    'Unused owned HCT signatures remain');
+}
+
 async function workflow(s) {
   const {sql, marker, patient, provider} = s;
   const owned = createConsultationSubmitFixture(sql, patient);
@@ -17,7 +33,8 @@ async function workflow(s) {
     for (const cleanup of [() => owned.cleanup(),
       () => sql.execute('DELETE FROM DemographicContact WHERE demographicNo=? AND creator=? AND note=?', [patient, provider, marker]),
       () => sql.execute('DELETE FROM Contact WHERE lastName=? AND firstName=?', [marker, 'FAKE']),
-      () => sql.execute('DELETE FROM consultationServices WHERE serviceDesc=?', [specialty])]) {
+      () => sql.execute('DELETE FROM consultationServices WHERE serviceDesc=?', [specialty]),
+      () => cleanupUnusedHctSignatures(sql, patient, marker)]) {
       try { cleanup(); } catch (error) { failures.push(error); }
     }
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM DemographicContact WHERE demographicNo=? AND note=?)
@@ -86,4 +103,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('consultation-health-care-team', workflow, {openMaster: false});
-module.exports = {workflow};
+module.exports = {workflow, cleanupUnusedHctSignatures};
