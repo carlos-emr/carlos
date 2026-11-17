@@ -31,7 +31,7 @@
 --%>
 <%@ include file="/taglibs.jsp" %>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 <head>
     <meta charset="UTF-8">
     <title>Facilities management</title>

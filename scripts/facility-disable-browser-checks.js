@@ -23,6 +23,7 @@ const javascriptValue = value => String(value).replace(/[\\'"<>&\r\n\u2028\u2029
 function expressions(source, facility, index = 0) {
   return source.replace(/\$\{([^}]+)\}/g, (_, expression) => {
     if (expression === 'pageContext.request.contextPath') return '/carlos';
+    if (expression === 'pageContext.request.locale.language') return 'fr';
     if (expression.startsWith('tableRowStatus.count')) return index % 2 ? 'even' : 'odd';
     const field = expression.match(/\bfacility\.(id|name|description|contactName|hic)\b/);
     assert.ok(field && facility, 'Unknown fixture expression: ' + expression);
@@ -70,6 +71,7 @@ async function withPage(body) {
 }
 
 test('every parsed row retains its own POST form, including the first facility', async () => withPage(async page => {
+  assert.equal(await page.locator('html').getAttribute('lang'), 'fr');
   for (const facility of facilities) {
     const form = page.locator('#deleteForm_' + facility.id);
     assert.equal(await form.count(), 1, 'Missing form for ' + facility.id);

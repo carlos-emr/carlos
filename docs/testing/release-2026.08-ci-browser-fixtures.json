@@ -178,8 +178,8 @@
         "scripts/facility-disable-browser-checks.js"
       ],
       "source": "scripts/facility-disable-browser-checks.js",
-      "sourceSha256": "22aba23a9f96cdc3647a2d2710b9d6d63b94ec0cbe5dbab52f188d37e9f3fcac",
-      "minimumAssertions": 11,
+      "sourceSha256": "3cd54d75ab5cfab984ed36e255b989d51118125edeb5b3d8efc606e5a57730a9",
+      "minimumAssertions": 12,
       "requiredCases": [
         "every parsed row retains its own POST form, including the first facility",
         "Disable submits only the selected facility: 20959291",
