@@ -544,6 +544,11 @@ class ExportScalingEvidenceTest(unittest.TestCase):
         self.assertIn("if: always()", workflow)
         self.assertIn("path: target/cds-performance-*/public/*", workflow)
         self.assertIn("persist-credentials: false", workflow)
+        self.assertIn('uses: ./.github/workflows/cds-change-detection.yml', workflow)
+        spec = importlib.util.spec_from_file_location(
+            'cds_scaling_selection', Path(__file__).with_name('select-cds-tests.py'))
+        selection = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(selection)
         for path in (
             "scripts/ci/run-cds-export-scaling.py",
             "scripts/ci/test_run_cds_export_scaling.py",
@@ -555,7 +560,7 @@ class ExportScalingEvidenceTest(unittest.TestCase):
             ".github/workflows/cds-export-performance.yml",
         ):
             with self.subTest(path=path):
-                self.assertIn("'" + path + "'", workflow)
+                self.assertTrue(selection.is_related(path, selection.related_paths()))
 
 
 if __name__ == "__main__":

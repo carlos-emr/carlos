@@ -48,9 +48,9 @@ public abstract class JSONUtil {
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public static void jsonResponse(HttpServletResponse response, ObjectNode jsonObject) {
+        response.setContentType(CONTENT_TYPE);
+        response.setCharacterEncoding(ENCODING);
         try (PrintWriter out = response.getWriter()) {
-            response.setContentType(CONTENT_TYPE);
-            response.setCharacterEncoding(ENCODING);
             out.print(jsonObject.toString()); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON API response with application/json content-type
             out.flush();
         } catch (IOException e) {
@@ -61,9 +61,9 @@ public abstract class JSONUtil {
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public static void jsonResponse(HttpServletResponse response, String jsonString) {
+        response.setContentType(CONTENT_TYPE);
+        response.setCharacterEncoding(ENCODING);
         try (PrintWriter out = response.getWriter()) {
-            response.setContentType(CONTENT_TYPE);
-            response.setCharacterEncoding(ENCODING);
             out.print(jsonString); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON API response with application/json content-type
             out.flush();
         } catch (IOException e) {
