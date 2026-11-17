@@ -5424,7 +5424,7 @@
       ],
       "timeoutSec": 360,
       "env": [],
-      "notes": "#5725: two template schemas and four tabs sharing one context/login. Alternating native runs and actual CSV/XLS downloads prove per-instance parameters, values and cell types. Includes empty results and normal Back clear-session beacons and subsequent tab closure; beacons are never suppressed.",
+      "notes": "#5813: a lone empty text parameter survives native upload, edit, reopen, run and export while the other template stays unchanged. #5725: two template schemas (text and list parameters) and four tabs sharing one context/login. Alternating native runs and actual CSV/XLS downloads prove per-instance parameters, values and cell types. Includes empty results and normal Back clear-session beacons and subsequent tab closure; beacons are never suppressed.",
       "fixtures": "Two natively uploaded marker-owned templates and two owned synthetic patients. Native middle-click opens report instances from the Administration library. Clinical rows remain unchanged; exact owned templates/patient and scratch-download cleanup are verified. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "mutates": [
         "reportTemplates"
@@ -8276,7 +8276,7 @@
         "property:doc_default_queue"
       ],
       "fixtures": "Disposable installed database only; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Requires CREATE/DROP TRIGGER permission for a marker-scoped security-write fault. Creates three marker-named queues through the provider form and Administration. Restores the provider default and removes owned queues/security objects and trigger on completion or interruption.",
-      "notes": "#4054: generated queue IDs, exact security association, duplicate-name creation failure with a later global MAX, and rollback/retry after a security-object failure. Opens the registered legacy default-queue view route because no Preferences link currently exposes it."
+      "notes": "#4054 and #6015: generated queue IDs, exact security association, preservation of ampersands, plus, percent and Unicode in Administration queue names, duplicate-name creation failure with a later global MAX, and rollback/retry after a security-object failure. Opens the registered legacy default-queue view route because no Preferences link currently exposes it."
     },
     {
       "name": "get-reject-inbox-queue",
@@ -18707,8 +18707,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Owns the runWorkflow patient, a marker-named report with generated configuration/filter rows and a marker-named legacy billing header/detail and a synthetic provider/role; cleanup recovers generated identifiers by marker and asserts owned rows are gone. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Verifies typed report field metadata and add/delete commits, provider role and PHCP counts, and authenticated CSV dispatch after JSP relocation."
+      "fixtures": "Owns the runWorkflow patient, a second marker-named cohort patient and their current extension values, a marker-named report with generated configuration/filter rows, a marker-named legacy billing header/detail and a synthetic provider/role; cleanup verifies ownership, recovers identifiers by marker and asserts owned rows are gone. Must not run concurrently with other checks (EXCLUSIVE=1).",
+      "notes": "Verifies typed report field metadata and add/delete commits, provider role and PHCP counts, authenticated CSV dispatch, and current extension values for every selected patient with NULL timestamps and physical bound-key collation controls."
     },
     {
       "name": "allergy-partial-start-date",

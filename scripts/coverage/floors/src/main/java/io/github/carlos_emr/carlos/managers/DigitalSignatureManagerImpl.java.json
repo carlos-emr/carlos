@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/managers/DigitalSignatureManagerImpl.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 58.97435897435897,
+    "instructions": 53.333333333333336,
+    "branches": 100.0,
+    "sourceBlob": "2e16d16a16645971bb273c4535c89e0619bc2378"
+  },
+  "evidenceSha256": "e641e5465dbcff2fc48af4c9767def6bfde30482dbeda97d62eaf9ae2ef374ab"
+}
