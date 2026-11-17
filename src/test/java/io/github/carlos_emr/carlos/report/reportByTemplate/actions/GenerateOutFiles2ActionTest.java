@@ -72,14 +72,79 @@ import static org.mockito.Mockito.when;
 @Tag("report")
 class GenerateOutFiles2ActionTest extends CarlosUnitTestBase {
 
+    private static java.util.stream.Stream<String> rawTextCells() {
+        return java.util.stream.Stream.of("+1 555-0123", "- see note", "@FAKE", "=1+1",
+                "\tFAKE literal tab", "\t\tFAKE two tabs", "\rFAKE return", "\nFAKE newline",
+                " \t@FAKE spaced", "\uFEFF=1+1", "\uFF1D1+1", "\uFF0BFAKE", "\uFF0DFAKE", "\uFF20FAKE",
+                " ordinary whitespace ", "literal\tinternal tab", " 00123 ", "\t12345678901234567",
+                " -0 ", " 1e20 ", " 1.23456789012345678 ");
+    }
+
+    private static String guardedCsv(String header, String value) throws IOException {
+        var text = new StringBuilder();
+        try (var csv = new org.apache.commons.csv.CSVPrinter(text, org.apache.commons.csv.CSVFormat.DEFAULT)) {
+            csv.printRecord(io.github.carlos_emr.carlos.utility.SpreadsheetCsv.sanitizeCell(header));
+            csv.printRecord(io.github.carlos_emr.carlos.utility.SpreadsheetCsv.sanitizeCell(value));
+        }
+        return text.toString();
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.MethodSource("rawTextCells")
+    void shouldRestoreRawTextInXlsx_withoutTurningItIntoAFormula(String raw) throws Exception {
+        requestDownload("getXLS", runReport(guardedCsv("value", raw)), "0");
+        assertThat(new GenerateOutFiles2Action().execute()).isEqualTo(ActionSupport.NONE);
+        try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(
+                new ByteArrayInputStream(response.getContentAsByteArray()))) {
+            var cell = workbook.getSheetAt(0).getRow(1).getCell(0);
+            assertThat(cell.getCellType()).isEqualTo(org.apache.poi.ss.usermodel.CellType.STRING);
+            assertThat(cell.getStringCellValue()).isEqualTo(raw);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {" 12.50", "42 ", "\t-12.50\r\n", " 0 "})
+    void shouldRetainLegacyNumericDetection_forWhitespacePaddedCanonicalNumbers(String raw) throws Exception {
+        requestDownload("getXLS", runReport(guardedCsv(" 2026 ", raw)), "0");
+        assertThat(new GenerateOutFiles2Action().execute()).isEqualTo(ActionSupport.NONE);
+        try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(
+                new ByteArrayInputStream(response.getContentAsByteArray()))) {
+            var sheet = workbook.getSheetAt(0);
+            assertThat(sheet.getRow(0).getCell(0).getStringCellValue()).isEqualTo(" 2026 ");
+            var cell = sheet.getRow(1).getCell(0);
+            assertThat(cell.getCellType()).isEqualTo(org.apache.poi.ss.usermodel.CellType.NUMERIC);
+            assertThat(cell.getNumericCellValue()).isEqualTo(Double.parseDouble(raw.trim()));
+        }
+    }
+
+    @Test
+    void shouldRestoreRawHeaderTextInXlsx_whileKeepingItAStringCell() throws Exception {
+        requestDownload("getXLS", runReport(guardedCsv("=FAKE header", "FAKE body")), "0");
+        assertThat(new GenerateOutFiles2Action().execute()).isEqualTo(ActionSupport.NONE);
+        try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(
+                new ByteArrayInputStream(response.getContentAsByteArray()))) {
+            var cell = workbook.getSheetAt(0).getRow(0).getCell(0);
+            assertThat(cell.getCellType()).isEqualTo(org.apache.poi.ss.usermodel.CellType.STRING);
+            assertThat(cell.getStringCellValue()).isEqualTo("=FAKE header");
+        }
+    }
+
+    @Test
+    void shouldRetainTheCsvGuardExactly_whenTheRequestedDownloadIsCsv() throws Exception {
+        String guarded = guardedCsv("=FAKE header", "+1 555-0123");
+        requestDownload("getCSV", runReport(guarded), "0");
+        assertThat(new GenerateOutFiles2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsByteArray()).isEqualTo(guarded.getBytes(StandardCharsets.UTF_8));
+    }
+
     private static final String PROVIDER = "999998";
 
     /**
      * CSVs as the reporters produce them, and the SHA-256 of the files the previous action built when the
      * result page posted exactly this CSV back: the CSV bytes, and, for the XLSX, the sorted map of each ZIP
      * entry to the SHA-256 of its contents (entry contents are deterministic; ZIP timestamps are not). The
-     * digests were taken from the posted-CSV action before it changed, so a match means the download is
-     * unchanged.
+     * digests were taken from the posted-CSV action. CSV digests and three workbook digests remain
+     * unchanged; #5917 updates only the guarded-cell workbook to its reviewed raw-cell representation.
      */
     private static final String[][] PREVIOUS_GENERATION = {
         {"name,amount\r\nsynthetic,12.50\r\n",
@@ -89,9 +154,10 @@ class GenerateOutFiles2ActionTest extends CarlosUnitTestBase {
             + "00123,12345678901234567,1.23456789012345678,=1+1,-001,1e20,-0,1234567890123456\r\n",
             "cba822dae55cbdb01efc0a10373c444b9fea7785f79d363e19bff06c38c9a507",
             "9361bfa114927ae5f1c1da5436f3e757fcec49fea9228a831ef3043695049bd3"},
+        // #5917: CSV stays byte-identical; this workbook now restores raw header/formula text.
         {"\"\t=header\",multiline,amount\r\n\"\t=1+1\",\"Zo\u00eb,\"\"text\"\"\r\nnext\",-12.50\r\n",
             "8831d434cc046ba4af718dd1aa95295ff2a136836a98de18da515ebc17c39cbd",
-            "bff3c4ef23752a915b9f583ff40f1106bdd2f60d05a16f559800790fdfb6c8f4"},
+            "abfd2a230bae7ed1137e91e2f9332bc6f630ad159d1742a9eafe80b1a3305d72"},
         {"arabic,fullwidth,2026,count\r\n\u0661\u0662,\uff11\uff12,42,999999999999999\r\n",
             "e6b0859d01564448d9f31034d7f45b4a134036af439e483df8862b5d4b2fbe54",
             "57c4ee0621ea63f1c8eebbeece3694581edb192c737788cfd4e1764d0a94b090"},
@@ -203,8 +269,8 @@ class GenerateOutFiles2ActionTest extends CarlosUnitTestBase {
 
         @ParameterizedTest(name = "corpus {0}")
         @ValueSource(ints = {0, 1, 2, 3})
-        @DisplayName("should send the same XLSX workbook the posted-CSV export produced for the same data")
-        void shouldSendTheSameXlsxWorkbook_asThePreviousGeneration(int corpus) throws Exception {
+        @DisplayName("should match reviewed XLSX fixtures, including restored raw guarded cells")
+        void shouldMatchReviewedXlsxWorkbooks_forUnchangedAndCorrectedRawCellFixtures(int corpus) throws Exception {
             requestDownload("getXLS", runReport(PREVIOUS_GENERATION[corpus][0]), "0");
 
             assertThat(new GenerateOutFiles2Action().execute()).isEqualTo(ActionSupport.NONE);

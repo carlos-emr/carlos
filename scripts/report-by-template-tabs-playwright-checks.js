@@ -2,6 +2,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later. */
 // #5725: four native report instances in ONE context/login, including two
 // additional instances of the same template. Never intercept the clear beacon.
+// #5917: CSV guards stay intact while XLSX restores raw text and padded numeric cells.
 const fs=require('node:fs');
 const h=require('./lib/playwright-harness');
 const {runWorkflow}=require('./lib/workflow-session');
@@ -34,9 +35,12 @@ async function workflow(s) {
     {title:titles[0],header:['patient_id','surname','given','sex_code'],types:['number','text','text','text'],
       query:`SELECT demographic_no AS patient_id,last_name AS surname,first_name AS given,sex AS sex_code FROM demographic WHERE last_name='${marker}' AND sex='{pick}' ORDER BY demographic_no`,
       row:sex=>[sex==='F'?patient:second,marker,sex==='F'?'Workflow':secondName,sex]},
-    {title:titles[1],header:['patient_label','charge','sex_code'],types:['text','number','text'],
-      query:`SELECT CONCAT('T2-',first_name) AS patient_label,CAST('12.34' AS DECIMAL(10,2)) AS charge,sex AS sex_code FROM demographic WHERE last_name='${marker}' AND sex='{pick}' ORDER BY demographic_no`,
-      row:sex=>['T2-'+(sex==='F'?'Workflow':secondName),'12.34',sex]},
+    {title:titles[1],header:['patient_label','charge','sex_code','phone','handle','note','formula','spaced_amount','literal_tab'],
+      types:['text','number','text','text','text','text','text','number','text'],
+      query:`SELECT CONCAT('T2-',first_name) AS patient_label,CAST('12.34' AS DECIMAL(10,2)) AS charge,sex AS sex_code,'+1 555-0123' AS phone,'@FAKE' AS handle,'- see note' AS note,'=1+1' AS formula,CAST(' 12.50' AS CHAR) AS spaced_amount,CONCAT(CHAR(9),'FAKE tab') AS literal_tab FROM demographic WHERE last_name='${marker}' AND sex='{pick}' ORDER BY demographic_no`,
+      row:sex=>['T2-'+(sex==='F'?'Workflow':secondName),'12.34',sex,'+1 555-0123','@FAKE','- see note','=1+1',' 12.50','\tFAKE tab'],
+      // CSV keeps its transport guards; the workbook uses raw text and numeric cells.
+      csvRow:sex=>['T2-'+(sex==='F'?'Workflow':secondName),'12.34',sex,'\t+1 555-0123','\t@FAKE','\t- see note','\t=1+1',' 12.50','\t\tFAKE tab']},
   ];
   const admin=await openAdmin(s);
   const link=admin.getByRole('link',{name:'Report by Template',exact:true,includeHidden:true});
@@ -84,7 +88,8 @@ async function workflow(s) {
     } else {
       const header=(await page.locator('#report2 thead th').allInnerTexts()).map(text=>text.trim());
       const rows=[];for(const tr of await page.locator('#report2 tbody tr').all())rows.push((await tr.locator('td').allInnerTexts()).map(text=>text.trim()));
-      h.assert(JSON.stringify(header)===JSON.stringify(template.header)&&JSON.stringify(rows)===JSON.stringify([template.row(sex)]),'Report headers or rows leaked another instance');
+      const displayed=template.row(sex).map(value=>String(value).trim());
+      h.assert(JSON.stringify(header)===JSON.stringify(template.header)&&JSON.stringify(rows)===JSON.stringify([displayed]),'Report headers or rows leaked another instance');
     }
     h.assert(clinical()===before,'Report execution changed clinical data');
   }
@@ -103,7 +108,7 @@ async function workflow(s) {
         h.assert(file.name===`oscarReport.${kind==='XLS'?'xlsx':'csv'}`,'Report export has the wrong filename');
         if(kind==='CSV') {
           const actual=x.parseCsv(file.bytes.toString('utf8'));
-          const expected=[template.header,template.row(sex)];
+          const expected=[template.header,template.csvRow?template.csvRow(sex):template.row(sex)];
           h.assert(JSON.stringify(actual)===JSON.stringify(expected),'CSV leaked another report, parameters or stale rows');
         } else {
           const cells=x.xlsxCells(file.bytes);
