@@ -37,12 +37,17 @@ public class ProviderDocumentQueueService {
      * @param providerNo provider from the authenticated session
      * @param name nonblank queue name, preserved as entered
      * @return the saved default-queue preference
-     * @throws IllegalArgumentException when the name is blank
+     * @throws IllegalArgumentException when the name is blank or the provider does not exist
      * @throws IllegalStateException when queue persistence fails to assign an ID
      */
     public UserProperty createDefaultQueue(String providerNo, String name) {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Document queue name is required");
+        }
+        // Serialize first-time creation even when there is no preference row to lock yet.
+        // Lock before queue queries can establish this transaction's read snapshot.
+        if (!properties.lockProviderPreferences(providerNo)) {
+            throw new IllegalArgumentException("Unknown document queue preference owner");
         }
         Integer id = queues.addNewQueueAndGetId(name);
         if (id == null) {

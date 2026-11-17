@@ -4,6 +4,7 @@ package io.github.carlos_emr.carlos.commn.service;
 import io.github.carlos_emr.carlos.commn.dao.QueueDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.daos.security.SecObjectNameDao;
 import io.github.carlos_emr.carlos.model.security.Secobjectname;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
@@ -13,6 +14,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.aop.framework.ProxyFactory;
@@ -41,6 +43,7 @@ class ProviderDocumentQueueTransactionIntegrationTest extends CarlosTestBase {
     @Autowired private SecObjectNameDao security;
     @Autowired private UserPropertyDAO properties;
     @Autowired private PlatformTransactionManager transactionManager;
+    @Autowired private javax.sql.DataSource dataSource;
     @PersistenceContext private EntityManager database;
     private TransactionTemplate transactions;
     private String owner;
@@ -52,6 +55,8 @@ class ProviderDocumentQueueTransactionIntegrationTest extends CarlosTestBase {
         String token = UUID.randomUUID().toString().replace("-", "");
         owner = "Q" + token.substring(0, 5);
         name = "FAKE-Q" + token.substring(0, 20);
+        transactions.executeWithoutResult(status -> database.persist(
+                new Provider(owner, "Synthetic", "doctor", "F", "", "Queue")));
     }
 
     private ProviderDocumentQueueService service(SecObjectNameDao securityDao, UserPropertyDAO preferenceDao) {
@@ -68,18 +73,21 @@ class ProviderDocumentQueueTransactionIntegrationTest extends CarlosTestBase {
     @AfterEach
     void removeOnlyOwnedRows() {
         transactions.executeWithoutResult(status -> {
-            for (Object id : database.createNativeQuery("SELECT id FROM queue WHERE name=:name")
-                    .setParameter("name", name).getResultList()) {
-                String object = "_queue." + id;
-                database.createNativeQuery("DELETE FROM secObjPrivilege WHERE objectName=:object")
-                        .setParameter("object", object).executeUpdate();
-                database.createNativeQuery("DELETE FROM secObjectName WHERE objectName=:object")
-                        .setParameter("object", object).executeUpdate();
+            for (String queueName : java.util.List.of(name, name + "-second")) {
+                for (Object id : database.createNativeQuery("SELECT id FROM queue WHERE name=:name")
+                        .setParameter("name", queueName).getResultList()) {
+                    String object = "_queue." + id;
+                    database.createNativeQuery("DELETE FROM secObjPrivilege WHERE objectName=:object")
+                            .setParameter("object", object).executeUpdate();
+                    database.createNativeQuery("DELETE FROM secObjectName WHERE objectName=:object")
+                            .setParameter("object", object).executeUpdate();
+                }
+                database.createNativeQuery("DELETE FROM secObjectName WHERE description=:name").setParameter("name", queueName).executeUpdate();
+                database.createNativeQuery("DELETE FROM queue WHERE name=:name").setParameter("name", queueName).executeUpdate();
             }
-            database.createNativeQuery("DELETE FROM secObjectName WHERE description=:name").setParameter("name", name).executeUpdate();
-            database.createNativeQuery("DELETE FROM queue WHERE name=:name").setParameter("name", name).executeUpdate();
             database.createNativeQuery("DELETE FROM property WHERE provider_no=:owner AND name=:property")
                     .setParameter("owner", owner).setParameter("property", UserProperty.DOC_DEFAULT_QUEUE).executeUpdate();
+            database.createNativeQuery("DELETE FROM provider WHERE provider_no=:owner").setParameter("owner", owner).executeUpdate();
         });
     }
 
@@ -98,6 +106,87 @@ class ProviderDocumentQueueTransactionIntegrationTest extends CarlosTestBase {
             assertThat(properties.getProp(owner, UserProperty.DOC_DEFAULT_QUEUE).getValue()).isEqualTo(result.getValue());
             assertThat(((Number) database.createNativeQuery("SELECT COUNT(*) FROM secObjPrivilege WHERE objectName=:object")
                     .setParameter("object", object.getObjectname()).getSingleResult()).longValue()).isZero();
+        });
+    }
+
+    @Test
+    void shouldKeepOneDefault_whenFirstTimeSavesOverlapForTheSameProvider() throws Exception {
+        boolean maria;
+        try (var connection = dataSource.getConnection()) {
+            maria = connection.getMetaData().getDatabaseProductName().contains("MariaDB");
+        }
+        var firstRead = new java.util.concurrent.CountDownLatch(1);
+        var releaseFirst = new java.util.concurrent.CountDownLatch(1);
+        var followerEntered = new java.util.concurrent.CountDownLatch(1);
+        var followerRead = new java.util.concurrent.CountDownLatch(1);
+        var followerConnection = new java.util.concurrent.atomic.AtomicLong();
+        UserPropertyDAO firstPreferences = mock(UserPropertyDAO.class, org.mockito.AdditionalAnswers.delegatesTo(properties));
+        doAnswer(call -> {
+            UserProperty result = properties.getProp(owner, UserProperty.DOC_DEFAULT_QUEUE);
+            firstRead.countDown();
+            assertThat(releaseFirst.await(30, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            return result;
+        }).when(firstPreferences).getProp(owner, UserProperty.DOC_DEFAULT_QUEUE);
+        UserPropertyDAO followerPreferences = mock(UserPropertyDAO.class, org.mockito.AdditionalAnswers.delegatesTo(properties));
+        doAnswer(call -> {
+            UserProperty result = properties.getProp(owner, UserProperty.DOC_DEFAULT_QUEUE);
+            followerRead.countDown();
+            return result;
+        }).when(followerPreferences).getProp(owner, UserProperty.DOC_DEFAULT_QUEUE);
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var first = pool.submit(() -> service(security, firstPreferences).createDefaultQueue(owner, name));
+            assertThat(firstRead.await(15, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            var follower = pool.submit(() -> transactions.execute(status -> {
+                followerConnection.set(database.unwrap(org.hibernate.Session.class).doReturningWork(connection -> {
+                    try (var statement = connection.createStatement();
+                         var rows = statement.executeQuery(maria ? "SELECT CONNECTION_ID()" : "SELECT SESSION_ID()")) {
+                        rows.next(); return rows.getLong(1);
+                    }
+                }));
+                followerEntered.countDown();
+                return service(security, followerPreferences).createDefaultQueue(owner, name + "-second");
+            }));
+            assertThat(followerEntered.await(15, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            var jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+            long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(15);
+            while (followerRead.getCount() != 0) {
+                String query = maria
+                        ? "SELECT COUNT(*) FROM information_schema.INNODB_LOCK_WAITS w JOIN information_schema.INNODB_TRX t ON t.trx_id=w.requesting_trx_id WHERE t.trx_mysql_thread_id=?"
+                        : "SELECT COUNT(*) FROM INFORMATION_SCHEMA.SESSIONS WHERE SESSION_ID=? AND BLOCKER_ID IS NOT NULL";
+                if (jdbc.queryForObject(query, Long.class, followerConnection.get()) > 0) break;
+                assertThat(System.nanoTime()).as("Follower neither read the preference nor waited for its owner lock")
+                        .isLessThan(deadline);
+                Thread.sleep(20);
+            }
+            // Before repair the follower commits a second first-time preference here. With the
+            // owner lock it cannot reach that read until the first transaction commits.
+            if (followerRead.getCount() == 0) follower.get(15, java.util.concurrent.TimeUnit.SECONDS);
+            releaseFirst.countDown();
+            first.get(15, java.util.concurrent.TimeUnit.SECONDS);
+            UserProperty latest = follower.get(15, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM property WHERE provider_no=? AND name=?",
+                    Long.class, owner, UserProperty.DOC_DEFAULT_QUEUE)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT value FROM property WHERE provider_no=? AND name=?",
+                    String.class, owner, UserProperty.DOC_DEFAULT_QUEUE)).isEqualTo(latest.getValue());
+        } finally {
+            releaseFirst.countDown();
+            pool.shutdownNow();
+            assertThat(pool.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    @Test
+    void shouldRefuseMissingPreferenceOwners_withoutCreatingQueueRows() {
+        for (String missing : new String[]{null, owner + "-missing"}) {
+            assertThatThrownBy(() -> service(security, properties).createDefaultQueue(missing, name))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Unknown document queue preference owner");
+        }
+        transactions.executeWithoutResult(status -> {
+            assertThat(count("SELECT COUNT(*) FROM queue WHERE name=:name")).isZero();
+            assertThat(count("SELECT COUNT(*) FROM secObjectName WHERE description=:name")).isZero();
+            assertThat(properties.getProp(owner, UserProperty.DOC_DEFAULT_QUEUE)).isNull();
         });
     }
 
