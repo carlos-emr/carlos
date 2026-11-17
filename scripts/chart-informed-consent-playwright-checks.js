@@ -61,7 +61,7 @@ async function workflow(s) {
         });
       });
       h.assert(dialogs.length===2&&dialogs[0].type==='confirm'&&dialogs[1].type==='alert'
-        &&/not saved.*try again/i.test(dialogs[1].text),'Unconfirmed consent did not explain the retry');
+        &&/could not be confirmed.*try again/i.test(dialogs[1].text),'Unconfirmed consent did not explain the retry');
       h.assert(sql.value(stored)==='0'&&await chart.locator('#informedConsentDiv').isVisible(),'Unconfirmed consent changed the stored state or hid the banner');
       h.assert(!await chart.locator('#informedConsentCheck').isChecked()&&await chart.locator('#informedConsentCheck').isEnabled(),'Unconfirmed consent cannot be retried');
     } finally {await chart.unroute(pattern,refuse);}

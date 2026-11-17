@@ -4829,9 +4829,9 @@ function autoSave() {
             if (forSure) {
                 // Show consent only after the server confirms its write, and allow one attempt at a time.
                 checkbox.prop("checked", false).prop("disabled", true);
-                var notSaved = function () {
+                var unconfirmed = function () {
                     checkbox.prop("checked", false).prop("disabled", false);
-                    window.alert("Informed consent was not saved. Please try again.");
+                    window.alert("Informed consent save could not be confirmed. Please try again.");
                 };
                 jQuery.post(ctx + "/DemographicExtService",
                     {method: "saveNewValue", demographicNo: demographicNo, key: "informedConsent", value: "yes"},
@@ -4842,9 +4842,9 @@ function autoSave() {
                         if (saved) {
                             jQuery("#informedConsentDiv").remove();
                         } else {
-                            notSaved();
+                            unconfirmed();
                         }
-                    }, 'json').fail(notSaved);
+                    }, 'json').fail(unconfirmed);
 
             } else {
                 checkbox.prop("checked", false);

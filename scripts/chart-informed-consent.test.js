@@ -96,7 +96,7 @@ test('the release ledger retires the repaired consent failure as an active regre
 });
 
 
-test('a failed consent write clears the checkbox, explains retry, and permits another attempt', () => {
+test('an unconfirmed transport result clears the checkbox, explains uncertainty, and permits retry', () => {
   const c = chart(); c.record();
   assert.equal(typeof c.state.posts[0].failure, 'function');
   c.state.posts[0].failure({status: 503});
@@ -104,7 +104,7 @@ test('a failed consent write clears the checkbox, explains retry, and permits an
   assert.equal(c.state.disabled, false);
   assert.equal(c.state.removed, false);
   assert.equal(c.state.alerts.length, 1);
-  assert.match(c.state.alerts[0], /not saved.*try again/i);
+  assert.match(c.state.alerts[0], /could not be confirmed.*try again/i);
   c.state.checked = true; c.record();
   assert.equal(c.state.posts.length, 2);
 });
