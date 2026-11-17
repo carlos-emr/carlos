@@ -123,20 +123,28 @@ class EFormExportZipConcurrentImportUnitTest {
         Path blocked = Files.createDirectory(images.resolve("blocked"));
         byte[] archive = zip(Map.of("first.bin", "FAKE first", "second.bin", "FAKE second"));
         var calls = new java.util.concurrent.atomic.AtomicInteger();
-        Files.setPosixFilePermissions(blocked, java.util.Set.of(
-                java.nio.file.attribute.PosixFilePermission.OWNER_READ,
-                java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE));
-        try (MockedStatic<ImageUpload2Action> folder = mockStatic(ImageUpload2Action.class)) {
+        var refused = new java.util.concurrent.atomic.AtomicInteger();
+        var denied = new java.nio.file.AccessDeniedException(blocked.toString());
+        // Root CI bypasses directory permissions. Inject only this failed link;
+        // the earlier hard link, inode identity checks and rollback remain real.
+        try (MockedStatic<ImageUpload2Action> folder = mockStatic(ImageUpload2Action.class);
+             MockedStatic<Files> filesystem = mockStatic(Files.class, call -> {
+                 if (call.getMethod().getName().equals("createLink")
+                         && blocked.equals(call.<Path>getArgument(0).getParent())) {
+                     refused.incrementAndGet();
+                     throw denied;
+                 }
+                 return call.callRealMethod();
+             })) {
             folder.when(ImageUpload2Action::getImageFolder).thenAnswer(call ->
                     calls.incrementAndGet() < 3 ? images.toFile() : blocked.toFile());
             assertThatThrownBy(() -> new EFormExportZip().importForm(new ByteArrayInputStream(archive)))
-                    .isInstanceOf(java.nio.file.AccessDeniedException.class);
+                    .isSameAs(denied);
+            assertThat(refused.get()).isEqualTo(1);
             try (var files = Files.list(images)) {
                 assertThat(files.filter(file -> file.getFileName().toString().endsWith(".bin")).toList()).isEmpty();
             }
             assertThat(stagingDirectories()).isEmpty();
-        } finally {
-            Files.setPosixFilePermissions(blocked, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
         }
     }
 
@@ -160,14 +168,16 @@ class EFormExportZipConcurrentImportUnitTest {
         Path source = Files.writeString(images.resolve("source.bin"), "FAKE owned inode");
         Path blocked = Files.createDirectory(images.resolve("blocked"));
         Path owned = Files.createLink(blocked.resolve("owned.bin"), source);
-        Files.setPosixFilePermissions(blocked, java.nio.file.attribute.PosixFilePermissions.fromString("r-x------"));
-        try {
+        var denied = new java.nio.file.AccessDeniedException(owned.toString());
+        // Keep a real published inode and refuse only its unlink, independently of UID.
+        try (MockedStatic<Files> filesystem = mockStatic(Files.class, call -> {
+            if (call.getMethod().getName().equals("delete") && owned.equals(call.getArgument(0))) throw denied;
+            return call.callRealMethod();
+        })) {
             var failure = new IOException("FAKE publication failure");
             EFormExportZip.rollbackPublishedAssets(Map.of(owned, source), failure);
-            assertThat(failure.getSuppressed()).singleElement().isInstanceOf(java.nio.file.AccessDeniedException.class);
+            assertThat(failure.getSuppressed()).containsExactly(denied);
             assertThat(owned).exists();
-        } finally {
-            Files.setPosixFilePermissions(blocked, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
         }
     }
 
