@@ -237,9 +237,12 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
         when(teleplanDao.findByOfficeNumber("0000041")).thenReturn(List.of(explanation));
         doCallRealMethod().when(reconcile).getS00String(anyString());
         if (MSPReconcile.REP_INVOICE.equals(type)) {
-            Properties current = new Properties();
-            current.setProperty("41", "FAKE-INVOICE-REASON");
-            doReturn(current).when(reconcile).currentC12Records();
+            TeleplanC12 current = new TeleplanC12();
+            current.setOfficeFolioClaimNo("41");
+            current.setExp1("FAKE-INVOICE-REASON");
+            TeleplanC12Dao explanations = createAndRegisterMock(TeleplanC12Dao.class);
+            when(explanations.findCurrent()).thenReturn(List.of(current));
+            doCallRealMethod().when(reconcile).currentC12Records();
         }
         if (MSPReconcile.REP_REJ.equals(type)) {
             TeleplanC12Dao rejections = createAndRegisterMock(TeleplanC12Dao.class);
