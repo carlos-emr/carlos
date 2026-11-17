@@ -676,7 +676,7 @@ def has_sql_context(statement: str) -> bool:
              # A closing quote after + raw + is also a bare literal; it must
              # not turn ordinary prose ("Invalid values from '" + x + "'")
              # into SQL context. The opening IN-list quote is the signal.
-             and not statement[:literal.start()].rstrip().endswith('+')))
+             and not has_raw_concat_operand(statement[:literal.start()])))
         and not is_message_literal(statement, literal.start())
         for literal in literals
     )
@@ -738,7 +738,7 @@ def check_sql_injection_patterns(content: str) -> list[str]:
     # In Java source, this appears as a string ending with ' (single-quote before
     # the closing double-quote), then + variable +, then a string starting with '
     # Example: "WHERE name = '" + patientName + "' AND ..."
-    quote_sandwich = r"""'"\s*\+\s*\w+\s*\+\s*"'"""
+    quote_sandwich = r"""'"\s*\+\s*""" + _OPERAND_CHAIN + r"""\s*\+\s*"'"""
 
     patterns_to_check = [
         (concat_pattern, "String concatenation in SQL query", False),
@@ -759,6 +759,21 @@ def check_sql_injection_patterns(content: str) -> list[str]:
         (quote_sandwich, "Value embedded between SQL quotes (injection)", True),
     ]
 
+    # Java string literals may contain SQL single-quotes. Candidate discovery
+    # must not stop at those quotes or require a keyword in a partial predicate.
+    # The statement-local context and raw-operand checks still reject prose,
+    # markup and constant/parameterized fragments rather than flagging them.
+    java_literal = r'"(?:[^"\\]|\\.)*"'
+    operand_patterns = [
+        (java_literal + r'\s*\+\s*\w+', "Raw value concatenated with SQL"),
+        (_OPERAND_CHAIN + r'\s*\+\s*' + java_literal, "Raw value concatenated with SQL"),
+        (r'\.append\s*\(\s*' + java_literal, "Raw value appended to SQL"),
+    ]
+    requires_raw_operand = {pattern for pattern, _ in operand_patterns}
+    patterns_to_check.extend((pattern, description, False) for pattern, description in operand_patterns)
+    patterns_to_check.append((java_literal + r'\s*\.\s*formatted\s*\(',
+                              "String.formatted() with SQL query", True))
+
     found_patterns = set()  # Avoid duplicate messages
 
     for pattern, description, always_unsafe in patterns_to_check:
@@ -770,6 +785,9 @@ def check_sql_injection_patterns(content: str) -> list[str]:
             statement = get_statement_containing(content, match.start(), match.end(), boundaries)
 
             if not has_sql_context(statement):
+                continue
+
+            if pattern in requires_raw_operand and not has_raw_concat_operand(statement):
                 continue
 
             # Skip if match is a safe pattern (never for always-unsafe patterns)

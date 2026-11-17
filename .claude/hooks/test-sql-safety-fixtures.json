@@ -120,9 +120,9 @@
     }
   },
   {
-    "section": "False Positives (should be ALLOWED, exit 0)",
-    "description": "FP-11: Keyword LIKE search with params (DxDaoImpl)",
-    "expected_exit": 0,
+    "section": "Raw SQL operands must not borrow parameter evidence (#6085)",
+    "description": "Raw LIKE column (former FP-11): unverified codingSystem is not a bind parameter",
+    "expected_exit": 2,
     "payload": {
       "tool_name": "Edit",
       "tool_input": {
@@ -1507,6 +1507,186 @@
       "tool_input": {
         "file_path": "/path/to/SyntheticMarkup.java",
         "content": "sb.append(\"Invalid value = '\" + source + \"'\");"
+      }
+    }
+  },
+  {
+    "section": "SQL operand/call/append detection (#6085)",
+    "description": "Operand-shape: request-call quote sandwich",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "String sql = \"SELECT * FROM demographic WHERE last_name = '\" + request.getParameter(\"name\") + \"'\";"
+      }
+    }
+  },
+  {
+    "section": "SQL operand/call/append detection (#6085)",
+    "description": "Operand-shape: dotted operand quote sandwich",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "String sql = \"SELECT * FROM demographic WHERE last_name = '\" + form.lastName + \"'\";"
+      }
+    }
+  },
+  {
+    "section": "SQL operand/call/append detection (#6085)",
+    "description": "Operand-shape: keyword-less predicate",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "String filter = \" AND d.demographic_no = \" + demoNo;"
+      }
+    }
+  },
+  {
+    "section": "SQL operand/call/append detection (#6085)",
+    "description": "Operand-shape: append-chained quoted value",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "sql.append(\" AND last_name = '\").append(name).append(\"'\");"
+      }
+    }
+  },
+  {
+    "section": "SQL operand/call/append detection (#6085)",
+    "description": "Operand-shape: formatted SQL text block",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "String text = \"\"\"\nSELECT * FROM demographic WHERE last_name = '%s'\n\"\"\".formatted(name);"
+      }
+    }
+  },
+  {
+    "section": "SQL operand/call/append detection (#6085)",
+    "description": "Operand-shape: nested raw method value",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "String sql = \"SELECT * FROM demographic WHERE id = '\" + String.valueOf(form.getId()) + \"'\";"
+      }
+    }
+  },
+  {
+    "section": "SQL operand/call/append detection (#6085)",
+    "description": "Operand-shape: quoted class metadata remains unsafe",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "String sql = \"WHERE name = '\" + Patient.class.getSimpleName() + \"'\";"
+      }
+    }
+  },
+  {
+    "section": "SQL operand/call/append detection (#6085)",
+    "description": "Operand-shape: quoted append value cannot borrow parameter evidence",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "sql.append(\" AND last_name = '\").append(name).append(\"' AND id=:id\"); query.setParameter(\"id\", id);"
+      }
+    }
+  },
+  {
+    "section": "SQL operand/call/append detection (#6085)",
+    "description": "Operand-shape: formatted query cannot borrow parameter evidence",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "String sql = \"SELECT * FROM t WHERE name='%s' AND id=:id\".formatted(name); query.setParameter(\"id\", id);"
+      }
+    }
+  },
+  {
+    "section": "SQL operand/call/append detection (#6085)",
+    "description": "Operand-shape: prose append chain",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "sb.append(\"Invalid values from '\").append(source).append(\"'\");"
+      }
+    }
+  },
+  {
+    "section": "SQL operand/call/append detection (#6085)",
+    "description": "Operand-shape: HTML append chain",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "sb.append(\"<meta name='\").append(name).append(\"'>\");"
+      }
+    }
+  },
+  {
+    "section": "SQL operand/call/append detection (#6085)",
+    "description": "Operand-shape: non-SQL formatted message",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "String message = \"Unable to read XML from %s\".formatted(source);"
+      }
+    }
+  },
+  {
+    "section": "SQL operand/call/append detection (#6085)",
+    "description": "Operand-shape: constant predicate fragment",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "filter.append(\" AND d.id = 1\");"
+      }
+    }
+  },
+  {
+    "section": "SQL operand/call/append detection (#6085)",
+    "description": "Operand-shape: named-parameter predicate fragment",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticDao.java",
+        "content": "sql.append(\" AND last_name = :name\"); query.setParameter(\"name\", name);"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "Parameterized LIKE predicate with explicit class metadata",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/SyntheticLikePredicate.java",
+        "new_string": "conditions.add(\"(\" + modelClass.getSimpleName() + \" like ?\" + paramIndex + \" or description like ?\" + (paramIndex + 1) + \")\");\nquery.setParameter(paramIndex++, likePattern);\nquery.setParameter(paramIndex++, likePattern);"
       }
     }
   }
