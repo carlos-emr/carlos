@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/parsers/CMLHandler.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "e502dd02c8fb9658ad1a15310c9aafa72f586ef5"
+  },
+  "evidenceSha256": "9b86936c43330a856a9c52a6c75ab8546bfd2941cf5f8bbc895e558ad7b2acfa"
+}
