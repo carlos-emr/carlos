@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "720f89233721c3134b40191f549ff77c5e2bed4a",
-  "comparisonSha256": "d4d27289573a33675959f47fda0ce042f2bcbea2051a0dcb17cba0e1cea2a582",
+  "sourceTree": "07fd35423e618fdb371ae56eb7d0bd695156ebb4",
+  "comparisonSha256": "467947a3d1f917f539810683083f224d13501e72c411042c7f0269a8c00c3301",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -9800,87 +9800,87 @@
     }
   },
   "zeroCoverageWaivers": {},
-  "baselineCommit": "027a8e9659ae554fa67a88b9453bcdea741ce3a5",
-  "baselineSourceTree": "720f89233721c3134b40191f549ff77c5e2bed4a",
-  "baselineReportSha256": "ff9df15509c949dbca57f40473a64d30990d323ec8b428c3fb156eae33035c11",
-  "baselineLane": "Fresh full Java25 compilation and focused prior-PR plus all incoming six-fix release regressions at8d45b80; zero failures/errors/skips after explicitly routed native-only cases. Parent floors/refusals retained; not full release qualification.",
+  "baselineCommit": "9e5f6d53f91e70642c41050d675bd3c8af9aab0c",
+  "baselineSourceTree": "07fd35423e618fdb371ae56eb7d0bd695156ebb4",
+  "baselineReportSha256": "806a82bb097f52f06baca1df431a8aad0d2fb62b9afce132575aa30cd49403a2",
+  "baselineLane": "Fresh full Java25 compilation and focused prior-PR plus all incoming six-fix release and privacy-buffer regressions at8b8b058; zero failures/errors/skips after explicitly routed native-only cases. Parent floors/refusals retained; not full release qualification.",
   "baselineTestCounts": {
-    "tests": 361,
+    "tests": 417,
     "failures": 0,
     "errors": 0,
     "skipped": 0
   },
-  "baselineTestReportsSha256": "fe3182b861971cbea65366011cc4055603bbd92314251ae9696a281770429609",
+  "baselineTestReportsSha256": "fc635d66fa18a9cabc934d5851a574961852496cb04da6f8c3dc3238f65f4b92",
   "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
   "baselineReportHeaderCollisions": 1,
   "baselinePriorEvidence": {
-    "baselineCommit": "a4d0ce3f79b9421beab4a4d165802af2fd320bdd",
-    "baselineSourceTree": "fd2ab8c8b1185d94aebd4988f5b485e67bba203f",
-    "baselineReportSha256": "eb0a3b9302f352d0da0ce8a8bf37f9450ae41328d4f9cc04ea7230326233d893",
-    "baselineLane": "Fresh full Java25 compilation and focused prior-PR plus cohort-extension CSV controls after merging release0c9a1d8; zero failures/errors/skips. Parent floors/refusals retained; not full release qualification.",
+    "baselineCommit": "027a8e9659ae554fa67a88b9453bcdea741ce3a5",
+    "baselineSourceTree": "720f89233721c3134b40191f549ff77c5e2bed4a",
+    "baselineReportSha256": "ff9df15509c949dbca57f40473a64d30990d323ec8b428c3fb156eae33035c11",
+    "baselineLane": "Fresh full Java25 compilation and focused prior-PR plus all incoming six-fix release regressions at8d45b80; zero failures/errors/skips after explicitly routed native-only cases. Parent floors/refusals retained; not full release qualification.",
     "baselineTestCounts": {
-      "tests": 195,
+      "tests": 361,
       "failures": 0,
       "errors": 0,
       "skipped": 0
     },
-    "baselineTestReportsSha256": "1248c44523c607327f01915e5b0ac6863c63d104a87415037a310be3ff3a78fb",
+    "baselineTestReportsSha256": "fe3182b861971cbea65366011cc4055603bbd92314251ae9696a281770429609",
     "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
-    "baselineReportHeaderCollisions": 0,
+    "baselineReportHeaderCollisions": 1,
     "baselinePriorEvidence": {
-      "baselineCommit": "ab92b1d59a7d1ec19d7aaad6bc77f40883d61100",
-      "baselineSourceTree": "cc7c0e4fbd67904bd1aace2771f0a2a687cc64ba",
-      "baselineReportSha256": "c54a29098f75dc5b666442d9edbe2a01a6ac3d15a7eef96aae5bf24e9c0bff88",
-      "baselineLane": "Focused155 Java25 report/SQL regressions after fixing whitespace escapes and commented metadata. Nine new before-fix cases fail while30 original focused controls pass; after155 have zero failures/errors/skips. Model/report source floors remain100% for all owned metrics. Comment boundaries advance once; literal text and secure XML policy retained. Parent floors/evidence preserved; focused source freshness only, not full release CI.",
+      "baselineCommit": "a4d0ce3f79b9421beab4a4d165802af2fd320bdd",
+      "baselineSourceTree": "fd2ab8c8b1185d94aebd4988f5b485e67bba203f",
+      "baselineReportSha256": "eb0a3b9302f352d0da0ce8a8bf37f9450ae41328d4f9cc04ea7230326233d893",
+      "baselineLane": "Fresh full Java25 compilation and focused prior-PR plus cohort-extension CSV controls after merging release0c9a1d8; zero failures/errors/skips. Parent floors/refusals retained; not full release qualification.",
       "baselineTestCounts": {
-        "tests": 155,
+        "tests": 195,
         "failures": 0,
         "errors": 0,
         "skipped": 0
       },
-      "baselineTestReportsSha256": "33e7ae8f0a30d4feb90b51582fa87a0d14f4c0811afb215e0887fa2092964f24",
+      "baselineTestReportsSha256": "1248c44523c607327f01915e5b0ac6863c63d104a87415037a310be3ff3a78fb",
       "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
       "baselineReportHeaderCollisions": 0,
       "baselinePriorEvidence": {
-        "baselineCommit": "3a6736e930a463189a349b91cc90da40c202dc22",
-        "baselineSourceTree": "a60fb17995dab6feccda87c1bbb4d34807cbcd95",
-        "baselineReportSha256": "85942e79e32af2be99ac2679d1e4037ebd230009e7244b9b208b2b65c8e92bf6",
-        "baselineLane": "Focused Java 25 report template parsing, binding, limits and export regressions: 146 cases, zero failures, errors or skips. Includes the reproduced stack-overflow control with 50000 spaces in valid parameter metadata, now parsed without recursive regex backtracking. All previous floors retained; owned source freshness only, not full release qualification.",
+        "baselineCommit": "ab92b1d59a7d1ec19d7aaad6bc77f40883d61100",
+        "baselineSourceTree": "cc7c0e4fbd67904bd1aace2771f0a2a687cc64ba",
+        "baselineReportSha256": "c54a29098f75dc5b666442d9edbe2a01a6ac3d15a7eef96aae5bf24e9c0bff88",
+        "baselineLane": "Focused155 Java25 report/SQL regressions after fixing whitespace escapes and commented metadata. Nine new before-fix cases fail while30 original focused controls pass; after155 have zero failures/errors/skips. Model/report source floors remain100% for all owned metrics. Comment boundaries advance once; literal text and secure XML policy retained. Parent floors/evidence preserved; focused source freshness only, not full release CI.",
         "baselineTestCounts": {
-          "tests": 146,
+          "tests": 155,
           "failures": 0,
           "errors": 0,
           "skipped": 0
         },
-        "baselineTestReportsSha256": "b90fcf330881f7d80dd483fe12a5c047a9025dddcfb63a72f18b575f81215299",
+        "baselineTestReportsSha256": "33e7ae8f0a30d4feb90b51582fa87a0d14f4c0811afb215e0887fa2092964f24",
         "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
         "baselineReportHeaderCollisions": 0,
         "baselinePriorEvidence": {
-          "baselineCommit": "087cff2f3c2da0f72d5afced9066ee2b186b057d",
-          "baselineSourceTree": "51124d38ddcd3332d3b6af1781aeba90542592f4",
-          "baselineReportSha256": "0afe56054365fcbfb7ce701240c76b96a2c53dd3961baf2b0551a2fac79bd620",
-          "baselineLane": "Focused Java 25 regression and unchanged controls after merging release 0ba9d149d105736afc38744250ea909333af8a88: zero failures, errors or skips. Only incoming changed Java and the test id helper were recompiled; owned production class files were unchanged. All parent floors and evidence retained; owned source freshness only, not full release qualification.",
+          "baselineCommit": "3a6736e930a463189a349b91cc90da40c202dc22",
+          "baselineSourceTree": "a60fb17995dab6feccda87c1bbb4d34807cbcd95",
+          "baselineReportSha256": "85942e79e32af2be99ac2679d1e4037ebd230009e7244b9b208b2b65c8e92bf6",
+          "baselineLane": "Focused Java 25 report template parsing, binding, limits and export regressions: 146 cases, zero failures, errors or skips. Includes the reproduced stack-overflow control with 50000 spaces in valid parameter metadata, now parsed without recursive regex backtracking. All previous floors retained; owned source freshness only, not full release qualification.",
           "baselineTestCounts": {
-            "tests": 145,
+            "tests": 146,
             "failures": 0,
             "errors": 0,
             "skipped": 0
           },
-          "baselineTestReportsSha256": "b31146fc4064261c503fc017ec1e9e12b5aad3942a24f2866066c1cfbeb4c252",
+          "baselineTestReportsSha256": "b90fcf330881f7d80dd483fe12a5c047a9025dddcfb63a72f18b575f81215299",
           "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
           "baselineReportHeaderCollisions": 0,
           "baselinePriorEvidence": {
-            "baselineCommit": "acb1c987262e62fc1b59e78854016c2b273e0650",
-            "baselineSourceTree": "a4f232a5f7d1e0056362a41445b6a3cd9c48c166",
-            "baselineReportSha256": "c71b96ab4826838b645306e154aa563962b67c6b2fc276d530bcb8ef27db98b5",
-            "baselineLane": "Focused Java 25 report template persistence, parsing, SQL execution parameterization, result limits and CSV regressions: 145 cases, zero failures, errors or skips. Includes reopened empty text parameters containing SQL syntax and malformed literal metadata. Every prior floor is retained. Owned source freshness only, not full release qualification.",
+            "baselineCommit": "087cff2f3c2da0f72d5afced9066ee2b186b057d",
+            "baselineSourceTree": "51124d38ddcd3332d3b6af1781aeba90542592f4",
+            "baselineReportSha256": "0afe56054365fcbfb7ce701240c76b96a2c53dd3961baf2b0551a2fac79bd620",
+            "baselineLane": "Focused Java 25 regression and unchanged controls after merging release 0ba9d149d105736afc38744250ea909333af8a88: zero failures, errors or skips. Only incoming changed Java and the test id helper were recompiled; owned production class files were unchanged. All parent floors and evidence retained; owned source freshness only, not full release qualification.",
             "baselineTestCounts": {
               "tests": 145,
               "failures": 0,
               "errors": 0,
               "skipped": 0
             },
-            "baselineTestReportsSha256": "91ddf6d8ee8a2a0d3b4108b5b685aba30ca23f42c236e84f368e78c340ac6868",
+            "baselineTestReportsSha256": "b31146fc4064261c503fc017ec1e9e12b5aad3942a24f2866066c1cfbeb4c252",
             "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
             "baselineReportHeaderCollisions": 0,
             "baselinePriorEvidence": {
@@ -9898,31 +9898,31 @@
               "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
               "baselineReportHeaderCollisions": 0,
               "baselinePriorEvidence": {
-                "baselineCommit": "4cb80e1eda9ae696fd0e3f3fc2a8f3dc57064207",
-                "baselineSourceTree": "4b1892c3c249aeabf299898de3166b9036cc952e",
-                "baselineReportSha256": "26fa74da4bb1de2cd8d1ba606982ab3c9923deec27e1b81bc885784ce6affc88",
-                "baselineLane": "Focused Java 25 regression and unchanged control tests after merging release 9c2014ef3867c8686043a8e633b14c801d2749a3; zero failures, errors or skips. Prior execution evidence is retained; source freshness and owned ratchets only, not full release qualification.",
+                "baselineCommit": "acb1c987262e62fc1b59e78854016c2b273e0650",
+                "baselineSourceTree": "a4f232a5f7d1e0056362a41445b6a3cd9c48c166",
+                "baselineReportSha256": "c71b96ab4826838b645306e154aa563962b67c6b2fc276d530bcb8ef27db98b5",
+                "baselineLane": "Focused Java 25 report template persistence, parsing, SQL execution parameterization, result limits and CSV regressions: 145 cases, zero failures, errors or skips. Includes reopened empty text parameters containing SQL syntax and malformed literal metadata. Every prior floor is retained. Owned source freshness only, not full release qualification.",
                 "baselineTestCounts": {
-                  "tests": 136,
+                  "tests": 145,
                   "failures": 0,
                   "errors": 0,
                   "skipped": 0
                 },
-                "baselineTestReportsSha256": "9656d0500d9d26259e6a76a66254dd5a664ec630eaf32697fb9e11b301e75219",
+                "baselineTestReportsSha256": "91ddf6d8ee8a2a0d3b4108b5b685aba30ca23f42c236e84f368e78c340ac6868",
                 "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
                 "baselineReportHeaderCollisions": 0,
                 "baselinePriorEvidence": {
-                  "baselineCommit": "c4803e215ab388ada9349ff699d98fe7b4fa7002",
-                  "baselineSourceTree": "51d67c6d13c96f78da758b2e988227c2f0f54f9d",
-                  "baselineReportSha256": "7a82f21dc7cf6153cb7ca08002f2635a3a264ac14c84c334d7cb5ee5355b12e1",
-                  "baselineLane": "PR #6223 qualified-root review repair: Java 25 report source/test classes recompiled, then the same focused Maven report/SQL suite retaken with JaCoCo. 136 tests passed, zero failures/errors/skips, including 20 semantic cases and three prefixed-root/report-list arrangements. ReportManager changed-code metrics retain their 100% floors. All other release metric floors, required refusals, exclusions and zero-coverage review requirements remain unchanged. Prior evidence is archived, not combined. Focused source freshness and regression evidence only, not full release-lane qualification.",
+                  "baselineCommit": "4cb80e1eda9ae696fd0e3f3fc2a8f3dc57064207",
+                  "baselineSourceTree": "4b1892c3c249aeabf299898de3166b9036cc952e",
+                  "baselineReportSha256": "26fa74da4bb1de2cd8d1ba606982ab3c9923deec27e1b81bc885784ce6affc88",
+                  "baselineLane": "Focused Java 25 regression and unchanged control tests after merging release 9c2014ef3867c8686043a8e633b14c801d2749a3; zero failures, errors or skips. Prior execution evidence is retained; source freshness and owned ratchets only, not full release qualification.",
                   "baselineTestCounts": {
                     "tests": 136,
                     "failures": 0,
                     "errors": 0,
                     "skipped": 0
                   },
-                  "baselineTestReportsSha256": "da77642f8d6fb92c104045d5daed0ffb8650d3cf68878045587c793446e99858",
+                  "baselineTestReportsSha256": "9656d0500d9d26259e6a76a66254dd5a664ec630eaf32697fb9e11b301e75219",
                   "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
                   "baselineReportHeaderCollisions": 0,
                   "baselinePriorEvidence": {
@@ -9940,173 +9940,97 @@
                     "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
                     "baselineReportHeaderCollisions": 0,
                     "baselinePriorEvidence": {
-                      "baselineCommit": "4c45aed932e22800e63bc274b499e2ac99a86f8b",
-                      "baselineSourceTree": "3f9422acb53708e882ab59b3b9cb8301df7582f2",
-                      "baselineReportSha256": "3ab05b3c94c454718cd855928b717bc45464ee8e502982f954b804943c83a684",
-                      "baselineLane": "PR #6223 namespace review repair: Java 25 source and test classes recompiled with debug/parameters/release25, then the same focused Maven report and SQL suite retaken with JaCoCo: 133 tests passed, zero failures/errors/skips. Includes 17 semantic cases and report/list inherited namespace save-reopen controls. ReportManager changed-code counters retain 100% line/instruction/branch floors. All other release floors, refusal requirements, exclusions and zero-coverage review requirements are unchanged. Prior evidence is archived, not combined. Focused source freshness and regression evidence only, not complete release-lane qualification.",
+                      "baselineCommit": "c4803e215ab388ada9349ff699d98fe7b4fa7002",
+                      "baselineSourceTree": "51d67c6d13c96f78da758b2e988227c2f0f54f9d",
+                      "baselineReportSha256": "7a82f21dc7cf6153cb7ca08002f2635a3a264ac14c84c334d7cb5ee5355b12e1",
+                      "baselineLane": "PR #6223 qualified-root review repair: Java 25 report source/test classes recompiled, then the same focused Maven report/SQL suite retaken with JaCoCo. 136 tests passed, zero failures/errors/skips, including 20 semantic cases and three prefixed-root/report-list arrangements. ReportManager changed-code metrics retain their 100% floors. All other release metric floors, required refusals, exclusions and zero-coverage review requirements remain unchanged. Prior evidence is archived, not combined. Focused source freshness and regression evidence only, not full release-lane qualification.",
                       "baselineTestCounts": {
-                        "tests": 133,
+                        "tests": 136,
                         "failures": 0,
                         "errors": 0,
                         "skipped": 0
                       },
-                      "baselineTestReportsSha256": "dee47941f5ddbf3a1a39550983867d968667a081c5e9c45276c4654cafae521b",
+                      "baselineTestReportsSha256": "da77642f8d6fb92c104045d5daed0ffb8650d3cf68878045587c793446e99858",
                       "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
                       "baselineReportHeaderCollisions": 0,
                       "baselinePriorEvidence": {
-                        "baselineCommit": "609f7e4a973051af2ef07cd47cd6f590ff4e1bf0",
-                        "baselineSourceTree": "1ed9895b6821c985ba5e713422eebdf84e82eafe",
-                        "baselineReportSha256": "2731357e990108c2f75f03a9331506b45cbcda82972ec015c6542b323b93ab4d",
-                        "baselineLane": "PR #6223 legacy SQL review fix: Java 25 selected Report by Template Maven regressions, including 15 parameter roundtrip, raw SQL, report-list, comment/lookalike metadata, DTD/entity and SELECT-only cases. 131 tests passed, zero failures/errors/skips. ReportManager changed-code counters remain 100% across 24 executable changed lines. Every other release floor, refusal requirement, exclusion and zero-coverage review requirement is unchanged. Prior evidence is archived and not merged with this execution. This establishes source freshness and focused regression evidence, not complete release-lane coverage acceptance.",
+                        "baselineCommit": "4c45aed932e22800e63bc274b499e2ac99a86f8b",
+                        "baselineSourceTree": "3f9422acb53708e882ab59b3b9cb8301df7582f2",
+                        "baselineReportSha256": "3ab05b3c94c454718cd855928b717bc45464ee8e502982f954b804943c83a684",
+                        "baselineLane": "PR #6223 namespace review repair: Java 25 source and test classes recompiled with debug/parameters/release25, then the same focused Maven report and SQL suite retaken with JaCoCo: 133 tests passed, zero failures/errors/skips. Includes 17 semantic cases and report/list inherited namespace save-reopen controls. ReportManager changed-code counters retain 100% line/instruction/branch floors. All other release floors, refusal requirements, exclusions and zero-coverage review requirements are unchanged. Prior evidence is archived, not combined. Focused source freshness and regression evidence only, not complete release-lane qualification.",
                         "baselineTestCounts": {
-                          "tests": 131,
+                          "tests": 133,
                           "failures": 0,
                           "errors": 0,
                           "skipped": 0
                         },
-                        "baselineTestReportsSha256": "91b90e5296f403a6c8656c6b5dab2f0f6e9964cd008870f2e145a4cf43ef6c16",
+                        "baselineTestReportsSha256": "dee47941f5ddbf3a1a39550983867d968667a081c5e9c45276c4654cafae521b",
                         "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
                         "baselineReportHeaderCollisions": 0,
                         "baselinePriorEvidence": {
-                          "baselineCommit": "6820b3b8a8ca0969e3ef4a421faf543c01c4e3b2",
-                          "baselineSourceTree": "800989f4760f8bc73bbf65642c64d92f761d2ea6",
-                          "baselineReportSha256": "4471183fad9c62ce813b5d294d43c93bfec78309463e4c81403c9e8b0a637d79",
-                          "baselineLane": "Issue #5813: Java 25 selected Report by Template Maven tests, including actual upload/save/reopen parameter roundtrips, sibling/list and cross-template controls, legacy raw SQL, DTD/entity rejection and SELECT-only refusals. 124 tests passed, zero failures/errors/skips. ReportManager has measured 100% changed-code line/instruction/branch counters across five executable changed lines. Every prior release metric floor, refusal requirement, exclusion and zero-coverage review requirement is retained unchanged. Historical evidence is archived and not merged with this execution. This establishes source freshness and focused regression evidence, not complete release-lane coverage acceptance.",
+                          "baselineCommit": "609f7e4a973051af2ef07cd47cd6f590ff4e1bf0",
+                          "baselineSourceTree": "1ed9895b6821c985ba5e713422eebdf84e82eafe",
+                          "baselineReportSha256": "2731357e990108c2f75f03a9331506b45cbcda82972ec015c6542b323b93ab4d",
+                          "baselineLane": "PR #6223 legacy SQL review fix: Java 25 selected Report by Template Maven regressions, including 15 parameter roundtrip, raw SQL, report-list, comment/lookalike metadata, DTD/entity and SELECT-only cases. 131 tests passed, zero failures/errors/skips. ReportManager changed-code counters remain 100% across 24 executable changed lines. Every other release floor, refusal requirement, exclusion and zero-coverage review requirement is unchanged. Prior evidence is archived and not merged with this execution. This establishes source freshness and focused regression evidence, not complete release-lane coverage acceptance.",
                           "baselineTestCounts": {
-                            "tests": 124,
+                            "tests": 131,
                             "failures": 0,
                             "errors": 0,
                             "skipped": 0
                           },
-                          "baselineTestReportsSha256": "fd0264d014d741cb3703f9beec355a3d9238b70d37951cba75c013430fe52ec8",
+                          "baselineTestReportsSha256": "91b90e5296f403a6c8656c6b5dab2f0f6e9964cd008870f2e145a4cf43ef6c16",
                           "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
                           "baselineReportHeaderCollisions": 0,
                           "baselinePriorEvidence": {
-                            "baselineCommit": "46ebae44664168d2f4909ef354db8471cd7c025c",
-                            "baselineSourceTree": "b2c8c296bd3fc21961f46e1cf1531dc253aba039",
-                            "baselineReportSha256": "15db36d32116bf4ce06f5700afcf78c5ce1d995f19a957687ef5e0e9d7f4ad4d",
-                            "baselineLane": "PR #6174 conflict resolution on release f96b5b937f50b3b8cfe0ecca6128d35495544c6b. OpenJDK 25.0.3 focused Maven tests and JaCoCo on the merged production and test sources. Existing metric floors, required refusal lines, exclusions and zero-coverage review requirements are retained; new source paths use measured changed-code counters (abstract-only interfaces have no executable lines). Historical release evidence is archived in baselinePriorEvidence and is not combined with this execution. This establishes source freshness and focused regression evidence, not complete release-lane coverage acceptance.",
+                            "baselineCommit": "6820b3b8a8ca0969e3ef4a421faf543c01c4e3b2",
+                            "baselineSourceTree": "800989f4760f8bc73bbf65642c64d92f761d2ea6",
+                            "baselineReportSha256": "4471183fad9c62ce813b5d294d43c93bfec78309463e4c81403c9e8b0a637d79",
+                            "baselineLane": "Issue #5813: Java 25 selected Report by Template Maven tests, including actual upload/save/reopen parameter roundtrips, sibling/list and cross-template controls, legacy raw SQL, DTD/entity rejection and SELECT-only refusals. 124 tests passed, zero failures/errors/skips. ReportManager has measured 100% changed-code line/instruction/branch counters across five executable changed lines. Every prior release metric floor, refusal requirement, exclusion and zero-coverage review requirement is retained unchanged. Historical evidence is archived and not merged with this execution. This establishes source freshness and focused regression evidence, not complete release-lane coverage acceptance.",
                             "baselineTestCounts": {
-                              "tests": 16,
-                              "skipped": 0,
+                              "tests": 124,
                               "failures": 0,
-                              "errors": 0
+                              "errors": 0,
+                              "skipped": 0
                             },
-                            "baselineTestReportsSha256": "8d52860829522abe4e3af0de88b498559396d63393b74fda2f101b280eb91c3f",
-                            "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
+                            "baselineTestReportsSha256": "fd0264d014d741cb3703f9beec355a3d9238b70d37951cba75c013430fe52ec8",
+                            "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
                             "baselineReportHeaderCollisions": 0,
                             "baselinePriorEvidence": {
-                              "baselineCommit": "eebcb76407c608b2065c47a4f77eba67afd3b637",
-                              "baselineSourceTree": "8c8c9dde50b332a494164d31cc30d17f5887abd0",
-                              "baselineReportSha256": "9ee9338a310a01f8607b5aa7812d87ee82c2753a3f64f2fbd3ac2d704160a46c",
-                              "baselineLane": "PR #6145 conflict resolution on release c9945f57acb4b68d6149bdad7cc38a7024e5b192. Temurin JDK 25.0.3 focused Maven test and JaCoCo run on the merged production and test sources: PreventionFormCodesUnitTest, AddPreventionDataBrandCatalogueUnitTest, ImmunizationUnitTest, SurefireIncludeCoverageUnitTest and JspTaglibDeclarationRegressionTest. Both PR Java paths meet their retained 100% changed-line, instruction and branch floors. All 1,592 release floors, required refusal lines, exclusions and zero-coverage review requirements are retained unchanged. Historical release evidence is archived in baselinePriorEvidence; it is not combined with this execution or asserted to cover changed classes. This focused run establishes the merged source identity and PR coverage only, not full release coverage acceptance or a complete same-class lane union.",
+                              "baselineCommit": "46ebae44664168d2f4909ef354db8471cd7c025c",
+                              "baselineSourceTree": "b2c8c296bd3fc21961f46e1cf1531dc253aba039",
+                              "baselineReportSha256": "15db36d32116bf4ce06f5700afcf78c5ce1d995f19a957687ef5e0e9d7f4ad4d",
+                              "baselineLane": "PR #6174 conflict resolution on release f96b5b937f50b3b8cfe0ecca6128d35495544c6b. OpenJDK 25.0.3 focused Maven tests and JaCoCo on the merged production and test sources. Existing metric floors, required refusal lines, exclusions and zero-coverage review requirements are retained; new source paths use measured changed-code counters (abstract-only interfaces have no executable lines). Historical release evidence is archived in baselinePriorEvidence and is not combined with this execution. This establishes source freshness and focused regression evidence, not complete release-lane coverage acceptance.",
                               "baselineTestCounts": {
-                                "tests": 63,
+                                "tests": 16,
                                 "skipped": 0,
                                 "failures": 0,
                                 "errors": 0
                               },
-                              "baselineTestReportsSha256": "fc974c6aedfa8d7d7323b6f1ac31af3dd174dff1af4b916a296472d58eef0413",
+                              "baselineTestReportsSha256": "8d52860829522abe4e3af0de88b498559396d63393b74fda2f101b280eb91c3f",
                               "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
                               "baselineReportHeaderCollisions": 0,
-                              "baselineCoverageInputs": [
-                                {
-                                  "lane": "pr-6145-focused-merged-source",
-                                  "sourceCommit": "eebcb76407c608b2065c47a4f77eba67afd3b637",
-                                  "executionSha256": "f5a851256821a4f06d07ddf28ebf13518c7dd2624134a4bfdc84ae8566937cba",
-                                  "reportsSha256": "fc974c6aedfa8d7d7323b6f1ac31af3dd174dff1af4b916a296472d58eef0413",
-                                  "summary": {
-                                    "tests": 63,
-                                    "failed": 0,
-                                    "skipped": 0,
-                                    "ready": true
-                                  },
-                                  "counterCollisionCount": 0,
-                                  "suiteCount": 5
-                                }
-                              ],
                               "baselinePriorEvidence": {
-                                "sourceTree": "8f73ef6bd202a6b69b5934cc09116e387c216dcf",
-                                "comparisonSha256": "9ffeaae124f68363b2714f1e8b0a265596029391eb3dbbc429148e0c9b48dea5",
-                                "baselineCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
-                                "baselineSourceTree": "8f73ef6bd202a6b69b5934cc09116e387c216dcf",
-                                "baselineReportSha256": "c4bc4d08b53a65165e2f0e6ff5e113265b7e3bfeb7ca4c01917d86ba62baf343",
-                                "baselineLane": "Passing JDK 25 full H2 and 439-suite native execution at ccf1fc0a23cca5adbfec67925240eb88b8529cad, plus final 109-case native deadline/maintenance, 35-case connection policy and five-case non-root permission executions at 494f6e24cb2051cdf184043637a62bf48cb242ac. Earlier executions contribute only exact matching final JaCoCo class IDs (7,646 of 7,653 class files are byte-identical); seven changed class files use final executions only. No missing current-class execution is substituted with an earlier class. These overlapping cases are not unique-test sums. Higher historical floors and all four refusal lines are retained. This source-freshness refresh is not a complete all-release-lane coverage acceptance or zero-floor waiver.",
+                                "baselineCommit": "eebcb76407c608b2065c47a4f77eba67afd3b637",
+                                "baselineSourceTree": "8c8c9dde50b332a494164d31cc30d17f5887abd0",
+                                "baselineReportSha256": "9ee9338a310a01f8607b5aa7812d87ee82c2753a3f64f2fbd3ac2d704160a46c",
+                                "baselineLane": "PR #6145 conflict resolution on release c9945f57acb4b68d6149bdad7cc38a7024e5b192. Temurin JDK 25.0.3 focused Maven test and JaCoCo run on the merged production and test sources: PreventionFormCodesUnitTest, AddPreventionDataBrandCatalogueUnitTest, ImmunizationUnitTest, SurefireIncludeCoverageUnitTest and JspTaglibDeclarationRegressionTest. Both PR Java paths meet their retained 100% changed-line, instruction and branch floors. All 1,592 release floors, required refusal lines, exclusions and zero-coverage review requirements are retained unchanged. Historical release evidence is archived in baselinePriorEvidence; it is not combined with this execution or asserted to cover changed classes. This focused run establishes the merged source identity and PR coverage only, not full release coverage acceptance or a complete same-class lane union.",
                                 "baselineTestCounts": {
-                                  "tests": 41314,
-                                  "skipped": 474,
+                                  "tests": 63,
+                                  "skipped": 0,
                                   "failures": 0,
                                   "errors": 0
                                 },
-                                "baselineTestReportsSha256": "cc287e3859643fd78f8e88fcd8e77eedfe82e3b131baca0d22e50fabd16a9e52",
+                                "baselineTestReportsSha256": "fc974c6aedfa8d7d7323b6f1ac31af3dd174dff1af4b916a296472d58eef0413",
                                 "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
-                                "baselineReportHeaderCollisions": 54,
-                                "baselineReportCounting": "Existing strict read_surefire parser counts each distinct executed container/case; only its explicit Surefire 3.5.6 nested-name header collision rule is accepted. Failures, reruns, duplicates and other counter mismatches remain refusals.",
-                                "baselineProductionClassManifestSha256": "2639aa398cfeb7b8f57a827afb46b9740fe7df2ad7ed82bf31773ad877ea6edf",
+                                "baselineReportHeaderCollisions": 0,
                                 "baselineCoverageInputs": [
                                   {
-                                    "lane": "security-final-h2",
-                                    "sourceCommit": "ccf1fc0a23cca5adbfec67925240eb88b8529cad",
-                                    "executionSha256": "3f7864c1255392752422e36a3d673754e2697513bbb6fed74c5c9b69a8f7dd24",
-                                    "reportsSha256": "cc287e3859643fd78f8e88fcd8e77eedfe82e3b131baca0d22e50fabd16a9e52",
+                                    "lane": "pr-6145-focused-merged-source",
+                                    "sourceCommit": "eebcb76407c608b2065c47a4f77eba67afd3b637",
+                                    "executionSha256": "f5a851256821a4f06d07ddf28ebf13518c7dd2624134a4bfdc84ae8566937cba",
+                                    "reportsSha256": "fc974c6aedfa8d7d7323b6f1ac31af3dd174dff1af4b916a296472d58eef0413",
                                     "summary": {
-                                      "tests": 41314,
-                                      "failed": 0,
-                                      "skipped": 474,
-                                      "ready": true
-                                    },
-                                    "counterCollisionCount": 54,
-                                    "suiteCount": 3045
-                                  },
-                                  {
-                                    "lane": "security-final-native",
-                                    "sourceCommit": "ccf1fc0a23cca5adbfec67925240eb88b8529cad",
-                                    "executionSha256": "2a6532de2d4aad5d1727fd9030267b6f77705ed9a6546525efbf6ef3329c5039",
-                                    "reportsSha256": "f35104e6b0ac3fb8a7f8abdb3b18c3a3abddbe98e53e42d17ea3e213b9e38f04",
-                                    "summary": {
-                                      "tests": 5659,
-                                      "failed": 0,
-                                      "skipped": 0,
-                                      "ready": true
-                                    },
-                                    "counterCollisionCount": 0,
-                                    "suiteCount": 439
-                                  },
-                                  {
-                                    "lane": "final-deadline-stable",
-                                    "sourceCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
-                                    "executionSha256": "6bf7d5f327302bb6274bd987daf8ab4336cab10821252b44cc867ccec8a5ca15",
-                                    "reportsSha256": "2fd84d5e9f6802cc41ab3c4f8530645f8ecae6ee0c6d70e6afbc62bab4290322",
-                                    "summary": {
-                                      "tests": 109,
-                                      "failed": 0,
-                                      "skipped": 0,
-                                      "ready": true
-                                    },
-                                    "counterCollisionCount": 0,
-                                    "suiteCount": 7
-                                  },
-                                  {
-                                    "lane": "final-ordinary-admission",
-                                    "sourceCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
-                                    "executionSha256": "ed9ae5c8ec5e5b4c7e4a3e64e0d3d08eea51c1a54f83cf2feb634a072a7fff47",
-                                    "reportsSha256": "0686805087fc46e64c6ad412e53c8246812ab9e8783d98c2655366e0b4ed6546",
-                                    "summary": {
-                                      "tests": 35,
-                                      "failed": 0,
-                                      "skipped": 0,
-                                      "ready": true
-                                    },
-                                    "counterCollisionCount": 0,
-                                    "suiteCount": 1
-                                  },
-                                  {
-                                    "lane": "final-permission-494f6e",
-                                    "sourceCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
-                                    "executionSha256": "0c1d8fd02af44e95a50a2a7da0f81d73f3dc93deea08c5e97fa7733f4f655041",
-                                    "reportsSha256": "ef75d8eb5958462b693397d1b6f309e2292feaef8a11f4b95c0269d42c4c37b0",
-                                    "summary": {
-                                      "tests": 5,
+                                      "tests": 63,
                                       "failed": 0,
                                       "skipped": 0,
                                       "ready": true
@@ -10115,285 +10039,111 @@
                                     "suiteCount": 5
                                   }
                                 ],
-                                "baselineClassIdentity": {
-                                  "currentProductionClassCount": 7653,
-                                  "identicalEarlierClasses": 7646,
-                                  "changedClasses": [
-                                    "io/github/carlos_emr/carlos/commn/dao/CdsExportStatementWaitReadSupport$Network.class",
-                                    "io/github/carlos_emr/carlos/commn/dao/CdsExportStatementWaitReadSupport$Unit.class",
-                                    "io/github/carlos_emr/carlos/commn/dao/CdsExportStatementWaitReadSupport.class",
-                                    "io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard$1Functions.class",
-                                    "io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard$OrdinaryAdmissionLease.class",
-                                    "io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard$SqlShape.class",
-                                    "io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard.class"
-                                  ]
+                                "baselinePriorEvidence": {
+                                  "sourceTree": "8f73ef6bd202a6b69b5934cc09116e387c216dcf",
+                                  "comparisonSha256": "9ffeaae124f68363b2714f1e8b0a265596029391eb3dbbc429148e0c9b48dea5",
+                                  "baselineCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
+                                  "baselineSourceTree": "8f73ef6bd202a6b69b5934cc09116e387c216dcf",
+                                  "baselineReportSha256": "c4bc4d08b53a65165e2f0e6ff5e113265b7e3bfeb7ca4c01917d86ba62baf343",
+                                  "baselineLane": "Passing JDK 25 full H2 and 439-suite native execution at ccf1fc0a23cca5adbfec67925240eb88b8529cad, plus final 109-case native deadline/maintenance, 35-case connection policy and five-case non-root permission executions at 494f6e24cb2051cdf184043637a62bf48cb242ac. Earlier executions contribute only exact matching final JaCoCo class IDs (7,646 of 7,653 class files are byte-identical); seven changed class files use final executions only. No missing current-class execution is substituted with an earlier class. These overlapping cases are not unique-test sums. Higher historical floors and all four refusal lines are retained. This source-freshness refresh is not a complete all-release-lane coverage acceptance or zero-floor waiver.",
+                                  "baselineTestCounts": {
+                                    "tests": 41314,
+                                    "skipped": 474,
+                                    "failures": 0,
+                                    "errors": 0
+                                  },
+                                  "baselineTestReportsSha256": "cc287e3859643fd78f8e88fcd8e77eedfe82e3b131baca0d22e50fabd16a9e52",
+                                  "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
+                                  "baselineReportHeaderCollisions": 54,
+                                  "baselineReportCounting": "Existing strict read_surefire parser counts each distinct executed container/case; only its explicit Surefire 3.5.6 nested-name header collision rule is accepted. Failures, reruns, duplicates and other counter mismatches remain refusals.",
+                                  "baselineProductionClassManifestSha256": "2639aa398cfeb7b8f57a827afb46b9740fe7df2ad7ed82bf31773ad877ea6edf",
+                                  "baselineCoverageInputs": [
+                                    {
+                                      "lane": "security-final-h2",
+                                      "sourceCommit": "ccf1fc0a23cca5adbfec67925240eb88b8529cad",
+                                      "executionSha256": "3f7864c1255392752422e36a3d673754e2697513bbb6fed74c5c9b69a8f7dd24",
+                                      "reportsSha256": "cc287e3859643fd78f8e88fcd8e77eedfe82e3b131baca0d22e50fabd16a9e52",
+                                      "summary": {
+                                        "tests": 41314,
+                                        "failed": 0,
+                                        "skipped": 474,
+                                        "ready": true
+                                      },
+                                      "counterCollisionCount": 54,
+                                      "suiteCount": 3045
+                                    },
+                                    {
+                                      "lane": "security-final-native",
+                                      "sourceCommit": "ccf1fc0a23cca5adbfec67925240eb88b8529cad",
+                                      "executionSha256": "2a6532de2d4aad5d1727fd9030267b6f77705ed9a6546525efbf6ef3329c5039",
+                                      "reportsSha256": "f35104e6b0ac3fb8a7f8abdb3b18c3a3abddbe98e53e42d17ea3e213b9e38f04",
+                                      "summary": {
+                                        "tests": 5659,
+                                        "failed": 0,
+                                        "skipped": 0,
+                                        "ready": true
+                                      },
+                                      "counterCollisionCount": 0,
+                                      "suiteCount": 439
+                                    },
+                                    {
+                                      "lane": "final-deadline-stable",
+                                      "sourceCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
+                                      "executionSha256": "6bf7d5f327302bb6274bd987daf8ab4336cab10821252b44cc867ccec8a5ca15",
+                                      "reportsSha256": "2fd84d5e9f6802cc41ab3c4f8530645f8ecae6ee0c6d70e6afbc62bab4290322",
+                                      "summary": {
+                                        "tests": 109,
+                                        "failed": 0,
+                                        "skipped": 0,
+                                        "ready": true
+                                      },
+                                      "counterCollisionCount": 0,
+                                      "suiteCount": 7
+                                    },
+                                    {
+                                      "lane": "final-ordinary-admission",
+                                      "sourceCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
+                                      "executionSha256": "ed9ae5c8ec5e5b4c7e4a3e64e0d3d08eea51c1a54f83cf2feb634a072a7fff47",
+                                      "reportsSha256": "0686805087fc46e64c6ad412e53c8246812ab9e8783d98c2655366e0b4ed6546",
+                                      "summary": {
+                                        "tests": 35,
+                                        "failed": 0,
+                                        "skipped": 0,
+                                        "ready": true
+                                      },
+                                      "counterCollisionCount": 0,
+                                      "suiteCount": 1
+                                    },
+                                    {
+                                      "lane": "final-permission-494f6e",
+                                      "sourceCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
+                                      "executionSha256": "0c1d8fd02af44e95a50a2a7da0f81d73f3dc93deea08c5e97fa7733f4f655041",
+                                      "reportsSha256": "ef75d8eb5958462b693397d1b6f309e2292feaef8a11f4b95c0269d42c4c37b0",
+                                      "summary": {
+                                        "tests": 5,
+                                        "failed": 0,
+                                        "skipped": 0,
+                                        "ready": true
+                                      },
+                                      "counterCollisionCount": 0,
+                                      "suiteCount": 5
+                                    }
+                                  ],
+                                  "baselineClassIdentity": {
+                                    "currentProductionClassCount": 7653,
+                                    "identicalEarlierClasses": 7646,
+                                    "changedClasses": [
+                                      "io/github/carlos_emr/carlos/commn/dao/CdsExportStatementWaitReadSupport$Network.class",
+                                      "io/github/carlos_emr/carlos/commn/dao/CdsExportStatementWaitReadSupport$Unit.class",
+                                      "io/github/carlos_emr/carlos/commn/dao/CdsExportStatementWaitReadSupport.class",
+                                      "io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard$1Functions.class",
+                                      "io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard$OrdinaryAdmissionLease.class",
+                                      "io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard$SqlShape.class",
+                                      "io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard.class"
+                                    ]
+                                  }
                                 }
                               }
-                            }
-                          }
-                        }
-                      }
-                    },
-                    "mergedReleaseEvidence": {
-                      "9c2014ef3867c8686043a8e633b14c801d2749a3": {
-                        "baselineCommit": "e1aca6dac93eaf5068748795a4c820905c905abc",
-                        "baselineSourceTree": "437b500997020ddbd6b42725ff4a7660eeef2fa1",
-                        "baselineReportSha256": "c9ed83876190741c8d493c82b052171ba048dc5fad3971bbe7a2e8bfa73a2dde",
-                        "baselineLane": "PR #6134 Temurin JDK 25.0.3 focused H2 Maven test jacoco:report execution of every Java test class changed by this PR on merged release/2026.08 source e1aca6dac93eaf5068748795a4c820905c905abc. All 564 distinct test cases were counted with the strict Surefire reader; 0 prerequisite/routed skips remain explicit. Zero failures or errors. Existing higher historical floors and required refusal lines are retained. No zero-floor waiver is added. This refresh establishes source freshness and PR regression evidence; it does not qualify the complete native-lane release coverage union.",
-                        "baselineTestCounts": {
-                          "tests": 564,
-                          "skipped": 0,
-                          "failures": 0,
-                          "errors": 0
-                        },
-                        "baselineTestReportsSha256": "51e52f784015844b74617d2f63e67a7e329c7c39c78f0e53e428fb219ae82db5",
-                        "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
-                        "baselineReportHeaderCollisions": 0,
-                        "baselinePriorEvidence": {
-                          "baselineCommit": "46ebae44664168d2f4909ef354db8471cd7c025c",
-                          "baselineSourceTree": "b2c8c296bd3fc21961f46e1cf1531dc253aba039",
-                          "baselineReportSha256": "15db36d32116bf4ce06f5700afcf78c5ce1d995f19a957687ef5e0e9d7f4ad4d",
-                          "baselineLane": "PR #6174 conflict resolution on release f96b5b937f50b3b8cfe0ecca6128d35495544c6b. OpenJDK 25.0.3 focused Maven tests and JaCoCo on the merged production and test sources. Existing metric floors, required refusal lines, exclusions and zero-coverage review requirements are retained; new source paths use measured changed-code counters (abstract-only interfaces have no executable lines). Historical release evidence is archived in baselinePriorEvidence and is not combined with this execution. This establishes source freshness and focused regression evidence, not complete release-lane coverage acceptance.",
-                          "baselineTestCounts": {
-                            "tests": 16,
-                            "skipped": 0,
-                            "failures": 0,
-                            "errors": 0
-                          },
-                          "baselineTestReportsSha256": "8d52860829522abe4e3af0de88b498559396d63393b74fda2f101b280eb91c3f",
-                          "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
-                          "baselineReportHeaderCollisions": 0
-                        },
-                        "baselineCoverageInputs": [
-                          {
-                            "lane": "pr-6134-merged-focused-h2",
-                            "sourceCommit": "e1aca6dac93eaf5068748795a4c820905c905abc",
-                            "executionSha256": "c0c577290f0a0b42fa0008f5c870a33e3873c17078d9becab5162364a827f4bd",
-                            "reportsSha256": "51e52f784015844b74617d2f63e67a7e329c7c39c78f0e53e428fb219ae82db5",
-                            "summary": {
-                              "tests": 564,
-                              "failed": 0,
-                              "skipped": 0,
-                              "ready": true
-                            },
-                            "counterCollisionCount": 0,
-                            "suiteCount": 18
-                          }
-                        ],
-                        "baselineSelectedTestClasses": [
-                          "io.github.carlos_emr.carlos.PMmodule.web.ClientSearchAttachNoteUnitTest",
-                          "io.github.carlos_emr.carlos.app.contract.MutatorActionGetRejectionContractUnitTest",
-                          "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BcBillingPageLinksRegressionTest",
-                          "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SupServiceCodeAssoc2ActionUnitTest",
-                          "io.github.carlos_emr.carlos.commn.dao.ConsultationListCorrectionsIntegrationTest",
-                          "io.github.carlos_emr.carlos.commn.dao.QueryPageUnitTest",
-                          "io.github.carlos_emr.carlos.commn.dao.ServerTablePagingIntegrationTest",
-                          "io.github.carlos_emr.carlos.commn.dao.ServerTrayPagingIntegrationTest",
-                          "io.github.carlos_emr.carlos.commn.web.BillingreferralEdit2ActionUnitTest",
-                          "io.github.carlos_emr.carlos.commn.web.Contact2ActionUnitTest",
-                          "io.github.carlos_emr.carlos.commn.web.JstlTableEmptyStateJspRegressionTest",
-                          "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationFormPatientResolverUnitTest",
-                          "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmAttachmentPersisterIntegrationTest",
-                          "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmAttachmentPersisterUnitTest",
-                          "io.github.carlos_emr.carlos.managers.ConsultationManagerUnitTest",
-                          "io.github.carlos_emr.carlos.managers.DemographicManagerUnitTest",
-                          "io.github.carlos_emr.carlos.utility.SpecialistContactAddressUnitTest",
-                          "io.github.carlos_emr.carlos.utility.SpecialistContactEditPersisterUnitTest"
-                        ]
-                      }
-                    }
-                  }
-                }
-              },
-              "mergedReleaseEvidence": {
-                "0ba9d149d105736afc38744250ea909333af8a88": {
-                  "baselineCommit": "d6d6ade0931f78e786e70c565d03013f6d9d8393",
-                  "baselineSourceTree": "290a7b1973db9240bdeb9abbb75d55f7da33a9a3",
-                  "baselineReportSha256": "aa3d3b99f27aa5fd177517e0f1ee47c9a59790ca9a5c561f2abfd94b2ab1babc",
-                  "baselineLane": "Focused Java 25 regression and unchanged control tests after merging release 9c2014ef3867c8686043a8e633b14c801d2749a3; zero failures, errors or skips. Prior execution evidence is retained; source freshness and owned ratchets only, not full release qualification.",
-                  "baselineTestCounts": {
-                    "tests": 18,
-                    "failures": 0,
-                    "errors": 0,
-                    "skipped": 0
-                  },
-                  "baselineTestReportsSha256": "fabc9d9cf687282991a948302abf0590b94c6dfb9ec26f7817ce291bc1f392c1",
-                  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
-                  "baselineReportHeaderCollisions": 0,
-                  "baselinePriorEvidence": {
-                    "baselineCommit": "4abd9d516773bcd9a85d73be9f6b994988bdd65b",
-                    "baselineSourceTree": "12c5a7a5edde5f8f49e879fa17ae4b8812c6ba56",
-                    "baselineReportSha256": "d182d86dd03d580d603d32825a429d620de2a78c326ff79518529541a9f0e016",
-                    "baselineLane": "Focused release client-key unit and real H2 transaction regressions including NULL public-key refusal; not full release qualification",
-                    "baselineTestCounts": {
-                      "tests": 18,
-                      "failures": 0,
-                      "errors": 0,
-                      "skipped": 0
-                    },
-                    "baselineTestReportsSha256": "6161c426d5db398bfdfbb7233df3e40b04c134c253c21709814f6ed1d7ff49a8",
-                    "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
-                    "baselineReportHeaderCollisions": 0,
-                    "baselinePriorEvidence": {
-                      "baselineCommit": "4abd9d516773bcd9a85d73be9f6b994988bdd65b",
-                      "baselineSourceTree": "12c5a7a5edde5f8f49e879fa17ae4b8812c6ba56",
-                      "baselineReportSha256": "d182d86dd03d580d603d32825a429d620de2a78c326ff79518529541a9f0e016",
-                      "baselineLane": "Focused release client-key unit and real H2 transaction regressions including NULL public-key refusal; not full release qualification",
-                      "baselineTestCounts": {
-                        "tests": 18,
-                        "failures": 0,
-                        "errors": 0,
-                        "skipped": 0
-                      },
-                      "baselineTestReportsSha256": "6161c426d5db398bfdfbb7233df3e40b04c134c253c21709814f6ed1d7ff49a8",
-                      "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
-                      "baselineReportHeaderCollisions": 0,
-                      "baselinePriorEvidence": {
-                        "baselineCommit": "46ebae44664168d2f4909ef354db8471cd7c025c",
-                        "baselineSourceTree": "b2c8c296bd3fc21961f46e1cf1531dc253aba039",
-                        "baselineReportSha256": "15db36d32116bf4ce06f5700afcf78c5ce1d995f19a957687ef5e0e9d7f4ad4d",
-                        "baselineLane": "PR #6174 conflict resolution on release f96b5b937f50b3b8cfe0ecca6128d35495544c6b. OpenJDK 25.0.3 focused Maven tests and JaCoCo on the merged production and test sources. Existing metric floors, required refusal lines, exclusions and zero-coverage review requirements are retained; new source paths use measured changed-code counters (abstract-only interfaces have no executable lines). Historical release evidence is archived in baselinePriorEvidence and is not combined with this execution. This establishes source freshness and focused regression evidence, not complete release-lane coverage acceptance.",
-                        "baselineTestCounts": {
-                          "tests": 16,
-                          "skipped": 0,
-                          "failures": 0,
-                          "errors": 0
-                        },
-                        "baselineTestReportsSha256": "8d52860829522abe4e3af0de88b498559396d63393b74fda2f101b280eb91c3f",
-                        "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
-                        "baselineReportHeaderCollisions": 0,
-                        "baselinePriorEvidence": {
-                          "baselineCommit": "eebcb76407c608b2065c47a4f77eba67afd3b637",
-                          "baselineSourceTree": "8c8c9dde50b332a494164d31cc30d17f5887abd0",
-                          "baselineReportSha256": "9ee9338a310a01f8607b5aa7812d87ee82c2753a3f64f2fbd3ac2d704160a46c",
-                          "baselineLane": "PR #6145 conflict resolution on release c9945f57acb4b68d6149bdad7cc38a7024e5b192. Temurin JDK 25.0.3 focused Maven test and JaCoCo run on the merged production and test sources: PreventionFormCodesUnitTest, AddPreventionDataBrandCatalogueUnitTest, ImmunizationUnitTest, SurefireIncludeCoverageUnitTest and JspTaglibDeclarationRegressionTest. Both PR Java paths meet their retained 100% changed-line, instruction and branch floors. All 1,592 release floors, required refusal lines, exclusions and zero-coverage review requirements are retained unchanged. Historical release evidence is archived in baselinePriorEvidence; it is not combined with this execution or asserted to cover changed classes. This focused run establishes the merged source identity and PR coverage only, not full release coverage acceptance or a complete same-class lane union.",
-                          "baselineTestCounts": {
-                            "tests": 63,
-                            "skipped": 0,
-                            "failures": 0,
-                            "errors": 0
-                          },
-                          "baselineTestReportsSha256": "fc974c6aedfa8d7d7323b6f1ac31af3dd174dff1af4b916a296472d58eef0413",
-                          "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
-                          "baselineReportHeaderCollisions": 0,
-                          "baselineCoverageInputs": [
-                            {
-                              "lane": "pr-6145-focused-merged-source",
-                              "sourceCommit": "eebcb76407c608b2065c47a4f77eba67afd3b637",
-                              "executionSha256": "f5a851256821a4f06d07ddf28ebf13518c7dd2624134a4bfdc84ae8566937cba",
-                              "reportsSha256": "fc974c6aedfa8d7d7323b6f1ac31af3dd174dff1af4b916a296472d58eef0413",
-                              "summary": {
-                                "tests": 63,
-                                "failed": 0,
-                                "skipped": 0,
-                                "ready": true
-                              },
-                              "counterCollisionCount": 0,
-                              "suiteCount": 5
-                            }
-                          ],
-                          "baselinePriorEvidence": {
-                            "sourceTree": "8f73ef6bd202a6b69b5934cc09116e387c216dcf",
-                            "comparisonSha256": "9ffeaae124f68363b2714f1e8b0a265596029391eb3dbbc429148e0c9b48dea5",
-                            "baselineCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
-                            "baselineSourceTree": "8f73ef6bd202a6b69b5934cc09116e387c216dcf",
-                            "baselineReportSha256": "c4bc4d08b53a65165e2f0e6ff5e113265b7e3bfeb7ca4c01917d86ba62baf343",
-                            "baselineLane": "Passing JDK 25 full H2 and 439-suite native execution at ccf1fc0a23cca5adbfec67925240eb88b8529cad, plus final 109-case native deadline/maintenance, 35-case connection policy and five-case non-root permission executions at 494f6e24cb2051cdf184043637a62bf48cb242ac. Earlier executions contribute only exact matching final JaCoCo class IDs (7,646 of 7,653 class files are byte-identical); seven changed class files use final executions only. No missing current-class execution is substituted with an earlier class. These overlapping cases are not unique-test sums. Higher historical floors and all four refusal lines are retained. This source-freshness refresh is not a complete all-release-lane coverage acceptance or zero-floor waiver.",
-                            "baselineTestCounts": {
-                              "tests": 41314,
-                              "skipped": 474,
-                              "failures": 0,
-                              "errors": 0
-                            },
-                            "baselineTestReportsSha256": "cc287e3859643fd78f8e88fcd8e77eedfe82e3b131baca0d22e50fabd16a9e52",
-                            "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
-                            "baselineReportHeaderCollisions": 54,
-                            "baselineReportCounting": "Existing strict read_surefire parser counts each distinct executed container/case; only its explicit Surefire 3.5.6 nested-name header collision rule is accepted. Failures, reruns, duplicates and other counter mismatches remain refusals.",
-                            "baselineProductionClassManifestSha256": "2639aa398cfeb7b8f57a827afb46b9740fe7df2ad7ed82bf31773ad877ea6edf",
-                            "baselineCoverageInputs": [
-                              {
-                                "lane": "security-final-h2",
-                                "sourceCommit": "ccf1fc0a23cca5adbfec67925240eb88b8529cad",
-                                "executionSha256": "3f7864c1255392752422e36a3d673754e2697513bbb6fed74c5c9b69a8f7dd24",
-                                "reportsSha256": "cc287e3859643fd78f8e88fcd8e77eedfe82e3b131baca0d22e50fabd16a9e52",
-                                "summary": {
-                                  "tests": 41314,
-                                  "failed": 0,
-                                  "skipped": 474,
-                                  "ready": true
-                                },
-                                "counterCollisionCount": 54,
-                                "suiteCount": 3045
-                              },
-                              {
-                                "lane": "security-final-native",
-                                "sourceCommit": "ccf1fc0a23cca5adbfec67925240eb88b8529cad",
-                                "executionSha256": "2a6532de2d4aad5d1727fd9030267b6f77705ed9a6546525efbf6ef3329c5039",
-                                "reportsSha256": "f35104e6b0ac3fb8a7f8abdb3b18c3a3abddbe98e53e42d17ea3e213b9e38f04",
-                                "summary": {
-                                  "tests": 5659,
-                                  "failed": 0,
-                                  "skipped": 0,
-                                  "ready": true
-                                },
-                                "counterCollisionCount": 0,
-                                "suiteCount": 439
-                              },
-                              {
-                                "lane": "final-deadline-stable",
-                                "sourceCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
-                                "executionSha256": "6bf7d5f327302bb6274bd987daf8ab4336cab10821252b44cc867ccec8a5ca15",
-                                "reportsSha256": "2fd84d5e9f6802cc41ab3c4f8530645f8ecae6ee0c6d70e6afbc62bab4290322",
-                                "summary": {
-                                  "tests": 109,
-                                  "failed": 0,
-                                  "skipped": 0,
-                                  "ready": true
-                                },
-                                "counterCollisionCount": 0,
-                                "suiteCount": 7
-                              },
-                              {
-                                "lane": "final-ordinary-admission",
-                                "sourceCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
-                                "executionSha256": "ed9ae5c8ec5e5b4c7e4a3e64e0d3d08eea51c1a54f83cf2feb634a072a7fff47",
-                                "reportsSha256": "0686805087fc46e64c6ad412e53c8246812ab9e8783d98c2655366e0b4ed6546",
-                                "summary": {
-                                  "tests": 35,
-                                  "failed": 0,
-                                  "skipped": 0,
-                                  "ready": true
-                                },
-                                "counterCollisionCount": 0,
-                                "suiteCount": 1
-                              },
-                              {
-                                "lane": "final-permission-494f6e",
-                                "sourceCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
-                                "executionSha256": "0c1d8fd02af44e95a50a2a7da0f81d73f3dc93deea08c5e97fa7733f4f655041",
-                                "reportsSha256": "ef75d8eb5958462b693397d1b6f309e2292feaef8a11f4b95c0269d42c4c37b0",
-                                "summary": {
-                                  "tests": 5,
-                                  "failed": 0,
-                                  "skipped": 0,
-                                  "ready": true
-                                },
-                                "counterCollisionCount": 0,
-                                "suiteCount": 5
-                              }
-                            ],
-                            "baselineClassIdentity": {
-                              "currentProductionClassCount": 7653,
-                              "identicalEarlierClasses": 7646,
-                              "changedClasses": [
-                                "io/github/carlos_emr/carlos/commn/dao/CdsExportStatementWaitReadSupport$Network.class",
-                                "io/github/carlos_emr/carlos/commn/dao/CdsExportStatementWaitReadSupport$Unit.class",
-                                "io/github/carlos_emr/carlos/commn/dao/CdsExportStatementWaitReadSupport.class",
-                                "io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard$1Functions.class",
-                                "io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard$OrdinaryAdmissionLease.class",
-                                "io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard$SqlShape.class",
-                                "io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard.class"
-                              ]
                             }
                           }
                         }
@@ -10464,6 +10214,271 @@
                             "io.github.carlos_emr.carlos.utility.SpecialistContactAddressUnitTest",
                             "io.github.carlos_emr.carlos.utility.SpecialistContactEditPersisterUnitTest"
                           ]
+                        }
+                      }
+                    }
+                  }
+                },
+                "mergedReleaseEvidence": {
+                  "0ba9d149d105736afc38744250ea909333af8a88": {
+                    "baselineCommit": "d6d6ade0931f78e786e70c565d03013f6d9d8393",
+                    "baselineSourceTree": "290a7b1973db9240bdeb9abbb75d55f7da33a9a3",
+                    "baselineReportSha256": "aa3d3b99f27aa5fd177517e0f1ee47c9a59790ca9a5c561f2abfd94b2ab1babc",
+                    "baselineLane": "Focused Java 25 regression and unchanged control tests after merging release 9c2014ef3867c8686043a8e633b14c801d2749a3; zero failures, errors or skips. Prior execution evidence is retained; source freshness and owned ratchets only, not full release qualification.",
+                    "baselineTestCounts": {
+                      "tests": 18,
+                      "failures": 0,
+                      "errors": 0,
+                      "skipped": 0
+                    },
+                    "baselineTestReportsSha256": "fabc9d9cf687282991a948302abf0590b94c6dfb9ec26f7817ce291bc1f392c1",
+                    "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+                    "baselineReportHeaderCollisions": 0,
+                    "baselinePriorEvidence": {
+                      "baselineCommit": "4abd9d516773bcd9a85d73be9f6b994988bdd65b",
+                      "baselineSourceTree": "12c5a7a5edde5f8f49e879fa17ae4b8812c6ba56",
+                      "baselineReportSha256": "d182d86dd03d580d603d32825a429d620de2a78c326ff79518529541a9f0e016",
+                      "baselineLane": "Focused release client-key unit and real H2 transaction regressions including NULL public-key refusal; not full release qualification",
+                      "baselineTestCounts": {
+                        "tests": 18,
+                        "failures": 0,
+                        "errors": 0,
+                        "skipped": 0
+                      },
+                      "baselineTestReportsSha256": "6161c426d5db398bfdfbb7233df3e40b04c134c253c21709814f6ed1d7ff49a8",
+                      "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+                      "baselineReportHeaderCollisions": 0,
+                      "baselinePriorEvidence": {
+                        "baselineCommit": "4abd9d516773bcd9a85d73be9f6b994988bdd65b",
+                        "baselineSourceTree": "12c5a7a5edde5f8f49e879fa17ae4b8812c6ba56",
+                        "baselineReportSha256": "d182d86dd03d580d603d32825a429d620de2a78c326ff79518529541a9f0e016",
+                        "baselineLane": "Focused release client-key unit and real H2 transaction regressions including NULL public-key refusal; not full release qualification",
+                        "baselineTestCounts": {
+                          "tests": 18,
+                          "failures": 0,
+                          "errors": 0,
+                          "skipped": 0
+                        },
+                        "baselineTestReportsSha256": "6161c426d5db398bfdfbb7233df3e40b04c134c253c21709814f6ed1d7ff49a8",
+                        "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+                        "baselineReportHeaderCollisions": 0,
+                        "baselinePriorEvidence": {
+                          "baselineCommit": "46ebae44664168d2f4909ef354db8471cd7c025c",
+                          "baselineSourceTree": "b2c8c296bd3fc21961f46e1cf1531dc253aba039",
+                          "baselineReportSha256": "15db36d32116bf4ce06f5700afcf78c5ce1d995f19a957687ef5e0e9d7f4ad4d",
+                          "baselineLane": "PR #6174 conflict resolution on release f96b5b937f50b3b8cfe0ecca6128d35495544c6b. OpenJDK 25.0.3 focused Maven tests and JaCoCo on the merged production and test sources. Existing metric floors, required refusal lines, exclusions and zero-coverage review requirements are retained; new source paths use measured changed-code counters (abstract-only interfaces have no executable lines). Historical release evidence is archived in baselinePriorEvidence and is not combined with this execution. This establishes source freshness and focused regression evidence, not complete release-lane coverage acceptance.",
+                          "baselineTestCounts": {
+                            "tests": 16,
+                            "skipped": 0,
+                            "failures": 0,
+                            "errors": 0
+                          },
+                          "baselineTestReportsSha256": "8d52860829522abe4e3af0de88b498559396d63393b74fda2f101b280eb91c3f",
+                          "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
+                          "baselineReportHeaderCollisions": 0,
+                          "baselinePriorEvidence": {
+                            "baselineCommit": "eebcb76407c608b2065c47a4f77eba67afd3b637",
+                            "baselineSourceTree": "8c8c9dde50b332a494164d31cc30d17f5887abd0",
+                            "baselineReportSha256": "9ee9338a310a01f8607b5aa7812d87ee82c2753a3f64f2fbd3ac2d704160a46c",
+                            "baselineLane": "PR #6145 conflict resolution on release c9945f57acb4b68d6149bdad7cc38a7024e5b192. Temurin JDK 25.0.3 focused Maven test and JaCoCo run on the merged production and test sources: PreventionFormCodesUnitTest, AddPreventionDataBrandCatalogueUnitTest, ImmunizationUnitTest, SurefireIncludeCoverageUnitTest and JspTaglibDeclarationRegressionTest. Both PR Java paths meet their retained 100% changed-line, instruction and branch floors. All 1,592 release floors, required refusal lines, exclusions and zero-coverage review requirements are retained unchanged. Historical release evidence is archived in baselinePriorEvidence; it is not combined with this execution or asserted to cover changed classes. This focused run establishes the merged source identity and PR coverage only, not full release coverage acceptance or a complete same-class lane union.",
+                            "baselineTestCounts": {
+                              "tests": 63,
+                              "skipped": 0,
+                              "failures": 0,
+                              "errors": 0
+                            },
+                            "baselineTestReportsSha256": "fc974c6aedfa8d7d7323b6f1ac31af3dd174dff1af4b916a296472d58eef0413",
+                            "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
+                            "baselineReportHeaderCollisions": 0,
+                            "baselineCoverageInputs": [
+                              {
+                                "lane": "pr-6145-focused-merged-source",
+                                "sourceCommit": "eebcb76407c608b2065c47a4f77eba67afd3b637",
+                                "executionSha256": "f5a851256821a4f06d07ddf28ebf13518c7dd2624134a4bfdc84ae8566937cba",
+                                "reportsSha256": "fc974c6aedfa8d7d7323b6f1ac31af3dd174dff1af4b916a296472d58eef0413",
+                                "summary": {
+                                  "tests": 63,
+                                  "failed": 0,
+                                  "skipped": 0,
+                                  "ready": true
+                                },
+                                "counterCollisionCount": 0,
+                                "suiteCount": 5
+                              }
+                            ],
+                            "baselinePriorEvidence": {
+                              "sourceTree": "8f73ef6bd202a6b69b5934cc09116e387c216dcf",
+                              "comparisonSha256": "9ffeaae124f68363b2714f1e8b0a265596029391eb3dbbc429148e0c9b48dea5",
+                              "baselineCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
+                              "baselineSourceTree": "8f73ef6bd202a6b69b5934cc09116e387c216dcf",
+                              "baselineReportSha256": "c4bc4d08b53a65165e2f0e6ff5e113265b7e3bfeb7ca4c01917d86ba62baf343",
+                              "baselineLane": "Passing JDK 25 full H2 and 439-suite native execution at ccf1fc0a23cca5adbfec67925240eb88b8529cad, plus final 109-case native deadline/maintenance, 35-case connection policy and five-case non-root permission executions at 494f6e24cb2051cdf184043637a62bf48cb242ac. Earlier executions contribute only exact matching final JaCoCo class IDs (7,646 of 7,653 class files are byte-identical); seven changed class files use final executions only. No missing current-class execution is substituted with an earlier class. These overlapping cases are not unique-test sums. Higher historical floors and all four refusal lines are retained. This source-freshness refresh is not a complete all-release-lane coverage acceptance or zero-floor waiver.",
+                              "baselineTestCounts": {
+                                "tests": 41314,
+                                "skipped": 474,
+                                "failures": 0,
+                                "errors": 0
+                              },
+                              "baselineTestReportsSha256": "cc287e3859643fd78f8e88fcd8e77eedfe82e3b131baca0d22e50fabd16a9e52",
+                              "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
+                              "baselineReportHeaderCollisions": 54,
+                              "baselineReportCounting": "Existing strict read_surefire parser counts each distinct executed container/case; only its explicit Surefire 3.5.6 nested-name header collision rule is accepted. Failures, reruns, duplicates and other counter mismatches remain refusals.",
+                              "baselineProductionClassManifestSha256": "2639aa398cfeb7b8f57a827afb46b9740fe7df2ad7ed82bf31773ad877ea6edf",
+                              "baselineCoverageInputs": [
+                                {
+                                  "lane": "security-final-h2",
+                                  "sourceCommit": "ccf1fc0a23cca5adbfec67925240eb88b8529cad",
+                                  "executionSha256": "3f7864c1255392752422e36a3d673754e2697513bbb6fed74c5c9b69a8f7dd24",
+                                  "reportsSha256": "cc287e3859643fd78f8e88fcd8e77eedfe82e3b131baca0d22e50fabd16a9e52",
+                                  "summary": {
+                                    "tests": 41314,
+                                    "failed": 0,
+                                    "skipped": 474,
+                                    "ready": true
+                                  },
+                                  "counterCollisionCount": 54,
+                                  "suiteCount": 3045
+                                },
+                                {
+                                  "lane": "security-final-native",
+                                  "sourceCommit": "ccf1fc0a23cca5adbfec67925240eb88b8529cad",
+                                  "executionSha256": "2a6532de2d4aad5d1727fd9030267b6f77705ed9a6546525efbf6ef3329c5039",
+                                  "reportsSha256": "f35104e6b0ac3fb8a7f8abdb3b18c3a3abddbe98e53e42d17ea3e213b9e38f04",
+                                  "summary": {
+                                    "tests": 5659,
+                                    "failed": 0,
+                                    "skipped": 0,
+                                    "ready": true
+                                  },
+                                  "counterCollisionCount": 0,
+                                  "suiteCount": 439
+                                },
+                                {
+                                  "lane": "final-deadline-stable",
+                                  "sourceCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
+                                  "executionSha256": "6bf7d5f327302bb6274bd987daf8ab4336cab10821252b44cc867ccec8a5ca15",
+                                  "reportsSha256": "2fd84d5e9f6802cc41ab3c4f8530645f8ecae6ee0c6d70e6afbc62bab4290322",
+                                  "summary": {
+                                    "tests": 109,
+                                    "failed": 0,
+                                    "skipped": 0,
+                                    "ready": true
+                                  },
+                                  "counterCollisionCount": 0,
+                                  "suiteCount": 7
+                                },
+                                {
+                                  "lane": "final-ordinary-admission",
+                                  "sourceCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
+                                  "executionSha256": "ed9ae5c8ec5e5b4c7e4a3e64e0d3d08eea51c1a54f83cf2feb634a072a7fff47",
+                                  "reportsSha256": "0686805087fc46e64c6ad412e53c8246812ab9e8783d98c2655366e0b4ed6546",
+                                  "summary": {
+                                    "tests": 35,
+                                    "failed": 0,
+                                    "skipped": 0,
+                                    "ready": true
+                                  },
+                                  "counterCollisionCount": 0,
+                                  "suiteCount": 1
+                                },
+                                {
+                                  "lane": "final-permission-494f6e",
+                                  "sourceCommit": "494f6e24cb2051cdf184043637a62bf48cb242ac",
+                                  "executionSha256": "0c1d8fd02af44e95a50a2a7da0f81d73f3dc93deea08c5e97fa7733f4f655041",
+                                  "reportsSha256": "ef75d8eb5958462b693397d1b6f309e2292feaef8a11f4b95c0269d42c4c37b0",
+                                  "summary": {
+                                    "tests": 5,
+                                    "failed": 0,
+                                    "skipped": 0,
+                                    "ready": true
+                                  },
+                                  "counterCollisionCount": 0,
+                                  "suiteCount": 5
+                                }
+                              ],
+                              "baselineClassIdentity": {
+                                "currentProductionClassCount": 7653,
+                                "identicalEarlierClasses": 7646,
+                                "changedClasses": [
+                                  "io/github/carlos_emr/carlos/commn/dao/CdsExportStatementWaitReadSupport$Network.class",
+                                  "io/github/carlos_emr/carlos/commn/dao/CdsExportStatementWaitReadSupport$Unit.class",
+                                  "io/github/carlos_emr/carlos/commn/dao/CdsExportStatementWaitReadSupport.class",
+                                  "io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard$1Functions.class",
+                                  "io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard$OrdinaryAdmissionLease.class",
+                                  "io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard$SqlShape.class",
+                                  "io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard.class"
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "mergedReleaseEvidence": {
+                          "9c2014ef3867c8686043a8e633b14c801d2749a3": {
+                            "baselineCommit": "e1aca6dac93eaf5068748795a4c820905c905abc",
+                            "baselineSourceTree": "437b500997020ddbd6b42725ff4a7660eeef2fa1",
+                            "baselineReportSha256": "c9ed83876190741c8d493c82b052171ba048dc5fad3971bbe7a2e8bfa73a2dde",
+                            "baselineLane": "PR #6134 Temurin JDK 25.0.3 focused H2 Maven test jacoco:report execution of every Java test class changed by this PR on merged release/2026.08 source e1aca6dac93eaf5068748795a4c820905c905abc. All 564 distinct test cases were counted with the strict Surefire reader; 0 prerequisite/routed skips remain explicit. Zero failures or errors. Existing higher historical floors and required refusal lines are retained. No zero-floor waiver is added. This refresh establishes source freshness and PR regression evidence; it does not qualify the complete native-lane release coverage union.",
+                            "baselineTestCounts": {
+                              "tests": 564,
+                              "skipped": 0,
+                              "failures": 0,
+                              "errors": 0
+                            },
+                            "baselineTestReportsSha256": "51e52f784015844b74617d2f63e67a7e329c7c39c78f0e53e428fb219ae82db5",
+                            "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
+                            "baselineReportHeaderCollisions": 0,
+                            "baselinePriorEvidence": {
+                              "baselineCommit": "46ebae44664168d2f4909ef354db8471cd7c025c",
+                              "baselineSourceTree": "b2c8c296bd3fc21961f46e1cf1531dc253aba039",
+                              "baselineReportSha256": "15db36d32116bf4ce06f5700afcf78c5ce1d995f19a957687ef5e0e9d7f4ad4d",
+                              "baselineLane": "PR #6174 conflict resolution on release f96b5b937f50b3b8cfe0ecca6128d35495544c6b. OpenJDK 25.0.3 focused Maven tests and JaCoCo on the merged production and test sources. Existing metric floors, required refusal lines, exclusions and zero-coverage review requirements are retained; new source paths use measured changed-code counters (abstract-only interfaces have no executable lines). Historical release evidence is archived in baselinePriorEvidence and is not combined with this execution. This establishes source freshness and focused regression evidence, not complete release-lane coverage acceptance.",
+                              "baselineTestCounts": {
+                                "tests": 16,
+                                "skipped": 0,
+                                "failures": 0,
+                                "errors": 0
+                              },
+                              "baselineTestReportsSha256": "8d52860829522abe4e3af0de88b498559396d63393b74fda2f101b280eb91c3f",
+                              "baselineTestReportsHashFormat": "SHA-256 of canonical sorted JSON name/SHA-256 report manifest, compact separators plus final newline",
+                              "baselineReportHeaderCollisions": 0
+                            },
+                            "baselineCoverageInputs": [
+                              {
+                                "lane": "pr-6134-merged-focused-h2",
+                                "sourceCommit": "e1aca6dac93eaf5068748795a4c820905c905abc",
+                                "executionSha256": "c0c577290f0a0b42fa0008f5c870a33e3873c17078d9becab5162364a827f4bd",
+                                "reportsSha256": "51e52f784015844b74617d2f63e67a7e329c7c39c78f0e53e428fb219ae82db5",
+                                "summary": {
+                                  "tests": 564,
+                                  "failed": 0,
+                                  "skipped": 0,
+                                  "ready": true
+                                },
+                                "counterCollisionCount": 0,
+                                "suiteCount": 18
+                              }
+                            ],
+                            "baselineSelectedTestClasses": [
+                              "io.github.carlos_emr.carlos.PMmodule.web.ClientSearchAttachNoteUnitTest",
+                              "io.github.carlos_emr.carlos.app.contract.MutatorActionGetRejectionContractUnitTest",
+                              "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BcBillingPageLinksRegressionTest",
+                              "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SupServiceCodeAssoc2ActionUnitTest",
+                              "io.github.carlos_emr.carlos.commn.dao.ConsultationListCorrectionsIntegrationTest",
+                              "io.github.carlos_emr.carlos.commn.dao.QueryPageUnitTest",
+                              "io.github.carlos_emr.carlos.commn.dao.ServerTablePagingIntegrationTest",
+                              "io.github.carlos_emr.carlos.commn.dao.ServerTrayPagingIntegrationTest",
+                              "io.github.carlos_emr.carlos.commn.web.BillingreferralEdit2ActionUnitTest",
+                              "io.github.carlos_emr.carlos.commn.web.Contact2ActionUnitTest",
+                              "io.github.carlos_emr.carlos.commn.web.JstlTableEmptyStateJspRegressionTest",
+                              "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationFormPatientResolverUnitTest",
+                              "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmAttachmentPersisterIntegrationTest",
+                              "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmAttachmentPersisterUnitTest",
+                              "io.github.carlos_emr.carlos.managers.ConsultationManagerUnitTest",
+                              "io.github.carlos_emr.carlos.managers.DemographicManagerUnitTest",
+                              "io.github.carlos_emr.carlos.utility.SpecialistContactAddressUnitTest",
+                              "io.github.carlos_emr.carlos.utility.SpecialistContactEditPersisterUnitTest"
+                            ]
+                          }
                         }
                       }
                     }
