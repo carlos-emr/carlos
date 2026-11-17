@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.text.Normalizer;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -64,6 +65,31 @@ public final class DocumentSummaryService {
                     "réservé", "réservée", "réservés", "réservées"),
             Set.of("arranged", "arrange", "arranges", "arranging",
                     "organisé", "organisée", "organisés", "organisées", "convenu", "convenue", "convenus", "convenues"));
+    /**
+     * A refusal by one named rule. The rule id is safe to show a clinician: it never carries text of the
+     * document or of the summary.
+     */
+    static final class RuleRefusal extends IllegalArgumentException {
+        private final String rule;
+
+        RuleRefusal(String rule, String message) {
+            super(message);
+            this.rule = rule;
+        }
+
+        String rule() { return rule; }
+    }
+
+    private static final org.apache.logging.log4j.Logger LOG = org.apache.logging.log4j.LogManager.getLogger(DocumentSummaryService.class);
+
+    /**
+     * A rule that is measured but not yet allowed to refuse: only its name is logged, never a word of the
+     * document or the summary.
+     */
+    private static void reportRuleHit(String rule) {
+        LOG.info("Document summary rule hit (report only): {}", rule);
+    }
+
     private final ClinicalSummaryAgent agent;
 
     public DocumentSummaryService() { this(ClinicalSummaryAgents.configuredDocument()); }
@@ -105,6 +131,9 @@ public final class DocumentSummaryService {
             throw new ClinicalSummaryGenerationException("Document summarization timed out. The original document is unchanged.");
         } catch (IOException unavailable) {
             throw new ClinicalSummaryGenerationException("The configured agent is unavailable or returned an unreadable response. The original document is unchanged.");
+        } catch (RuleRefusal refused) {
+            throw new ClinicalSummaryGenerationException("The agent response failed validation (rule: " + refused.rule()
+                    + "). The original document is unchanged.");
         } catch (RuntimeException invalid) {
             throw new ClinicalSummaryGenerationException("The agent response failed validation. The original document is unchanged.");
         } finally {
@@ -142,11 +171,24 @@ public final class DocumentSummaryService {
                 throw new IllegalArgumentException("Summary point lacks lexical support");
             }
             String status = statusWordWithoutSupport(statement, excerpts.toString());
-            if (status != null) throw new IllegalArgumentException("Summary point adds a status its evidence does not state: " + status);
+            if (status != null) throw new RuleRefusal("status_word", "Summary point adds a status its evidence does not state: " + status);
+            String possessor = DocumentSummaryFidelityValidator.possessorOfAnotherPerson(statement, excerpts.toString());
+            if (possessor != null) reportRuleHit("possessor");
+            List<String> quoted = new ArrayList<>();
+            evidence.forEach(item -> quoted.add(item.asText()));
+            if (DocumentSummaryFidelityValidator.evidenceInInjectedLine(quoted, source)) {
+                throw new RuleRefusal("ai_addressed_text", "Summary point cites text addressed to an AI");
+            }
+            String command = DocumentSummaryFidelityValidator.injectedCommandWord(statement, source);
+            if (command != null) throw new RuleRefusal("ai_addressed_text", "Summary point describes text addressed to an AI: " + command);
         }
         if (!sharesWord(overview, source)) throw new IllegalArgumentException("Overview lacks lexical support");
         String status = statusWordWithoutSupport(overview, source);
-        if (status != null) throw new IllegalArgumentException("Overview adds a status the document does not state: " + status);
+        if (status != null) throw new RuleRefusal("status_word", "Overview adds a status the document does not state: " + status);
+        String possessor = DocumentSummaryFidelityValidator.possessorOfAnotherPerson(overview, source);
+        if (possessor != null) reportRuleHit("possessor");
+        String command = DocumentSummaryFidelityValidator.injectedCommandWord(overview, source);
+        if (command != null) throw new RuleRefusal("ai_addressed_text", "Overview describes text addressed to an AI: " + command);
     }
 
     /** The first status word in {@code statement} whose family is absent from {@code reference}, else null. */
