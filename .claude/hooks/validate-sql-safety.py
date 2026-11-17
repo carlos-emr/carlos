@@ -131,6 +131,14 @@ _PLACEHOLDER_LITERAL_BEFORE = re.compile(r'["\'][^"\']*[:?]\s*["\']\s*\)\s*$')
 _ONLY_STRING_LITERAL = re.compile(r'"(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)*\'')
 
 
+
+# Fingerprints retain full text-block bytes rather than the normalized detector
+# view. Escaped quotes must not end a Java literal or introduce fake scope.
+_JAVA_FINGERPRINT_LITERAL = re.compile(
+    r'"""(?:\\[\s\S]|(?!""")[^\\])*"""|' + _ONLY_STRING_LITERAL.pattern
+)
+
+
 def strip_line_comment(line: str) -> str:
     """Strip trailing // single-line comment from a Java line."""
     idx = line.find('//')
@@ -179,7 +187,7 @@ def canonical_java(fragment: str) -> list:
     """Ignore layout outside literals while retaining every literal byte."""
     tokens, cursor = [], 0
     pattern = r'[\w$]+|>>>|>>|<<|==|!=|<=|>=|&&|\|\||\+\+|--|->|::|[^\s]'
-    for literal in _ONLY_STRING_LITERAL.finditer(fragment):
+    for literal in _JAVA_FINGERPRINT_LITERAL.finditer(fragment):
         tokens.extend(['code', token] for token in re.findall(pattern, fragment[cursor:literal.start()]))
         tokens.append(['literal', literal.group()])
         cursor = literal.end()
@@ -194,7 +202,7 @@ def finding_fingerprint(content: str, code: str, boundaries: str, match, descrip
     duplicate occurrence or move into another method must still be treated as new.
     """
     begin, end = statement_bounds(content, match.start(), match.end(), boundaries)
-    scopes, previous, parentheses = [], 0, 0
+    scopes, scope_parentheses, previous, parentheses = [], [], 0, 0
     for token in re.finditer(r'[{};()]', code[:begin]):
         value, position = token.group(), token.start()
         if value == '(':
@@ -203,12 +211,16 @@ def finding_fingerprint(content: str, code: str, boundaries: str, match, descrip
             parentheses = max(0, parentheses - 1)
         elif value == '{':
             scopes.append(canonical_java(content[previous:position]))
+            scope_parentheses.append(parentheses)
             previous = position + 1
         elif value == '}':
             if scopes:
                 scopes.pop()
+                scope_parentheses.pop()
             previous = position + 1
-        elif not parentheses:
+        # An outer call can remain open throughout a lambda body. Semicolons
+        # end statements at the current block's depth, but not in for headers.
+        elif parentheses == (scope_parentheses[-1] if scope_parentheses else 0):
             previous = position + 1
     evidence = [description, scopes, canonical_java(content[begin:end])]
     return hashlib.sha256(json.dumps(evidence, separators=(',', ':')).encode()).hexdigest()
@@ -330,7 +342,7 @@ def has_raw_concat_operand(statement: str) -> bool:
     return any(not is_safe_operand(op) for op in operands)
 
 
-def mask_java_comments(content: str) -> str:
+def mask_java_comments(content: str, *, normalize_text_blocks: bool = True) -> str:
     """Replace Java comment spans with spaces, preserving offsets and newlines.
 
     Masks // line comments and /* ... */ block comments while respecting string,
@@ -341,7 +353,8 @@ def mask_java_comments(content: str) -> str:
     that follows a closed block comment on the same line.
 
     Text blocks are additionally normalised to ordinary string literals so a
-    query assembled from text-block fragments is still inspected.
+    query assembled from text-block fragments is still inspected. Fingerprint
+    callers disable that normalization to retain the original literal bytes.
     """
     out = list(content)
     i = 0
@@ -380,6 +393,9 @@ def mask_java_comments(content: str) -> str:
                     if out[k] != '\n':
                         out[k] = ' '
                 i = n
+                continue
+            if not normalize_text_blocks:
+                i = end + 3
                 continue
             out[i] = out[i + 1] = ' '
             out[i + 2] = '"'
@@ -745,6 +761,7 @@ def check_sql_injection_patterns(content: str, findings: list | None = None) -> 
     # Mask comments up front so (a) SQL inside comments is never flagged and
     # (b) comment text can never provide allowlisting evidence. Offsets are
     # preserved, so reported positions remain valid.
+    evidence = mask_java_comments(content, normalize_text_blocks=False) if findings is not None else ''
     content = mask_java_comments(content)
     # Compute this once per file: SQL punctuation is literal data, not a Java
     # boundary, and rescanning literals for every candidate is needlessly costly.
@@ -812,7 +829,7 @@ def check_sql_injection_patterns(content: str, findings: list | None = None) -> 
     # markup and constant/parameterized fragments rather than flagging them.
     java_literal = r'"(?:[^"\\]|\\.)*"'
     operand_patterns = [
-        (java_literal + r'\s*\+\s*\w+', "Raw value concatenated with SQL"),
+        (java_literal + r'\s*\+(?![+=])', "Raw value concatenated with SQL"),
         (_OPERAND_CHAIN + r'\s*\+\s*' + java_literal, "Raw value concatenated with SQL"),
         (r'\.append\s*\(\s*' + java_literal, "Raw value appended to SQL"),
     ]
@@ -856,7 +873,7 @@ def check_sql_injection_patterns(content: str, findings: list | None = None) -> 
                 )
                 if findings is not None:
                     findings.append({'message': issues[-1], 'fingerprint':
-                        finding_fingerprint(content, code, boundaries, match, description)})
+                        finding_fingerprint(evidence, code, boundaries, match, description)})
 
     # Additional check: Look for dangerous patterns in query construction
     raw_query_patterns = [
@@ -895,7 +912,7 @@ def check_sql_injection_patterns(content: str, findings: list | None = None) -> 
                 )
                 if findings is not None:
                     findings.append({'message': issues[-1], 'fingerprint':
-                        finding_fingerprint(content, code, boundaries, match, description)})
+                        finding_fingerprint(evidence, code, boundaries, match, description)})
 
     return issues
 
