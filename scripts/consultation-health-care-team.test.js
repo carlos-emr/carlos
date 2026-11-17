@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const {parseFragment} = require('parse5');
 const {test} = require('node:test');
 const source = fs.readFileSync(path.join(__dirname,
   '../src/main/webapp/WEB-INF/jsp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp'), 'utf8');
@@ -19,7 +20,12 @@ function fixture(services, role) {
   registry = registry.replace(/<c:forEach\b[^>]*>([\s\S]*?)<\/c:forEach>/g, (_, body) =>
     services.map(service => body.replace(/\$\{\s*consultationService.serviceId\s*\}/g, service.id)
       .replace(/\$\{\s*consultationService.serviceDesc\s*\}/g, service.description)).join('\n'));
-  const scripts = [...registry.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)].map(match => match[1]);
+  function scriptBodies(node) {
+    const children = node.childNodes || [];
+    if (node.tagName === 'script') return [children.map(child => child.value || '').join('')];
+    return children.flatMap(scriptBodies);
+  }
+  const scripts = scriptBodies(parseFragment(registry));
   const form = Object.fromEntries(['annotation', 'phone', 'fax', 'address', 'service'].map(name =>
     [name, {value: name === 'service' ? '0' : 'FAKE previous value', focus() {}}]));
   form.specialist = {options: {selectedIndex: 0}, focus() {}};
