@@ -645,6 +645,9 @@ class JdbcConnectorMariaDbIntegrationTest {
     void shouldReturnRequestedNativeTypes_whenUnwrappingJdbcObjects(boolean legacy) throws Exception {
         try (var source = source(legacy, ""); var connection = source.getConnection();
              var statement = connection.createStatement(); var rows = statement.executeQuery("SELECT 1")) {
+            var metadata = rows.getMetaData();
+            assertThat(metadata.isWrapperFor(java.sql.ResultSetMetaData.class)).isTrue();
+            assertThat(metadata.unwrap(java.sql.ResultSetMetaData.class)).isSameAs(metadata);
             assertThat(statement.unwrap(org.mariadb.jdbc.Statement.class)).isInstanceOf(org.mariadb.jdbc.Statement.class);
             assertThat(rows.unwrap(org.mariadb.jdbc.client.result.Result.class)).isInstanceOf(org.mariadb.jdbc.client.result.Result.class);
             assertThat(rows.getMetaData().unwrap(org.mariadb.jdbc.client.result.ResultSetMetaData.class))
