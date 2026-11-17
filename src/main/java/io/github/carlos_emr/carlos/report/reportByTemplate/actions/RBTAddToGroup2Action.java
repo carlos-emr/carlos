@@ -64,6 +64,11 @@ public class RBTAddToGroup2Action extends ActionSupport {
             int[] templateIds = new int[templateIdArray.length];
             for (int index = 0; index < templateIdArray.length; index++) {
                 templateIds[index] = Integer.parseInt(templateIdArray[index]);
+                // Zero is reserved for creating a group; membership IDs must name a template.
+                if (templateIds[index] <= 0) {
+                    request.setAttribute("errormsg", "Report by Template template IDs must be positive");
+                    return INPUT;
+                }
             }
             for (int id : templateIds) {
                 try {

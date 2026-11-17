@@ -179,4 +179,15 @@ class RBTGroupValidationUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("errormsg")).isNull();
         verifyNoInteractions(groups);
     }
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"0", "-1"})
+    void shouldPersistNoMembership_whenALaterSelectedIdentifierIsNotPositive(String invalid) {
+        request.setParameter("groupName", "Clinic");
+        request.setParameter("tid", "11", invalid);
+        assertThat(execute(false)).isEqualTo(ActionSupport.INPUT);
+        assertThat(request.getAttribute("errormsg"))
+                .isEqualTo("Report by Template template IDs must be positive");
+        verifyNoInteractions(groups);
+    }
+
 }
