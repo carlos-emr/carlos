@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/service/ProviderDocumentQueueService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "02baa8df7ac643894fad56726fc649676ae0f88c"
+  },
+  "evidenceSha256": "56d13e0103ebaa6d0a205aec0f92ad611afe19afe89603199713f12d43ae8904"
+}
