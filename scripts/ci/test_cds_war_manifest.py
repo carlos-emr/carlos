@@ -420,8 +420,13 @@ class WarManifestTest(unittest.TestCase):
         text = workflow.read_text()
         self.assertIn("if: always()", text)
         self.assertIn("path: target/cds-performance-*/public/*", text)
-        self.assertIn("'scripts/ci/cds_war_manifest.py'", text)
-        self.assertIn("'scripts/ci/test_cds_war_manifest.py'", text)
+        self.assertIn('uses: ./.github/workflows/cds-change-detection.yml', text)
+        spec = importlib.util.spec_from_file_location(
+            'cds_manifest_selection', Path(__file__).with_name('select-cds-tests.py'))
+        selection = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(selection)
+        for path in ('scripts/ci/cds_war_manifest.py', 'scripts/ci/test_cds_war_manifest.py'):
+            self.assertTrue(selection.is_related(path, selection.related_paths()))
         self.assertLess(
             text.index("run: python3 scripts/ci/test_cds_war_manifest.py"),
             text.index("name: Start Java25 build container"),
