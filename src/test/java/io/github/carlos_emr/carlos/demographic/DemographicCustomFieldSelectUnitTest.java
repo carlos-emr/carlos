@@ -74,14 +74,58 @@ class DemographicCustomFieldSelectUnitTest {
     }
 
     @Test
-    @DisplayName("should keep the template's default for a new patient, whose value is not saved yet")
-    void shouldKeepTheTemplateDefault_whenNothingIsSaved() {
+    @DisplayName("should keep the template's default for a patient whose value was never saved")
+    void shouldKeepTheTemplateDefault_whenNothingWasEverSaved() {
         String template = "<select name=\"FAKE_field\"><option value=\"\">--</option>"
                 + "<option value=\"Plain\">Plain</option><option value=\"Default\" selected>Default</option></select>";
 
         assertThat(DemographicCustomFieldSelect.markSaved(template, null)).isEqualTo(template);
-        assertThat(DemographicCustomFieldSelect.markSaved(template, "   ")).isEqualTo(template);
         assertThat(posted(DemographicCustomFieldSelect.markSaved(template, null))).isEqualTo("Default");
+    }
+
+    @Test
+    @DisplayName("should reopen a cleared value cleared, over the template's default, when there is a blank option")
+    void shouldSelectTheBlankOption_whenTheValueWasCleared() {
+        String template = "<select name=\"FAKE_field\"><option value=\"\">--</option>"
+                + "<option value=\"Plain\">Plain</option><option value=\"Default\" selected>Default</option></select>";
+
+        assertThat(posted(DemographicCustomFieldSelect.markSaved(template, ""))).isEmpty();
+        assertThat(posted(DemographicCustomFieldSelect.markSaved(template, "   "))).isEmpty();
+        assertThat(DemographicCustomFieldSelect.markSaved(template, "")).contains("<option value=\"Default\">Default");
+    }
+
+    @Test
+    @DisplayName("should leave the template as configured for a cleared value when it has no blank option")
+    void shouldLeaveTheTemplateUnchanged_whenAClearedValueHasNoBlankOption() {
+        String template = "<select name=\"FAKE_field\"><option value=\"Plain\">Plain</option>"
+                + "<option value=\"Default\" selected>Default</option></select>";
+
+        assertThat(DemographicCustomFieldSelect.markSaved(template, "")).isEqualTo(template);
+    }
+
+    @Test
+    @DisplayName("should still show a saved value whose option the template now disables")
+    void shouldSelectADisabledOption_whenItCarriesTheSavedValue() {
+        String template = "<select name=\"FAKE_field\"><option value=\"\">--</option>"
+                + "<option value=\"Retired\" disabled>Retired</option></select>";
+
+        assertThat(DemographicCustomFieldSelect.markSaved(template, "Retired"))
+                .contains("<option value=\"Retired\" selected disabled>Retired</option>");
+    }
+
+    @Test
+    @DisplayName("should not read options from short comments, text-only elements or after an unclosed comment")
+    void shouldSkipNonMarkup_forShortCommentsTextBodiesAndUnclosedComments() {
+        String shortComment = "<select name=\"FAKE_field\"><!--><option value=\"A\">A</option>"
+                + "<textarea><option value=\"B\">B</option></textarea><option value=\"B\">B</option></select>";
+        String rendered = DemographicCustomFieldSelect.markSaved(shortComment, "B");
+        assertThat(rendered).contains("<textarea><option value=\"B\">B</option></textarea>")
+                .contains("</textarea><option value=\"B\" selected>B</option>");
+
+        String unclosed = "<select name=\"FAKE_field\"><option value=\"A\">A</option>"
+                + "<!-- <option value=\"B\">B</option></select>";
+        assertThat(DemographicCustomFieldSelect.markSaved(unclosed, "B")).isEqualTo(unclosed);
+        assertThat(DemographicCustomFieldSelect.markSaved(unclosed, "A")).contains("<option value=\"A\" selected>A");
     }
 
     @Test

@@ -46,8 +46,11 @@ import org.jsoup.parser.Parser;
  * <p>The first option whose value equals the saved text is marked {@code selected}, and every other
  * option's {@code selected} is taken off, because a single select keeps the <em>last</em> selected option,
  * so a template default after the saved option would otherwise win. Nothing else in the template changes.
- * When nothing is saved (a new patient, or a cleared value), or no option carries the saved value, the
- * template is printed unchanged, so its own default stands. A {@code multiple} select is treated the same
+ * When nothing was ever saved ({@code null}: a new patient, or a field added since), the template is
+ * printed unchanged, so its own default stands. A value that was saved and then cleared (blank) selects
+ * the template's blank option ({@code value=""}) if it has one, so the field reopens cleared and an
+ * unchanged Save keeps it cleared; without a blank option the template is printed unchanged. When no
+ * option carries the saved value, the template is printed unchanged too. A {@code multiple} select is treated the same
  * way: the field stores one value, so one option is marked. The saved value is only compared, never
  * written into the HTML, a pattern or a replacement string.</p>
  *
@@ -74,19 +77,20 @@ public final class DemographicCustomFieldSelect {
      * Marks the option whose value is the saved text as the selected one.
      *
      * @param selectHtml the configured select template; {@code null} prints nothing
-     * @param saved the patient's saved value; {@code null} or blank means nothing is saved
+     * @param saved the patient's saved value: {@code null} when none was ever saved, blank when it was cleared
      * @return the template with that option selected and no other, or the template unchanged when
-     *         nothing is saved or no option carries the saved value
+     *         nothing was ever saved or no option carries the saved value
      */
     public static String markSaved(String selectHtml, String saved) {
         if (selectHtml == null) {
             return "";
         }
-        String wanted = StringUtils.trimToEmpty(saved);
-        if (wanted.isEmpty()) {
-            // Nothing saved: the template's own default (a later "selected" option, say) must stand.
+        if (saved == null) {
+            // Never saved: the template's own default (a later "selected" option, say) must stand. A cleared
+            // value is "" (the key is stored), and selects the blank option below.
             return selectHtml;
         }
+        String wanted = StringUtils.trimToEmpty(saved);
         List<OptionTag> options = options(selectHtml);
         OptionTag match = null;
         for (OptionTag option : options) {
@@ -263,20 +267,33 @@ public final class DemographicCustomFieldSelect {
             i = close + 1;
         }
         String decoded = Parser.unescapeEntities(text.toString(), false);
-        return decoded.replaceAll("[\\t\\n\\f\\r ]+", " ").strip();
+        // HTML's own whitespace (tab, line feed, form feed, carriage return, space); a no-break space stays.
+        return StringUtils.strip(decoded.replaceAll("[\\t\\n\\f\\r ]+", " "), " ");
     }
 
     /**
-     * Skips a comment or a {@code <script>}/{@code <style>} element starting at {@code lt}.
+     * Skips a comment, a {@code <!...>} or {@code <?...>} declaration, or an element whose body is text,
+     * not markup ({@code script}, {@code style}, {@code textarea}, {@code title}, {@code noscript}),
+     * starting at {@code lt}.
      *
-     * @return the index after it, {@code lt} when it is neither, or -1 when it is not closed
+     * @return the index after it, {@code lt} when it is none of these, or -1 when it is not closed
      */
     private static int skipNonMarkup(String html, int lt) {
+        if (html.startsWith("<!-->", lt)) {
+            return lt + 5; // an empty comment, closed at once
+        }
+        if (html.startsWith("<!--->", lt)) {
+            return lt + 6;
+        }
         if (html.startsWith("<!--", lt)) {
             int end = html.indexOf("-->", lt + 4);
             return end < 0 ? -1 : end + 3;
         }
-        for (String rawText : new String[]{"script", "style"}) {
+        if (html.startsWith("<!", lt) || html.startsWith("<?", lt)) {
+            int end = html.indexOf('>', lt + 2);
+            return end < 0 ? -1 : end + 1;
+        }
+        for (String rawText : new String[]{"script", "style", "textarea", "title", "noscript"}) {
             if (startsTag(html, lt, rawText)) {
                 int end = indexOfIgnoreCase(html, "</" + rawText, lt + 1);
                 int closeTag = end < 0 ? -1 : html.indexOf('>', end);
