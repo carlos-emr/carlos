@@ -104,7 +104,6 @@ public class DemographicMergeRecord2Action extends ActionSupport {
         ArrayList<String> records = new ArrayList<String>(Arrays.asList(request.getParameterValues("records")));
         String head = request.getParameter("head");
         String action = request.getParameter("mergeAction");
-        String provider_no = request.getParameter("provider_no");
         DemographicMerged dmDAO = new DemographicMerged();
 
         if ("merge".equals(action)) {
@@ -114,11 +113,11 @@ public class DemographicMergeRecord2Action extends ActionSupport {
             }
 
         } else if ("unmerge".equals(action) && records.size() > 0) {
-            outcome = "successUnMerge";
-            for (int i = 0; i < records.size(); i++) {
-                String demographic_no = records.get(i);
-                dmDAO.UnMerge(loggedInInfo, demographic_no, provider_no);
-
+            if (Boolean.TRUE.equals(transactions.execute(status -> unmergeRecords(dmDAO, loggedInInfo, records)))) {
+                outcome = "successUnMerge";
+            } else {
+                logger.warn("Rejected demographic unmerge: a selected record is not an existing patient");
+                outcome = FAILURE;
             }
 
         } else {
@@ -131,6 +130,30 @@ public class DemographicMergeRecord2Action extends ActionSupport {
         }
 
         return outcome;
+    }
+
+    /** Validates and locks the whole selection before any unmerge, privilege, recycle or audit write. */
+    private boolean unmergeRecords(DemographicMerged dmDAO, LoggedInInfo loggedInInfo, List<String> records) {
+        try {
+            Set<Integer> recordIds = new LinkedHashSet<>();
+            for (String record : records) {
+                recordIds.add(Integer.valueOf(record));
+            }
+            if (recordIds.stream().anyMatch(id -> id <= 0)) {
+                return false;
+            }
+            for (Integer id : recordIds.stream().sorted().toList()) {
+                if (demographicDao.findForUpdate(id) == null) {
+                    return false;
+                }
+            }
+            for (Integer id : recordIds) {
+                dmDAO.UnMerge(loggedInInfo, id.toString(), loggedInInfo.getLoggedInProviderNo());
+            }
+            return true;
+        } catch (NumberFormatException _) {
+            return false;
+        }
     }
 
     /**

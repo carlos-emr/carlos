@@ -154,7 +154,7 @@ public class DemographicMerged {
         recycleBinDao.persist(rb);
 
         // Log the unmerge operation for the demographic
-        LogAction.addLog(loggedInInfo, "DemographicMerged.UnMerge", "demographic", demographic_no, demographic_no, "unmerged_demographic_no=" + demographic_no);
+        LogAction.addLogStrict(loggedInInfo, "DemographicMerged.UnMerge", "demographic", demographic_no, demographic_no, "unmerged_demographic_no=" + demographic_no);
 
     }
 

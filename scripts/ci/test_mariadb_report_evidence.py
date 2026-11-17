@@ -93,6 +93,24 @@ TICKLER_REQUIRED_CASES = {
 
 MERGE_REQUIRED_CASES = {"shouldRefuseDeniedParticipants_beforeAnyDatabaseOrAuditChange"}
 
+UNMERGE_REQUIRED_CASES = {
+    'shouldCanonicalizeAndDeduplicate_whenSelectedIdsHaveEquivalentSpellings',
+    'shouldCommitOnlySelectedParticipants_whenTheBatchSucceeds',
+    'shouldKeepTheFailureOutcome_whenTheSelectionIsEmpty',
+    'shouldRefuseBeforeWrites_whenTheCallerLacksWritePrivilege',
+    'shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String)[1]',
+    'shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String)[2]',
+    'shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String)[3]',
+    'shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String)[4]',
+    'shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String)[5]',
+    'shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String)[6]',
+    'shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String)[7]',
+    'shouldRefuseTheWholeSelection_whenAnyPatientIsMissing',
+    'shouldRollbackEveryParticipant_whenTheLaterAuditWriteFails',
+    'shouldRollbackEveryParticipant_whenTheLaterRecycleWriteFails',
+    'shouldUseAuthenticatedAttribution_whenTheRequestSuppliesAnotherProvider',
+}
+
 IDENTIFIER_REQUIRED_CASES = {
     "shouldStartItsOwnJpaTransaction_andPreserveUndisclosedIdentifiers",
     "shouldRefreshPreviouslyCachedIdentifiers_afterTakingTheWriteLock",
@@ -139,6 +157,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     "Growth0To36FormPersistenceIntegrationTest": GROWTH_REQUIRED_CASES,
                     "SoapTokenHousekeepingDaoIntegrationTest": TOKEN_REQUIRED_CASES,
                     "DemographicMergeMariaDbIntegrationTest": MERGE_REQUIRED_CASES,
+                    "DemographicWebUnmergeIntegrationTest": UNMERGE_REQUIRED_CASES,
                     "DemographicIdentifierPreservationMariaDbIntegrationTest": IDENTIFIER_REQUIRED_CASES,
                     "ScheduleSyncMariaDbIntegrationTest": SCHEDULE_REQUIRED_CASES,
                     "RxPrescribeMariaDbIntegrationTest": RX_REQUIRED_CASES,
@@ -213,6 +232,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             families = [("AppointmentUpdateDaoIntegrationTest", APPOINTMENT_REQUIRED_CASES)] if mode == "generated" else []
             for family, names in families + [("SoapTokenHousekeepingDaoIntegrationTest", TOKEN_REQUIRED_CASES),
                                   ("DemographicMergeMariaDbIntegrationTest", MERGE_REQUIRED_CASES),
+                                  ("DemographicWebUnmergeIntegrationTest", UNMERGE_REQUIRED_CASES),
                                   ("DemographicIdentifierPreservationMariaDbIntegrationTest", IDENTIFIER_REQUIRED_CASES),
                                   ("ScheduleSyncMariaDbIntegrationTest", SCHEDULE_REQUIRED_CASES),
                                   ("RxPrescribeMariaDbIntegrationTest", RX_REQUIRED_CASES),
