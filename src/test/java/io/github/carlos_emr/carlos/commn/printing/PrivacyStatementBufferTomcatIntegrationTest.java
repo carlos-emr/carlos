@@ -76,6 +76,9 @@ class PrivacyStatementBufferTomcatIntegrationTest {
                 }
                 if (typeFirst) response.setContentType("text/html;charset=UTF-8");
                 if ("writer".equals(request.getParameter("channel"))) response.getWriter().write(body);
+                else if ("buffer".equals(request.getParameter("channel"))) {
+                    response.getOutputStream().write(java.nio.ByteBuffer.wrap(body.getBytes(StandardCharsets.UTF_8)));
+                }
                 else response.getOutputStream().write(body.getBytes(StandardCharsets.UTF_8));
                 if (!typeFirst) response.setContentType("text/html;charset=UTF-8");
             }
@@ -87,6 +90,17 @@ class PrivacyStatementBufferTomcatIntegrationTest {
             }
         });
         context.addServletMappingDecoded("/html", "html");
+        Tomcat.addServlet(context, "late-type-binary", new HttpServlet() {
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+                var stream = response.getOutputStream();
+                if ("header".equals(request.getParameter("length"))) response.setHeader("Content-Length", "4");
+                else response.setContentLength(4);
+                response.setContentType("application/octet-stream");
+                stream.write(new byte[] {0, 1, 2, 3});
+            }
+        });
+        context.addServletMappingDecoded("/late-type-binary", "late-type-binary");
         FilterDef observer = new FilterDef();
         observer.setFilterName("buffer-observer");
         observer.setFilter((request, response, chain) -> {
@@ -151,6 +165,19 @@ class PrivacyStatementBufferTomcatIntegrationTest {
                 assertThat(Long.parseLong(length)).isEqualTo(response.body().getBytes(StandardCharsets.UTF_8).length));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"setter", "header"})
+    void shouldDeferStreamBuffer_whenLengthIsDeclaredBeforeItsNonHtmlType(String length) throws Exception {
+        String path = "/late-type-binary?length=" + length;
+        var response = client.send(HttpRequest.newBuilder(base.resolve(path)).timeout(Duration.ofSeconds(15)).GET().build(),
+                HttpResponse.BodyHandlers.ofByteArray());
+        int[] buffer = BUFFERS.get(path).get(10, TimeUnit.SECONDS);
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).isEqualTo(new byte[] {0, 1, 2, 3});
+        assertThat(response.headers().firstValue("Content-Length")).hasValue("4");
+        assertThat(buffer[1]).isEqualTo(buffer[0]);
+    }
+
     @Test
     void shouldKeepHeadMetadata_withoutAllocatingABodyBuffer() throws Exception {
         var response = client.send(HttpRequest.newBuilder(base.resolve("/html")).timeout(Duration.ofSeconds(15))
@@ -163,7 +190,7 @@ class PrivacyStatementBufferTomcatIntegrationTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"writer,true", "writer,false", "stream,true", "stream,false"})
+    @CsvSource({"writer,true", "writer,false", "stream,true", "stream,false", "buffer,true", "buffer,false"})
     void shouldKeepLargeHtmlAndItsNotice_forBothChannelsAndTypeDeclarationOrders(String channel, boolean typeFirst) throws Exception {
         String path = "/html?channel=" + channel + "&typeFirst=" + typeFirst;
         var response = client.send(HttpRequest.newBuilder(base.resolve(path)).timeout(Duration.ofSeconds(15)).GET().build(),

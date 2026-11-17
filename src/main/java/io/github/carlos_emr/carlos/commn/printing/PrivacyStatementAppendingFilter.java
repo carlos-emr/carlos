@@ -403,6 +403,12 @@ public class PrivacyStatementAppendingFilter implements Filter {
                     }
 
                     @Override
+                    public void write(java.nio.ByteBuffer buffer) throws IOException {
+                        if (buffer.hasRemaining()) configureAppendBufferForBody();
+                        stream.write(buffer);
+                    }
+
+                    @Override
                     public boolean isReady() {
                         return stream.isReady();
                     }
@@ -532,7 +538,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
         }
 
         private void updateContentLengthForType() {
-            if (responseWriterObtained || responseOutputStreamObtained) {
+            if (responseWriterObtained || (responseOutputStreamObtained && getContentType() != null)) {
                 configureAppendBufferForBody();
             }
             if (!isCommitted() && RequestNegotiation.isHtmlContentType(getContentType())) {

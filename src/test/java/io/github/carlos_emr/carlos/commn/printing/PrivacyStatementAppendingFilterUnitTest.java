@@ -19,6 +19,7 @@ import jakarta.servlet.ServletOutputStream;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.io.Writer;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,9 +36,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 /**
  * Regression tests for the legacy privacy statement response appender.
@@ -89,6 +93,35 @@ class PrivacyStatementAppendingFilterUnitTest {
         verify(delegate).write(bytes, 0, 0);
         verify(delegate).flush();
         verify(delegate).close();
+        assertThat(response.getBufferSize()).isEqualTo(initialBuffer);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldDelegateTheOriginalByteBuffer_withoutCopyingItsPayload(boolean empty) throws Exception {
+        MockHttpServletResponse response = spy(new MockHttpServletResponse());
+        ServletOutputStream delegate = mock(ServletOutputStream.class);
+        doReturn(delegate).when(response).getOutputStream();
+        when(delegate.isReady()).thenReturn(true);
+        ByteBuffer bytes = ByteBuffer.allocateDirect(6);
+        bytes.put(new byte[] {0, 1, 2, 3, 4, 5}).flip();
+        bytes.position(2).limit(empty ? 2 : 5);
+        doAnswer(invocation -> {
+            ByteBuffer original = invocation.getArgument(0);
+            assertThat(original).isSameAs(bytes);
+            byte[] payload = new byte[original.remaining()];
+            original.get(payload);
+            assertThat(payload).isEqualTo(empty ? new byte[0] : new byte[] {2, 3, 4});
+            return null;
+        }).when(delegate).write(same(bytes));
+        int initialBuffer = response.getBufferSize();
+        filter.doFilter(new MockHttpServletRequest("GET", "/binary"), response, (req, res) -> {
+            res.setContentType("application/octet-stream");
+            res.getOutputStream().write(bytes);
+        });
+        verify(delegate).write(same(bytes));
+        verifyNoMoreInteractions(delegate);
+        assertThat(bytes.position()).isEqualTo(bytes.limit());
         assertThat(response.getBufferSize()).isEqualTo(initialBuffer);
     }
 
