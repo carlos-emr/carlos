@@ -88,7 +88,7 @@ public class PharmacyService extends AbstractServiceImpl {
      *
      * @param offset First record in the entire result set to be returned
      * @param limit  Maximum total number of records that should be returned
-     * @return A page of pharmacy records; status "1" is active and status "0" is inactive
+     * @return OscarSearchResponse&lt;PharmacyInfoTo1&gt; containing a page of records; status "1" is active and status "0" is inactive
      * @throws BadRequestException if pagination is negative or the limit exceeds the DAO maximum
      */
     @GET
