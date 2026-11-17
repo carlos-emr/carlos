@@ -4,6 +4,9 @@ package io.github.carlos_emr.carlos.appointment.service;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.managers.AppointmentUpdateException;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.sql.Date;
@@ -20,10 +23,15 @@ import java.util.Objects;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /** Atomic recurring-booking operations using the existing series identity (no schema change). */
 @Service
 public class RecurringAppointmentService {
+    /** The edit form's hidden field naming the version it was rendered from (AppointmentEditConflict.PARAMETER). */
+    static final String APPOINTMENT_VERSION = "appointmentVersion";
+
     private final OscarAppointmentDao appointments;
     private final AppointmentArchiveDao archives;
     private final SecurityInfoManager security;
@@ -35,7 +43,12 @@ public class RecurringAppointmentService {
         this.security = security;
     }
 
-    /** All validation and series discovery precede writes; a failure rolls back the entire operation. */
+    /**
+     * All validation and series discovery precede writes; a failure rolls back the entire operation.
+     *
+     * @throws AppointmentUpdateException when the form names the version it was rendered from and the
+     *         appointment has changed since (nothing is written)
+     */
     @Transactional
     public int apply(LoggedInInfo user, Map<String, String> values, int programId) {
         String requestedId = values.get("appointment_no");
@@ -69,14 +82,24 @@ public class RecurringAppointmentService {
         if ((id != null && !id.isBlank() && anchor == null) || (!adding && anchor == null)) {
             throw new IllegalArgumentException("This appointment no longer exists. Reopen the schedule.");
         }
-        if (anchor != null && !Objects.equals(anchor.getAppointmentDate(), template.getAppointmentDate())) {
-            throw new IllegalArgumentException("Save the appointment date before changing its repeats.");
-        }
         // These fields have no controls in the standard edit form. Absence is
         // not a request to erase existing scheduling/billing metadata.
         if (anchor != null) {
             if (!values.containsKey("style")) template.setStyle(anchor.getStyle());
             if (!values.containsKey("billing")) template.setBilling(anchor.getBilling());
+        }
+        // The repeat page is opened from the Edit Appointment form and carries its fields and the
+        // version they were rendered from. A form another user's change has overtaken must not
+        // write those stale fields over the series; the anchor row is locked, so the comparison
+        // and the writes below see the same appointment.
+        String renderedVersion = values.get(APPOINTMENT_VERSION);
+        if (anchor != null && renderedVersion != null && !renderedVersion.isBlank()
+                && !renderedVersion.trim().equals(anchor.getEditVersion())
+                && !alreadyStored(operation, anchor, template)) {
+            throw new AppointmentUpdateException(AppointmentUpdateException.Reason.STALE_VERSION);
+        }
+        if (anchor != null && !Objects.equals(anchor.getAppointmentDate(), template.getAppointmentDate())) {
+            throw new IllegalArgumentException("Save the appointment date before changing its repeats.");
         }
         if (adding && anchor != null && !sameDetails(anchor, template)) {
             throw new IllegalArgumentException("Save changes to the appointment before creating repeats.");
@@ -97,13 +120,16 @@ public class RecurringAppointmentService {
         for (LocalDate date : dates) {
             if (!existingDates.contains(date)) missing.add(date);
         }
+        List<AuditRow> audit = new ArrayList<>();
         if (adding) {
             rejectBlockedDates(identity, missing);
             for (LocalDate date : missing) {
                 Appointment occurrence = copy(identity);
                 occurrence.setAppointmentDate(Date.valueOf(date));
                 appointments.persist(occurrence);
+                audit.add(new AuditRow(LogConst.ADD, occurrence, null));
             }
+            auditAfterCommit(user, audit);
             return missing.size();
         }
         if (existing.isEmpty()) {
@@ -114,16 +140,53 @@ public class RecurringAppointmentService {
         for (Appointment occurrence : existing) {
             archives.archiveAppointment(occurrence);
             if (operation.equals("Group Delete")) {
+                audit.add(new AuditRow(LogConst.DELETE, occurrence, null));
                 appointments.remove(occurrence.getId());
             } else {
-                if (operation.equals("Group Cancel")) occurrence.setStatus("C");
+                boolean cancel = operation.equals("Group Cancel");
+                if (cancel) occurrence.setStatus("C");
                 else applyDetails(occurrence, template, values.containsKey("style"), values.containsKey("billing"));
                 occurrence.setUpdateDateTime(updated);
                 occurrence.setLastUpdateUser(user.getLoggedInProviderNo());
                 appointments.merge(occurrence);
+                audit.add(new AuditRow(LogConst.UPDATE, occurrence, cancel ? "status=C" : null));
             }
         }
+        auditAfterCommit(user, audit);
         return existing.size();
+    }
+
+    /** One appointment of the series as its audit row will name it: by id and patient, never by its text. */
+    private record AuditRow(String action, Integer appointmentId, int demographicNo, String data) {
+        AuditRow(String action, Appointment appointment, String data) {
+            this(action, appointment.getId(), appointment.getDemographicNo(), data);
+        }
+    }
+
+    /**
+     * Audits each appointment the series action booked, changed, cancelled or removed, under the
+     * appointment and its patient, as the single-appointment popup does. The rows are written
+     * once the surrounding transaction has committed, so a series action that rolls back leaves
+     * none; without a transaction they are written at once.
+     */
+    private static void auditAfterCommit(LoggedInInfo user, List<AuditRow> rows) {
+        if (rows.isEmpty()) return;
+        Runnable write = () -> {
+            for (AuditRow row : rows) {
+                LogAction.addLog(user, row.action(), LogConst.CON_APPT, String.valueOf(row.appointmentId()),
+                        row.demographicNo() > 0 ? String.valueOf(row.demographicNo()) : null, row.data());
+            }
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    write.run();
+                }
+            });
+        } else {
+            write.run();
+        }
     }
 
     /** Preflights every new occurrence before writing any member of the series. */
@@ -185,6 +248,24 @@ public class RecurringAppointmentService {
 
     private static boolean equalText(String first, String second) {
         return Objects.equals(first == null ? "" : first, second == null ? "" : second);
+    }
+
+    /**
+     * Whether the stored appointment already holds everything this action would write to it.
+     *
+     * <p>That is how the same user's second click on the button arrives: the first click saved
+     * and moved the version on, the second still names the version the page was rendered from.
+     * Writing the same values again cannot undo anyone's change, so it is not a conflict, and
+     * answering it as one would tell the user their saved change was refused. Any other
+     * difference between the form and the stored appointment remains a conflict.</p>
+     */
+    private static boolean alreadyStored(String operation, Appointment anchor, Appointment template) {
+        return switch (operation) {
+            case "Group Update" -> Objects.equals(anchor.getAppointmentDate(), template.getAppointmentDate())
+                    && sameDetails(anchor, template);
+            case "Group Cancel" -> "C".equals(anchor.getStatus());
+            default -> false;
+        };
     }
 
     private static boolean sameDetails(Appointment a, Appointment b) {

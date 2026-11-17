@@ -315,6 +315,124 @@ public class ProfessionalSpecialist extends AbstractModel<Integer> implements Se
         return buf.toString();
     }
 
+    /**
+     * The consultant a consultation letter shows for a professional contact on the patient's
+     * health care team: a new, unsaved specialist holding only the contact's own values. The
+     * chart's consultation Print ({@code EctConsultationFormRequestUtil}) and the CDS export's
+     * printed letter ({@code CdsExportConsultationLetterComposer}) both use it, so they show the
+     * same consultant.
+     *
+     * <p>It never reads or borrows a directory specialist: a contact's id says nothing about the
+     * {@code professionalSpecialists} row of the same number. A contact has no salutation or
+     * professional letters of its own, so none are shown. The address is the street (with the
+     * second line after a space), city, postal code, province and country that are present,
+     * separated by ", "; the phone is the work phone, then " ext " and the extension when there is
+     * one. A value the contact lacks is left empty, never the text "null", and no CPSO number is
+     * required (contacts a CDS import creates have none).
+     *
+     * @param contact the professional contact
+     * @return the consultant to print; never persisted
+     * @since 2026-11-13
+     */
+    public static ProfessionalSpecialist healthCareTeamConsultant(ProfessionalContact contact) {
+        var consultant = new ProfessionalSpecialist();
+        consultant.setFirstName(contact.getFirstName());
+        consultant.setLastName(contact.getLastName());
+        var address = new java.util.StringJoiner(", ");
+        String street = StringUtils.trimToEmpty(
+                StringUtils.trimToEmpty(contact.getAddress()) + " " + StringUtils.trimToEmpty(contact.getAddress2()));
+        for (String part : new String[] {
+                street, contact.getCity(), contact.getPostal(), contact.getProvince(), contact.getCountry()}) {
+            if (StringUtils.isNotBlank(part)) address.add(part.trim());
+        }
+        consultant.setStreetAddress(address.toString());
+        consultant.setPhoneNumber(workPhone(contact));
+        consultant.setFaxNumber(contact.getFax());
+        consultant.setEmailAddress(contact.getEmail());
+        consultant.setReferralNo(StringUtils.trimToNull(contact.getCpso()));
+        consultant.setSpecialtyType(contact.getSpecialty());
+        consultant.setPrivatePhoneNumber(contact.getResidencePhone());
+        consultant.setCellPhoneNumber(contact.getCellPhone());
+        return consultant;
+    }
+
+    /**
+     * Takes a professional contact's details into this directory specialist: the contact editor
+     * ({@code Contact2Action}, through {@code DemographicContactCreator}) edits a directory
+     * specialist this way when it is shown as a contact, and saves the result. The names, address,
+     * e-mail, phone, fax, CPSO number, specialty and private and cell phones become the contact's;
+     * the salutation, professional letters and everything else stay. The address keeps its five
+     * positions (street with its second line, city, postal code, province, country, each followed
+     * by ", "), which {@code DemographicContactCreator.buildContact} reads back. A missing work
+     * phone leaves the phone empty rather than storing the text "null", and a missing CPSO number
+     * leaves no referral number. A consultation letter uses {@link #healthCareTeamConsultant}.
+     *
+     * @param contact the contact form's values
+     * @since 2026-11-13
+     */
+    public void applyProfessionalContact(ProfessionalContact contact) {
+        String address = contact.getAddress();
+        String addressTwo = contact.getAddress2();
+        String postal = contact.getPostal();
+        String city = contact.getCity();
+        String province = contact.getProvince();
+        String country = contact.getCountry();
+
+        StringBuilder stringBuilder = new StringBuilder("");
+
+        if (address != null) {
+            stringBuilder.append(address.trim());
+        }
+
+        if (addressTwo != null) {
+            stringBuilder.append(" ");
+            stringBuilder.append(addressTwo.trim());
+
+        }
+        stringBuilder.append(", ");
+
+        if (city != null) {
+            stringBuilder.append(city.trim());
+
+        }
+        stringBuilder.append(", ");
+
+        if (postal != null) {
+            stringBuilder.append(postal.trim());
+        }
+        stringBuilder.append(", ");
+
+        if (province != null) {
+            stringBuilder.append(province.trim());
+        }
+        stringBuilder.append(", ");
+
+        if (country != null) {
+            stringBuilder.append(country.trim());
+        }
+
+        stringBuilder.append(", ");
+
+        setStreetAddress(stringBuilder.toString());
+        setFirstName(contact.getFirstName());
+        setLastName(contact.getLastName());
+        setEmailAddress(contact.getEmail());
+        setPhoneNumber(workPhone(contact));
+        setFaxNumber(contact.getFax());
+        setReferralNo(contact.getCpso() == null ? null : contact.getCpso().trim());
+        setSpecialtyType(contact.getSpecialty());
+        setPrivatePhoneNumber(contact.getResidencePhone());
+        setCellPhoneNumber(contact.getCellPhone());
+    }
+
+    /** The work phone with its extension, or null when the contact has no work phone. */
+    private static String workPhone(Contact contact) {
+        String phone = StringUtils.trimToNull(contact.getWorkPhone());
+        if (phone == null) return null;
+        String extension = StringUtils.trimToNull(contact.getWorkPhoneExtension());
+        return extension == null ? phone : phone + " ext " + extension;
+    }
+
     public String getPrivatePhoneNumber() {
         return privatePhoneNumber;
     }

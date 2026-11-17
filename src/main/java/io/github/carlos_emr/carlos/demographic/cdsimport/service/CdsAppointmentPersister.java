@@ -25,7 +25,9 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportExcept
 
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsAppointmentSourceContract;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAppointmentNativeDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAppointmentSourceDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsClinicalDiagnosticDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto;
@@ -54,7 +56,23 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-/** Native single-day slots require exact representable timing; every source-only decision is explicit and retains complete values. */
+/**
+ * Native single-day slots require exact representable timing; every source-only decision is
+ * explicit and retains complete values.
+ *
+ * <p>A CARLOS sender also writes one {@code CARLOS.Appointment.Source.v1} NewCategory record per
+ * appointment ({@link CdsAppointmentResidualReader}). It is used only after it proves itself
+ * against the element it names: the same position, the same local date and start, and a stored
+ * end that gives the element's Duration by the shared rule ({@link
+ * CdsAppointmentSourceContract#minutes}). Then the exact stored end (a slot past midnight, with
+ * no length or not on a minute becomes a native appointment instead of a source-only record),
+ * the complete notes (when the element's text is exactly the shared cut of them) and the
+ * scheduler context (style, billing, location, resources, urgency, type, booking source) are
+ * restored. A record that does not prove itself is reported ({@code
+ * CDS_APPOINTMENT_SOURCE_RECORD_NOT_APPLIED}) and nothing is taken from it. The status code, the
+ * booking name, the remarks, the program and the provider number are not restored: they depend
+ * on the receiving clinic's own tables or already travel in the standard elements.
+ */
 @Service
 public class CdsAppointmentPersister {
     private final CdsFieldParser fields;
@@ -62,6 +80,7 @@ public class CdsAppointmentPersister {
     private final CdsImportConfigurationService configuration;
     private final CdsProviderResolver providers;
     private final CdsNativePreparationService preparation;
+    private final CdsAppointmentResidualReader sources;
 
     private final OscarAppointmentDao appointments;
     private final DemographicDao demographics;
@@ -89,6 +108,7 @@ public class CdsAppointmentPersister {
         this.configuration = configuration;
         this.providers = providers;
         this.preparation = preparation;
+        this.sources = fields == null ? null : new CdsAppointmentResidualReader(fields);
         this.appointments = Objects.requireNonNull(appointments);
         this.demographics = Objects.requireNonNull(demographics);
     }
@@ -234,6 +254,73 @@ public class CdsAppointmentPersister {
                     new CdsClinicalDiagnosticDto(
                             "CDS_APPOINTMENT_PURPOSE_SOURCE_VIEW", "AppointmentPurpose"));
         }
+        String notes = fields.firstText(record, "AppointmentNotes", 32768);
+        // The sender's CARLOS.Appointment.Source.v1 record, used only once it proves itself.
+        CdsAppointmentSourceDto restored = null;
+        var found = sources == null ? null : sources.find(record);
+        if (found != null) {
+            var proven =
+                    found.source() == null
+                            ? null
+                            : proven(found.source(), sourceDate, sourceTime, duration);
+            if (proven == null)
+                notice.accept(
+                        new CdsClinicalDiagnosticDto(
+                                "CDS_APPOINTMENT_SOURCE_RECORD_NOT_APPLIED", "NewCategory"));
+            else {
+                var source = found.source();
+                if (proven.nativeEnd()) {
+                    // The stored wall-clock slot is known exactly: a native appointment, as the
+                    // sender's schedule shows it, replaces every Duration-derived decision.
+                    if (!proven.date().equals(date) || !proven.start().equals(start))
+                        notice.accept(
+                                new CdsClinicalDiagnosticDto(
+                                        "CDS_APPOINTMENT_OFFSET_NORMALIZED", "AppointmentTime"));
+                    date = proven.date();
+                    start = proven.start();
+                    end = proven.end();
+                    representable = true;
+                    diagnostics
+                            .keySet()
+                            .removeIf(
+                                    key ->
+                                            SLOT_DECISIONS.contains(
+                                                    key.substring(0, key.indexOf('/'))));
+                }
+                boolean completeNotes = false;
+                if (source.completeNotes() != null) {
+                    if (lines(CdsAppointmentSourceContract.notesElement(source.completeNotes()))
+                                    .equals(lines(notes))
+                            && source.completeNotes()
+                                            .codePointCount(0, source.completeNotes().length())
+                                    <= 32768) {
+                        notes = source.completeNotes();
+                        completeNotes = true;
+                    } else
+                        notice.accept(
+                                new CdsClinicalDiagnosticDto(
+                                        "CDS_APPOINTMENT_SOURCE_NOTES_NOT_RESTORED",
+                                        "AppointmentNotes"));
+                }
+                restored =
+                        new CdsAppointmentSourceDto(
+                                proven.nativeEnd(),
+                                completeNotes,
+                                column(source.style(), CdsAppointmentSourceDto.STYLE, notice),
+                                column(source.billing(), CdsAppointmentSourceDto.BILLING, notice),
+                                column(source.location(), CdsAppointmentSourceDto.LOCATION, notice),
+                                column(
+                                        source.resources(),
+                                        CdsAppointmentSourceDto.RESOURCES,
+                                        notice),
+                                column(source.urgency(), CdsAppointmentSourceDto.URGENCY, notice),
+                                column(source.type(), CdsAppointmentSourceDto.TYPE, notice),
+                                bookingSource(source.bookingSource(), notice));
+                notice.accept(
+                        new CdsClinicalDiagnosticDto(
+                                "CDS_APPOINTMENT_SOURCE_RECORD_APPLIED", "NewCategory"));
+            }
+        }
         if (representable) {
             try { io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto.dateStorageAnchor(date); }
             catch (io.github.carlos_emr.carlos.commn.model.CdsClinicalException unavailable) {
@@ -253,10 +340,110 @@ public class CdsAppointmentPersister {
                         end == null ? null : end.toString(),
                         fields.firstText(record, "AppointmentStatus", 250),
                         purpose,
-                        fields.firstText(record, "AppointmentNotes", 32768),
+                        notes,
                         provider.localProviderNo(),
                         representable,
-                        List.copyOf(diagnostics.values())));
+                        List.copyOf(diagnostics.values()),
+                        restored));
+    }
+
+    /** Decisions the element's Duration and offset forced that an exact stored slot replaces. */
+    private static final java.util.Set<String> SLOT_DECISIONS =
+            java.util.Set.of(
+                    "CDS_APPOINTMENT_DURATION_SOURCE_ONLY",
+                    "CDS_APPOINTMENT_CROSS_MIDNIGHT_SOURCE_ONLY",
+                    "CDS_APPOINTMENT_DST_DURATION_SOURCE_ONLY",
+                    "CDS_APPOINTMENT_LOCAL_TIME_SOURCE_ONLY");
+
+    /**
+     * @param nativeEnd the stored end is the scheduler's inclusive end and gives the element's
+     *     Duration; false when the record agrees with the element but adds nothing to its timing
+     */
+    private record Proven(LocalDate date, LocalTime start, LocalTime end, boolean nativeEnd) {}
+
+    /**
+     * Proves the record against its element: the element's date and start, read in the receiving
+     * clinic's zone, are the stored date and start, and the stored end gives the element's
+     * Duration by the shared rule (inclusive, as the CARLOS scheduler stores it, or exclusive, as
+     * an earlier CDS import left it).
+     *
+     * @return null when the record does not prove itself
+     */
+    private Proven proven(
+            CdsAppointmentResidualReader.Source source,
+            CdsTemporalDto sourceDate,
+            String sourceTime,
+            String duration) {
+        String zone = configuration.value("cds.import.clinicalZone", "");
+        if (zone.isEmpty()
+                || !sourceDate.exactCalendarDate()
+                || sourceDate.earliest() == null
+                || source.date() == null
+                || source.start() == null
+                || !source.date().matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")
+                || !source.start().matches(CLOCK)) return null;
+        LocalDate date = sourceDate.earliest();
+        LocalTime start;
+        try {
+            try {
+                OffsetTime offset = OffsetTime.parse(sourceTime);
+                var local =
+                        date.atTime(offset.toLocalTime())
+                                .atOffset(offset.getOffset())
+                                .atZoneSameInstant(ZoneId.of(zone));
+                date = local.toLocalDate();
+                start = local.toLocalTime();
+            } catch (DateTimeParseException noOffset) {
+                start = LocalTime.parse(sourceTime);
+            }
+            if (start.getNano() != 0
+                    || date.getYear() < 1
+                    || date.getYear() > 9999
+                    || !date.equals(LocalDate.parse(source.date()))
+                    || !start.equals(LocalTime.parse(source.start()))) return null;
+        } catch (java.time.DateTimeException invalid) {
+            return null;
+        }
+        LocalTime end =
+                source.end() != null && source.end().matches(CLOCK)
+                        ? LocalTime.parse(source.end())
+                        : null;
+        // A Duration the element could not state, or stated beyond a day, is in neither rule.
+        long minutes = duration == null ? 0 : new BigInteger(duration).min(BigInteger.valueOf(1441)).longValue();
+        if (end == null) return minutes == 0 ? new Proven(date, start, null, false) : null;
+        if (CdsAppointmentSourceContract.minutes(start, end, true) == minutes)
+            return new Proven(date, start, end, true);
+        return minutes > 0 && CdsAppointmentSourceContract.minutes(start, end, false) == minutes
+                ? new Proven(date, start, end, false)
+                : null;
+    }
+
+    private static final String CLOCK = "(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]";
+
+    /** Line endings as an XML parser delivers them, so a CR the writer kept is not a difference. */
+    private static String lines(String text) {
+        return text == null ? null : text.replace("\r\n", "\n").replace('\r', '\n');
+    }
+
+    /** A stored scheduler value the receiving column can hold; a longer one is reported. */
+    private static String column(
+            String value, int capacity, Consumer<CdsClinicalDiagnosticDto> notice) {
+        if (value == null || value.codePointCount(0, value.length()) <= capacity) return value;
+        notice.accept(
+                new CdsClinicalDiagnosticDto(
+                        "CDS_APPOINTMENT_SOURCE_COLUMN_CAPACITY_NOT_RESTORED", "NewCategory"));
+        return null;
+    }
+
+    /** Only a booking source this build knows is restored; any other is reported. */
+    private static String bookingSource(String value, Consumer<CdsClinicalDiagnosticDto> notice) {
+        if (value == null || value.isEmpty()) return null;
+        for (var known : Appointment.BookingSource.values())
+            if (known.name().equals(value)) return value;
+        notice.accept(
+                new CdsClinicalDiagnosticDto(
+                        "CDS_APPOINTMENT_SOURCE_BOOKING_SOURCE_NOT_RESTORED", "NewCategory"));
+        return null;
     }
 
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
@@ -293,6 +480,19 @@ public class CdsAppointmentPersister {
         appointment.setStatus("");
         appointment.setCreator(command.providerNo());
         appointment.setLastUpdateUser(command.providerNo());
+        if (dto.source() != null) {
+            // Scheduler context the sender's proven source record carried.
+            var source = dto.source();
+            if (source.style() != null) appointment.setStyle(source.style());
+            if (source.billing() != null) appointment.setBilling(source.billing());
+            if (source.location() != null) appointment.setLocation(source.location());
+            if (source.resources() != null) appointment.setResources(source.resources());
+            if (source.urgency() != null) appointment.setUrgency(source.urgency());
+            if (source.type() != null) appointment.setType(source.type());
+            if (source.bookingSource() != null)
+                appointment.setBookingSource(
+                        Appointment.BookingSource.valueOf(source.bookingSource()));
+        }
         appointments.persist(appointment);
         appointments.flush();
         if (appointment.getId() == null || appointment.getId() < 1)

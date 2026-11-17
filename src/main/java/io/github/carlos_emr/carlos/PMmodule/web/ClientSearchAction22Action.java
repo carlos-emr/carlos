@@ -154,7 +154,35 @@ public class ClientSearchAction22Action extends ActionSupport {
         formBean.setProgramDomain((List) request.getSession().getAttribute("program_domain"));
 
         /* do the search */
-        request.setAttribute("clients", clientManager.search(formBean));
+        int requestedPage;
+        int sort;
+        boolean descending = "true".equals(request.getParameter("tableDescending"));
+        try {
+            requestedPage = io.github.carlos_emr.carlos.utility.ServerTablePage.requested(request);
+            sort = request.getParameter("tableSort") == null ? 0 : Integer.parseInt(request.getParameter("tableSort"));
+            String change = request.getParameter("tableSortChange");
+            if (change != null) {
+                int changed = Integer.parseInt(change);
+                descending = changed == sort && !descending;
+                sort = changed;
+                requestedPage = 0;
+            }
+            if (sort < 0 || sort > 7) throw new IllegalArgumentException("Invalid table sort");
+        } catch (IllegalArgumentException invalidPage) { response.setStatus(400); return NONE; }
+        var page = clientManager.searchClientPage(formBean, requestedPage, sort, descending);
+        request.setAttribute("clients", page.getRows());
+        java.util.Map<String, String[]> parameters = new java.util.LinkedHashMap<>();
+        request.getParameterMap().forEach((key, value) -> {
+            if (key.startsWith("criteria.") || java.util.Set.of("noteId", "sourceChartContext", "chartContext").contains(key))
+                parameters.put(key, value);
+        });
+        parameters.put("method", new String[]{"attachSearch"});
+        parameters.put("tableSort", new String[]{Integer.toString(sort)});
+        parameters.put("tableDescending", new String[]{Boolean.toString(descending)});
+        request.setAttribute("serverTableSort", sort);
+        request.setAttribute("serverTableDescending", descending);
+        io.github.carlos_emr.carlos.utility.ServerTablePage.publish(request, page,
+                "/PMmodule/ClientSearch2", "post", parameters);
 
         if (formBean.isSearchOutsideDomain()) {
             LogAction.log("read", "out of domain client search", "", request);

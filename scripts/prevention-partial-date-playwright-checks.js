@@ -14,7 +14,7 @@
 //      is saved; then 2019-02-28 in the same editor ▸ Save: that day is saved.
 // Step 4 fails on develop: the edit form's Date is an <input type="date"> (AddPreventionData.jsp),
 // which cannot hold "2019", so the box opens empty and, being required, refuses the save until a full
-// date is typed (finding 302). Steps 5 and 6 need the year-only box, so they run after step 4. Step 6 also needs
+// date is typed (finding 356). Steps 5 and 6 need the year-only box, so they run after step 4. Step 6 also needs
 // #4815's calendar check: the box's pattern alone lets 2019-02-31 through, and the server refuses it with HTTP 400.
 // The server side is fine: echart-prevention-row-links
 // posts the edit form's fields with prevDate=2026-09 directly and asserts the replacement keeps

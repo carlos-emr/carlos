@@ -357,7 +357,8 @@ public class CdsReportImportService implements CdsCategoryImportService {
             if (text && "Binary".equals(format)) {
                 // The guide declares Binary content to be base64. Decode strictly, retaining the
                 // original textual source field independently; no content sniffing or permissive
-                // MIME decoder.
+                // MIME decoder. A decoded report of any size is measured here as a stream (it is
+                // only hashed), and its publication stops only at the store's free-disk reserve.
                 long bytes = 0;
                 var digest = CdsPaths.sha256();
                 try (var decoded = CdsBase64ValueParser.decode(logicalSource.open())) {
@@ -367,8 +368,6 @@ public class CdsReportImportService implements CdsCategoryImportService {
                         if (Thread.currentThread().isInterrupted())
                             throw new CdsImportException("IMPORT_CANCELLED");
                         bytes = Math.addExact(bytes, count);
-                        if (bytes > configuration.limits().maxBinaryBytes())
-                            throw new CdsImportException("REPORT_BINARY_CAPACITY_EXCEEDED");
                         digest.update(buffer, 0, count);
                     }
                 }
@@ -547,6 +546,13 @@ public class CdsReportImportService implements CdsCategoryImportService {
             case "CDS_REPORT_MEDIA_UNRECOGNIZED_SOURCE_RETAINED" ->
                     "The report media type is unsupported or unrecognized; complete original bytes"
                             + " remain an opaque document requiring source media review";
+            case "CDS_REPORT_HTML_RETAINED_OPAQUE" ->
+                    "The report is an HTML file, which the document viewer would show as a live"
+                            + " page; complete original bytes remain an opaque document requiring"
+                            + " source media review";
+            case "CDS_REPORT_HTML_RETAINED_AS_TEXT" ->
+                    "The report text is declared HTML; it is kept as plain text, its markup shown"
+                            + " rather than rendered, and requires source media review";
             case "CDS_REPORT_MEDIA_FROM_BOUNDED_HEADER" ->
                     "Native media type follows a bounded recognized file header; the original"
                             + " versioned or unsupported declaration remains in report details";

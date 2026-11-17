@@ -167,7 +167,8 @@ class DemographicAddRecord2ActionTest extends CarlosWebTestBase {
     }
 
     @ParameterizedTest
-    @CsvSource({"12,255", "0,256"})
+    // An empty list_id is what the form posts when no list is picked: like "0", no note is checked.
+    @CsvSource({"12,255", "0,256", "'',256"})
     void shouldNotReportTheNote_whenItFitsOrNoListIsChosen(String listId, int noteLength) throws Exception {
         postValidNewPatient();
         addRequestParameter("cust3", "😀".repeat(io.github.carlos_emr.carlos.commn.model.DemographicCust.ALERT_MAX_LENGTH));

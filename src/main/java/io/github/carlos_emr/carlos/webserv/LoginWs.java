@@ -109,7 +109,7 @@ public class LoginWs extends AbstractWs {
 
             if (security.getProviderNo() != null) {
                 Provider provider = providerDao.getProvider(security.getProviderNo());
-                result.setProvider(ProviderTransfer.toTransfer(provider, ProviderBillingAccess.canRead(getLoggedInInfo())));
+                result.setProvider(ProviderTransfer.toTransfer(provider));
             }
 
             return (result);

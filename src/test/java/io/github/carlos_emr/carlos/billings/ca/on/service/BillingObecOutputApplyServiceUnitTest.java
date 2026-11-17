@@ -293,4 +293,148 @@ class BillingObecOutputApplyServiceUnitTest {
         }
     }
 
+    // #6140: the apply appended to the alert with no length check. A longer alert was cut at the
+    // column (empty sql_mode: the newest message lost) or failed the whole batch (strict).
+
+    private static final String MESSAGE = "Invalid old version code: ZZ\nReason: Expired card- Renew card\nResponse Code: 60";
+
+    /** Characters the alert holds after `existing` once the message is appended, as the Master Record form sends it. */
+    private static int formLength(String existing) {
+        String alert = existing + "\r\n" + MESSAGE.replace("\n", "\r\n");
+        return alert.codePointCount(0, alert.length());
+    }
+
+    private BillingObecOutputApplyService.ApplyResult applyWithAlert(DemographicCust cust, Demographic patient) {
+        var eligibility = mock(BatchEligibility.class);
+        when(eligibility.getMOHResponse()).thenReturn("Expired card");
+        when(eligibility.getReason()).thenReturn("Renew card");
+        when(batchEligibilityDao.find(60)).thenReturn(eligibility);
+        when(demographicManager.searchByHealthCard(loggedInInfo, "1234567890")).thenReturn(List.of(patient));
+        when(demographicCustDao.find((Object) Integer.valueOf(42))).thenReturn(cust);
+        return service.applyOutputSpec(loggedInInfo, List.of(record("1234567890", "ZZ", "60")));
+    }
+
+    @Test
+    void shouldApplyTheRowAndSaySo_whenThePatientHasNoCustomFieldsRecord() {
+        var eligibility = mock(BatchEligibility.class);
+        when(batchEligibilityDao.find(60)).thenReturn(eligibility);
+        var patient = demographic(42, "ZZ");
+        when(demographicManager.searchByHealthCard(loggedInInfo, "1234567890")).thenReturn(List.of(patient));
+        when(demographicCustDao.find((Object) Integer.valueOf(42))).thenReturn(null);
+
+        var result = service.applyOutputSpec(loggedInInfo, List.of(record("1234567890", "ZZ", "60")));
+
+        assertThat(result.appliedCount()).isEqualTo(1);
+        assertThat(patient.getVer()).isEqualTo("##");
+        assertThat(result.reasons()).containsExactly(
+                "Alert not updated for row 1: the patient has no custom-fields record to hold the alert");
+        verify(demographicCustDao, never()).merge(any(DemographicCust.class));
+    }
+
+    @Test
+    void shouldApplyTheRowAndSaySo_whenTheResponseCodeHasNoEligibilityMessage() {
+        when(batchEligibilityDao.find(60)).thenReturn(null);
+        var patient = demographic(42, "ZZ");
+        when(demographicManager.searchByHealthCard(loggedInInfo, "1234567890")).thenReturn(List.of(patient));
+        var cust = new DemographicCust();
+        cust.setAlert("FAKE existing alert");
+        when(demographicCustDao.find((Object) Integer.valueOf(42))).thenReturn(cust);
+
+        var result = service.applyOutputSpec(loggedInInfo, List.of(record("1234567890", "ZZ", "60")));
+
+        assertThat(result.appliedCount()).isEqualTo(1);
+        assertThat(cust.getAlert()).isEqualTo("FAKE existing alert");
+        assertThat(result.reasons()).containsExactly("Alert not updated for row 1: response code 60 has no eligibility message");
+        assertThat(String.join("\n", result.reasons())).doesNotContain("1234567890");
+        verify(demographicCustDao, never()).merge(any(DemographicCust.class));
+    }
+
+    @Test
+    void shouldWriteTheAlert_whenItFillsTheLimitExactly() {
+        String existing = "A".repeat(DemographicCust.ALERT_MAX_LENGTH - formLength(""));
+        assertThat(formLength(existing)).isEqualTo(DemographicCust.ALERT_MAX_LENGTH);
+        var cust = new DemographicCust();
+        cust.setAlert(existing);
+
+        var result = applyWithAlert(cust, demographic(42, "ZZ"));
+
+        assertThat(cust.getAlert()).isEqualTo(existing + "\n" + MESSAGE);
+        verify(demographicCustDao).merge(cust);
+        assertThat(result.reasons()).isEmpty();
+    }
+
+    @Test
+    void shouldLeaveTheAlertAndSaySo_whenTheMessageWouldMakeItTooLong() {
+        String existing = "A".repeat(DemographicCust.ALERT_MAX_LENGTH - formLength("") + 1);
+        var cust = new DemographicCust();
+        cust.setAlert(existing);
+        var patient = demographic(42, "ZZ");
+
+        var result = applyWithAlert(cust, patient);
+
+        // Nothing is cut: the alert keeps its text, and the row's version is still flagged.
+        assertThat(cust.getAlert()).isEqualTo(existing);
+        verify(demographicCustDao, never()).merge(any(DemographicCust.class));
+        assertThat(patient.getVer()).isEqualTo("##");
+        assertThat(result.appliedCount()).isEqualTo(1);
+        assertThat(result.reasons()).singleElement().asString()
+                .startsWith("Alert not updated for row 1:")
+                .contains(String.valueOf(DemographicCust.ALERT_MAX_LENGTH))
+                .doesNotContain("1234567890");
+    }
+
+    @Test
+    void shouldCountAnEarlierBareLineFeedAsTheFormWillSendIt_whenTheAlertHoldsOne() {
+        // An earlier apply left a bare LF in the alert. Stored, it is one character and the alert would
+        // fit; the Master Record form sends it back as CR LF, so it is one over and stays unwritten.
+        String existing = "A".repeat(100) + "\n" + "A".repeat(DemographicCust.ALERT_MAX_LENGTH - formLength("") - 101);
+        String stored = existing + "\n" + MESSAGE;
+        assertThat(stored.length()).isLessThanOrEqualTo(DemographicCust.ALERT_MAX_LENGTH);
+        assertThat(BillingObecOutputApplyService.asFormSubmits(stored).length())
+                .isEqualTo(DemographicCust.ALERT_MAX_LENGTH + 1);
+        var cust = new DemographicCust();
+        cust.setAlert(existing);
+
+        var result = applyWithAlert(cust, demographic(42, "ZZ"));
+
+        assertThat(cust.getAlert()).isEqualTo(existing);
+        verify(demographicCustDao, never()).merge(any(DemographicCust.class));
+        assertThat(result.reasons()).singleElement().asString().startsWith("Alert not updated for row 1:");
+    }
+
+    @Test
+    void shouldCountTheFormsOwnCrLfOnce_whenTheAlertWasSavedFromTheForm() {
+        // A form save stored CR LF. It counts as the two characters it is, not four: the alert fills the
+        // limit exactly and is written.
+        String existing = "A".repeat(100) + "\r\n" + "A".repeat(DemographicCust.ALERT_MAX_LENGTH - formLength("") - 102);
+        String stored = existing + "\n" + MESSAGE;
+        assertThat(BillingObecOutputApplyService.asFormSubmits(stored).length()).isEqualTo(DemographicCust.ALERT_MAX_LENGTH);
+        var cust = new DemographicCust();
+        cust.setAlert(existing);
+
+        var result = applyWithAlert(cust, demographic(42, "ZZ"));
+
+        assertThat(cust.getAlert()).isEqualTo(stored);
+        verify(demographicCustDao).merge(cust);
+        assertThat(result.reasons()).isEmpty();
+    }
+
+    @Test
+    void shouldCountCharactersOutsideTheBasicPlaneOnce_whenTheAlertFits() {
+        // Each of these is 2 UTF-16 units but 1 character, as the column counts it.
+        String existing = "\uD835\uDC00".repeat(DemographicCust.ALERT_MAX_LENGTH - formLength(""));
+        var cust = new DemographicCust();
+        cust.setAlert(existing);
+
+        applyWithAlert(cust, demographic(42, "ZZ"));
+
+        assertThat(cust.getAlert()).isEqualTo(existing + "\n" + MESSAGE);
+        verify(demographicCustDao).merge(cust);
+    }
+
+    @Test
+    void shouldMeasureAnAlertTheFormAlreadySaved_withItsOwnCrLf() {
+        assertThat(BillingObecOutputApplyService.asFormSubmits("a\nb\r\nc")).isEqualTo("a\r\nb\r\nc");
+    }
+
 }

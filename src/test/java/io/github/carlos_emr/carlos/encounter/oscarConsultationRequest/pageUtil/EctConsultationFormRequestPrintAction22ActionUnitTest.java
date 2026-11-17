@@ -230,6 +230,28 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         }
     }
 
+    /** A verification failure must leave no printable consultation PDF behind. */
+    @Test
+    @DisplayName("should refuse direct printing when the stored consultation signature cannot be verified")
+    void shouldRefuseDirectPrint_whenStoredSignatureCannotBeVerified() {
+        consultationPdfCreatorConstruction.close();
+        consultationPdfCreatorConstruction = mockConstruction(ConsultationPDFCreator.class,
+                (mock, context) -> doAnswer(invocation -> {
+                    throw ConsultationPDFCreator.reportSignaturePrintFailure(request,
+                            new ConsultationPDFCreator.SignatureRenderingException(
+                                    "signature ownership cannot be established", null));
+                }).when(mock).printPdf(any()));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("error");
+        assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
+        assertThat((String) request.getAttribute("errorMessage"))
+                .contains("stored signature could not be verified or rendered");
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(response.getContentType()).isNull();
+    }
+
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 31, 32, 33, 1025})
     @SuppressWarnings("unchecked")

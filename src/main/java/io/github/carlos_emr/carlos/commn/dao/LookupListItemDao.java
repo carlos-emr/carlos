@@ -35,7 +35,11 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.LookupListItem;
 
-public interface LookupListItemDao extends AbstractDao<LookupListItem> {
+/**
+ * Lookup list items. The CDS export projection reads only the {@code reasonCode} list items that a
+ * patient's appointments reference ({@link CdsExportPatientTableReadSupport.Plan#APPOINTMENT_REASON_CODES}).
+ */
+public interface LookupListItemDao extends AbstractDao<LookupListItem>, CdsExportPatientTableReadDao {
 
     public List<LookupListItem> findActiveByLookupListId(int lookupListId);
 
