@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/MSP/MSPReconcile.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 78.81773399014779,
+    "instructions": 76.7713004484305,
+    "branches": 69.23076923076923,
+    "sourceBlob": "1bf130069d547a08c169ac0c23577e5985f39ff0"
+  },
+  "evidenceSha256": "5feee04fb1b5fe9675f442d91c39af251f15880fff836c49477c4aa91dc15e5e"
+}
