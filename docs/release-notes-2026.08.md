@@ -452,8 +452,10 @@ It also covers object diagnostics/equality, audit text and JavaScript encoding.
   limits above 500 patients or 5000 pharmacies, with HTTP 400. Clients that used
   `limit=-1` or `offset=-1` must send a supported page size and a nonnegative
   offset instead. See the [REST list contract](api-collections-index.md#rest-list-pagination-and-demographic-validation).
-- REST demographic creation and update reject over-length text fields with HTTP
-  400 and a `text/plain` body naming the fields and limits. JSON/XML clients
+- REST demographic creation and update reject over-length values in fields
+  checked by `Demographic.validateFieldLengths()` with HTTP 400 and a `text/plain`
+  body naming the fields and limits. This does not cover every text property;
+  `title`, for example, is not checked on the release base. JSON/XML clients
   must handle this plain-text error response; submitted patient values are not
   included.
 - Email-resolution requests distinguish invalid input (400), missing records

@@ -59,8 +59,11 @@ demographic limit: those requests previously used the first/default page.
 Oversized limits and negative pharmacy limits now receive HTTP 400 instead of a
 server error.
 
-For `POST /demographics` and `PUT /demographics`, over-length text fields also
-return HTTP 400 before the write. The response has `Content-Type: text/plain`
+For `POST /demographics` and `PUT /demographics`, text fields checked by
+`Demographic.validateFieldLengths()` return HTTP 400 before the write when they
+exceed their limits. This guarantee applies to the fields checked by that validator;
+it does not cover every text property (for example, `title` is not checked on the
+release base). The response has `Content-Type: text/plain`
 and lists the affected fields and their maximum lengths, separated by semicolons.
 It does not echo submitted patient values. This error body is plain text even
 when the client requests a JSON or XML response, so inspect the status and content
