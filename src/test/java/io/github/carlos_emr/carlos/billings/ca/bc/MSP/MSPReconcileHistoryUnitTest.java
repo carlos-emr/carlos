@@ -254,6 +254,23 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRetainAccountInitials_whenWcbMetadataIsPresentOrMissing(boolean detailsPresent) throws Exception {
+        reportRows("WCB");
+        var details = detailsPresent
+                ? new io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows.WcbRow("456.78", "FAKE-FEE", "FAKE-DX")
+                : null;
+        when(billingmasterDao.findBcWcb("41")).thenReturn(details);
+
+        MSPReconcile.BillSearch report = report(MSPReconcile.REP_WO);
+
+        assertThat(report.list).hasSize(1);
+        MSPBill bill = (MSPBill) report.list.getFirst();
+        assertThat(bill.getAcctInit()).isEqualTo("TP");
+        assertThat(bill.getAmount()).isEqualTo(detailsPresent ? "456.78" : "100.00");
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"REP_INVOICE", "REP_ACCOUNT_REC"})
     void shouldRetainLegacyRows_whenCsvAmountsCannotBeCalculated(String type) throws Exception {
         var csv = spy(new MSPReconcile(true));
