@@ -74,12 +74,85 @@ class DemographicCustomFieldSelectUnitTest {
     }
 
     @Test
-    @DisplayName("should show the defect it fixes: matching the template's source text missed the option")
-    void shouldNotFindTheOption_byItsSourceText() {
-        // What the form did before: look for value="<saved text>" in the template.
-        String literal = ENTITY_TEMPLATE.replace("value=\"A & B\"", "value=\"A & B\" selected");
+    @DisplayName("should keep the template's default for a new patient, whose value is not saved yet")
+    void shouldKeepTheTemplateDefault_whenNothingIsSaved() {
+        String template = "<select name=\"FAKE_field\"><option value=\"\">--</option>"
+                + "<option value=\"Plain\">Plain</option><option value=\"Default\" selected>Default</option></select>";
 
-        assertThat(posted(literal)).as("the first option is posted instead").isEmpty();
+        assertThat(DemographicCustomFieldSelect.markSaved(template, null)).isEqualTo(template);
+        assertThat(DemographicCustomFieldSelect.markSaved(template, "   ")).isEqualTo(template);
+        assertThat(posted(DemographicCustomFieldSelect.markSaved(template, null))).isEqualTo("Default");
+    }
+
+    @Test
+    @DisplayName("should match an option without a value attribute by its text, as a browser posts it")
+    void shouldMatchAnOptionByItsText_whenItHasNoValueAttribute() {
+        String template = "<select name=\"FAKE_field\"><option>--</option><option>A &amp; B</option>"
+                + "<option>\n   Two   words <b>here</b>\n</option></select>";
+
+        assertThat(posted(DemographicCustomFieldSelect.markSaved(template, "A & B"))).isEqualTo("A & B");
+        assertThat(posted(DemographicCustomFieldSelect.markSaved(template, "Two words here"))).isEqualTo("Two words here");
+    }
+
+    @Test
+    @DisplayName("should not take text inside another attribute, a comment or a script for an option's value")
+    void shouldIgnoreValueLookalikes_insideAttributesCommentsAndScripts() {
+        String template = "<select name=\"FAKE_field\">"
+                + "<option title=\"pick value=Yes\" value=\"No\">No</option>"
+                + "<!-- <option value=\"Yes\">old</option> -->"
+                + "<script>var s = '<option value=\"Yes\">';</script>"
+                + "<option value=\"Yes\">Yes</option></select>";
+
+        String rendered = DemographicCustomFieldSelect.markSaved(template, "Yes");
+
+        assertThat(posted(rendered)).isEqualTo("Yes");
+        assertThat(rendered).contains("<option value=\"Yes\" selected>Yes</option>")
+                .contains("<!-- <option value=\"Yes\">old</option> -->")
+                .contains("title=\"pick value=Yes\" value=\"No\">");
+    }
+
+    @Test
+    @DisplayName("should compare the option value and the saved text both trimmed")
+    void shouldMatchAPaddedOptionValue_toTheTrimmedSavedText() {
+        String template = "<select name=\"FAKE_field\"><option value=\"\">--</option>"
+                + "<option value=\" Plain \">Plain</option></select>";
+
+        assertThat(DemographicCustomFieldSelect.markSaved(template, "Plain")).contains("value=\" Plain \" selected");
+    }
+
+    @Test
+    @DisplayName("should treat a no-break space as a letter, not as a space")
+    void shouldMatchANoBreakSpace_onlyToANoBreakSpace() {
+        String template = "<select name=\"FAKE_field\"><option value=\"\">--</option>"
+                + "<option value=\"A&nbsp;B\">x</option></select>";
+
+        assertThat(posted(DemographicCustomFieldSelect.markSaved(template, "A B"))).isEqualTo("A B");
+        assertThat(DemographicCustomFieldSelect.markSaved(template, "A B")).isEqualTo(template);
+    }
+
+    @Test
+    @DisplayName("should mark the first of two options with the same value, inside optgroups too")
+    void shouldMarkTheFirstOption_whenTwoCarryTheSavedValue() {
+        String template = "<select name=\"FAKE_field\" multiple><optgroup label=\"One\">"
+                + "<option value=\"x\">first</option></optgroup><optgroup label=\"Two\">"
+                + "<option value=\"x\" selected>second</option></optgroup></select>";
+
+        String rendered = DemographicCustomFieldSelect.markSaved(template, "x");
+
+        assertThat(rendered).contains("<option value=\"x\" selected>first</option>")
+                .contains("<option value=\"x\">second</option>");
+    }
+
+    @Test
+    @DisplayName("should take off a selected attribute written against the quote before it")
+    void shouldRemoveAGluedSelected_fromAnotherOption() {
+        String template = "<select name=\"FAKE_field\"><option value=\"A\">A</option>"
+                + "<option value=\"B\"selected>B</option></select>";
+
+        String rendered = DemographicCustomFieldSelect.markSaved(template, "A");
+
+        assertThat(posted(rendered)).isEqualTo("A");
+        assertThat(rendered).contains("<option value=\"B\">B</option>");
     }
 
     @ParameterizedTest(name = "{0}")
@@ -88,6 +161,7 @@ class DemographicCustomFieldSelectUnitTest {
             "a double quote, encoded       | `<option value=\"say &quot;hi&quot;\">x</option>` | `say \"hi\"`",
             "a double quote, single-quoted | `<option value='say \"hi\"'>x</option>` | `say \"hi\"`",
             "a numeric entity              | `<option value=\"A &#38; B\">x</option>` | `A & B`",
+            "a hexadecimal entity          | `<option value=\"A &#x26; B\">x</option>` | `A & B`",
             "an accented letter            | `<option value=\"Montr&eacute;al\">x</option>` | `Montréal`",
             "a bare value                  | `<option value=Plain>x</option>` | `Plain`",
             "upper-case markup             | `<OPTION VALUE=\"Plain\">x</OPTION>` | `Plain`"
@@ -131,9 +205,9 @@ class DemographicCustomFieldSelectUnitTest {
     }
 
     @Test
-    @DisplayName("should read a missing or blank saved value as empty, and print nothing for no template")
+    @DisplayName("should leave the template as it is for no saved value, trim a saved one, and print nothing for no template")
     void shouldTreatMissingValuesAsTheFormDid_forNullInput() {
-        assertThat(posted(DemographicCustomFieldSelect.markSaved(ENTITY_TEMPLATE, null))).isEmpty();
+        assertThat(DemographicCustomFieldSelect.markSaved(ENTITY_TEMPLATE, null)).isEqualTo(ENTITY_TEMPLATE);
         assertThat(posted(DemographicCustomFieldSelect.markSaved(ENTITY_TEMPLATE, "  Plain  "))).isEqualTo("Plain");
         assertThat(DemographicCustomFieldSelect.markSaved(null, "Plain")).isEmpty();
     }

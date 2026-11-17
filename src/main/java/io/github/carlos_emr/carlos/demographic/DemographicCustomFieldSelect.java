@@ -17,8 +17,9 @@
  */
 package io.github.carlos_emr.carlos.demographic;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jsoup.parser.Parser;
@@ -29,108 +30,281 @@ import org.jsoup.parser.Parser;
  *
  * <p>The select is the administrator's HTML template ({@code demographicExtForm}), printed as it is. The
  * saved value is the text the browser posted, so it is the option's <em>decoded</em> value: an option
- * written {@code value="A &amp; B"} posts {@code A & B}. Matching the saved text against the template's
- * source, as the form used to, missed every option whose value holds an entity, so the browser selected
- * the first option and the next unchanged Save overwrote the patient's value (#6271 review).</p>
+ * written {@code value="A &amp; B"} posts {@code A & B}, and an option with no value attribute posts its
+ * text. Matching the saved text against the template's source, as the form used to, missed every option
+ * whose value holds an entity, so the browser selected the first option and the next unchanged Save
+ * overwrote the patient's value (#6271 review).</p>
  *
- * <p>Here each option's value is decoded as a browser decodes an attribute, and the first option whose
- * decoded value equals the saved text is marked {@code selected}. Every other option's {@code selected}
- * is taken off, because a single select keeps the <em>last</em> selected option, so a template default
- * after the saved option would otherwise win. Nothing else in the template changes. The saved value is
- * only compared, never written into the HTML, a pattern or a replacement string, so quotes, entities
- * and regular-expression characters in it change nothing.</p>
+ * <p>The option tags are read as a browser reads them: attributes in any order and case, quoted with
+ * {@code "} or {@code '} or bare, a {@code >} inside a quoted value, line breaks inside the tag; text in a
+ * quoted attribute (a {@code title} that says {@code value=...}) is never taken for an attribute, and
+ * options inside comments, {@code <script>} or {@code <style>} are not options. Each option's value is
+ * decoded as a browser decodes it; without a value attribute it is the option's text, decoded, with
+ * whitespace collapsed. The value and the saved text are compared with surrounding ASCII whitespace
+ * trimmed on both sides (the form always trimmed the saved text), case-sensitively.</p>
  *
- * <p>A saved value no option carries leaves the template unchanged, as before.</p>
+ * <p>The first option whose value equals the saved text is marked {@code selected}, and every other
+ * option's {@code selected} is taken off, because a single select keeps the <em>last</em> selected option,
+ * so a template default after the saved option would otherwise win. Nothing else in the template changes.
+ * When nothing is saved (a new patient, or a cleared value), or no option carries the saved value, the
+ * template is printed unchanged, so its own default stands. A {@code multiple} select is treated the same
+ * way: the field stores one value, so one option is marked. The saved value is only compared, never
+ * written into the HTML, a pattern or a replacement string.</p>
  *
  * @since 2026-11-17
  */
 public final class DemographicCustomFieldSelect {
 
-    /** An option start tag; quoted attribute values may hold {@code >}. */
-    private static final Pattern OPTION_TAG =
-            Pattern.compile("<option\\b(?:[^>\"']|\"[^\"]*\"|'[^']*')*>", Pattern.CASE_INSENSITIVE);
-    /** The value attribute of an option tag: double-quoted, single-quoted or bare. */
-    private static final Pattern VALUE_ATTRIBUTE =
-            Pattern.compile("\\svalue\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>\"']+))", Pattern.CASE_INSENSITIVE);
-    /**
-     * A quoted attribute value (group 1, kept as it is) or a {@code selected} attribute, with or without
-     * a value (removed): matching quoted values first keeps the word inside one, such as a label, intact.
-     */
-    private static final Pattern SELECTED_ATTRIBUTE = Pattern.compile(
-            "(\"[^\"]*\"|'[^']*')|\\sselected(?:\\s*=\\s*(?:\"[^\"]*\"|'[^']*'|[^\\s>\"']+))?(?=[\\s/>]|$)",
-            Pattern.CASE_INSENSITIVE);
+    /** One attribute of an option tag: its name and the range it occupies, value included. */
+    private record Attribute(String name, int start, int end, int valueStart, int valueEnd) {
+    }
+
+    /** One option start tag: where {@code " selected"} goes, its value, and its own selected attributes. */
+    private record OptionTag(int insertAt, String value, List<Attribute> selected) {
+    }
+
+    /** One change to the template: the range {@code start..end} is replaced by {@code text}. */
+    private record Edit(int start, int end, String text) {
+    }
 
     private DemographicCustomFieldSelect() {
     }
 
     /**
-     * Marks the option whose decoded value is the saved text as the selected one.
+     * Marks the option whose value is the saved text as the selected one.
      *
      * @param selectHtml the configured select template; {@code null} prints nothing
-     * @param saved the patient's saved value; {@code null} and surrounding blanks are read as the form
-     *              always read them ({@link StringUtils#trimToEmpty})
-     * @return the template with that option selected and no other, or the template unchanged when no
-     *         option carries the saved value
+     * @param saved the patient's saved value; {@code null} or blank means nothing is saved
+     * @return the template with that option selected and no other, or the template unchanged when
+     *         nothing is saved or no option carries the saved value
      */
     public static String markSaved(String selectHtml, String saved) {
         if (selectHtml == null) {
             return "";
         }
         String wanted = StringUtils.trimToEmpty(saved);
-        Matcher option = OPTION_TAG.matcher(selectHtml);
-        int matchStart = -1;
-        int matchEnd = -1;
-        int valueEnd = -1;
-        while (option.find()) {
-            Matcher value = VALUE_ATTRIBUTE.matcher(option.group());
-            if (value.find() && decodedValue(value).equals(wanted)) {
-                matchStart = option.start();
-                matchEnd = option.end();
-                valueEnd = option.start() + value.end();
+        if (wanted.isEmpty()) {
+            // Nothing saved: the template's own default (a later "selected" option, say) must stand.
+            return selectHtml;
+        }
+        List<OptionTag> options = options(selectHtml);
+        OptionTag match = null;
+        for (OptionTag option : options) {
+            if (StringUtils.trimToEmpty(option.value()).equals(wanted)) {
+                match = option;
                 break;
             }
         }
-        if (matchStart < 0) {
+        if (match == null) {
             return selectHtml;
         }
 
+        List<Edit> edits = new ArrayList<>();
+        for (OptionTag option : options) {
+            for (Attribute selected : option.selected()) {
+                // With the whitespace before it, which only ever separates it from what comes before.
+                int start = selected.start();
+                while (start > 0 && Character.isWhitespace(selectHtml.charAt(start - 1))) {
+                    start--;
+                }
+                edits.add(new Edit(start, selected.end(), ""));
+            }
+        }
+        edits.add(new Edit(match.insertAt(), match.insertAt(), " selected"));
+        edits.sort(Comparator.comparingInt(Edit::start).thenComparingInt(Edit::end));
+
         StringBuilder out = new StringBuilder(selectHtml.length() + 16);
         int copied = 0;
-        option.reset();
-        while (option.find()) {
-            out.append(selectHtml, copied, option.start());
-            if (option.start() == matchStart) {
-                // The saved option: its own selected attribute (if any) off, then one after its value.
-                String before = selectHtml.substring(matchStart, valueEnd);
-                String after = selectHtml.substring(valueEnd, matchEnd);
-                out.append(withoutSelected(before)).append(" selected").append(withoutSelected(after));
-            } else {
-                out.append(withoutSelected(option.group()));
-            }
-            copied = option.end();
+        for (Edit edit : edits) {
+            out.append(selectHtml, copied, edit.start()).append(edit.text());
+            copied = edit.end();
         }
-        out.append(selectHtml, copied, selectHtml.length());
-        return out.toString();
+        return out.append(selectHtml, copied, selectHtml.length()).toString();
     }
 
-    /** The option value as the browser posts it: entities decoded, as in an attribute. */
-    private static String decodedValue(Matcher value) {
-        String raw = value.group(1) != null ? value.group(1)
-                : value.group(2) != null ? value.group(2) : value.group(3);
-        return Parser.unescapeEntities(raw, true);
-    }
-
-    private static String withoutSelected(String tagPart) {
-        Matcher attribute = SELECTED_ATTRIBUTE.matcher(tagPart);
-        StringBuilder out = new StringBuilder(tagPart.length());
-        int copied = 0;
-        while (attribute.find()) {
-            if (attribute.group(1) != null) {
+    /** Every option start tag of the template, in order; reading stops at an unclosed quote or tag. */
+    private static List<OptionTag> options(String html) {
+        List<OptionTag> options = new ArrayList<>();
+        int n = html.length();
+        int i = 0;
+        while (i < n) {
+            int lt = html.indexOf('<', i);
+            if (lt < 0) {
+                break;
+            }
+            int skipped = skipNonMarkup(html, lt);
+            if (skipped < 0) {
+                break;
+            }
+            if (skipped > lt) {
+                i = skipped;
                 continue;
             }
-            out.append(tagPart, copied, attribute.start());
-            copied = attribute.end();
+            if (!startsTag(html, lt, "option")) {
+                i = lt + 1;
+                continue;
+            }
+            List<Attribute> attributes = new ArrayList<>();
+            int close = readAttributes(html, lt + 1 + "option".length(), attributes);
+            if (close < 0) {
+                break;
+            }
+            Attribute value = null;
+            List<Attribute> selected = new ArrayList<>();
+            for (Attribute attribute : attributes) {
+                if (value == null && "value".equalsIgnoreCase(attribute.name())) {
+                    value = attribute; // a repeated value attribute: the first wins, as in a browser
+                } else if ("selected".equalsIgnoreCase(attribute.name())) {
+                    selected.add(attribute);
+                }
+            }
+            if (value != null) {
+                String raw = value.valueStart() < 0 ? "" : html.substring(value.valueStart(), value.valueEnd());
+                options.add(new OptionTag(value.end(), Parser.unescapeEntities(raw, true), selected));
+            } else {
+                int insertAt = html.charAt(close - 1) == '/' ? close - 1 : close;
+                options.add(new OptionTag(insertAt, optionText(html, close + 1), selected));
+            }
+            i = close + 1;
         }
-        return out.append(tagPart, copied, tagPart.length()).toString();
+        return options;
+    }
+
+    /**
+     * Reads the attributes of a start tag from {@code p} up to its closing {@code >}.
+     *
+     * @return the index of the closing {@code >}, or -1 for an unclosed quote or tag
+     */
+    private static int readAttributes(String html, int p, List<Attribute> attributes) {
+        int n = html.length();
+        while (p < n) {
+            char c = html.charAt(p);
+            if (c == '>') {
+                return p;
+            }
+            if (Character.isWhitespace(c) || c == '/') {
+                p++;
+                continue;
+            }
+            int nameStart = p;
+            while (p < n && !Character.isWhitespace(html.charAt(p)) && "=>/".indexOf(html.charAt(p)) < 0) {
+                p++;
+            }
+            if (p == nameStart) {
+                p++; // a stray "=": move on
+                continue;
+            }
+            String name = html.substring(nameStart, p);
+            int q = p;
+            while (q < n && Character.isWhitespace(html.charAt(q))) {
+                q++;
+            }
+            int valueStart = -1;
+            int valueEnd = -1;
+            if (q < n && html.charAt(q) == '=') {
+                q++;
+                while (q < n && Character.isWhitespace(html.charAt(q))) {
+                    q++;
+                }
+                if (q < n && (html.charAt(q) == '"' || html.charAt(q) == '\'')) {
+                    int closeQuote = html.indexOf(html.charAt(q), q + 1);
+                    if (closeQuote < 0) {
+                        return -1;
+                    }
+                    valueStart = q + 1;
+                    valueEnd = closeQuote;
+                    p = closeQuote + 1;
+                } else {
+                    valueStart = q;
+                    while (q < n && !Character.isWhitespace(html.charAt(q)) && html.charAt(q) != '>') {
+                        q++;
+                    }
+                    valueEnd = q;
+                    p = q;
+                }
+            }
+            attributes.add(new Attribute(name, nameStart, p, valueStart, valueEnd));
+        }
+        return -1;
+    }
+
+    /**
+     * The value a browser posts for an option without a value attribute: its text up to the next
+     * option, optgroup or end of the select, tags and comments left out, decoded, with ASCII whitespace
+     * collapsed and trimmed.
+     */
+    private static String optionText(String html, int from) {
+        StringBuilder text = new StringBuilder();
+        int n = html.length();
+        int i = from;
+        while (i < n) {
+            int lt = html.indexOf('<', i);
+            if (lt < 0) {
+                text.append(html, i, n);
+                break;
+            }
+            text.append(html, i, lt);
+            if (startsTag(html, lt, "option") || startsTag(html, lt, "/option") || startsTag(html, lt, "optgroup")
+                    || startsTag(html, lt, "/optgroup") || startsTag(html, lt, "/select")) {
+                break;
+            }
+            int skipped = skipNonMarkup(html, lt);
+            if (skipped < 0) {
+                break;
+            }
+            if (skipped > lt) {
+                i = skipped;
+                continue;
+            }
+            int close = readAttributes(html, lt + 1, new ArrayList<>());
+            if (close < 0) {
+                break;
+            }
+            i = close + 1;
+        }
+        String decoded = Parser.unescapeEntities(text.toString(), false);
+        return decoded.replaceAll("[\\t\\n\\f\\r ]+", " ").strip();
+    }
+
+    /**
+     * Skips a comment or a {@code <script>}/{@code <style>} element starting at {@code lt}.
+     *
+     * @return the index after it, {@code lt} when it is neither, or -1 when it is not closed
+     */
+    private static int skipNonMarkup(String html, int lt) {
+        if (html.startsWith("<!--", lt)) {
+            int end = html.indexOf("-->", lt + 4);
+            return end < 0 ? -1 : end + 3;
+        }
+        for (String rawText : new String[]{"script", "style"}) {
+            if (startsTag(html, lt, rawText)) {
+                int end = indexOfIgnoreCase(html, "</" + rawText, lt + 1);
+                int closeTag = end < 0 ? -1 : html.indexOf('>', end);
+                return closeTag < 0 ? -1 : closeTag + 1;
+            }
+        }
+        return lt;
+    }
+
+    /** Whether a tag named {@code name} (any case) starts at {@code lt}. */
+    private static boolean startsTag(String html, int lt, String name) {
+        int after = lt + 1 + name.length();
+        if (!html.regionMatches(true, lt + 1, name, 0, name.length()) || after > html.length()) {
+            return false;
+        }
+        if (after == html.length()) {
+            return false;
+        }
+        char next = html.charAt(after);
+        return Character.isWhitespace(next) || next == '>' || next == '/';
+    }
+
+    private static int indexOfIgnoreCase(String html, String part, int from) {
+        for (int at = from; at + part.length() <= html.length(); at++) {
+            if (html.regionMatches(true, at, part, 0, part.length())) {
+                return at;
+            }
+        }
+        return -1;
     }
 }
