@@ -118,9 +118,9 @@ public class MsgEncounterPdfComposer {
      * {@link #compose} with the chart's own services, for {@link MsgAttachPDF2Action}: made when an
      * encounter is printed, not with the action, so building the action looks nothing up.
      */
-    static byte[] composeWithChartServices(HttpServletRequest request, LoggedInInfo loggedInInfo, int demographicNo)
-            throws IOException, DocumentException {
-        return new MsgEncounterPdfComposer().compose(request, loggedInInfo, demographicNo);
+    static byte[] composeWithChartServices(HttpServletRequest request, LoggedInInfo loggedInInfo, int demographicNo,
+                                           long maxBytes) throws IOException, DocumentException {
+        return new MsgEncounterPdfComposer().compose(request, loggedInInfo, demographicNo, maxBytes);
     }
 
     /**
@@ -138,10 +138,122 @@ public class MsgEncounterPdfComposer {
      */
     public byte[] compose(HttpServletRequest request, LoggedInInfo loggedInInfo, int demographicNo)
             throws IOException, DocumentException {
+        return compose(request, loggedInInfo, demographicNo, Long.MAX_VALUE);
+    }
+
+    /**
+     * {@link #compose(HttpServletRequest, LoggedInInfo, int)} that stops the print once it has written
+     * {@code maxBytes}: a chart too large for what it is printed for is refused while it is being written,
+     * before the whole chart is held in memory, copied and Base64-encoded.
+     *
+     * @param maxBytes the most PDF bytes the caller can use
+     * @return the PDF, at most {@code maxBytes} long; empty if the print wrote nothing
+     * @throws PrintTooLargeException if the print would be longer than {@code maxBytes}; nothing is returned
+     * @throws CdsLegacyProjectionException if the chart print cannot show this patient's record
+     * @throws IOException if the print fails
+     * @throws DocumentException if the print fails
+     */
+    public byte[] compose(HttpServletRequest request, LoggedInInfo loggedInInfo, int demographicNo, long maxBytes)
+            throws IOException, DocumentException {
         projections.requireSupported(demographicNo, PRINTED_CATEGORIES);
-        ByteArrayOutputStream pdf = new ByteArrayOutputStream();
-        chartPrint.print(loggedInInfo, demographicNo, ALL_NOTES, CPP, request, pdf);
+        CappedPdfBuffer pdf = new CappedPdfBuffer(maxBytes);
+        try {
+            chartPrint.print(loggedInInfo, demographicNo, ALL_NOTES, CPP, request, pdf);
+        } catch (IOException | RuntimeException failure) {
+            // The print may wrap the buffer's refusal (OpenPDF converts it to its own runtime exception), so
+            // the buffer, not the exception's type, says whether the cap was reached.
+            if (pdf.exceeded()) {
+                throw new PrintTooLargeException(maxBytes);
+            }
+            throw failure;
+        }
+        // A print that swallowed the refusal and finished anyway has written a truncated PDF: refused too.
+        if (pdf.exceeded()) {
+            throw new PrintTooLargeException(maxBytes);
+        }
         return pdf.toByteArray();
+    }
+
+    /** The chart print is longer than its caller can use; it was stopped, and nothing was kept. */
+    public static final class PrintTooLargeException extends IOException {
+        private static final long serialVersionUID = 1L;
+        private final long maxBytes;
+
+        PrintTooLargeException(long maxBytes) {
+            // Sizes only: never the patient or any of the print.
+            super("The chart print is larger than " + maxBytes + " bytes");
+            this.maxBytes = maxBytes;
+        }
+
+        /** @return the cap the print reached */
+        public long maxBytes() {
+            return maxBytes;
+        }
+    }
+
+    /**
+     * The print's buffer, refusing to grow past a cap: the write that would pass it keeps nothing and
+     * throws, as does every write after it, so a print that catches the refusal and carries on cannot grow
+     * the buffer either. The buffer therefore never holds more than the cap (plus the array's growth
+     * slack).
+     */
+    static final class CappedPdfBuffer extends ByteArrayOutputStream {
+        private final long maxBytes;
+        private boolean exceeded;
+
+        CappedPdfBuffer(long maxBytes) {
+            this.maxBytes = maxBytes;
+        }
+
+        boolean exceeded() {
+            return exceeded;
+        }
+
+        /** Refuses a write that would pass the cap, and every write once one has. */
+        private void reserve(int length) {
+            if (exceeded || (long) count + length > maxBytes) {
+                exceeded = true;
+                throw new CapReached(maxBytes);
+            }
+        }
+
+        @Override
+        public synchronized void write(int b) {
+            reserve(1);
+            super.write(b);
+        }
+
+        @Override
+        public synchronized void write(byte[] b, int off, int len) {
+            reserve(len);
+            super.write(b, off, len);
+        }
+
+        @Override
+        public void writeBytes(byte[] b) {
+            write(b, 0, b.length);
+        }
+
+        @Override
+        public synchronized void writeTo(OutputStream out) throws IOException {
+            if (exceeded) {
+                throw new PrintTooLargeException(maxBytes);
+            }
+            super.writeTo(out);
+        }
+    }
+
+    /**
+     * {@link ByteArrayOutputStream}'s writes declare no {@link IOException}, so the cap is reported
+     * through this unchecked carrier; {@link #compose} recognises it by the buffer's state, whatever the
+     * print wraps it in.
+     */
+    static final class CapReached extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        CapReached(long maxBytes) {
+            super("The chart print is larger than " + maxBytes + " bytes");
+        }
     }
 
     /**

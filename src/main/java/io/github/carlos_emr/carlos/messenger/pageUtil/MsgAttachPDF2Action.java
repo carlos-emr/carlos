@@ -130,10 +130,15 @@ public class MsgAttachPDF2Action extends ActionSupport {
         }
     }
 
-    /** Prints the chart notes as a PDF ({@link MsgEncounterPdfComposer#compose}). */
+    /**
+     * Prints the chart notes as a PDF of at most {@code maxBytes} bytes
+     * ({@link MsgEncounterPdfComposer#compose(HttpServletRequest, LoggedInInfo, int, long)}); a longer
+     * print is stopped while it is written and refused with
+     * {@link MsgEncounterPdfComposer.PrintTooLargeException}.
+     */
     @FunctionalInterface
     interface EncounterPrinter {
-        byte[] print(HttpServletRequest request, LoggedInInfo loggedInInfo, int demographicNo)
+        byte[] print(HttpServletRequest request, LoggedInInfo loggedInInfo, int demographicNo, long maxBytes)
                 throws IOException, DocumentException;
     }
 
@@ -279,7 +284,11 @@ public class MsgAttachPDF2Action extends ActionSupport {
         if (item.get().printsOwnPdf()) {
             byte[] pdf;
             try {
-                pdf = printOwnPdf(attachment.get(), demographicNo, loggedInInfo);
+                // A preview is streamed, not stored, so the message column's limit does not apply to it.
+                pdf = printOwnPdf(attachment.get(), demographicNo, loggedInInfo, Long.MAX_VALUE);
+            } catch (MsgEncounterPdfComposer.PrintTooLargeException unreachable) {
+                response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, PDFS_TOO_LARGE);
+                return NONE;
             } catch (CdsLegacyProjectionException unsupported) {
                 response.sendError(HttpServletResponse.SC_CONFLICT, unsupported.getMessage());
                 return NONE;
@@ -333,34 +342,58 @@ public class MsgAttachPDF2Action extends ActionSupport {
             }
         }
 
-        // Render every item first and only then replace the set, so a failure part-way through
+        // Resolve every item, then render, and only then replace the set, so a failure part-way through
         // (an exception from a lookup, say) leaves the message's existing attachments as they were.
-        List<String[]> rendered = new ArrayList<>();
-        boolean chartNotesPrinted = false;
-        for (Item item : selected) {
+        List<Item> order = new ArrayList<>(selected);
+        List<Attachment> attachments = new ArrayList<>();
+        for (Item item : order) {
             Optional<Attachment> attachment = resolver.resolve(item, demographicNo, patientName, labels);
             if (attachment.isEmpty()) {
                 // A stale chooser must not silently remove an item the sender explicitly selected.
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Attachment item is unavailable");
                 return NONE;
             }
-            String pdf;
-            if (item.printsOwnPdf()) {
+            attachments.add(attachment.get());
+        }
+        // The routed items are rendered first, so the chart print, the one item that can be as large as
+        // the whole chart, knows how much of the message is left for it and stops at that while it is
+        // written (#6161 review). The stored order stays the chooser's.
+        String[] pdfs = new String[order.size()];
+        long renderedChars = 0;
+        for (int i = 0; i < order.size(); i++) {
+            if (!order.get(i).printsOwnPdf()) {
+                String html = render(attachments.get(i), demographicNo, loggedInInfo);
+                pdfs[i] = html == null ? null : pdfConverter.toBase64Pdf(request, response, html);
+                renderedChars += pdfs[i] == null ? 0 : pdfs[i].length();
+            }
+        }
+        boolean chartNotesPrinted = false;
+        for (int i = 0; i < order.size(); i++) {
+            if (order.get(i).printsOwnPdf()) {
+                long budget = chartNotesByteBudget(renderedChars);
                 byte[] printed;
                 try {
-                    printed = printOwnPdf(attachment.get(), demographicNo, loggedInInfo);
+                    printed = printOwnPdf(attachments.get(i), demographicNo, loggedInInfo, budget);
                 } catch (CdsLegacyProjectionException unsupported) {
                     // Nothing staged yet: the message keeps the attachments it had.
                     response.sendError(HttpServletResponse.SC_CONFLICT, unsupported.getMessage());
                     return NONE;
+                } catch (MsgEncounterPdfComposer.PrintTooLargeException tooLarge) {
+                    // Stopped while it was written, so the chart was never held whole, copied or encoded.
+                    // Nothing is staged and nothing has left the chart, so nothing is audited. Sizes only.
+                    logger.warn("Refused chart notes for a message: the print passed the {} bytes left of {}",
+                            budget, MessageTbl.PDF_ATTACHMENT_MAX_BYTES);
+                    response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, PDFS_TOO_LARGE);
+                    return NONE;
                 }
-                pdf = printed == null ? null : Base64.getEncoder().encodeToString(printed);
+                pdfs[i] = printed == null ? null : Base64.getEncoder().encodeToString(printed);
                 chartNotesPrinted = printed != null;
-            } else {
-                String html = render(attachment.get(), demographicNo, loggedInInfo);
-                pdf = html == null ? null : pdfConverter.toBase64Pdf(request, response, html);
+                renderedChars += pdfs[i] == null ? 0 : pdfs[i].length();
             }
-            rendered.add(new String[]{pdf, attachment.get().title()});
+        }
+        List<String[]> rendered = new ArrayList<>();
+        for (int i = 0; i < order.size(); i++) {
+            rendered.add(new String[]{pdfs[i], attachments.get(i).title()});
         }
 
         // Attach replaces this message's chart-PDF set with exactly what is ticked now (ticking
@@ -391,6 +424,20 @@ public class MsgAttachPDF2Action extends ActionSupport {
         }
         MsgAttachmentStaging.stagePdfs(request.getSession(), attachmentKey, demographicNo, stored);
         return SUCCESS;
+    }
+
+    /**
+     * The most PDF bytes the chart print may write for a message whose other PDFs already take
+     * {@code renderedChars} Base64 characters: what is left of the column, less Base64's 4-for-3
+     * expansion. The records' own framing is left to the final {@link MsgMessageData#pdfAttachmentFits}
+     * check, so this bound only has to keep a chart that cannot fit from being held whole.
+     *
+     * @param renderedChars the Base64 characters of the PDFs already rendered for this message
+     * @return the byte budget, never negative
+     */
+    static long chartNotesByteBudget(long renderedChars) {
+        long leftChars = Math.max(0, MessageTbl.PDF_ATTACHMENT_MAX_BYTES - renderedChars);
+        return leftChars / 4 * 3;
     }
 
     /**
@@ -437,10 +484,14 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * @throws CdsLegacyProjectionException if the chart print cannot show this patient's record
      * @throws SecurityException if the chart print refuses this user
      */
-    private byte[] printOwnPdf(Attachment attachment, int demographicNo, LoggedInInfo loggedInInfo) {
+    private byte[] printOwnPdf(Attachment attachment, int demographicNo, LoggedInInfo loggedInInfo, long maxBytes)
+            throws MsgEncounterPdfComposer.PrintTooLargeException {
         try {
-            byte[] pdf = encounterPrinter.print(request, loggedInInfo, demographicNo);
+            byte[] pdf = encounterPrinter.print(request, loggedInInfo, demographicNo, maxBytes);
             return pdf == null || pdf.length == 0 ? null : pdf;
+        } catch (MsgEncounterPdfComposer.PrintTooLargeException tooLarge) {
+            // Too large is a refusal the caller answers with 413, not a failed render.
+            throw tooLarge;
         } catch (CdsLegacyProjectionException unsupported) {
             throw unsupported;
         } catch (SecurityException refused) {

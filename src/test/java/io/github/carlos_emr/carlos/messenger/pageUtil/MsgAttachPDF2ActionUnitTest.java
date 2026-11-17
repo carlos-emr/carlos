@@ -109,6 +109,8 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
     private String base64Pdf = "JVBERi0xLjQ=";
     /** Patients the current encounter was printed for, in order. */
     private final List<Integer> printedEncounters = new ArrayList<>();
+    /** The byte cap each chart print was given, in order. */
+    private final List<Long> printBudgets = new ArrayList<>();
     /** PDF bytes streamed as a preview by an item that printed its own PDF. */
     private final List<byte[]> streamedPdfs = new ArrayList<>();
     /** What the current encounter's print does: returns these bytes, or throws. */
@@ -213,10 +215,15 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
                 res.setContentType("application/pdf");
             }
         };
-        MsgAttachPDF2Action.EncounterPrinter encounterPrinter = (req, login, demographicNo) -> {
+        MsgAttachPDF2Action.EncounterPrinter encounterPrinter = (req, login, demographicNo, maxBytes) -> {
             printedEncounters.add(demographicNo);
+            printBudgets.add(maxBytes);
             if (encounterFailure != null) {
                 throw encounterFailure;
+            }
+            // As the composer does: a print longer than the cap is stopped and refused, never returned.
+            if (encounterPdf.length > maxBytes) {
+                throw new MsgEncounterPdfComposer.PrintTooLargeException(maxBytes);
             }
             return encounterPdf;
         };
@@ -870,6 +877,73 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThatThrownBy(action::execute).isInstanceOf(IllegalStateException.class);
             assertThat(stagedPdfs()).contains("FAKE earlier attachment").doesNotContain("All current chart notes");
+        }
+
+        @Test
+        @DisplayName("should answer 413, keep the earlier attachments and record nothing for a chart too large to send")
+        void shouldReturn413AndKeepEarlierAttachments_whenTheChartPrintPassesItsCap() throws Exception {
+            // One byte more than a whole message can carry once Base64-encoded.
+            encounterPdf = new byte[(int) MsgAttachPDF2Action.chartNotesByteBudget(0) + 1];
+            givenEarlierAttachment();
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic", "currentEncounter"});
+
+            try (LogCapture logs = LogCapture.forLogger(MsgAttachPDF2Action.class)) {
+                assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+                assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
+                assertThat(response.getErrorMessage()).isEqualTo(MsgAttachPDF2Action.PDFS_TOO_LARGE);
+                assertThat(stagedPdfs()).contains("FAKE earlier attachment").doesNotContain("All current chart notes");
+                assertThat(recordedAttachments).as("nothing left the chart").isEmpty();
+                assertThat(logs.messages()).isNotEmpty()
+                        .noneMatch(message -> message.contains(String.valueOf(PATIENT)))
+                        .noneMatch(message -> message.contains("FAKE-Doe"));
+            }
+        }
+
+        @Test
+        @DisplayName("should cap the chart print at what the message has left after the other ticked items")
+        void shouldCapTheChartPrint_atWhatTheOtherItemsLeave() throws Exception {
+            base64Pdf = "A".repeat(4_000_000);
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"currentEncounter", "demographic", "prescriptions"});
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+            // Two routed items rendered first, 8,000,000 Base64 characters; the print gets 3/4 of the rest.
+            assertThat(printBudgets).containsExactly((MessageTbl.PDF_ATTACHMENT_MAX_BYTES - 8_000_000L) / 4 * 3);
+            // The stored order is still the chooser's: the chart notes first.
+            assertThat(stagedPdfs()).containsSubsequence("<TITLE>All current chart notes and CPP</TITLE>",
+                    "<TITLE>FAKE-Doe");
+        }
+
+        @Test
+        @DisplayName("should refuse the chart print once the other ticked items fill the message")
+        void shouldReturn413_whenTheOtherItemsLeaveTooLittleForTheChartPrint() throws Exception {
+            base64Pdf = "A".repeat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES / 2);
+            givenEarlierAttachment();
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"currentEncounter", "demographic", "prescriptions"});
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(printBudgets).containsExactly(0L);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
+            assertThat(stagedPdfs()).contains("FAKE earlier attachment");
+            assertThat(recordedAttachments).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should not cap a preview, which is streamed rather than stored in a message")
+        void shouldNotCapThePrint_forAPreview() throws Exception {
+            MsgAttachPDF2Action action = newAction();
+            action.setIsPreview(true);
+            action.setPreviewItem("currentEncounter");
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(printBudgets).containsExactly(Long.MAX_VALUE);
+            assertThat(streamedPdfs).containsExactly(encounterPdf);
         }
 
         @Test

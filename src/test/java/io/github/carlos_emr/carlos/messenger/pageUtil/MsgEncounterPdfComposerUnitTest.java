@@ -110,6 +110,84 @@ class MsgEncounterPdfComposerUnitTest {
     }
 
     @Test
+    @DisplayName("should hand back a print of exactly the cap")
+    void shouldHandBackThePrint_whenItIsExactlyTheCap() throws Exception {
+        assertThat(composer.compose(request, user, PATIENT, PDF.length)).isEqualTo(PDF);
+    }
+
+    @Test
+    @DisplayName("should stop and refuse a print one byte longer than the cap")
+    void shouldRefuseThePrint_whenItPassesTheCap() {
+        assertThatThrownBy(() -> composer.compose(request, user, PATIENT, PDF.length - 1))
+                .isInstanceOf(MsgEncounterPdfComposer.PrintTooLargeException.class)
+                .hasMessageNotContaining(String.valueOf(PATIENT));
+    }
+
+    @Test
+    @DisplayName("should refuse a print that swallows the cap and finishes, rather than return it cut short")
+    void shouldRefuseThePrint_whenItSwallowsTheCapAndCarriesOn() {
+        composer = new MsgEncounterPdfComposer(projections, (login, demographicNo, allNotes, cpp, req, out) -> {
+            for (int i = 0; i < 10; i++) {
+                try {
+                    out.write(new byte[10]);
+                } catch (RuntimeException ignored) {
+                    // A careless print that logs a failed write and goes on.
+                }
+            }
+        });
+
+        assertThatThrownBy(() -> composer.compose(request, user, PATIENT, 25))
+                .isInstanceOf(MsgEncounterPdfComposer.PrintTooLargeException.class);
+    }
+
+    @Test
+    @DisplayName("should recognise the cap however the print wraps it")
+    void shouldRefuseThePrint_whenThePrintWrapsTheCap() {
+        composer = new MsgEncounterPdfComposer(projections, (login, demographicNo, allNotes, cpp, req, out) -> {
+            try {
+                out.write(new byte[100]);
+            } catch (RuntimeException capReached) {
+                throw new IllegalStateException("FAKE renderer wrapper", capReached);
+            }
+        });
+
+        assertThatThrownBy(() -> composer.compose(request, user, PATIENT, 50))
+                .isInstanceOf(MsgEncounterPdfComposer.PrintTooLargeException.class);
+    }
+
+    @Test
+    @DisplayName("should still pass on a print failure that is not the cap")
+    void shouldRethrowAPrintFailure_whenTheCapWasNotReached() {
+        composer = new MsgEncounterPdfComposer(projections, (login, demographicNo, allNotes, cpp, req, out) -> {
+            throw new IllegalStateException("FAKE print failure");
+        });
+
+        assertThatThrownBy(() -> composer.compose(request, user, PATIENT, 50))
+                .isInstanceOf(IllegalStateException.class).hasMessage("FAKE print failure");
+    }
+
+    @Test
+    @DisplayName("should never hold more than the cap, whatever the print keeps writing")
+    void shouldNeverBufferPastTheCap_forAnyLaterWrite() {
+        MsgEncounterPdfComposer.CappedPdfBuffer buffer = new MsgEncounterPdfComposer.CappedPdfBuffer(25);
+        for (int i = 0; i < 10; i++) {
+            try {
+                buffer.write(new byte[10], 0, 10);
+            } catch (RuntimeException ignored) {
+                // keep writing, as a careless print would
+            }
+        }
+        try {
+            buffer.write(1);
+        } catch (RuntimeException ignored) {
+            // one byte would still fit, but the buffer has already refused
+        }
+
+        assertThat(buffer.size()).isEqualTo(20);
+        assertThat(buffer.exceeded()).isTrue();
+    }
+
+    @Test
     @DisplayName("should hand back an empty PDF when the print wrote nothing")
     void shouldHandBackNothing_forAPrintThatWroteNothing() throws Exception {
         printed = new byte[0];
