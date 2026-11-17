@@ -19,7 +19,7 @@ function fixture(services, role) {
   registry = registry.replace(/<c:forEach\b[^>]*>([\s\S]*?)<\/c:forEach>/g, (_, body) =>
     services.map(service => body.replace(/\$\{\s*consultationService.serviceId\s*\}/g, service.id)
       .replace(/\$\{\s*consultationService.serviceDesc\s*\}/g, service.description)).join('\n'));
-  const scripts = [...registry.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map(match => match[1]);
+  const scripts = [...registry.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)].map(match => match[1]);
   const form = Object.fromEntries(['annotation', 'phone', 'fax', 'address', 'service'].map(name =>
     [name, {value: name === 'service' ? '0' : 'FAKE previous value', focus() {}}]));
   form.specialist = {options: {selectedIndex: 0}, focus() {}};
