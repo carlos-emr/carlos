@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/casemgmt/model/CaseManagementNote.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "d94f4b10929774de951122cac247c4a7a774df5e"
+  },
+  "evidenceSha256": "f32f80da15719172db4ab5d062de012c2af82ce9f852c267ab37f785dba69235"
+}
