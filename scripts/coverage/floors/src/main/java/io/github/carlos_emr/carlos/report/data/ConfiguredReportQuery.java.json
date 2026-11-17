@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/report/data/ConfiguredReportQuery.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 97.99498746867168,
+    "branches": 92.6470588235294,
+    "sourceBlob": "bcd1a4d751c11fcca7d2b73988a3978aa5784928"
+  },
+  "evidenceSha256": "f5081399605fc9a73819bf80ea3b4e9050026a6696ddca157fd7c3d8ead89fb8"
+}
