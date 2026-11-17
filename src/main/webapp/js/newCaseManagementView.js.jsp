@@ -4822,7 +4822,7 @@ function autoSave() {
 
 
     function doInformedConsent(demographicNo) {
-        var checked = jQuery("#informedConsentCheck").attr("checked");
+        var checked = jQuery("#informedConsentCheck").is(':checked');
         if (checked) {
             var forSure = window.confirm("Are you sure you would like to indicate that Informed Consent has been collected?");
             if (forSure) {
@@ -4835,7 +4835,7 @@ function autoSave() {
                     }, 'json');
 
             } else {
-                jQuery("#informedConsentCheck").attr("checked", false);
+                jQuery("#informedConsentCheck").prop("checked", false);
             }
         }
     }
