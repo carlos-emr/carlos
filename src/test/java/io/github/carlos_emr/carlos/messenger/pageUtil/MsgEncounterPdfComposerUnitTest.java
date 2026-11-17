@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrint;
 import io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -71,7 +72,7 @@ class MsgEncounterPdfComposerUnitTest {
 
     @BeforeEach
     void setUp() {
-        composer = new MsgEncounterPdfComposer(projections, (login, demographicNo, allNotes, cpp, req, out) -> {
+        composer = new MsgEncounterPdfComposer(projections, (login, demographicNo, allNotes, cpp, req, out, maxBytes) -> {
             prints.add(new Object[]{login, demographicNo, allNotes, cpp, req});
             out.write(printed);
         });
@@ -126,7 +127,7 @@ class MsgEncounterPdfComposerUnitTest {
     @Test
     @DisplayName("should refuse a print that swallows the cap and finishes, rather than return it cut short")
     void shouldRefuseThePrint_whenItSwallowsTheCapAndCarriesOn() {
-        composer = new MsgEncounterPdfComposer(projections, (login, demographicNo, allNotes, cpp, req, out) -> {
+        composer = new MsgEncounterPdfComposer(projections, (login, demographicNo, allNotes, cpp, req, out, maxBytes) -> {
             for (int i = 0; i < 10; i++) {
                 try {
                     out.write(new byte[10]);
@@ -143,7 +144,7 @@ class MsgEncounterPdfComposerUnitTest {
     @Test
     @DisplayName("should recognise the cap however the print wraps it")
     void shouldRefuseThePrint_whenThePrintWrapsTheCap() {
-        composer = new MsgEncounterPdfComposer(projections, (login, demographicNo, allNotes, cpp, req, out) -> {
+        composer = new MsgEncounterPdfComposer(projections, (login, demographicNo, allNotes, cpp, req, out, maxBytes) -> {
             try {
                 out.write(new byte[100]);
             } catch (RuntimeException capReached) {
@@ -158,12 +159,54 @@ class MsgEncounterPdfComposerUnitTest {
     @Test
     @DisplayName("should still pass on a print failure that is not the cap")
     void shouldRethrowAPrintFailure_whenTheCapWasNotReached() {
-        composer = new MsgEncounterPdfComposer(projections, (login, demographicNo, allNotes, cpp, req, out) -> {
+        composer = new MsgEncounterPdfComposer(projections, (login, demographicNo, allNotes, cpp, req, out, maxBytes) -> {
             throw new IllegalStateException("FAKE print failure");
         });
 
         assertThatThrownBy(() -> composer.compose(request, user, PATIENT, 50))
                 .isInstanceOf(IllegalStateException.class).hasMessage("FAKE print failure");
+    }
+
+    @Test
+    @DisplayName("should hand the cap to the chart print, so it can refuse the finished PDF before writing it")
+    void shouldPassTheCap_toTheChartPrint() throws Exception {
+        List<Long> caps = new ArrayList<>();
+        composer = new MsgEncounterPdfComposer(projections, (login, demographicNo, allNotes, cpp, req, out, maxBytes) -> {
+            caps.add(maxBytes);
+            out.write(PDF);
+        });
+
+        composer.compose(request, user, PATIENT, 4_096);
+        composer.compose(request, user, PATIENT);
+
+        assertThat(caps).containsExactly(4_096L, Long.MAX_VALUE);
+    }
+
+    @Test
+    @DisplayName("should report the chart print's own size refusal as too large, with nothing kept")
+    void shouldRefuseThePrint_whenTheChartPrintRefusesItsFinishedPdf() {
+        composer = new MsgEncounterPdfComposer(projections, (login, demographicNo, allNotes, cpp, req, out, maxBytes) -> {
+            throw new CaseManagementPrint.CompletePdfTooLargeException(maxBytes);
+        });
+
+        assertThatThrownBy(() -> composer.compose(request, user, PATIENT, 50))
+                .isInstanceOf(MsgEncounterPdfComposer.PrintTooLargeException.class);
+    }
+
+    @Test
+    @DisplayName("should still recognise the cap when the chart print rethrows it as a plain print failure")
+    void shouldRefuseThePrint_whenTheCapComesBackAsAPlainIoException() {
+        composer = new MsgEncounterPdfComposer(projections, (login, demographicNo, allNotes, cpp, req, out, maxBytes) -> {
+            try {
+                out.write(new byte[100]);
+            } catch (RuntimeException capReached) {
+                // What CaseManagementPrint.doPrint does with any failure of its final copy.
+                throw new java.io.IOException("Failed to generate complete chart print PDF");
+            }
+        });
+
+        assertThatThrownBy(() -> composer.compose(request, user, PATIENT, 50))
+                .isInstanceOf(MsgEncounterPdfComposer.PrintTooLargeException.class);
     }
 
     @Test

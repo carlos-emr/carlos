@@ -80,4 +80,40 @@ class CaseManagementPrintAssemblyUnitTest {
             merger.verify(() -> ConcatPDF.concatRequired(eq(inputs), any(OutputStream.class)));
         }
     }
+
+    @ParameterizedTest
+    @ValueSource(ints = {-1, 0})
+    void shouldRefuseTheFinishedPdfBeforeCopyingIt_whenItPassesTheCallersLimit(int slack) throws Exception {
+        // slack -1: the limit is one byte short of the finished PDF; 0: exactly its size.
+        var stagedFile = new AtomicReference<File>();
+        var response = new ByteArrayOutputStream();
+        List<Object> inputs = List.of("synthetic.pdf");
+        byte[] pdf = "%PDF-synthetic-completed-document".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        try (var paths = mockStatic(PathValidationUtils.class, invocation -> {
+                 Object result = invocation.callRealMethod();
+                 if ("createSecureTempFile".equals(invocation.getMethod().getName())) {
+                     stagedFile.set((File) result);
+                 }
+                 return result;
+             });
+             var merger = mockStatic(ConcatPDF.class)) {
+            merger.when(() -> ConcatPDF.concatRequired(eq(inputs), any(OutputStream.class)))
+                    .thenAnswer(invocation -> {
+                        OutputStream output = invocation.getArgument(1);
+                        output.write(pdf);
+                        return null;
+                    });
+            long limit = pdf.length + slack;
+            if (slack < 0) {
+                assertThatThrownBy(() -> CaseManagementPrint.mergeCompletePdf(inputs, response, limit))
+                        .isInstanceOf(CaseManagementPrint.CompletePdfTooLargeException.class)
+                        .hasMessageNotContaining("synthetic");
+                assertThat(response.size()).as("not one byte copied").isZero();
+            } else {
+                CaseManagementPrint.mergeCompletePdf(inputs, response, limit);
+                assertThat(response.toByteArray()).isEqualTo(pdf);
+            }
+            assertThat(stagedFile.get()).isNotNull().doesNotExist();
+        }
+    }
 }

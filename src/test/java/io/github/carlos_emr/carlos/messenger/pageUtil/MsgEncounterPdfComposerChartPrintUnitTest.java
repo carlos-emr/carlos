@@ -83,6 +83,8 @@ class MsgEncounterPdfComposerChartPrintUnitTest extends CarlosUnitTestBase {
             CaseManagementPrint print = prints.constructed().getFirst();
             InOrder order = inOrder(print);
             order.verify(print).leaveOutLockedNotes();
+            // No cap for a caller that gave none; a capped caller's limit reaches the print before it runs.
+            order.verify(print).limitCompletePdfBytes(Long.MAX_VALUE);
             ArgumentCaptor<HttpServletRequest> printed = ArgumentCaptor.forClass(HttpServletRequest.class);
             order.verify(print).doPrint(eq(user), eq(PATIENT), eq(true), argThat(ids -> ids.length == 0),
                     eq(true), eq(false), eq(false), eq(false), eq(false), eq(false), isNull(), isNull(),

@@ -119,6 +119,33 @@ public class CaseManagementPrint {
     private boolean leaveOutLockedNotes;
 
     /**
+     * The most bytes the finished PDF may have ({@link #limitCompletePdfBytes}); no limit unless a caller
+     * sets one, so the chart's own Print is unchanged.
+     */
+    private long completePdfMaxBytes = Long.MAX_VALUE;
+
+    /**
+     * Refuses a finished print longer than {@code maxBytes} with {@link CompletePdfTooLargeException}
+     * before any of it reaches the output stream (Messenger's chart notes, #6161 review). The print is
+     * still rendered and merged on disk first, as it always is.
+     *
+     * @param maxBytes the most bytes the caller can use
+     */
+    public void limitCompletePdfBytes(long maxBytes) {
+        this.completePdfMaxBytes = maxBytes;
+    }
+
+    /** The finished print is longer than {@link #limitCompletePdfBytes} allows; nothing was written. */
+    public static final class CompletePdfTooLargeException extends IOException {
+        private static final long serialVersionUID = 1L;
+
+        public CompletePdfTooLargeException(long maxBytes) {
+            // Sizes only: never the patient or any of the print.
+            super("The finished chart print is larger than " + maxBytes + " bytes");
+        }
+    }
+
+    /**
      * Leaves locked notes out of the notes body. The Messenger attachment of a patient's chart notes uses
      * this (#5856).
      */
@@ -428,7 +455,11 @@ public class CaseManagementPrint {
                 }
 
             }
-            mergeCompletePdf(pdfDocs, os);
+            mergeCompletePdf(pdfDocs, os, completePdfMaxBytes);
+        } catch (CompletePdfTooLargeException tooLarge) {
+            // A size refusal the caller asked for, not a failure: passed on as it is, so the caller can
+            // answer it (Messenger: 413) instead of the generic print failure below.
+            throw tooLarge;
         } catch (IOException | RuntimeException e) {
             // Missing inputs fail before the response stream is written. Propagate assembly failures
             // instead of returning a successful incomplete PDF. The Struts direct-response caller
@@ -654,10 +685,24 @@ public class CaseManagementPrint {
 
     /** Assemble completely before committing either HTTP endpoint's response. */
     static void mergeCompletePdf(List<Object> inputs, OutputStream response) throws IOException {
+        mergeCompletePdf(inputs, response, Long.MAX_VALUE);
+    }
+
+    /**
+     * {@link #mergeCompletePdf(List, OutputStream)} that refuses a finished PDF longer than
+     * {@code maxBytes} before copying a byte of it to {@code response}.
+     *
+     * @throws CompletePdfTooLargeException if the finished PDF is longer than {@code maxBytes}
+     */
+    static void mergeCompletePdf(List<Object> inputs, OutputStream response, long maxBytes) throws IOException {
         File complete = PathValidationUtils.createSecureTempFile("chart-print-complete-", ".pdf");
         try {
             try (OutputStream staged = Files.newOutputStream(complete.toPath())) {
                 ConcatPDF.concatRequired(inputs, staged);
+            }
+            // The finished PDF is on disk: refuse one its caller cannot use before any of it is copied.
+            if (Files.size(complete.toPath()) > maxBytes) {
+                throw new CompletePdfTooLargeException(maxBytes);
             }
             Files.copy(complete.toPath(), response);
         } finally {

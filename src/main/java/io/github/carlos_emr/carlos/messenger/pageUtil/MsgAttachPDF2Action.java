@@ -133,8 +133,8 @@ public class MsgAttachPDF2Action extends ActionSupport {
     /**
      * Prints the chart notes as a PDF of at most {@code maxBytes} bytes
      * ({@link MsgEncounterPdfComposer#compose(HttpServletRequest, LoggedInInfo, int, long)}); a longer
-     * print is stopped while it is written and refused with
-     * {@link MsgEncounterPdfComposer.PrintTooLargeException}.
+     * finished print is refused with {@link MsgEncounterPdfComposer.PrintTooLargeException} before any of
+     * it is copied into memory.
      */
     @FunctionalInterface
     interface EncounterPrinter {
@@ -284,9 +284,14 @@ public class MsgAttachPDF2Action extends ActionSupport {
         if (item.get().printsOwnPdf()) {
             byte[] pdf;
             try {
-                // A preview is streamed, not stored, so the message column's limit does not apply to it.
-                pdf = printOwnPdf(attachment.get(), demographicNo, loggedInInfo, Long.MAX_VALUE);
-            } catch (MsgEncounterPdfComposer.PrintTooLargeException unreachable) {
+                // A preview shows what attaching would send, and is held in memory until it is streamed, so it
+                // has the same cap as the chart notes alone in a message: a chart that could not be attached is
+                // refused here too, before it is read into memory.
+                pdf = printOwnPdf(attachment.get(), demographicNo, loggedInInfo, chartNotesByteBudget(0));
+            } catch (MsgEncounterPdfComposer.PrintTooLargeException tooLarge) {
+                // Nothing has been shown, so nothing is audited. Sizes only.
+                logger.warn("Refused a chart notes preview: the print passed the {} bytes a message can carry",
+                        chartNotesByteBudget(0));
                 response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, PDFS_TOO_LARGE);
                 return NONE;
             } catch (CdsLegacyProjectionException unsupported) {
@@ -356,8 +361,9 @@ public class MsgAttachPDF2Action extends ActionSupport {
             attachments.add(attachment.get());
         }
         // The routed items are rendered first, so the chart print, the one item that can be as large as
-        // the whole chart, knows how much of the message is left for it and stops at that while it is
-        // written (#6161 review). The stored order stays the chooser's.
+        // the whole chart, knows how much of the message is left for it: its finished PDF is refused before
+        // it is read into memory, copied or Base64-encoded (#6161 review). The print still renders and merges
+        // on disk first, as the chart's own Print does. The stored order stays the chooser's.
         String[] pdfs = new String[order.size()];
         long renderedChars = 0;
         for (int i = 0; i < order.size(); i++) {
@@ -379,8 +385,8 @@ public class MsgAttachPDF2Action extends ActionSupport {
                     response.sendError(HttpServletResponse.SC_CONFLICT, unsupported.getMessage());
                     return NONE;
                 } catch (MsgEncounterPdfComposer.PrintTooLargeException tooLarge) {
-                    // Stopped while it was written, so the chart was never held whole, copied or encoded.
-                    // Nothing is staged and nothing has left the chart, so nothing is audited. Sizes only.
+                    // Refused before it was read into memory, copied or encoded. Nothing is staged and
+                    // nothing has left the chart, so nothing is audited. Sizes only.
                     logger.warn("Refused chart notes for a message: the print passed the {} bytes left of {}",
                             budget, MessageTbl.PDF_ATTACHMENT_MAX_BYTES);
                     response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, PDFS_TOO_LARGE);

@@ -934,16 +934,31 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should not cap a preview, which is streamed rather than stored in a message")
-        void shouldNotCapThePrint_forAPreview() throws Exception {
+        @DisplayName("should cap a preview at what a message can carry of the chart notes alone")
+        void shouldCapThePreview_atWhatAMessageCanCarry() throws Exception {
             MsgAttachPDF2Action action = newAction();
             action.setIsPreview(true);
             action.setPreviewItem("currentEncounter");
 
             assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
 
-            assertThat(printBudgets).containsExactly(Long.MAX_VALUE);
+            assertThat(printBudgets).containsExactly(MsgAttachPDF2Action.chartNotesByteBudget(0));
             assertThat(streamedPdfs).containsExactly(encounterPdf);
+        }
+
+        @Test
+        @DisplayName("should answer 413 to a preview of a chart too large to attach, showing and recording nothing")
+        void shouldReturn413_forAPreviewOfAChartTooLargeToAttach() throws Exception {
+            encounterPdf = new byte[(int) MsgAttachPDF2Action.chartNotesByteBudget(0) + 1];
+            MsgAttachPDF2Action action = newAction();
+            action.setIsPreview(true);
+            action.setPreviewItem("currentEncounter");
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
+            assertThat(streamedPdfs).isEmpty();
+            assertThat(recordedPreviews).isEmpty();
         }
 
         @Test

@@ -86,8 +86,12 @@ public class MsgEncounterPdfComposer {
     /** The chart's own print, separated so the composer can be unit tested without a PDF renderer. */
     @FunctionalInterface
     interface ChartPrint {
+        /**
+         * Prints into {@code out}; a print that cannot keep its finished PDF within {@code maxBytes} refuses
+         * it ({@link CaseManagementPrint.CompletePdfTooLargeException}) before writing any of it.
+         */
         void print(LoggedInInfo loggedInInfo, int demographicNo, boolean allNotes, boolean cpp,
-                   HttpServletRequest request, OutputStream out) throws IOException, DocumentException;
+                   HttpServletRequest request, OutputStream out, long maxBytes) throws IOException, DocumentException;
     }
 
     private final CdsLegacyProjectionService projections;
@@ -100,9 +104,12 @@ public class MsgEncounterPdfComposer {
      */
     public MsgEncounterPdfComposer() {
         this(SpringUtils.getBean(CdsLegacyProjectionService.class),
-                (loggedInInfo, demographicNo, allNotes, cpp, request, out) -> {
+                (loggedInInfo, demographicNo, allNotes, cpp, request, out, maxBytes) -> {
                     CaseManagementPrint print = new CaseManagementPrint();
                     print.leaveOutLockedNotes();
+                    // The print renders and merges on disk, then refuses a finished PDF over the cap
+                    // before copying any of it here.
+                    print.limitCompletePdfBytes(maxBytes);
                     // No selection, Rx, labs, preventions, allergies or date range: only notes and CPP.
                     print.doPrint(loggedInInfo, demographicNo, allNotes, new String[0], cpp,
                             false, false, false, false, false, null, null, new ParameterlessRequest(request), out);
@@ -142,9 +149,12 @@ public class MsgEncounterPdfComposer {
     }
 
     /**
-     * {@link #compose(HttpServletRequest, LoggedInInfo, int)} that stops the print once it has written
-     * {@code maxBytes}: a chart too large for what it is printed for is refused while it is being written,
-     * before the whole chart is held in memory, copied and Base64-encoded.
+     * {@link #compose(HttpServletRequest, LoggedInInfo, int)} for a caller that can use at most
+     * {@code maxBytes}. The chart print renders and merges on disk (temporary files), as the chart's own
+     * Print does; the finished PDF's size is then checked against {@code maxBytes} before any of it is
+     * copied into memory, so a chart too large for its caller is never held here, copied or Base64-encoded.
+     * The buffer below also refuses to grow past the cap, in case a print writes more than it said.
+     * Rendering and merging themselves are not bounded by this (see {@link CaseManagementPrint}).
      *
      * @param maxBytes the most PDF bytes the caller can use
      * @return the PDF, at most {@code maxBytes} long; empty if the print wrote nothing
@@ -158,11 +168,13 @@ public class MsgEncounterPdfComposer {
         projections.requireSupported(demographicNo, PRINTED_CATEGORIES);
         CappedPdfBuffer pdf = new CappedPdfBuffer(maxBytes);
         try {
-            chartPrint.print(loggedInInfo, demographicNo, ALL_NOTES, CPP, request, pdf);
+            chartPrint.print(loggedInInfo, demographicNo, ALL_NOTES, CPP, request, pdf, maxBytes);
         } catch (IOException | RuntimeException failure) {
-            // The print may wrap the buffer's refusal (OpenPDF converts it to its own runtime exception), so
-            // the buffer, not the exception's type, says whether the cap was reached.
-            if (pdf.exceeded()) {
+            // The print refuses a finished PDF over the cap with its own exception. Should a print write past
+            // the cap anyway, it may wrap the buffer's refusal (OpenPDF converts it to its own runtime exception,
+            // and the chart print rethrows any failure as a plain IOException), so the buffer, not the
+            // exception's type, says whether the cap was reached.
+            if (pdf.exceeded() || failure instanceof CaseManagementPrint.CompletePdfTooLargeException) {
                 throw new PrintTooLargeException(maxBytes);
             }
             throw failure;
@@ -174,7 +186,7 @@ public class MsgEncounterPdfComposer {
         return pdf.toByteArray();
     }
 
-    /** The chart print is longer than its caller can use; it was stopped, and nothing was kept. */
+    /** The chart print is longer than its caller can use; none of it was kept. */
     public static final class PrintTooLargeException extends IOException {
         private static final long serialVersionUID = 1L;
         private final long maxBytes;
@@ -192,7 +204,8 @@ public class MsgEncounterPdfComposer {
     }
 
     /**
-     * The print's buffer, refusing to grow past a cap: the write that would pass it keeps nothing and
+     * The print's buffer, a second guard behind the print's own size check: refusing to grow past the
+     * cap, the write that would pass it keeps nothing and
      * throws, as does every write after it, so a print that catches the refusal and carries on cannot grow
      * the buffer either. The buffer therefore never holds more than the cap (plus the array's growth
      * slack).
