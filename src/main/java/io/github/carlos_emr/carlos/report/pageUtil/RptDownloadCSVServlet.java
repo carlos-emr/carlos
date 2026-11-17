@@ -23,11 +23,10 @@
 
 package io.github.carlos_emr.carlos.report.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.SpreadsheetCsv;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.commn.dao.AntenatalReportDao;
-
-import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -36,6 +35,8 @@ import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Properties;
 import java.util.Vector;
 
@@ -70,6 +71,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
     String DELIMETER = "\t";
 
     private record GeneratedCsv(String reportName, String content) { }
+    private record ExtensionColumn(String key, String caption) { }
+    private record ExtensionValueKey(String demographic, String key) { }
 
     public void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpSession session = request.getSession(false);
@@ -199,8 +202,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
         private final List<String> dateFormats = new ArrayList<>();
         private final Vector<String> fieldCaptions = new Vector<>();
         private final Vector<String> fieldNames = new Vector<>();
-        private final List<String> selectedExtensionCaptions = new ArrayList<>();
-        private final Properties extensionValues = new Properties();
+        private final List<ExtensionColumn> selectedExtensionColumns = new ArrayList<>();
+        private final Map<ExtensionValueKey, String> extensionValues = new HashMap<>();
         private Vector<Properties> fieldValues = new Vector<>();
 
         private DemographicCsvReport(HttpServletRequest request) {
@@ -346,13 +349,13 @@ public class RptDownloadCSVServlet extends HttpServlet {
             addDemographicFields();
             fieldValues = new RptReportCreator().query(sql, fieldNames, demographicColumns.parameters.toArray());
             fieldNames.remove(0);
-            readExtensionValues(resultDemographics(), true);
+            readExtensionValues(resultDemographics());
         }
 
         private void queryFilteredExtensions() throws java.sql.SQLException {
             fieldNames.add(DEMOGRAPHIC_NUMBER);
             List<String> demographics = extensionDemographics();
-            readExtensionValues(demographics, true);
+            readExtensionValues(demographics);
             String sql = "select demographic.demographic_no," + demographicColumns.selection + FROM_DEMOGRAPHIC
                     + " demographic.demographic_no in (" + identifierList(demographics) + ") " + ORDER_BY;
             addDemographicFields();
@@ -386,12 +389,12 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 fieldNames.add(DEMOGRAPHIC_NUMBER);
                 queryAntenatalRows(null);
                 fieldNames.remove(0);
-                readExtensionValues(resultDemographics(), false);
+                readExtensionValues(resultDemographics());
             }
             if (antenatalColumns.filtered && extensionColumns.filtered) {
                 fieldNames.add(DEMOGRAPHIC_NUMBER);
                 List<String> demographics = extensionDemographics();
-                readExtensionValues(demographics, true);
+                readExtensionValues(demographics);
                 queryAntenatalRows(demographics);
                 fieldNames.remove(0);
             }
@@ -443,16 +446,27 @@ public class RptDownloadCSVServlet extends HttpServlet {
             return fieldValues.stream().map(row -> row.getProperty(DEMOGRAPHIC_NUMBER)).toList();
         }
 
-        private void readExtensionValues(List<String> demographics, boolean latestOnly) {
+        private void readExtensionValues(List<String> demographics) throws java.sql.SQLException {
             for (String column : extensionColumns.selection.toString().replaceAll(EXTENSION_PREFIX, "").split(",")) {
-                selectedExtensionCaptions.add(extensionColumns.captions.getProperty(column.trim()));
-                if (!demographics.isEmpty()) {
-                    List<Integer> numbers = demographics.stream().map(Integer::valueOf).toList();
-                    for (var extension : SpringUtils.getBean(DemographicExtDao.class).findReportValues(column.trim(), numbers, latestOnly)) {
-                        extensionValues.setProperty(extension.demographicNo() + column,
-                                extension.value() == null ? "" : extension.value());
-                    }
-                }
+                String key = column.trim();
+                selectedExtensionColumns.add(new ExtensionColumn(key, extensionColumns.captions.getProperty(key)));
+            }
+            if (demographics.isEmpty()) return;
+            // One bounded read covers all selected patient/key values, including their combined text.
+            // The derived keys preserve the requested spelling under a case-insensitive database collation.
+            String keys = String.join(" UNION ALL ", java.util.Collections.nCopies(
+                    selectedExtensionColumns.size(), "SELECT ? AS extension_key"));
+            String patients = String.join(",", java.util.Collections.nCopies(demographics.size(), "?"));
+            List<Object> parameters = new ArrayList<>();
+            selectedExtensionColumns.forEach(column -> parameters.add(column.key()));
+            demographics.forEach(number -> parameters.add(Integer.valueOf(number)));
+            String sql = "select x.demographic_no, k.extension_key, x.value from demographicExt x join (" + keys
+                    + ") k on x.key_val=k.extension_key where x.demographic_no in (" + patients
+                    + ") order by x.date_time, x.id";
+            for (var extension : ConfiguredReportQuery.read(sql, parameters.toArray()).rows()) {
+                String value = extension.value("value");
+                extensionValues.put(new ExtensionValueKey(extension.value(DEMOGRAPHIC_NUMBER), extension.value("extension_key")),
+                        value == null ? "" : value);
             }
         }
 
@@ -466,11 +480,11 @@ public class RptDownloadCSVServlet extends HttpServlet {
             try (CSVPrinter csv = new CSVPrinter(text, format)) {
                 csv.print("id");
                 for (String caption : fieldCaptions) {
-                    csv.print(caption);
+                    csv.print(SpreadsheetCsv.sanitizeCell(caption));
                 }
                 if (extensionColumns.selected) {
-                    for (String caption : selectedExtensionCaptions) {
-                        csv.print(caption);
+                    for (ExtensionColumn extension : selectedExtensionColumns) {
+                        csv.print(SpreadsheetCsv.sanitizeCell(extension.caption()));
                     }
                 }
                 for (int i = 0; i < fieldValues.size(); i++) {
@@ -484,12 +498,12 @@ public class RptDownloadCSVServlet extends HttpServlet {
             csv.println();
             csv.print(String.valueOf(number));
             for (String name : fieldNames) {
-                csv.print(row.getProperty(name, ""));
+                csv.print(SpreadsheetCsv.sanitizeCell(row.getProperty(name, "")));
             }
             if (extensionColumns.selected) {
                 String demographic = row.getProperty(DEMOGRAPHIC_NUMBER);
-                for (String caption : selectedExtensionCaptions) {
-                    csv.print(extensionValues.getProperty(demographic + caption.replace(' ', '_'), ""));
+                for (ExtensionColumn extension : selectedExtensionColumns) {
+                    csv.print(SpreadsheetCsv.sanitizeCell(extensionValues.getOrDefault(new ExtensionValueKey(demographic, extension.key()), "")));
                 }
             }
         }
