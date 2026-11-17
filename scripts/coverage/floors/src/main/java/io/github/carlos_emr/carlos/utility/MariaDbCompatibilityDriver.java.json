@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 93.4065934065934,
+    "instructions": 91.07981220657277,
+    "branches": 81.65548098434004,
+    "sourceBlob": "e5d981a12a9cee2e0f701bcd9eb1bd0ffdfe33f1"
+  },
+  "evidenceSha256": "c8450ec8e368e42fa77636c1019e94d38fd6125b49fbccce3ed1200d67a0db3a"
+}
