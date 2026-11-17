@@ -9,9 +9,11 @@ import io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -36,6 +38,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -57,6 +61,146 @@ class EFormImagePublicationOwnershipUnitTest {
     Path scratch;
 
     private enum Consumer { FORM_IMPORT, IMAGE_UPLOAD }
+    private enum CopyFailure { READ, WRITE, CLOSE, MOVE }
+
+    @Test
+    void shouldRollbackOwnPublishedAssets_whenALaterPathValidationFails() throws Exception {
+        Path images = Files.createDirectory(scratch.resolve("images"));
+        Path existing = Files.writeString(images.resolve("existing.png"), "FAKE previously committed image");
+        var failure = new SecurityException("FAKE later containment refusal");
+        var validations = new AtomicInteger();
+        try (var folder = mockStatic(ImageUpload2Action.class);
+             var paths = mockStatic(PathValidationUtils.class, call -> {
+                 if (call.getMethod().getName().equals("validateExistingPath")
+                         && call.<java.io.File>getArgument(0).isFile()
+                         && validations.incrementAndGet() == 2) throw failure;
+                 return call.callRealMethod();
+             })) {
+            folder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            byte[] archive = archive(Map.of("first.png", "FAKE first", "second.png", "FAKE second"));
+            assertThatThrownBy(() -> new EFormExportZip().importForm(new ByteArrayInputStream(archive)))
+                    .isSameAs(failure);
+        }
+        assertThat(validations.get()).isEqualTo(2);
+        assertThat(images.resolve("first.png")).doesNotExist();
+        assertThat(images.resolve("second.png")).doesNotExist();
+        assertThat(Files.readString(existing)).isEqualTo("FAKE previously committed image");
+    }
+
+    @Test
+    void shouldPreserveTheOriginalFailure_whenRollbackDeletionIsDenied() throws Exception {
+        Path staged = Files.writeString(scratch.resolve("staged.png"), "FAKE staged image");
+        Path published = Files.createLink(scratch.resolve("published.png"), staged);
+        var primary = new IOException("FAKE original import failure");
+        var cleanup = new SecurityException("FAKE rollback permission refusal");
+        try (var files = mockStatic(Files.class, call -> {
+            if (call.getMethod().getName().equals("delete") && published.equals(call.getArgument(0))) throw cleanup;
+            return call.callRealMethod();
+        })) {
+            assertThatCode(() -> EFormExportZip.rollbackPublishedAssets(Map.of(published, staged), primary))
+                    .doesNotThrowAnyException();
+        }
+        assertThat(primary.getSuppressed()).containsExactly(cleanup);
+    }
+
+    @ParameterizedTest
+    @EnumSource(CopyFailure.class)
+    void shouldKeepThePreviousImage_whenAnUploadCopyFails(CopyFailure failureMode) throws Exception {
+        Path images = Files.createDirectory(scratch.resolve("images"));
+        Path shared = Files.writeString(images.resolve("existing.png"), "FAKE previously committed image");
+        var failure = new IOException("FAKE image copy refusal");
+        try (var folder = mockStatic(ImageUpload2Action.class);
+             var paths = mockStatic(PathValidationUtils.class, call -> {
+                 if (call.getMethod().getName().equals("openValidatedUploadInputStream")) {
+                     return new java.io.FilterInputStream((java.io.InputStream) call.callRealMethod()) {
+                         private int reads;
+                         @Override public int read(byte[] bytes, int offset, int length) throws IOException {
+                             if (failureMode == CopyFailure.READ && reads++ > 0) throw failure;
+                             return super.read(bytes, offset, failureMode == CopyFailure.READ ? Math.min(5, length) : length);
+                         }
+                         @Override public void close() throws IOException {
+                             super.close();
+                             if (failureMode == CopyFailure.CLOSE) throw failure;
+                         }
+                     };
+                 }
+                 return call.callRealMethod();
+             });
+             var files = mockStatic(Files.class, call -> {
+                 if (failureMode == CopyFailure.MOVE && call.getMethod().getName().equals("move")) {
+                     throw new java.nio.file.AtomicMoveNotSupportedException(
+                             call.getArgument(0).toString(), call.getArgument(1).toString(), "FAKE unsupported atomic publication");
+                 }
+                 if (failureMode == CopyFailure.WRITE && call.getMethod().getName().equals("newOutputStream")
+                         && images.equals(call.<Path>getArgument(0).getParent())) {
+                     return new java.io.FilterOutputStream((java.io.OutputStream) call.callRealMethod()) {
+                         @Override public void write(byte[] bytes, int offset, int length) throws IOException {
+                             super.write(bytes, offset, length);
+                             throw failure;
+                         }
+                     };
+                 }
+                 return call.callRealMethod();
+             })) {
+            folder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            assertThat(uploadReplacing(shared, "error")).isEqualTo("FAKE previously committed image");
+        }
+        try (var remaining = Files.list(images)) {
+            assertThat(remaining.toList()).containsExactlyInAnyOrder(shared, images.resolve("extractFolder"));
+        }
+        try (var staging = Files.list(images.resolve("extractFolder"))) {
+            assertThat(staging.toList()).containsExactly(images.resolve("extractFolder")
+                    .resolve(EFormImagePublicationLock.LOCK_FILE_NAME));
+        }
+    }
+
+    @Test
+    void shouldPublishCompleteImageBytes_whenPosixPermissionsAreUnsupported() throws Exception {
+        Path images = Files.createDirectory(scratch.resolve("images"));
+        Path shared = Files.writeString(images.resolve("existing.png"), "FAKE previously committed image");
+        var store = mock(java.nio.file.FileStore.class);
+        when(store.supportsFileAttributeView(java.nio.file.attribute.PosixFileAttributeView.class)).thenReturn(false);
+        try (var folder = mockStatic(ImageUpload2Action.class);
+             var files = mockStatic(Files.class, call -> {
+                 if (call.getMethod().getName().equals("getFileStore") && images.equals(call.getArgument(0))) return store;
+                 return call.callRealMethod();
+             })) {
+            folder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            assertThat(uploadReplacing(shared)).isEqualTo("FAKE uploaded consumer image");
+        }
+    }
+
+    @Test
+    void shouldPreserveImagePermissions_andKeepThePreviousBytesUntilTheCopyCloses() throws Exception {
+        Path images = Files.createDirectory(scratch.resolve("images"));
+        Path shared = Files.writeString(images.resolve("existing.png"), "FAKE previously committed image");
+        boolean posix = Files.getFileStore(images).supportsFileAttributeView(java.nio.file.attribute.PosixFileAttributeView.class);
+        var permissions = java.nio.file.attribute.PosixFilePermissions.fromString("rw-r-----");
+        if (posix) Files.setPosixFilePermissions(shared, permissions);
+        var closed = new AtomicInteger();
+        try (var folder = mockStatic(ImageUpload2Action.class);
+             var files = mockStatic(Files.class, call -> {
+                 if (call.getMethod().getName().equals("newOutputStream") && images.equals(call.<Path>getArgument(0).getParent())) {
+                     Path staged = call.getArgument(0);
+                     assertThat(staged).isNotEqualTo(shared);
+                     if (posix) assertThat(Files.getPosixFilePermissions(staged))
+                             .isEqualTo(java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
+                     return new java.io.FilterOutputStream((java.io.OutputStream) call.callRealMethod()) {
+                         @Override public void close() throws IOException {
+                             super.close();
+                             assertThat(Files.readString(shared)).isEqualTo("FAKE previously committed image");
+                             closed.incrementAndGet();
+                         }
+                     };
+                 }
+                 return call.callRealMethod();
+             })) {
+            folder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            assertThat(uploadReplacing(shared)).isEqualTo("FAKE uploaded consumer image");
+        }
+        assertThat(closed.get()).isEqualTo(1);
+        if (posix) assertThat(Files.getPosixFilePermissions(shared)).isEqualTo(permissions);
+    }
 
     @ParameterizedTest(name = "{0}")
     @EnumSource(Consumer.class)
@@ -140,6 +284,10 @@ class EFormImagePublicationOwnershipUnitTest {
     }
 
     private String uploadReplacing(Path shared) throws Exception {
+        return uploadReplacing(shared, "success");
+    }
+
+    private String uploadReplacing(Path shared, String expectedOutcome) throws Exception {
         Path source = Files.writeString(scratch.resolve("upload.png"), "FAKE uploaded consumer image");
         var request = new MockHttpServletRequest();
         var response = new MockHttpServletResponse();
@@ -154,8 +302,8 @@ class EFormImagePublicationOwnershipUnitTest {
             var action = new ImageUpload2Action();
             action.setImage(source.toFile());
             action.setImageFileName(shared.getFileName().toString());
-            assertThat(action.execute()).isEqualTo("success");
-            assertThat(request.getAttribute("status")).isEqualTo("uploaded");
+            assertThat(action.execute()).isEqualTo(expectedOutcome);
+            assertThat(request.getAttribute("status")).isEqualTo(expectedOutcome.equals("success") ? "uploaded" : null);
         }
         return Files.readString(shared);
     }

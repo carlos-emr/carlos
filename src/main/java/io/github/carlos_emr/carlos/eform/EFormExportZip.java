@@ -445,21 +445,21 @@ public class EFormExportZip {
                     publishImportAsset(tempFile, imageTempFolderDir, imageFolder, errors, publishedAssets);
                 }
             }
-        } catch (IOException failure) {
+        } catch (IOException | SecurityException failure) {
             rollbackPublishedAssets(publishedAssets, failure);
             throw failure;
         }
     }
 
     /** Unlinks only names still referring to this import's staged inode. */
-    static void rollbackPublishedAssets(Map<java.nio.file.Path, java.nio.file.Path> publishedAssets, IOException failure) {
+    static void rollbackPublishedAssets(Map<java.nio.file.Path, java.nio.file.Path> publishedAssets, Exception failure) {
         for (var asset : publishedAssets.entrySet()) {
             try {
                 if (Files.exists(asset.getKey(), java.nio.file.LinkOption.NOFOLLOW_LINKS)
                         && Files.isSameFile(asset.getKey(), asset.getValue())) {
                     Files.delete(asset.getKey());
                 }
-            } catch (IOException cleanupFailure) {
+            } catch (IOException | SecurityException cleanupFailure) {
                 failure.addSuppressed(cleanupFailure);
             }
         }

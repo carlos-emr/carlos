@@ -51,6 +51,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
@@ -103,14 +106,28 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
             // removed by that import's later rollback.
             try (var _ = EFormImagePublicationLock.acquire(imageFolder)) {
                 File destinationFile = PathValidationUtils.validateUpload(image, imageFileName, imageFolder);
-                try (InputStream fis = PathValidationUtils.openValidatedUploadInputStream(image);
-                     OutputStream fos = Files.newOutputStream(destinationFile.toPath())) {
-                    byte[] buffer = new byte[4096];
-                    int bytesRead;
-                    while ((bytesRead = fis.read(buffer)) != -1) {
-                        fos.write(buffer, 0, bytesRead);
+                var destination = destinationFile.toPath();
+                boolean posix = Files.getFileStore(imageFolder.toPath()).supportsFileAttributeView(PosixFileAttributeView.class);
+                // Capture the normal creation mode (including the process umask), then keep the
+                // staged bytes private until the complete copy and both stream closes succeed.
+                var staged = posix
+                        ? Files.createTempFile(imageFolder.toPath(), ".carlos-image-", ".tmp",
+                                PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-rw-rw-")))
+                        : Files.createTempFile(imageFolder.toPath(), ".carlos-image-", ".tmp");
+                try (java.io.Closeable cleanup = () -> Files.deleteIfExists(staged)) {
+                    var permissions = posix ? Files.getPosixFilePermissions(Files.exists(destination) ? destination : staged) : null;
+                    if (posix) Files.setPosixFilePermissions(staged, PosixFilePermissions.fromString("rw-------"));
+                    try (InputStream fis = PathValidationUtils.openValidatedUploadInputStream(image);
+                         OutputStream fos = Files.newOutputStream(staged)) {
+                        byte[] buffer = new byte[4096];
+                        int bytesRead;
+                        while ((bytesRead = fis.read(buffer)) != -1) {
+                            fos.write(buffer, 0, bytesRead);
+                        }
+                        fos.flush();
                     }
-                    fos.flush();
+                    if (posix) Files.setPosixFilePermissions(staged, permissions);
+                    Files.move(staged, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
                 }
             }
 
