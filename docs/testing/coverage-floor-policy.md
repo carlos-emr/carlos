@@ -5,20 +5,34 @@ verification plan. Source freshness and coverage acceptance are separate checks.
 CI checks freshness on PRs targeting `release/2026.08` and release-branch pushes.
 It does not approve a coverage waiver or establish release readiness.
 
-The baseline records the Java source tree, complete comparison fingerprint,
-each source blob, measured report hash, baseline commit and actual test-case
-counts. Test/document-only commits can retain that baseline. Changed Java
-sources, a different comparison base, missing/stale floors, dirty Java files or
-a baseline from another source tree fail freshness. A failed invocation removes
-any previous result file before validation, so an old success cannot survive.
-Squash/rebase merges may rewrite or discard the historical baseline commit.
-Freshness therefore requires the exact source tree, comparison and per-file
-blobs rather than commit ancestry. When the historical commit is available,
-its source tree is also checked; its availability is recorded explicitly.
-An absent commit does not waive any source identity or coverage requirement.
+`scripts/coverage/release-coverage-floors.json` is a stable v2 manifest. It pins
+the reviewed comparison base and the SHA-256 of a frozen seed in `evidence/`.
+That seed is the entire former policy, byte for byte, including its floors,
+refusal lines, exclusions, test counts and nested prior evidence. Migration
+does not create a new coverage measurement or qualify existing coverage gaps.
 
-`baselineSourceTree` retains the measured tree if the original commit object
-becomes unavailable; when that object is present, its tree must also match.
+Future updates go in `scripts/coverage/floors/<source-path>.json`, one record
+per changed source. Each record points to an immutable, SHA-256-named run
+document in `evidence/`. Unchanged sources inherit their seed records. Two PRs
+that change different Java sources therefore edit different files and retain
+their own run provenance after merging. There is no shared candidate-tree
+fingerprint or latest-run pointer to refresh on every merge. Concurrent changes
+to the same source still require an explicit source/evidence reconciliation.
+
+Each run retains its complete measured Java tree, comparison fingerprint,
+source blobs, report hash, baseline commit and test counts. Freshness requires
+the candidate's **individual source blob** and fixed comparison base to match
+its evidence. Together they identify exactly the changed lines measured for
+that source. An unrelated source change does not invalidate those lines. When
+a measured commit is available, its full recorded tree, comparison fingerprint
+and individual source blobs are also checked. After squash/rebase pruning,
+`baselineSourceTree` retains the original tree identity and the immutable run
+document retains the individual bindings. Exclusions are also source-bound.
+
+Changed sources without matching evidence, a different comparison base,
+missing/stale floors, dirty Java files, corrupt evidence or records attached
+to another source still fail. A failed invocation removes any previous result
+file before validation, so an old success cannot survive.
 
 Run freshness independently:
 
@@ -49,6 +63,49 @@ changed floor. Keep higher existing metric floors and required refusal lines;
 do not lower them to obtain a pass. Enumerate every changed source, retaining
 only the documented nonexecutable exclusions. Record current source blobs and
 report/test evidence hashes. Never carry a waiver to changed source bytes.
+
+To update floors after a measured run, prepare a v1-shaped run document with
+the existing source identity and baseline evidence fields plus the measured
+`files` rows (and any documented `exclusions`). A focused document may include
+only the selected sources; its metadata must describe the actual run, including
+whether it is a focused run or a complete release lane. Import the owned paths:
+
+```sh
+python3 scripts/coverage/manage-coverage-floors.py \
+  --import-from /private/run/measured-floors.json \
+  --source src/main/java/example/Changed.java \
+  --source src/main/java/example/OtherChanged.java
+```
+
+The importer archives the input unchanged and writes only those source records.
+It keeps higher active metric floors and the union of required refusal lines;
+it does not copy unrelated rows from the input. New zero-floor review metadata
+must be explicitly present in the input and refer to the measured source blob.
+Neither importing evidence nor passing freshness establishes release readiness.
+The full ratchet still requires its fresh, passing, same-class native-lane union
+for the complete candidate, even though historical per-source floors compose.
+
+If a source is deleted or restored exactly to the reviewed comparison base,
+add a source record at its normal path with `schemaVersion: 1`, its `path` and
+`kind: "remove"`. Removal of a still-changed source fails as a missing floor.
+For exclusion updates, import the path with a documented nonexecutable
+`exclusions` entry; its measured source tree must be available to resolve the
+blob, or the input must explicitly retain it in `exclusionSourceBlobs`.
+
+For an existing open PR that still edits the old shared v1 file:
+
+1. Save that PR's v1 document outside the checkout **before** merging the new
+   release policy, for example with `git show HEAD:scripts/coverage/release-coverage-floors.json`.
+2. Incorporate `release/2026.08` and keep the release's v2 manifest when resolving
+   the one-time policy-file conflict.
+3. Use `--import-from` on the saved document, selecting only the Java paths owned
+   by this PR. Existing higher release floors and refusal lines are retained.
+4. Run freshness. If the merge changed an owned source's bytes, measure that
+   source again and import its evidence. Unrelated incoming Java changes use
+   their own records and do not require rewriting this PR's metadata.
+
+Do not edit the manifest or seed for routine floor updates. A change of reviewed
+comparison base is a separate policy migration with newly measured comparisons.
 
 The `0f47111d0e0` merged-source H2 refresh has 34,768 actual test cases,
 no failures/errors, and 167 explicit prerequisite/routed skips. It records
