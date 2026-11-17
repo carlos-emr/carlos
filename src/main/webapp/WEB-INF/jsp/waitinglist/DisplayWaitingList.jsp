@@ -223,7 +223,11 @@
                                                  shows the message above the list only). --%>
                                             <c:set var="noteRowSelector" value="waitingListBean[${ctr.index}].note"/>
                                             <c:set var="noteRefusedHere" value="${not empty waitingListNoteErrors and param.wlNoteSelected eq noteRowSelector and param[param.demographicNumSelected] eq waitingListBean.demographicNo}"/>
-                                            <textarea cols="45" name="waitingListBean[${ctr.index}].note" id="waitingListNote_${ctr.index}" aria-label="${carlos:forHtmlAttribute(waitingListNoteLabel)}"<c:if test="${noteRefusedHere}"> aria-invalid="true" aria-describedby="waitingListNoteError_${ctr.index}"</c:if> class="data3" onblur="setParameters(this);">${carlos:forHtmlContent(waitingListBean.note)}</textarea>
+                                            <%-- #6139: on that refused row the box shows the note the user posted (the action's
+                                                 waitingListSubmittedNote request attribute, encoded for the text-area body), not
+                                                 the saved note, so a refusal does not cost them what they typed. Any other row,
+                                                 or a row whose patient no longer matches, shows its saved note as before. --%>
+                                            <textarea cols="45" name="waitingListBean[${ctr.index}].note" id="waitingListNote_${ctr.index}" aria-label="${carlos:forHtmlAttribute(waitingListNoteLabel)}"<c:if test="${noteRefusedHere}"> aria-invalid="true" aria-describedby="waitingListNoteError_${ctr.index}"</c:if> class="data3" onblur="setParameters(this);">${noteRefusedHere ? carlos:forHtmlContent(waitingListSubmittedNote) : carlos:forHtmlContent(waitingListBean.note)}</textarea>
                                             <c:if test="${noteRefusedHere}">
                                                 <div role="alert" id="waitingListNoteError_${ctr.index}" data-carlos-waiting-list-note-row-error="true" style="color: #b00020; font-weight: bold;">
                                                     <c:forEach var="noteError" items="${waitingListNoteErrors}">

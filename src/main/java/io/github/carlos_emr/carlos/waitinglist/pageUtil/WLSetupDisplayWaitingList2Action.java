@@ -113,6 +113,13 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
     /** Request attribute: why the page refused the posted note (#6141); DisplayWaitingList.jsp shows it. */
     static final String NOTE_ERRORS = "waitingListNoteErrors";
 
+    /**
+     * Request attribute: the note text the user posted when the page refused it (#6139), so the refused row's
+     * note box shows what they typed. It is set only with {@link #NOTE_ERRORS}, from the validated row's own
+     * note parameter, and the page encodes it for the text-area body; the page never echoes a raw parameter.
+     */
+    static final String NOTE_SUBMITTED = "waitingListSubmittedNote";
+
     private final SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -241,6 +248,7 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
             if (!noteErrors.isEmpty()) {
                 log.warn("WLSetupDisplayWaitingList2Action/execute(): refused a waiting-list note over its length limit"); // NOSONAR javasecurity:S5145 — fixed text, no request data
                 request.setAttribute(NOTE_ERRORS, noteErrors);
+                request.setAttribute(NOTE_SUBMITTED, waitingListNote);
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             } else {
                 try {
