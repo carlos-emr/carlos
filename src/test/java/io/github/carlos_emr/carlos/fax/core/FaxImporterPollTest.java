@@ -460,7 +460,6 @@ class FaxImporterPollTest extends CarlosUnitTestBase {
         var backoff = mock(FaxPollBackoff.class);
         org.springframework.test.util.ReflectionTestUtils.setField(faxImporter, "pollBackoff", backoff);
         when(backoff.isDue(any())).thenReturn(true);
-        when(backoff.failed(1)).thenReturn(false);
         when(backoff.snapshot()).thenReturn(java.util.Map.of());
         when(faxProviderClientFactory.getClient(stale)).thenThrow(new IllegalStateException("PRIVATE_STALE_FAILURE"));
         when(faxProviderClientFactory.getClient(healthy)).thenReturn(faxProviderClient);
