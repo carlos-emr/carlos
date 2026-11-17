@@ -18707,8 +18707,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Owns the runWorkflow patient, a marker-named report with generated configuration/filter rows and a marker-named legacy billing header/detail and a synthetic provider/role; cleanup recovers generated identifiers by marker and asserts owned rows are gone. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Verifies typed report field metadata and add/delete commits; #5926 Move here preserves all fields and metadata through downward/upward/no-op moves and reload; provider role and PHCP counts; and authenticated CSV dispatch after JSP relocation."
+      "fixtures": "Owns the runWorkflow patient, a second marker-named cohort patient and their current extension values, a marker-named report with generated configuration/filter rows, a marker-named legacy billing header/detail and a synthetic provider/role; cleanup verifies ownership, recovers identifiers by marker and asserts owned rows are gone. Must not run concurrently with other checks (EXCLUSIVE=1).",
+      "notes": "Verifies typed report field metadata and add/delete commits; #5926 Move here preserves all fields and metadata through downward/upward/no-op moves and reload; provider role and PHCP counts; authenticated CSV dispatch; and current extension values for every selected patient with NULL timestamps and physical bound-key collation controls."
     },
     {
       "name": "allergy-partial-start-date",
