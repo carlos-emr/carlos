@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgPdfAttachmentResolver.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 92.85714285714286,
+    "sourceBlob": "f113512ec8ba5bae36bcf9867be2e82da635ea2f"
+  },
+  "evidenceSha256": "e82d2cf3493395c2f7124e4480a2042157464b0acddc5f9c79f7662e90787765"
+}

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/CaseManagementPrint.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "9ef43c08da364642184319c47bb56920b42c7f28"
+  },
+  "evidenceSha256": "e82d2cf3493395c2f7124e4480a2042157464b0acddc5f9c79f7662e90787765"
+}
