@@ -15,6 +15,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.report.ClinicalReports.ReportEvaluator;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.struts2.ActionSupport;
@@ -139,6 +140,36 @@ class RemoveClinicalReportFromHistory2ActionUnitTest extends CarlosUnitTestBase 
         assertThat(reports).containsExactly(first, second);
     }
 
+    @Test
+    @DisplayName("should keep what is in the list that is not a run report, and remove only the posted report")
+    void shouldKeepOtherEntries_whenTheListHoldsSomethingThatIsNotAReport() {
+        var reports = reports(first, "FAKE-not-a-report", second);
+        request.setParameter("key", first.getKey());
+
+        assertThat(remove()).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(reports).containsExactly("FAKE-not-a-report", second);
+    }
+
+    @Test
+    @DisplayName("should still answer with no page and leave the list as it is when the 405 cannot be sent")
+    void shouldAnswerNone_whenTheRefusalCannotBeSent() {
+        var reports = reports(first, second);
+        request.setMethod("GET");
+        request.setParameter("key", first.getKey());
+        var unsendable = new MockHttpServletResponse() {
+            @Override
+            public void sendError(int status) throws IOException {
+                throw new IOException("FAKE connection closed");
+            }
+        };
+
+        assertThat(remove(unsendable)).isEqualTo(ActionSupport.NONE);
+
+        assertThat(unsendable.getHeader("Allow")).isEqualTo("POST");
+        assertThat(reports).containsExactly(first, second);
+    }
+
     private List<Object> reports(Object... runReports) {
         List<Object> reports = new ArrayList<>(List.of(runReports));
         request.getSession().setAttribute("ClinicalReports", reports);
@@ -146,11 +177,15 @@ class RemoveClinicalReportFromHistory2ActionUnitTest extends CarlosUnitTestBase 
     }
 
     private String remove() {
+        return remove(response);
+    }
+
+    private String remove(MockHttpServletResponse answer) {
         var security = createAndRegisterMock(SecurityInfoManager.class);
         when(security.hasPrivilege(any(), eq("_report"), eq("r"), isNull())).thenReturn(true);
         try (var servlet = mockStatic(ServletActionContext.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
-            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            servlet.when(ServletActionContext::getResponse).thenReturn(answer);
             return new RemoveClinicalReportFromHistory2Action().execute();
         }
     }
