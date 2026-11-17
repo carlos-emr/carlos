@@ -50,6 +50,20 @@ async function workflow(s) {
     h.assert(state() === '0', 'The token-less POST changed the owned facility');
   });
 
+  await s.step('GET and HEAD cannot dispatch facility delete or save', async () => {
+    for (const verb of ['GET', 'HEAD']) {
+      for (const method of ['delete', 'save']) {
+        const response = await s.context.request.fetch(target.href, {
+          method: verb, params: {method, id: owned.id, 'facility.id': owned.id},
+          failOnStatusCode: false,
+        });
+        h.assert(response.status() === 405, verb + ' ' + method + ' answered HTTP ' + response.status());
+        h.assert(response.headers().allow === 'POST', 'Rejected mutation omitted Allow: POST');
+        h.assert(state() === '0', verb + ' ' + method + ' changed the owned facility');
+      }
+    }
+  });
+
   await s.step('confirmed Disable posts this facility and persists its disabled state', async () => {
     const response = page.waitForResponse(response => response.request().method() === 'POST'
       && new URL(response.url()).pathname === target.pathname);

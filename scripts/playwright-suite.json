@@ -19461,7 +19461,7 @@
       "env": [],
       "profile": "caisi-admin",
       "fixtures": "One marker-owned enabled Facility copies configuration columns only, without memberships, programs or clinical data. Shared authz fixture cleanup checks ownership and removes the captured row even if Disable fails. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "#5929: native CAISI Facility list verifies every Disable link has its row form, including the first row; Cancel preserves the owned facility, a token-less POST is refused, and confirmed native POST persists disabled=1 and removes only the owned row from the active list. Requires a disposable exclusive host (EXCLUSIVE=1); the caisi-admin profile restarts the application before and after the check so FacilityDAO cache entries cannot retain the removed fixture."
+      "notes": "#5929: native CAISI Facility list verifies every Disable link has its row form, including the first row; Cancel preserves the owned facility, a token-less POST is refused, GET/HEAD save and delete are rejected before mutation, and confirmed native POST persists disabled=1 and removes only the owned row from the active list. Requires a disposable exclusive host (EXCLUSIVE=1); the caisi-admin profile restarts the application before and after the check so FacilityDAO cache entries cannot retain the removed fixture."
     }
   ]
 }

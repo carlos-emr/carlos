@@ -102,6 +102,12 @@ public class FacilityManager2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin)");
         }
 
+        if (mutatingMethod && !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         if ("view".equals(method)) {
             return view();
         } else if ("edit".equals(method)) {
