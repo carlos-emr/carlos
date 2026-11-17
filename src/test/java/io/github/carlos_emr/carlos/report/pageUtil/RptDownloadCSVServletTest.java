@@ -53,6 +53,8 @@ import io.github.carlos_emr.carlos.report.data.RptReportConfigData;
 import io.github.carlos_emr.carlos.report.data.RptReportCreator;
 import io.github.carlos_emr.carlos.report.data.RptReportItem;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import org.apache.logging.log4j.Level;
 
 /**
  * Regression tests for demographic SQL construction and the report CSV servlet response contract.
@@ -570,6 +572,83 @@ class RptDownloadCSVServletTest {
         assertThat(request.getAttribute("carlosReportLimitKey")).isEqualTo("report.configured.limitRows");
         assertThat(request.getAttribute("carlosReportLimitValue")).isEqualTo(10_000);
         assertThat(request.getAttribute("carlosReportLimitSetting")).isEqualTo("configured_report.max_rows");
+    }
+
+    @Test
+    void shouldLogOneWarningWithoutTrace_whenADemographicReportIsRefused() throws Exception {
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(
+                        org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(Object[].class)))
+                .thenThrow(new ConfiguredReportQuery.LimitExceededException(ConfiguredReportQuery.Limit.ROWS, 10_000));
+        var request = baseRequest(); request.getSession(true);
+        request.setParameter("demoReport", "true"); request.setParameter("last_name", "on");
+        addFilter(request, 1, "demographic.demographic_no=42", "unused", "");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        try (LogCapture log = LogCapture.forLogger(RptDownloadCSVServlet.class)) {
+            new RptDownloadCSVServlet().service(request, response);
+
+            // A refusal is the user's to fix: one warning naming the setting, no trace, no error.
+            assertThat(messages(log, Level.WARN))
+                    .containsExactly("Report download refused by its configured_report.max_rows limit of 10000");
+            assertThat(messages(log, Level.ERROR)).isEmpty();
+            assertThat(log.events()).allMatch(event -> event.getThrown() == null);
+        }
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getContentAsString()).isEmpty();
+        assertThat(request.getAttribute("carlosReportLimitKey")).isEqualTo("report.configured.limitRows");
+    }
+
+    @Test
+    void shouldLogOneWarningWithoutTrace_whenAFormReportIsRefused() throws Exception {
+        MockHttpServletRequest request = baseRequest();
+        request.getSession(true);
+        request.setParameter("id", "5549");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        try (var reports = mockConstruction(
+                RptReportItem.class,
+                (report, context) -> when(report.getReportName("5549")).thenThrow(
+                        new ConfiguredReportQuery.LimitExceededException(ConfiguredReportQuery.Limit.ROWS, 10_000)));
+             LogCapture log = LogCapture.forLogger(RptDownloadCSVServlet.class)) {
+            new RptDownloadCSVServlet().service(request, response);
+
+            assertThat(reports.constructed()).hasSize(1);
+            assertThat(messages(log, Level.WARN))
+                    .containsExactly("Report download refused by its configured_report.max_rows limit of 10000");
+            assertThat(messages(log, Level.ERROR)).isEmpty();
+            assertThat(log.events()).allMatch(event -> event.getThrown() == null);
+        }
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getErrorMessage()).isEqualTo("Unable to generate report");
+        assertThat(response.getContentAsString()).isEmpty();
+        assertThat(request.getAttribute("carlosReportLimitKey")).isEqualTo("report.configured.limitRows");
+        assertThat(request.getAttribute("carlosReportLimitSetting")).isEqualTo("configured_report.max_rows");
+    }
+
+    @Test
+    void shouldLogOneErrorWithTrace_whenAFormReportFailsForAnotherReason() throws Exception {
+        MockHttpServletRequest request = baseRequest();
+        request.getSession(true);
+        request.setParameter("id", "5549");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        var failure = new java.sql.SQLException("synthetic read failure");
+        try (var reports = mockConstruction(
+                RptReportItem.class,
+                (report, context) -> when(report.getReportName("5549")).thenThrow(failure));
+             LogCapture log = LogCapture.forLogger(RptDownloadCSVServlet.class)) {
+            new RptDownloadCSVServlet().service(request, response);
+
+            assertThat(messages(log, Level.WARN)).isEmpty();
+            assertThat(messages(log, Level.ERROR)).containsExactly("RptDownloadCSVServlet service() - form report failed");
+            assertThat(log.events()).filteredOn(event -> event.getLevel() == Level.ERROR)
+                    .singleElement().satisfies(event -> assertThat(event.getThrown()).hasRootCause(failure));
+        }
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(request.getAttribute("carlosReportLimitKey")).isNull();
+    }
+
+    /** The messages a capture holds at one level. */
+    private static List<String> messages(LogCapture log, Level level) {
+        return log.events().stream().filter(event -> event.getLevel() == level)
+                .map(event -> event.getMessage().getFormattedMessage()).toList();
     }
 
     @Test
