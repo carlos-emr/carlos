@@ -131,12 +131,31 @@ public final class MariaDbCompatibilityDriver implements Driver {
             String name = method.getName();
             Object special = objectOperation(proxy, name, args);
             if (special != NO_CONVERSION) return special;
+            if (target instanceof PreparedStatement prepared
+                    && (name.equals("setDate") || isDateObjectBinding(method, args))) {
+                if (args[1] == null) {
+                    if (args[0] instanceof Integer index) prepared.setNull(index, Types.DATE);
+                    else ((CallableStatement) prepared).setNull((String) args[0], Types.DATE);
+                    return null;
+                }
+                if (name.equals("setDate") && args.length == 3 && args[2] != null) return invokeNative(method, args);
+                // A SQL DATE is a wall-clock date in the caller's zone. MariaDB's
+                // text codec otherwise formats it in the connection's zone.
+                Calendar zone = Calendar.getInstance(policy.defaultZone(), Locale.US);
+                if (args[0] instanceof Integer index) prepared.setDate(index, (java.sql.Date) args[1], zone);
+                else ((CallableStatement) prepared).setDate((String) args[0], (java.sql.Date) args[1], zone);
+                return null;
+            }
             if (target instanceof Statement configured && name.equals("setFetchSize")
                     && Integer.valueOf(Integer.MIN_VALUE).equals(args[0])) {
                 configured.setFetchSize(1); // MariaDB uses positive sizes for Connector/J's streaming sentinel.
                 return null;
             }
             if (target instanceof ResultSet rows) {
+                if (name.equals("updateDate") || isDateObjectBinding(method, args)) {
+                    updateDate(rows, args[0], (java.sql.Date) args[1]);
+                    return null;
+                }
                 Object adapted = resultOperation(method, args, rows);
                 if (adapted != NO_CONVERSION) return adapted;
             }
@@ -147,6 +166,31 @@ public final class MariaDbCompatibilityDriver implements Driver {
             Object result = invokeNative(method, args);
             // Native unwrap must satisfy the requested concrete type, not produce another proxy.
             return name.equals(UNWRAP) ? result : wrapResult(result, proxy);
+        }
+
+        /** Identifies DATE object bindings while preserving explicitly requested non-DATE conversions. */
+        private static boolean isDateObjectBinding(Method method, Object[] args) {
+            if (!method.getName().equals("setObject") && !method.getName().equals("updateObject")) return false;
+            if (!(args[1] instanceof java.sql.Date) && args[1] != null) return false;
+            if (args.length == 2) return args[1] != null;
+            if (args[2] instanceof java.sql.SQLType type) return Integer.valueOf(Types.DATE).equals(type.getVendorTypeNumber());
+            // ResultSet's integer third argument is scale/length, unlike PreparedStatement's SQL type.
+            if (method.getDeclaringClass() == ResultSet.class) return args[1] != null;
+            return Integer.valueOf(Types.DATE).equals(args[2]);
+        }
+
+        /** Uses the same Gregorian date text as the legacy codec, with a caller-zone rather than connection-zone calendar. */
+        private void updateDate(ResultSet rows, Object column, java.sql.Date value) throws SQLException {
+            if (value == null) {
+                if (column instanceof Integer index) rows.updateNull(index);
+                else rows.updateNull((String) column);
+                return;
+            }
+            var format = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.ROOT);
+            format.setTimeZone(policy.defaultZone());
+            String date = format.format(value);
+            if (column instanceof Integer index) rows.updateString(index, date);
+            else rows.updateString((String) column, date);
         }
 
         /** Preserves proxy identity, JDBC wrapper queries, and the owning compatibility objects. */
