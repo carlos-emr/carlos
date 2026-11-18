@@ -65,6 +65,7 @@ ADMISSION_REQUIRED_CASES = {
 APPOINTMENT_REQUIRED_CASES = {
     "shouldRefuseStoredPatient_beforeArchivalOrMutation",
     "shouldRollbackArchiveAndEdit_whenReplacementPatientIsDenied",
+    "shouldRollbackFieldEditAndArchive_whenAuditFails",
     "shouldAllowAssignedPatientWrite_withoutReadPermission",
 }
 

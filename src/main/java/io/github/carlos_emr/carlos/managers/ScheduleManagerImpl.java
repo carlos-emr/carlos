@@ -285,18 +285,15 @@ public class ScheduleManagerImpl implements ScheduleManager {
 
     private static void auditUpdate(LoggedInInfo loggedInInfo, Appointment appointment, String newStatus,
             AppointmentUpdateAction auditAction) {
-        String data = auditAction == AppointmentUpdateAction.UPDATE
-                ? APPOINTMENT_ID_AUDIT_PREFIX + appointment.getId() + (newStatus == null ? "" : "; status=" + newStatus)
-                : "id=" + appointment.getId();
-        String patient = appointment.getDemographicNo() > 0 ? String.valueOf(appointment.getDemographicNo()) : null;
+        String appointmentId = String.valueOf(appointment.getId());
+        String patientId = appointment.getDemographicNo() > 0 ? String.valueOf(appointment.getDemographicNo()) : null;
         if (auditAction == AppointmentUpdateAction.UPDATE) {
+            String data = APPOINTMENT_ID_AUDIT_PREFIX + appointmentId + (newStatus == null ? "" : "; status=" + newStatus);
             LogAction.addLogSynchronous(loggedInInfo, auditAction.auditName(), LogConst.CON_APPT,
-                    String.valueOf(appointment.getId()), patient, data);
+                    appointmentId, patientId, data);
         } else {
-            // Field edits must roll back their update and archive if audit persistence fails,
-            // including a DAO lookup failure before an audit transaction can be joined.
             LogAction.addLogStrict(loggedInInfo, auditAction.auditName(), LogConst.CON_APPT,
-                    String.valueOf(appointment.getId()), patient, data);
+                    appointmentId, patientId, "id=" + appointmentId);
         }
     }
 
