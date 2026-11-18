@@ -17,6 +17,9 @@
  */
 package io.github.carlos_emr.carlos.demographic;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -162,6 +165,44 @@ class DemographicCustomFieldSelectUnitTest {
                 + "<option value=\" Plain \">Plain</option></select>";
 
         assertThat(DemographicCustomFieldSelect.markSaved(template, "Plain")).contains("value=\" Plain \" selected");
+    }
+
+    @Test
+    void shouldPreferTheExactValue_whenAnEarlierOptionDiffersOnlyByWhitespace() {
+        String template = "<select name=FAKE_field><option value=' A '>Padded</option>"
+                + "<option value='A'>Exact</option></select>";
+
+        assertThat(posted(DemographicCustomFieldSelect.markSaved(template, "A"))).isEqualTo("A");
+        assertThat(posted(DemographicCustomFieldSelect.markSaved(template, " A "))).isEqualTo(" A ");
+    }
+
+    @Test
+    void shouldFindTheRealOption_whenASelectAttributeContainsAnExample() {
+        String template = "<select name=FAKE_field title=\"<option value='B'>Example</option>\">"
+                + "<option>A</option><option>B</option></select>";
+
+        String rendered = DemographicCustomFieldSelect.markSaved(template, "B");
+
+        assertThat(posted(rendered)).isEqualTo("B");
+        assertThat(rendered).contains("title=\"<option value='B'>Example</option>\"");
+    }
+
+    @Test
+    void shouldKeepTheLiteralLessThanSign_inAnImplicitValue() {
+        String template = "<select name=FAKE_field><option>Normal</option><option>Risk < 5%</option></select>";
+
+        assertThat(posted(DemographicCustomFieldSelect.markSaved(template, "Risk < 5%"))).isEqualTo("Risk < 5%");
+    }
+
+    @Test
+    void shouldRecognizeSelectsInBothColumns_whenTheMarkupIsUpperCase() throws Exception {
+        String form = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/demographic/edit-form-clinical.jsp"));
+        String template = "<SELECT name=FAKE_field><OPTION>A</OPTION><OPTION>B</OPTION></SELECT>";
+
+        assertThat(form).contains("containsSelect(propDemoExtForm[k])", "containsSelect(propDemoExtForm[k + 1])");
+        assertThat(DemographicCustomFieldSelect.containsSelect(template)).isTrue();
+        assertThat(DemographicCustomFieldSelect.containsSelect("<input title='<select>'>")).isFalse();
+        assertThat(posted(DemographicCustomFieldSelect.markSaved(template, "B"))).isEqualTo("B");
     }
 
     @Test

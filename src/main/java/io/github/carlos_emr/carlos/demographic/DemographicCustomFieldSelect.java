@@ -19,9 +19,13 @@ package io.github.carlos_emr.carlos.demographic;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
+import org.jsoup.Jsoup;
 import org.jsoup.parser.Parser;
 
 /**
@@ -40,8 +44,8 @@ import org.jsoup.parser.Parser;
  * quoted attribute (a {@code title} that says {@code value=...}) is never taken for an attribute, and
  * options inside comments, {@code <script>} or {@code <style>} are not options. Each option's value is
  * decoded as a browser decodes it; without a value attribute it is the option's text, decoded, with
- * whitespace collapsed. The value and the saved text are compared with surrounding ASCII whitespace
- * trimmed on both sides (the form always trimmed the saved text), case-sensitively.</p>
+ * whitespace collapsed. The saved text is compared case-sensitively with the exact decoded value,
+ * with a whitespace-trimmed fallback for older stored values.</p>
  *
  * <p>The first option whose value equals the saved text is marked {@code selected}, and every other
  * option's {@code selected} is taken off, because a single select keeps the <em>last</em> selected option,
@@ -73,6 +77,27 @@ public final class DemographicCustomFieldSelect {
     private DemographicCustomFieldSelect() {
     }
 
+    /** Whether the configured template renders a select element. */
+    public static boolean containsSelect(String template) {
+        return template != null && Jsoup.parseBodyFragment(template).selectFirst("select") != null;
+    }
+
+    /** Configured select field names, using the same keys as the Master Record edit. */
+    public static Set<String> configuredKeys(String names, String templates) {
+        if (names == null || templates == null) {
+            return Set.of();
+        }
+        String[] fields = names.split("\\|", -1);
+        String[] forms = templates.split("\\|", -1);
+        Set<String> keys = new HashSet<>();
+        for (int i = 0; i < Math.min(fields.length, forms.length); i++) {
+            if (containsSelect(forms[i])) {
+                keys.add(fields[i].replace(' ', '_'));
+            }
+        }
+        return keys;
+    }
+
     /**
      * Marks the option whose value is the saved text as the selected one.
      *
@@ -94,9 +119,12 @@ public final class DemographicCustomFieldSelect {
         List<OptionTag> options = options(selectHtml);
         OptionTag match = null;
         for (OptionTag option : options) {
-            if (StringUtils.trimToEmpty(option.value()).equals(wanted)) {
+            if (option.value().equals(saved)) {
                 match = option;
                 break;
+            }
+            if (match == null && option.value().trim().equals(wanted)) {
+                match = option;
             }
         }
         if (match == null) {
@@ -145,7 +173,10 @@ public final class DemographicCustomFieldSelect {
                 continue;
             }
             if (!startsTag(html, lt, "option")) {
-                i = lt + 1;
+                i = afterTagOrText(html, lt);
+                if (i < 0) {
+                    break;
+                }
                 continue;
             }
             List<Attribute> attributes = new ArrayList<>();
@@ -156,9 +187,9 @@ public final class DemographicCustomFieldSelect {
             Attribute value = null;
             List<Attribute> selected = new ArrayList<>();
             for (Attribute attribute : attributes) {
-                if (value == null && "value".equalsIgnoreCase(attribute.name())) {
+                if (value == null && "value".equals(attribute.name())) {
                     value = attribute; // a repeated value attribute: the first wins, as in a browser
-                } else if ("selected".equalsIgnoreCase(attribute.name())) {
+                } else if ("selected".equals(attribute.name())) {
                     selected.add(attribute);
                 }
             }
@@ -198,7 +229,7 @@ public final class DemographicCustomFieldSelect {
                 p++; // a stray "=": move on
                 continue;
             }
-            String name = html.substring(nameStart, p);
+            int nameEnd = p;
             int q = p;
             while (q < n && Character.isWhitespace(html.charAt(q))) {
                 q++;
@@ -227,7 +258,10 @@ public final class DemographicCustomFieldSelect {
                     p = q;
                 }
             }
-            attributes.add(new Attribute(name, nameStart, p, valueStart, valueEnd));
+            if (attributes != null) {
+                String name = html.substring(nameStart, nameEnd).toLowerCase(Locale.ROOT);
+                attributes.add(new Attribute(name, nameStart, p, valueStart, valueEnd));
+            }
         }
         return -1;
     }
@@ -260,15 +294,34 @@ public final class DemographicCustomFieldSelect {
                 i = skipped;
                 continue;
             }
-            int close = readAttributes(html, lt + 1, new ArrayList<>());
-            if (close < 0) {
+            i = afterTagOrText(html, lt);
+            if (i < 0) {
                 break;
             }
-            i = close + 1;
+            if (i == lt + 1) {
+                text.append('<');
+            }
         }
         String decoded = Parser.unescapeEntities(text.toString(), false);
         // HTML's own whitespace (tab, line feed, form feed, carriage return, space); a no-break space stays.
         return StringUtils.strip(decoded.replaceAll("[\\t\\n\\f\\r ]+", " "), " ");
+    }
+
+    /** Advances over a whole tag, or one literal less-than sign in text. */
+    private static int afterTagOrText(String html, int lt) {
+        int name = lt + 1;
+        if (name < html.length() && html.charAt(name) == '/') {
+            name++;
+        }
+        if (name >= html.length() || !isAsciiLetter(html.charAt(name))) {
+            return lt + 1;
+        }
+        int close = readAttributes(html, name, null);
+        return close < 0 ? -1 : close + 1;
+    }
+
+    private static boolean isAsciiLetter(char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
     }
 
     /**

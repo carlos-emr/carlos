@@ -835,7 +835,7 @@
                                                             : </b></td>
                                                         <td align="left">
                                                             <% if (bExtForm) {
-                                                                if (propDemoExtForm[k].indexOf("<select") >= 0) {
+                                                                if (DemographicCustomFieldSelect.containsSelect(propDemoExtForm[k])) {
                                                                     out.println(DemographicCustomFieldSelect.markSaved(propDemoExtForm[k], demoExt.get(propDemoExt[k].replace(' ', '_'))));
                                                                 } else {
                                                                     out.println(propDemoExtForm[k].replace("value=\"\"", "value=\"" + SafeEncode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get(propDemoExt[k].replace(' ', '_')))) + "\""));
@@ -855,7 +855,7 @@
                                                         </td>
                                                         <td align="left">
                                                             <% if (bExtForm) {
-                                                                if (propDemoExtForm[k + 1].indexOf("<select") >= 0) {
+                                                                if (DemographicCustomFieldSelect.containsSelect(propDemoExtForm[k + 1])) {
                                                                     out.println(DemographicCustomFieldSelect.markSaved(propDemoExtForm[k + 1], demoExt.get(propDemoExt[k + 1].replace(' ', '_'))));
                                                                 } else {
                                                                     out.println(propDemoExtForm[k + 1].replace("value=\"\"", "value=\"" + SafeEncode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get(propDemoExt[k + 1].replace(' ', '_')))) + "\""));
