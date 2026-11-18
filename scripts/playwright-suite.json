@@ -18095,11 +18095,7 @@
       "timeoutSec": 300,
       "profile": "appointment-options",
       "env": [],
-      "expectedFailure": {
-        "finding": 329,
-        "step": "requested reminder has an implemented and visible persisted outcome"
-      },
-      "notes": "Issue 5268: checked/unchecked real Add requests and cancellation; emailApptReminder=yes exposes an unimplemented emailPt option. Finding 329 keeps reminder outcome distinct from booking success."
+      "notes": "Issue 5887. With emailApptReminder=yes, the native Add and Edit forms omit the unsupported reminder option. Booking, cancellation and saving an edit preserve the ordinary appointment workflow."
     },
     {
       "name": "document-public-visibility",

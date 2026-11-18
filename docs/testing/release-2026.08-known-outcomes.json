@@ -78,12 +78,6 @@
       "finding": 82,
       "step": "saving the same patient into the same set twice retains one membership",
       "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "appointment-email-option",
-      "finding": 329,
-      "step": "requested reminder has an implemented and visible persisted outcome",
-      "disposition": "required installed retake; blocks release readiness"
     }
   ],
   "retiredNodeTodos": [
@@ -114,6 +108,12 @@
     }
   ],
   "retiredBrowserExpectations": [
+    {
+      "check": "appointment-email-option",
+      "finding": 329,
+      "step": "requested reminder has an implemented and visible persisted outcome",
+      "disposition": "Source fix for #5887 removes the option until appointment reminder delivery is implemented. The updated installed check exercises Add and Edit with the legacy setting enabled and verifies the appointment writes. A fresh installed PASS is still required."
+    },
     {
       "check": "echart-forms-list-paging",
       "finding": 335,
