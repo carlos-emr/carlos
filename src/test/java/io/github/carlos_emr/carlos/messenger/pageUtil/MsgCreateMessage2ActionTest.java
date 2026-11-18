@@ -463,10 +463,17 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
         }
 
         @org.junit.jupiter.params.ParameterizedTest
-        @org.junit.jupiter.params.provider.ValueSource(strings = {RECIPIENT, "101: On Call"})
-        @DisplayName("should confirm without a warning a send that an earlier version recorded without warning digits")
-        void shouldConfirmWithoutWarnings_whenTheSavedResultIsFromAnEarlierVersion(String storedRecipient) throws Exception {
+        @org.junit.jupiter.params.provider.CsvSource(delimiter = '|', value = {
+                RECIPIENT + "|false", "101: On Call|false", "101: On Call|true"
+        })
+        @DisplayName("should confirm a legacy send with its full recipient line and no false failure flags")
+        void shouldConfirmTheFullRecipient_whenTheSavedResultIsFromAnEarlierVersion(
+                String storedRecipient, boolean requestArchive) throws Exception {
             repeatSubmission(null);
+            if (requestArchive) {
+                getMockRequest().setParameter("archiveMessageId", "55");
+                getMockRequest().setParameter(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND, "1");
+            }
             // The first send took this window's attachments, as a real send does.
             MsgAttachmentStaging.take(getMockSession(), thisWindow);
             java.lang.reflect.Method digest = MsgCreateMessage2Action.class.getDeclaredMethod("contentDigest");
@@ -482,7 +489,23 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
             assertThat(getMockRequest().getAttribute("SentMessageProvs")).isEqualTo(storedRecipient);
             assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.PATIENT_LINK_AFTER_SEND_FAILED)).isNull();
             assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ATTACHMENTS_AFTER_SEND_FAILED)).isNull();
-            assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND_FAILED)).isNull();
+            assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND_FAILED))
+                    .isEqualTo(requestArchive ? Boolean.TRUE : null);
+        }
+
+        @Test
+        void shouldRedisplayAnEditedRepeat_whenItsRecipientsAndSubjectWereCleared() throws Exception {
+            String token = FormSubmissionGuard.issue(getMockSession(), FormSubmissionGuard.Scope.MESSENGER_SEND, null);
+            repeatSubmission(token);
+            assertThat(send()).isEqualTo("success");
+
+            repeatSubmission(token);
+            action.setProvider(null);
+            action.setSubject(null);
+            send();
+
+            assertThat(getMockResponse().getStatus()).isEqualTo(409);
+            assertThat(sends.get()).isEqualTo(1);
         }
 
         @Test
