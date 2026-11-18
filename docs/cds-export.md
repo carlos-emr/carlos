@@ -5889,6 +5889,16 @@ clinical profile or establish successful clinical publication.
 
 ### Coordinated workflow execution
 
+The six dedicated CDS CI workflows run their expensive jobs when a change matches
+`scripts/ci/cds-paths.txt` or the existing coordinated test-class inventory, **or on
+every pull request targeting `main`**, regardless of its changed files. The shared
+`cds-change-detection.yml` workflow compares the PR merge base with its head (or
+the before/after commits for existing push triggers), including deleted and renamed
+paths without a file-count cap. PRs retargeted to `main` are also checked. Existing
+manual triggers still run the full workflow. A failed comparison fails the selector
+instead of silently skipping tests. Keep the shared clinical, schema, configuration,
+build and harness dependencies in that path list when CDS acquires new dependencies.
+
 `.github/workflows/cds-transfer.yml` partitions the entire reviewed coordinated
 inventory into import, export and shared jobs on separate fresh runners. Each job
 compiles once and runs its exact selectors against its own newly migrated import,

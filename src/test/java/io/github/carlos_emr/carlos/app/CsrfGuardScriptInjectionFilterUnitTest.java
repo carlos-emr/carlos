@@ -32,11 +32,16 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
+import java.util.stream.Stream;
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.api.function.Executable;
 import org.mockito.MockedStatic;
 import org.owasp.csrfguard.CsrfGuard;
@@ -229,6 +234,44 @@ class CsrfGuardScriptInjectionFilterUnitTest {
                         .doesNotContain("secret-session");
             });
         }
+    }
+
+    @ParameterizedTest
+    @MethodSource("replayCharsets")
+    void shouldEncodeTheCapturedReplay_whenAForwardMustUseTheOutputStream(
+            String declaredCharset, Charset expectedCharset) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/forward");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse() {
+            @Override
+            public String getCharacterEncoding() {
+                return declaredCharset;
+            }
+        };
+        response.getOutputStream();
+        String body = "<html><head><title>Québec</title></head><body>café</body></html>";
+        String expected = body.replace("</head>", "<script src=\"/carlos/csrfguard\"></script>\n</head>");
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("text/html");
+            res.getWriter().write(body);
+        }));
+
+        byte[] expectedBytes = expected.getBytes(expectedCharset);
+        assertThat(response.getContentAsByteArray()).isEqualTo(expectedBytes);
+        assertThat(response.getContentLength()).isEqualTo(expectedBytes.length);
+    }
+
+    private static Stream<Arguments> replayCharsets() {
+        return Stream.of(
+                Arguments.of(null, StandardCharsets.UTF_8),
+                Arguments.of("", StandardCharsets.UTF_8),
+                Arguments.of("not-a-supported-charset", StandardCharsets.UTF_8),
+                Arguments.of("bad charset!", StandardCharsets.UTF_8),
+                Arguments.of("UTF-8", StandardCharsets.UTF_8),
+                Arguments.of("ISO-8859-1", StandardCharsets.ISO_8859_1),
+                Arguments.of("UTF-16LE", StandardCharsets.UTF_16LE));
     }
 
     @Test
@@ -741,6 +784,71 @@ class CsrfGuardScriptInjectionFilterUnitTest {
         }));
         verify(response, never()).setHeader("Content-Length", null);
         assertThat(response.getContentLength()).isEqualTo(4);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldPreserveStreamFraming_whenLengthHeadersAreReplacedOrAdded(boolean add) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/forward");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+            HttpServletResponse http = (HttpServletResponse) res;
+            http.setHeader("X-Mode", "first");
+            http.addHeader("X-Mode", "second");
+            http.setIntHeader("X-Limit", 1);
+            http.addIntHeader("X-Limit", 2);
+            http.setHeader("Content-Length", "2");
+            if (add) http.addHeader("cOnTeNt-LeNgTh", "4");
+            else http.setHeader("cOnTeNt-LeNgTh", "4");
+            http.addHeader("Content-Length", null);
+            res.setContentType("application/octet-stream");
+            res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+        }));
+        assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+        assertThat(response.getHeaders("Content-Length")).containsExactly("4");
+        assertThat(response.getHeaders("X-Mode")).containsExactly("first", "second");
+        assertThat(response.getHeaders("X-Limit")).containsExactly("1", "2");
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldPreserveStreamFraming_whenIntegerLengthHeadersAreUsed(boolean add) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/forward");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+            HttpServletResponse http = (HttpServletResponse) res;
+            if (add) http.addIntHeader("Content-Length", 4);
+            else http.setIntHeader("Content-Length", 4);
+            res.setContentType("application/octet-stream");
+            res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+        }));
+        assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+        assertThat(response.getHeaders("Content-Length")).containsExactly("4");
+    }
+
+    @Test
+    void shouldKeepAnUnframedStream_whenItsLengthIsRemovedAndAMalformedValueIsAdded() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/forward");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+                HttpServletResponse http = (HttpServletResponse) res;
+                http.setHeader("Content-Length", "4");
+                http.setHeader("Content-Length", null);
+                http.addHeader("Content-Length", "invalid");
+                res.setContentType("application/octet-stream");
+                res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+            }));
+            assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+            assertThat(response.getHeader("Content-Length")).isNull();
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage()).contains("Ignoring malformed Content-Length");
+            });
+        }
     }
 
     @Test

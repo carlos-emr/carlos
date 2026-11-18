@@ -34,6 +34,32 @@ class OscarDownloadUnitTest {
     @TempDir
     Path tempDir;
 
+    @ParameterizedTest
+    @ValueSource(strings = {"missing", "unknown"})
+    void shouldRefuseMissingOrUnknownSessionDirectoryKeys_beforeOpeningAFile(String mode) throws Exception {
+        var request = new MockHttpServletRequest("GET", "/servlet/OscarDownload");
+        request.addParameter("filename", "report.bin");
+        if ("unknown".equals(mode)) request.addParameter("homepath", "not-an-approved-key");
+        request.getSession().setAttribute("user", "999998");
+        var response = new MockHttpServletResponse();
+        new OscarDownload().service(request, response);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getHeader("Content-Disposition")).isNull();
+    }
+
+    @Test
+    void shouldRefuseANonDirectorySessionPath_beforeOpeningAFile() throws Exception {
+        var request = new MockHttpServletRequest("GET", "/servlet/OscarDownload");
+        request.addParameter("filename", "report.bin");
+        request.addParameter("homepath", "obecdownload");
+        request.getSession().setAttribute("user", "999998");
+        request.getSession().setAttribute("obecdownload", Files.writeString(tempDir.resolve("not-a-directory"), "fixture").toString());
+        var response = new MockHttpServletResponse();
+        new OscarDownload().service(request, response);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getHeader("Content-Disposition")).isNull();
+    }
+
     @Test
     @DisplayName("should reject GET when filename is hidden")
     void shouldRejectGet_whenFilenameIsHidden() throws Exception {

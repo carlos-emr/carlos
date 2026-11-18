@@ -3,36 +3,11 @@ name: CDS installed export browser and CLI
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
     branches: [main, develop, experimental, 'release/*', 'staging/*', 'hotfix/*']
-    paths:
-      - 'src/main/**'
-      - 'database/mysql/migration/**'
-      - 'scripts/ci/*cds-export-installed*'
-      - 'scripts/ci/CdsExportInstalledFixture.java'
-      - 'scripts/ci/CdsImportMariaDbBootstrap.java'
-      - 'scripts/ci/cds_war_manifest.py'
-      - 'debian/carlos-ctl.pin'
-      - 'pom.xml'
-      - '.github/workflows/cds-export-installed.yml'
-      - 'scripts/ci/**'
-      - 'debian/assets/tomcat/**'
-      - '.github/actions/dev-container/**'
   push:
     # A release head must still export after independently green pull requests merge.
     branches: [main, 'release/**']
-    paths:
-      - 'src/main/**'
-      - 'database/mysql/migration/**'
-      - 'scripts/ci/*cds-export-installed*'
-      - 'scripts/ci/CdsExportInstalledFixture.java'
-      - 'scripts/ci/CdsImportMariaDbBootstrap.java'
-      - 'scripts/ci/cds_war_manifest.py'
-      - 'debian/carlos-ctl.pin'
-      - 'pom.xml'
-      - '.github/workflows/cds-export-installed.yml'
-      - 'scripts/ci/**'
-      - 'debian/assets/tomcat/**'
-      - '.github/actions/dev-container/**'
   # No workflow_dispatch: this job runs the carlos-ctl commit named by the
   # committed pin, a ref computed at run time, so a manual run from the default
   # branch would execute it with default-branch cache scope (CodeQL cache
@@ -49,7 +24,12 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    uses: ./.github/workflows/cds-change-detection.yml
+
   installed-export:
+    needs: changes
+    if: needs.changes.outputs.run-tests == 'true'
     name: Installed CDS export browser and CLI
     runs-on: ubuntu-24.04
     timeout-minutes: 75
