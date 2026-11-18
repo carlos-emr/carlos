@@ -54,13 +54,18 @@
         <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
 
+        <link href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/reportByTemplateLayout.css" rel="stylesheet">
     </head>
 
-    <body>
+    <body class="rbt-page">
 
     <%@ include file="rbtTopNav.jspf" %>
 
     <h3>Template Groups</h3>
+
+    <c:if test="${not empty errormsg}">
+        <div class="alert alert-danger" role="alert">${carlos:forHtml(errormsg)}</div>
+    </c:if>
 
     <c:choose>
         <c:when test="${ empty templatesInGroup }">

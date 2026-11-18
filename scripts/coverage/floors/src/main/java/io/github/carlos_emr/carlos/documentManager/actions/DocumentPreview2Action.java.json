@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/documentManager/actions/DocumentPreview2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "87589df8d5e2565a8472f69aa7433c852d77c63c"
+  },
+  "evidenceSha256": "6ae47fc69fba24fe96e1b0101bca299c8722b9b7d549e2d55d84b8ad9564b4da"
+}

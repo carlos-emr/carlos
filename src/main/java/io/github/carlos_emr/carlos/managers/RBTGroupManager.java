@@ -42,6 +42,15 @@ import org.springframework.stereotype.Service;
 @Service
 public class RBTGroupManager {
 
+    /** A user-correctable group-name refusal; persistence argument failures keep their original type. */
+    public static final class GroupNameValidationException extends IllegalArgumentException {
+        private static final long serialVersionUID = 1L;
+
+        private GroupNameValidationException(String message) {
+            super(message);
+        }
+    }
+
     /** Length of the {@code rbt_groups.group_name} column (varchar(255)), counted in Unicode code points. */
     public static final int MAX_GROUP_NAME_LENGTH = 255;
 
@@ -85,27 +94,27 @@ public class RBTGroupManager {
         // escape sequences that every later render then showed. Output encoding belongs at render time
         // (templateGroups.jsp / homePage.jsp use the CARLOS encoders), which is what keeps this safe.
         if (groupName == null) {
-            throw new IllegalArgumentException("Report by Template group name is required");
+            throw new GroupNameValidationException("Report by Template group name is required");
         }
         // Not String.trim()/strip(): trim() ignores Unicode spaces and strip() leaves no-break spaces
         // (NBSP) alone, while the page's JavaScript trim() removes both. Matching the browser keeps a
         // label the page treats as blank from being stored as an invisible group.
         groupName = stripEdgeWhitespace(groupName);
         if (groupName.isEmpty()) {
-            throw new IllegalArgumentException("Report by Template group name is required");
+            throw new GroupNameValidationException("Report by Template group name is required");
         }
         // rbt_groups.group_name is varchar(255), which MariaDB counts in characters (code points), not
         // UTF-16 units; String.length() would reject 200 emoji that the column holds. Refuse rather than
         // let the database truncate or fail.
         if (groupName.codePointCount(0, groupName.length()) > MAX_GROUP_NAME_LENGTH) {
-            throw new IllegalArgumentException(
+            throw new GroupNameValidationException(
                     "Report by Template group name exceeds " + MAX_GROUP_NAME_LENGTH + " characters");
         }
         // Control characters (NUL, newline, ...) are not valid label text and cannot survive the
         // HTML attribute round trip: the encoder replaces them, so the hidden groupName field would
         // name a different group than the stored one.
         if (groupName.chars().anyMatch(Character::isISOControl)) {
-            throw new IllegalArgumentException("Report by Template group name contains control characters");
+            throw new GroupNameValidationException("Report by Template group name contains control characters");
         }
         // tid 0 is the "create group" marker row (RBTAddGroup2Action). rbt_groups uses a
         // case- and accent-insensitive collation (utf8mb4_general_ci), so "Zoe" and "Zoë" address the
@@ -113,7 +122,7 @@ public class RBTGroupManager {
         // would silently merge with, and be deleted with, the first. getByGroupName compares with the
         // database collation, so it is the right test. The page's JavaScript check is feedback only.
         if (tid == 0 && !rbtGroupDao.getByGroupName(groupName).isEmpty()) {
-            throw new IllegalArgumentException("A Report by Template group with this name already exists");
+            throw new GroupNameValidationException("A Report by Template group with this name already exists");
         }
 
         RBTGroup rbtGroup = new RBTGroup();
