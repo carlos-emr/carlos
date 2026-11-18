@@ -1,6 +1,9 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.casemgmt.web;
 
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
+import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
@@ -16,6 +19,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,7 +37,9 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         action.response = new MockHttpServletResponse();
         request.setParameter("method", "issueChange");
         request.setParameter("demographicNo", "101");
-        request.setParameter("issueCheckList[0].issue.resolved", "true");
+        request.setParameter("caseIssueId", "71");
+        request.setParameter("issueField", "resolved");
+        request.setParameter("issueValue", "true");
         request.getSession().setAttribute("userrole", "read-only");
         var user = mock(LoggedInInfo.class);
         when(user.getLoggedInProviderNo()).thenReturn("999998");
@@ -44,15 +50,17 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         var manager = mock(CaseManagementManager.class);
         action.caseManagementMgr = manager;
         var form = new CaseManagementEntryFormBean();
-        form.setIssueCheckList(new ArrayList<>(List.of(new CheckBoxBean())));
+        var box = new CheckBoxBean();
+        box.getIssue().setId(71L);
+        box.getIssue().setDemographic_no(101);
+        form.setIssueCheckList(new ArrayList<>(List.of(box)));
         request.getSession().setAttribute("caseManagementEntryForm101", form);
-        action.setLineId("0");
         // Stop at the first attempted write so unrelated rendering cannot hide a missing gate.
         doThrow(new SecurityException("Synthetic unauthorized storage access"))
-                .when(manager).saveAndUpdateCaseIssues(any());
+                .when(manager).updateExistingIssue(anyLong(), any());
 
         assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
-        verify(manager, never()).saveAndUpdateCaseIssues(any());
+        verify(manager, never()).updateExistingIssue(anyLong(), any());
     }
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings={"makeIssue","issueAdd","issueDelete","issueChange","submitChangeDiagnosis","ajaxChangeDiagnosis"})
@@ -84,7 +92,7 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
     void shouldPersistIssueChange_whenCallerHasWriteAndPatientAccess() throws Exception {
         var fixture=issueFixture(true);
         org.assertj.core.api.Assertions.assertThat(fixture.action.issueChange()).isEqualTo("view");
-        verify(fixture.manager).saveAndUpdateCaseIssues(any());
+        verify(fixture.manager).updateExistingIssue(eq(91L), any());
         org.assertj.core.api.Assertions.assertThat(fixture.form.getIssueCheckList().get(0).getIssue().isResolved()).isTrue();
     }
 
@@ -138,7 +146,6 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         note.setDemographic_no("101");
         note.setNote("Existing clinical text");
         fixture.form.setCaseNote(note);
-        fixture.action.setDeleteId("0");
         var existingIssues = fixture.form.getIssueCheckList();
 
         assertThat(fixture.action.issueDelete()).isEqualTo("none");
@@ -157,7 +164,6 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         note.setDemographic_no("101");
         note.setNote("Unsaved editor text");
         fixture.form.setCaseNote(note);
-        fixture.action.setDeleteId("0");
         doReturn("").when(fixture.action).getDemoName(anyString());
         doReturn("").when(fixture.action).getDemoAge(anyString());
         doReturn("").when(fixture.action).getDemoDOB(anyString());
@@ -194,7 +200,6 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         note.setNote("Existing clinical text");
         note.setHourOfEncounterTime(1);
         fixture.form.setCaseNote(note);
-        fixture.action.setDeleteId("0");
         ((MockHttpServletRequest) fixture.action.request).setParameter("hourOfEncounterTime", "3");
         var existingIssues = fixture.form.getIssueCheckList();
         var locks = mock(CasemgmtNoteLockDao.class);
@@ -238,7 +243,6 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         note.setDemographic_no("101");
         note.setNote("Existing clinical text");
         fixture.form.setCaseNote(note);
-        fixture.action.setDeleteId("0");
         doReturn(text).when(fixture.action).getCaseNote_note();
         var captured = new CasemgmtNoteLock();
         captured.setId(75L);
@@ -264,7 +268,7 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"issueChange", "issueDelete", "ajaxChangeDiagnosis", "submitChangeDiagnosis"})
     void shouldRefuseIssueMutationWithoutModelMutation_whenFreshIssuePermissionIsDenied(String operation) {
-        var fixture = issueFixture(true);
+        var fixture = diagnosisFixture();
         fixture.action.request.getSession().setAttribute(
                 io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.class.getName() + ".101", "23");
         var rendered = fixture.form.getIssueCheckList().get(0).getIssue();
@@ -279,9 +283,9 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         var note = new CaseManagementNote();
         note.setDemographic_no("101");
         fixture.form.setCaseNote(note);
-        fixture.action.setDeleteId("0");
+        when(fixture.manager.getIssue("52")).thenReturn(new Issue());
         fixture.action.setIssueCheckList(fixture.form.getIssueCheckList());
-        ((MockHttpServletRequest) fixture.action.request).setParameter("change_diagnosis_id", "0");
+        ((MockHttpServletRequest) fixture.action.request).setParameter("change_diagnosis_id", "91");
         ((MockHttpServletRequest) fixture.action.request).setParameter("newIssueId", "52");
         doReturn("").when(fixture.action).getDemoName(anyString());
         doReturn("").when(fixture.action).getDemoAge(anyString());
@@ -295,7 +299,7 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(mutation).isInstanceOf(SecurityException.class);
 
         verify(fresh).isWriteAccess("999998", 23);
-        verifyNoInteractions(fixture.manager);
+        verify(fixture.manager, never()).changeIssueInCPP(any(), any(), any());
         assertThat(fresh.isResolved()).isFalse();
         assertThat(rendered.isResolved()).isFalse();
         assertThat(fixture.form.getIssueCheckList().get(0).getIssue()).isSameAs(rendered);
@@ -336,13 +340,14 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         replacement.setDescription("Replacement diagnosis");
         replacement.setCode("R52");
         when(fixture.manager.getIssue("52")).thenReturn(replacement);
+        var original = fixture.form.getIssueCheckList().getFirst().getIssue();
 
         assertThat(ajax ? fixture.action.ajaxChangeDiagnosis() : fixture.action.submitChangeDiagnosis())
                 .isEqualTo(ajax ? "issueList_ajax" : "view");
 
-        var issue = fixture.form.getIssueCheckList().get(0).getIssue();
-        verify(issue).isWriteAccess("999998", 0);
-        verify(fixture.manager).saveCaseIssue(issue);
+        var issue = fixture.form.getIssueCheckList().getFirst().getIssue();
+        verify(original).isWriteAccess("999998", 0);
+        verify(fixture.manager).updateExistingIssue(eq(91L), any());
         assertThat(issue.getIssue()).isSameAs(replacement);
         assertThat(issue.getIssue_id()).isEqualTo(52L);
         if (ajax) assertThat(fixture.form.getCaseNote().getIssues()).containsExactly(issue);
@@ -359,7 +364,7 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
 
         assertThat(fixture.action.response.getStatus()).isEqualTo(400);
         assertThat(issue.getIssue()).isSameAs(original);
-        verify(fixture.manager, never()).saveCaseIssue(any());
+        verify(fixture.manager, never()).updateExistingIssue(anyLong(), any());
         verify(fixture.manager, never()).changeIssueInCPP(any(), any(), any());
     }
 
@@ -386,7 +391,7 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         selected.setChecked(true);
         selected.getIssue().setId(52L);
         fixture.action.setNewIssueCheckList(new CheckIssueBoxBean[]{selected});
-        ((MockHttpServletRequest) fixture.action.request).setParameter("change_diagnosis_id", "0");
+        ((MockHttpServletRequest) fixture.action.request).setParameter("change_diagnosis_id", "91");
         ((MockHttpServletRequest) fixture.action.request).setParameter("newIssueId", "52");
         doReturn("").when(fixture.action).getDemoName(anyString());
         doReturn("").when(fixture.action).getDemoAge(anyString());
@@ -398,7 +403,11 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         var action=mock(CaseManagementEntry2Action.class,CALLS_REAL_METHODS);
         var request=new MockHttpServletRequest("POST","/CaseManagementEntry");action.request=request;
         action.response=new MockHttpServletResponse();request.setParameter("demographicNo","101");
-        request.setParameter("issueCheckList[0].issue.resolved","true");request.getSession().setAttribute("userrole","doctor");
+        // The page sends the clicked patient issue and the one value chosen, never a row index (#6090).
+        request.setParameter("caseIssueId", "91");
+        request.setParameter("issueField", "resolved");
+        request.setParameter("issueValue", "true");
+        request.getSession().setAttribute("userrole","doctor");
         var user=mock(LoggedInInfo.class);when(user.getLoggedInProviderNo()).thenReturn("999998");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(),user);
         var permissions=mock(SecurityInfoManager.class);
@@ -413,11 +422,14 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         issue.setDemographic_no(101);
         doReturn(true).when(issue).isWriteAccess("999998", 0);
         box.setIssue(issue);
-        var issues = mock(io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO.class);
+        var issues = mock(CaseManagementIssueDAO.class);
         when(issues.findById(91L)).thenReturn(issue);
         injectDependency(action, "caseManagementIssueDao", issues);
+        when(manager.updateExistingIssue(anyLong(), any())).thenAnswer(invocation ->
+                invocation.<Function<CaseManagementIssue, ?>>getArgument(1)
+                        .apply(issues.findById(invocation.getArgument(0))));
         form.setIssueCheckList(new ArrayList<>(List.of(box)));
-        request.getSession().setAttribute("caseManagementEntryForm101",form);action.setLineId("0");
+        request.getSession().setAttribute("caseManagementEntryForm101",form);
         request.getSession().setAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.class.getName() + ".101", "0");
         return new Fixture(action,manager,form);
     }
@@ -439,7 +451,6 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class);
         assertThat(original.getIssue()).isSameAs(diagnosis);
         assertThat(fixture.form.getIssueCheckList().get(0).getIssue()).isSameAs(original);
-        verify(fixture.manager, never()).saveCaseIssue(any());
         verify(fixture.manager, never()).changeIssueInCPP(any(), any(), any());
     }
 
@@ -449,7 +460,7 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         fixture.form.setCaseNote(null);
         assertThat(fixture.action.ajaxChangeDiagnosis()).isEqualTo("none");
         assertThat(fixture.action.response.getStatus()).isEqualTo(400);
-        verify(fixture.manager, never()).saveCaseIssue(any());
+        verify(fixture.manager, never()).updateExistingIssue(anyLong(), any());
     }
 
     @Test
@@ -463,7 +474,7 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
             fixture.action.setNewIssueCheckList(choices);
             assertThat(fixture.action.submitChangeDiagnosis()).isEqualTo("view");
         }
-        verify(fixture.manager, never()).saveCaseIssue(any());
+        verify(fixture.manager, never()).updateExistingIssue(anyLong(), any());
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -473,6 +484,7 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         var original = fixture.form.getIssueCheckList().get(0).getIssue();
         var dao = (io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO)
                 org.springframework.test.util.ReflectionTestUtils.getField(fixture.action, "caseManagementIssueDao");
+        when(fixture.manager.getIssue("52")).thenReturn(new Issue());
         switch (scenario) {
             case "missing-selection" -> {
                 var detachedSelection = new CheckBoxBean();
@@ -489,20 +501,26 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
             }
         }
 
-        assertThatThrownBy(fixture.action::submitChangeDiagnosis).isInstanceOf(SecurityException.class);
-
-        verifyNoInteractions(fixture.manager);
+        if ("missing-selection".equals(scenario) || "missing-id".equals(scenario)) {
+            assertThat(fixture.action.submitChangeDiagnosis()).isEqualTo("none");
+            assertThat(fixture.action.response.getStatus()).isEqualTo(409);
+            verifyNoInteractions(fixture.manager);
+        } else {
+            assertThatThrownBy(fixture.action::submitChangeDiagnosis).isInstanceOf(SecurityException.class);
+            verify(fixture.manager, never()).changeIssueInCPP(any(), any(), any());
+        }
         assertThat(fixture.form.getIssueCheckList().get(0).getIssue()).isSameAs(original);
         assertThat(original.isResolved()).isFalse();
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.CsvSource({"submit,not-an-index", "submit,-1", "submit,1",
-            "ajax,not-an-index", "ajax,-1", "ajax,1", "status,not-an-index", "status,-1", "status,1"})
-    void shouldRejectInvalidIssueIndexWithoutWrites_whenChangingDiagnosisOrStatus(String operation, String index) throws Exception {
+    @org.junit.jupiter.params.provider.CsvSource({"submit,invalid-id", "submit,-1", "submit,1",
+            "ajax,invalid-id", "ajax,-1", "ajax,1", "status,invalid-id", "status,-1", "status,1"})
+    void shouldRejectInvalidIssueIdWithoutWrites_whenChangingDiagnosisOrStatus(String operation, String id) throws Exception {
         var fixture = diagnosisFixture();
-        ((MockHttpServletRequest) fixture.action.request).setParameter("change_diagnosis_id", index);
-        fixture.action.setLineId(index);
+        var request = (MockHttpServletRequest) fixture.action.request;
+        request.setParameter("change_diagnosis_id", id);
+        request.setParameter("caseIssueId", id);
 
         String result = switch (operation) {
             case "submit" -> fixture.action.submitChangeDiagnosis();
@@ -511,7 +529,7 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         };
 
         assertThat(result).isEqualTo("none");
-        assertThat(fixture.action.response.getStatus()).isEqualTo(400);
+        assertThat(fixture.action.response.getStatus()).isEqualTo("1".equals(id) ? 409 : 400);
         verifyNoInteractions(fixture.manager);
         assertThat(fixture.form.getIssueCheckList().get(0).getIssue().isResolved()).isFalse();
     }
@@ -540,8 +558,9 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
     void shouldLeaveDiagnosisUnchanged_whenAjaxHasNoReplacement() {
         var fixture = diagnosisFixture();
         ((MockHttpServletRequest) fixture.action.request).removeParameter("newIssueId");
-        assertThat(fixture.action.ajaxChangeDiagnosis()).isEqualTo("issueList_ajax");
-        verify(fixture.manager, never()).saveCaseIssue(any());
+        assertThat(fixture.action.ajaxChangeDiagnosis()).isEqualTo("none");
+        assertThat(fixture.action.response.getStatus()).isEqualTo(400);
+        verify(fixture.manager, never()).updateExistingIssue(anyLong(), any());
     }
 
     @Test
@@ -567,20 +586,20 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldPersistAllIssueFlagsWithoutANote_whenIssueOnlyEditingIsAuthorized() throws Exception {
+    void shouldPersistOnlyTheClickedFlag_whenIssueOnlyEditingIsAuthorized() throws Exception {
         var fixture = diagnosisFixture();
         fixture.form.setCaseNote(null);
         var request = (MockHttpServletRequest) fixture.action.request;
-        request.setParameter("issueCheckList[0].issue.acute", "true");
+        request.setParameter("issueField", "acute");
         request.setParameter("issueCheckList[0].issue.major", "true");
 
         assertThat(fixture.action.issueChange()).isEqualTo("view");
 
         var box = fixture.form.getIssueCheckList().get(0);
         assertThat(box.getIssue().isAcute()).isTrue();
-        assertThat(box.getIssue().isMajor()).isTrue();
+        assertThat(box.getIssue().isMajor()).isFalse();
         assertThat(box.getIssueDisplay().getAcute()).isEqualTo("acute");
-        assertThat(box.getIssueDisplay().getMajor()).isEqualTo("major");
-        verify(fixture.manager).saveAndUpdateCaseIssues(List.of(box.getIssue()));
+        assertThat(box.getIssueDisplay().getMajor()).isEqualTo("not major");
+        verify(fixture.manager).updateExistingIssue(eq(91L), any());
     }
 }

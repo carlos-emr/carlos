@@ -126,10 +126,9 @@
         }
 
         function validateIssuecheck() {
-            // Resolved issues can leave gaps in rendered indexes. Inspect the actual
-            // controls rather than a separate server-side display counter.
             return Array.prototype.some.call(document.caseManagementEntryForm.elements, function (field) {
-                return field.type === 'checkbox' && /^issueCheckList\[\d+\]\.checked$/.test(field.name)
+                return field.type === 'checkbox' &&
+                    /^(?:selected(?:Case|Catalog)IssueId|issueCheckList\[\d+\]\.checked)$/.test(field.name)
                     && field.checked;
             });
         }
@@ -375,9 +374,10 @@
         <c:if test="${param.from=='casemgmt'||requestScope.from=='casemgmt'}">
             <input type="hidden" name="from" value="casemgmt"/>
         </c:if>
-        <input type="hidden" name="lineId" value="0"/>
         <input type="hidden" name="addIssue" value="null"/>
-        <input type="hidden" name="deleteId" value="0"/>
+        <%-- Patient issue (casemgmt_issue id) a Delete or Change Issue button targets; never a row position (#6090). --%>
+        <input type="hidden" name="caseIssueId" value=""/>
+        <input type="hidden" name="issueSelectionById" value="true"/>
 
         <b><fmt:message key="casemanagementEntry.clientname"/>
             <I>
@@ -437,7 +437,8 @@
 
         <tr style="background-color: ${counter % 2 == 0 ? '#EEEEFF' : 'white'}; text-align: center;">
             <td>
-                <input type="checkbox" name="issueCheckList[${status.index}].checked"
+                <input type="checkbox" name="${cbb.issue.id > 0 ? 'selectedCaseIssueId' : 'selectedCatalogIssueId'}"
+                       value="<carlos:encode value='${cbb.issue.id > 0 ? cbb.issue.id : cbb.issue.issue_id}' context='htmlAttribute'/>"
                        onchange="setChangeFlag(true);"
                        disabled ${checkBoxDisabled ? '' : 'data-note-lock-edit'} />
             </td>
@@ -485,12 +486,14 @@
                 <c:if test="${cbb.issueDisplay.location eq 'local'}">
                     <c:if test="${!cbb.used}">
                         <button type="submit" disabled data-note-lock-edit
-                                onclick="this.form.method.value='issueDelete'; this.form.deleteId.value='${status.index}';">
+                                onclick="this.form.method.value='issueDelete'; this.form.caseIssueId.value=this.getAttribute('data-case-issue-id');"
+                                data-case-issue-id="<carlos:encode value='${cbb.issue.id}' context='htmlAttribute'/>">
                             Delete
                         </button>
                     </c:if>
                     <button type="submit" disabled data-note-lock-edit
-                            onclick="this.form.method.value='changeDiagnosis'; this.form.deleteId.value='${status.index}';">
+                            onclick="this.form.method.value='changeDiagnosis'; this.form.caseIssueId.value=this.getAttribute('data-case-issue-id');"
+                            data-case-issue-id="<carlos:encode value='${cbb.issue.id}' context='htmlAttribute'/>">
                         Change Issue
                     </button>
                 </c:if>
