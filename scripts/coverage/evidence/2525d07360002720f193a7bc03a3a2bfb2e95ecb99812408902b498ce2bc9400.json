@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "e9a942322175baf1407034c5d3ae38659024b81f",
+  "comparisonSha256": "624df20b53c20c6ca627ea587496d0aca16bf571c7ca2ea721ffc405b014a2bc",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/db/ReportQueryDeadline.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 92.10526315789474,
+      "sourceBlob": "3bc6666e92016448bc9839eeed4180b2cd5ea37f"
+    }
+  },
+  "baselineCommit": "e9d56b518114fbed835afc3f88dea192e21e827d",
+  "baselineSourceTree": "e9a942322175baf1407034c5d3ae38659024b81f",
+  "baselineReportSha256": "e27d533870a1aa79ef5e310a3673c71214792aa9e0b2de1cebca6678dab44f10",
+  "baselineLane": "Focused JDK 25 report deadline, JDBC ownership, configured query, and template rendering tests. The changed source and regression tests were freshly compiled against the release build. The selected source comparison covers all 68 executable changed lines, all 270 instructions, and 35 of 38 branches. All new abort cleanup logging branches were exercised.",
+  "baselineTestCounts": {
+    "tests": 106,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "8ab361162e2c452b8ffaf728a2737863b047631fa529f83d74710f5d520df136",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}
