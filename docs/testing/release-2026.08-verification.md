@@ -84,6 +84,9 @@ and the branch version/SCM metadata.
   known failures, unexpected passes, incomplete selections, cleanup failures
   and missing/changed deployment identity. Province matching handles `ON` and
   `on` consistently. Ordinary diagnostic mode retains its classifications.
+  Qualification summaries retain the names of failed runner residue, deployment
+  identity and navigation-fixture checks. Their diagnostic messages stay in the
+  retained `browser.xml`; incomplete or duplicate selections still fail closed.
 * Node and Python adapters use engine events/results rather than parsing stdout
   as evidence. They retain skips, TODOs, expected failures, unexpected successes,
   cancellation, subtest failures and both primary/cleanup errors. Node identities

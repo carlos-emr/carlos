@@ -53,6 +53,18 @@ import io.github.carlos_emr.carlos.log.LogAction;
 @Service
 public class PatientConsentManagerImpl implements PatientConsentManager {
 
+    /**
+     * Names the legacy unchecked denial without changing its message or REST mapping.
+     * A SecurityException would select a different mapper and change the response contract.
+     */
+    private static final class ConsentPermissionException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        private ConsentPermissionException() {
+            super("Unauthorised Access. Object[_demographic]");
+        }
+    }
+
     @Autowired
     private ConsentDao consentDao;
 
@@ -128,7 +140,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
     public boolean addConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId, boolean explicit, boolean optOut) {
 
         if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.WRITE, demographic_no)) {
-            throw new RuntimeException("Unauthorised Access. Object[_demographic]");
+            throw new ConsentPermissionException();
         }
 
         return addEditConsentRecord(loggedinInfo, demographic_no, consentTypeId, explicit, optOut);
@@ -149,7 +161,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      */
     public boolean addEditConsentRecord(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId, boolean explicit, boolean optOut) {
         if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.WRITE, demographic_no)) {
-            throw new RuntimeException("Unauthorised Access. Object[_demographic]");
+            throw new ConsentPermissionException();
         }
 
         LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.createConsent", " Demographic: " + demographic_no);
@@ -237,7 +249,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
     public void optoutConsent(LoggedInInfo loggedinInfo, int consentId) {
 
         if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("Unauthorised Access. Object[_demographic]");
+            throw new ConsentPermissionException();
         }
 
         LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.optoutConsent[consentID]", " ConsentId: " + consentId);
@@ -264,9 +276,9 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
             throw new SecurityException("missing required sec object (_admin)");
         }
 
-        LogAction.addLog(loggedinInfo.getLoggedInProviderNo(), "PatientConsentManager.addConsentType", consentType.getType(), consentType.toString());
-
         consentTypeDao.persist(consentType);
+        LogAction.addLog(loggedinInfo.getLoggedInProviderNo(), "PatientConsentManager.addConsentType",
+                consentType.getType(), "consentTypeId=" + consentType.getId());
         return consentType;
     }
 
@@ -326,7 +338,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      */
     public Consent getConsentByDemographicAndConsentType(LoggedInInfo loggedinInfo, int demographic_no, ConsentType consentType) {
         if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.READ, demographic_no)) {
-            throw new RuntimeException("Unauthorised Access. Object[_demographic]");
+            throw new ConsentPermissionException();
         }
 
         if (consentType == null) {
@@ -345,7 +357,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
     public List<Consent> getAllConsentsByDemographic(LoggedInInfo loggedinInfo, int demographic_no) {
 
         if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.READ, demographic_no)) {
-            throw new RuntimeException("Unauthorised Access. Object[_demographic]");
+            throw new ConsentPermissionException();
         }
 
         List<Consent> consent = consentDao.findByDemographic(demographic_no);
@@ -401,7 +413,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
      */
     public void deleteConsent(LoggedInInfo loggedinInfo, int demographic_no, int consentTypeId) {
         if (!securityInfoManager.hasPrivilege(loggedinInfo, "_demographic", SecurityInfoManager.READ, demographic_no)) {
-            throw new RuntimeException("Unauthorised Access. Object[_demographic]");
+            throw new ConsentPermissionException();
         }
 
         LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.deleteConsent()", " Demographic: " + demographic_no);
