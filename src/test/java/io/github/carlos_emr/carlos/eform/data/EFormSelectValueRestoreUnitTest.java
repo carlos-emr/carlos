@@ -34,6 +34,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -174,6 +176,30 @@ class EFormSelectValueRestoreUnitTest extends CarlosUnitTestBase {
         String html = "<select name=\"m\" multiple><option selected>a</option><option>b</option></select>";
 
         assertThat(selectedTexts(save(html, "m", "b"), "m")).containsExactly("b");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldUseTheScalarValue_whenRepeatedValuesAreNullOrEmpty(boolean suppliedEmptyList) {
+        EForm form = formOf("<input name=untouched value=keep>"
+                + "<select name=m multiple><option selected>a</option><option>b</option></select>");
+        Map<String, List<String>> submitted = suppliedEmptyList ? Map.of("m", List.of()) : null;
+
+        form.setValues(list("m"), list("b"), submitted);
+
+        Document saved = Jsoup.parse(form.getFormHtml());
+        assertThat(selectedTexts(saved, "m")).containsExactly("b");
+        assertThat(saved.selectFirst("input[name=untouched]").val()).isEqualTo("keep");
+    }
+
+    @Test
+    void shouldLeaveTheFormUntouched_whenSubmittedNamesAndValuesHaveDifferentLengths() {
+        EForm form = formOf(VALUELESS);
+        String before = form.getFormHtml();
+
+        form.setValues(list("s"), list());
+
+        assertThat(form.getFormHtml()).isEqualTo(before);
     }
 
     @Test

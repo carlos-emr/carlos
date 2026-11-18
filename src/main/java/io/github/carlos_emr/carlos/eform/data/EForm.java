@@ -1081,7 +1081,7 @@ public class EForm extends EFormBase {
      * @return boolean true when the template content must be kept
      */
     private boolean keepsFdidMarker(String authored, String submitted) {
-        return submitted.isBlank() && authored != null && authored.contains(fdidMarker);
+        return submitted.isBlank() && authored.contains(fdidMarker);
     }
 
     private StringBuilder putValueUsingDocument(String fieldName, String type, String value) {
