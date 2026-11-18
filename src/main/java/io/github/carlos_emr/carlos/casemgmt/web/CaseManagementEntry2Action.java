@@ -2084,6 +2084,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         caseManagementIssue.setResolved(ISSUE_RESOLVED.equals(issueDisplay.resolved));
     }
 
+    // The case-insensitive comparison reads a fixed editor checkbox token. Issue authorization
+    // uses patient ownership and write permission.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "Compares a fixed editor checkbox token. Issue authorization uses patient ownership and write permission.")
     private String prepareCheckedIssues(HttpServletRequest request, String demo, List<CaseManagementIssue> issuelist,
                                         List<CheckBoxBean> checkedlist, Set issueset, Set noteSet, String ongoing,
                                         CaseManagementIssue removedIssue) {
