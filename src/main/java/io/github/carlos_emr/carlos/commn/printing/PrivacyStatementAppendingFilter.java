@@ -257,12 +257,18 @@ public class PrivacyStatementAppendingFilter implements Filter {
     private static final class PrintStatementRequest extends HttpServletRequestWrapper {
         private final boolean wildcard;
 
+        // FindSecBugs SERVLET_HEADER: the untrusted header only preserves HTTP's wildcard existence condition;
+        // it grants no privilege and every other file validator is hidden from the decorating request.
+        @SuppressFBWarnings(value = "SERVLET_HEADER", justification = "Untrusted header selects only the HTTP wildcard existence condition, not authorization; all other file validators are hidden")
         private PrintStatementRequest(HttpServletRequest request) {
             super(request);
             String tag = request.getHeader("If-None-Match");
             wildcard = tag != null && "*".equals(tag.trim());
         }
 
+        // FindSecBugs IMPROPER_UNICODE: compares fixed ASCII HTTP field names, which are case-insensitive;
+        // this is a protocol comparison, not a security or authorization decision.
+        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Case-insensitive comparison of fixed ASCII HTTP field names; protocol comparison, not authorization")
         private boolean isFileCacheValidator(String name) {
             return "If-Modified-Since".equalsIgnoreCase(name)
                     || ("If-None-Match".equalsIgnoreCase(name) && !wildcard);
