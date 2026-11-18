@@ -43,6 +43,7 @@ import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jsoup.parser.Parser;
 import org.jsoup.parser.TokenQueue;
 import org.jsoup.select.Elements;
 import org.owasp.encoder.Encode;
@@ -1159,6 +1160,149 @@ public class EForm extends EFormBase {
     }
 
     /**
+     * Where to insert {@code " selected"} so the option of the select between {@code from} and {@code to}
+     * that a browser would submit as exactly {@code wanted} is chosen, or -1 when none is (the select is then
+     * left as the template has it). An EMPTY {@code wanted} marks the first option that has a {@code value}
+     * attribute, whatever it holds. This is kept for compatibility with the earlier text search for
+     * {@code " value="}, which marked the same option for options written the usual way (one space before
+     * {@code value}, {@code value="..."}); it is not a design, and it is not bug-for-bug: it no longer
+     * misfires on a tab or newline before {@code value}, {@code value ="..."}, an {@code <optgroup value>},
+     * or {@code value=} inside a title, a comment or option text, where it marks the first valued option
+     * instead. The text differs from the old result (the old code put {@code selected} after the value
+     * attribute, this puts it right after {@code <option>}), the selection a browser makes is the same.
+     *
+     * <p>The options are read the way a browser reads them:</p>
+     * <ul>
+     *   <li>only {@code <option>} start tags count; HTML comments, {@code <script>} and {@code <style>}
+     *       bodies are skipped, and a tag is read to its own {@code >} (quoted attribute values, with
+     *       {@code >} inside them, and attributes without a value are stepped over);</li>
+     *   <li>an option's submitted value is its first {@code value} attribute (double-quoted, single-quoted or
+     *       bare, character references decoded: {@code Smith &amp; Sons} is {@code Smith & Sons}), or, with
+     *       no {@code value} attribute, its text with character references decoded and white space
+     *       collapsed (as {@link #submittedOptionValue}, which works on a parsed document);</li>
+     *   <li>the whole value is compared, case-insensitively as the earlier text search was; a longer
+     *       sibling that only starts with the wanted text ("Yes, with help" for "Yes") does not match, and
+     *       nothing is built into a pattern from the value. A template value that literally holds
+     *       character-reference text ({@code Smith &amp; Sons}) also matches that same text in the
+     *       database, as it did before the decoding;</li>
+     *   <li>the first match wins. A template option that is already {@code selected} is left as it is, so a
+     *       select can carry two {@code selected} options; a single select then submits the last one in
+     *       document order, exactly as before this change.</li>
+     * </ul>
+     *
+     * <p>The insert position is right after {@code <option}, so {@code selected} lands in the matched tag
+     * whatever its other attributes are. Unterminated markup (comment, quote or tag) stops the search: the
+     * select is left untouched.</p>
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of a template option value with a database value; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an eForm option value with a database value; not a security or authorization decision")
+    static int selectedOptionInsertAt(CharSequence html, int from, int to, String wanted) {
+        if (wanted == null) return -1;
+        int base = Math.max(0, from);
+        String region = html.subSequence(base, Math.min(to, html.length())).toString();
+        int length = region.length();
+        int i = 0;
+        while (i < length) {
+            int open = region.indexOf('<', i);
+            if (open < 0) break;
+            if (region.startsWith("<!--", open)) {
+                int close = region.indexOf("-->", open + 4);
+                if (close < 0) return -1;
+                i = close + 3;
+                continue;
+            }
+            String rawText = rawTextElementAt(region, open);
+            if (rawText != null) {
+                int close = indexOfIgnoreCase(region, "</" + rawText, open + 1);
+                int closeEnd = close < 0 ? -1 : region.indexOf('>', close);
+                if (closeEnd < 0) return -1;
+                i = closeEnd + 1;
+                continue;
+            }
+            if (!isTagNameAt(region, open + 1, "option")) {
+                i = open + 1;
+                continue;
+            }
+            int p = open + 7;
+            String value = null;
+            int end;
+            while (true) {
+                while (p < length && (Character.isWhitespace(region.charAt(p)) || region.charAt(p) == '/')) p++;
+                if (p >= length) return -1; // an unterminated tag
+                if (region.charAt(p) == '>') {
+                    end = p;
+                    break;
+                }
+                int nameStart = p;
+                while (p < length && !Character.isWhitespace(region.charAt(p)) && "=>/".indexOf(region.charAt(p)) < 0) p++;
+                if (p == nameStart) { // a stray "=": step over it
+                    p++;
+                    continue;
+                }
+                String name = region.substring(nameStart, p);
+                int q = p;
+                while (q < length && Character.isWhitespace(region.charAt(q))) q++;
+                if (q < length && region.charAt(q) == '=') {
+                    p = q + 1;
+                    while (p < length && Character.isWhitespace(region.charAt(p))) p++;
+                    int valueStart;
+                    int valueEnd;
+                    if (p < length && (region.charAt(p) == '"' || region.charAt(p) == '\'')) {
+                        valueStart = p + 1;
+                        valueEnd = region.indexOf(region.charAt(p), valueStart);
+                        if (valueEnd < 0) return -1; // an unclosed quote: not a value to trust
+                        p = valueEnd + 1;
+                    } else {
+                        valueStart = p;
+                        while (p < length && !Character.isWhitespace(region.charAt(p)) && region.charAt(p) != '>') p++;
+                        valueEnd = p;
+                    }
+                    if (value == null && name.equalsIgnoreCase("value")) {
+                        value = region.substring(valueStart, valueEnd);
+                    }
+                }
+            }
+            boolean chosen;
+            if (wanted.isEmpty()) {
+                // Kept for compatibility; not a design: an empty output marks the first option that has a value
+                // attribute, as the earlier text search for " value=" did.
+                chosen = value != null;
+            } else if (value != null) {
+                chosen = Parser.unescapeEntities(value, true).equalsIgnoreCase(wanted) || value.equalsIgnoreCase(wanted);
+            } else {
+                int next = region.indexOf('<', end + 1);
+                String text = region.substring(end + 1, next < 0 ? length : next);
+                text = StringUtils.strip(Parser.unescapeEntities(text, false).replaceAll("[ \\t\\r\\n\\f]+", " "), " ");
+                chosen = text.equalsIgnoreCase(wanted);
+            }
+            if (chosen) return base + open + 7;
+            i = end + 1;
+        }
+        return -1;
+    }
+
+    /** {@code script} or {@code style} when a tag of that name starts at {@code open}, else null. */
+    private static String rawTextElementAt(String region, int open) {
+        if (isTagNameAt(region, open + 1, "script")) return "script";
+        if (isTagNameAt(region, open + 1, "style")) return "style";
+        return null;
+    }
+
+    /** Whether {@code name} is the tag name at {@code at} (any case), ended by white space, {@code >} or {@code /}. */
+    private static boolean isTagNameAt(String region, int at, String name) {
+        int after = at + name.length();
+        return region.regionMatches(true, at, name, 0, name.length()) && after < region.length()
+                && (Character.isWhitespace(region.charAt(after)) || region.charAt(after) == '>' || region.charAt(after) == '/');
+    }
+
+    private static int indexOfIgnoreCase(String text, String part, int from) {
+        for (int i = Math.max(0, from); i + part.length() <= text.length(); i++) {
+            if (text.regionMatches(true, i, part, 0, part.length())) return i;
+        }
+        return -1;
+    }
+
+    /**
      * The value a browser submits for an option: its {@code value} attribute when it has one,
      * otherwise its text with whitespace stripped and collapsed. jsoup reads a missing attribute
      * as an empty string, which is why the attribute alone cannot be compared: every value-less
@@ -1288,10 +1432,12 @@ public class EForm extends EFormBase {
         } else if (type.equals("select")) {
             int selectEnd = StringBuilderUtils.indexOfIgnoreCase(html, "</select>", pointer);
             if (selectEnd >= 0) {
-                int valueLoc = nextIndex(html, " value=" + output, " value=\"" + output, pointer);
-                if (valueLoc < 0 || valueLoc > selectEnd) return html;
-                pointer = nextSpot(html, valueLoc);
-                html = html.insert(pointer, " selected");
+                // The option a browser would submit as exactly the output (see selectedOptionInsertAt): never a
+                // prefix of a longer value, never a pattern built from the value, and an entity-encoded template
+                // value ("Smith &amp; Sons") matches the raw output ("Smith & Sons").
+                int insertAt = selectedOptionInsertAt(html, pointer, selectEnd, output);
+                if (insertAt < 0) return html;
+                html = html.insert(insertAt, " selected");
             }
         } else { //type=input
             html.insert(pointer, " value=\"" + SafeEncode.forHtmlAttribute(output) + "\"");
