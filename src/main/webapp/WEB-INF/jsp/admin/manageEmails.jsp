@@ -82,7 +82,7 @@
             border-left: 3px solid #c30010 !important;
         }
 
-        .email-status-card .vertical-status-divider-outbox {
+        .email-status-card .vertical-status-divider-unconfirmed {
             border-left: 3px solid #0747a1 !important;
         }
 
@@ -120,7 +120,7 @@
             color: #c30010 !important;
         }
 
-        .email-status-card .status-tag-outbox {
+        .email-status-card .status-tag-unconfirmed {
             background-color: #bbdffb !important;
             color: #0747a1 !important;
         }
@@ -134,7 +134,7 @@
             background-color: #ffcbd1 !important;
         }
 
-        .email-status-card .status-tag-outbox:hover {
+        .email-status-card .status-tag-unconfirmed:hover {
             background-color: #90cbf9 !important;
         }
 
