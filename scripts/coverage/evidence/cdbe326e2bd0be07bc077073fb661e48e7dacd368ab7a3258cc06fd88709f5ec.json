@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "75d438bb10a447aa7214394434bc5f05155e53bd",
+  "comparisonSha256": "fb0a6f96bbfd94667ff7dd0715db689f4728736efa168949bb6d77599c0af9c8",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/demographic/data/DemographicMerged.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "16b6e4da2bab742d5d446e2d54295b62d9ea2d54"
+    }
+  },
+  "baselineCommit": "1efaaad8f88115cd4db13f276d5f61f2127f099d",
+  "baselineSourceTree": "75d438bb10a447aa7214394434bc5f05155e53bd",
+  "baselineReportSha256": "918b32e6e3255a3b6b66f467ff0906178d423f03a45b9f72f40a160d9a55b768",
+  "baselineLane": "60 action tests including 19 physical Ontario Flyway MariaDB unmerge cases and preserved history",
+  "baselineTestCounts": {
+    "tests": 60,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "83718f3a94f01f1e73facdcdaed5a62e7ce3dd5e749c4b31a13346446b731adb",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

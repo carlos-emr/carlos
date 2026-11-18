@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "e5f8db7cc66d274ee6a2526e472b82789892130e",
+  "comparisonSha256": "8f68583ec53950cf2771ddb9f0657ad314a3fa69b8c493ec41060d3ae17643c6",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/eform/EFormExportZip.java": {
+      "lines": 99.5475113122172,
+      "instructions": 99.71126082771896,
+      "branches": 95.76271186440678,
+      "sourceBlob": "90d704b103bb34bd660df7efb2b1999d237df44f"
+    }
+  },
+  "baselineCommit": "e20fa63473948d6a7dd9dd36e8ca6258b7a0bb6f",
+  "baselineSourceTree": "e5f8db7cc66d274ee6a2526e472b82789892130e",
+  "baselineReportSha256": "6d11f7f7f068a2edd57533d2ab20fe09c6aabb523c4f3e8b6a5480c8b9b5678d",
+  "baselineLane": "Java 25 eForm, XML and image upload regressions including complete nested asset registration semantics",
+  "baselineTestCounts": {
+    "tests": 1379,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 6
+  },
+  "baselineTestReportsSha256": "5dacfeb7749a09cac11276414976f8572329efe8e311fc62dab7249e9d46affe",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}
