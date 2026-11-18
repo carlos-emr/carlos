@@ -5,13 +5,14 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const h = require('./lib/playwright-harness');
 const support = require('./lib/concurrency-support');
+const expectedLockAlert = 'Your note lock has been lost. Copy your text and reopen the chart.';
 
 // Exercise the workflow's real assertions and diagnostics consumption with deterministic browser
 // and database doubles. Negative cases must fail even when B's original text is still present.
 async function run({ status = 409, extraResponse, extraConsole, revision = false,
   changedText = false, changedIdentity = false, missingB = false, persistedStale = false, kept = true,
   responseUrl,
-  alerts = [{ type: 'alert', text: 'Your note lock has been lost. Copy your text and reopen the chart.' }] } = {}) {
+  alerts = [{ type: 'alert', text: expectedLockAlert }] } = {}) {
   const recorder = h.createRecorder();
   const marker = 'FAKE-PW-takeover';
   const textB = `${marker} note typed in the window that took the lock`;
@@ -25,6 +26,7 @@ async function run({ status = 409, extraResponse, extraConsole, revision = false
   const chart = stale => {
     let text = '';
     return {
+      async evaluate() { return expectedLockAlert; },
       async waitForResponse(predicate) {
         const result = response(stale ? status : 200, stale ? responseUrl : undefined);
         assert.equal(predicate(result), true);
@@ -32,7 +34,6 @@ async function run({ status = 409, extraResponse, extraConsole, revision = false
       },
       async waitForTimeout() {},
       locator(selector) {
-        if (selector === 'body') return { async innerText() { return 'E-Chart'; } };
         if (selector === '#saveImg') return { first() { return this; }, async click() {
           if (!stale) { bSaved = !missingB; return; }
           staleSaved = true;
@@ -99,7 +100,9 @@ test('one expected save 409 and its console error reach the note and editor asse
 });
 
 test('a generic status-only refusal cannot qualify lost-lock feedback', async () => {
-  await assert.rejects(run({ alerts: [{ type: 'alert', text: 'Failed to save note! 409' }] }), /no lock-specific alert/);
+  for (const text of ['Failed to save note! 409', 'Request blocked.']) {
+    await assert.rejects(run({ alerts: [{ type: 'alert', text }] }), /no lock-specific alert/);
+  }
 });
 
 for (const status of [200, 403, 500]) {
@@ -159,5 +162,5 @@ test('losing the editor after refusal still fails', async () => {
 });
 
 test('silently refusing the save still fails', async () => {
-  await assert.rejects(run({ alerts: [] }), /no lock-specific alert or visible message/);
+  await assert.rejects(run({ alerts: [] }), /no lock-specific alert/);
 });

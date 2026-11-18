@@ -103,9 +103,11 @@ var CarlosAjax = (function () {
      * @param {number} status - HTTP status code
      * @param {string} responseText - Response body text
      * @param {string} [responseURL] - Final URL after redirects
+     * @param {string} [statusText] - HTTP status text
+     * @param {XMLHttpRequest} [xhr] - Request from which to read response headers
      * @returns {Object} Transport object with .status, .responseText, .responseURL
      */
-    function makeTransport(status, responseText, responseURL, statusText) {
+    function makeTransport(status, responseText, responseURL, statusText, xhr) {
         var transport = {
             status: status,
             statusText: statusText || '',
@@ -113,6 +115,9 @@ var CarlosAjax = (function () {
             responseURL: responseURL || '',
             responseJSON: null
         };
+        if (xhr && typeof xhr.getResponseHeader === 'function') {
+            transport.getResponseHeader = xhr.getResponseHeader.bind(xhr);
+        }
         if (responseText) {
             try { transport.responseJSON = JSON.parse(responseText); } catch (e) { /* not JSON */ }
         }
@@ -254,7 +259,7 @@ var CarlosAjax = (function () {
             return errorTransport;
         }
 
-        var transport = makeTransport(xhr.status, xhr.responseText, xhr.responseURL, xhr.statusText);
+        var transport = makeTransport(xhr.status, xhr.responseText, xhr.responseURL, xhr.statusText, xhr);
 
         // Check for CSRF redirect
         if (xhr.responseURL && xhr.responseURL.indexOf('errorpage') !== -1) {
@@ -300,7 +305,7 @@ var CarlosAjax = (function () {
         }
 
         xhr.onload = function () {
-            var transport = makeTransport(xhr.status, xhr.responseText, xhr.responseURL, xhr.statusText);
+            var transport = makeTransport(xhr.status, xhr.responseText, xhr.responseURL, xhr.statusText, xhr);
 
             // Detect CSRF rejection (redirect to error page)
             if (isCsrfRedirect(transport)) {

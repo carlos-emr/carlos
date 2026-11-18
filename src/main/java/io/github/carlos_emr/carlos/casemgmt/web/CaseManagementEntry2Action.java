@@ -2476,6 +2476,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                     if (ownsNoteLock(stored, patient, selectedId, provider, sessionId)) return stored;
                 }
             }
+            response.setHeader("X-Carlos-Note-Lock-Lost", "true");
         } catch (RuntimeException failedLockRead) {
             logger.warn("Note lock validation failed ({})", failedLockRead.getClass().getSimpleName());
         }

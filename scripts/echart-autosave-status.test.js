@@ -92,15 +92,30 @@ function modernNativeAjax() {
     constructor() { this.timeout = 0; this.headers = {}; nativeRequests.push(this); }
     open(method, url, asynchronous) { this.method = method; this.url = url; this.asynchronous = asynchronous; }
     setRequestHeader(name, value) { this.headers[name] = value; }
+    getResponseHeader(name) { return this.responseHeaders?.[name.toLowerCase()] ?? null; }
     send(body) { this.body = body; }
     abort() { this.aborted = true; }
-    finish() { Object.assign(this, ack()); this.onload(); }
+    finish(response = ack()) { Object.assign(this, response); this.onload(); }
   }
   h.context.XMLHttpRequest = NativeXhr;
   h.context.document.querySelector = selector => selector === 'input[name="CSRF-TOKEN"]' ? { value: 'owned-csrf' } : null;
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/main/webapp/share/javascript/carlos-ajax.js'), 'utf8'), h.context);
   return { ...h, nativeRequests };
 }
+
+test('real CarlosAjax preserves response headers on a failed request', () => {
+  const h = modernNativeAjax();
+  let refusal;
+  h.context.CarlosAjax.request('/carlos/CaseManagementEntry', {
+    method: 'post',
+    onFailure: response => { refusal = response; },
+  });
+  const xhr = h.nativeRequests[0];
+  xhr.responseHeaders = { 'x-carlos-note-lock-lost': 'true' };
+  xhr.finish({ status: 409, responseText: '' });
+  assert.equal(refusal.getResponseHeader('X-Carlos-Note-Lock-Lost'), 'true');
+  assert.equal(refusal.getResponseHeader('X-Missing-Header'), null);
+});
 
 test('real CarlosAjax autosave XHR times out after 45 seconds, reports failure and releases the next backup retry', () => {
   const h = modernNativeAjax(); h.context.backup();

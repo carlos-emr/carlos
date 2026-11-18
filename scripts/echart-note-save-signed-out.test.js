@@ -127,7 +127,8 @@ for (const signed of [false, true]) {
     const h = harness();
     if (signed) h.entryForm.elements.sign.value = 'on';
     h.context.saveNoteAjax('save', 'list');
-    h.requests[0].options.onFailure({ status: 409 });
+    const conflict = { status: 409, getResponseHeader: name => name === 'X-Carlos-Note-Lock-Lost' ? 'true' : null };
+    h.requests[0].options.onFailure(conflict);
     h.requests[0].options.onComplete({ status: 409 });
     assert.equal(h.context.lostNoteLock, true);
     assert.deepEqual(h.alerts, [h.context.noteLockLostError]);
@@ -135,14 +136,20 @@ for (const signed of [false, true]) {
     assert.equal(h.editor.disabled, false);
     assert.deepEqual(h.replaced, []);
     assert.equal(h.effects.includes('resume autosave'), false);
+    assert.equal(h.context.saveNoteAjax('save', 'list'), false);
+    assert.equal(h.requests.length, 1, 'Another toolbar click must keep the draft without a second POST');
   });
 }
 
 test('Save refused for another reason still names the status', () => {
-  const h = harness();
-  h.context.saveNoteAjax('save', 'list');
-  h.requests[0].options.onFailure({ status: 500 });
-  assert.deepEqual(h.alerts, ['save failed 500']);
+  for (const status of [409, 500]) {
+    const h = harness();
+    h.context.saveNoteAjax('save', 'list');
+    h.requests[0].options.onFailure({ status, getResponseHeader: () => null });
+    assert.deepEqual(h.alerts, ['save failed ' + status]);
+    assert.equal(h.context.lostNoteLock, false);
+    assert.ok(h.effects.includes('resume autosave'));
+  }
 });
 
 for (const rejected of [

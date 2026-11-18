@@ -330,7 +330,7 @@ test('toolbar Save retains the dirty editor and selected issues on a stale-revis
   Object.assign(h.note, { method: {}, ajax: {}, chain: {}, includeIssue: {} });
   h.context.saveNoteAjax('save', 'list');
   assert.equal(replaced, 0, 'Editor must survive while Save is pending');
-  requests[0].onFailure({ status: 409, responseText: '<h1>Conflict</h1>' });
+  requests[0].onFailure({ status: 409, getResponseHeader: name => name === 'X-Carlos-Note-Lock-Lost' ? 'true' : null });
   requests[0].onComplete();
   assert.equal(replaced, 0); assert.equal(restored, 1); assert.equal(timers, 0);
   assert.equal(h.context.lostNoteLock, true);

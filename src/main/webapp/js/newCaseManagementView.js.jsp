@@ -3018,13 +3018,13 @@ function updateCPPNote() {
                     restoreControls();
                     var succeeded = request.status >= 200 && request.status < 300 && saveConfirmed;
                     if (!succeeded) {
-                        setTimer();
+                        if (!lostNoteLock) setTimer();
                         if (request.status >= 200 && request.status < 300) alert(savingNoteError);
                     }
                     if (complete) complete(succeeded);
                 },
                 onFailure: function (request) {
-                    if (request.status == 409) {
+                    if (request.status == 409 && request.getResponseHeader?.("X-Carlos-Note-Lock-Lost") === "true") {
                         lostNoteLock = true;
                         alert(noteLockLostError);
                     } else if (request.status == 400) {
@@ -3042,6 +3042,10 @@ function updateCPPNote() {
     }
 
     function saveNoteAjax(method, chain) {
+        if (lostNoteLock) {
+            alert(noteLockLostError);
+            return false;
+        }
         // Opening/editing a note refreshes its issue fields asynchronously. Save only
         // after both fragments finish, so the form and its issue selection stay intact.
         if (deferNoteSaveUntilIssues(function () { saveNoteAjax(method, chain); })) return false;
@@ -3146,9 +3150,8 @@ function updateCPPNote() {
                     }
                 },
                 onFailure: function (request) {
-                    // In particular, a stale-revision 409 must leave the clinician's
-                    // text and selected issues available to copy or recover.
-                    if (request.status == 409) {
+                    // Keep the draft on any refusal. Stop autosave only when the action confirms loss of the lock.
+                    if (request.status == 409 && request.getResponseHeader?.("X-Carlos-Note-Lock-Lost") === "true") {
                         lostNoteLock = true;
                         alert(noteLockLostError);
                     } else {

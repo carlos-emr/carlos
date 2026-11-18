@@ -88,7 +88,11 @@ async function workflow(s) {
     savedNotes = noteSnapshot();
   });
   let alerts;
+  let expectedLockAlert;
   await s.step('session A, which lost the lock, clicks Save: nothing is written over session B\'s note', async () => {
+    expectedLockAlert = await aChart.evaluate(() => window.noteLockLostError);
+    h.assert(typeof expectedLockAlert === 'string' && expectedLockAlert.length > 0,
+      'The chart has no configured lock-loss message');
     const editor = editorOf(aChart);
     await editor.click();
     await editor.fill(textA);
@@ -116,12 +120,9 @@ async function workflow(s) {
   await s.step('session A is told its save was refused and its typed text is still in the editor', async () => {
     const editor = editorOf(aChart);
     const kept = await editor.count() > 0 && await editor.inputValue() === textA;
-    const body = await aChart.locator('body').innerText();
     h.assert(kept, `The stale window's refused Save lost the editor or its typed text (${alerts.length} alert(s) raised)`);
-    // A generic status-only save failure does not explain how to recover a lost note lock.
-    const told = alerts.some(alert => alert.type === 'alert'
-      && /lock/i.test(alert.text)) || /note lock/i.test(body);
-    h.assert(told, 'The stale window kept its editor but gave the user no lock-specific alert or visible message explaining the refusal');
+    const told = alerts.some(alert => alert.type === 'alert' && alert.text === expectedLockAlert);
+    h.assert(told, 'The stale window kept its editor but gave the user no lock-specific alert after Save');
   });
 }
 
