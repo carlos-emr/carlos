@@ -54,3 +54,8 @@ SHA-256: `a9427b2fec3faf3ab7c1fb99b32dfc8c65633fd16f215b9e1e6a71d89d79ce20`.
 All 8,111 complete Node cases pass on Node 22.23.5, across 570 files, with zero
 failures, skips, TODOs, cancellations or changed test sources. The tracked case
 inventory is generated from that execution.
+
+All 528 Python CI-tooling cases also pass with the required pinned defusedxml
+and actual xmllint prerequisites present. The initial missing-prerequisite
+runs and one transient orphan-process test failure are retained; the isolated
+seven-case process-group rerun and the final complete suite pass.
