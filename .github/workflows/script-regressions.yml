@@ -165,6 +165,8 @@ jobs:
         run: node scripts/tickler-crud-browser-check.js
       - name: Check nested scroll chaining and tickler quick picks in Chromium
         run: node scripts/ui-scroll-quick-pick-browser-check.js
+      - name: Check facility Disable form parsing and submission in Chromium
+        run: node --test scripts/facility-disable-browser-checks.js
       - name: Check job type table refresh and save lifecycle in Chromium
         run: node scripts/job-types-datatable-browser-check.js
       - name: Check job and schedule save acknowledgements in Chromium

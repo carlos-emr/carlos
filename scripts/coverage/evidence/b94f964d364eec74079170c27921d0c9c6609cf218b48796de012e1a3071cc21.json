@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "25257d90b07928f4978488ed40e9cf5889580bc7",
+  "comparisonSha256": "aec91ef40cbb3ce937662afbaf59d4626d45213b880413f9dca643f42d684e6b",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementEntry2Action.java": {
+      "lines": 20.858895705521473,
+      "instructions": 22.04362801377727,
+      "branches": 20.90909090909091,
+      "sourceBlob": "59d223d6a9174a1b0fec638e0fe17e39dc7ec2a5"
+    }
+  },
+  "baselineCommit": "e411ccec079cbbcf26c3ea06a3cecb105e38e551",
+  "baselineSourceTree": "25257d90b07928f4978488ed40e9cf5889580bc7",
+  "baselineReportSha256": "1ce09f60f4d032bd687a5a535ec15e9b514d480767f10128954b5010e4ef8f78",
+  "baselineLane": "Java 25 note revision and autosave tests with JaCoCo. A confirmed lock loss is marked, and successful autosave follows a recovered lookup.",
+  "baselineTestCounts": {
+    "tests": 103,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "7b36b074088a65794f2a35fbee93b32a036d72bb7e3178f1b691ce5a4d95ee46",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}
