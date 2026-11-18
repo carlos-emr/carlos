@@ -73,6 +73,7 @@ class DemographicWebUnmergeIntegrationTest {
     private SecurityInfoManager security;
     private RecycleBinDao selectedRecycle;
     private Object previousAuditDao;
+    private boolean auditDaoOverridden;
     private int first;
     private int second;
     private int untouched;
@@ -97,6 +98,7 @@ class DemographicWebUnmergeIntegrationTest {
         selectedRecycle = recycle;
         previousAuditDao = ReflectionTestUtils.getField(LogAction.class, "oscarLogDao");
         ReflectionTestUtils.setField(LogAction.class, "oscarLogDao", audits);
+        auditDaoOverridden = true;
         var ids = new TransactionTemplate(transactionManager).execute(status -> {
             var people = new java.util.ArrayList<Integer>();
             for (int i = 0; i < 4; i++) {
@@ -123,7 +125,9 @@ class DemographicWebUnmergeIntegrationTest {
 
     @AfterEach
     void restoreAuditDependency() {
-        ReflectionTestUtils.setField(LogAction.class, "oscarLogDao", previousAuditDao);
+        if (auditDaoOverridden) {
+            ReflectionTestUtils.setField(LogAction.class, "oscarLogDao", previousAuditDao);
+        }
     }
 
     private String unmerge(String requestProvider, String... ids) {
@@ -176,6 +180,9 @@ class DemographicWebUnmergeIntegrationTest {
         assertThat(sql.queryForObject("SELECT provider_no FROM recyclebin WHERE keyword=?", String.class,
                 "_all|_eChart$" + first)).isEqualTo("999998");
         assertThat(logged(first)).isEqualTo(1);
+        assertThat(sql.queryForObject(
+                "SELECT provider_no FROM log WHERE action='DemographicMerged.UnMerge' AND demographic_no=?",
+                String.class, first)).isEqualTo("999998");
         assertStillMerged(untouched);
     }
 
@@ -240,7 +247,7 @@ class DemographicWebUnmergeIntegrationTest {
     @Test
     void shouldRefuseARepeatedUnmerge_withoutAnotherAuditOrRecycleWrite() {
         assertThat(unmerge("999998", Integer.toString(first))).isEqualTo("successUnMerge");
-        assertThat(unmerge("999998", Integer.toString(first))).isEqualTo("failure");
+        assertThat(unmerge("999998", Integer.toString(first))).isEqualTo("failureUnMerge");
         assertThat(active(first)).isZero();
         assertThat(recycled(first)).isEqualTo(1);
         assertThat(logged(first)).isEqualTo(1);
@@ -250,7 +257,7 @@ class DemographicWebUnmergeIntegrationTest {
     @Test
     void shouldRefuseTheEntireSelection_whenALaterPatientIsNoLongerMerged() {
         sql.update("UPDATE demographic_merged SET deleted=1 WHERE demographic_no=?", second);
-        assertThat(unmerge("999998", Integer.toString(first), Integer.toString(second))).isEqualTo("failure");
+        assertThat(unmerge("999998", Integer.toString(first), Integer.toString(second))).isEqualTo("failureUnMerge");
         assertStillMerged(first); assertStillMerged(untouched);
         assertThat(active(second)).isZero();
         assertThat(restrictions(second)).isEqualTo(1);
@@ -272,19 +279,19 @@ class DemographicWebUnmergeIntegrationTest {
     @NullSource
     @ValueSource(strings = {"0", "-1", "not-a-number", "2147483648", " ", ""})
     void shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String invalid) {
-        assertThat(unmerge("999998", Integer.toString(first), invalid)).isEqualTo("failure");
+        assertThat(unmerge("999998", Integer.toString(first), invalid)).isEqualTo("failureUnMerge");
         assertStillMerged(first); assertStillMerged(second); assertStillMerged(untouched);
     }
 
     @Test
     void shouldRefuseTheWholeSelection_whenAnyPatientIsMissing() {
-        assertThat(unmerge("999998", Integer.toString(first), Integer.toString(Integer.MAX_VALUE))).isEqualTo("failure");
+        assertThat(unmerge("999998", Integer.toString(first), Integer.toString(Integer.MAX_VALUE))).isEqualTo("failureUnMerge");
         assertStillMerged(first); assertStillMerged(second); assertStillMerged(untouched);
     }
 
     @Test
     void shouldKeepTheFailureOutcome_whenTheSelectionIsEmpty() {
-        assertThat(unmerge("999998")).isEqualTo("failure");
+        assertThat(unmerge("999998")).isEqualTo("failureUnMerge");
         assertStillMerged(first); assertStillMerged(second); assertStillMerged(untouched);
     }
 

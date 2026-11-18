@@ -8,6 +8,9 @@ import sys
 
 from junit_evidence import EvidenceError, read_surefire
 
+UNMERGE_FAMILY = "DemographicWebUnmergeIntegrationTest"
+UNMERGE_CLASS = "io.github.carlos_emr.carlos.demographic.pageUtil." + UNMERGE_FAMILY
+
 CRITICAL = {
     "MariaDbDaoHarnessIntegrationTest": 1,
     "MeasurementDaoIntegrationTest": 1,
@@ -95,7 +98,7 @@ REQUIRED_CASES = {
         "shouldRetainExplicitEmptyStringClears_inTheNativeTransaction",
         "shouldReportConflict_withoutOverwritingAnOlderTransactionSnapshot",
     },
-    "DemographicWebUnmergeIntegrationTest": {
+    UNMERGE_FAMILY: {
         'shouldRefuseARepeatedUnmerge_withoutAnotherAuditOrRecycleWrite',
         'shouldRefuseTheEntireSelection_whenALaterPatientIsNoLongerMerged',
         "shouldRollbackEveryParticipant_whenALaterStorageValueIsMalformed",
@@ -154,7 +157,7 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, 
                           "RxFavoriteCopyIntegrationTest": 1,
                           "RxRestPrescriptionRollbackIntegrationTest": 1,
                           "DemographicMergeMariaDbIntegrationTest": 9,
-                          "DemographicWebUnmergeIntegrationTest": 18,
+                          UNMERGE_FAMILY: 18,
                           "SiteRenameClockMariaDbIntegrationTest": 8,
                           "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
                           "ScheduleSyncMariaDbIntegrationTest": 9,
@@ -172,7 +175,7 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, 
                        "ConsultationListProjectionIntegrationTest": 17,
                        "RxCorrectionSaveRollbackIntegrationTest": 2,
                        "DemographicMergeMariaDbIntegrationTest": 9,
-                          "DemographicWebUnmergeIntegrationTest": 18,
+                       UNMERGE_FAMILY: 18,
                           "SiteRenameClockMariaDbIntegrationTest": 8,
                           "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
                           "ScheduleSyncMariaDbIntegrationTest": 9,
@@ -197,7 +200,7 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, 
                            "LegacyBcTeleplanExportMariaDbIntegrationTest": 29,
                            "BCAR2020FormSaveTransactionIntegrationTest": 15,
                            "DemographicMergeMariaDbIntegrationTest": 9,
-                          "DemographicWebUnmergeIntegrationTest": 18,
+                           UNMERGE_FAMILY: 18,
                           "SiteRenameClockMariaDbIntegrationTest": 8,
                           "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
                           "ScheduleSyncMariaDbIntegrationTest": 9,
@@ -263,7 +266,8 @@ def verify(reports: Path, output: Path) -> dict:
                 inbox_cases[mode].add(case.name)
             if mode == 'bc-flyway' and case.classname == suite and not case.container and case.outcome == 'pass':
                 bc_physical_cases.add((case.classname, case.name))
-            if family in families[mode] and case.outcome == "pass":
+            if (family in families[mode] and case.outcome == "pass"
+                    and (family != UNMERGE_FAMILY or suite == case.classname == UNMERGE_CLASS)):
                 families[mode][family] += 1
                 if family in REQUIRED_CASES and case.classname == suite:
                     passed_cases[mode][family].add(case.name)

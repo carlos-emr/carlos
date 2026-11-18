@@ -123,6 +123,17 @@ public class DemographicMerged {
 
     }
 
+    /**
+     * Removes a patient's merge links and chart restriction, saves the restriction in the recycle bin,
+     * and writes the audit record. The caller supplies a shared transaction for all changes to commit together.
+     *
+     * @param loggedInInfo authenticated actor used for the audit and merge history
+     * @param demographic_no patient identifier as a decimal integer
+     * @param curUser_no provider recorded in the recycle bin
+     * @throws NumberFormatException if the patient identifier is not a valid integer
+     * @throws jakarta.persistence.PersistenceException if a JPA operation fails
+     * @throws org.springframework.dao.DataAccessException if Spring translates a persistence failure
+     */
     public void UnMerge(LoggedInInfo loggedInInfo, String demographic_no, String curUser_no) {
 
         List<io.github.carlos_emr.carlos.commn.model.DemographicMerged> dms = dao.findByDemographicNo(Integer.parseInt(demographic_no));

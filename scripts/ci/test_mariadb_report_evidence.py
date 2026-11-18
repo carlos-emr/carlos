@@ -207,6 +207,8 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
     def suite(family: str) -> str:
         if family == 'LegacyLabNativeMariaDbIntegrationTest':
             return MODULE.INBOX_CLASS
+        if family == 'DemographicWebUnmergeIntegrationTest':
+            return 'io.github.carlos_emr.carlos.demographic.pageUtil.DemographicWebUnmergeIntegrationTest'
         return next((name for name in MODULE.BC_PHYSICAL_CASES if name.rsplit('.', 1)[-1] == family), 'example.' + family)
 
     def test_each_physical_type_case_is_required_even_when_family_counts_are_unchanged(self):
@@ -299,6 +301,26 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             with self.subTest(optimized=optimized):
                 result = self.invoke(optimized)
                 self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_another_package_cannot_supply_required_unmerge_coverage(self):
+        self.seed()
+        family = 'DemographicWebUnmergeIntegrationTest'
+        suite = self.suite(family)
+        wrong_class = 'example.' + family
+        for mode in ('generated', 'flyway', 'bc-flyway'):
+            suffix = '' if mode == 'generated' else '-' + mode
+            report = self.reports / f'TEST-{suite}{suffix}.xml'
+            replacement = self.reports / f'TEST-{wrong_class}{suffix}.xml'
+            original = report.read_text()
+            replacement.write_text(original.replace(suite, wrong_class))
+            report.unlink()
+            try:
+                for optimized in (False, True):
+                    with self.subTest(mode=mode, optimized=optimized):
+                        self.assert_refused(self.invoke(optimized), f'Required MariaDB {mode} coverage missing: {family}')
+            finally:
+                replacement.unlink()
+                report.write_text(original)
 
     def test_another_package_or_nested_class_cannot_supply_required_inbox_cases(self):
         self.seed()
