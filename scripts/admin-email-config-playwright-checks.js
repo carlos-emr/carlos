@@ -236,10 +236,11 @@ async function workflow(s) {
     return {...contract, ...protection, message: body};
   }
 
-  let manager;
+  const manager = await openSection('Manage Emails', '/admin/ManageEmails');
   const cards = () => manager.locator('#results .email-status-card');
   async function fetchEmails(status) {
-    const [dates] = sql.rows(`SELECT DATE_FORMAT(MIN(timestamp),'%Y-%m-%d'), DATE_FORMAT(MAX(timestamp),'%Y-%m-%d')
+    const [dates] = sql.rows(`SELECT DATE_FORMAT(COALESCE(MIN(timestamp),NOW()),'%Y-%m-%d'),
+      DATE_FORMAT(COALESCE(MAX(timestamp),NOW()),'%Y-%m-%d')
       FROM emailLog WHERE demographicNo=${patient} AND configId=${configId}`);
     for (const [index, selector] of ['#dateBegin', '#dateEnd'].entries()) {
       await manager.locator(selector).fill(dates[index]);
@@ -294,7 +295,6 @@ async function workflow(s) {
       reply = await received;
       const id = sql.value(`SELECT id FROM emailLog WHERE demographicNo=${patient} AND subject=${h.sqlString(subject)}`);
       h.assert(/^[1-9]\d*$/.test(id || ''), 'No owned log was committed before the SMTP response');
-      manager ??= await openSection('Manage Emails', '/admin/ManageEmails');
       await assertUnconfirmed(id);
     } finally {
       if (reply) reply(smtpResponse);
@@ -303,6 +303,9 @@ async function workflow(s) {
     }
     return submitted;
   }
+
+  await fetchEmails('UNCONFIRMED');
+  h.assert(await cards().count() === 0, 'The owned sender should initially have no unconfirmed deliveries');
 
   const subject = `${marker} sent`;
   let sentLog;
