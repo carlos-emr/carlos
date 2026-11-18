@@ -128,6 +128,8 @@ public class DisplayDrilldown2Action extends ActionSupport {
 
         String metricSetName = request.getParameter("sharedMetricSetName");
 
+        // Shared outcomes links carry the selection as providerNo. Apply the same
+        // request-scoped provider authorization used by regular drilldowns and exports.
         dashboardManager.setRequestedProviderNo(loggedInInfo, request.getParameter("providerNo"));
         String providerNo = dashboardManager.getRequestedProviderNo(loggedInInfo);
 
@@ -158,13 +160,8 @@ public class DisplayDrilldown2Action extends ActionSupport {
         }
 
 
-        DrilldownBean drilldown = null;
-
-        if (metricLabel.equals("null")) { //local pie opens drill down list for whole pie, should use shared xml file
-            drilldown = dashboardManager.getDrilldownData(loggedInInfo, indicatorTemplate.getId(), providerNo != null ? providerNo : null, metricLabel);
-        } else { //commons dashboard opens drill down list from pie slice, should use not-shared xml file for different metric label
-            drilldown = dashboardManager.getDrilldownData(loggedInInfo, indicatorTemplate.getId(), providerNo != null ? providerNo : null, metricLabel);
-        }
+        DrilldownBean drilldown = dashboardManager.getDrilldownData(
+                loggedInInfo, indicatorTemplate.getId(), providerNo, metricLabel);
 
         // something must be returned. If not then something is very wrong.
         if (drilldown == null) {
