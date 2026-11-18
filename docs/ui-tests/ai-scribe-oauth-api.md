@@ -16,6 +16,13 @@ together.
   measurement. Each new reading is saved separately; existing measurements
   remain unchanged.
 - eForm template listing, create, load, update, and persisted read-after-write.
+- Saved patient eForm instances (`/ws/services/eform/instance`): create, read,
+  revise (sending a GET response back with new values) and delete, each checked
+  in `eform_data`/`eform_values`; a 409 for revising or deleting a retired row
+  and a 404 for an unknown `fdid`. The same instances are then checked as the
+  signed-in provider sees them: the patient's eForm list, the saved form opened
+  in the browser (values, cleared fields, template defaults, and submitted
+  markup staying text), and the deleted-eForms list.
 - HL7 lab message listing and malformed-upload rejection. A valid synthetic
   PATHL7 ORU upload and patient-specific read-after-upload are also tested when
   `AI_SCRIBE_DOCUMENT_STORE` points to the running server's `DOCUMENT_DIR`.
@@ -24,9 +31,13 @@ together.
 - Scheduling day/status/month/provider-period/patient-history reads, including
   the endpoint used to find the patient's existing appointments.
 - `insufficient_scope` refusals for demographic update, measurement create,
-  and eForm read/update operations when the token lacks the corresponding scope.
+  and eForm template and instance operations when the token lacks the
+  corresponding scope. A token with only `eform.read` can read an instance but
+  cannot create, revise or delete one.
 
-The eForm endpoints manage templates, not completed patient eForm instances.
+eForm templates (`/eform/{id}`) and saved instances (`/eform/instance/{fdid}`)
+are separate resources; see `docs/eform-instance-rest-api.md` for the instance
+contract.
 New patient measurements use `POST /ws/services/measurements/{demographicNo}/new`
 with a measurement `type` and `dataField`, plus optional comments, instructions,
 and observation timestamp. This records a separate reading and does not edit a
@@ -75,13 +86,16 @@ AI_SCRIBE_API_ONLY=rxlookup EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oaut
 AI_SCRIBE_API_ONLY=rx EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
 AI_SCRIBE_API_ONLY=schedule EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
 AI_SCRIBE_API_ONLY=eforms EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
+AI_SCRIBE_API_ONLY=eforms.templates EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
+AI_SCRIBE_API_ONLY=eforms.instances EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
 ```
 
 `all` or an unset selector runs the full check. `measurements` runs both the
 read and new-measurement write checks. The `.read` and `.write` selectors run only
 that operation group; the write group also verifies that a token without
 `measurement.write` is refused and reads the saved result back to verify
-persistence. Every focused run still performs OAuth and creates the synthetic
+persistence. `eforms` likewise runs both `eforms.templates` and
+`eforms.instances`. Every focused run still performs OAuth and creates the synthetic
 patient and measurement fixture used by the API workflows, then skips the
 other endpoint groups. Cleanup removes the temporary patient and its clinical
 rows.
@@ -101,15 +115,17 @@ The Rx lookup details check requires a DrugRef service that supports both
 that details can be loaded.
 
 The check creates one uniquely marked synthetic demographic and BP
-measurement, one synthetic medication/prescription, one eForm template, and
-one temporary OAuth client with issued tokens/nonces. The API deletes the
+measurement, one synthetic medication/prescription, two eForm templates with
+the patient's saved instances, and one temporary OAuth client with issued tokens/nonces. The API deletes the
 synthetic demographic during the workflow; final cleanup verifies/removes any
-remaining owned clinical rows, OAuth records, eForm template, and (when
+remaining owned clinical rows, OAuth records, eForm templates and instances, and (when
 configured) the imported lab rows and archived file. Run it serially and never
 against a shared or production database.
 
 ## API capability follow-up
 
-Measurement creation saves a new row and preserves previous readings. If
-AI-Scribe needs completed eForm instances rather than reusable
-templates, that workflow needs a distinct API contract and test coverage.
+Measurement creation saves a new row and preserves previous readings. Saved
+eForm instances follow the same rule: a revision stores a new row and retires
+the old one. Unlike a browser re-save, which leaves the old row current, the
+retired revision then also appears in the patient's deleted-eForms list; the
+endpoint table notes when it does.

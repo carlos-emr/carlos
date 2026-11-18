@@ -18,20 +18,24 @@
  * database persistence, or deployed routing.
  *
  * The check owns one synthetic patient, one BP measurement, one synthetic
- * medication/prescription, one eForm template, OAuth clients, and their issued
- * credentials. Cleanup removes only rows keyed by the unique run markers,
+ * medication/prescription, two eForm templates and the patient's saved eForm
+ * instances, OAuth clients, and their issued credentials. Cleanup removes only rows keyed by the unique run markers,
  * including when a request fails part-way through.
  *
  * Measurement rows are immutable. The REST write operation records a separate
  * new measurement for the patient and leaves previous readings unchanged.
- * The eForm REST API manages templates, not completed patient eForm instances.
+ *
+ * eForm templates (eform rows, /eform/{id}) and saved patient eForm instances
+ * (eform_data rows, /eform/instance/{fdid}) are both covered. Instances are
+ * also checked the way a provider sees them: the patient's eForm list, the
+ * saved form opened in the browser, and the deleted-eForms list.
  */
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const {
   SkipCheck, assert, assertNotErrorPage, assertStrictPage, createRecorder, createSqlRunner, insertId,
-  launchBrowser, login, newContext, readConfig, runCheck, sqlString, wireStrictPage,
+  gotoApp, launchBrowser, login, newContext, readConfig, runCheck, sqlString, wirePage, wireStrictPage,
 } = require('./lib/playwright-harness');
 const { oauthHeader, pct } = require('./oauth-rest-surfaces-playwright-checks');
 
@@ -39,7 +43,7 @@ const EXPECT_OAUTH_MODE = process.env.EXPECT_OAUTH_MODE || 'scoped';
 const API_ONLY = process.env.AI_SCRIBE_API_ONLY?.trim().toLowerCase() || '';
 const API_TEST_GROUPS = new Set([
   'demographics', 'measurements', 'measurements.read', 'measurements.write',
-  'labs', 'rxlookup', 'rx', 'schedule', 'eforms',
+  'labs', 'rxlookup', 'rx', 'schedule', 'eforms', 'eforms.templates', 'eforms.instances',
 ]);
 const REQUIRED_SCOPES = [
   'demographic.read', 'demographic.write', 'measurement.read', 'measurement.write',
@@ -47,6 +51,9 @@ const REQUIRED_SCOPES = [
   'rx.read', 'rx.write', 'schedule.read', 'schedule.write',
 ].join(' ');
 const LIMITED_SCOPES = 'demographic.read measurement.read';
+// A read-only eForm client (for example one that only reviews saved forms) must not be able to
+// create, revise or delete an instance.
+const EFORM_READ_ONLY_SCOPES = 'eform.read';
 
 function shouldRun(group) {
   return !API_ONLY || API_ONLY === 'all' || API_ONLY === group;
@@ -70,6 +77,12 @@ async function expectSuccessJson(response, label) {
 async function expectInsufficientScope(response, label) {
   await expectStatus(response, 403, label);
   assert((await response.text()).trim() === 'insufficient_scope', `${label}: OAuth did not refuse with insufficient_scope`);
+}
+
+async function expectInstanceRefusal(response, expected, message, label) {
+  await expectStatus(response, expected, label);
+  const text = await response.text();
+  assert(text.includes(message), `${label}: the HTTP ${expected} answer did not say "${message}"`);
 }
 
 function sqlId(value, label) {
@@ -261,6 +274,9 @@ async function cleanup(state) {
               'The owned synthetic HL7 lab rows were not removed',
             );
           }
+          // Saved eForm instances (current and retired revisions) for the owned patient.
+          sql.execute('DELETE FROM eform_values WHERE demographic_no=?', [id]);
+          sql.execute('DELETE FROM eform_data WHERE demographic_no=?', [id]);
           sql.execute('DELETE FROM drugReason WHERE demographicNo=?', [id]);
           sql.execute('DELETE FROM drugs WHERE demographic_no=?', [id]);
           sql.execute('DELETE FROM prescription WHERE demographic_no=?', [id]);
@@ -285,14 +301,31 @@ async function cleanup(state) {
             'The owned synthetic demographic was not removed');
           assert(sql.value(`SELECT (SELECT COUNT(*) FROM drugs WHERE demographic_no=?)
               + (SELECT COUNT(*) FROM prescription WHERE demographic_no=?)
-              + (SELECT COUNT(*) FROM measurements WHERE demographicNo=?)`,
-          [id, id, id]) === '0',
+              + (SELECT COUNT(*) FROM measurements WHERE demographicNo=?)
+              + (SELECT COUNT(*) FROM eform_data WHERE demographic_no=?)
+              + (SELECT COUNT(*) FROM eform_values WHERE demographic_no=?)`,
+          [id, id, id, id, id]) === '0',
           'Owned clinical test rows remain after cleanup');
         }
       }
     } finally {
       try {
         if (formName && providerNo) {
+          // Instances of the owned templates first, in case patient cleanup did not reach them.
+          const ownedTemplateIds = sql.rows(
+            'SELECT fid FROM eform WHERE form_name=? AND form_creator=?',
+            [formName, providerNo],
+          ).map(([fid]) => fid).filter((fid) => /^[1-9]\d*$/.test(fid));
+          if (ownedTemplateIds.length) {
+            const templatePlaceholders = ownedTemplateIds.map(() => '?').join(',');
+            sql.execute(`DELETE FROM eform_values WHERE fid IN (${templatePlaceholders})`, ownedTemplateIds);
+            sql.execute(`DELETE FROM eform_data WHERE fid IN (${templatePlaceholders})`, ownedTemplateIds);
+            assert(
+              sql.value(`SELECT COUNT(*) FROM eform_data WHERE fid IN (${templatePlaceholders})`,
+                ownedTemplateIds) === '0',
+              'The owned synthetic eForm instances were not removed',
+            );
+          }
           sql.execute(
             'DELETE FROM eform WHERE form_name=? AND form_creator=?',
             [formName, providerNo],
@@ -356,7 +389,8 @@ async function main(state = {}) {
     'AI-Scribe API acceptance requires EXPECT_OAUTH_MODE=scoped on a separate disposable installation');
   assert(!API_ONLY || API_ONLY === 'all' || API_TEST_GROUPS.has(API_ONLY),
     `Unsupported AI_SCRIBE_API_ONLY=${API_ONLY}; use all, demographics, measurements, `
-      + 'measurements.read, measurements.write, labs, rxlookup, rx, schedule, or eforms');
+      + 'measurements.read, measurements.write, labs, rxlookup, rx, schedule, eforms, '
+      + 'eforms.templates, or eforms.instances');
   const config = readConfig();
   const sql = createSqlRunner(config.mysql);
   state.sql = sql;
@@ -1052,7 +1086,7 @@ async function main(state = {}) {
     availabilityResponse, 'availability operation is commented out and not routed', 'GAP');
   }
 
-  if (shouldRun('eforms')) {
+  if (shouldRun('eforms') || shouldRun('eforms.templates')) {
   const eformsResponse = await signedRequest('GET', '/ws/services/eforms/', fullToken);
   const eforms = await expectSuccessJson(eformsResponse, 'OAuth eForm listing');
   assert(Array.isArray(eforms), 'OAuth eForm listing did not return an array');
@@ -1108,6 +1142,273 @@ async function main(state = {}) {
   await expectInsufficientScope(limitedEformUpdate, 'OAuth eForm update with a token lacking eform.write');
   recordEndpoint('PUT', '/ws/services/eform/{id}/json', limitedEformUpdate,
     'missing eform.write refused with insufficient_scope');
+  }
+
+  if (shouldRun('eforms') || shouldRun('eforms.instances')) {
+  // Saved patient eForm instances (eform_data rows) through /eform/instance, then the same rows
+  // as the signed-in provider meets them in the browser: the patient's eForm list, the saved
+  // form opened from it, and the deleted-eForms list. The API is only useful to AI-Scribe if what
+  // it writes is what a clinician then reads in the chart.
+  //
+  // The template reuses the run's owned form name, so cleanup removes it and its instances.
+  const instanceTemplateHtml = '<html><head><title>AI-Scribe instance fixture</title></head><body>'
+    + '<form method="post" action="">'
+    + '<input type="text" name="ais_summary" value="template summary">'
+    + '<textarea name="ais_plan">template plan</textarea>'
+    + '<input type="text" name="ais_kept" value="template kept">'
+    + '</form></body></html>';
+  const instanceTemplateResponse = await signedRequest('POST', '/ws/services/eform/json', fullToken, {
+    formName,
+    formSubject: 'AI-Scribe OAuth instance fixture',
+    formHtml: instanceTemplateHtml,
+    patientIndependent: false,
+  });
+  const instanceTemplate = await expectSuccessJson(instanceTemplateResponse, 'OAuth instance template create');
+  const instanceFid = sqlId(instanceTemplate.id, 'instance template id');
+  assert(sql.value('SELECT status FROM eform WHERE fid=?', [instanceFid]) === '1',
+    'The instance template was not stored as an active template');
+  recordEndpoint('POST', '/ws/services/eform/json', instanceTemplateResponse,
+    'active template with text, textarea and default-only fields created for instances');
+
+  const instanceRow = (fdid) => {
+    const rows = sql.rows(`SELECT status, fid, demographic_no, form_provider, subject
+      FROM eform_data WHERE fdid=?`, [fdid]);
+    assert(rows.length === 1, `eform_data row ${fdid} was not found`);
+    const [status, fid, demographicNo, provider, subject] = rows[0];
+    return { status, fid, demographicNo, provider, subject };
+  };
+  const instanceValueRows = (fdid) => Object.fromEntries(
+    sql.rows('SELECT var_name, var_value FROM eform_values WHERE fdid=? ORDER BY var_name', [fdid]),
+  );
+  const patientInstanceCount = () => sql.value(
+    'SELECT COUNT(*) FROM eform_data WHERE demographic_no=?', [patientNo]);
+
+  // Browser pages are opened in the provider's signed-in session, as a clinician would.
+  const openProviderPage = async (label, appPath) => {
+    const page = await sessionContext.newPage();
+    wirePage(page, label, recorder);
+    const response = await gotoApp(page, config.baseUrl, appPath, 'load');
+    assert(response && response.status() === 200,
+      `${label}: expected HTTP 200, got ${response ? response.status() : 'no response'}`);
+    await assertNotErrorPage(page, label);
+    return { page, response };
+  };
+  const listPath = `/eform/efmpatientformlist?demographic_no=${patientNo}`;
+  const deletedListPath = `/eform/efmpatientformlistdeleted?demographic_no=${patientNo}`;
+  const listedFdids = async (page) => page.locator('input[type="hidden"][name="fdid"]')
+    .evaluateAll((inputs) => inputs.map((input) => input.value));
+  const checkFormInBrowser = async (label, fdid, expectedFields, verification) => {
+    const { page, response } = await openProviderPage(label, `/eform/efmshowform_data?fdid=${fdid}`);
+    try {
+      for (const [name, expected] of Object.entries(expectedFields)) {
+        const field = page.locator(`[name="${name}"]`);
+        assert(await field.count() === 1, `${label}: the saved form has no single ${name} field`);
+        const shown = await field.inputValue();
+        assert(shown === expected,
+          `${label}: ${name} shows ${JSON.stringify(shown)}, expected ${JSON.stringify(expected)}`);
+      }
+      // Submitted text must stay text: none of the markup in the values may become an element.
+      assert(await page.locator('#ais-inject-1, #ais-inject-2').count() === 0,
+        `${label}: markup submitted as a field value became part of the page`);
+      recordEndpoint('WEB', '/eform/efmshowform_data', response, verification);
+    } finally {
+      await page.close();
+    }
+  };
+
+  // ── Create ──
+  const summary = `AI-Scribe summary ${runMarker}: BP < 140 & "stable" <b id="ais-inject-1">bold</b>`;
+  const plan = `Plan ${runMarker}</textarea><i id="ais-inject-2">x</i>`;
+  const instanceSubject = `AI-Scribe instance ${runMarker}`;
+  const createInstanceResponse = await signedRequest('POST', '/ws/services/eform/instance', fullToken, {
+    fid: Number(instanceFid),
+    demographicNo: Number(patientNo),
+    subject: instanceSubject,
+    values: { ais_summary: summary, ais_plan: plan, ais_kept: null },
+  });
+  const createdInstance = await expectSuccessJson(createInstanceResponse, 'OAuth eForm instance create');
+  const firstFdid = sqlId(createdInstance.fdid, 'created eForm instance fdid');
+  assert(String(createdInstance.fid) === instanceFid
+    && String(createdInstance.demographicNo) === patientNo
+    && createdInstance.current === true
+    && createdInstance.subject === instanceSubject
+    && createdInstance.formHtml == null,
+  'OAuth eForm instance create did not return the new current instance without its HTML');
+  const createdRow = instanceRow(firstFdid);
+  assert(createdRow.status === '1' && createdRow.fid === instanceFid && createdRow.demographicNo === patientNo
+    && createdRow.provider === String(providerNo) && createdRow.subject === instanceSubject,
+  'The created eForm instance was not stored as a current row for the patient and the token\'s provider');
+  const createdValues = instanceValueRows(firstFdid);
+  assert(JSON.stringify(createdValues) === JSON.stringify({ ais_plan: plan, ais_summary: summary }),
+    'eform_values for the created instance do not hold exactly the two submitted values');
+  recordEndpoint('POST', '/ws/services/eform/instance', createInstanceResponse,
+    'instance stored as current eform_data row with only the submitted eform_values');
+
+  const readInstanceResponse = await signedRequest('GET', `/ws/services/eform/instance/${firstFdid}`, fullToken);
+  const readInstance = await expectSuccessJson(readInstanceResponse, 'OAuth eForm instance read');
+  assert(String(readInstance.fdid) === firstFdid && readInstance.current === true
+    && readInstance.values?.ais_summary === summary && readInstance.values?.ais_plan === plan
+    && !('ais_kept' in (readInstance.values || {})),
+  'OAuth eForm instance read did not return the stored values');
+  assert(typeof readInstance.formHtml === 'string' && readInstance.formHtml.includes(runMarker)
+    && !readInstance.formHtml.includes('<b id="ais-inject-1">')
+    && !readInstance.formHtml.includes('<i id="ais-inject-2">'),
+  'The stored eForm HTML is missing the values or carries submitted markup unescaped');
+  recordEndpoint('GET', '/ws/services/eform/instance/{fdid}', readInstanceResponse,
+    'instance read returns stored values and escaped HTML');
+
+  {
+    const { page, response } = await openProviderPage('ai-scribe-eform-list-created', listPath);
+    try {
+      assert((await listedFdids(page)).includes(firstFdid),
+        'The patient eForm list does not show the instance created through the API');
+      const row = page.locator('tr', { has: page.locator(`input[name="fdid"][value="${firstFdid}"]`) });
+      const rowText = await row.innerText();
+      assert(rowText.includes(formName) && rowText.includes(instanceSubject),
+        'The patient eForm list row does not show the template name and API subject');
+      recordEndpoint('WEB', '/eform/efmpatientformlist', response,
+        'provider\'s patient eForm list shows the API-created instance');
+    } finally {
+      await page.close();
+    }
+  }
+  await checkFormInBrowser('ai-scribe-eform-show-created', firstFdid,
+    { ais_summary: summary, ais_plan: plan, ais_kept: 'template kept' },
+    'saved form opens with API values, kept default, and no injected elements');
+
+  // ── Revise: the GET response sent back with new values, as the API doc allows ──
+  const revisedSummary = `AI-Scribe revised ${runMarker}`;
+  const revisedSubject = `AI-Scribe instance revised ${runMarker}`;
+  const reviseResponse = await signedRequest('PUT', `/ws/services/eform/instance/${firstFdid}`, fullToken, {
+    ...readInstance,
+    subject: revisedSubject,
+    values: { ais_summary: revisedSummary, ais_plan: '' },
+  });
+  const revised = await expectSuccessJson(reviseResponse, 'OAuth eForm instance revise');
+  const revisedFdid = sqlId(revised.fdid, 'revised eForm instance fdid');
+  assert(revisedFdid !== firstFdid && revised.current === true
+    && String(revised.demographicNo) === patientNo && String(revised.fid) === instanceFid
+    && revised.subject === revisedSubject,
+  'OAuth eForm instance revise did not return a new current revision for the same patient and template');
+  assert(instanceRow(firstFdid).status === '0' && instanceRow(revisedFdid).status === '1'
+    && patientInstanceCount() === '2',
+  'Revising did not retire the old row and store exactly one new current row');
+  assert(JSON.stringify(instanceValueRows(revisedFdid)) === JSON.stringify({ ais_summary: revisedSummary })
+    && JSON.stringify(instanceValueRows(firstFdid)) === JSON.stringify(createdValues),
+  'The revision\'s eform_values are wrong, or the old row\'s values were changed');
+  recordEndpoint('PUT', '/ws/services/eform/instance/{fdid}', reviseResponse,
+    'GET body sent back stores a new revision; old row retired with its values intact');
+
+  const oldReadResponse = await signedRequest('GET', `/ws/services/eform/instance/${firstFdid}`, fullToken);
+  const oldRead = await expectSuccessJson(oldReadResponse, 'OAuth eForm read of the retired revision');
+  assert(oldRead.current === false && oldRead.values?.ais_summary === summary,
+    'The retired revision is not readable as history');
+  recordEndpoint('GET', '/ws/services/eform/instance/{fdid}', oldReadResponse,
+    'retired revision still readable as history (current=false)');
+
+  const staleReviseResponse = await signedRequest('PUT', `/ws/services/eform/instance/${firstFdid}`, fullToken, {
+    values: { ais_summary: 'stale edit' },
+  });
+  await expectInstanceRefusal(staleReviseResponse, 409, 'no longer current', 'OAuth revise of a retired revision');
+  assert(patientInstanceCount() === '2', 'A refused stale revision still stored a row');
+  recordEndpoint('PUT', '/ws/services/eform/instance/{fdid}', staleReviseResponse,
+    'stale revision refused with 409 and nothing stored');
+
+  {
+    const { page, response } = await openProviderPage('ai-scribe-eform-list-revised', listPath);
+    try {
+      const fdids = await listedFdids(page);
+      assert(fdids.includes(revisedFdid) && !fdids.includes(firstFdid),
+        'The patient eForm list does not show only the current revision');
+      recordEndpoint('WEB', '/eform/efmpatientformlist', response,
+        'patient eForm list shows the new revision and no longer the retired one');
+    } finally {
+      await page.close();
+    }
+  }
+  await checkFormInBrowser('ai-scribe-eform-show-revised', revisedFdid,
+    { ais_summary: revisedSummary, ais_plan: '', ais_kept: 'template kept' },
+    'revision opens with new value, cleared field, and template default for the omitted field');
+
+  // ── Scope and lookup refusals ──
+  const limitedInstanceRead = await signedRequest('GET', `/ws/services/eform/instance/${revisedFdid}`, limitedToken);
+  await expectInsufficientScope(limitedInstanceRead, 'OAuth instance read with a token lacking eform.read');
+  recordEndpoint('GET', '/ws/services/eform/instance/{fdid}', limitedInstanceRead,
+    'missing eform.read refused with insufficient_scope');
+
+  const readOnlyToken = await authorize(EFORM_READ_ONLY_SCOPES);
+  const readOnlyRead = await signedRequest('GET', `/ws/services/eform/instance/${revisedFdid}`, readOnlyToken);
+  const readOnlyInstance = await expectSuccessJson(readOnlyRead, 'OAuth instance read with eform.read only');
+  assert(String(readOnlyInstance.fdid) === revisedFdid, 'The eform.read token read a different instance');
+  recordEndpoint('GET', '/ws/services/eform/instance/{fdid}', readOnlyRead, 'eform.read alone can read');
+  const readOnlyCreate = await signedRequest('POST', '/ws/services/eform/instance', readOnlyToken, {
+    fid: Number(instanceFid), demographicNo: Number(patientNo), values: { ais_summary: 'read-only create' },
+  });
+  await expectInsufficientScope(readOnlyCreate, 'OAuth instance create with eform.read only');
+  recordEndpoint('POST', '/ws/services/eform/instance', readOnlyCreate,
+    'eform.read without eform.write refused with insufficient_scope');
+  const readOnlyRevise = await signedRequest('PUT', `/ws/services/eform/instance/${revisedFdid}`, readOnlyToken, {
+    values: { ais_summary: 'read-only revise' },
+  });
+  await expectInsufficientScope(readOnlyRevise, 'OAuth instance revise with eform.read only');
+  recordEndpoint('PUT', '/ws/services/eform/instance/{fdid}', readOnlyRevise,
+    'eform.read without eform.write refused with insufficient_scope');
+  const readOnlyDelete = await signedRequest('DELETE', `/ws/services/eform/instance/${revisedFdid}`, readOnlyToken);
+  await expectInsufficientScope(readOnlyDelete, 'OAuth instance delete with eform.read only');
+  recordEndpoint('DELETE', '/ws/services/eform/instance/{fdid}', readOnlyDelete,
+    'eform.read without eform.write refused with insufficient_scope');
+  assert(instanceRow(revisedFdid).status === '1' && patientInstanceCount() === '2',
+    'A write refused for missing scope still changed the patient\'s eForm instances');
+
+  const missingFdid = sql.value('SELECT COALESCE(MAX(fdid), 0) + 1000000 FROM eform_data');
+  const missingRead = await signedRequest('GET', `/ws/services/eform/instance/${missingFdid}`, fullToken);
+  await expectInstanceRefusal(missingRead, 404, 'not found', 'OAuth read of a missing instance');
+  recordEndpoint('GET', '/ws/services/eform/instance/{fdid}', missingRead, 'unknown fdid answered 404');
+
+  // ── Delete ──
+  const deleteInstanceResponse = await signedRequest('DELETE', `/ws/services/eform/instance/${revisedFdid}`, fullToken);
+  const deletedFdid = await expectSuccessJson(deleteInstanceResponse, 'OAuth eForm instance delete');
+  assert(String(deletedFdid) === revisedFdid, 'OAuth eForm instance delete returned a different fdid');
+  assert(instanceRow(revisedFdid).status === '0' && patientInstanceCount() === '2'
+    && JSON.stringify(instanceValueRows(revisedFdid)) === JSON.stringify({ ais_summary: revisedSummary }),
+  'Delete did not retire the row while keeping it and its values');
+  recordEndpoint('DELETE', '/ws/services/eform/instance/{fdid}', deleteInstanceResponse,
+    'instance retired (status=0), row and values kept for restore');
+
+  const repeatDelete = await signedRequest('DELETE', `/ws/services/eform/instance/${revisedFdid}`, fullToken);
+  await expectInstanceRefusal(repeatDelete, 409, 'no longer current', 'OAuth repeated instance delete');
+  recordEndpoint('DELETE', '/ws/services/eform/instance/{fdid}', repeatDelete,
+    'repeated delete refused with 409');
+
+  {
+    const { page, response } = await openProviderPage('ai-scribe-eform-list-deleted', listPath);
+    try {
+      const fdids = await listedFdids(page);
+      assert(!fdids.includes(revisedFdid) && !fdids.includes(firstFdid),
+        'The patient eForm list still shows an instance deleted through the API');
+      recordEndpoint('WEB', '/eform/efmpatientformlist', response,
+        'patient eForm list no longer shows the deleted instance');
+    } finally {
+      await page.close();
+    }
+  }
+  {
+    const { page, response } = await openProviderPage('ai-scribe-eform-deleted-list', deletedListPath);
+    try {
+      const restorable = await page.locator('a[onclick*="efmshowform_data?fdid="]').evaluateAll(
+        (links) => links.map((link) => (link.getAttribute('onclick').match(/fdid=(\d+)/) || [])[1]));
+      assert(restorable.includes(revisedFdid),
+        'The deleted-eForms list does not offer the instance deleted through the API');
+      // Not asserted: a revision retired by PUT also lands here, which the browser re-save
+      // (which leaves the old row current) never produces. Reported so the behaviour is visible.
+      const retiredRevisionListed = restorable.includes(firstFdid);
+      recordEndpoint('WEB', '/eform/efmpatientformlistdeleted', response,
+        'deleted-eForms list offers the API-deleted instance for restore'
+          + (retiredRevisionListed ? '; note: the PUT-retired revision is listed too' : ''));
+    } finally {
+      await page.close();
+    }
+  }
   }
 
   if (shouldRun('demographics')) {

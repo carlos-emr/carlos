@@ -66,4 +66,7 @@ patient).
 ## Tests
 
 `EFormInstanceServiceUnitTest`, `EFormServiceEndpointTest`, `RestPrivilegeGuardContractUnitTest`,
-`RestTransferObjectDateShapeContractUnitTest`.
+`RestTransferObjectDateShapeContractUnitTest`. Against a deployed, scoped-OAuth server,
+`AI_SCRIBE_API_ONLY=eforms.instances node scripts/ai-scribe-oauth-api-live-check.js` checks the
+endpoints end to end and how their results look to a provider in the browser (see
+`docs/ui-tests/ai-scribe-oauth-api.md`).
