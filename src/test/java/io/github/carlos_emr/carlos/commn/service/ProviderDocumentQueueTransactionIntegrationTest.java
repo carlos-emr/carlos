@@ -156,11 +156,15 @@ class ProviderDocumentQueueTransactionIntegrationTest extends CarlosTestBase {
             }));
             assertThat(followerEntered.await(15, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
             var jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+            // MariaDB can omit a read-only contender from INNODB_TRX before it has a transaction ID.
+            // In that case the connection still shows the pending provider locking statement.
+            String query = maria
+                    ? "SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE ID=? AND COMMAND='Query' "
+                        + "AND TIME>=1 AND LOWER(INFO) LIKE '% for update%'"
+                    : "SELECT COUNT(*) FROM INFORMATION_SCHEMA.SESSIONS WHERE SESSION_ID=? AND BLOCKER_ID IS NOT NULL";
             long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(15);
             while (followerRead.getCount() != 0) {
-                String query = maria
-                        ? "SELECT COUNT(*) FROM information_schema.INNODB_LOCK_WAITS w JOIN information_schema.INNODB_TRX t ON t.trx_id=w.requesting_trx_id WHERE t.trx_mysql_thread_id=?"
-                        : "SELECT COUNT(*) FROM INFORMATION_SCHEMA.SESSIONS WHERE SESSION_ID=? AND BLOCKER_ID IS NOT NULL";
+                if (follower.isDone()) follower.get(15, java.util.concurrent.TimeUnit.SECONDS);
                 if (jdbc.queryForObject(query, Long.class, followerConnection.get()) > 0) break;
                 assertThat(System.nanoTime()).as("Follower neither read the preference nor waited for its owner lock")
                         .isLessThan(deadline);
