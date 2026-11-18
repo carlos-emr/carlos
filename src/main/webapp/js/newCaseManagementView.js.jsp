@@ -4827,11 +4827,11 @@ function autoSave() {
         if (checked && !checkbox.prop("disabled")) {
             var forSure = window.confirm("Are you sure you would like to indicate that Informed Consent has been collected?");
             if (forSure) {
-                // Show consent only after the server confirms its write, and allow one attempt at a time.
+                // Keep further saves disabled until the chart reloads after an unconfirmed write.
                 checkbox.prop("checked", false).prop("disabled", true);
                 var unconfirmed = function () {
-                    checkbox.prop("checked", false).prop("disabled", false);
-                    window.alert("Informed consent save could not be confirmed. Please try again.");
+                    checkbox.prop("checked", false);
+                    window.alert("Informed consent save could not be confirmed. Reopen the chart and retry only if consent is still absent.");
                 };
                 jQuery.post(ctx + "/DemographicExtService",
                     {method: "saveNewValue", demographicNo: demographicNo, key: "informedConsent", value: "yes"},

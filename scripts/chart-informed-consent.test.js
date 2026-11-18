@@ -96,24 +96,25 @@ test('the release ledger retires the repaired consent failure as an active regre
 });
 
 
-test('an unconfirmed transport result clears the checkbox, explains uncertainty, and permits retry', () => {
+test('a lost response after a consent write blocks another save until the chart is reopened', () => {
   const c = chart(); c.record();
-  assert.equal(typeof c.state.posts[0].failure, 'function');
-  c.state.posts[0].failure({status: 503});
+  const committed = c.state.posts[0];
+  assert.equal(committed.data.value, 'yes');
+  committed.failure({status: 0});
   assert.equal(c.state.checked, false);
-  assert.equal(c.state.disabled, false);
+  assert.equal(c.state.disabled, true);
   assert.equal(c.state.removed, false);
   assert.equal(c.state.alerts.length, 1);
-  assert.match(c.state.alerts[0], /could not be confirmed.*try again/i);
+  assert.match(c.state.alerts[0], /could not be confirmed.*reopen the chart.*only if consent is still absent/i);
   c.state.checked = true; c.record();
-  assert.equal(c.state.posts.length, 2);
+  assert.equal(c.state.posts.length, 1);
 });
 
-test('an unconfirmed acknowledgement clears the checkbox and leaves a retryable banner', () => {
+test('an unconfirmed acknowledgement clears and disables the checkbox until reopen', () => {
   for (const data of [undefined, {}, {value: '0'}, {value: '-1'}, {value: '1garbage'}, {value: [1]}]) {
     const c = chart(); c.record(); c.state.posts[0].callback(data, 'success');
     assert.equal(c.state.checked, false);
-    assert.equal(c.state.disabled, false);
+    assert.equal(c.state.disabled, true);
     assert.equal(c.state.removed, false);
     assert.equal(c.state.alerts.length, 1);
   }
