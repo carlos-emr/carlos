@@ -102,8 +102,15 @@ class EFormImportPublicationSerializationUnitTest {
                 }
             } finally {release.countDown();}
         }
-        try(var paths=java.nio.file.Files.list(images.resolve("extractFolder"))) {
-            assertThat(paths).isEmpty();
+        // A cooperating publication implementation may retain its empty lock inode.
+        // Every extracted file/directory must still be gone; never permit a symlink.
+        try (var staged=java.nio.file.Files.list(images.resolve("extractFolder"))) {
+            for (Path retained : staged.toList()) {
+                assertThat(retained.getFileName().toString()).isEqualTo(".publication.lock");
+                assertThat(java.nio.file.Files.isSymbolicLink(retained)).isFalse();
+                assertThat(retained).isRegularFile();
+                assertThat(java.nio.file.Files.size(retained)).isZero();
+            }
         }
     }
 }

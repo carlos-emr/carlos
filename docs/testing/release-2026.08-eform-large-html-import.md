@@ -69,3 +69,14 @@ that every arbitrarily large exported archive fits a single upload.
 Review source-bound evidence SHA-256:
 `529924bcbec3ffa1b05036c07b9e140a01a588cb2df261885e591a7b55e23f21`. The final complete Node retake also passes all 8,111 cases across 570 files,
 with zero failures, skips, TODOs, cancellations or changed test sources.
+
+The final cleanup assertions also accept the cooperating publication lock
+implementation: only an empty regular `.publication.lock` file may remain;
+symlinks and all extracted files/directories are refused. The public-source
+81-case rerun passes (JUnit SHA-256
+`102d7c3e101647a056a3e2bf2433cd9e24bf952b7971e046c6794839c03342a1`).
+Fresh public-source evidence SHA-256: `02b553ca17f64cacdbb2604ed4ee8f6b14080fa1432210df13cb0efb1ab67757`.
+The original combined run with five cleanup-expectation failures is retained;
+the corrected composed-source retake passes all 131 cases, preserving the
+existing asset lease and rollback controls. Its JUnit SHA-256 is
+`aa2678094046547b26b22839680733ec63630878cc19d9bb053793825a601603`.

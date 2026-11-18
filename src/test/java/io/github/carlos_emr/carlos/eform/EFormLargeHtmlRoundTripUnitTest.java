@@ -40,8 +40,15 @@ class EFormLargeHtmlRoundTripUnitTest {
             assertThat(new EFormExportZip().importForm(new ByteArrayInputStream(exported.toByteArray()))).isEmpty();
             forms.verify(()->EFormUtil.saveEForm(argThat(imported->html.equals(imported.getFormHtml()))),times(1));
         }
-        try (var staged=Files.list(images.resolve("extractFolder"))) {
-            assertThat(staged).isEmpty();
+        // A cooperating publication implementation may retain its empty lock inode.
+        // Every extracted file/directory must still be gone; never permit a symlink.
+        try (var staged=java.nio.file.Files.list(images.resolve("extractFolder"))) {
+            for (Path retained : staged.toList()) {
+                assertThat(retained.getFileName().toString()).isEqualTo(".publication.lock");
+                assertThat(java.nio.file.Files.isSymbolicLink(retained)).isFalse();
+                assertThat(retained).isRegularFile();
+                assertThat(java.nio.file.Files.size(retained)).isZero();
+            }
         }
     }
 }
