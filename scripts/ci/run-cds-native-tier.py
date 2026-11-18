@@ -37,6 +37,7 @@ import stat
 import subprocess
 import sys
 import time
+from cds_database_readiness import wait_for_database as wait_for_final_database
 import uuid
 from xml.etree.ElementTree import ElementTree
 from compiled_classes import fingerprints, validate_output_paths
@@ -107,13 +108,11 @@ def wait_for_database(client, run, log, monotonic=time.monotonic, sleep=time.sle
     # Only the final daemon listens on TCP; SELECT 1 on a socket is not readiness.
     if '--protocol=TCP' not in client or '--host=127.0.0.1' not in client:
         raise RuntimeError('Native database readiness requires its final TCP listener')
-    deadline = monotonic() + 90
-    while True:
-        if run(client + ['-e', 'SELECT 1'], log, check=False).returncode == 0:
-            return
-        if monotonic() > deadline:
-            raise RuntimeError('Disposable MariaDB did not become ready')
-        sleep(1)
+    try:
+        wait_for_final_database(client, lambda command, **kw: run(command, log, **kw),
+                                monotonic=monotonic, sleep=sleep)
+    except RuntimeError as failure:
+        raise RuntimeError('Disposable MariaDB did not become ready') from failure
 
 
 def collect_reports(required, source, destination):
@@ -375,9 +374,9 @@ def main():
     docker = ['docker', '--host=unix:///var/run/docker.sock']
     log_path = output / 'native-tier.log'
 
-    def run(command, log, check=True, capture=False):
+    def run(command, log, check=True, capture=False, timeout=None):
         return subprocess.run(command, check=check, text=True,
-                              stdout=subprocess.PIPE if capture else log, stderr=log)
+                              stdout=subprocess.PIPE if capture else log, stderr=log, timeout=timeout)
 
     def build(command, log, check=True):
         identity = ['--user', str(args.container_user)] if args.container_user is not None else []

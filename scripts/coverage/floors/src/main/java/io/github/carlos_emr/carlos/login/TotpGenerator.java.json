@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/login/TotpGenerator.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 84.61538461538461,
+    "instructions": 89.70588235294117,
+    "branches": 100.0,
+    "sourceBlob": "d483dbecbdb310b9f69242d491f38a8e85d059d5"
+  },
+  "evidenceSha256": "e52b5823ec230c133e3ac0e154f342ea22bf3ee7dd63a1a3c2685be0a1d3bcaf"
+}

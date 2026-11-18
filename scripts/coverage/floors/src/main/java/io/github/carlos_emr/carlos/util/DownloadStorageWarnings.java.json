@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/util/DownloadStorageWarnings.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "125c386c5780ddf8bef4e7c41545edd593c739ba"
+  },
+  "evidenceSha256": "34a728c6e291c4d2795937d69d744981875ef0f539fa437fc4218920ea54d9bf"
+}
