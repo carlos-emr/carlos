@@ -417,10 +417,10 @@
             <tr class="title">
                 <td></td>
                 <td><fmt:message key="casemanagementEntry.Issue"/></td>
-                <td><fmt:message key="casemanagementEntry.Acute"/></td>
-                <td><fmt:message key="casemanagementEntry.Certain"/></td>
-                <td><fmt:message key="casemanagementEntry.Major"/></td>
-                <td><fmt:message key="casemanagementEntry.Resolved"/></td>
+                <td id="note-issue-acute-heading"><fmt:message key="casemanagementEntry.Acute"/></td>
+                <td id="note-issue-certain-heading"><fmt:message key="casemanagementEntry.Certain"/></td>
+                <td id="note-issue-major-heading"><fmt:message key="casemanagementEntry.Major"/></td>
+                <td id="note-issue-resolved-heading"><fmt:message key="casemanagementEntry.Resolved"/></td>
                 <td><fmt:message key="casemanagementEntry.Type"/></td>
                 <td></td>
             </tr>
@@ -441,29 +441,38 @@
                        onchange="setChangeFlag(true);"
                        disabled ${checkBoxDisabled ? '' : 'data-note-lock-edit'} />
             </td>
-            <td style="${cbb.issueDisplay.priority eq 'allergy' ? 'background-color: yellow;' : ''}">
+            <td id="note-issue-description-${status.index}"
+                style="${cbb.issueDisplay.priority eq 'allergy' ? 'background-color: yellow;' : ''}">
                 ${cbb.issueDisplay.description}
             </td>
             <td>
-                <select name="issueCheckList[${status.index}].issueDisplay.acute" disabled ${disabled ? '' : 'data-note-lock-edit'}>
+                <select id="note-issue-acute-${status.index}" name="issueCheckList[${status.index}].issueDisplay.acute"
+                        aria-labelledby="note-issue-acute-heading note-issue-description-${status.index}"
+                        disabled ${disabled ? '' : 'data-note-lock-edit'}>
                     <option value="acute" ${cbb.issueDisplay.acute eq 'acute' ? 'selected' : ''}>acute</option>
                     <option value="chronic" ${cbb.issueDisplay.acute eq 'chronic' ? 'selected' : ''}>chronic</option>
                 </select>
             </td>
             <td>
-                <select name="issueCheckList[${status.index}].issueDisplay.certain" disabled ${disabled ? '' : 'data-note-lock-edit'}>
+                <select id="note-issue-certain-${status.index}" name="issueCheckList[${status.index}].issueDisplay.certain"
+                        aria-labelledby="note-issue-certain-heading note-issue-description-${status.index}"
+                        disabled ${disabled ? '' : 'data-note-lock-edit'}>
                     <option value="certain" ${cbb.issueDisplay.certain eq 'certain' ? 'selected' : ''}>certain</option>
                     <option value="uncertain" ${cbb.issueDisplay.certain eq 'uncertain' ? 'selected' : ''}>uncertain</option>
                 </select>
             </td>
             <td>
-                <select name="issueCheckList[${status.index}].issueDisplay.major" disabled ${disabled ? '' : 'data-note-lock-edit'}>
+                <select id="note-issue-major-${status.index}" name="issueCheckList[${status.index}].issueDisplay.major"
+                        aria-labelledby="note-issue-major-heading note-issue-description-${status.index}"
+                        disabled ${disabled ? '' : 'data-note-lock-edit'}>
                     <option value="major" ${cbb.issueDisplay.major eq 'major' ? 'selected' : ''}>major</option>
                     <option value="not major" ${cbb.issueDisplay.major eq 'not major' ? 'selected' : ''}>not major</option>
                 </select>
             </td>
             <td>
-                <select name="issueCheckList[${status.index}].issueDisplay.resolved" disabled ${disabled ? '' : 'data-note-lock-edit'}>
+                <select id="note-issue-resolved-${status.index}" name="issueCheckList[${status.index}].issueDisplay.resolved"
+                        aria-labelledby="note-issue-resolved-heading note-issue-description-${status.index}"
+                        disabled ${disabled ? '' : 'data-note-lock-edit'}>
                     <option value="resolved" ${cbb.issueDisplay.resolved eq 'resolved' ? 'selected' : ''}>resolved</option>
                     <option value="unresolved" ${cbb.issueDisplay.resolved eq 'unresolved' ? 'selected' : ''}>unresolved</option>
                 </select>
@@ -557,13 +566,13 @@
             </tr>
 
             <tr>
-                <td class="fieldTitle"><fmt:message key="casemanagementEntry.Sign"/></td>
-                <td class="fieldValue"><input type="checkbox" name="sign" disabled data-note-lock-edit onchange="setChangeFlag(true);"/></td>
+                <td class="fieldTitle"><label for="note-sign"><fmt:message key="casemanagementEntry.Sign"/></label></td>
+                <td class="fieldValue"><input type="checkbox" id="note-sign" name="sign" disabled data-note-lock-edit onchange="setChangeFlag(true);"/></td>
             </tr>
 
             <tr>
-                <td class="fieldTitle"><fmt:message key="casemanagementEntry.includecheckedissuesinnote"/></td>
-                <td class="fieldValue"><input type="checkbox" name="includeIssue" disabled data-note-lock-edit onchange="setChangeFlag(true);"/></td>
+                <td class="fieldTitle"><label for="note-include-issues"><fmt:message key="casemanagementEntry.includecheckedissuesinnote"/></label></td>
+                <td class="fieldValue"><input type="checkbox" id="note-include-issues" name="includeIssue" disabled data-note-lock-edit onchange="setChangeFlag(true);"/></td>
             </tr>
 
             <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">

@@ -119,6 +119,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     /** Request attribute set when a save is refused for an unreadable encounter date (closeWithError.jsp). */
     static final String OBSERVATION_DATE_REJECTED = "observationDateRejected";
     private static final String NOTE_INPUT_REJECTED = "noteInputRejected";
+    private static final String NOTE_LOCK_SESSION_PREFIX = "casemgmtNoteLock";
     private static final String CASE_MANAGEMENT_LIST_CHAIN = "list";
     @SuppressWarnings("java:S1075") // fixed allowlist target; making this configurable would weaken redirect hardening
     private static final String CASE_MANAGEMENT_LIST_REDIRECT_PATH = "/CaseManagementView?method=view";
@@ -1048,7 +1049,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      */
     private static void cacheNoteLock(HttpSession session, String demono, CasemgmtNoteLock lock) {
         if (lock != null) {
-            session.setAttribute("casemgmtNoteLock" + demono, lock); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- publish this authorized editor's cache and form together
+            session.setAttribute(NOTE_LOCK_SESSION_PREFIX + demono, lock); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- publish this authorized editor's cache and form together
         }
     }
 
@@ -1133,7 +1134,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         boolean ownedBySession = !casemgmtNoteLock.isLocked() && Objects.equals(casemgmtNoteLock.getSessionId(), sessionId);
         if (ownedBySession) {
-            storeCachedNoteLock(request.getSession(), "casemgmtNoteLock" + demoNo, casemgmtNoteLock);
+            storeCachedNoteLock(request.getSession(), NOTE_LOCK_SESSION_PREFIX + demoNo, casemgmtNoteLock);
         }
 
         Map<String, String> jsonMap = new HashMap<String, String>();
@@ -1162,7 +1163,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         CasemgmtNoteLock cached = null;
         if (value == null || "null".equalsIgnoreCase(value)) {
             // The classic chart omits noteId. Recover only its authenticated patient's own cache.
-            Object saved = session.getAttribute("casemgmtNoteLock" + demoNo);
+            Object saved = session.getAttribute(NOTE_LOCK_SESSION_PREFIX + demoNo);
             if (!(saved instanceof CasemgmtNoteLock lock)) return null;
             cached = lock;
             if (!Integer.valueOf(demoNo).equals(cached.getDemographicNo())
@@ -1196,7 +1197,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         casemgmtNoteLock.setSessionId(session.getId());
         logger.debug("UPDATING LOCK DEMO {} LOCK IP {}", LogSafe.sanitize(demoNo), LogSafe.sanitize(casemgmtNoteLock.getIpAddress()));
         casemgmtNoteLockDao.merge(casemgmtNoteLock);
-        storeCachedNoteLock(session, "casemgmtNoteLock" + demoNo, casemgmtNoteLock);
+        storeCachedNoteLock(session, NOTE_LOCK_SESSION_PREFIX + demoNo, casemgmtNoteLock);
         return null;
     }
 
@@ -2123,7 +2124,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // exact target lock authorized before this full save, without moving its lock.
         selectedLock.setNoteId(note.getId());
         casemgmtNoteLockDao.merge(selectedLock);
-        CasemgmtNoteLock cached = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- own-session lock keyed by validated patient
+        CasemgmtNoteLock cached = (CasemgmtNoteLock) session.getAttribute(NOTE_LOCK_SESSION_PREFIX + demo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- own-session lock keyed by validated patient
         if (cached != null && Objects.equals(cached.getId(), selectedLock.getId())) {
             // Do not reinstall an older editor's cache over one published during this read.
             cached.setNoteId(note.getId());
@@ -2492,7 +2493,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         sessionFrm.setIssueCheckList(stagedCheckboxes);
         selectedLock.setNoteId(note.getId());
         casemgmtNoteLockDao.merge(selectedLock);
-        CasemgmtNoteLock cachedLock = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- own-session patient lock cache
+        CasemgmtNoteLock cachedLock = (CasemgmtNoteLock) session.getAttribute(NOTE_LOCK_SESSION_PREFIX + demo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- own-session patient lock cache
         if (cachedLock != null && Objects.equals(cachedLock.getId(), selectedLock.getId())) {
             // Update the captured cache object without reinstalling it over a newer editor's cache.
             cachedLock.setNoteId(note.getId());
@@ -2578,7 +2579,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private CasemgmtNoteLock ownedNoteLock(String patient, long selectedId) {
         String sessionId = request.getSession().getId();
         String provider = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
-        CasemgmtNoteLock cached = (CasemgmtNoteLock) request.getSession().getAttribute("casemgmtNoteLock" + patient); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- authorized patient's cached lock
+        CasemgmtNoteLock cached = (CasemgmtNoteLock) request.getSession().getAttribute(NOTE_LOCK_SESSION_PREFIX + patient); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- authorized patient's cached lock
         try {
             if (cached != null && cached.getNoteId() != null && Math.max(0L, cached.getNoteId()) == selectedId) {
                 CasemgmtNoteLock stored = casemgmtNoteLockDao.find(cached.getId());
@@ -2620,7 +2621,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      */
     private boolean hasNoteLock(String demo) {
         HttpSession session = request.getSession();
-        CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session lock keyed by demographic scope
+        CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute(NOTE_LOCK_SESSION_PREFIX + demo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session lock keyed by demographic scope
         try {
             if (casemgmtNoteLockSession == null) {
                 return false;
@@ -2668,13 +2669,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             // cache or broaden the native force=true operation's ownership.
             int released = casemgmtNoteLockDao.removeForSession(providerNo, selectedPatient,
                     selectedNote, session.getId());
-            CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demoNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session lock keyed by demographic scope
+            CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute(NOTE_LOCK_SESSION_PREFIX + demoNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session lock keyed by demographic scope
             if (released > 0 && casemgmtNoteLockSession != null
                     && Objects.equals(casemgmtNoteLockSession.getDemographicNo(), selectedPatient)
                     && Objects.equals(casemgmtNoteLockSession.getNoteId(), selectedNote)
                     && Objects.equals(casemgmtNoteLockSession.getProviderNo(), providerNo)
                     && Objects.equals(casemgmtNoteLockSession.getSessionId(), session.getId())) {
-                removeCachedNoteLockIfCurrent(session, "casemgmtNoteLock" + demoNo, casemgmtNoteLockSession);
+                removeCachedNoteLockIfCurrent(session, NOTE_LOCK_SESSION_PREFIX + demoNo, casemgmtNoteLockSession);
             }
 
         } catch (Exception e) {
@@ -2711,9 +2712,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (noteId < 0) {
             return rejectedFullFormSave(unsavedNoteText, "windowCloseError");
         }
-        CasemgmtNoteLock cached = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demoNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- own-session patient lock cache
+        CasemgmtNoteLock cached = (CasemgmtNoteLock) session.getAttribute(NOTE_LOCK_SESSION_PREFIX + demoNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- own-session patient lock cache
         if (cached != null && Objects.equals(cached.getNoteId(), noteId)) {
-            removeCachedNoteLockIfCurrent(session, "casemgmtNoteLock" + demoNo, cached);
+            removeCachedNoteLockIfCurrent(session, NOTE_LOCK_SESSION_PREFIX + demoNo, cached);
         }
 
         releaseNoteLock(providerNo, Integer.parseInt(demoNo), noteId);

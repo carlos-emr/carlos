@@ -50,12 +50,13 @@ class CaseManagementEntryNoteLockJspRegressionTest {
     void shouldPostTheLockRequest_toTheEditorAction() {
         String lock = function("takeNoteLock");
 
-        assertThat(lock).contains("lockRequest.open('POST', '<%=request.getContextPath() %>/CaseManagementEntry', true);");
-        assertThat(lock).contains("\"method=isNoteEdited&demographicNo=\" + encodeURIComponent(demographicNo)");
-        assertThat(lock).contains("\"&noteId=\" + encodeURIComponent(noteId)");
-        assertThat(lock).contains("\"chartContext=\" + encodeURIComponent(chartContext)");
-        assertThat(lock).contains("var demographicNo = '${carlos:forJavaScript(param.demographicNo)}';");
-        assertThat(lock).doesNotContain("'GET'");
+        assertThat(lock).contains(
+                "lockRequest.open('POST', '<%=request.getContextPath() %>/CaseManagementEntry', true);",
+                "\"method=isNoteEdited&demographicNo=\" + encodeURIComponent(demographicNo)",
+                "\"&noteId=\" + encodeURIComponent(noteId)",
+                "\"chartContext=\" + encodeURIComponent(chartContext)",
+                "var demographicNo = '${carlos:forJavaScript(param.demographicNo)}';")
+                .doesNotContain("'GET'");
     }
 
     @Test
@@ -64,10 +65,10 @@ class CaseManagementEntryNoteLockJspRegressionTest {
         String lock = function("takeNoteLock");
 
         assertThat(page).contains("<fmt:message var=\"noteLockLostLabel\" key=\"encounter.noteLockLostError.msg\"/>");
-        assertThat(lock).contains("alert('${carlos:forJavaScriptBlock(noteLockLostLabel)}');");
-        assertThat(lock).contains("owned = JSON.parse(lockRequest.responseText).ownedBySession === true;");
-        assertThat(lock).contains("if (lockRequest.status === 200) {");
-        assertThat(lock).contains("if (!owned)", "note.readOnly = false;", "setTimer();");
+        assertThat(lock).contains(
+                "alert('${carlos:forJavaScriptBlock(noteLockLostLabel)}');",
+                "owned = JSON.parse(lockRequest.responseText).ownedBySession === true;",
+                "if (lockRequest.status === 200) {", "if (!owned)", "note.readOnly = false;", "setTimer();");
         assertThat(lock.indexOf("if (!owned)")).isLessThan(lock.indexOf("note.readOnly = false;"));
     }
 

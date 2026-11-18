@@ -254,8 +254,10 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
         CaseManagementEntry2Action saver = action(save);
         injectDependency(saver, "casemgmtNoteLockDao", locks);
         WebApplicationContext springContext = mock(WebApplicationContext.class);
-        when(springContext.getBean(ProgramManager.class)).thenReturn(mock(ProgramManager.class));
-        when(springContext.getBean(AdmissionManager.class)).thenReturn(mock(AdmissionManager.class));
+        ProgramManager programs = mock(ProgramManager.class);
+        AdmissionManager admissions = mock(AdmissionManager.class);
+        when(springContext.getBean(ProgramManager.class)).thenReturn(programs);
+        when(springContext.getBean(AdmissionManager.class)).thenReturn(admissions);
         doReturn(springContext).when(saver).getSpringContext();
         doReturn(REVISED_TEXT).when(saver).getCaseNote_note();
         doReturn("Note saved").when(saver).getText("note.saved");
@@ -325,7 +327,9 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
             }
             case LAST_UNSIGNED -> when(manager.getLastSaved(any(), eq(PATIENT), eq(PROVIDER)))
                     .thenReturn(note(5002L, "FAKE earlier history"));
-            case NEW_WHEN_NOTHING_UNSIGNED -> { }
+            case NEW_WHEN_NOTHING_UNSIGNED -> {
+                // The unstubbed lookup returns no unsigned note.
+            }
             case EXPLICIT_NEW -> request.setParameter("note_edit", "new");
             case DRAFT -> {
                 CaseManagementTmpSave draft = new CaseManagementTmpSave();
@@ -336,7 +340,7 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
             }
         }
         try (var props = mockStatic(CarlosProperties.class);
-             var views = mockConstruction(CaseManagementView2Action.class)) {
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
             assertThat(action(request).edit()).isEqualTo("view");
         }
