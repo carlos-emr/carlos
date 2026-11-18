@@ -334,6 +334,61 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"0", "-7"})
+    @DisplayName("should archive every other version's measurements when the matched patient has no positive number")
+    void shouldArchiveEveryOtherVersion_whenThePatientNumberIsNotPositive(String patientNumber) {
+        // Nothing to compare a measurement's patient with, so the chain is judged as before: none is spared.
+        Measurement otherPatients = new Measurement();
+        otherPatients.setDataField("7.7");
+        otherPatients.setDemographicId(4711);
+        when(measurementDao.findByValue("lab_no", "1111")).thenReturn(java.util.List.of(otherPatients));
+        fileForPatient(patientNumber);
+
+        verify(measurementDao).batchRemoveAtomically(
+                org.mockito.ArgumentMatchers.argThat(removed -> removed.size() == 1 && removed.get(0) == otherPatients));
+    }
+
+    @Test
+    @DisplayName("should archive a measurement that names no patient when the matched patient is known")
+    void shouldArchiveAMeasurementWithoutAPatient_whenThePatientIsKnown() {
+        Measurement unattributed = new Measurement();
+        unattributed.setDataField("7.7");
+        Measurement otherPatients = new Measurement();
+        otherPatients.setDataField("5.1");
+        otherPatients.setDemographicId(4711);
+        when(measurementDao.findByValue("lab_no", "1111")).thenReturn(java.util.List.of(unattributed, otherPatients));
+        fileForPatient("42");
+
+        verify(measurementDao).batchRemoveAtomically(
+                org.mockito.ArgumentMatchers.argThat(removed -> removed.size() == 1 && removed.get(0) == unattributed));
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @ValueSource(strings = {"", "   ", "abc", "0", "-7", "4.2"})
+    void shouldHaveNoPatientNumberToCompare_whenTheMatchedPatientIsNotAPositiveWholeNumber(String patientNumber) {
+        assertThat((Integer) ReflectionTestUtils.invokeMethod(Hl7textResultsData.class, "patientNumber", patientNumber))
+                .isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"42", " 42 "})
+    void shouldReadThePatientNumber_withoutSurroundingSpaces(String patientNumber) {
+        assertThat((Integer) ReflectionTestUtils.invokeMethod(Hl7textResultsData.class, "patientNumber", patientNumber))
+                .isEqualTo(42);
+    }
+
+    /** Files report 4616 for the given patient number, with versions 1111 and 2222 of it already on the chart. */
+    private void fileForPatient(String patientNumber) {
+        try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("1111,2222,4616");
+            assertThat(fileResult(MessageHandler.class, "6.1", ".*", "2026-03-10 12:00:00",
+                    LocalDateTime.parse("2026-03-10T14:00:00"),
+                    () -> Hl7textResultsData.populateMeasurementsTable("4616", patientNumber))).isNotNull();
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"4616,2222", "1111,4616,2222", "4616,1111,2222"})
     @DisplayName("should file a correction that sorts before the report it corrects, and archive the original")
     void shouldFileACorrection_whenFewerFinalResultsSortItBeforeTheOriginal(String chain) {
