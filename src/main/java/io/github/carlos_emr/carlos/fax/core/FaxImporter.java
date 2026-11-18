@@ -469,7 +469,7 @@ public class FaxImporter {
      * Allows an account to retry at the next scheduled poll after an administrator
      * saves its configuration or successfully verifies its connection.
      *
-     * @param accountId persisted fax account ID; unpersisted IDs are ignored
+     * @param accountId Integer fax configuration ID. Null and non-positive IDs are ignored.
      * @since 2026-11-16
      */
     public void resetPollingBackoff(Integer accountId) {

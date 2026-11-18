@@ -655,6 +655,7 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
         setUpCommonMocks();
         grantConfigureWrite(true);
         stubProviderClient();
+        var importer = importerWithCappedBackoff();
 
         FaxConfig stored = new FaxConfig();
         stored.setId(1);
@@ -677,6 +678,7 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
             // The sentinel never reaches the provider; the stored credential is tested instead.
             assertThat(probeCaptor.getValue().getFaxPasswd()).isEqualTo("stored-secret-value");
             assertThat(response.getContentAsString()).contains("\"success\":true");
+            assertThat(importer.getPollingFailures()).containsOnlyKeys(2);
         }
     }
 
@@ -1053,28 +1055,64 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.CsvSource({"1,true", "1,false", "0,true"})
-    void shouldClearTestedAccountBackoff_onlyAfterAnExistingAccountConnects(String account, boolean success) throws Exception {
+    @org.junit.jupiter.params.provider.CsvSource({
+            "1,true,SRFAX,123456,FAKE-probed-password,true",
+            "1,true,SRFAX,123456,FAKE-stored-password,false",
+            "1,true,SRFAX,654321,FAKE-probed-password,false",
+            "1,true,MIDDLEWARE,123456,FAKE-probed-password,false",
+            "1,true,,,,false",
+            "1,false,SRFAX,123456,FAKE-probed-password,false",
+            "0,true,,,,false"
+    })
+    void shouldClearBackoff_onlyForVerifiedPersistedSettings(String account, boolean success,
+            FaxConfig.ProviderType storedProvider, String storedUser, String storedPassword, boolean clearsBackoff)
+            throws Exception {
         setUpCommonMocks();
         grantConfigureWrite(true);
         stubProviderClient();
         var importer = importerWithCappedBackoff();
         var original = importer.getPollingFailures();
+        if (storedProvider != null) {
+            FaxConfig stored = new FaxConfig();
+            stored.setId(1);
+            stored.setProviderType(storedProvider);
+            stored.setFaxUser(storedUser);
+            stored.setFaxPasswd(storedPassword);
+            when(faxConfigDao.find(1)).thenReturn(stored);
+        }
         if (!success) org.mockito.Mockito.doThrow(new IllegalStateException("FAKE provider refusal"))
                 .when(providerClient).verifyConnection(any(FaxConfig.class));
         request.setMethod("POST");
-        setTestConnectionParams(account, "123456", "FAKE-updated-password");
+        setTestConnectionParams(account, "123456", "FAKE-probed-password");
         try (var servlet = mockStatic(ServletActionContext.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             new ConfigureFax2Action().execute();
             assertThat(OBJECT_MAPPER.readTree(response.getContentAsString()).get("success").asBoolean()).isEqualTo(success);
-            if (success && account.equals("1")) assertThat(importer.getPollingFailures()).containsOnlyKeys(2);
+            if (clearsBackoff) assertThat(importer.getPollingFailures()).containsOnlyKeys(2);
             else assertThat(importer.getPollingFailures()).isEqualTo(original);
             assertThat(importer.getPollingFailures().get(2)).isEqualTo(original.get(2));
         }
     }
 
+    @Test
+    void shouldKeepProbeSuccessful_whenPersistedSettingsCannotBeReadAfterVerification() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        stubProviderClient();
+        var importer = importerWithCappedBackoff();
+        var original = importer.getPollingFailures();
+        when(faxConfigDao.find(1)).thenThrow(new IllegalStateException("FAKE lookup failure"));
+        request.setMethod("POST");
+        setTestConnectionParams("1", "123456", "FAKE-probed-password");
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            new ConfigureFax2Action().execute();
+        }
+        assertThat(response.getContentAsString()).contains("\"success\":true");
+        assertThat(importer.getPollingFailures()).isEqualTo(original);
+    }
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.NullSource

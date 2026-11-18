@@ -93,12 +93,13 @@ class FaxPollBackoffUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldPruneResetMarkersForRemovedAccounts_withoutReusingTheSequence() {
         var backoff = new FaxPollBackoff(Clock.fixed(NOW, ZoneOffset.UTC));
+        long beforeReset = backoff.checkpoint();
         backoff.reset(1);
         long previous = backoff.checkpoint();
         backoff.retainAccounts(Set.of());
         backoff.reset(2);
         assertThat(backoff.checkpoint()).isGreaterThan(previous);
-        assertThat(backoff.failed(1, previous)).isTrue();
+        assertThat(backoff.failed(1, beforeReset)).isTrue();
         assertThat(backoff.failed(2, previous)).isFalse();
         assertThat(backoff.snapshot()).containsOnlyKeys(1);
     }

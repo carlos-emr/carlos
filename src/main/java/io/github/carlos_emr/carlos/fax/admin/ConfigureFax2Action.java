@@ -52,6 +52,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.MissingResourceException;
+import java.util.Objects;
 import java.util.ResourceBundle;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -417,7 +418,7 @@ public class ConfigureFax2Action extends ActionSupport {
             }
             FaxProviderClient client = SpringUtils.getBean(FaxProviderClientFactory.class).getClient(probe);
             client.verifyConnection(probe);
-            resetPollingBackoff(configId);
+            resetVerifiedAccountBackoff(configId, probe);
             sendJsonSuccess(text("admin.configureFax.test.success",
                     "Connection successful. SRFax accepted the account number and password."));
         } catch (ConfigurationValidationException e) {
@@ -796,6 +797,23 @@ public class ConfigureFax2Action extends ActionSupport {
     private void resetPollingBackoff(Integer accountId) {
         if (accountId != null) {
             SpringUtils.getBean(FaxImporter.class).resetPollingBackoff(accountId);
+        }
+    }
+
+    private void resetVerifiedAccountBackoff(Integer accountId, FaxConfig probe) {
+        if (accountId == null) {
+            return;
+        }
+        try {
+            FaxConfig persisted = SpringUtils.getBean(FaxConfigDao.class).find(accountId.intValue());
+            if (persisted != null && persisted.getProviderType() == probe.getProviderType()
+                    && Objects.equals(persisted.getFaxUser(), probe.getFaxUser())
+                    && Objects.equals(persisted.getFaxPasswd(), probe.getFaxPasswd())) {
+                resetPollingBackoff(accountId);
+            }
+        } catch (RuntimeException failure) {
+            MiscUtils.getLogger().warn("Could not check fax polling backoff after verification ({})",
+                    failure.getClass().getSimpleName());
         }
     }
 
