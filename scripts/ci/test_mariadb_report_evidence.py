@@ -93,6 +93,17 @@ TICKLER_REQUIRED_CASES = {
 
 MERGE_REQUIRED_CASES = {"shouldRefuseDeniedParticipants_beforeAnyDatabaseOrAuditChange"}
 
+SITE_CLOCK_REQUIRED_CASES = {
+    'shouldIncludeTheLaterUnrelatedEdit_whenSyncContinuesFromTheRenamedSite(boolean)[1]',
+    'shouldIncludeTheLaterUnrelatedEdit_whenSyncContinuesFromTheRenamedSite(boolean)[2]',
+    'shouldKeepTheNextSecondFloor_whenThePersistedVersionIsAlreadyLater(boolean)[1]',
+    'shouldKeepTheNextSecondFloor_whenThePersistedVersionIsAlreadyLater(boolean)[2]',
+    'shouldUseClinicTime_whenTheDatabaseSessionClockDiffers(boolean)[1]',
+    'shouldUseClinicTime_whenTheDatabaseSessionClockDiffers(boolean)[2]',
+    'shouldUseClinicTime_whenThePersistedVersionIsNull(boolean)[1]',
+    'shouldUseClinicTime_whenThePersistedVersionIsNull(boolean)[2]',
+}
+
 IDENTIFIER_REQUIRED_CASES = {
     "shouldStartItsOwnJpaTransaction_andPreserveUndisclosedIdentifiers",
     "shouldRefreshPreviouslyCachedIdentifiers_afterTakingTheWriteLock",
@@ -176,6 +187,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     "SoapTokenHousekeepingDaoIntegrationTest": TOKEN_REQUIRED_CASES,
                     "DemographicMergeMariaDbIntegrationTest": MERGE_REQUIRED_CASES,
                     "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": LEGACY_NOTE_FLAG_REQUIRED_CASES,
+                    "SiteRenameClockMariaDbIntegrationTest": SITE_CLOCK_REQUIRED_CASES,
                     "DemographicIdentifierPreservationMariaDbIntegrationTest": IDENTIFIER_REQUIRED_CASES,
                     "ScheduleSyncMariaDbIntegrationTest": SCHEDULE_REQUIRED_CASES,
                     "RxPrescribeMariaDbIntegrationTest": RX_REQUIRED_CASES,
@@ -252,6 +264,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                 families.append(("CaseManagementNoteLegacyFlagsMariaDbIntegrationTest", LEGACY_NOTE_FLAG_REQUIRED_CASES))
             for family, names in families + [("SoapTokenHousekeepingDaoIntegrationTest", TOKEN_REQUIRED_CASES),
                                   ("DemographicMergeMariaDbIntegrationTest", MERGE_REQUIRED_CASES),
+                                  ("SiteRenameClockMariaDbIntegrationTest", SITE_CLOCK_REQUIRED_CASES),
                                   ("DemographicIdentifierPreservationMariaDbIntegrationTest", IDENTIFIER_REQUIRED_CASES),
                                   ("ScheduleSyncMariaDbIntegrationTest", SCHEDULE_REQUIRED_CASES),
                                   ("RxPrescribeMariaDbIntegrationTest", RX_REQUIRED_CASES),

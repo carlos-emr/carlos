@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/fax/core/FaxImporter.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "34d6038edc9f61e6be26673ae65c49669c77a652"
+  },
+  "evidenceSha256": "7f3bb091b3216e89a5b93c2ec565b813ac76df4f2a590df1746d4fc005ed1fd3"
+}
