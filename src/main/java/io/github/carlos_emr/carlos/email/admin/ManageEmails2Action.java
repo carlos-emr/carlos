@@ -199,6 +199,7 @@ public class ManageEmails2Action extends ActionSupport {
      * Only FAILED rows transition to RESOLVED, clearing the error and preserving the stored send time.
      * Missing logs return HTTP 404; any refreshed status other than RESOLVED returns HTTP 409.
      * Repeated resolution of a RESOLVED log succeeds without another update.
+     * Successful resolution returns a JSON acknowledgement naming the requested log ID.
      *
      * Invalid log IDs return JSON HTTP 400 without modifying data. Eligible rows are updated
      * via {@link EmailManager#updateEmailStatus}; the refreshed stored state determines the response.
@@ -232,6 +233,8 @@ public class ManageEmails2Action extends ActionSupport {
         } else if (emailLog.getStatus() != EmailStatus.RESOLVED) {
             response.setStatus(HttpServletResponse.SC_CONFLICT);
             JSONUtil.jsonResponse(response, ERROR_MESSAGE_KEY, "Only failed emails can be resolved");
+        } else {
+            JSONUtil.jsonResponse(response, "resolvedLogId", emailLogId);
         }
     }
 
