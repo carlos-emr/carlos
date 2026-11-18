@@ -178,7 +178,7 @@ MariaDB error 1020 after a legacy writer commits (one of 31 cases; JUnit
 The final guarded cleanup passes all 31. Its merged source-bound coverage evidence
 SHA-256 is `f56e7ba0300bd281435e5ba9d649a7b9f5fed5737fb05aca5486cd8eb86f6617`.
 
-## Final cache, audit and native-guard review revision
+## Cache, audit and native-guard revision before the concurrent merge
 
 The client cache now records a publication generation. A lookup or explicit refresh
 that read an older password retries outside the monitor if another operation has
@@ -248,3 +248,36 @@ DEB and native after qualification. The intermediate installed pass above remain
 historical. The final audit-schema, cache and native-guard revision awaits that
 new combined package. No Ministry authentication or external service call is
 claimed by these tests.
+
+## Concurrent review merge qualification
+
+The public review follow-up d4180ef7a2 and this revision are merged without
+rewriting either history. The merged action obtains its audit actor from the
+authenticated LoggedInInfo and refuses a missing actor before storage. A logout
+after commit returns the successful storage outcome without setting a false
+failure flag; lost session feedback emits only a fixed debug message. The public
+single-argument savePassword API remains available for existing internal callers,
+with a bounded service actor. The explicit-actor overload retains validation.
+
+The real two-thread client-publication tests and the incoming reentrant controls
+are both retained. The physical service fixture now executes the actual migration
+from the production classpath, rather than a substitute filesystem-relative DDL.
+Metadata polls are separated by 200 ms; exact-session lock-wait or native-1205
+proof remains required. Schema SQL and the previously qualified ON/BC contracts
+are unchanged, including adoption of an existing two-column table.
+
+All 53 H2/unit cases and all 39 physical MariaDB transaction cases pass: 92 actual
+executions across 53 distinct identities, with zero errors/failures/skips. H2
+JUnit SHA-256: `2c9378f4e34ebc23d4a4610f8e9352b8837ed05fbddf38863cdd145457a5eba3`. Physical JUnit SHA-256:
+`f1cc3e1983cfb82d5c5af35f1855a5a9295ea834ae5071bcc01c90c406e2d699`. Every owned test schema/server is retired.
+Service/action floors remain 100% for lines/instructions/branches; delegate
+floors remain 93.02325581395348% / 93.45238095238095% / 100%, satisfying the maxima
+from both histories. Fresh coverage evidence:
+`91a627898acb68445f755ce0e92f57602ee8f98660330bc9702f4e3eb1dcaba1`.
+
+The complete merged-source Node 22 retake passes all 8,139 cases in 573 files,
+with no skips/cancellations/TODOs or changed source fingerprints. Its generated
+inventory is byte-identical to the checked-in inventory. Full report SHA-256:
+`6cd2e406d30322d36bfec5e2f33af0301c27779805bea6d5c5358d913c2b8038`.
+The next combined installed DEB/native after qualification is still required for
+this merged revision. Earlier installed snapshots remain historical evidence.

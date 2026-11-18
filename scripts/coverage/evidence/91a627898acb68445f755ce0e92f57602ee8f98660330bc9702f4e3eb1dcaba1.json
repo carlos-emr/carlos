@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "8efcfb88c87bfd40aee062decf56d4786672592f",
+  "comparisonSha256": "342b8f8b275d8988c3fc95974a80f7408c5941da094c283b31359c8d1d21f64b",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/McedtCredentialService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "3bcbda9d28db46844f023f4058d529b358fecc48"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/DelegateFactory.java": {
+      "lines": 93.02325581395348,
+      "instructions": 93.45238095238095,
+      "branches": 100.0,
+      "sourceBlob": "5c65da21a6b23aa8e97fe7ceeca0a012d952efcb"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/mailbox/User2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0b51d3633f7bb36577208b2590f7983b24797aae"
+    }
+  },
+  "baselineCommit": "3c6e571921b7dc2ecc32c55aeac7921313bb9a7a",
+  "baselineSourceTree": "8efcfb88c87bfd40aee062decf56d4786672592f",
+  "baselineReportSha256": "6d736b2d4adf13bcc22e9a6d0a4d80de10985c1edbbcdcd2e34a9565facb446f",
+  "baselineLane": "Fresh exact JDK25 selected-source classes, H2/consumer unit controls and physical MariaDB transaction controls. All92 actual executions across 53 distinct testcase identities pass with zero failures/errors/skips. Repeating transaction cases across both database lanes is intentional; each raw report remains unchanged and is unique internally. Components, exact class bytes and JUnit hashes retained; selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 92,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "ff3bb768ca3d7f1f69fe6684d4dcdb0f1b9a4203d42db02f9511904e85e21cae",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}
