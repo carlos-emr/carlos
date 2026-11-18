@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "26a12129ef13249e701f6b29887d1967dd518e00",
+  "comparisonSha256": "a37ca1b25d5da5e185cf7fd8778b589fe46ce9cc7e57de0d786fa6cbec84a31b",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/McedtCredentialService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6f3cba01218d943eb70d17b522a0d56f0e04bcc0"
+    }
+  },
+  "baselineCommit": "b8932220df42b81c73965c11b20b1ba06cf18b6e",
+  "baselineSourceTree": "26a12129ef13249e701f6b29887d1967dd518e00",
+  "baselineReportSha256": "a711a4ef80eac152a91ce1f6aeb3843be2107f0ac727f0526c47f0a9efef6a1c",
+  "baselineLane": "Fresh exact JDK25 selected-source classes, H2/consumer unit controls and physical MariaDB transaction controls. All70 actual executions across 39 distinct testcase identities pass with zero failures/errors/skips. Repeating transaction cases across both database lanes is intentional; each raw report remains unchanged and is unique internally. Components, exact class bytes and JUnit hashes retained; selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 70,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "92999816b83d1c5ef9d689139303e50f6a0acff8bd0f1d74ef824f2335d8caab",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}

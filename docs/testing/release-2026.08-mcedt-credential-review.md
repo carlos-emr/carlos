@@ -143,13 +143,13 @@ keeps the caller's transaction, and borrows no second connection. Other database
 use the same portable guarded DELETE without the MariaDB prefix. Credential
 values never appear in these statements or failure causes.
 
-The final tests comprise 38 distinct cases: 38 H2/consumer-unit executions and
-30 actual MariaDB 11.8.8/32K transaction executions, all passing with zero skips.
-The intentional database-lane repetition totals 68 executions, not 68 distinct
+The merged final tests comprise 39 distinct cases: 39 H2/consumer-unit executions and
+31 actual MariaDB 11.8.8/32K transaction executions, all passing with zero skips.
+The intentional database-lane repetition totals 70 executions, not 70 distinct
 testcases. Changed-line, instruction and branch coverage remain 100% across the
 two raw, unchanged reports. Those reports' SHA-256 values are
-`f4ed1a9c5b5945e57e09e0131639fbb32ea3385ce01f9e46d2b5f72dcb92c94a`
-and `b3edf53822e5a946dbc0e9c5c0ed9fb475e8854edb41d2af19f17e5afb15ca9a`.
+`d4142b95b3fd3f6cfcc20fb08050b8fd7a6fdc6872a79a4feea7a82ef4b3c1ba`
+and `40973d183987f7ecbc040c1585ab4cb7ca0c98d73f8e5e1ccae4e88b1a3127a5`.
 
 The insert controls keep the credential reader's transaction open and require a
 new `provider.language` row to commit before releasing it. Concurrent legacy-value
@@ -157,3 +157,12 @@ changes, renaming, same-connection isolation restoration, first-save serializati
 first-read migration, encryption failures and rollback are covered. The owned
 physical server is retired; the application database is untouched. Rebuilt-DEB
 and installed browser qualification of this follow-up remain pending.
+
+Both concurrent repair histories and regression sets are retained. The original
+locking implementation fails two of the final 30 transaction controls on physical
+MariaDB (JUnit `949c907a0dcb54d0964806dc91dace9f9000af0a569184699f052132e56858c7`).
+The intermediate presence-probe implementation at `098e6e5a4e` still produces
+MariaDB error 1020 after a legacy writer commits (one of 31 cases; JUnit
+`70fd8abae44b4d6d908d2d7c252ba1a5ea98a6579e98ae70e2f2e53fe544ee58`).
+The final guarded cleanup passes all 31. Its merged source-bound coverage evidence
+SHA-256 is `f56e7ba0300bd281435e5ba9d649a7b9f5fed5737fb05aca5486cd8eb86f6617`.
