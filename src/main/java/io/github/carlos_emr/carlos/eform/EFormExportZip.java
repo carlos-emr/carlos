@@ -489,15 +489,16 @@ public class EFormExportZip {
         Set<File> retainedDirectories = new HashSet<>();
         for (Entry<String, EForm> entry : eformTable.entrySet()) {
             StagedEntry staged = tempFiles.get(entry.getKey());
-            if (staged != null) {
-                File htmlFile = PathValidationUtils.validateExistingPath(staged.file(), imageTempFolderDir);
-                String html = new String(Files.readAllBytes(htmlFile.toPath()));
-                _log.debug("Loaded eform HTML content ({} chars)", html.length());
-                entry.getValue().setFormHtml(html);
-                if (!eformTableFailed.isEmpty()) {
-                    collectAssetReferences(html, tempFiles.keySet(), retainedAssets::add);
-                    retainedDirectories.add(staged.archiveDirectory());
-                }
+            if (staged == null) {
+                throw new IOException("ZIP form refers to a missing HTML entry");
+            }
+            File htmlFile = PathValidationUtils.validateExistingPath(staged.file(), imageTempFolderDir);
+            String html = new String(Files.readAllBytes(htmlFile.toPath()));
+            _log.debug("Loaded eform HTML content ({} chars)", html.length());
+            entry.getValue().setFormHtml(html);
+            if (!eformTableFailed.isEmpty()) {
+                collectAssetReferences(html, tempFiles.keySet(), retainedAssets::add);
+                retainedDirectories.add(staged.archiveDirectory());
             }
         }
         if (!eformTableFailed.isEmpty() && retainedDirectories.isEmpty()) {

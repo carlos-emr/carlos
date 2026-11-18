@@ -127,4 +127,40 @@ class EFormExportZipIntegrationTest extends CarlosTestBase {
         assertThat(provisional).doesNotExist();
         assertThat(Files.readString(existing)).isEqualTo("EXISTING");
     }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void shouldRefuseMissingHtml_beforeCommittingAFormOrPublishingAssets(@TempDir Path images) throws Exception {
+        String title = "FAKE missing HTML " + java.util.UUID.randomUUID();
+        var bytes = new ByteArrayOutputStream();
+        try (var zip = new ZipOutputStream(bytes)) {
+            zip.putNextEntry(new ZipEntry("eform.properties"));
+            zip.write(("form.name=" + title + "\nform.htmlFilename=missing.html\n").getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+            zip.putNextEntry(new ZipEntry("orphan.png"));
+            zip.write("FAKE unrelated orphan asset".getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        try {
+            Throwable failure;
+            try (var folders = mockStatic(ImageUpload2Action.class); var beans = mockStatic(SpringUtils.class)) {
+                folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+                beans.when(() -> SpringUtils.getBean(EFormDao.class)).thenReturn(dao);
+                beans.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactionManager);
+                failure = org.assertj.core.api.Assertions.catchThrowable(() ->
+                        new EFormExportZip().importForm(new ByteArrayInputStream(bytes.toByteArray())));
+            }
+            Integer storedId = dao.findMaxIdForActiveForm(title);
+            org.assertj.core.api.SoftAssertions.assertSoftly(softly -> {
+                softly.assertThat(failure).isInstanceOf(java.io.IOException.class).hasMessageContaining("missing HTML");
+                softly.assertThat(storedId).as("No form with missing HTML may commit").isNull();
+                softly.assertThat(images.resolve("orphan.png")).doesNotExist();
+            });
+        } finally {
+            new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(status ->
+                    hibernateTemplate.execute(session -> session.createNativeMutationQuery(
+                            "DELETE FROM eform WHERE form_name=:name").setParameter("name", title).executeUpdate()));
+        }
+    }
+
 }
