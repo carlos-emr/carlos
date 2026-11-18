@@ -33,3 +33,11 @@ This workflow passed in 15.450 seconds. That report also retains an unrelated
 report-order navigation timing failure, so it is not evidence that all 27 cases
 passed. The full combined qualification and subsequent timing-check retake are
 tracked separately.
+
+After CodeRabbit review, all new fixture queries use separate bound parameters,
+and finding 188 retains the original source-only/live-reproduction distinction.
+All 79 manifest and throwaway-login fixture controls pass. The revised installed
+workflow passes again in 23.683 seconds with strict release mode, residue audit,
+pinned Chromium, unchanged properties/restart count, and a clean server-log audit.
+This test-only retake uses the same `b4048148` application package. Its JUnit
+SHA-256 is `a8e675055cd213790c766f287b9341ea1f86c3bbb9b45e86f48684f677edf320`.
