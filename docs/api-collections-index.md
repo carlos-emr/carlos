@@ -44,3 +44,35 @@ the appointment nor its archive. The specialized
 support the same optional token and return the same errors; each changes only its named field.
 Creator and creation-audit fields remain
 server managed, and the updating provider comes from the authenticated session.
+
+## REST list pagination and demographic validation
+
+These contracts apply to both the session routes under `/ws/rs` and the OAuth
+routes under `/ws/services`. Paths below are relative to either prefix.
+
+| List | Accepted `offset` | Accepted `limit` | Omitted values |
+|---|---|---|---|
+| `GET /demographics` | Zero or greater | 0 through 500 | Offset starts at zero; an omitted or zero limit uses the 500-patient default. |
+| `GET /pharmacies/` | Zero or greater | 0 through 5000 | Offset starts at zero; an omitted limit uses the 5000-row maximum. A zero limit returns an empty page. |
+
+With the required read privilege, either list returns HTTP 400 for a negative
+offset, a negative limit or a limit above its maximum, before reading list data.
+A negative limit is not an “all rows” option. For example,
+`GET /demographics?offset=0&limit=500` and
+`GET /pharmacies/?offset=0&limit=5000` use the largest supported page sizes.
+Advance the nonnegative offset to request subsequent pages.
+
+This changes older clients that sent negative offsets or used a negative
+demographic limit: those requests previously used the first/default page.
+Oversized limits and negative pharmacy limits now receive HTTP 400 instead of a
+server error.
+
+For `POST /demographics` and `PUT /demographics`, text fields checked by
+`Demographic.validateFieldLengths()` return HTTP 400 before the write when they
+exceed their limits. Checked fields include names, pronouns, gender, title,
+addresses and contact details. The response has `Content-Type: text/plain`
+and lists the affected fields and their maximum lengths, separated by semicolons.
+It does not echo submitted patient values. This error body is plain text even
+when the client requests a JSON or XML response, so inspect the status and content
+type before decoding it. Earlier builds could return a database error, or
+truncate text when database strict mode was disabled.
