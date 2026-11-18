@@ -37,6 +37,7 @@
     "test:playwright-list": "node scripts/run-playwright-suite.js --list",
     "test:lab-merged-patient-routing-playwright": "node scripts/lab-merged-patient-routing-playwright-checks.js",
     "test:login-playwright": "node scripts/login-playwright-checks.js",
+    "test:login-legacy-intake-playwright": "node scripts/login-legacy-intake-playwright-checks.js",
     "test:allergy-class-shortcut-alert-playwright": "node scripts/allergy-class-shortcut-alert-playwright-checks.js",
     "test:csrfguard-client-browser": "node scripts/csrfguard-client-browser-check.js",
     "test:consult-attachment-ownership-playwright": "node scripts/consult-attachment-ownership-playwright-checks.js",
