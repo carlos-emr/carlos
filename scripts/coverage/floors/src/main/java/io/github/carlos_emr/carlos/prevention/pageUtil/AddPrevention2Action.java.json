@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/prevention/pageUtil/AddPrevention2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "489d6537a269fbba0571449cc10bf513be64cfb0"
+  },
+  "evidenceSha256": "8efff780ba608af430680ad481eaa2bca87b819fe98fd6fdf0cbc3cc010f89d4"
+}
