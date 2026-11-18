@@ -58,8 +58,10 @@ loaders therefore print these columns as before. TINYINT(1), which both drivers
 report as BIT(1), keeps its sign. Its untyped `getObject` reads use the same
 numeric truth rule as `getBoolean`: positive values and `-1` are true, other
 non-positive values are false, and SQL NULL remains null. This also applies
-when `transformedBitIsBoolean=true` reports the column as BOOLEAN;
-`tinyInt1isBit=false` retains integer objects and signed numeric values.
+when `transformedBitIsBoolean=true` reports the column as BOOLEAN.
+Signed TINYINT(1) exposed as a flag reports `isSigned=false`.
+`tinyInt1isBit=false` retains integer objects, signed numeric values and signed
+metadata for signed TINYINT(1).
 `transformedBitIsBoolean=true` also makes MariaDB report a real BIT(1) column as
 BOOLEAN (it keeps the type name `BIT`), print it as `true`/`false` and refuse
 `double` and `float` reads. Connector/J changed only TINYINT(1), so a real BIT(1)
@@ -68,12 +70,17 @@ Typed `getObject` reads also keep SQL NULL as null when the requested numeric
 or Boolean class is primitive (for example `double.class`). Primitive getters
 such as `getDouble` still return zero with `wasNull()` set.
 
+For REAL, FLOAT and DOUBLE sources, `getFloat` and typed Float reads reject
+values outside the float range with SQL state `22003` when
+`jdbcCompliantTruncation=true`. With that option disabled, narrowing can return
+infinity. For other source types, float conversion uses MariaDB's native
+behavior except for the BIT conversions described above.
+
 These Connector/J behaviours are not reproduced: `getBytes` on a numeric
 column (MariaDB refuses it), the deprecated
 `getBigDecimal(column, scale)` rounding, `getNString` on a non-national column
-(MariaDB returns the text), out-of-range `getLong` and `getFloat` reads (MariaDB
-returns the type's limit, or infinity for `getFloat`, where Connector/J refused
-them), `getByte` on BIT columns wider than 8 bits, and some metadata details:
+(MariaDB returns the text), out-of-range `getLong` reads (MariaDB returns the
+type's limit), `getByte` on BIT columns wider than 8 bits, and some metadata details:
 FLOAT and DOUBLE scale, integer precision, the display size of DECIMAL and INT
 columns, and the `INT` type name, which MariaDB reports as `INTEGER`.
 

@@ -353,9 +353,13 @@ public final class MariaDbCompatibilityDriver implements Driver {
 
         /** Recognizes unsigned TINYINT(1) even when MariaDB advertises it as a flag. */
         private static boolean isUnsignedTinyIntFlag(ResultSetMetaData metadata, int column, int type) throws SQLException {
+            return isTinyIntFlag(metadata, column, type) && !metadata.isSigned(column);
+        }
+
+        /** Recognizes a native TINYINT field exposed through JDBC as BIT or BOOLEAN. */
+        private static boolean isTinyIntFlag(ResultSetMetaData metadata, int column, int type) throws SQLException {
             return (type == Types.BIT || type == Types.BOOLEAN)
                     && metadata instanceof org.mariadb.jdbc.client.result.ResultSetMetaData
-                    && !metadata.isSigned(column)
                     && nativeColumnMetadata(metadata, column).getType() == DataType.TINYINT;
         }
 
@@ -437,6 +441,10 @@ public final class MariaDbCompatibilityDriver implements Driver {
             if (policy.aliases() && name.equals("getColumnName")) return metadata.getColumnLabel((Integer) args[0]);
             if (policy.aliases() && name.equals("getTableName")) return tableAlias(metadata, (Integer) args[0]);
             switch (name) {
+                case "isSigned" -> {
+                    int column = (Integer) args[0];
+                    if (isTinyIntFlag(metadata, column, metadata.getColumnType(column))) return false;
+                }
                 case "getColumnClassName", "getColumnType", "getColumnTypeName" -> {
                     int column = (Integer) args[0];
                     if (isUnsignedTinyIntFlag(metadata, column, metadata.getColumnType(column))) {

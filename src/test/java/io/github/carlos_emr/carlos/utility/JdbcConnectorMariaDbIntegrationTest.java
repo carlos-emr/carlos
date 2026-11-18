@@ -821,6 +821,9 @@ class JdbcConnectorMariaDbIntegrationTest {
                          var bits = connection.prepareStatement("SELECT b1 FROM number_probe WHERE id <= ? ORDER BY id")) {
                         query.setInt(1, 1);
                         try (var rows = query.executeQuery()) {
+                            assertThat(rows.getMetaData().isSigned(1))
+                                    .as("signed TINYINT(1) metadata with %s", options)
+                                    .isEqualTo(!tinyBit);
                             if (tinyBit) assertConnectorJTinyIntTruthValues(rows);
                             else assertConnectorJTinyIntIntegerValues(rows);
                         }
