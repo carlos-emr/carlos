@@ -102,3 +102,17 @@ MOXy birthday profile selects its historical date-only spelling. CDS import
 writes the year/month/day fields directly, and CDS export builds its XMLBeans
 date from `DemographicData.getDob`; neither uses the model's JAXB birthday
 adapter. JSON and native storage mappings are unchanged.
+
+## Appointment reminder reader recheck
+
+The `Demographic` source fingerprint is refreshed for the email appointment
+reminder change (#6160). `Demographic.java` changes only the display method
+`getRosterStatusDisplay(Locale)`: a SpotBugs `IMPROPER_UNICODE` suppression and
+a case-insensitive `NR` branch that returns the localized "Not Rostered" text
+for the appointment pages and the REST embedded snapshot's display field. The
+CDS import and export readers use the stored roster-status code and do not call
+that method, so the executable CDS mapping, normalization and retained-source
+behavior are unchanged. The schema pins, 407 paths, 130 choice arms and
+synthetic fixture bytes remain unchanged. Regeneration updates the reviewed
+fingerprint and its canonical inventory binding; it does not waive native,
+installed or release qualification.
