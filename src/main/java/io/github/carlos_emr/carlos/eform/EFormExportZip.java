@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action;
 
 import java.io.*;
+import java.net.URLDecoder;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -74,6 +75,11 @@ public class EFormExportZip {
     private static final Pattern ARCHIVE_ASSET_REFERENCE = Pattern.compile(
             "\\$\\{oscar_image_path\\}([^\"'<>]{1,255})"
                     + "|(?i:\\b(?:src|href)\\s*=\\s*)(?:\"([^\"]{1,255})\"|'([^']{1,255})'|([^\\s<>\"']{1,255}))");
+    private static final Pattern ASSET_DEPENDENCY = Pattern.compile(
+            "(?i)(?:\\b(?:url|import|fetch)\\s*\\(\\s*|@import\\s+|\\bfrom\\s+)"
+                    + "(?:\"([^\"]{1,255})\"|'([^']{1,255})'|([^\\s()<>\"']{1,255}))");
+    private static final Pattern DISPLAY_IMAGE_REFERENCE = Pattern.compile("/eform/displayImage\\?imagefile=([^&#]+)");
+    private static final Pattern URL_SCHEME = Pattern.compile("[A-Za-z][A-Za-z0-9+.-]*:");
 
     // Backstops for egregious expansion, with room for large images and bulk form packages.
     private static final long MAX_IMPORT_ENTRY_BYTES = 256L << 20;
@@ -368,7 +374,7 @@ public class EFormExportZip {
                 }
                 Map<Path, Path> publishedAssets = new HashMap<>();
                 try {
-                    publishImportFiles(imageDir, imageTempFolderDir, eformTable, eformTableFailed, tempFiles,
+                    publishImportFiles(imageDir, imageTempFolderDir, eformTable, eformTableFailed, tempFiles, textBytes,
                             errors, publishedAssets);
                     if (!eformTable.isEmpty()) {
                         importTransaction.accept(() -> {
@@ -477,7 +483,7 @@ public class EFormExportZip {
 
     /** Loads retained HTML and publishes assets only after all resource preflight checks pass. */
     private void publishImportFiles(File imageDir, File imageTempFolderDir, Map<String, EForm> eformTable,
-            Map<String, EForm> eformTableFailed, Map<String, StagedEntry> tempFiles, List<String> errors,
+            Map<String, EForm> eformTableFailed, Map<String, StagedEntry> tempFiles, long textBytes, List<String> errors,
             Map<Path, Path> publishedAssets) throws IOException {
         Set<String> retainedAssets = new HashSet<>();
         Set<File> retainedDirectories = new HashSet<>();
@@ -489,7 +495,7 @@ public class EFormExportZip {
                 _log.debug("Loaded eform HTML content ({} chars)", html.length());
                 entry.getValue().setFormHtml(html);
                 if (!eformTableFailed.isEmpty()) {
-                    collectRetainedAssets(html, tempFiles.keySet(), retainedAssets);
+                    collectAssetReferences(html, tempFiles.keySet(), retainedAssets::add);
                     retainedDirectories.add(staged.archiveDirectory());
                 }
             }
@@ -497,8 +503,6 @@ public class EFormExportZip {
         if (!eformTableFailed.isEmpty() && retainedDirectories.isEmpty()) {
             return;
         }
-        // Only a dedicated refused form directory establishes ownership. Shared and
-        // unassigned assets can be loaded indirectly by a retained form's scripts or styles.
         Set<File> refusedDirectories = new HashSet<>();
         for (String refusedName : eformTableFailed.keySet()) {
             StagedEntry refused = tempFiles.get(refusedName);
@@ -507,33 +511,88 @@ public class EFormExportZip {
             }
         }
         refusedDirectories.remove(imageTempFolderDir);
-        refusedDirectories.removeAll(retainedDirectories);
+        Map<String, StagedEntry> assets = new LinkedHashMap<>();
         for (Entry<String, StagedEntry> staged : tempFiles.entrySet()) {
             String name = staged.getKey();
-            if (!eformTable.containsKey(name) && !eformTableFailed.containsKey(name)
-                    && (!refusedDirectories.contains(staged.getValue().archiveDirectory()) || retainedAssets.contains(name))) {
+            if (!eformTable.containsKey(name) && !eformTableFailed.containsKey(name)) {
+                assets.put(name, staged.getValue());
+                if (refusedDirectories.isEmpty()
+                        || !isRefusedAsset(staged.getValue().archiveDirectory(), retainedDirectories, refusedDirectories)) {
+                    retainedAssets.add(name);
+                }
+            }
+        }
+        if (!refusedDirectories.isEmpty()) {
+            retainAssetDependencies(assets, retainedAssets, textBytes);
+        }
+        for (Entry<String, StagedEntry> staged : assets.entrySet()) {
+            String name = staged.getKey();
+            if (retainedAssets.contains(name)) {
                 publishImportAsset(name, staged.getValue().file(), imageDir, imageTempFolderDir, errors, publishedAssets);
             }
         }
     }
 
-    private void collectRetainedAssets(String html, Set<String> stagedNames, Set<String> retainedAssets) {
-        Matcher references = ARCHIVE_ASSET_REFERENCE.matcher(html);
+    /** The closest form directory owns the asset. A directory shared with a retained form is retained. */
+    private boolean isRefusedAsset(File directory, Set<File> retained, Set<File> refused) {
+        for (File current = directory; current != null; current = current.getParentFile()) {
+            if (retained.contains(current)) return false;
+            if (refused.contains(current)) return true;
+        }
+        return false;
+    }
+
+    private void retainAssetDependencies(Map<String, StagedEntry> assets, Set<String> retained, long textBytes)
+            throws IOException {
+        Deque<String> pending = new ArrayDeque<>(retained);
+        while (!pending.isEmpty()) {
+            String name = pending.removeFirst();
+            String lowerName = name.toLowerCase(Locale.ROOT);
+            StagedEntry entry = assets.get(name);
+            if (entry == null || !(lowerName.endsWith(".css") || lowerName.endsWith(".js") || lowerName.endsWith(".mjs"))) {
+                continue;
+            }
+            textBytes = countImportTextBytes(entry.file(), textBytes, MAX_IMPORT_TEXT_ENTRY_BYTES);
+            String text = new String(Files.readAllBytes(entry.file().toPath()), StandardCharsets.UTF_8);
+            collectAssetReferences(text, assets.keySet(), dependency -> {
+                if (retained.add(dependency)) pending.addLast(dependency);
+            });
+        }
+    }
+
+    private void collectAssetReferences(String text, Set<String> stagedNames, Consumer<String> retain) {
+        collectAssetReferences(ARCHIVE_ASSET_REFERENCE.matcher(text), stagedNames, retain);
+        collectAssetReferences(ASSET_DEPENDENCY.matcher(text), stagedNames, retain);
+    }
+
+    private void collectAssetReferences(Matcher references, Set<String> stagedNames, Consumer<String> retain) {
         while (references.find()) {
             for (int group = 1; group <= references.groupCount(); group++) {
                 String reference = references.group(group);
                 if (reference != null) {
-                    if (reference.startsWith(IMAGE_PATH_MARKER)) {
-                        reference = reference.substring(IMAGE_PATH_MARKER.length());
-                    }
-                    String name = stagedNames.contains(reference) ? reference : reference.split("[?#]", 2)[0];
-                    if (stagedNames.contains(name)) {
-                        retainedAssets.add(name);
-                    }
+                    String name = assetName(reference);
+                    if (name != null && stagedNames.contains(name)) retain.accept(name);
                     break;
                 }
             }
         }
+    }
+
+    private String assetName(String reference) {
+        String value = reference.strip();
+        if (value.startsWith(IMAGE_PATH_MARKER)) value = value.substring(IMAGE_PATH_MARKER.length());
+        if (value.startsWith("//") || URL_SCHEME.matcher(value).lookingAt()) return null;
+        Matcher displayImage = DISPLAY_IMAGE_REFERENCE.matcher(value);
+        if (displayImage.find()) {
+            try {
+                return URLDecoder.decode(displayImage.group(1), StandardCharsets.UTF_8);
+            } catch (IllegalArgumentException invalidEscape) {
+                return null;
+            }
+        }
+        String path = value.split("[?#]", 2)[0];
+        // ZIP directories indicate ownership, while the legacy image store uses flat names.
+        return path.substring(path.lastIndexOf('/') + 1);
     }
 
     private void publishImportAsset(String name, File stagedFile, File imageDir, File imageTempFolderDir,

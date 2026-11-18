@@ -369,15 +369,21 @@ class EFormExportZipConcurrentImportUnitTest {
     }
 
     @Test
-    void mixedArchiveKeepsSharedAssetsAndAssetsFromTheRetainedFormDirectory() throws Exception {
+    void mixedArchiveKeepsTransitiveDependenciesAndSkipsAssetsOwnedOnlyByTheRefusedForm() throws Exception {
         Map<String, String> entries = new LinkedHashMap<>();
         entries.put("refused/eform.properties", "form.name=Duplicate\nform.htmlFilename=refused.html\n");
         entries.put("refused/refused.html", "<img src='orphan.png'><img src='shared.png'>");
-        entries.put("refused/orphan.png", "REFUSED");
+        entries.put("refused/icons/orphan.png", "REFUSED");
         entries.put("refused/shared.png", "SHARED");
+        entries.put("refused/theme.css", "@import 'shared-theme.css';");
+        entries.put("refused/styles/shared-theme.css", "body { background: url('../icons/background.png'); }");
+        entries.put("refused/icons/background.png", "STYLE-DEPENDENCY");
+        entries.put("refused/styles/loader.js", "new Image().src='/eform/displayImage?imagefile=script%20icon.png';");
+        entries.put("refused/icons/script icon.png", "SCRIPT-DEPENDENCY");
         entries.put("retained/eform.properties", "form.name=New\nform.htmlFilename=retained.html\n");
-        entries.put("retained/retained.html", "<img src='${oscar_image_path}shared.png'>");
-        entries.put("retained/indirect.png", "RETAINED");
+        entries.put("retained/retained.html", "<img src='${oscar_image_path}shared.png'>"
+                + "<link rel='stylesheet' href='theme.css'><script src='loader.js'></script>");
+        entries.put("retained/icons/indirect.png", "RETAINED");
         try (var folders = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
             folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
             forms.when(() -> EFormUtil.formExistsInDB("Duplicate")).thenReturn(true);
@@ -391,6 +397,11 @@ class EFormExportZipConcurrentImportUnitTest {
         assertThat(images.resolve("orphan.png")).doesNotExist();
         assertThat(Files.readString(images.resolve("shared.png"))).isEqualTo("SHARED");
         assertThat(Files.readString(images.resolve("indirect.png"))).isEqualTo("RETAINED");
+        assertThat(images.resolve("theme.css")).exists();
+        assertThat(images.resolve("shared-theme.css")).exists();
+        assertThat(images.resolve("loader.js")).exists();
+        assertThat(Files.readString(images.resolve("background.png"))).isEqualTo("STYLE-DEPENDENCY");
+        assertThat(Files.readString(images.resolve("script icon.png"))).isEqualTo("SCRIPT-DEPENDENCY");
         assertThat(stagingDirectories()).isEmpty();
     }
 
