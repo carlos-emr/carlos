@@ -178,9 +178,23 @@ async function workflow(s) {
     h.assert(await swipe.locator('input[name="magneticStripe"]').inputValue() === '', 'The refused track was left in the box');
   });
 
+  let validationForm;
+  async function validateCard(page, label) {
+    const [submitted] = await Promise.all([
+      page.waitForRequest(request => new URL(request.url()).pathname.endsWith('/demographic/ValidateSwipeCard')),
+      ui.clickAndAwaitReload(page, page.getByRole('button', { name: 'Validate' }), { label }),
+    ]);
+    h.assert(submitted.method() === 'POST', 'Card validation did not use POST');
+    h.assert(!new URL(submitted.url()).searchParams.has('magneticStripe'),
+      'The card track entered the validation URL');
+    const form = Object.fromEntries(new URLSearchParams(submitted.postData() || ''));
+    h.assert(form.magneticStripe === stripe, 'The POST body did not contain the submitted synthetic card');
+    return form;
+  }
+
   await s.step('Validate renders the parsed card for the owned patient as a valid health number', async () => {
     await swipe.locator('input[name="magneticStripe"]').type(stripe, { delay: 1 });
-    await ui.clickAndAwaitReload(swipe, swipe.getByRole('button', { name: 'Validate' }), { label: 'Validate' });
+    validationForm = await validateCard(swipe, 'Validate');
     h.assert(new URL(swipe.url()).pathname.endsWith('/demographic/ValidateSwipeCard'), 'Validate did not reach ValidateSwipeCard');
     const field = name => swipe.locator(`input[name="${name}"]`).inputValue();
     h.assert(await field('hin') === hin && await field('ver') === 'AB', 'The card health number or version was not parsed');
@@ -226,19 +240,27 @@ async function workflow(s) {
     const before = sql.rows(`SELECT hin,ver,eff_date,hc_renew_date,last_name,first_name
       FROM demographic WHERE demographic_no=${patient}`);
     for (const input of [malformed.slice(0, 40), undefined, '', stripe + 'xx', stripe.replace('/', ' ')]) {
-      const response = await s.context.request.get(endpoint,
-        { params: input === undefined ? {} : { magneticStripe: input } });
+      const form = { ...validationForm };
+      if (input === undefined) delete form.magneticStripe;
+      else form.magneticStripe = input;
+      const response = await s.context.request.post(endpoint, { form });
       h.assert(response.status() === 400,
         `A malformed track was not refused as a bad request (HTTP ${response.status()})`);
       const body = await response.text();
       h.assert(!body.includes(hin.slice(0, 5)) && !body.includes(marker), 'A refused track was echoed back');
+    }
+    // No track is placed in these refusal URLs; the method check must run before parsing/validation.
+    for (const method of ['GET', 'HEAD']) {
+      const response = await s.context.request.fetch(endpoint, { method });
+      h.assert(response.status() === 405 && response.headers().allow === 'POST',
+        'Card validation accepted a method other than POST');
     }
     h.assert(JSON.stringify(sql.rows(`SELECT hin,ver,eff_date,hc_renew_date,last_name,first_name
       FROM demographic WHERE demographic_no=${patient}`)) === JSON.stringify(before),
     'Refusing malformed tracks changed the patient record');
     const retry = await s.popup(master, master.locator('#swipeButton input[type="button"]').first(), 'swipe-card-retry');
     await retry.locator('input[name="magneticStripe"]').fill(stripe);
-    await ui.clickAndAwaitReload(retry, retry.getByRole('button', { name: 'Validate' }), { label: 'Validate after refusal' });
+    await validateCard(retry, 'Validate after refusal');
     h.assert(await retry.locator('input[name="hin"]').inputValue() === hin,
       'The swipe form was not usable after the bad requests');
     await retry.close();

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/SiteDaoImpl.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "a6717c04d9f1a8a1948661013f0f69aa3045b0ae"
+  },
+  "evidenceSha256": "772d751d3f54c64065863c441ba1e046a2a652a7314ec135d310ed979d6a5951"
+}
