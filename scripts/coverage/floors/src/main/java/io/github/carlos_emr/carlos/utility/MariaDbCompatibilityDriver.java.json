@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java",
   "kind": "floor",
   "floor": {
-    "lines": 95.23809523809524,
-    "instructions": 93.57884796978281,
-    "branches": 87.60330578512396,
-    "sourceBlob": "e5b5c7d1652ad70b46de6512a2ab8ea181119686"
+    "lines": 95.44468546637744,
+    "instructions": 93.81703470031546,
+    "branches": 87.81302170283806,
+    "sourceBlob": "1bde9136216539d169b403328f40a13f15f0467c"
   },
-  "evidenceSha256": "54104f963248b7895b67169d33e9d7504a9eae3dafd1bf6baa798587d127830b"
+  "evidenceSha256": "970d0c4a84edcd0e0f69a14fb609d430fccd6f3cab93f2944d6c0b8e756f25b6"
 }
