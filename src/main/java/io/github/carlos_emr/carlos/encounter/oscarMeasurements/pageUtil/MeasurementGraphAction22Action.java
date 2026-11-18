@@ -41,7 +41,6 @@ import java.io.OutputStream;
 import java.io.Serializable;
 import java.text.ParseException;
 import java.util.*;
-import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -84,8 +83,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
     private static final String VALUE_DATE_LABEL = "{1} \n {2}";
     private static final String SYSTOLIC = "Systolic";
     private static final String DIASTOLIC = "Diastolic";
-    // A separator follows a bound. A leading sign or a sign after an exponent marker is part of the number.
-    private static final Pattern LAB_REFERENCE_SEPARATOR = Pattern.compile("(?<=[^\\s+\\-eEpP])\\s*-");
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
@@ -543,21 +540,40 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         if (range == null || !range.contains("-") || collectionDate == null) {
             return;
         }
-        String[] bounds = LAB_REFERENCE_SEPARATOR.split(range, -1);
-        if (bounds.length != 2) {
+        int separator = labReferenceSeparator(range);
+        if (separator < 0) {
             throw new GraphDataException(GraphDataException.Problem.REFERENCE_RANGE, testName,
                     "Invalid laboratory reference range");
         }
         double low;
         double high;
         try {
-            low = Double.parseDouble(bounds[0].replace("%", "").trim());
-            high = Double.parseDouble(bounds[1].replace("%", "").trim());
+            low = Double.parseDouble(range.substring(0, separator).replace("%", "").trim());
+            high = Double.parseDouble(range.substring(separator + 1).replace("%", "").trim());
         } catch (NumberFormatException notANumber) {
             throw new GraphDataException(GraphDataException.Problem.REFERENCE_RANGE, testName,
                     "Invalid laboratory reference range", notANumber);
         }
         ranges.add(new ReferenceRange(collectionDate.getStart(), low, high));
+    }
+
+    /** Finds the sole separator in one pass, keeping a bound's leading sign and exponent sign. */
+    private static int labReferenceSeparator(String range) {
+        int separator = -1;
+        char previous = '-';
+        for (int i = 0; i < range.length(); i++) {
+            char current = range.charAt(i);
+            if (current == '-' && "+-eEpP".indexOf(previous) < 0) {
+                if (separator >= 0) {
+                    return -1;
+                }
+                separator = i;
+            }
+            if (" \t\n\r\f\u000B".indexOf(current) < 0) {
+                previous = current;
+            }
+        }
+        return separator;
     }
 
     private static Day collectionDay(Map<String, Serializable> value, String testName) throws ParseException {

@@ -496,7 +496,8 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @CsvSource({"3.5 - 5.0, 3.5, 5.0", "-2 - 2, -2.0, 2.0", "-2--1, -2.0, -1.0",
-            "1e-2 - 2e-1, 0.01, 0.2", "3.5% - 5.0%, 3.5, 5.0"})
+            "1e-2 - 2e-1, 0.01, 0.2", "3.5% - 5.0%, 3.5, 5.0", "-2 \t - \t -1, -2.0, -1.0",
+            "0x1p-2 - 0x1p-1, 0.25, 0.5"})
     void shouldDrawTheLabValueWithItsReferenceRange_forALabChartWithoutMedications(
             String rangeText, double low, double high) throws Exception {
         request.setParameter("method", "actualLab");
