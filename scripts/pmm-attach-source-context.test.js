@@ -21,13 +21,13 @@ function assignHarness(token) {
     assert.doesNotMatch(script, /<%|%>/);
     const opened = [];
     const sandbox = {
+        ctx: '/carlos',
         window: { carlosChartContext: token },
         document: { forms: { caseManagementEntryForm: { noteId: { value: '5' } } } },
         origCaseNote: 'FAKE saved text',
         origObservationDate: '2026-10-25',
         caseNote: 'note',
-        $F: () => 'FAKE saved text',
-        $: () => ({ value: '2026-10-25' }),
+        $: id => ({ value: id === 'note' ? 'FAKE saved text' : '2026-10-25' }),
         popupPage: (...args) => opened.push(args),
         encodeURIComponent,
     };
