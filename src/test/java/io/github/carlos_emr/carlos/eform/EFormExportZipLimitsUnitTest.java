@@ -175,7 +175,7 @@ class EFormExportZipLimitsUnitTest {
 
     @Test
     void shouldRejectLargeHtml_whenPropertiesReferenceAnAssetExtension() throws Exception {
-        rejectedText(textArchive(".png", 1, (16 << 20) + 1, 0));
+        rejectedText(textArchive(".png", 1, (50 << 20) + 1, 0));
     }
 
     @Test
@@ -225,7 +225,7 @@ class EFormExportZipLimitsUnitTest {
 
     @Test
     void shouldAcceptHtml_whenTextEntryReachesDefaultLimit() throws Exception {
-        accepted(textArchive(".html", 1, 16 << 20, 0), "asset.png", 20);
+        accepted(textArchive(".html", 1, 50 << 20, 0), "asset.png", 20);
     }
 
     @Test

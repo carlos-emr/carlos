@@ -68,8 +68,9 @@ public class EFormExportZip {
     private static final long MAX_IMPORT_ENTRY_BYTES = 256L << 20;
     private static final long MAX_IMPORT_TOTAL_BYTES = 1L << 30;
     private static final int MAX_IMPORT_ENTRIES = 10_000;
-    // Parsed properties and retained HTML need a smaller heap budget than streamed assets.
+    // Match the supported HTML upload capacity, while bounding parsed metadata separately.
     private static final long MAX_IMPORT_TEXT_ENTRY_BYTES = 16L << 20;
+    private static final long MAX_IMPORT_HTML_ENTRY_BYTES = 50L << 20;
     private static final long MAX_IMPORT_TEXT_TOTAL_BYTES = 64L << 20;
 
     /**
@@ -317,7 +318,7 @@ public class EFormExportZip {
             for (Entry<String, File> tempFile : tempFiles.entrySet()) {
                 if (eformTable.containsKey(tempFile.getKey())) {
                     File htmlFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
-                    textBytes = countImportTextBytes(htmlFile, textBytes);
+                    textBytes = countImportTextBytes(htmlFile, textBytes, MAX_IMPORT_HTML_ENTRY_BYTES);
                 }
             }
 
@@ -381,7 +382,7 @@ public class EFormExportZip {
             try (FileOutputStream output = new FileOutputStream(propertiesFile)) {
                 inputToOutput(zis, output);
             }
-            textBytes = countImportTextBytes(propertiesFile, textBytes);
+            textBytes = countImportTextBytes(propertiesFile, textBytes, MAX_IMPORT_TEXT_ENTRY_BYTES);
             try (FileInputStream input = new FileInputStream(propertiesFile)) {
                 properties.load(input);
             }
@@ -458,9 +459,9 @@ public class EFormExportZip {
     }
 
     /** Counts actual staged text bytes before any parser or full-entry buffer sees them. */
-    private long countImportTextBytes(File file, long totalBytes) throws IOException {
+    private long countImportTextBytes(File file, long totalBytes, long maxEntryBytes) throws IOException {
         long entryBytes = Files.size(file.toPath());
-        if (entryBytes > MAX_IMPORT_TEXT_ENTRY_BYTES || entryBytes > MAX_IMPORT_TEXT_TOTAL_BYTES - totalBytes) {
+        if (entryBytes > maxEntryBytes || entryBytes > MAX_IMPORT_TEXT_TOTAL_BYTES - totalBytes) {
             throw new IOException("ZIP import text byte limit exceeded");
         }
         return totalBytes + entryBytes;
