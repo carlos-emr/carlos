@@ -311,10 +311,12 @@ async function cleanup(state) {
     } finally {
       try {
         if (formName && providerNo) {
+          // Template names must be unique, so the instance template has its own owned name.
+          const ownedNames = [formName, `${formName} instances`];
           // Instances of the owned templates first, in case patient cleanup did not reach them.
           const ownedTemplateIds = sql.rows(
-            'SELECT fid FROM eform WHERE form_name=? AND form_creator=?',
-            [formName, providerNo],
+            'SELECT fid FROM eform WHERE form_name IN (?, ?) AND form_creator=?',
+            [...ownedNames, providerNo],
           ).map(([fid]) => fid).filter((fid) => /^[1-9]\d*$/.test(fid));
           if (ownedTemplateIds.length) {
             const templatePlaceholders = ownedTemplateIds.map(() => '?').join(',');
@@ -327,13 +329,13 @@ async function cleanup(state) {
             );
           }
           sql.execute(
-            'DELETE FROM eform WHERE form_name=? AND form_creator=?',
-            [formName, providerNo],
+            'DELETE FROM eform WHERE form_name IN (?, ?) AND form_creator=?',
+            [...ownedNames, providerNo],
           );
           assert(
             sql.value(
-              'SELECT COUNT(*) FROM eform WHERE form_name=? AND form_creator=?',
-              [formName, providerNo],
+              'SELECT COUNT(*) FROM eform WHERE form_name IN (?, ?) AND form_creator=?',
+              [...ownedNames, providerNo],
             ) === '0',
             'The owned synthetic eForm template was not removed',
           );
@@ -1150,15 +1152,19 @@ async function main(state = {}) {
   // form opened from it, and the deleted-eForms list. The API is only useful to AI-Scribe if what
   // it writes is what a clinician then reads in the chart.
   //
-  // The template reuses the run's owned form name, so cleanup removes it and its instances.
+  // eForm template names must be unique; cleanup removes this owned name and its instances too.
+  const instanceFormName = `${formName} instances`;
   const instanceTemplateHtml = '<html><head><title>AI-Scribe instance fixture</title></head><body>'
     + '<form method="post" action="">'
-    + '<input type="text" name="ais_summary" value="template summary">'
-    + '<textarea name="ais_plan">template plan</textarea>'
-    + '<input type="text" name="ais_kept" value="template kept">'
+    // Visible labels, like a real eForm: a page of bare fields has no body text, which the
+    // harness rightly treats as a blank (failed) render.
+    + '<h1>AI-Scribe instance fixture</h1>'
+    + '<label>Summary <input type="text" name="ais_summary" value="template summary"></label>'
+    + '<label>Plan <textarea name="ais_plan">template plan</textarea></label>'
+    + '<label>Kept <input type="text" name="ais_kept" value="template kept"></label>'
     + '</form></body></html>';
   const instanceTemplateResponse = await signedRequest('POST', '/ws/services/eform/json', fullToken, {
-    formName,
+    formName: instanceFormName,
     formSubject: 'AI-Scribe OAuth instance fixture',
     formHtml: instanceTemplateHtml,
     patientIndependent: false,
@@ -1264,7 +1270,7 @@ async function main(state = {}) {
         'The patient eForm list does not show the instance created through the API');
       const row = page.locator('tr', { has: page.locator(`input[name="fdid"][value="${firstFdid}"]`) });
       const rowText = await row.innerText();
-      assert(rowText.includes(formName) && rowText.includes(instanceSubject),
+      assert(rowText.includes(instanceFormName) && rowText.includes(instanceSubject),
         'The patient eForm list row does not show the template name and API subject');
       recordEndpoint('WEB', '/eform/efmpatientformlist', response,
         'provider\'s patient eForm list shows the API-created instance');
