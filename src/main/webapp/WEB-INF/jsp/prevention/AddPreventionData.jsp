@@ -1039,20 +1039,22 @@
                                 <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="din" id="din" value="<carlos:encode value='<%= str((extraData.get("din")), pDIN) %>' context="htmlAttribute"/>"/></div>
                             </div>
                             <%
-                                String dose = str((extraData.get("dose")), "");
-                                String d1 = pDose;
+                                String dose = Objects.toString(extraData.get("dose"), "");
+                                // Initial edits use stored text; a refused submission retains the entered values.
+                                boolean hasSubmittedDose = request.getParameter("dose") != null;
+                                String d1 = (existingPrevention == null || hasSubmittedDose) ? pDose : dose;
                                 // The brand picker's unit as the form's own (VIAL is vial, DOSE is dose).
-                                String d2 = PreventionFormCodes.doseUnitCode(pUnit);
-                                if (dose.split(" ").length == 2) {
-                                    String d3 = PreventionFormCodes.doseUnitCode(dose.split(" ")[1]);
-                                    if (!PreventionFormCodes.isOfferedDoseUnit(d3)) {
-                                        d1 = dose;
-                                    } else {
-                                        d1 = dose.split(" ")[0];
-                                        d2 = d3;
+                                String d2 = (existingPrevention == null || hasSubmittedDose) ? PreventionFormCodes.doseUnitCode(pUnit) : "";
+                                String[] doseParts = dose.split(" ", -1);
+                                if (!hasSubmittedDose && doseParts.length == 2
+                                        && doseParts[0].matches("[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)")) {
+                                    String unit = PreventionFormCodes.doseUnitCode(doseParts[1]);
+                                    // Splitting must reconstruct the exact stored text on an unchanged save.
+                                    if (PreventionFormCodes.isOfferedDoseUnit(unit)
+                                            && dose.equals(doseParts[0] + " " + unit)) {
+                                        d1 = doseParts[0];
+                                        d2 = unit;
                                     }
-                                } else {
-                                    d1 = pDose;
                                 }
 
                                 // mL is only the default for a new record that names no unit. An existing
@@ -1064,7 +1066,8 @@
 
                             <div class="row g-2 align-items-center mb-1">
                                 <div class="col-sm-4"><label for="dose" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.dose"/></label></div>
-                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="dose" id="dose" value="<carlos:encode value='<%= d1 %>' context="htmlAttribute"/>"/></div>
+                                <div class="col-sm-8"><textarea class="form-control form-control-sm" name="dose" id="dose" rows="1">
+<carlos:encode value='<%= d1 %>'/></textarea></div>
                             </div>
                             <div class="row g-2 align-items-center mb-1">
                                 <div class="col-sm-4"><label for="doseUnit" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.doseunit"/></label></div>
