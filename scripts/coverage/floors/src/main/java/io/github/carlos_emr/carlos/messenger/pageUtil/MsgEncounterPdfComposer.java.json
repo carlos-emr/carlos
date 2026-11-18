@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgEncounterPdfComposer.java",
   "kind": "floor",
   "floor": {
-    "lines": 96.96969696969697,
-    "instructions": 94.07407407407408,
+    "lines": 98.52941176470588,
+    "instructions": 96.47058823529412,
     "branches": 100.0,
-    "sourceBlob": "124cdb53874410841fb9695ec2511da54f24d79e"
+    "sourceBlob": "f17e784c2e5a70ffd30e561c3f2053b229dc550d"
   },
-  "evidenceSha256": "e82d2cf3493395c2f7124e4480a2042157464b0acddc5f9c79f7662e90787765"
+  "evidenceSha256": "aa093bc4135ab95d22b69c01cef5a8ac3483cd65af55c0d2c19ae80e5e404996"
 }
