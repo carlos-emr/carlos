@@ -48,14 +48,21 @@ public class ReportConfigDaoImpl extends AbstractDaoImpl<ReportConfig> implement
     }
 
     @Override
+    public List<ReportConfig> findByReportIdAndSaveForUpdate(int reportId, String save) {
+        return entityManager.createQuery("select r from ReportConfig r where r.reportId = :reportId and (r.save = :save or (:save is null and r.save is null)) order by r.id", ReportConfig.class)
+                .setParameter(REPORT_ID_PARAMETER, reportId).setParameter("save", save)
+                .setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).getResultList();
+    }
+
+    @Override
     public List<ReportConfig> findByReportIdAndSave(int reportId, String save) {
-        return entityManager.createQuery("select x from ReportConfig x where x.reportId=:reportId and x.save=:save order by x.orderNo, x.id", ReportConfig.class)
+        return entityManager.createQuery("select x from ReportConfig x where x.reportId=:reportId and (x.save=:save or (:save is null and x.save is null)) order by coalesce(x.orderNo, 0), x.id", ReportConfig.class)
                 .setParameter(REPORT_ID_PARAMETER, reportId).setParameter("save", save).getResultList();
     }
 
     @Override
     public List<ReportConfig> findByReportId(int reportId) {
-        return entityManager.createQuery("select x from ReportConfig x where x.reportId=:reportId order by x.orderNo, x.id", ReportConfig.class)
+        return entityManager.createQuery("select x from ReportConfig x where x.reportId=:reportId order by coalesce(x.orderNo, 0), x.id", ReportConfig.class)
                 .setParameter(REPORT_ID_PARAMETER, reportId).getResultList();
     }
 
@@ -95,7 +102,7 @@ public class ReportConfigDaoImpl extends AbstractDaoImpl<ReportConfig> implement
 
     @Override
     public List<ReportConfig> findByReportIdAndSaveAndGtOrderNo(int reportId, String save, int orderNo) {
-        Query q = entityManager.createQuery("select x from ReportConfig x where x.reportId=?1 and x.save=?2 and x.orderNo >= ?3 order by x.orderNo DESC");
+        Query q = entityManager.createQuery("select x from ReportConfig x where x.reportId=?1 and (x.save=?2 or (?2 is null and x.save is null)) and coalesce(x.orderNo, 0) >= ?3 order by coalesce(x.orderNo, 0) DESC, x.id");
         q.setParameter(1, reportId);
         q.setParameter(2, save);
         q.setParameter(3, orderNo);

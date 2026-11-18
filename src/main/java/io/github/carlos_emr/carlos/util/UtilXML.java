@@ -310,8 +310,9 @@ public class UtilXML {
                 continue;
             }
             pointer2 = xml.indexOf(">", pointer1);
-            if (xml.indexOf(" ", pointer1) < pointer2) {
-                pointer2 = xml.indexOf(" ", pointer1);
+            int nextSpace = xml.indexOf(" ", pointer1);
+            if (nextSpace != -1 && nextSpace < pointer2) {
+                pointer2 = nextSpace;
             }
             String tag = xml.substring(pointer1, pointer2);
             String closetag = tag.substring(0, 1) + "/" + tag.substring(1);

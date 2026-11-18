@@ -13,6 +13,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource;
 
 /** Keeps connection interruption armed while Connector/J consumes a streaming result. */
 final class ReportQueryDeadline implements AutoCloseable {
@@ -44,6 +45,9 @@ final class ReportQueryDeadline implements AutoCloseable {
 
     private void abort() {
         if (aborted == null) {
+            // The asynchronous cleanup owns this lease until abort and cursor close finish.
+            // Request cleanup must not return it to the pool while the old abort is running.
+            OscarTrackingBasicDataSource.detachFromRequestCleanup(connection);
             aborted = CompletableFuture.runAsync(() -> {
                 try {
                     // Connector/J Statement.cancel() is a no-op after executeQuery().
