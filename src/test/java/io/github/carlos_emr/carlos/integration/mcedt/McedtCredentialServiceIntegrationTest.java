@@ -217,7 +217,38 @@ class McedtCredentialServiceIntegrationTest {
     @Test
     void shouldFailClosed_whenSingletonLockRecordIsMissing() {tx.executeWithoutResult(status->em.createNativeQuery("DELETE FROM mcedt_credential").executeUpdate());assertStaticFailure(()->credentials.savePassword("FAKE-value"));assertStaticFailure(()->credentials.getPassword("fallback"));}
 
-    private void awaitDatabaseBlock(int blocker,AtomicInteger contender,Future<?> waiting) throws Exception {
+    private <T> T contend(AtomicInteger session, AtomicInteger nativeTimeout,
+            CountDownLatch release, java.util.function.Supplier<T> operation) {
+        try {
+            return tx.execute(status -> {
+                session.set(sessionId());
+                if (((OwnedDataSource) source).mariaDb) {
+                    em.createNativeQuery("SET SESSION innodb_lock_wait_timeout=1").executeUpdate();
+                }
+                return operation.get();
+            });
+        } catch (RuntimeException failure) {
+            // MariaDB can stall at an engine stage before exposing a classic
+            // INNODB_LOCK_WAITS row. A native 1205 proves a database lock wait,
+            // unlike a slow scan or a delayed Java task. This fixture has only
+            // its known writer and contender; the observer never writes.
+            if (!((OwnedDataSource) source).mariaDb
+                    || ((OwnedDataSource) source).jdbcFailures.stream().noneMatch(value -> value.endsWith(":1205"))) {
+                throw failure;
+            }
+            nativeTimeout.set(session.get());
+            try {
+                assertTrue(release.await(15, TimeUnit.SECONDS));
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(interrupted);
+            }
+            // Retry in a fresh transaction only after the controlled writer commits.
+            return tx.execute(status -> operation.get());
+        }
+    }
+
+    private void awaitDatabaseBlock(int blocker,AtomicInteger contender,AtomicInteger nativeTimeout,Future<?> waiting) throws Exception {
         long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(10);
         String sql=((OwnedDataSource)source).mariaDb
                 ? "SELECT COUNT(*) FROM information_schema.INNODB_LOCK_WAITS waits "
@@ -227,6 +258,11 @@ class McedtCredentialServiceIntegrationTest {
                 : "SELECT COUNT(*) FROM INFORMATION_SCHEMA.SESSIONS WHERE BLOCKER_ID=? AND SESSION_ID=?";
         try (Connection connection = source.getConnection()) {
             while (System.nanoTime() < deadline) {
+                if (nativeTimeout.get() > 0 && nativeTimeout.get() == contender.get()) {
+                    assertTrue(((OwnedDataSource) source).jdbcFailures.stream().anyMatch(value -> value.endsWith(":1205")));
+                    assertThrows(TimeoutException.class, () -> waiting.get(200, TimeUnit.MILLISECONDS));
+                    return;
+                }
                 // Obtain a fresh information-schema statement for each observation.
                 try (var query = connection.prepareStatement(sql)) {
                     query.setInt(1, blocker);
@@ -266,19 +302,19 @@ class McedtCredentialServiceIntegrationTest {
     }
     @Test
     void shouldSerializeFirstSaves_usingTheSeededDatabaseLock() throws Exception {
-        var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();var contender=new AtomicInteger();
+        var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();var contender=new AtomicInteger();var nativeTimeout=new AtomicInteger();
         try(var pool=Executors.newFixedThreadPool(2)) {
             var first=pool.submit(()->tx.executeWithoutResult(status->{credentials.savePassword("FAKE-first");hold(locked,release,session);}));
-            try {assertTrue(locked.await(15,TimeUnit.SECONDS));var second=pool.submit(()->tx.executeWithoutResult(status->{contender.set(sessionId());credentials.savePassword("FAKE-second");}));awaitDatabaseBlock(session.get(),contender,second);release.countDown();first.get(15,TimeUnit.SECONDS);second.get(15,TimeUnit.SECONDS);assertEquals("FAKE-second",credentials.getPassword("fallback"));assertEquals(0,legacyCount());assertEquals(1L,tx.execute(status->((Number)em.createNativeQuery("SELECT COUNT(*) FROM mcedt_credential").getSingleResult()).longValue()).longValue());}
+            try {assertTrue(locked.await(15,TimeUnit.SECONDS));var second=pool.submit(()->contend(contender,nativeTimeout,release,()->{credentials.savePassword("FAKE-second");return null;}));awaitDatabaseBlock(session.get(),contender,nativeTimeout,second);release.countDown();first.get(15,TimeUnit.SECONDS);second.get(15,TimeUnit.SECONDS);assertEquals("FAKE-second",credentials.getPassword("fallback"));assertEquals(0,legacyCount());assertEquals(1L,tx.execute(status->((Number)em.createNativeQuery("SELECT COUNT(*) FROM mcedt_credential").getSingleResult()).longValue()).longValue());}
             finally {release.countDown();}
         }
     }
     @Test
     void shouldWaitForLegacyWriter_withoutRestoringAStalePassword() throws Exception {
-        int id=legacy("FAKE-old");var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();var contender=new AtomicInteger();
+        int id=legacy("FAKE-old");var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();var contender=new AtomicInteger();var nativeTimeout=new AtomicInteger();
         try(var pool=Executors.newFixedThreadPool(2)) {
             var writer=pool.submit(()->tx.executeWithoutResult(status->{var row=em.find(UserProperty.class,id,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);row.setValue("FAKE-new");em.flush();hold(locked,release,session);}));
-            try {assertTrue(locked.await(15,TimeUnit.SECONDS));var reader=pool.submit(()->tx.execute(status->{contender.set(sessionId());return credentials.getPassword("fallback");}));awaitDatabaseBlock(session.get(),contender,reader);release.countDown();writer.get(15,TimeUnit.SECONDS);assertEquals("FAKE-new",completed(reader));assertEquals("FAKE-new",EncryptionUtils.decrypt(stored()));assertEquals(0,legacyCount());}
+            try {assertTrue(locked.await(15,TimeUnit.SECONDS));var reader=pool.submit(()->contend(contender,nativeTimeout,release,()->credentials.getPassword("fallback")));awaitDatabaseBlock(session.get(),contender,nativeTimeout,reader);release.countDown();writer.get(15,TimeUnit.SECONDS);assertEquals("FAKE-new",completed(reader));assertEquals("FAKE-new",EncryptionUtils.decrypt(stored()));assertEquals(0,legacyCount());}
             finally {release.countDown();}
         }
     }
@@ -379,7 +415,7 @@ class McedtCredentialServiceIntegrationTest {
     private void obsoleteLegacyRead(boolean renamed) throws Exception {
         credentials.savePassword("FAKE-current");int id=legacy("FAKE-old");
         Integer snapshotIsolation=((OwnedDataSource)source).mariaDb?tx.execute(status->((Number)em.createNativeQuery("SELECT @@innodb_snapshot_isolation").getSingleResult()).intValue()):null;
-        var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();var contender=new AtomicInteger();
+        var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();var contender=new AtomicInteger();var nativeTimeout=new AtomicInteger();
         try(var pool=Executors.newFixedThreadPool(2)) {
             var writer=pool.submit(()->tx.executeWithoutResult(status->{
                 var row=em.find(UserProperty.class,id,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
@@ -387,13 +423,12 @@ class McedtCredentialServiceIntegrationTest {
                 em.flush();hold(locked,release,session);
             }));
             try {
-                assertTrue(locked.await(15,TimeUnit.SECONDS));var reader=pool.submit(()->tx.execute(status->{
-                    contender.set(sessionId());
+                assertTrue(locked.await(15,TimeUnit.SECONDS));var reader=pool.submit(()->contend(contender,nativeTimeout,release,()->{
                     String password=credentials.getPassword("FAKE-fallback");
                     if(snapshotIsolation!=null)assertEquals(snapshotIsolation,((Number)em.createNativeQuery("SELECT @@innodb_snapshot_isolation").getSingleResult()).intValue(),"the cleanup statement must restore this same connection's setting");
                     return password;
                 }));
-                awaitDatabaseBlock(session.get(),contender,reader);release.countDown();completed(writer);
+                awaitDatabaseBlock(session.get(),contender,nativeTimeout,reader);release.countDown();completed(writer);
                 assertEquals("FAKE-current",completed(reader));assertEquals(0,legacyCount());
                 if(renamed)assertEquals("provider.language",tx.execute(status->em.find(UserProperty.class,id).getName()));
                 if(snapshotIsolation!=null)assertEquals(snapshotIsolation,tx.execute(status->((Number)em.createNativeQuery("SELECT @@innodb_snapshot_isolation").getSingleResult()).intValue()));
