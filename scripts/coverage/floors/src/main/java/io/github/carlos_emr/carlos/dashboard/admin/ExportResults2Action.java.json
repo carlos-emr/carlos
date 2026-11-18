@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/dashboard/admin/ExportResults2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "a1f6a4b06f9eecc5ce6fcd617c1da3bd859f487b"
+  },
+  "evidenceSha256": "7fdb22b753ce80bdb31a200659c1c60859acad6236d030bfeb003d3f0710cdb3"
+}
