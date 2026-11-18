@@ -51,8 +51,6 @@ class SharedDashboardProviderContextUnitTest extends CarlosUnitTestBase {
         indicator=new IndicatorTemplate();indicator.setId(17);
         doReturn(List.of(indicator)).when(manager).getIndicatorLibrary(eq(actor),anyBoolean());
         doReturn(new DrilldownBean()).when(manager).getDrilldownData(eq(actor),eq(17),anyString(),anyString());
-        doReturn("FAKE-selected-only\n").when(manager).exportDrilldownQueryResultsToCSV(actor,"FAKE-selected",17);
-        doReturn("FAKE-template-default\n").when(manager).exportDrilldownQueryResultsToCSV(actor,17);
         registerMock(DashboardManager.class,manager);registerMock(SecurityInfoManager.class,security);registerMock(ProviderDao.class,providerDao);registerMock(ProviderManager2.class,providers);registerMock(DemographicExtDao.class,mock(DemographicExtDao.class));
     }
     @AfterEach void restore() {if(original==null)ActionContext.clear();else ActionContext.bind(original);}
@@ -104,6 +102,9 @@ class SharedDashboardProviderContextUnitTest extends CarlosUnitTestBase {
         if (slice) {
             doReturn("FAKE-selected-only\n").when(manager)
                     .exportDrilldownQueryResultsToCSV(actor, "FAKE-selected", 17, "FAKE-slice");
+        } else {
+            doReturn("FAKE-selected-only\n").when(manager)
+                    .exportDrilldownQueryResultsToCSV(actor, "FAKE-selected", 17);
         }
         var response = export(exportRequest(request));
         assertAll(()->assertEquals("FAKE-selected",selected),()->assertSame(heading,request.getAttribute("preferredProvider")),()->assertArrayEquals(new String[]{"FAKE-selected"},template.getDrilldownParameters(null).get(0).getValue()),()->assertEquals("FAKE-selected-only\n",response.getContentAsString()));
@@ -157,7 +158,17 @@ class SharedDashboardProviderContextUnitTest extends CarlosUnitTestBase {
 
             request.setParameter("sharedMetricLabel", "FAKE-group-b");
             assertEquals(403, export(request).getStatus());
+            assertEquals("Row\n", manager.exportDrilldownQueryResultsToCSV(actor, "FAKE-selected", 17));
+            assertEquals("Row\n", manager.exportDrilldownQueryResultsToCSV(actor, 17));
         }
+    }
+
+    @Test
+    void shouldRefuseTheSliceExportWithoutATemplateOrMetricLabel() {
+        doReturn(null).when(manager).getIndicatorTemplateXML(actor, 17);
+        assertNull(manager.exportDrilldownQueryResultsToCSV(actor, "FAKE-selected", 17, "FAKE-group-a"));
+        doReturn(mock(IndicatorTemplateXML.class)).when(manager).getIndicatorTemplateXML(actor, 17);
+        assertNull(manager.exportDrilldownQueryResultsToCSV(actor, "FAKE-selected", 17, null));
     }
 
     @Test void shouldRefuseSharedSelection_beforeQueryWhenSwitchPermissionIsMissing() {
