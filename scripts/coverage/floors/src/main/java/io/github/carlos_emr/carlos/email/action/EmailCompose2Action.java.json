@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/email/action/EmailCompose2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "dfcbf9f831140a1ac964992dcd2c4d64603bdd38"
+  },
+  "evidenceSha256": "97606b875220131323502a7fe03d73e8f499992974969210786b774bb6c6507d"
+}

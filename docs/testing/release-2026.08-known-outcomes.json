@@ -84,12 +84,6 @@
       "finding": 329,
       "step": "requested reminder has an implemented and visible persisted outcome",
       "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "chart-informed-consent",
-      "finding": 332,
-      "step": "cancelled informed-consent confirmation leaves the banner and stored consent unchanged",
-      "disposition": "required installed retake; blocks release readiness"
     }
   ],
   "retiredNodeTodos": [
@@ -203,6 +197,12 @@
       "finding": 323,
       "step": "every dose unit and route the catalogue prefills is shown by the Add Prevention form as given",
       "disposition": "Source fix for issue #5432: the Add Prevention form maps each catalogue route and dose unit to its own code (PreventionFormCodes) and shows any other value as given. Manifest pin retired and retained as an active regression. PASS on a local release/2026.08 server build (2026-11-11); a fresh installed PASS is still required."
+    },
+    {
+      "check": "chart-informed-consent",
+      "finding": 332,
+      "step": "cancelled informed-consent confirmation leaves the banner and stored consent unchanged",
+      "disposition": "Fixed for #5886 in release PR6257. Active native regression: Cancel stores nothing; confirming records the originating patient and survives reopening. Strict exact-JSP component PASS on Ubuntu26.04 (47.226s), zero residue and byte-exact JSP/property restoration. New combined DEB and integrated release retake remain required."
     },
     {
       "check": "login-mfa-no-pin",
