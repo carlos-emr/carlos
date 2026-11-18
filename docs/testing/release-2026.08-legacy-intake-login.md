@@ -18,5 +18,14 @@ after ordinary login, forced password reset, and a new login with the replacemen
 password. Cleanup removes the owned assignments, credentials, preferences, and
 audit rows; shared accounts and role definitions are untouched.
 
-Installed browser qualification is pending. Finding 188 remains open until that
-qualification succeeds; focused tests alone do not establish a live reproduction.
+The strict installed `login-legacy-intake` workflow passes on the Ubuntu 26.04
+package built from `b4048148a18a26efbd2bc4173336d693f5270672`, using pinned Chromium
+154.0.8025.0. Ordinary login, forced reset, and replacement-password login reach
+the supported schedule, with database assertions and owned-fixture cleanup. The
+installed Login2Action source is byte-identical to this fix. Finding 188 is fixed.
+
+The exact 27-case report SHA-256 is `f47dffdc0325b5c56c218f9923cb6811fd1a7d9a3e8b9dd51246eaf34647f84f`.
+This workflow passed in 15.450 seconds. That report also retains an unrelated
+report-order navigation timing failure, so it is not evidence that all 27 cases
+passed. The full combined qualification and subsequent timing-check retake are
+tracked separately.
