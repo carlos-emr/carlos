@@ -12,14 +12,13 @@ async function workflow(s) {
     provider: s.provider, testUser: s.config.testUser });
   s.cleanup(() => fixture.cleanup());
   fixture.create();
-  const provider = h.sqlString(fixture.providerNo);
-  const role = h.sqlString('Patient Intake');
   // Retain the copied privileges and add only an assignment owned by this login.
   // No shared role definition or existing account is edited.
   s.sql.execute(`INSERT INTO secUserRole (provider_no,role_name,orgcd,activeyn,lastUpdateDate)
-    SELECT ${provider},${role},MIN(orgcd),1,NOW() FROM secUserRole WHERE provider_no=${provider}`);
+    SELECT ?,?,MIN(orgcd),1,NOW() FROM secUserRole WHERE provider_no=?`,
+  [fixture.providerNo, 'Patient Intake', fixture.providerNo]);
   h.assert(s.sql.value(`SELECT COUNT(*) FROM secUserRole
-    WHERE provider_no=${provider} AND role_name=${role} AND activeyn=1`) === '1',
+    WHERE provider_no=? AND role_name=? AND activeyn=1`, [fixture.providerNo, 'Patient Intake']) === '1',
   'The throwaway login does not carry the retained Patient Intake assignment');
 
   async function freshContext() {
@@ -38,7 +37,7 @@ async function workflow(s) {
 
   await s.step('the retained role reaches the supported schedule after completing a forced password reset', async () => {
     const context = await freshContext();
-    s.sql.execute(`UPDATE security SET forcePasswordReset=1 WHERE security_no=${fixture.securityNo}`);
+    s.sql.execute('UPDATE security SET forcePasswordReset=1 WHERE security_no=?', [fixture.securityNo]);
     const { page, landing } = await submitLoginForm(context, s.config,
       { username: fixture.username, password: s.config.testPassword, pin: s.config.testPin });
     h.assert(/\/forcepasswordreset$/.test(landing), 'The forced-reset fixture did not reach password reset');
@@ -50,10 +49,10 @@ async function workflow(s) {
       page.waitForURL(/providercontrol|appointment/i, { timeout: 30000 }),
       page.locator('input[type="submit"]').click(),
     ]);
-    h.assert(s.sql.value(`SELECT forcePasswordReset FROM security WHERE security_no=${fixture.securityNo}`) === '0',
+    h.assert(s.sql.value('SELECT forcePasswordReset FROM security WHERE security_no=?', [fixture.securityNo]) === '0',
       'The completed reset did not clear its pending flag');
-    h.assert(s.sql.value(`SELECT COUNT(*) FROM security WHERE security_no=${fixture.securityNo}
-      AND password=${h.sqlString(fixture.passwordHash)}`) === '0',
+    h.assert(s.sql.value('SELECT COUNT(*) FROM security WHERE security_no=? AND password=?',
+      [fixture.securityNo, fixture.passwordHash]) === '0',
     'The completed reset retained the original password hash');
     const newContext = await freshContext();
     const signedIn = await h.login(newContext,

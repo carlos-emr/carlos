@@ -6,6 +6,10 @@ password-reset completion, or MFA completion. The role now follows the same
 configured destination as every other authenticated account. Its assigned
 privileges, credentials, session setup, and audit policy are unchanged.
 
+The original missing-result failure was confirmed in source and was not reproduced
+on a live pre-fix installation. The following pre-repair regressions execute the
+action directly; the installed browser result below validates only the repaired path.
+
 Three regressions fail against release `c7f0a450eec4aab390d014698876ac21dd388e15`;
 80 existing controls pass. After repair, all 85 focused Java 25 cases pass with
 zero failures, errors, or skips. The added redirect-failure controls retain exactly
