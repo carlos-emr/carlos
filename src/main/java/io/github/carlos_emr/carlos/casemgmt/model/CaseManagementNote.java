@@ -639,6 +639,7 @@ public class CaseManagementNote extends BaseObject {
         this.locked = locked;
     }
     @jakarta.persistence.Column(name = "archived")
+    @jakarta.persistence.Convert(converter = io.github.carlos_emr.carlos.commn.model.converter.LegacyFalseFlagConverter.class)
 
     public boolean isArchived() {
         return archived;
@@ -662,6 +663,7 @@ public class CaseManagementNote extends BaseObject {
         return status;
     }
     @jakarta.persistence.Column(name = "position")
+    @jakarta.persistence.Convert(converter = io.github.carlos_emr.carlos.commn.model.converter.LegacyZeroIntegerConverter.class)
 
     public int getPosition() {
         return position;
