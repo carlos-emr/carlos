@@ -193,7 +193,7 @@ class EFormImagePublicationOwnershipUnitTest {
         var primary = new IOException("FAKE original import failure");
         var cleanup = new SecurityException("FAKE rollback permission refusal");
         try (var files = mockStatic(Files.class, call -> {
-            if (call.getMethod().getName().equals("delete") && published.equals(call.getArgument(0))) throw cleanup;
+            if (call.getMethod().getName().equals("deleteIfExists") && published.equals(call.getArgument(0))) throw cleanup;
             return call.callRealMethod();
         })) {
             assertThatCode(() -> EFormExportZip.rollbackPublishedAssets(Map.of(published, staged), primary))

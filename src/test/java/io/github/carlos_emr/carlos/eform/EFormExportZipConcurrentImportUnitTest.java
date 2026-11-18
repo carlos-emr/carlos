@@ -174,7 +174,7 @@ class EFormExportZipConcurrentImportUnitTest {
         var denied = new java.nio.file.AccessDeniedException(owned.toString());
         // Keep a real published inode and refuse only its unlink, independently of UID.
         try (var _ = mockStatic(Files.class, call -> {
-            if (call.getMethod().getName().equals("delete") && owned.equals(call.getArgument(0))) throw denied;
+            if (call.getMethod().getName().equals("deleteIfExists") && owned.equals(call.getArgument(0))) throw denied;
             return call.callRealMethod();
         })) {
             var failure = new IOException("FAKE publication failure");
