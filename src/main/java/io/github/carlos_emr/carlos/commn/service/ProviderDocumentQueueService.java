@@ -6,8 +6,12 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.daos.security.SecObjectNameDao;
 import io.github.carlos_emr.carlos.model.security.Secobjectname;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * Saves a provider's default document queue, including creation of a new grantable queue.
@@ -18,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class ProviderDocumentQueueService {
+    private static final int MAX_QUEUE_NAME_CHARACTERS = 40;
     private final QueueDao queues;
     private final SecObjectNameDao securityObjects;
     private final UserPropertyDAO properties;
@@ -35,23 +40,27 @@ public class ProviderDocumentQueueService {
 
     /**
      * @param providerNo provider from the authenticated session
-     * @param name nonblank queue name, preserved as entered
+     * @param name queue name with up to 40 characters after trimming
      * @return the saved default-queue preference
-     * @throws IllegalArgumentException when the name is blank or the provider does not exist
+     * @throws IllegalArgumentException when the name is blank, too long or the provider does not exist
      * @throws IllegalStateException when queue persistence fails to assign an ID
      */
     public UserProperty createDefaultQueue(String providerNo, String name) {
-        if (name == null || name.isBlank()) {
+        String queueName = StringUtils.trimToNull(name);
+        if (StringUtils.isBlank(queueName)) {
             throw new IllegalArgumentException("Document queue name is required");
         }
+        if (queueName.codePointCount(0, queueName.length()) > MAX_QUEUE_NAME_CHARACTERS) {
+            throw new IllegalArgumentException("Document queue name exceeds 40 characters");
+        }
         lockPreferenceOwner(providerNo);
-        Integer id = queues.addNewQueueAndGetId(name);
+        Integer id = queues.addNewQueueAndGetId(queueName);
         if (id == null) {
             throw new IllegalStateException("Queue persistence did not assign an ID");
         }
         Secobjectname securityObject = new Secobjectname();
         securityObject.setObjectname("_queue." + id);
-        securityObject.setDescription(name);
+        securityObject.setDescription(queueName);
         securityObject.setOrgapplicable(0);
         securityObjects.saveOrUpdate(securityObject);
         return saveDefaultPreference(providerNo, id.toString());
@@ -76,7 +85,8 @@ public class ProviderDocumentQueueService {
     }
 
     private UserProperty saveDefaultPreference(String providerNo, String queueId) {
-        UserProperty property = properties.getProp(providerNo, UserProperty.DOC_DEFAULT_QUEUE);
+        List<UserProperty> defaults = properties.getAllProperties(UserProperty.DOC_DEFAULT_QUEUE, List.of(providerNo));
+        UserProperty property = defaults.stream().min(Comparator.comparing(UserProperty::getId)).orElse(null);
         if (property == null) {
             property = new UserProperty();
             property.setProviderNo(providerNo);
@@ -84,6 +94,11 @@ public class ProviderDocumentQueueService {
         }
         property.setValue(queueId);
         properties.saveProp(property);
+        for (UserProperty duplicate : defaults) {
+            if (duplicate != property) {
+                properties.delete(duplicate);
+            }
+        }
         return property;
     }
 }

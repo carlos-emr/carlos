@@ -95,7 +95,7 @@ class ProviderDocumentQueueTransactionIntegrationTest extends CarlosTestBase {
     @ValueSource(booleans = {false, true})
     void shouldCommitTheQueueSecurityAndDefaultTogether(boolean previous) {
         if (previous) transactions.executeWithoutResult(status -> properties.saveProp(owner, UserProperty.DOC_DEFAULT_QUEUE, "7"));
-        UserProperty result = service(security, properties).createDefaultQueue(owner, name);
+        UserProperty result = service(security, properties).createDefaultQueue(owner, "  " + name + "\t");
         int id = Integer.parseInt(result.getValue());
         transactions.executeWithoutResult(status -> {
             assertThat(queues.getQueueName(id)).isEqualTo(name);
@@ -107,6 +107,39 @@ class ProviderDocumentQueueTransactionIntegrationTest extends CarlosTestBase {
             assertThat(((Number) database.createNativeQuery("SELECT COUNT(*) FROM secObjPrivilege WHERE objectName=:object")
                     .setParameter("object", object.getObjectname()).getSingleResult()).longValue()).isZero();
         });
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldConsolidateHistoricalDuplicates_whenSelectingOrCreatingADefault(boolean selectsExisting) {
+        var oldestId = transactions.execute(status -> {
+            var first = new UserProperty();
+            first.setProviderNo(owner);
+            first.setName(UserProperty.DOC_DEFAULT_QUEUE);
+            first.setValue("7");
+            properties.saveProp(first);
+            var duplicate = new UserProperty();
+            duplicate.setProviderNo(owner);
+            duplicate.setName(UserProperty.DOC_DEFAULT_QUEUE);
+            duplicate.setValue("8");
+            properties.saveProp(duplicate);
+            return first.getId();
+        });
+        var service = service(security, properties);
+        UserProperty saved = selectsExisting
+                ? service.selectDefaultQueue(owner, "1")
+                : service.createDefaultQueue(owner, name);
+
+        assertThat(saved.getId()).isEqualTo(oldestId);
+        if (selectsExisting) {
+            assertThat(saved.getValue()).isEqualTo("1");
+        }
+        transactions.executeWithoutResult(status -> assertThat(
+                properties.getAllProperties(UserProperty.DOC_DEFAULT_QUEUE, java.util.List.of(owner)))
+                .singleElement().satisfies(row -> {
+                    assertThat(row.getId()).isEqualTo(oldestId);
+                    assertThat(row.getValue()).isEqualTo(saved.getValue());
+                }));
     }
 
     @ParameterizedTest
@@ -125,17 +158,17 @@ class ProviderDocumentQueueTransactionIntegrationTest extends CarlosTestBase {
         var followerConnection = new java.util.concurrent.atomic.AtomicLong();
         UserPropertyDAO firstPreferences = mock(UserPropertyDAO.class, org.mockito.AdditionalAnswers.delegatesTo(properties));
         doAnswer(call -> {
-            UserProperty result = properties.getProp(owner, UserProperty.DOC_DEFAULT_QUEUE);
+            var result = properties.getAllProperties(UserProperty.DOC_DEFAULT_QUEUE, java.util.List.of(owner));
             firstRead.countDown();
             assertThat(releaseFirst.await(30, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
             return result;
-        }).when(firstPreferences).getProp(owner, UserProperty.DOC_DEFAULT_QUEUE);
+        }).when(firstPreferences).getAllProperties(UserProperty.DOC_DEFAULT_QUEUE, java.util.List.of(owner));
         UserPropertyDAO followerPreferences = mock(UserPropertyDAO.class, org.mockito.AdditionalAnswers.delegatesTo(properties));
         doAnswer(call -> {
-            UserProperty result = properties.getProp(owner, UserProperty.DOC_DEFAULT_QUEUE);
+            var result = properties.getAllProperties(UserProperty.DOC_DEFAULT_QUEUE, java.util.List.of(owner));
             followerRead.countDown();
             return result;
-        }).when(followerPreferences).getProp(owner, UserProperty.DOC_DEFAULT_QUEUE);
+        }).when(followerPreferences).getAllProperties(UserProperty.DOC_DEFAULT_QUEUE, java.util.List.of(owner));
         var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
         try {
             var first = pool.submit(() -> {

@@ -13,6 +13,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -54,7 +56,10 @@ class ProviderDocumentQueueServiceUnitTest extends CarlosUnitTestBase {
         previous.setName(UserProperty.DOC_DEFAULT_QUEUE);
         previous.setValue("7");
         when(queues.addNewQueueAndGetId("Mine")).thenReturn(42);
-        if (existing) when(properties.getProp("owner", UserProperty.DOC_DEFAULT_QUEUE)).thenReturn(previous);
+        if (existing) {
+            when(properties.getAllProperties(UserProperty.DOC_DEFAULT_QUEUE, List.of("owner")))
+                    .thenReturn(List.of(previous));
+        }
         UserProperty result = service.createDefaultQueue("owner", "Mine");
         assertThat(result.getProviderNo()).isEqualTo("owner");
         assertThat(result.getName()).isEqualTo(UserProperty.DOC_DEFAULT_QUEUE);
@@ -65,17 +70,36 @@ class ProviderDocumentQueueServiceUnitTest extends CarlosUnitTestBase {
         order.verify(queues).addNewQueueAndGetId("Mine");
         order.verify(security).saveOrUpdate(argThat(object -> "_queue.42".equals(object.getObjectname())
                 && "Mine".equals(object.getDescription()) && object.getOrgapplicable() == 0));
-        order.verify(properties).getProp("owner", UserProperty.DOC_DEFAULT_QUEUE);
+        order.verify(properties).getAllProperties(UserProperty.DOC_DEFAULT_QUEUE, List.of("owner"));
         order.verify(properties).saveProp(result);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"Doctor's queue", "' OR 1=1 --", " Équipe "})
-    void shouldPreserveNonblankNames_asLiteralValues(String name) {
-        when(queues.addNewQueueAndGetId(name)).thenReturn(42);
+    void shouldStoreOneTrimmedLiteralName_forTheQueueAndSecurityObject(String name) {
+        String normalized = name.trim();
+        when(queues.addNewQueueAndGetId(normalized)).thenReturn(42);
         service.createDefaultQueue("owner", name);
+        verify(queues).addNewQueueAndGetId(normalized);
+        verify(security).saveOrUpdate(argThat(object -> normalized.equals(object.getDescription())));
+    }
+
+    @Test
+    void shouldAcceptFortyUnicodeCharacters_afterTrimming() {
+        String name = "😀".repeat(40);
+        when(queues.addNewQueueAndGetId(name)).thenReturn(42);
+
+        service.createDefaultQueue("owner", "  " + name + "  ");
+
         verify(queues).addNewQueueAndGetId(name);
         verify(security).saveOrUpdate(argThat(object -> name.equals(object.getDescription())));
+    }
+
+    @Test
+    void shouldRefuseNamesExceedingTheQueueColumn_beforeAnyDatabaseCall() {
+        assertThatThrownBy(() -> service.createDefaultQueue("owner", "X".repeat(41)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("40 characters");
+        verifyNoInteractions(queues, security, properties);
     }
 
     @Test

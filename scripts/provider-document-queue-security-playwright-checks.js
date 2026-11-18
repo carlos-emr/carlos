@@ -14,7 +14,7 @@ function preflightConfig() {
 async function workflow(s) {
   const {sql, marker, provider, config} = s;
   // Keep the literal name within queue.name's existing 40-character limit.
-  const name = `Q${marker.slice(-16)}<b>x</b>`;
+  const name = `Q${marker.slice(-16)} &amp; <b>x</b>`;
   const snapshot = () => sql.rows('SELECT id,HEX(value),value IS NULL FROM property '
     + "WHERE provider_no=? AND name='doc_default_queue' ORDER BY id", [provider]);
   const original = snapshot();
@@ -66,6 +66,11 @@ async function workflow(s) {
     const cell = checkbox.locator('..');
     h.assert((await cell.innerText()).includes(name), 'The grantable queue description was not rendered literally');
     h.assert(await cell.locator('b').count() === 0, 'Queue markup was interpreted as HTML');
+  });
+  await s.step('the existing-queue picker renders the stored name literally', async () => {
+    await h.gotoApp(editor, config.baseUrl, '/setProviderStaleDate?method=viewDefaultDocQueue');
+    const option = editor.locator(`#fromExisting option[value="${id}"]`);
+    h.assert((await option.textContent()).trim() === name, 'The queue picker changed the stored name');
   });
   await s.step('a blank name reports not saved and preserves the previous queue and default', async () => {
     const before = sql.value("SELECT COUNT(*) FROM queue WHERE name IS NULL OR TRIM(name)=''");

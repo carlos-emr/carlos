@@ -89,7 +89,8 @@ class ProviderProperty2ActionDocQueueUnitTest extends CarlosUnitTestBase {
         UserProperty previous = new UserProperty();
         previous.setValue("7");
         if (hasPreviousDefault) {
-            lenient().when(properties.getProp("owner", UserProperty.DOC_DEFAULT_QUEUE)).thenReturn(previous);
+            lenient().when(properties.getAllProperties(UserProperty.DOC_DEFAULT_QUEUE, java.util.List.of("owner")))
+                    .thenReturn(java.util.List.of(previous));
         }
         when(queues.addNewQueueAndGetId("Mine")).thenThrow(new PersistenceException("insert failed"));
 
@@ -123,14 +124,15 @@ class ProviderProperty2ActionDocQueueUnitTest extends CarlosUnitTestBase {
             previous.setProviderNo("owner");
             previous.setName(UserProperty.DOC_DEFAULT_QUEUE);
             previous.setValue("3");
-            when(properties.getProp("owner", UserProperty.DOC_DEFAULT_QUEUE)).thenReturn(previous);
+            when(properties.getAllProperties(UserProperty.DOC_DEFAULT_QUEUE, java.util.List.of("owner")))
+                    .thenReturn(java.util.List.of(previous));
         }
 
         action.saveDefaultDocQueue();
 
         var writes = inOrder(properties);
         writes.verify(properties).lockProviderPreferences("owner");
-        writes.verify(properties).getProp("owner", UserProperty.DOC_DEFAULT_QUEUE);
+        writes.verify(properties).getAllProperties(UserProperty.DOC_DEFAULT_QUEUE, java.util.List.of("owner"));
         writes.verify(properties).saveProp(argThat(prop -> "7".equals(prop.getValue())));
         assertThat(request.getAttribute("status")).isEqualTo("success");
         verifyNoInteractions(queues);
