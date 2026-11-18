@@ -148,6 +148,13 @@ class ProgramFormControlsIntegrationTest {
                 .extracting(Element::val).containsExactly("1", "2", "3", "4", "5");
     }
 
+    @ParameterizedTest
+    @CsvSource({"Teams, team.id", "Client Status, client_status.id", "Staff, provider.id"})
+    void shouldRenderBlankCreationIdentifier_afterAnExistingRowWasSelected(String tab, String field) throws Exception {
+        Element form = render("ProgramManager?view.tab=" + URLEncoder.encode(tab, StandardCharsets.UTF_8), "programManagerForm");
+        assertThat(form.selectFirst("input[type=hidden][name='" + field + "']").val()).isEmpty();
+    }
+
     private static Element render(String route, String formName) throws Exception {
         URI uri = URI.create("http://127.0.0.1:" + tomcat.getConnector().getLocalPort() + BASE_PATH + route);
         try (HttpClient client = HttpClient.newHttpClient()) {
@@ -180,6 +187,9 @@ class ProgramFormControlsIntegrationTest {
             request.setAttribute("access", Map.of("id", 7, "accessTypeId", 18, "allRoles", true));
             request.setAttribute("accessTypes", List.of(Map.of("id", 18, "name", FIXTURE_NAME)));
             request.setAttribute("roles", List.of(Map.of("id", 33, "name", "FAKE Role")));
+            request.setAttribute("team", Map.of("id", 21, "name", "FAKE Existing Team"));
+            request.setAttribute("client_status", Map.of("id", 22, "name", "FAKE Existing Status"));
+            request.setAttribute("provider", Map.of("id", 23, "providerNo", "123", "roleId", 33));
             request.setAttribute("availableProviders", List.of(Map.of("providerNo", "123", "formattedName", FIXTURE_NAME)));
             request.setAttribute("do_reject", true);
             String page = request.getServletPath().endsWith("View") ? "ProgramManagerView" : "ProgramManagerForm";

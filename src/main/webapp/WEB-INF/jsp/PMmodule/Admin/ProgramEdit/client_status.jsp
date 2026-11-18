@@ -46,6 +46,7 @@ function add_status(form) {
 		return false;
 	}
 	
+	form.elements['client_status.id'].value = '';
 	form.elements['method'].value='save_status';
 	form.submit();
 }
@@ -78,7 +79,7 @@ function add_status(form) {
 </c:if>
 <c:if test="${empty client_statuses}">No statuses are currently defined for this program.</c:if>
 <br />
-<input type="hidden" name="client_status.id" value="${carlos:forHtmlAttribute(client_status.id)}" />
+<input type="hidden" name="client_status.id" />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<tr class="b">
 		<td width="20%"><label for="program-client-status-name">Name:</label></td>

@@ -45,6 +45,7 @@ function add_team(form) {
 		return false;
 	}
 	
+	form.elements['team.id'].value = '';
 	form.elements['method'].value='save_team';
 	form.submit();
 }
@@ -93,7 +94,7 @@ function add_team(form) {
 </c:if>
 <c:if test="${empty teams}">No teams are currently defined for this program.</c:if>
 <br />
-<input type="hidden" name="team.id" value="${carlos:forHtmlAttribute(team.id)}" />
+<input type="hidden" name="team.id" />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<tr class="b">
 		<td width="20%"><label for="program-team-name">Name:</label></td>

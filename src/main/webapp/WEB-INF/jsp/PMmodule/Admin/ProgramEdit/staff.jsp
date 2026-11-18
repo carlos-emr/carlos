@@ -75,6 +75,7 @@
 			alert('You must choose a provider');
 			return false;
 		}
+		form.elements['provider.id'].value = '';
 		form.elements['method'].value='save_provider';
 		form.submit();
 	}
@@ -147,7 +148,7 @@
 	<tr class="b">
 		<td width="20%"><label for="program-staff-provider">Provider:</label></td>
 		<td>
-			<input type="hidden" name="provider.id" value="${carlos:forHtmlAttribute(provider.id)}" />
+			<input type="hidden" name="provider.id" />
 			<select name="provider.providerNo" id="program-staff-provider">
 				<option value="">Select a provider</option>
 				<c:forEach var="candidate" items="${availableProviders}">
