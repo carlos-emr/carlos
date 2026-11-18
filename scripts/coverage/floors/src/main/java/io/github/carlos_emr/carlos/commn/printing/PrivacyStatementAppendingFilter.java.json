@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/commn/printing/PrivacyStatementAppendingFilter.java",
   "kind": "floor",
   "floor": {
-    "lines": 95.1219512195122,
-    "instructions": 95.26184538653366,
-    "branches": 90.54054054054055,
-    "sourceBlob": "038539604e77916afbb869414227f362bfd6f894"
+    "lines": 96.29629629629629,
+    "instructions": 96.65551839464882,
+    "branches": 91.26984126984127,
+    "sourceBlob": "20ea14bffacc5c1d1c0d1b056977100837695551"
   },
-  "evidenceSha256": "2d980c38f3360ccd9d5cb3b7198d5e0eb6abd8b6f41156aa65a5eddfe6731ff8"
+  "evidenceSha256": "965b8ce3dba362575f9398370c3e28f92ec98606a474c533c3f5dde938216e4f"
 }
