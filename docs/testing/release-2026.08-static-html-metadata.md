@@ -13,21 +13,21 @@ length. For GET/HEAD resources whose MIME type is HTML and whose statement will
 be appended, downstream cache validation does not see obsolete file ETags or
 modification dates. Other request data, including Range/If-Range, is retained.
 Wildcard existence conditions still return 304, with no bare-file metadata.
-The configured statement is read once for each filter invocation.
+The configured statement is read at most once for each filter invocation.
 
-All nine real-HTTP metadata cases pass after repair, including every servlet
+All twelve real-HTTP metadata cases pass after repair, including every servlet
 header accessor, unrelated-header preservation, and wildcard GET/HEAD conditions.
-All 608 related Java 25 filter cases pass with no failures, errors, or skips.
+All 611 related Java 25 filter cases pass with no failures, errors, or skips.
 The existing changed-line floors rise from 95.12/95.26/90.54 percent to
-96.30/96.66/91.27 percent for lines/instructions/branches, using fresh source-bound
+97.53/97.83/94.44 percent for lines/instructions/branches, using fresh source-bound
 JaCoCo evidence.
 
 Pre-repair HTTP report SHA-256:
 `723e1a9ae3176eeb5a348051efad564ec3eadfc80a506078f90ed9bed9f37303`.
-Post-repair nine-case HTTP report SHA-256:
-`6c8db5e3b01839d61bac67dc0bfe03c75489a0c90d8624257ef37eb4a2d8974a`.
-Related 608-case report SHA-256:
-`6cb9b86bf98dd80ff25936f8bca0db6a594377fdd361ba6264994a9ccc69f09d`.
+Post-repair twelve-case HTTP report SHA-256:
+`5fc626e4dc3f1bb8027a9704382d3cdb5ae09d4b3869c4e3a9d9ffcd3f5a2d08`.
+Related 611-case report SHA-256:
+`a2795d68ec9637c6bb91b1dc6103d91267d82726eea5487c30932d1ec06f17c2`.
 
 `privacy-static-html-metadata` is an active manual check for the host serving the
 packaged install. It reads only the installed GPL page and its file date and
@@ -40,3 +40,8 @@ All 8,111 complete Node cases pass on Node 22.23.5 with zero failures, skips,
 cancellations, or TODOs, and all 570 test-source fingerprints verified. The case
 inventory is generated from that actual execution. Node report SHA-256:
 `a622abac48d99d12fa96845233e30296f8984a8437f73aa06268ed47661b5a01`.
+
+The three additional protocol controls preserve POST preconditions, empty 204 HEAD
+responses, and complete body metadata/caching when the notice was already printed.
+The complete Node execution above precedes these Java-only controls; the combined
+qualification exercises their final source together.
