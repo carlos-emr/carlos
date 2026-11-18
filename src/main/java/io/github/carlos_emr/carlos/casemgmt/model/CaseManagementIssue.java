@@ -80,6 +80,7 @@ public class CaseManagementIssue extends BaseObject {
     }
 
     public boolean equals(Object obj) {
+        if (this == obj) return true;
         if (null == obj) return false;
         if (!(obj instanceof CaseManagementIssue)) return false;
         else {

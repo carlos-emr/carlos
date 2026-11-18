@@ -9,6 +9,9 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,11 +39,17 @@ class ExportResults2ActionUnitTest extends CarlosUnitTestBase {
         return action;
     }
 
-    @Test
-    void shouldWriteExactUtf8Bytes_whenExportContainsNonAscii() throws Exception {
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "null"})
+    void shouldWriteExactUtf8Bytes_whenExportContainsNonAsciiWithoutASlice(String metricLabel) throws Exception {
         String csv = "Name,Address\nZoë,東京\n";
         var response = new MockHttpServletResponse();
-        assertThat(action(csv, response).execute()).isEqualTo("none");
+        var action = action(csv, response);
+        if (metricLabel != null) {
+            ((MockHttpServletRequest) action.request).setParameter("sharedMetricLabel", metricLabel);
+        }
+        assertThat(action.execute()).isEqualTo("none");
         assertThat(response.getContentAsByteArray()).isEqualTo(csv.getBytes(StandardCharsets.UTF_8));
         assertThat(response.getContentLength()).isEqualTo(csv.getBytes(StandardCharsets.UTF_8).length);
         assertThat(response.getCharacterEncoding()).isEqualTo("UTF-8");

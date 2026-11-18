@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "c219599f00cd51f12d0489920674549d1cee9043",
+  "comparisonSha256": "1c55205589dc0161f8bf376c101e06795ab5d862a225ae82748cd8fb7ce3a076",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/email/action/EmailCompose2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "dfcbf9f831140a1ac964992dcd2c4d64603bdd38"
+    }
+  },
+  "baselineCommit": "b3cb554c90e9dc43963d86a228d9afa682ff2488",
+  "baselineSourceTree": "c219599f00cd51f12d0489920674549d1cee9043",
+  "baselineReportSha256": "48099607537e702c5cf32a6d318e0e0da16543a4391e230a378c84faa398e08a",
+  "baselineLane": "PR #6130 focused JDK 25 Maven/Surefire run for compose and staging",
+  "baselineTestCounts": {
+    "tests": 48,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "7018b084aa5312f7ce893d9385a58aacddc0d9feb9c627febaeadab9592d0f5e",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.email.action.EmailCompose2ActionUnitTest",
+    "io.github.carlos_emr.carlos.email.core.EmailAttachmentStagingUnitTest",
+    "io.github.carlos_emr.carlos.email.core.EmailComposeStagingUnitTest",
+    "io.github.carlos_emr.carlos.managers.EmailComposeManagerDocumentAttachmentUnitTest"
+  ]
+}

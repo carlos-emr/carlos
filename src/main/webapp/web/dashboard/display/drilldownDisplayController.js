@@ -218,7 +218,7 @@ function sendData(path, param, target, button) {
         if (button) button.disabled = true;
         // AJAX for modal interactions — sanitize HTML before DOM insertion
         $.ajax({
-            url: ctx + path,
+            url: dashboardProviderUrl(ctx + path),
             type: 'POST',
             data: param,
             dataType: target === 'close' ? 'json' : 'html',
@@ -272,7 +272,7 @@ function sendData(path, param, target, button) {
         // the response natively (including scripts, stylesheets, etc.)
         var form = document.createElement('form');
         form.method = 'POST';
-        form.action = ctx + path;
+        form.action = dashboardProviderUrl(ctx + path);
         if (typeof param === 'string') {
             param.split('&').forEach(function(pair) {
                 var parts = pair.split('=', 2);
@@ -575,7 +575,7 @@ $(document).ready(function () {
         var url = $(this).attr("href");
 
         $.ajax({
-            url: url,
+            url: dashboardProviderUrl(url),
             dataType: "json",
             success: function (data) {
                 bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmAddToDiseaseRegistry')).show();
@@ -600,7 +600,7 @@ $(document).ready(function () {
         button.disabled = true;
         $.ajax({
             type: 'POST',
-            url: form.attr('action'),
+            url: dashboardProviderUrl(form.attr('action')),
             data: data,
             success: function () {
                 bootstrap.Modal.getOrCreateInstance(document.getElementById(modalId)).hide();

@@ -57,7 +57,7 @@ public class DisplayDrilldown2Action extends ActionSupport {
 
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private static DashboardManager dashboardManager = SpringUtils.getBean(DashboardManager.class);
+    private final DashboardManager dashboardManager = SpringUtils.getBean(DashboardManager.class);
     private ProviderManager2 providerManager = SpringUtils.getBean(ProviderManager2.class);
     private static Logger logger = MiscUtils.getLogger();
 
@@ -93,10 +93,7 @@ public class DisplayDrilldown2Action extends ActionSupport {
             id = Integer.parseInt(indicatorTemplateId);
         }
 
-        String providerNo = null;
-        if (dashboardManager.getRequestedProviderNo(loggedInInfo) != null) {
-            providerNo = dashboardManager.getRequestedProviderNo(loggedInInfo);
-        }
+        String providerNo = dashboardManager.getRequestedProviderNo(loggedInInfo);
         DrilldownBean drilldown;
         if (providerNo == null) {
             drilldown = dashboardManager.getDrilldownData(loggedInInfo, id, "null");
@@ -110,10 +107,11 @@ public class DisplayDrilldown2Action extends ActionSupport {
         }
 
         Provider preferredProvider = loggedInInfo.getLoggedInProvider();
-        if (dashboardManager.getRequestedProviderNo(loggedInInfo) != null) {
-            preferredProvider = providerManager.getProvider(loggedInInfo, dashboardManager.getRequestedProviderNo(loggedInInfo));
+        if (providerNo != null) {
+            preferredProvider = providerManager.getProvider(loggedInInfo, providerNo);
         }
 
+        request.setAttribute("dashboardProviderNo", providerNo);
         request.setAttribute("preferredProvider", preferredProvider);
         request.setAttribute("drilldown", drilldown);
         return SUCCESS;
@@ -130,7 +128,10 @@ public class DisplayDrilldown2Action extends ActionSupport {
 
         String metricSetName = request.getParameter("sharedMetricSetName");
 
-        String providerNo = request.getParameter("providerNo");
+        // Shared outcomes links carry the selection as providerNo. Apply the same
+        // request-scoped provider authorization used by regular drilldowns and exports.
+        dashboardManager.setRequestedProviderNo(loggedInInfo, request.getParameter("providerNo"));
+        String providerNo = dashboardManager.getRequestedProviderNo(loggedInInfo);
 
         String metricLabel = request.getParameter("sharedMetricSetLable");
         if (StringUtils.isBlank(metricLabel)) {
@@ -138,7 +139,7 @@ public class DisplayDrilldown2Action extends ActionSupport {
         }
 
         ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
-        if (!providerDao.providerExists(providerNo)) {
+        if (providerNo == null || !providerDao.providerExists(providerNo)) {
             return "error";
         }
 
@@ -159,19 +160,17 @@ public class DisplayDrilldown2Action extends ActionSupport {
         }
 
 
-        DrilldownBean drilldown = null;
-
-        if (metricLabel.equals("null")) { //local pie opens drill down list for whole pie, should use shared xml file
-            drilldown = dashboardManager.getDrilldownData(loggedInInfo, indicatorTemplate.getId(), providerNo != null ? providerNo : null, metricLabel);
-        } else { //commons dashboard opens drill down list from pie slice, should use not-shared xml file for different metric label
-            drilldown = dashboardManager.getDrilldownData(loggedInInfo, indicatorTemplate.getId(), providerNo != null ? providerNo : null, metricLabel);
-        }
+        DrilldownBean drilldown = dashboardManager.getDrilldownData(
+                loggedInInfo, indicatorTemplate.getId(), providerNo, metricLabel);
 
         // something must be returned. If not then something is very wrong.
         if (drilldown == null) {
             return "error";
         }
 
+        request.setAttribute("dashboardProviderNo", providerNo);
+        request.setAttribute("sharedMetricLabel", metricLabel);
+        request.setAttribute("preferredProvider", providerManager.getProvider(loggedInInfo, providerNo));
         request.setAttribute("drilldown", drilldown);
         return SUCCESS;
     }
