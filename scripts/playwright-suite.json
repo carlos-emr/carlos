@@ -2293,6 +2293,17 @@
       "env": []
     },
     {
+      "name": "login-legacy-intake",
+      "script": "scripts/login-legacy-intake-playwright-checks.js",
+      "tiers": ["core"],
+      "assertsDatabase": true,
+      "provinces": ["all"],
+      "timeoutSec": 180,
+      "env": ["TEST_PASSWORD", "TEST_PIN", "MYSQL_PASSWORD"],
+      "notes": "Issue 4562: a retained Patient Intake assignment uses the supported landing page after password login and forced reset; the replacement password remains usable.",
+      "fixtures": "One owned throwaway login retains its copied privileges plus the legacy assignment. Cleanup removes its credentials, assignments, preferences and audit rows; no shared role or account is edited."
+    },
+    {
       "name": "login",
       "script": "scripts/login-playwright-checks.js",
       "tiers": [
@@ -17424,8 +17435,8 @@
       "mutates": [
         "pharmacyInfo"
       ],
-      "fixtures": "Seven pharmacies named after the run marker are in the clinic-wide pharmacy list while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Issues #5308 and #5528: AbstractDaoImpl.findAll orders every page by the entity identifier. The session REST pharmacy list pages through it: a maximum-size first page holds exactly the first database rows in id order, small pages concatenate to the whole directory with no repeat or gap (a directory larger than one 5000-row page included), a re-read page is identical and an offset past the end is empty. Omitted pharmacy pagination keeps the maximum-size default and a zero limit is empty. Oversized limits and negative pagination on both pharmacy and demographic lists must return exactly HTTP 400."
+      "fixtures": "Seven pharmacies named after the run marker are in the clinic-wide pharmacy list while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). One of the seven owned pharmacies is inactive to verify that its explicit status is retained.",
+      "notes": "Issues #5308 and #5528: AbstractDaoImpl.findAll orders every page by the entity identifier. The session REST pharmacy list pages through it: a maximum-size first page holds exactly the first database rows in id order, small pages concatenate to the whole directory with no repeat or gap (a directory larger than one 5000-row page included), a re-read page is identical and an offset past the end is empty. Omitted pharmacy pagination keeps the maximum-size default and a zero limit is empty. Oversized limits and negative pagination on both pharmacy and demographic lists must return exactly HTTP 400. The all-status directory retains inactive pharmacies with status \"0\"; clients selecting active pharmacies filter status \"1\" while traversing pages (#6044)."
     },
     {
       "name": "appointment-options-roundtrip",
@@ -18141,13 +18152,9 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "notes": "Task 36: repeat the complete real TOTP enrolment/challenge/reset/disable lifecycle with legacy PIN disabled.",
+      "notes": "Repeat the complete real TOTP enrolment/challenge/reset/disable lifecycle with legacy PIN disabled; security editor submission must not read absent PIN controls (#5885).",
       "fixtures": "Throwaway login (never the shared account) enrolled, challenged, reset and un-enrolled through Administration ▸ Security Records; TOTP computed from the enrolment QR by scripts/lib/mfa-otp.js; every owned row removed.",
-      "profile": "no-pin",
-      "expectedFailure": {
-        "finding": 347,
-        "step": "Enable MFA on the security record sets usingMfa and stores no secret yet"
-      }
+      "profile": "no-pin"
     },
     {
       "name": "account-lockout-address",
@@ -19476,6 +19483,26 @@
       ],
       "fixtures": "Requires a disposable exclusive host. Owns a synthetic patient, reads the forms REST endpoint, creates no clinical forms and removes the patient on exit. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#3093: the installed authenticated REST surface returns the available-form list when heading is omitted, preserves empty/unrecognized-heading behavior and keeps Completed scoped to the owned patient."
+    },
+    {
+      "name": "log-provider-order",
+      "script": "scripts/log-provider-order-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON",
+        "BC"
+      ],
+      "timeoutSec": 180,
+      "manual": true,
+      "mutates": [
+        "provider",
+        "providersite"
+      ],
+      "fixtures": "Requires a disposable exclusive host. Owns four synthetic provider rows and copies only the authenticated provider site memberships to them. Removes and verifies all owned rows. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#1831: the native Audit Log provider dropdown sorts first and last names without case grouping. Unit controls separately retain null ordering, stable equal-name order and site-restricted DAO selection."
     },
     {
       "name": "demographic-converted-limits",

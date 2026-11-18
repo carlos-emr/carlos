@@ -29,10 +29,8 @@
 package io.github.carlos_emr.carlos.form;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.SxmlMisc;
@@ -55,13 +53,10 @@ import java.util.Locale;
 import java.util.MissingResourceException;
 import java.util.Properties;
 import java.util.ResourceBundle;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class FrmBCAR2020Record extends FrmRecord {
-
-    private static Logger logger = MiscUtils.getLogger();
 
     public FrmBCAR2020Record() {
         this.dateFormat = "yyyy/MM/dd";
@@ -163,20 +158,19 @@ public class FrmBCAR2020Record extends FrmRecord {
                 .collect(Collectors.joining(" / "));
     }
 
-    @Deprecated
+    static final String RETIRED_SAVE_MESSAGE =
+            "Legacy BCAR 2020 saving is unavailable; reopen the BC Antenatal Record to save.";
+
     /**
-     * Use FrmBCAR20202Action instead
-     * This is just required to extend FrmRecord 
+     * Refuses the retired generic save path. BCAR 2020 saves must use
+     * {@link FrmBCAR20202Action}, which persists a new form version transactionally.
+     *
+     * @throws SQLException always, before submitted clinical fields are read or logged
      */
+    @Deprecated
+    @Override
     public int saveFormRecord(Properties props) throws SQLException {
-
-        int formId = StringUtils.isNotEmpty(props.getProperty("formId")) ? Integer.parseInt(props.getProperty("formId")) : 0;
-        Set<String> keys = props.stringPropertyNames();
-        for (String key : keys) {
-            logger.info(key + " \t\t\t : \t " + props.getProperty(key));
-        }
-
-        return formId;
+        throw new SQLException(RETIRED_SAVE_MESSAGE);
     }
 
     public String findActionValue(String submit) throws SQLException {
