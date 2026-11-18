@@ -335,6 +335,40 @@ class EFormExportZipConcurrentImportUnitTest {
     }
 
     @Test
+    void shouldKeepReplacementAndReportCleanupFailure_whenRegistrationRollsBack() throws Exception {
+        Path replaced = images.resolve("replacement.png");
+        Path blocked = images.resolve("blocked.png");
+        Path removed = images.resolve("removed.png");
+        IOException cleanupFailure = new IOException("Synthetic cleanup failure");
+        Map<String, String> entries = Map.of(
+                "eform.properties", "form.name=FAKE rollback\nform.htmlFilename=form.html\n",
+                "form.html", "<p>FAKE rollback fixture</p>",
+                "replacement.png", "ORIGINAL", "blocked.png", "BLOCKED", "removed.png", "REMOVED");
+        try (var folders = mockStatic(ImageUpload2Action.class);
+             var forms = mockStatic(EFormUtil.class);
+             MockedStatic<Files> files = mockStatic(Files.class, CALLS_REAL_METHODS)) {
+            folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            files.when(() -> Files.deleteIfExists(blocked)).thenThrow(cleanupFailure);
+            forms.when(() -> EFormUtil.saveEForm(any(EForm.class))).thenAnswer(invocation -> {
+                Files.delete(replaced);
+                Files.writeString(replaced, "REPLACEMENT");
+                Files.delete(removed);
+                throw new IllegalStateException("Synthetic registration failure");
+            });
+
+            assertThatThrownBy(() -> new EFormExportZip(Runnable::run)
+                    .importForm(new ByteArrayInputStream(zip(entries))))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Synthetic registration failure")
+                    .satisfies(failure -> assertThat(failure.getSuppressed()).containsExactly(cleanupFailure));
+        }
+        assertThat(Files.readString(replaced)).isEqualTo("REPLACEMENT");
+        assertThat(Files.readString(blocked)).isEqualTo("BLOCKED");
+        assertThat(removed).doesNotExist();
+        assertThat(stagingDirectories()).isEmpty();
+    }
+
+    @Test
     void mixedArchiveKeepsSharedAssetsAndAssetsFromTheRetainedFormDirectory() throws Exception {
         Map<String, String> entries = new LinkedHashMap<>();
         entries.put("refused/eform.properties", "form.name=Duplicate\nform.htmlFilename=refused.html\n");
@@ -357,6 +391,35 @@ class EFormExportZipConcurrentImportUnitTest {
         assertThat(images.resolve("orphan.png")).doesNotExist();
         assertThat(Files.readString(images.resolve("shared.png"))).isEqualTo("SHARED");
         assertThat(Files.readString(images.resolve("indirect.png"))).isEqualTo("RETAINED");
+        assertThat(stagingDirectories()).isEmpty();
+    }
+
+    @Test
+    void shouldKeepIndirectScriptAndStyleAssets_whenFormsShareTheArchiveRoot() throws Exception {
+        Map<String, String> entries = new LinkedHashMap<>();
+        entries.put("refused/eform.properties", "form.name=Duplicate\nform.htmlFilename=refused.html\n");
+        entries.put("retained/eform.properties", "form.name=New\nform.htmlFilename=retained.html\n");
+        entries.put("refused.html", "<p>Refused form</p>");
+        entries.put("retained.html", "<script src='loader.js'></script><link rel='stylesheet' href='theme.css'>");
+        entries.put("loader.js", "new Image().src='/eform/displayImage?imagefile=background.png';");
+        entries.put("theme.css", "body { background-image: url('/eform/displayImage?imagefile=texture.png'); }");
+        entries.put("background.png", "SCRIPT-DEPENDENCY");
+        entries.put("texture.png", "STYLE-DEPENDENCY");
+        try (var folders = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
+            folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            forms.when(() -> EFormUtil.formExistsInDB("Duplicate")).thenReturn(true);
+
+            List<String> errors = new EFormExportZip(Runnable::run)
+                    .importForm(new ByteArrayInputStream(zip(entries)));
+
+            assertThat(errors).containsExactly("Skipped form 'Duplicate', form already exists");
+            forms.verify(() -> EFormUtil.saveEForm(any(EForm.class)));
+        }
+        assertThat(images.resolve("refused.html")).doesNotExist();
+        assertThat(images.resolve("loader.js")).exists();
+        assertThat(images.resolve("theme.css")).exists();
+        assertThat(Files.readString(images.resolve("background.png"))).isEqualTo("SCRIPT-DEPENDENCY");
+        assertThat(Files.readString(images.resolve("texture.png"))).isEqualTo("STYLE-DEPENDENCY");
         assertThat(stagingDirectories()).isEmpty();
     }
 }

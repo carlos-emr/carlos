@@ -28,7 +28,8 @@ class EFormImportedLibraryIntegrationTest extends CarlosTestBase {
     @Autowired private EFormGroupDao groups;
     @Test void shouldExposeImportedFormInTheActiveLibraryAndItsGroup(@TempDir Path images) throws Exception {
         String title = "FAKE imported library " + UUID.randomUUID();
-        String group = "FAKE imported group " + UUID.randomUUID();
+        // Keep the synthetic name within the physical eform_groups.group_name width.
+        String group = "FAKE " + UUID.randomUUID().toString().substring(0, 12);
         String html = "<html><body>FAKE imported content</body></html>";
         var bytes = new ByteArrayOutputStream();
         try (var zip = new ZipOutputStream(bytes)) {

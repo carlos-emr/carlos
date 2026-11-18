@@ -494,20 +494,24 @@ public class EFormExportZip {
                 }
             }
         }
-        // A dedicated form directory can contain assets indirectly used by its HTML.
-        // Shared directories (including the ZIP root) require a reference from retained HTML.
-        retainedDirectories.remove(imageTempFolderDir);
+        if (!eformTableFailed.isEmpty() && retainedDirectories.isEmpty()) {
+            return;
+        }
+        // Only a dedicated refused form directory establishes ownership. Shared and
+        // unassigned assets can be loaded indirectly by a retained form's scripts or styles.
+        Set<File> refusedDirectories = new HashSet<>();
         for (String refusedName : eformTableFailed.keySet()) {
             StagedEntry refused = tempFiles.get(refusedName);
             if (refused != null) {
-                retainedDirectories.remove(refused.archiveDirectory());
+                refusedDirectories.add(refused.archiveDirectory());
             }
         }
+        refusedDirectories.remove(imageTempFolderDir);
+        refusedDirectories.removeAll(retainedDirectories);
         for (Entry<String, StagedEntry> staged : tempFiles.entrySet()) {
             String name = staged.getKey();
             if (!eformTable.containsKey(name) && !eformTableFailed.containsKey(name)
-                    && (eformTableFailed.isEmpty() || retainedAssets.contains(name)
-                        || retainedDirectories.contains(staged.getValue().archiveDirectory()))) {
+                    && (!refusedDirectories.contains(staged.getValue().archiveDirectory()) || retainedAssets.contains(name))) {
                 publishImportAsset(name, staged.getValue().file(), imageDir, imageTempFolderDir, errors, publishedAssets);
             }
         }

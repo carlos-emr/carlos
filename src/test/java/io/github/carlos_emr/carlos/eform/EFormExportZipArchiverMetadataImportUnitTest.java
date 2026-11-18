@@ -127,7 +127,7 @@ class EFormExportZipArchiverMetadataImportUnitTest {
         entries.put("refused/refused.html", utf8("FAKE refused HTML"));
         entries.put("refused/orphan.png", utf8("FAKE orphan"));
         entries.put("kept.png", utf8("FAKE shared referenced image"));
-        entries.put("unreferenced.png", utf8("FAKE unreferenced root image"));
+        entries.put("unassigned.png", utf8("FAKE image from a shared location"));
         var saved = new ArrayList<EForm>();
         try (var images = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
             images.when(ImageUpload2Action::getImageFolder).thenReturn(imageFolder.toFile());
@@ -137,7 +137,7 @@ class EFormExportZipArchiverMetadataImportUnitTest {
                     .singleElement().asString().contains("FAKE existing", "already exists");
         }
         assertThat(saved).singleElement().satisfies(form -> assertThat(form.getFormHtml()).contains(html));
-        assertThat(publishedNames()).containsExactly("indirect.css", "kept.png");
+        assertThat(publishedNames()).containsExactly("indirect.css", "kept.png", "unassigned.png");
         assertThat(Files.readString(imageFolder.resolve("kept.png"))).isEqualTo("FAKE shared referenced image");
     }
 
