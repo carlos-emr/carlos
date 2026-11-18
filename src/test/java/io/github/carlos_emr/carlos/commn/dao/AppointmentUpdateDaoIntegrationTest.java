@@ -15,6 +15,7 @@ import java.sql.DriverManager;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.Properties;
 import java.util.TimeZone;
@@ -310,7 +311,8 @@ class AppointmentUpdateDaoIntegrationTest {
 
     @Test
     void shouldAdvanceStoredVersion_whenWritesShareAClockSecond() {
-        Date future = new Date((System.currentTimeMillis() / 1000 + 60) * 1000);
+        // Midnight UTC is an unambiguous evening time in Toronto, including on clock-change days.
+        Date future = Date.from(Instant.now().truncatedTo(ChronoUnit.DAYS).plus(Duration.ofDays(2)));
         setStoredUpdateTime(future);
         String version = read().getEditVersion();
         Appointment first = save(clientA, version, row -> {
