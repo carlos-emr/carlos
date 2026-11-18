@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/managers/DashboardManagerImpl.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "f3c5ab40524929c9558476d38998891047381fcb"
+  },
+  "evidenceSha256": "cdb2849e7b1e15c64b29dd5dd4f2062477bddd3e2197f127b9e02fa1b0b54c84"
+}
