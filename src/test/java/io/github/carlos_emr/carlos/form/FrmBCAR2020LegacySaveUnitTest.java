@@ -92,22 +92,22 @@ class FrmBCAR2020LegacySaveUnitTest extends CarlosUnitTestBase {
             "true,0", "true,7", "true,''", "true,not-a-number"})
     void shouldRefuseRetiredSave_regardlessOfPostedIdOrActorOverload(boolean withActor, String formId) {
         Properties props = postedProperties(formId);
-        FrmBCAR2020Record record = new FrmBCAR2020Record();
-        assertThatThrownBy(() -> {
-            if (withActor) record.saveFormRecord(actor, props);
-            else record.saveFormRecord(props);
-        }).isInstanceOf(SQLException.class).hasMessageContaining("BCAR 2020");
+        FrmBCAR2020Record retiredRecord = new FrmBCAR2020Record();
+        org.assertj.core.api.ThrowableAssert.ThrowingCallable save = withActor
+                ? () -> retiredRecord.saveFormRecord(actor, props)
+                : () -> retiredRecord.saveFormRecord(props);
+        assertThatThrownBy(save).isInstanceOf(SQLException.class).hasMessageContaining("BCAR 2020");
         verifyNoInteractions(forms, data, text);
     }
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void shouldNeverLogSubmittedClinicalFields_whenTheRetiredSaveIsAttempted(boolean withActor) throws Exception {
-        FrmBCAR2020Record record = new FrmBCAR2020Record();
+        FrmBCAR2020Record retiredRecord = new FrmBCAR2020Record();
         try (LogCapture capture = LogCapture.forLogger(FrmBCAR2020Record.class)) {
             try {
-                if (withActor) record.saveFormRecord(actor, postedProperties("7"));
-                else record.saveFormRecord(postedProperties("7"));
+                if (withActor) retiredRecord.saveFormRecord(actor, postedProperties("7"));
+                else retiredRecord.saveFormRecord(postedProperties("7"));
             } catch (SQLException expectedRefusal) {
                 assertThat(expectedRefusal.getMessage()).doesNotContain(CLINICAL_FIELD, CLINICAL_VALUE);
             }
