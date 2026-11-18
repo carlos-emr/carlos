@@ -21,6 +21,10 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import org.mariadb.jdbc.client.ColumnDecoder;
+import org.mariadb.jdbc.client.DataType;
+import org.mariadb.jdbc.util.constants.ColumnFlags;
+
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -292,7 +296,7 @@ public final class MariaDbCompatibilityDriver implements Driver {
                 text = temporalText(rows, column, metadata);
             } else if (!stream && (FLOATING_TYPES.contains(sqlType) || sqlType == Types.BIT)) {
                 // Both drivers refuse character streams over numeric columns; only plain text reads change.
-                text = legacyNumberText(rows, column, sqlType);
+                text = legacyNumberText(rows, metadata, column, sqlType);
             } else {
                 return NO_CONVERSION;
             }
@@ -305,9 +309,19 @@ public final class MariaDbCompatibilityDriver implements Driver {
          * through its signed long ("1", "5"), where MariaDB returns the server's text ("100", "b'101'"). MariaDB's
          * own double and long decoders already match Connector/J's in both protocols (#5968).
          */
-        private static String legacyNumberText(ResultSet rows, int column, int sqlType) throws SQLException {
+        private static String legacyNumberText(ResultSet rows, ResultSetMetaData metadata, int column, int sqlType)
+                throws SQLException {
             String text = sqlType == Types.BIT ? String.valueOf(rows.getLong(column)) : String.valueOf(rows.getDouble(column));
-            return rows.wasNull() ? null : text;
+            if (rows.wasNull()) return null;
+            if (sqlType != Types.BIT && metadata instanceof org.mariadb.jdbc.client.result.ResultSetMetaData
+                    && !metadata.isSigned(column)) {
+                ColumnDecoder definition = nativeColumnMetadata(metadata, column);
+                if ((definition.getFlags() & ColumnFlags.ZEROFILL) != 0) {
+                    int padding = Math.toIntExact(definition.getColumnLength()) - text.length();
+                    if (padding > 0) return "0".repeat(padding) + text;
+                }
+            }
+            return text;
         }
 
         /**
@@ -322,6 +336,14 @@ public final class MariaDbCompatibilityDriver implements Driver {
             int column = columnIndex(rows, args);
             ResultSetMetaData metadata = rows.getMetaData();
             int sqlType = legacyColumnType(metadata, column);
+            if (requested == Object.class && (sqlType == Types.BIT || sqlType == Types.BOOLEAN)
+                    && metadata instanceof org.mariadb.jdbc.client.result.ResultSetMetaData
+                    && !metadata.isSigned(column) && nativeColumnMetadata(metadata, column).getType() == DataType.TINYINT) {
+                // Connector/J keeps unsigned TINYINT(1) values as integers despite flag metadata.
+                int value = rows.getInt(column);
+                convertedWasNull = rows.wasNull();
+                return convertedWasNull ? null : value;
+            }
             // transformedBitIsBoolean exposes TINYINT(1) as BOOLEAN; its object truth rule is identical.
             if (sqlType == Types.BOOLEAN && requested == Object.class) return bitValue(rows, column, 1, requested);
             if (FLOATING_TYPES.contains(sqlType)) {
@@ -600,21 +622,24 @@ public final class MariaDbCompatibilityDriver implements Driver {
         }
 
         /**
-         * MariaDB exposes column aliases publicly but not table aliases. Read only
-         * its pinned metadata array so buffered and streaming result sets preserve
-         * the same alias policy; refuse an incompatible future driver layout.
+         * Retains table aliases for buffered and streaming results.
          */
         private static String tableAlias(ResultSetMetaData metadata, int column) throws SQLException {
+            return nativeColumnMetadata(metadata, column).getTableAlias();
+        }
+
+        /** Reads protocol flags from the pinned MariaDB metadata layout. */
+        private static ColumnDecoder nativeColumnMetadata(ResultSetMetaData metadata, int column) throws SQLException {
             metadata.getColumnLabel(column); // Preserve the driver's JDBC index validation.
             try {
                 var nativeMetadata = metadata.unwrap(org.mariadb.jdbc.client.result.ResultSetMetaData.class);
                 var fields = org.mariadb.jdbc.client.result.ResultSetMetaData.class.getDeclaredField("fieldPackets");
-                if (!fields.trySetAccessible()) throw new SQLException("Database table alias metadata is unavailable", INVALID_CONVERSION_STATE);
-                var columns = (org.mariadb.jdbc.client.ColumnDecoder[]) fields.get(nativeMetadata);
-                return columns[column - 1].getTableAlias();
+                if (!fields.trySetAccessible()) throw new SQLException("Database column metadata is unavailable", INVALID_CONVERSION_STATE);
+                var columns = (ColumnDecoder[]) fields.get(nativeMetadata);
+                return columns[column - 1];
             } catch (ReflectiveOperationException | SecurityException | ClassCastException unsupported) {
                 throw withFailureLocation(new SQLException(
-                        "Database table alias metadata is unavailable", INVALID_CONVERSION_STATE), unsupported);
+                        "Database column metadata is unavailable", INVALID_CONVERSION_STATE), unsupported);
             }
         }
 

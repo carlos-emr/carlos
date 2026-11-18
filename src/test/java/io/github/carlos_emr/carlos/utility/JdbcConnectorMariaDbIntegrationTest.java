@@ -720,6 +720,44 @@ class JdbcConnectorMariaDbIntegrationTest {
         assertConnectorJTinyIntMetadataModes(legacy);
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldPreserveZeroFilledTextAndUnsignedTinyIntegers_inBothPreparedProtocols(boolean legacy) throws Exception {
+        try (var source = source(legacy, ""); var connection = source.getConnection();
+             var statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE numeric_flags(id INT PRIMARY KEY, padded FLOAT(8,2) ZEROFILL, "
+                    + "ordinary FLOAT(8,2) UNSIGNED, tiny TINYINT(1) UNSIGNED)");
+            statement.execute("INSERT INTO numeric_flags VALUES (1, 1.25, 1.25, 2), (2, 1.25, 1.25, 255), "
+                    + "(3, NULL, NULL, NULL)");
+        }
+        for (boolean prepared : new boolean[]{false, true}) {
+            for (boolean transformed : new boolean[]{false, true}) {
+                String options = "tinyInt1isBit=true&transformedBitIsBoolean=" + transformed
+                        + "&useServerPrepStmts=" + prepared;
+                try (var source = source(legacy, options); var connection = source.getConnection();
+                     var query = connection.prepareStatement("SELECT padded, ordinary, tiny FROM numeric_flags "
+                             + "WHERE id >= ? ORDER BY id")) {
+                    query.setInt(1, 1);
+                    try (var rows = query.executeQuery()) {
+                        for (Integer tiny : new Integer[]{2, 255, null}) {
+                            assertThat(rows.next()).isTrue();
+                            String padded = tiny == null ? null : "00001.25";
+                            assertThat(rows.getString("padded")).isEqualTo(padded);
+                            assertThat(rows.wasNull()).isEqualTo(tiny == null);
+                            assertThat(rows.getObject(1, String.class)).isEqualTo(padded);
+                            assertThat(rows.getString("ordinary")).isEqualTo(tiny == null ? null : "1.25");
+                            assertThat(rows.getObject(3)).isEqualTo(tiny);
+                            assertThat(rows.wasNull()).isEqualTo(tiny == null);
+                            assertThat(rows.getObject("tiny")).isEqualTo(tiny);
+                            assertThat(rows.getObject(3, Map.of())).isEqualTo(tiny);
+                        }
+                        assertThat(rows.next()).isFalse();
+                    }
+                }
+            }
+        }
+    }
+
     /**
      * Both metadata switches retain the same values and object classes as Connector/J, for TINYINT(1) and for a
      * real BIT(1), which MariaDB alone reports as BOOLEAN when transformedBitIsBoolean is set.
