@@ -1,5 +1,13 @@
 # CARLOS 2026.08 release notes
 
+## Note lock recovery
+
+When another window takes a note lock, a refused toolbar save now explains that
+the lock was lost and tells the clinician to copy their text and reopen the chart.
+The draft remains available, and autosave stops for that editor. Opening a different
+editor restores its own saving. Close still asks before discarding unsaved text,
+dates or issue changes, including after a lock is lost.
+
 ## New-appointment day-sheet acknowledgment
 
 Opening or printing the new-appointments day sheet is read-only. Appointment
@@ -9,7 +17,6 @@ Appointments booked or edited after preview are left unchanged, with a skipped
 count in the result; preview again before acknowledging them. Repeating the same
 submission does not acquire newly booked appointments or create duplicate archives.
 Incomplete, malformed or oversized selections are refused before any update.
-
 
 ## Audit identifiers after model diagnostic redaction
 

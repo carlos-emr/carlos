@@ -58,6 +58,7 @@ class CaseManagementAutosaveContextUnitTest extends CarlosUnitTestBase {
     private CaseManagementManager manager;
     private SecurityInfoManager security;
     private CasemgmtNoteLockDao locks;
+    private CasemgmtNoteLock submittedLock;
     private CaseManagementNote note;
     private LoggedInInfo user;
 
@@ -85,12 +86,17 @@ class CaseManagementAutosaveContextUnitTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);
         locks = mock(CasemgmtNoteLockDao.class);
         injectDependency(action, "casemgmtNoteLockDao", locks);
-        CasemgmtNoteLock lock = new CasemgmtNoteLock();
+        submittedLock = new CasemgmtNoteLock();
+        CasemgmtNoteLock lock = submittedLock;
         lock.setId(10L);
         lock.setNoteId(501L);
+        lock.setDemographicNo(101);
+        lock.setProviderNo("999998");
         lock.setSessionId(request.getSession().getId());
         request.getSession().setAttribute("casemgmtNoteLock101", lock);
         when(locks.find(10L)).thenReturn(lock);
+        when(manager.replaceTmpSaveWithOwnedLock(any(CasemgmtNoteLock.class), anyString(), any(), anyString()))
+                .thenReturn(true);
         note = new CaseManagementNote();
         note.setId(501L);
         note.setDemographic_no("101");
@@ -111,7 +117,7 @@ class CaseManagementAutosaveContextUnitTest extends CarlosUnitTestBase {
         action.autosave();
 
         assertThat(response.getStatus()).isEqualTo(200);
-        verify(manager).replaceTmpSave("999998", "101", "11", "501", "Current unsaved text");
+        verify(manager).replaceTmpSaveWithOwnedLock(submittedLock, "11", "501", "Current unsaved text");
         verify(manager).getNote("501");
         verify(manager).filterNotes(user, "999998", java.util.List.of(note), "11");
         verify(manager).hasAccessRight("note-read-only", "access", "999998", "101", "11");
@@ -120,9 +126,129 @@ class CaseManagementAutosaveContextUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldKeepAutosaveRetryable_whenTheLockLookupTemporarilyFails() {
+        var cached = (CasemgmtNoteLock) request.getSession().getAttribute("casemgmtNoteLock101");
+        when(locks.find(10L)).thenThrow(new IllegalStateException("Synthetic lookup failure")).thenReturn(cached);
+
+        action.autosave();
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getHeader("X-Carlos-Note-Lock-Lost")).isNull();
+        assertThat(note.getNote()).isEqualTo("Previous persisted text");
+
+        response.reset();
+        action.autosave();
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        verify(manager).replaceTmpSaveWithOwnedLock(submittedLock, "11", "501", "Current unsaved text");
+    }
+
+    @Test
+    void shouldReportConfirmedLoss_whenTakeoverCommitsBeforeLockedDraftSave() {
+        when(manager.replaceTmpSaveWithOwnedLock(submittedLock, "11", "501", "Current unsaved text"))
+                .thenReturn(false);
+
+        action.autosave();
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getHeader("X-Carlos-Note-Lock-Lost")).isEqualTo("true");
+        assertThat(note.getNote()).isEqualTo("Previous persisted text");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldReturnAnUnmarkedConflict_whenToolbarRetargetsTheEditor(boolean duringLockedSave) {
+        var form = new CaseManagementEntryFormBean();
+        form.setCaseNote(note);
+        request.getSession().setAttribute(ChartProgramContext.formKey(request, "101"), form);
+        var replacement = new CaseManagementNote();
+        replacement.setId(600L);
+        replacement.setProgram_no("11");
+        replacement.setNote("New editor text");
+
+        if (duringLockedSave) {
+            when(manager.replaceTmpSaveWithOwnedLock(submittedLock, "11", "501", "Current unsaved text"))
+                    .thenAnswer(invocation -> {
+                        form.setCaseNote(replacement);
+                        return false;
+                    });
+        } else {
+            when(locks.find(10L)).thenAnswer(invocation -> {
+                form.setCaseNote(replacement);
+                return null;
+            });
+        }
+
+        action.autosave();
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getHeader("X-Carlos-Note-Lock-Lost")).isNull();
+        assertThat(note.getNote()).isEqualTo("Previous persisted text");
+        assertThat(replacement.getNote()).isEqualTo("New editor text");
+    }
+
+    @Test
+    void shouldMarkConfirmedLockLoss_whenTheSelectedEditorsCachedLockNoLongerExists() {
+        when(locks.find(10L)).thenReturn(null);
+
+        action.autosave();
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getHeader("X-Carlos-Note-Lock-Lost")).isEqualTo("true");
+        assertThat(note.getNote()).isEqualTo("Previous persisted text");
+        verify(manager, never()).replaceTmpSaveWithOwnedLock(any(), any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldUseTheSelectedNoteLock_whenAnotherProgramOwnsThePatientCache(boolean selectedStillOwned) {
+        var session = request.getSession();
+        var selected = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock101");
+        var selectedForm = new CaseManagementEntryFormBean();
+        selectedForm.setCaseNote(note);
+        session.setAttribute(ChartProgramContext.formKey(request, "101"), selectedForm);
+        var other = new MockHttpServletRequest();
+        other.setSession(session);
+        other.setParameter("demographicNo", "101");
+        ChartProgramContext.remember(other, "22");
+        CaseManagementNote otherNote = new CaseManagementNote();
+        otherNote.setId(502L);
+        otherNote.setDemographic_no("101");
+        otherNote.setProgram_no("22");
+        var otherForm = new CaseManagementEntryFormBean();
+        otherForm.setCaseNote(otherNote);
+        session.setAttribute(ChartProgramContext.formKey(other, "101"), otherForm);
+        var otherLock = new CasemgmtNoteLock();
+        otherLock.setId(11L);
+        otherLock.setNoteId(502L);
+        otherLock.setDemographicNo(101);
+        otherLock.setProviderNo("999998");
+        otherLock.setSessionId(session.getId());
+        session.setAttribute("casemgmtNoteLock101", otherLock);
+        when(locks.find(11L)).thenReturn(selectedStillOwned ? null : otherLock);
+        when(locks.findBySession(session.getId())).thenReturn(java.util.List.of(selectedStillOwned ? selected : otherLock));
+
+        action.autosave();
+
+        if (selectedStillOwned) {
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getHeader("X-Carlos-Note-Lock-Lost")).isNull();
+            verify(manager).replaceTmpSaveWithOwnedLock(submittedLock, "11", "501", "Current unsaved text");
+        } else {
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(response.getHeader("X-Carlos-Note-Lock-Lost")).isEqualTo("true");
+            assertThat(note.getNote()).isEqualTo("Previous persisted text");
+            verify(manager, never()).replaceTmpSaveWithOwnedLock(any(), any(), any(), any());
+        }
+        verify(locks).findBySession(session.getId());
+        verify(locks, never()).find(11L);
+        assertThat(session.getAttribute("casemgmtNoteLock101")).isSameAs(otherLock);
+    }
+
+    @Test
     void shouldReportFailureWithoutChangingEditorModel_whenDraftReplacementFails() {
         doThrow(new IllegalStateException("database unavailable")).when(manager)
-                .replaceTmpSave("999998", "101", "11", "501", "Current unsaved text");
+                .replaceTmpSaveWithOwnedLock(submittedLock, "11", "501", "Current unsaved text");
 
         action.autosave();
 
@@ -137,7 +263,7 @@ class CaseManagementAutosaveContextUnitTest extends CarlosUnitTestBase {
         action.autosave();
 
         assertThat(response.getStatus()).isEqualTo(200);
-        verify(manager).replaceTmpSave("999998", "101", "11", "501", "");
+        verify(manager).replaceTmpSaveWithOwnedLock(submittedLock, "11", "501", "");
         assertThat(note.getNote()).isEmpty();
     }
 
@@ -192,8 +318,8 @@ class CaseManagementAutosaveContextUnitTest extends CarlosUnitTestBase {
         assertThat(note.getNote()).isEqualTo("Current unsaved text");
         assertThat(note.getProgram_no()).isEqualTo("11");
         verify(manager).hasAccessRight("note-read-only", "access", "999998", "101", "22");
-        verify(manager).replaceTmpSave("999998", "101", "22", "501", "Current unsaved text");
-        verify(manager, never()).replaceTmpSave("999998", "101", "11", "501", "Current unsaved text");
+        verify(manager).replaceTmpSaveWithOwnedLock(submittedLock, "22", "501", "Current unsaved text");
+        verify(manager, never()).replaceTmpSaveWithOwnedLock(submittedLock, "11", "501", "Current unsaved text");
     }
 
     @Test
@@ -203,7 +329,7 @@ class CaseManagementAutosaveContextUnitTest extends CarlosUnitTestBase {
         action.autosave();
 
         assertThat(response.getStatus()).isEqualTo(403);
-        verify(manager, never()).replaceTmpSave(anyString(), anyString(), anyString(), anyString(), anyString());
+        verify(manager, never()).replaceTmpSaveWithOwnedLock(any(), anyString(), anyString(), anyString());
         assertThat(note.getNote()).isEqualTo("Previous persisted text");
     }
 
@@ -214,7 +340,7 @@ class CaseManagementAutosaveContextUnitTest extends CarlosUnitTestBase {
         action.autosave();
 
         assertThat(response.getStatus()).isEqualTo(403);
-        verify(manager, never()).replaceTmpSave(anyString(), anyString(), anyString(), anyString(), anyString());
+        verify(manager, never()).replaceTmpSaveWithOwnedLock(any(), anyString(), anyString(), anyString());
     }
 
     @Test
@@ -229,7 +355,7 @@ class CaseManagementAutosaveContextUnitTest extends CarlosUnitTestBase {
         action.autosave();
 
         assertThat(response.getStatus()).isEqualTo(409);
-        verify(manager, never()).replaceTmpSave(anyString(), anyString(), anyString(), anyString(), anyString());
+        verify(manager, never()).replaceTmpSaveWithOwnedLock(any(), anyString(), anyString(), anyString());
     }
 
     @Test
@@ -242,7 +368,7 @@ class CaseManagementAutosaveContextUnitTest extends CarlosUnitTestBase {
         action.autosave();
 
         assertThat(response.getStatus()).isEqualTo(200);
-        verify(manager).replaceTmpSave("999998", "101", "11", "501", "Current unsaved text");
+        verify(manager).replaceTmpSaveWithOwnedLock(submittedLock, "11", "501", "Current unsaved text");
         assertThat(note.getProgram_no()).isEqualTo("22");
     }
 

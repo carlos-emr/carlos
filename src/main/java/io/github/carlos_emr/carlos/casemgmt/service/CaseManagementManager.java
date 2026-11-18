@@ -291,6 +291,13 @@ public interface CaseManagementManager {
      */
     void replaceTmpSave(String providerNo, String demographicNo, String programId, String noteId, String note);
 
+    /**
+     * Replaces a web editor's draft while holding its validated note lease.
+     *
+     * @return whether the observed lease was still owned and the draft was replaced
+     */
+    boolean replaceTmpSaveWithOwnedLock(CasemgmtNoteLock observed, String programId, String noteId, String note);
+
     public void deleteTmpSave(String providerNo, String demographicNo, String programId);
 
     public CaseManagementTmpSave getTmpSave(String providerNo, String demographicNo, String programId);
