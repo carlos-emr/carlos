@@ -7,7 +7,7 @@ the original bytes and permissions. Missing destinations and writable image
 replacement retain their existing success behavior.
 
 The new deterministic refusal case fails before the fix (`success` instead of
-`error`); all 130 related Java controls pass afterward, with no skipped cases.
+`error`); all 152 related Java controls pass afterward, with no skipped cases.
 The changed upload code retains 100% line, instruction and branch coverage.
 
 A separate Ubuntu 26.04 container runs the real filesystem test as UID 1000,
@@ -17,10 +17,18 @@ before the fix and pass all three cases afterward. Original image bytes and
 permissions survive the read-only refusal. The unit control also models effective
 access denial explicitly, so privileged CI cannot hide this regression.
 
-- Java controls JUnit SHA-256: `cef925cbe9d4245b2b8a629c4ad11e0537983076b0d4857a0d96fccd714d3cb5`.
-- Physical before JUnit SHA-256: `a45631b88eb7c3c3f948801e3844aa102aa6ad29464fe0b095a2a3d1e40c8714`.
-- Physical after JUnit SHA-256: `8e25f9e02c184a30fc70ef4d52e10e380eb83adb0ec1c762affcc21c91dcf55c`.
-- Source-bound coverage SHA-256: `368f35b183f875af279a6931e46f5795964201504cd676dde212c3a81be6b5fc`.
+- Java controls JUnit SHA-256: `08092ee243b867f1f2c2222b250fac1e9901dc95a9f0a7f1a4e5939ce5bf72e5`.
+- Physical before JUnit SHA-256: `06e2d4e639798f29896887fdaa4b667b8692306056988486a74815ad8854764f`.
+- Physical after JUnit SHA-256: `fbf853c26dcf053f29e7fb2ff084546ce5eb4b20f168d436288c527d5968a627`.
+- Source-bound coverage SHA-256: `3f9d117f1f1b344a1e2509aef06860e9f0cf14e6b3c083c927541c2961cde957`.
+
+The incoming ownership/ACL/extended-attribute preservation changes are retained.
+Twenty provider/process controls cover portable metadata copying, truncated
+attribute transfers, unsupported views, ownership/group/mode mismatches,
+non-regular files, unavailable or failed copy tools, timeouts and interruption.
+They exercise the platform-specific helper without changing global OS properties.
+The combined upload code has fresh 100% line, instruction and branch coverage;
+both parents' thresholds and historical evidence are retained.
 
 These are selected-source JVM/filesystem proofs. Rebuilt-DEB verification of
 this follow-up belongs to the next combined batch; this document makes no claim
