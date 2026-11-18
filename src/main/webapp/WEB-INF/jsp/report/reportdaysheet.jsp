@@ -36,6 +36,7 @@
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
+    boolean canAcknowledge = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
@@ -46,6 +47,9 @@
         return;
     }
 %>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_appointment" rights="w" reverse="<%=true%>">
+    <%canAcknowledge = false;%>
+</security:oscarSec>
 <%@ page import="java.util.*, io.github.carlos_emr.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
@@ -185,7 +189,7 @@
     </div>
 
     <%
-        if (newOnly && !acknowledge && !daySheetRows.isEmpty()) {
+        if (newOnly && canAcknowledge && !acknowledge && !daySheetRows.isEmpty()) {
     %>
     <form method="post" action="${ctx}/report/ViewReportdaysheet" class="searchBox">
         <input type="hidden" name="acknowledge" value="true"/>

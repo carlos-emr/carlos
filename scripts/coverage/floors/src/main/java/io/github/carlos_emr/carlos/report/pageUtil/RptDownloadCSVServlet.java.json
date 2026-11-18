@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/report/pageUtil/RptDownloadCSVServlet.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 97.9253112033195,
+    "instructions": 97.57961783439491,
+    "branches": 81.0126582278481,
+    "sourceBlob": "45ae4a2eecd69ab12c05735249c5822f482107cf"
+  },
+  "evidenceSha256": "fa1faaff192d25984fa82960befb22818b70d12449e6f006cd7218e5d3435197"
+}

@@ -219,6 +219,76 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {MSPReconcile.REP_WO, MSPReconcile.REP_INVOICE,
+            MSPReconcile.REP_ACCOUNT_REC, MSPReconcile.REP_REJ})
+    void shouldPopulateAccountInitials_fromEachBillsAccountProvider(String type) throws Exception {
+        reportRows("MSP");
+        Provider account = new Provider();
+        account.setFirstName("FAKE Account");
+        account.setLastName("Owner");
+        Provider appointment = new Provider();
+        appointment.setFirstName("FAKE Treating");
+        appointment.setLastName("Clinician");
+        doReturn(account).when(reconcile).getProvider("12345", 0);
+        doReturn(appointment).when(reconcile).getProvider("12345", 1);
+        TeleplanS00 explanation = new TeleplanS00();
+        explanation.setExp1("FAKE-EXPLANATION");
+        explanation.setExp2("");
+        when(teleplanDao.findByOfficeNumber("0000041")).thenReturn(List.of(explanation));
+        doCallRealMethod().when(reconcile).getS00String(anyString());
+        if (MSPReconcile.REP_INVOICE.equals(type)) {
+            TeleplanC12 current = new TeleplanC12();
+            current.setOfficeFolioClaimNo("41");
+            current.setExp1("FAKE-INVOICE-REASON");
+            TeleplanC12Dao explanations = createAndRegisterMock(TeleplanC12Dao.class);
+            when(explanations.findCurrent()).thenReturn(List.of(current));
+            doCallRealMethod().when(reconcile).currentC12Records();
+        }
+        if (MSPReconcile.REP_REJ.equals(type)) {
+            TeleplanC12Dao rejections = createAndRegisterMock(TeleplanC12Dao.class);
+            when(rejections.findRejected()).thenReturn(List.of());
+            when(billingmasterDao.findReportPhones(anyCollection())).thenReturn(
+                    Map.of("", new BillingmasterDAO.PatientPhones("555-0100", "555-0101")));
+        }
+
+        MSPReconcile.BillSearch report = report(type);
+
+        assertThat(report.list).hasSize(1);
+        MSPBill bill = (MSPBill) report.list.getFirst();
+        assertThat(bill.getAcctInit()).isEqualTo(account.getInitials()).isNotEmpty();
+        assertThat(bill.getProvName()).isEqualTo(appointment.getInitials());
+        assertThat(bill.getExpString()).contains("FAKE-EXPLANATION");
+        if (MSPReconcile.REP_INVOICE.equals(type)) assertThat(bill.getReason()).contains("FAKE-INVOICE-REASON");
+        if (MSPReconcile.REP_REJ.equals(type)) assertThat(bill.getDemoPhone()).isEqualTo("555-0100");
+        if (MSPReconcile.REP_WO.equals(type)) {
+            var output = new java.io.ByteArrayOutputStream();
+            io.github.carlos_emr.carlos.report.export.BcBillingCsv.write(output, type, List.of(bill));
+            try (var csv = org.apache.commons.csv.CSVFormat.DEFAULT.builder().setHeader()
+                    .setSkipHeaderRecord(true).get().parse(new java.io.StringReader(
+                            output.toString(java.nio.charset.StandardCharsets.UTF_8)))) {
+                assertThat(csv.getRecords().getFirst().get("Account")).isEqualTo(account.getInitials());
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRetainAccountInitials_whenWcbMetadataIsPresentOrMissing(boolean detailsPresent) throws Exception {
+        reportRows("WCB");
+        var details = detailsPresent
+                ? new io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows.WcbRow("456.78", "FAKE-FEE", "FAKE-DX")
+                : null;
+        when(billingmasterDao.findBcWcb("41")).thenReturn(details);
+
+        MSPReconcile.BillSearch report = report(MSPReconcile.REP_WO);
+
+        assertThat(report.list).hasSize(1);
+        MSPBill bill = (MSPBill) report.list.getFirst();
+        assertThat(bill.getAcctInit()).isEqualTo("TP");
+        assertThat(bill.getAmount()).isEqualTo(detailsPresent ? "456.78" : "100.00");
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"REP_INVOICE", "REP_ACCOUNT_REC"})
     void shouldRetainLegacyRows_whenCsvAmountsCannotBeCalculated(String type) throws Exception {
         var csv = spy(new MSPReconcile(true));

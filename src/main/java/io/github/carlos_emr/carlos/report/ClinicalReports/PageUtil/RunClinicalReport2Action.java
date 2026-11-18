@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.UUID;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,6 +44,7 @@ import jakarta.servlet.http.HttpSession;
 
 import java.util.Map;
 import java.util.AbstractMap;
+import io.github.carlos_emr.carlos.app.CarlosExceptionMappingInterceptor;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -220,10 +222,27 @@ public class RunClinicalReport2Action extends ActionSupport {
         try {
             re.evaluate(LoggedInInfo.getLoggedInInfoFromSession(request), d, n, numerators, extraVal, inclNonPositiveResults);
         } catch (IllegalStateException e) {
-            // The report still fails as before. When a configured_report.* limit stopped it, the error
-            // page names that limit, so the user can narrow the report or ask for the limit to be raised.
-            ReportLimitNotice.publish(request, e);
-            throw e;
+            var refusal = ReportLimitNotice.find(e);
+            if (refusal == null) {
+                // Any other failure is a defect: rethrown, so the exception mapping logs it as an error
+                // with its trace and an incident id, and renders the error page with status 500. That is
+                // the mapping's one entry; the numerator or denominator that failed has already logged its
+                // own error line for the query, so an unexpected failure leaves two error entries.
+                throw e;
+            }
+            // A configured_report.* limit stopped the report. That is the user's to fix (narrow the
+            // report, or ask for the limit to be raised), not a defect, so it is logged once, as a
+            // warning without the trace, and is not rethrown. The user gets what the exception mapping
+            // would render: the same error page, status 500 and an incident reference, plus the notice
+            // naming the limit. The incident id is created here and logged with the warning, so a
+            // reported reference still finds its log line.
+            String incidentId = UUID.randomUUID().toString();
+            MiscUtils.getLogger().warn("Clinical report refused by its {} limit of {} [incident {}]",
+                    refusal.limit().setting(), refusal.value(), incidentId);
+            ReportLimitNotice.publish(request, refusal.limit(), refusal.value());
+            request.setAttribute(CarlosExceptionMappingInterceptor.INCIDENT_ID_ATTRIBUTE, incidentId);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return ERROR;
         }
 
         int num = re.getNumeratorCount();

@@ -71,6 +71,66 @@ async function workflow(s) {
     await page.goto(`${base}/report/ViewReportFilter?id=${reportId}`);
     await h.assertNotErrorPage(page, 'typed report filter list');
   });
+  await s.step('Move here retains configured fields through downward, upward, unchanged and legacy NULL moves', async () => {
+    await page.goto(`${base}/report/ViewReportFormConfig?id=${reportId}&tableName=formAlpha`);
+    const fields = await page.locator('select[name="selField"] option').evaluateAll(options =>
+      [...new Set(options.map(option => option.value).filter(value => value.includes('|')))].slice(0, 3));
+    h.assert(fields.length === 3, 'The synthetic report needs three selectable fields');
+    for (const field of fields) {
+      await page.locator('select[name="selField"]').selectOption(field);
+      await Promise.all([page.waitForEvent('framenavigated', {predicate: frame => frame === page.mainFrame()}),
+        page.locator('input[type="submit"][value="Add"]').click()]);
+    }
+    const rows = () => sql.rows(`SELECT id,name,caption,order_no,table_name,save FROM reportConfig
+      WHERE report_id=? ORDER BY order_no,id`, [reportId]);
+    const initial = rows();
+    h.assert(initial.length === 3 && initial.every(row => /^[1-9]\d*$/.test(row[0])),
+      'The three configured fields did not commit');
+    const ids = initial.map(row => row[0]);
+    const metadata = () => JSON.stringify(sql.rows(`SELECT id,name,caption,table_name,save FROM reportConfig
+      WHERE report_id=? ORDER BY id`, [reportId]));
+    const before = metadata();
+    const orderUrl = `${base}/report/ViewReportFormOrder?id=${reportId}&save=${encodeURIComponent(initial[0][5])}&tableName=formAlpha`;
+    await page.goto(orderUrl);
+    await h.assertNotErrorPage(page, 'report field ordering');
+    async function move(selected, target, expected) {
+      await page.locator(`input[name="nameSelected"][value="${selected}"]`).check();
+      const targetRow = page.locator(`input[name="nameSelected"][value="${target}"]`).locator('xpath=ancestor::tr[1]');
+      await Promise.all([page.waitForEvent('framenavigated', {predicate: frame => frame === page.mainFrame()}),
+        targetRow.locator('input[type="submit"][name="submit"]').click()]);
+      // A frame commits before the replacement HTML is parsed. Keep the blank/error
+      // checks, but apply them to the completed document rather than its empty body.
+      await page.waitForLoadState('domcontentloaded');
+      await h.assertNotErrorPage(page, 'report field move');
+      h.assert(metadata() === before, 'Move here deleted or changed configured field metadata');
+      h.assert(JSON.stringify(rows().map(row => row[0])) === JSON.stringify(expected),
+        'Move here did not retain the requested field ordering');
+      const rendered = await page.locator('input[name="nameSelected"]').evaluateAll(inputs => inputs.map(input => input.value));
+      h.assert(JSON.stringify(rendered) === JSON.stringify(expected), 'The reopened ordering page disagrees with stored fields');
+    }
+    await move(ids[0], ids[2], [ids[1], ids[0], ids[2]]);
+    await move(ids[2], ids[1], [ids[2], ids[1], ids[0]]);
+    const noOpBefore = JSON.stringify(rows());
+    await move(ids[2], ids[2], [ids[2], ids[1], ids[0]]);
+    h.assert(JSON.stringify(rows()) === noOpBefore, 'Moving a field to its current position changed the stored order numbers');
+    sql.execute('UPDATE reportConfig SET order_no=NULL WHERE report_id=? AND id=?', [reportId, ids[2]]);
+    // The previous document is a POST response. Reopen with GET so the browser does not
+    // resubmit the previous move and overwrite the independently seeded legacy NULL.
+    await page.goto(orderUrl, {waitUntil: 'domcontentloaded'});
+    h.assert(sql.value('SELECT order_no IS NULL FROM reportConfig WHERE report_id=? AND id=?',
+      [reportId, ids[2]]) === '1', 'The legacy NULL fixture changed before its move');
+    await move(ids[0], ids[2], [ids[0], ids[2], ids[1]]);
+    h.assert(sql.value('SELECT order_no FROM reportConfig WHERE report_id=? AND id=?',
+      [reportId, ids[2]]) === '1', 'Moving before a legacy NULL order did not shift its effective zero position');
+    sql.execute('UPDATE reportConfig SET order_no=0 WHERE report_id=? AND save=?', [reportId, initial[0][5]]);
+    await page.goto(orderUrl, {waitUntil: 'domcontentloaded'});
+    await move(ids[2], ids[1], [ids[0], ids[2], ids[1]]);
+    const tiedNoOpBefore = JSON.stringify(rows());
+    await move(ids[2], ids[2], [ids[0], ids[2], ids[1]]);
+    h.assert(JSON.stringify(rows()) === tiedNoOpBefore, 'Moving to the same specific row changed tied positions');
+    await page.goto(orderUrl, {waitUntil: 'domcontentloaded'});
+    h.assert(await page.locator('input[name="nameSelected"]').count() === 3, 'A moved field disappeared after reload');
+  });
   await s.step('typed provider-role and PHCP report pages render native billed counts', async () => {
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM provider WHERE provider_no=${q(roleProvider)}) + (SELECT COUNT(*) FROM secUserRole WHERE provider_no=${q(roleProvider)})`) === '0', 'Synthetic role provider identifier is already in use');
     ownsRoleProvider = true;

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/managers/PatientConsentManagerImpl.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "8b0fcfbd0202eec8830ffc5933fd957f86b57715"
+  },
+  "evidenceSha256": "36e57b0893075be1762d5ca83c26a37df7b717a5da3ee3567b96e4775be6c38c"
+}

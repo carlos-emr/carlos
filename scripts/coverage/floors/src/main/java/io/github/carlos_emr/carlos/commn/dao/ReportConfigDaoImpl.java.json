@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/ReportConfigDaoImpl.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 86.66666666666667,
+    "instructions": 87.64044943820225,
+    "branches": 100.0,
+    "sourceBlob": "3cfbc7b4fd0fa58a7bf7faa8a81b1a4309eb6d47"
+  },
+  "evidenceSha256": "a37c79c94834580a1509f47c542a9cda097241a43f2aee4e99d88d8b4ed5f268"
+}

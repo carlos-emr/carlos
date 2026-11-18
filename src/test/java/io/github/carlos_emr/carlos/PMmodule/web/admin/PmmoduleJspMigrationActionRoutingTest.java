@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.VacancyDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
@@ -50,6 +51,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -59,6 +62,8 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @DisplayName("PMmodule JSP Migration Action Routing Tests")
@@ -109,6 +114,8 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
         replaceSpringUtilsBean(ProviderManager.class, providerManager);
         replaceSpringUtilsBean(VacancyTemplateManager.class, vacancyTemplateManager);
         replaceSpringUtilsBean(FacilityDao.class, facilityDao);
+        replaceSpringUtilsBean(AdmissionDao.class, admissionDao);
+        replaceSpringUtilsBean(DemographicDao.class, demographicDao);
         replaceSpringUtilsBean(FunctionalCentreDao.class, functionalCentreDao);
         replaceSpringUtilsBean(RolesManager.class, rolesManager);
         replaceSpringUtilsBean(CaseManagementManager.class, caseManagementManager);
@@ -161,13 +168,13 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
     }
 
     private FacilityManager2Action newFacilityManagerAction() {
-        FacilityManager2Action action = new FacilityManager2Action();
-        action.setFacilityDao(facilityDao);
-        action.setProgramManager(programManager);
-        action.setLookupManager(lookupManager);
-        action.setAdmissionDao(admissionDao);
-        action.setDemographicDao(demographicDao);
-        return action;
+        // These dispatch tests construct actions without Struts' localization container.
+        return new FacilityManager2Action() {
+            @Override
+            public String getText(String key, String defaultValue) {
+                return defaultValue;
+            }
+        };
     }
 
     @Test
@@ -350,6 +357,20 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
     }
 
     @Test
+    @DisplayName("FacilityManager should resolve its Spring dependencies when Struts constructs the action")
+    void shouldListFacilitiesWithoutManualSetterInjection() throws Exception {
+        Facility facility = new Facility("FAKE facility", "FAKE contact");
+        facility.setId(5);
+        when(facilityDao.findAll(true)).thenReturn(List.of(facility));
+        String result = executeAction(newFacilityManagerAction());
+        assertThat(result).isEqualTo("list");
+        assertThat(getMockRequest().getAttribute("facilities")).isEqualTo(List.of(facility));
+        assertThat(getMockRequest().getAttribute("orgList")).isNotNull();
+        assertThat(getMockRequest().getAttribute("sectorList")).isNotNull();
+        verifySecurityCheck("_admin", "r");
+    }
+
+    @Test
     @DisplayName("FacilityManager should serve the moved edit JSP through the live action")
     void shouldRouteFacilityEditThroughLiveAction() throws Exception {
         Facility facility = new Facility("", "");
@@ -397,6 +418,7 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
     @Test
     @DisplayName("FacilityManager should require admin write privilege for delete")
     void shouldRequireFacilityWritePrivilegeForDelete() throws Exception {
+        getMockRequest().setMethod("POST");
         Facility facility = new Facility("", "");
         facility.setId(5);
 
@@ -411,12 +433,53 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
 
         assertThat(result).isEqualTo("list");
         assertThat(facility.isDisabled()).isTrue();
+        verify(facilityDao).merge(facility);
+        verifySecurityCheck("_admin", "w");
+    }
+
+    @ParameterizedTest(name = "{0} must not invoke facility {1}")
+    @CsvSource({
+        "GET,delete", "HEAD,delete", "PUT,delete", "PATCH,delete", "DELETE,delete", "OPTIONS,delete",
+        "GET,save", "HEAD,save", "PUT,save", "PATCH,save", "DELETE,save", "OPTIONS,save"
+    })
+    void shouldRejectNonPostFacilityMutationsBeforeDaoAccess(String verb, String method) throws Exception {
+        getMockRequest().setMethod(verb);
+        addRequestParameter("method", method);
+        addRequestParameter("id", "5");
+        Facility facility = new Facility("FAKE facility", "FAKE contact");
+        facility.setId(5);
+        when(facilityDao.find(any())).thenReturn(facility);
+        FacilityManager2Action action = newFacilityManagerAction();
+        action.setFacility(facility);
+
+        assertThat(executeAction(action)).isEqualTo("none");
+        assertThat(getMockResponse().getStatus()).isEqualTo(405);
+        assertThat(getMockResponse().getHeader("Allow")).isEqualTo("POST");
+        assertThat(facility.isDisabled()).isFalse();
+        verifyNoInteractions(facilityDao, admissionDao, demographicDao, programManager, lookupManager, eFormDao);
+        verifySecurityCheck("_admin", "w");
+    }
+
+    @Test
+    @DisplayName("FacilityManager should still dispatch an authorized POST save")
+    void shouldSaveFacilityThroughPost() throws Exception {
+        getMockRequest().setMethod("POST");
+        addRequestParameter("method", "save");
+        Facility facility = new Facility("FAKE facility", "FAKE contact");
+        facility.setId(5);
+        when(mockLoggedInInfo.getCurrentFacility()).thenReturn(facility);
+        FacilityManager2Action action = newFacilityManagerAction();
+        action.setFacility(facility);
+
+        assertThat(executeAction(action)).isEqualTo("list");
+        verify(facilityDao).merge(facility);
         verifySecurityCheck("_admin", "w");
     }
 
     @Test
     @DisplayName("FacilityManager should reject delete for read-only admin access")
     void shouldRejectFacilityDeleteWithoutWritePrivilege() {
+        getMockRequest().setMethod("POST");
         Facility facility = new Facility("", "");
         facility.setId(5);
 

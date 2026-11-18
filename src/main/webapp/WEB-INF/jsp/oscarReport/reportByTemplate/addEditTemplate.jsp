@@ -58,9 +58,10 @@
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
         <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
+        <link href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/reportByTemplateLayout.css" rel="stylesheet">
     </head>
 
-    <body>
+    <body class="rbt-page">
 <%-- Multipart rejections (an empty part, a file over the 50MB cap, too many
      files, a field over struts.multipart.maxStringLength, a parse failure) are
      produced by the interceptor stack BEFORE this page's action runs, and reach
