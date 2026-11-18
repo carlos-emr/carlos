@@ -816,7 +816,8 @@
         "fixture-echart-note-lifecycle",
         "fixture-hrm-report-list",
         "fixture-messenger-reply-form",
-        "fixture-search-sort-messenger-inbox"
+        "fixture-search-sort-messenger-inbox",
+        "manual-demographic-converted-limits"
       ]
     },
     {
@@ -2615,6 +2616,62 @@
                 },
                 {
                   "name": "shouldPreserveBooleanConversions_forTextAndNumericValues(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldPreserveDateWrites_whenJvmAndConnectionZonesDiffer(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldPreserveDateWrites_whenJvmAndConnectionZonesDiffer(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldPreserveDateWrites_whenJvmAndConnectionZonesDiffer(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldPreserveNullDateWrites_withEveryCalendarOverload(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldPreserveNullDateWrites_withEveryCalendarOverload(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldPreserveNullDateWrites_withEveryCalendarOverload(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldPreserveNamedDateWrites_withAndWithoutCalendar(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldPreserveNamedDateWrites_withAndWithoutCalendar(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldPreserveNamedDateWrites_withAndWithoutCalendar(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldUseCurrentJvmZoneForDateWrites_afterConnectionWasOpened(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldUseCurrentJvmZoneForDateWrites_afterConnectionWasOpened(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldUseCurrentJvmZoneForDateWrites_afterConnectionWasOpened(boolean)[2]",
                   "container": ""
                 }
               ]
@@ -4790,6 +4847,67 @@
               "container": ""
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.commn.dao.SiteRenameClockMariaDbIntegrationTest": {
+          "check": "java-native-generated",
+          "cases": [
+            {
+              "name": "shouldIncludeTheLaterUnrelatedEdit_whenSyncContinuesFromTheRenamedSite(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldIncludeTheLaterUnrelatedEdit_whenSyncContinuesFromTheRenamedSite(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldIncludeTheLaterUnrelatedEdit_whenSyncContinuesFromTheRenamedSite(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldKeepTheNextSecondFloor_whenThePersistedVersionIsAlreadyLater(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldKeepTheNextSecondFloor_whenThePersistedVersionIsAlreadyLater(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldKeepTheNextSecondFloor_whenThePersistedVersionIsAlreadyLater(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldUseClinicTime_whenTheDatabaseSessionClockDiffers(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldUseClinicTime_whenTheDatabaseSessionClockDiffers(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldUseClinicTime_whenTheDatabaseSessionClockDiffers(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldUseClinicTime_whenThePersistedVersionIsNull(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldUseClinicTime_whenThePersistedVersionIsNull(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldUseClinicTime_whenThePersistedVersionIsNull(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            }
+          ]
         }
       },
       "runtimeConstraints": {
@@ -4842,6 +4960,7 @@
         "test",
         "jacoco:report",
         "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,RxStrictAuditIntegrationTest,RxSaveReceiptCommitIntegrationTest,RxConcurrencyIntegrationTest,RxFavoriteGroupIntegrationTest,RxFavoriteCopyIntegrationTest,RxRestPrescriptionRollbackIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest",
+        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,SiteRenameClockMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,RxStrictAuditIntegrationTest,RxSaveReceiptCommitIntegrationTest,RxConcurrencyIntegrationTest,RxFavoriteGroupIntegrationTest,RxFavoriteCopyIntegrationTest,RxRestPrescriptionRollbackIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -4851,13 +4970,13 @@
         "-DexcludedGroups=flyway-schema",
         "-Dcarlos.test.schema.expected=generated"
       ],
-      "minimumCases": 2591,
+      "minimumCases": 2599,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
         "DemographicMergeMariaDbIntegrationTest": 9,
-        "JdbcConnectorMariaDbIntegrationTest": 32,
+        "JdbcConnectorMariaDbIntegrationTest": 40,
         "BilledProviderReportDaoIntegrationTest": 2,
         "MariaDbDaoHarnessIntegrationTest": 1,
         "MeasurementDaoIntegrationTest": 1,
@@ -4890,7 +5009,8 @@
         "RxFavoriteCopyIntegrationTest": 1,
         "RxRestPrescriptionRollbackIntegrationTest": 1,
         "RxStrictAuditIntegrationTest": 1,
-        "DemographicWebUnmergeIntegrationTest": 18
+        "DemographicWebUnmergeIntegrationTest": 18,
+        "SiteRenameClockMariaDbIntegrationTest": 8
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -4921,6 +5041,7 @@
         "test",
         "jacoco:report",
         "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest",
+        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -4929,7 +5050,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 176,
+      "minimumCases": 184,
       "requiredFamilies": {
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
@@ -4959,7 +5080,8 @@
         "TicklerPatientAccessMariaDbIntegrationTest": 12,
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
         "ReportingPatientListAuditMariaDbIntegrationTest": 4,
-        "DemographicWebUnmergeIntegrationTest": 18
+        "DemographicWebUnmergeIntegrationTest": 18,
+        "SiteRenameClockMariaDbIntegrationTest": 8
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -4990,6 +5112,7 @@
         "test",
         "jacoco:report",
         "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,LegacyBcTeleplanExportMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest",
+        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,LegacyBcTeleplanExportMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -4998,7 +5121,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 203,
+      "minimumCases": 211,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 22,
@@ -5026,7 +5149,8 @@
         "TicklerPatientAccessMariaDbIntegrationTest": 12,
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
         "ReportingPatientListAuditMariaDbIntegrationTest": 4,
-        "DemographicWebUnmergeIntegrationTest": 18
+        "DemographicWebUnmergeIntegrationTest": 18,
+        "SiteRenameClockMariaDbIntegrationTest": 8
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -7999,6 +8123,43 @@
         "java": "25"
       },
       "timeoutSeconds": 3600
+    },
+    {
+      "id": "manual-demographic-converted-limits",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "demographic-converted-limits"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 480,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "demographic-converted-limits",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
     }
   ],
   "requireJavaDiscovery": true,

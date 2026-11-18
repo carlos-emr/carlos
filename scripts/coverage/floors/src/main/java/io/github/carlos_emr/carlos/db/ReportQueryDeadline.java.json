@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/db/ReportQueryDeadline.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 90.0,
+    "sourceBlob": "be13d6306c25fdcd194533085862022e7c33605b"
+  },
+  "evidenceSha256": "6616637ca2a0c56e9f2092f532e957a9257aaae2fb628600b1794705de22cfb1"
+}
