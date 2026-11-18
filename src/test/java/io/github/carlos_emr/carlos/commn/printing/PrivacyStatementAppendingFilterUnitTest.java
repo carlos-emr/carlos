@@ -930,7 +930,30 @@ class PrivacyStatementAppendingFilterUnitTest {
         return request;
     }
 
-    @ParameterizedTest @ValueSource(strings={"Accept-Encoding", "*", "Origin, x-requested-with", ""})
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void shouldKeepErrorMetadata_whenStaticResponseHasNoBodyChannel(String method) throws Exception {
+        try (var notice = configuredStatement("FAKE static metadata notice")) {
+            var request = staticRequest();
+            request.setMethod(method);
+            var response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                http.setStatus(412);
+                http.setContentType("text/html");
+                http.setContentLength(42);
+                http.setHeader("ETag", "FAKE-file-version");
+            });
+
+            assertThat(response.getStatus()).isEqualTo(412);
+            assertThat(response.getHeader("ETag")).isEqualTo("FAKE-file-version");
+            assertThat(response.getContentLength()).isEqualTo(42);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"Accept-Encoding", "*", "Origin, x-requested-with", "Origin, x-requested-w\u0131th", ""})
     void shouldPreserveVaryTokensAndWildcard_beforeAndAfterDownstreamChanges(String vary) throws Exception {
         try (var notice = configuredStatement("FAKE static metadata notice")) {
             var response = new MockHttpServletResponse();
@@ -938,9 +961,12 @@ class PrivacyStatementAppendingFilterUnitTest {
             filter.doFilter(staticRequest(), response, (req, res) -> {
                 var http = (jakarta.servlet.http.HttpServletResponse) res;
                 assertThat(response.getHeaders("Vary")).contains(vary);
-                if ("*".equals(vary)) assertThat(response.getHeaders("Vary")).containsExactly("*");
-                else assertThat(String.join(",", response.getHeaders("Vary")).toLowerCase(java.util.Locale.ROOT))
-                        .contains("x-requested-with");
+                if ("*".equals(vary) || vary.endsWith("x-requested-with")) {
+                    assertThat(response.getHeaders("Vary")).containsExactly(vary);
+                } else {
+                    assertThat(String.join(",", response.getHeaders("Vary")).toLowerCase(java.util.Locale.ROOT))
+                            .contains("x-requested-with");
+                }
                 http.setHeader(null, "FAKE");
                 assertThat(response.getHeader(null)).isNull();
                 http.setHeader("vArY", "Accept-Encoding");

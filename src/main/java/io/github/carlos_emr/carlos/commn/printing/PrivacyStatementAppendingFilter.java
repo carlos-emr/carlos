@@ -54,6 +54,7 @@ import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
 
+import com.google.common.base.Ascii;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.DeferredContentLength;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -317,7 +318,8 @@ public class PrivacyStatementAppendingFilter implements Filter {
         private void ensureRequestVariant() {
             for (String value : super.getHeaders("Vary")) {
                 for (String token : value.split(",")) {
-                    if ("*".equals(token.trim()) || REQUEST_VARIANT.equalsIgnoreCase(token.trim())) return;
+                    String field = token.trim();
+                    if ("*".equals(field) || Ascii.equalsIgnoreCase(REQUEST_VARIANT, field)) return;
                 }
             }
             super.addHeader("Vary", REQUEST_VARIANT);
