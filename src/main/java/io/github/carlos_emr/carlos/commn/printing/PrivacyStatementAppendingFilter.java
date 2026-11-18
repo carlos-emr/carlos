@@ -173,8 +173,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
                     && hasHtmlResourceType(httpRequest);
             boolean decoratedStaticHtml = staticHtmlVariant && !RequestNegotiation.isAjax(httpRequest);
             if (decoratedStaticHtml) {
-                // A static file's validators omit the configured print statement. Prevent
-                // DefaultServlet from returning 304 for that different representation.
+                // The file's validators and ranges describe only its undecorated bytes.
                 downstreamRequest = new PrintStatementRequest(httpRequest);
             }
 
@@ -360,7 +359,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
         }
     }
 
-    /** Keeps every other request property, including Range/If-Range and authentication, unchanged. */
+    /** Hides file validators and ranges from requests for decorated static HTML. */
     private static final class PrintStatementRequest extends HttpServletRequestWrapper {
         private final boolean wildcard;
 
@@ -373,33 +372,31 @@ public class PrivacyStatementAppendingFilter implements Filter {
             wildcard = tag != null && "*".equals(tag.trim());
         }
 
-        // FindSecBugs IMPROPER_UNICODE: compares fixed ASCII HTTP field names, which are case-insensitive;
-        // this is a protocol comparison, not a security or authorization decision.
-        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Case-insensitive comparison of fixed ASCII HTTP field names; protocol comparison, not authorization")
-        private boolean isFileCacheValidator(String name) {
-            return "If-Modified-Since".equalsIgnoreCase(name)
-                    || ("If-None-Match".equalsIgnoreCase(name) && !wildcard);
+        private boolean isHiddenHeader(String name) {
+            return Ascii.equalsIgnoreCase("Range", name) || Ascii.equalsIgnoreCase("If-Range", name)
+                    || Ascii.equalsIgnoreCase("If-Modified-Since", name)
+                    || (Ascii.equalsIgnoreCase("If-None-Match", name) && !wildcard);
         }
 
         @Override
         public String getHeader(String name) {
-            return isFileCacheValidator(name) ? null : super.getHeader(name);
+            return isHiddenHeader(name) ? null : super.getHeader(name);
         }
 
         @Override
         public Enumeration<String> getHeaders(String name) {
-            return isFileCacheValidator(name) ? Collections.emptyEnumeration() : super.getHeaders(name);
+            return isHiddenHeader(name) ? Collections.emptyEnumeration() : super.getHeaders(name);
         }
 
         @Override
         public long getDateHeader(String name) {
-            return isFileCacheValidator(name) ? -1 : super.getDateHeader(name);
+            return isHiddenHeader(name) ? -1 : super.getDateHeader(name);
         }
 
         @Override
         public Enumeration<String> getHeaderNames() {
             return Collections.enumeration(Collections.list(super.getHeaderNames()).stream()
-                    .filter(name -> !isFileCacheValidator(name)).toList());
+                    .filter(name -> !isHiddenHeader(name)).toList());
         }
     }
 

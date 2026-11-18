@@ -172,8 +172,10 @@ class PrivacyStatementStaticMetadataTomcatIntegrationTest {
         }
     }
 
-    @Test void shouldRestoreFileMetadataAndPreserveExactBytes_whenDefaultServletAnswersARange() throws Exception {
-        var response = request("fixture.html", "GET", "Range", "bytes=0-9");
+    @Test void shouldRetainNativeFileRangesForAjaxRequests() throws Exception {
+        var raw = request("fixture.html", "GET", "X-Requested-With", "XMLHttpRequest");
+        var response = request("fixture.html", "GET", "X-Requested-With", "XMLHttpRequest",
+                "Range", "bytes=0-9", "If-Range", raw.headers().firstValue("Last-Modified").orElseThrow());
         assertThat(response.statusCode()).isEqualTo(206);
         assertThat(response.body()).isEqualTo(java.util.Arrays.copyOf(HTML, 10));
         assertThat(response.headers().firstValueAsLong("Content-Length")).hasValue(10);
@@ -181,6 +183,21 @@ class PrivacyStatementStaticMetadataTomcatIntegrationTest {
         assertThat(response.headers().firstValue("ETag")).isPresent();
         assertThat(response.headers().firstValue("Last-Modified")).isPresent();
         assertThat(response.headers().firstValue("Accept-Ranges")).hasValue("bytes");
+    }
+
+    @ParameterizedTest @ValueSource(strings={"bytes=-12", "bytes=100000-"})
+    void shouldReturnTheCompleteDecoratedRepresentationForRangeRequests(String range) throws Exception {
+        var raw = request("fixture.html", "GET", "X-Requested-With", "XMLHttpRequest");
+        var decorated = request("fixture.html", "GET");
+        assertThat(new String(decorated.body(), StandardCharsets.UTF_8)).contains(STATEMENT);
+
+        var response = request("fixture.html", "GET", "Range", range,
+                "If-Range", raw.headers().firstValue("Last-Modified").orElseThrow());
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).isEqualTo(decorated.body());
+        assertThat(response.headers().firstValue("Content-Range")).isEmpty();
+        assertThat(response.headers().firstValue("Accept-Ranges")).isEmpty();
     }
 
     @ParameterizedTest @ValueSource(strings={"XMLHttpRequest", ""})
