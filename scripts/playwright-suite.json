@@ -19487,9 +19487,10 @@
       "timeoutSec": 180,
       "manual": true,
       "mutates": [
-        "demographic"
+        "demographic",
+        "eform"
       ],
-      "fixtures": "Requires a disposable exclusive host. Owns a synthetic patient, reads the forms REST endpoint, creates no clinical forms and removes the patient on exit. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "fixtures": "Requires a disposable exclusive host. Creates a synthetic patient and one active eForm template, reads the forms REST endpoint and removes both owned fixtures on exit. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#3093: the installed authenticated REST surface returns the available-form list when heading is omitted, preserves empty/unrecognized-heading behavior and keeps Completed scoped to the owned patient."
     },
     {
