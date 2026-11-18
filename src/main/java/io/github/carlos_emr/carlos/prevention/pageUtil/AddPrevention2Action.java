@@ -274,6 +274,13 @@ public class AddPrevention2Action extends ActionSupport {
                     PreventionData.deletePreventionData(recordId, demographic_no);
                     return Integer.valueOf(recordId);
                 }
+                String storedDose = PreventionData.getPreventionKeyValues(recordId).get("dose");
+                for (Map<String, String> extension : extraData) {
+                    if (extension.containsKey("dose")) {
+                        extension.put("dose", io.github.carlos_emr.carlos.prevention.PreventionDoseText
+                                .preserveLineEndings(extension.get("dose"), storedDose));
+                    }
+                }
                 addHashtoArray(extraData, recordId, "previousId");
                 return PreventionData.updatetPreventionData(recordId, sessionUser, demographic_no, prevDate,
                         providerNo, providerName, preventionType, refusedFlag, nextDate, neverWarnFlag, extraData, snomedId);
