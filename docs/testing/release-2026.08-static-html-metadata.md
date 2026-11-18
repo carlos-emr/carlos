@@ -45,3 +45,10 @@ The three additional protocol controls preserve POST preconditions, empty 204 HE
 responses, and complete body metadata/caching when the notice was already printed.
 The complete Node execution above precedes these Java-only controls; the combined
 qualification exercises their final source together.
+
+The unmodified installed b4048148 application also reproduces the defect through
+its full nginx/Tomcat/filter chain: the new strict browser check fails because the
+decorated GPL page retains its bare-file ETag. The original manifest is restored
+byte exactly afterward; the temporary entrypoint is removed, properties and restart
+count remain unchanged, and service health passes. Pre-fix installed JUnit SHA-256:
+`6603d689fb5429ad7616d9a57595e4dded014c5b126d71be118978075440a185`.
