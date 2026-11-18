@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "97312c6d83cb93dc4d86aaf128da5d0f5dfba789",
+  "comparisonSha256": "06f857bbd155979c0d9a81bf2dd8fc7895206211e0ba4d51b2a3055af595d5d7",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/managers/ScheduleManagerImpl.java": {
+      "lines": 98.93617021276596,
+      "instructions": 99.42857142857143,
+      "branches": 100.0,
+      "sourceBlob": "7d7b00d888088a87f16ec9a3b1677e3ffb066114"
+    }
+  },
+  "baselineCommit": "d705dcab39c2f32eace87d1dda774f23d0efd885",
+  "baselineSourceTree": "97312c6d83cb93dc4d86aaf128da5d0f5dfba789",
+  "baselineReportSha256": "974398cff7649fd45273b004f858cc9c4ac67ff86393fce8dd85f1c3933aee6d",
+  "baselineLane": "Fresh exact JDK25 selected-source classes and existing/regression controls. All351 unique actual JUnit cases pass with zero failures/errors/skips. Component inputs and exact JUnit hashes retained; selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 351,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "50b321e87974d168a8f10691675a0e4163566a116c6af2cc528bf2d7b8850047",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}
