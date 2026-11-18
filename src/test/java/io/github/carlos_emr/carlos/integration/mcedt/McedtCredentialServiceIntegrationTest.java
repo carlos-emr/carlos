@@ -37,6 +37,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.context.annotation.*;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.orm.jpa.*;
 import org.springframework.orm.jpa.persistenceunit.PersistenceManagedTypes;
@@ -112,11 +114,18 @@ class McedtCredentialServiceIntegrationTest {
         keyField=EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");keyField.setAccessible(true);originalKey=keyField.get(null);keyField.set(null,new SecretKeySpec(new byte[32],"AES"));
         context=new AnnotationConfigApplicationContext(Database.class);credentials=context.getBean(McedtCredentialService.class);
         em=SharedEntityManagerCreator.createSharedEntityManager(context.getBean(EntityManagerFactory.class));tx=new TransactionTemplate(context.getBean(PlatformTransactionManager.class));source=context.getBean(DataSource.class);
-        tx.executeWithoutResult(status->{
-            em.createNativeQuery("CREATE TABLE mcedt_credential (id TINYINT PRIMARY KEY CHECK(id=1), encrypted_password LONGTEXT, lastUpdateUser VARCHAR(100) NOT NULL DEFAULT 'mcedt-migration', lastUpdateDate TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)").executeUpdate();
-            em.createNativeQuery("INSERT INTO mcedt_credential(id,encrypted_password) VALUES(1,NULL)").executeUpdate();
-            em.createNativeQuery("CREATE INDEX idx_property_name ON property(name)").executeUpdate();
-        });
+        if (((OwnedDataSource) source).mariaDb) {
+            try (Connection connection = source.getConnection()) {
+                ScriptUtils.executeSqlScript(connection, new ClassPathResource(
+                        "db/migration/common/V1.0.59.51__mcedt_encrypted_credential_storage.sql"));
+            }
+        } else {
+            tx.executeWithoutResult(status->{
+                em.createNativeQuery("CREATE TABLE mcedt_credential (id TINYINT PRIMARY KEY CHECK(id=1), encrypted_password LONGTEXT, lastUpdateUser VARCHAR(100) NOT NULL DEFAULT 'mcedt-migration', lastUpdateDate TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)").executeUpdate();
+                em.createNativeQuery("INSERT INTO mcedt_credential(id,encrypted_password) VALUES(1,NULL)").executeUpdate();
+                em.createNativeQuery("CREATE INDEX idx_property_name ON property(name)").executeUpdate();
+            });
+        }
     }
     @AfterEach
     void cleanup() throws Exception {
@@ -276,7 +285,7 @@ class McedtCredentialServiceIntegrationTest {
                     }
                 }
                 assertFalse(waiting.isDone(), "contender completed before its writer-specific database wait was observed");
-                TimeUnit.MILLISECONDS.sleep(50);
+                TimeUnit.MILLISECONDS.sleep(200);
             }
         }
         StringBuilder diagnostic=new StringBuilder("No database session was observed blocked by writer ").append(blocker);

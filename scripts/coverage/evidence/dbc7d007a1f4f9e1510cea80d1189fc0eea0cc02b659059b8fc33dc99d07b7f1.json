@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "1d6f9f98769e242673e87d2a3186909bb5334297",
+  "comparisonSha256": "807abdbbd5b0babefee3e158504dcb32235b71413bb378370ddde7e31e247485",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/DelegateFactory.java": {
+      "lines": 92.3076923076923,
+      "instructions": 93.20987654320987,
+      "branches": 100.0,
+      "sourceBlob": "921ec068454934241b56e403db2ca97d7c929197"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/McedtCredentialService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "66d7dbe3d04a0a5466c7992903f55518c758c378"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/mailbox/User2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "5ca06fecacaefed5ac534efe5d20350258867c8b"
+    }
+  },
+  "baselineCommit": "bf313acde871608d3f67a1a5af8bea7baad87470",
+  "baselineSourceTree": "1d6f9f98769e242673e87d2a3186909bb5334297",
+  "baselineReportSha256": "15d76a5b8dfb0f0404319345d06f2f4fd488425c760f751ddd2d430faad09ade",
+  "baselineLane": "Java 25 MCEDT credential and security cases on H2; independent 31-case MariaDB check including exact lock waits and revised migration",
+  "baselineTestCounts": {
+    "tests": 45,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "1335ad0893db9f4f77e10b65af3a737344c821c6246473fc707f60a9d946f30d",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

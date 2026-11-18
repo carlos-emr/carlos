@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtSecurity;
@@ -74,18 +76,27 @@ public class User2Action extends ActionSupport {
     }
 
     public String changePassword() throws Exception {
-        String actor = (String) request.getSession().getAttribute("user");
-        try {
-
-            credentials.savePassword(this.getPassword(), actor);
-        } catch (Exception e) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn("MCEDT password change failed; credential storage was not updated");
-            request.getSession().setAttribute("isPassChange", "false"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
-            return SUCCESS;
+        var session = request.getSession();
+        var login = LoggedInInfo.getLoggedInInfoFromSession(session);
+        String actor = login == null ? null : login.getLoggedInProviderNo();
+        if (actor == null) {
+            throw new SecurityException("MCEDT password change requires an authenticated provider");
         }
-        // Feedback can fail after commit (for example after concurrent logout).
-        // Such a failure must not claim that credential storage was unchanged.
-        request.getSession().setAttribute("isPassChange", "true"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
+        String outcome;
+        try {
+            credentials.savePassword(getPassword(), actor);
+            outcome = "true";
+        } catch (RuntimeException failure) {
+            MiscUtils.getLogger().warn("MCEDT password change failed; credential storage was not updated");
+            outcome = "false";
+        }
+        try {
+            session.setAttribute("isPassChange", outcome); // nosemgrep: tainted-session-from-http-request -- storage outcome selects a fixed literal
+        } catch (IllegalStateException invalidated) {
+            // A concurrent logout removes this request's feedback destination.
+            MiscUtils.getLogger().debug("MCEDT password change feedback session is no longer active");
+        }
+
         return SUCCESS;
     }
 
