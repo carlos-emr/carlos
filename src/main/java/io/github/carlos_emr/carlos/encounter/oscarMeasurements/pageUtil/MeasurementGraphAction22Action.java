@@ -540,6 +540,10 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         if (range == null || !range.contains("-") || collectionDate == null) {
             return;
         }
+        // A comparison operator marks a single threshold.
+        if ("<>≤≥".indexOf(range.stripLeading().charAt(0)) >= 0) {
+            return;
+        }
         int separator = labReferenceSeparator(range);
         if (separator < 0) {
             throw new GraphDataException(GraphDataException.Problem.REFERENCE_RANGE, testName,

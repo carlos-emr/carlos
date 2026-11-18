@@ -562,6 +562,18 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(422);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"<2", "<-2", "  >= -2.5", "≤-2", "≥-2"})
+    void shouldKeepTheLabPoint_whenItsReferenceHasOneThreshold(String reference) throws Exception {
+        MeasurementChart rendered = executeLabChart(labValue(reference));
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(datasets(rendered)).filteredOn(dataset -> "line".equals(dataset.get("kind"))).singleElement()
+                .satisfies(dataset -> assertThat(points(dataset)).extracting(point -> point.get("y")).containsExactly(4.2));
+        assertThat(datasets(rendered)).filteredOn(dataset -> "range".equals(dataset.get("kind")))
+                .allSatisfy(dataset -> assertThat(points(dataset)).isEmpty());
+    }
+
     // #5853: a graph window names what is wrong with the stored values, and the type, in plain words.
 
     /** The graph opened as a window, as measurement history, the Health Tracker and flowsheets open it. */
@@ -655,16 +667,18 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         assertDataProblemPage("This graph cannot be drawn: a stored Synthetic potassium result has a date that cannot be read.");
     }
 
-    private void executeLabChart(Map<String, Serializable> value) throws Exception {
+    private MeasurementChart executeLabChart(Map<String, Serializable> value) throws Exception {
         request.setParameter("method", "actualLab");
         request.setParameter("labType", "CML");
         request.setParameter("identifier", "synthetic-code");
         request.setParameter("testName", "Synthetic potassium");
+        AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
         try (var labs = mockStatic(CommonLabTestValues.class)) {
             labs.when(() -> CommonLabTestValues.findValuesForTest("CML", 101, "Synthetic potassium", "synthetic-code"))
                     .thenReturn(new ArrayList<>(List.of(value)));
-            executeMeasurementChart(null, new AtomicReference<>());
+            executeMeasurementChart(null, rendered);
         }
+        return rendered.get();
     }
 
     private static Map<String, Serializable> labValue(String range) {
