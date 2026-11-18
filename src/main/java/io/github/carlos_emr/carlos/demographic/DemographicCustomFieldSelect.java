@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
@@ -259,8 +258,13 @@ public final class DemographicCustomFieldSelect {
                 }
             }
             if (attributes != null) {
-                String name = html.substring(nameStart, nameEnd).toLowerCase(Locale.ROOT);
-                attributes.add(new Attribute(name, nameStart, p, valueStart, valueEnd));
+                // HTML attribute names fold only the ASCII letters.
+                StringBuilder name = new StringBuilder(nameEnd - nameStart);
+                for (int i = nameStart; i < nameEnd; i++) {
+                    char letter = html.charAt(i);
+                    name.append(letter >= 'A' && letter <= 'Z' ? (char) (letter + 'a' - 'A') : letter);
+                }
+                attributes.add(new Attribute(name.toString(), nameStart, p, valueStart, valueEnd));
             }
         }
         return -1;

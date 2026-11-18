@@ -283,6 +283,17 @@ class DemographicCustomFieldSelectUnitTest {
     }
 
     @Test
+    void shouldKeepNonAsciiAttributeNames_whenSelectingAnOption() {
+        String template = "<select name=FAKE_field><option value=A SELECTED>First</option>"
+                + "<option VALUE=B \u017Felected>Second</option></select>";
+
+        String rendered = DemographicCustomFieldSelect.markSaved(template, "B");
+
+        assertThat(rendered).contains("\u017Felected").doesNotContain("SELECTED");
+        assertThat(posted(rendered)).isEqualTo("B");
+    }
+
+    @Test
     @DisplayName("should change nothing for a saved value no option carries")
     void shouldLeaveTheTemplateUnchanged_whenNoOptionCarriesTheSavedValue() {
         assertThat(DemographicCustomFieldSelect.markSaved(ENTITY_TEMPLATE, "FAKE retired option"))
