@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/report/ClinicalReports/PageUtil/RemoveClinicalReportFromHistory2Action.java",
   "kind": "floor",
   "floor": {
-    "lines": 84.61538461538461,
-    "instructions": 92.53731343283582,
-    "branches": 91.66666666666667,
-    "sourceBlob": "8bbf682ef7716aa4e48be58300a7f1391f7ae4aa"
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "0e1a95c8ce2f7604d219370a764c17bced8c0ce0"
   },
-  "evidenceSha256": "4f2717e050718b2bb2c1968330530d10e61deaaf5dc082527a1d58e60aed2487"
+  "evidenceSha256": "5433a6fe6261cca9b46666af0268cf9b0eae2be1eeeb4b74e177cee22ad6271b"
 }
