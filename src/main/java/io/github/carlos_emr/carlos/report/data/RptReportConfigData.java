@@ -95,6 +95,11 @@ public class RptReportConfigData {
         return true;
     }
 
+    public boolean updateRecordOrder(String saveAs, String reportId, String id, String newPos, String targetId) {
+        service.moveBefore(Integer.parseInt(reportId), saveAs, Integer.parseInt(id), Integer.parseInt(targetId));
+        return true;
+    }
+
     public boolean deleteRecord(int recordId) {
         dao.remove(recordId);
         return true;

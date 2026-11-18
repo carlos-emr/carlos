@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "7dfe36fad03691de282153681950d729386e1f24",
+  "comparisonSha256": "d1ac38df71b0ccab5772753ba457495d56e44476544e65356e8e00d3ef0818a3",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/util/OscarDownload.java": {
+      "lines": 90.0,
+      "instructions": 88.60759493670886,
+      "branches": 77.77777777777777,
+      "sourceBlob": "d74b8198c7b3a3551f39add61585a708f42944ad"
+    }
+  },
+  "baselineCommit": "45764f1ee362c23fee0ac6a22b66b32df75c9d71",
+  "baselineSourceTree": "7dfe36fad03691de282153681950d729386e1f24",
+  "baselineReportSha256": "f564a59e92ec29ea313fb10251d8980f586d1cdfa75f92b8de7510eb2c0c165e",
+  "baselineLane": "Fresh exact JDK25 selected-source classes and existing/regression controls. All51 unique actual JUnit cases pass with zero failures/errors/skips. Component inputs and exact JUnit hashes retained; selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 51,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "0eb1485b64777ca86cce9165135aa3fa972d729824570250e92d76f564363d37",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}
