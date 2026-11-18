@@ -194,10 +194,14 @@ public class MsgCreateMessage2Action extends ActionSupport {
      */
     private String answerUsedForm(HttpSession session, String savedResult) {
         String[] saved = savedResult == null ? new String[0] : savedResult.split(":", 3);
-        String digest = contentDigest();
-        String versionedDigest = SAVED_SEND_VERSION + digest + ".";
-        boolean versioned = saved.length == 3 && saved[1].startsWith(versionedDigest);
-        boolean sameMessage = saved.length == 3 && (versioned || saved[1].equals(digest))
+        String identity = saved.length == 3 ? saved[1] : "";
+        boolean versioned = identity.startsWith(SAVED_SEND_VERSION);
+        int intentSeparator = versioned ? identity.indexOf('.', SAVED_SEND_VERSION.length()) : -1;
+        String savedDigest = intentSeparator < 0 ? identity
+                : identity.substring(SAVED_SEND_VERSION.length(), intentSeparator);
+        boolean sameMessage = saved.length == 3 && java.security.MessageDigest.isEqual(
+                contentDigest().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                savedDigest.getBytes(java.nio.charset.StandardCharsets.UTF_8))
                 // Attachments staged for this window after it sent are not part of what was sent.
                 && MsgAttachmentStaging.peek(session, attachmentKey) == null;
         if (sameMessage) {
@@ -214,7 +218,8 @@ public class MsgCreateMessage2Action extends ActionSupport {
                 }
                 sentTo = sentTo.substring(AFTER_SEND_FAILURES.length + 1);
             }
-            if (archiveRequested() && (!versioned || !saved[1].equals(versionedDigest + archiveIntent()))) {
+            if (archiveRequested() && (intentSeparator < 0
+                    || !archiveIntent().equals(identity.substring(intentSeparator + 1)))) {
                 // The reply was already delivered. The sent page tells the clinician how to
                 // archive the source from the inbox without resending or altering a different reply.
                 request.setAttribute(ARCHIVE_AFTER_SEND_FAILED, Boolean.TRUE);
