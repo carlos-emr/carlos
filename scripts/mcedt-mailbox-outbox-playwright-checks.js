@@ -216,6 +216,7 @@ async function workflow(s) {
   const propertyRows = () => String(sql.value(`SELECT COUNT(*) FROM property WHERE ${propertyWhere}`));
   const storedDigest = () => sql.value(`SELECT IFNULL(SHA2(\`value\`,256),'') FROM property WHERE ${propertyWhere} ORDER BY id LIMIT 1`);
   const propertyHolds = (value) => sql.value(`SELECT COUNT(*) FROM property WHERE ${propertyWhere} AND value=${q(value)}`);
+  const encryptedPropertyRows = () => String(sql.value(`SELECT COUNT(*) FROM property WHERE ${propertyWhere} AND LEFT(value,5)='{ENC}'`));
   const parentNames = () => fs.readdirSync(ledger.parent).sort();
   const visibleState = () => JSON.stringify([ledger.visible(), parentNames()]);
   const mailbox = () => admin.frameLocator('#myFrame');
@@ -553,8 +554,9 @@ async function workflow(s) {
         });
         h.assert(dialogs.some((dialog) => /changed successfully/.test(dialog.text || '')), `Round ${round}: no success alert after Update Password`);
         h.assert(propertyRows() === '1', `Round ${round}: the ${L.PASSWORD_PROPERTY} property has ${propertyRows()} rows, not one`);
-        // What is stored is not judged here (finding 189 pins it in its own step): a value was written, and the
-        // second change replaced it in the same row instead of adding one.
+        // Both the full workflow and the focused pin verify encrypted storage without reading a credential.
+        h.assert(propertyHolds(value) === '0' && encryptedPropertyRows() === '1',
+          `Round ${round}: the synthetic MCEDT credential was not encrypted at rest`);
         const stored = storedDigest();
         h.assert(stored !== '', `Round ${round}: the property row holds no value after the change`);
         if (round === 2) h.assert(stored !== digestAfterFirst, 'The second change did not replace the stored value');
@@ -583,7 +585,7 @@ async function workflow(s) {
   // Finding 189 (variant `plaintext`): the pinned step holds only the stored value; Change Password itself ran above.
   if (PIN === 'plaintext') {
     await s.step(STEP.plaintext, async () => {
-      h.assert(propertyHolds(passwords.second) === '0', 'The MCEDT password is stored exactly as typed, unencrypted');
+      h.assert(propertyHolds(passwords.second) === '0' && encryptedPropertyRows() === '1', 'The MCEDT password is stored exactly as typed or without its encryption marker');
     });
   }
 
