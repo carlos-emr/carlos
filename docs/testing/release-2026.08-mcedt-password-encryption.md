@@ -1,5 +1,11 @@
 # MCEDT password encryption (#4498, consolidated #5257)
 
+> Implementation/proof history: the review revision now uses dedicated encrypted
+> storage. See [the review follow-up](release-2026.08-mcedt-credential-review.md)
+> for the current design, 29-case H2/unit run and 23-case MariaDB run. Its rebuilt
+> DEB and revised native verification are pending; the older component proof
+> below applies to the earlier property-based format.
+
 The release Change Password action stores its input directly in the property
 row, and the delegate passes that value directly to the WS-Security builder.
 Finding 189 retains the original installed reproduction with a synthetic value.
