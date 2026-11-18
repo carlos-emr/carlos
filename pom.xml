@@ -2001,6 +2001,20 @@
                                  merge commits. The former SCM provider skipped merges in its Git log lookup.
                                  Keep the release workflow's explicit -DbuildNumber override authoritative. -->
                             <target unless="buildNumber">
+                                <!-- At a worktree root Git reports an empty prefix and then true. -->
+                                <exec executable="git" dir="${project.basedir}"
+                                      outputproperty="carlos.git.checkoutLocation" failonerror="true">
+                                    <arg value="rev-parse"/>
+                                    <arg value="--show-prefix"/>
+                                    <arg value="--is-inside-work-tree"/>
+                                </exec>
+                                <fail message="The CARLOS project directory must be a Git worktree root for an implicit build revision. Pass -DbuildNumber with the source commit when building an archive.">
+                                    <condition>
+                                        <not>
+                                            <equals arg1="${carlos.git.checkoutLocation}" arg2="true" trim="true"/>
+                                        </not>
+                                    </condition>
+                                </fail>
                                 <exec executable="git" dir="${project.basedir}"
                                       outputproperty="buildNumber" failonerror="true">
                                     <arg value="rev-parse"/>
