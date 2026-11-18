@@ -322,11 +322,20 @@ public class OscarJobService extends AbstractServiceImpl {
         if (job != null) {
             job.setCronExpression(parts[0] + " " + parts[1] + " " + parts[2] + " " + parts[3] + " " + parts[4] + " " + parts[5]);
             oscarJobManager.updateJob(getLoggedInInfo(), job);
+            boolean activated = false;
             try {
-                OscarJobUtils.scheduleJob(job);
+                activated = OscarJobUtils.scheduleJob(job);
             } catch (Exception e) {
                 logger.warn("error scheduling job " + e);
             }
+            OscarJobResponse response = getJob(jobId);
+            if (job.isEnabled()) {
+                response.setScheduleActivation(activated ? OscarJobResponse.ScheduleActivation.ACTIVE
+                        : OscarJobResponse.ScheduleActivation.FAILED);
+            } else {
+                response.setScheduleActivation(OscarJobResponse.ScheduleActivation.DISABLED);
+            }
+            return response;
         }
 
         return getJob(jobId);

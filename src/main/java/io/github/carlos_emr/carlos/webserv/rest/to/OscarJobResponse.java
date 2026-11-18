@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.webserv.rest.to;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.xml.bind.annotation.XmlRootElement;
 
 import io.github.carlos_emr.carlos.webserv.rest.to.model.OscarJobTo1;
@@ -38,7 +39,10 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.OscarJobTo1;
 @XmlRootElement
 public class OscarJobResponse {
 
+    public enum ScheduleActivation { ACTIVE, DISABLED, FAILED }
+
     private List<OscarJobTo1> jobs = new ArrayList<OscarJobTo1>();
+    private ScheduleActivation scheduleActivation;
 
     public List<OscarJobTo1> getJobs() {
         return jobs;
@@ -48,5 +52,12 @@ public class OscarJobResponse {
         this.jobs = jobs;
     }
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public ScheduleActivation getScheduleActivation() {
+        return scheduleActivation;
+    }
 
+    public void setScheduleActivation(ScheduleActivation scheduleActivation) {
+        this.scheduleActivation = scheduleActivation;
+    }
 }

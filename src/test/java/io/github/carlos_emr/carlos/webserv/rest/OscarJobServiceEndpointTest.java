@@ -23,12 +23,14 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.RejectedExecutionException;
 
 import jakarta.ws.rs.core.Form;
 import jakarta.ws.rs.core.MediaType;
@@ -41,11 +43,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
 import io.github.carlos_emr.carlos.commn.model.OscarJob;
 import io.github.carlos_emr.carlos.commn.model.OscarJobType;
+import io.github.carlos_emr.carlos.commn.jobs.OscarJobUtils;
 import io.github.carlos_emr.carlos.managers.OscarJobManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
@@ -244,9 +249,34 @@ class OscarJobServiceEndpointTest extends CarlosRestTestBase {
             Response response = post(everyPartExcept("minute", "15", "45"));
 
             assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.readEntity(JsonNode.class).get("scheduleActivation").asText()).isEqualTo("DISABLED");
             ArgumentCaptor<OscarJob> saved = ArgumentCaptor.forClass(OscarJob.class);
             verify(mockOscarJobManager).updateJob(any(LoggedInInfo.class), saved.capture());
             assertThat(saved.getValue().getCronExpression()).isEqualTo("0 15,45 * * * *");
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"active", "declined", "rejected"})
+        void shouldReportWhetherTheStoredScheduleWasActivated_whenTheJobIsEnabled(String outcome) {
+            OscarJob job = createTestJob(5, "Specific Job", createTestJobType(1, "TestType", "com.example.TestJob"));
+            when(mockOscarJobManager.getJob(any(LoggedInInfo.class), eq(5))).thenReturn(job);
+
+            try (var scheduler = mockStatic(OscarJobUtils.class)) {
+                var schedule = scheduler.when(() -> OscarJobUtils.scheduleJob(job));
+                if ("rejected".equals(outcome)) {
+                    schedule.thenThrow(new RejectedExecutionException("FAKE scheduler refusal"));
+                } else {
+                    schedule.thenReturn("active".equals(outcome));
+                }
+                Response response = post(everyPartExcept("minute", "15"));
+
+                assertThat(response.getStatus()).isEqualTo(200);
+                JsonNode json = response.readEntity(JsonNode.class);
+                assertThat(json.get("jobs").get(0).get("cronExpression").asText()).isEqualTo("0 15 * * * *");
+                assertThat(json.get("scheduleActivation").asText()).isEqualTo("active".equals(outcome) ? "ACTIVE" : "FAILED");
+                verify(mockOscarJobManager).updateJob(any(LoggedInInfo.class), eq(job));
+                scheduler.verify(() -> OscarJobUtils.scheduleJob(job));
+            }
         }
 
         @Test

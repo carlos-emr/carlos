@@ -12,7 +12,8 @@ const {test, before, after} = require('node:test');
 const {chromium} = require('playwright');
 const ROOT = path.join(__dirname, '..');
 const JSP = process.env.JOBS_JSP || path.join(ROOT, 'src/main/webapp/WEB-INF/jsp/admin/jobs.jsp');
-const LABELS = {'admin.jobs.saveJob':'Save job','admin.jobs.save':'Save','admin.jobs.cancel':'Cancel','admin.jobs.addNew':'New job'};
+const LABELS = {'admin.jobs.saveJob':'Save job','admin.jobs.save':'Save','admin.jobs.cancel':'Cancel','admin.jobs.addNew':'New job',
+  'admin.jobs.checkSavedJob':'Check saved values'};
 let browser;
 before(async () => { browser = await chromium.launch({headless:true,
   ...(process.env.PLAYWRIGHT_BROWSER_PATH ? {executablePath:process.env.PLAYWRIGHT_BROWSER_PATH} : {})}); });
@@ -34,7 +35,7 @@ function fixtureHtml() {
 const job = {id:41,name:'FAKE persisted job',description:'FAKE stored',oscarJobTypeId:7,providerNo:'999998',
   enabled:false,cronExpression:'0 * * * * *',status:'idle',updated:'2026-08-01T00:00:00Z'};
 async function withPage(body) {
-  const state = {mode:'success',loadMode:'success',saves:[],lists:0,errors:[],reply:null,loadReply:null};
+  const state = {mode:'success',loadMode:'success',saves:[],lists:0,errors:[],reply:null,loadReply:null,saved:job};
   const json = (res,value,status=200) => {res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
   const assets = {'/jquery.js':'library/jquery/jquery-3.7.1.min.js','/ui.js':'library/jquery/jquery-ui-1.14.2.min.js','/ui.css':'library/jquery/jquery-ui.structure-1.14.2.min.css'};
   const server = http.createServer((req,res)=>{
@@ -46,15 +47,22 @@ async function withPage(body) {
     if (url.pathname.endsWith('/jobs/all')) {state.lists++;return json(res,{jobs:[job]});}
     if (url.pathname.endsWith('/job/41')) {
       if (state.loadMode==='defer') {state.loadReply=()=>json(res,{jobs:[job]});return;}
-      return json(res,{jobs:[job]},state.loadMode==='error'?503:200);
+      return json(res,{jobs:[state.saved]},state.loadMode==='error'?503:200);
     }
     if (req.method==='POST' && /\/jobs\/(saveJob|saveCrontabExpression)$/.test(url.pathname)) {
       let data='';req.on('data',chunk=>data+=chunk);req.on('end',()=>{
         state.saves.push({path:url.pathname,fields:Object.fromEntries(new URLSearchParams(data))});
+        const schedule = url.pathname.endsWith('/saveCrontabExpression');
         const reply=()=>{
           if(state.mode==='error')return json(res,{},503);
+          if(state.mode==='lost'){
+            state.saved = {...job,name:'FAKE stored despite a lost reply',cronExpression:'0 15 * * * *'};
+            res.writeHead(200,{'Content-Type':'application/json'});res.end('{"jobs":');return;
+          }
           if(state.mode==='html'){res.writeHead(200,{'Content-Type':'text/html'});res.end('<html>FAKE sign in</html>');return;}
-          const payload = {success:{jobs:[job]},wrong:{jobs:[{...job,id:42}]},empty:{},zero:{jobs:[{id:0}]},multiple:{jobs:[job,job]},null:null};
+          const success = schedule ? {jobs:[job],scheduleActivation:'DISABLED'} : {jobs:[job]};
+          const payload = {success,wrong:{jobs:[{...job,id:42}]},empty:{},zero:{jobs:[{id:0}]},multiple:{jobs:[job,job]},null:null,
+            activationFailed:{jobs:[{...job,enabled:true}],scheduleActivation:'FAILED'}};
           return json(res,Object.hasOwn(payload,state.mode) ? payload[state.mode] : {jobs:[job]});
         };
         if(state.mode==='defer')state.reply=reply;else reply();
@@ -96,13 +104,19 @@ for(const id of ['new-job','scheduleDialog']) {
     assert.equal(state.lists,2);
     assert.equal(state.saves[0].fields[id==='new-job'?'job.id':'scheduleJobId'],'41');
   }));
-  test(`shouldRetain${label}Entries_afterRefusalAndAllowRetry`,async()=>withPage(async(page,state)=>{
+  test(`shouldRetain${label}Entries_andRequireReadbackAfterALostReply`,async()=>withPage(async(page,state)=>{
     await open(page,id);
     if(id==='new-job')await page.locator('#jobName').fill('FAKE changed job');
-    state.mode='error';await button(page,id).click();await posted(state);
+    state.mode='lost';await button(page,id).click();await posted(state);
     await page.waitForFunction(()=>jQuery.active===0);
     assert.equal(await page.evaluate(id=>jQuery('#'+id).dialog('isOpen'),id),true);
     assert.match(await page.locator('#'+id+' .save-error').innerText(),/jobsSaveErrorLabel/);
+    assert.equal(await button(page,id).isDisabled(),true);
+    const check = dialog(page,id).getByRole('button',{name:'Check saved values'});
+    await check.click();
+    await page.waitForFunction(()=>jQuery.active===0);
+    assert.match(await page.locator('#'+id+' .saved-job-values').innerText(),
+      id==='new-job'?/FAKE stored despite a lost reply/:/0 15 \* \* \* \*/);
     assert.equal(await button(page,id).isDisabled(),false);
     if(id==='new-job')assert.equal(await page.locator('#jobName').inputValue(),'FAKE changed job');
     else assert.equal(await page.locator('#hour').isDisabled(),true);
@@ -111,6 +125,32 @@ for(const id of ['new-job','scheduleDialog']) {
     assert.equal(state.saves.length,2);
   }));
 }
+test('shouldReportAStoredSchedule_whenActivationFails',async()=>withPage(async(page,state)=>{
+  await open(page,'scheduleDialog');state.mode='activationFailed';
+  await button(page,'scheduleDialog').click();await posted(state);
+  await page.waitForFunction(()=>jQuery.active===0);
+  assert.equal(await page.evaluate(()=>jQuery('#scheduleDialog').dialog('isOpen')),true);
+  assert.match(await page.locator('#scheduleDialog .save-error').innerText(),/jobsScheduleActivationFailedLabel/);
+}));
+test('shouldReleaseTheDialog_andKeepTheDraft_whenAnAcceptedPostTimesOut',async()=>withPage(async(page,state)=>{
+  await open(page,'new-job');state.mode='defer';
+  await page.locator('#jobName').fill('FAKE timed-out draft');
+  await page.evaluate(()=>{
+    jQuery.ajaxPrefilter(function (options) {
+      if (options.type === 'POST') {
+        window.observedJobDeadline = options.timeout;
+        options.timeout = 600;
+      }
+    });
+  });
+  await button(page,'new-job').click();await posted(state);
+  await page.waitForFunction(()=>jQuery.active===0);
+  assert.ok(await page.evaluate(()=>window.observedJobDeadline > 0));
+  assert.match(await page.locator('#new-job .save-error').innerText(),/jobsSaveErrorLabel/);
+  assert.equal(await page.locator('#jobName').inputValue(),'FAKE timed-out draft');
+  assert.equal(await button(page,'new-job').isDisabled(),true);
+  assert.equal(await dialog(page,'new-job').getByRole('button',{name:'Cancel',exact:true}).isEnabled(),true);
+}));
 for(const mode of ['html','wrong','empty','zero','multiple','null']) {
   test(`shouldKeepTheEditorOpen_for${mode[0].toUpperCase()+mode.slice(1)}Acknowledgement`,async()=>withPage(async(page,state)=>{
     await open(page,'new-job');state.mode=mode;await button(page,'new-job').click();await posted(state);

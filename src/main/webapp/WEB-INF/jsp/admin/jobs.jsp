@@ -108,10 +108,15 @@
         <fmt:message key="admin.jobs.saveError" var="jobsSaveErrorLabel"/>
         <fmt:message key="admin.jobs.saveUnconfirmed" var="jobsSaveUnconfirmedLabel"/>
         <fmt:message key="admin.jobs.loadError" var="jobsLoadErrorLabel"/>
+        <fmt:message key="admin.jobs.savedValuesUnavailable" var="jobsSavedValuesUnavailableLabel"/>
+        <fmt:message key="admin.jobs.scheduleActivationFailed" var="jobsScheduleActivationFailedLabel"/>
         <script>
             const jobsSaveErrorLabel = "${carlos:forJavaScript(jobsSaveErrorLabel)}";
             const jobsSaveUnconfirmedLabel = "${carlos:forJavaScript(jobsSaveUnconfirmedLabel)}";
             const jobsLoadErrorLabel = "${carlos:forJavaScript(jobsLoadErrorLabel)}";
+            const jobsSavedValuesUnavailableLabel = "${carlos:forJavaScript(jobsSavedValuesUnavailableLabel)}";
+            const jobsScheduleActivationFailedLabel = "${carlos:forJavaScript(jobsScheduleActivationFailedLabel)}";
+            const jobsRequestTimeout = 20000;
             const jobSaveState = {pending: false, createUnconfirmed: false};
             const scheduleSaveState = {pending: false};
             let jobEditorGeneration = 0;
@@ -120,16 +125,73 @@
 
             function updateJobSaveButton() {
                 $('#new-job').dialog('widget').find('.jobs-save').prop('disabled', jobSaveState.pending
-                    || jobEditorLoading || jobEditorLoadFailed
+                    || jobEditorLoading || jobEditorLoadFailed || Boolean(jobSaveState.readback)
                     || (jobSaveState.createUnconfirmed && $('#jobId').val() === '0'));
             }
 
+            function clearJobSaveFeedback(dialog, state) {
+                state.readback = null;
+                dialog.find('.save-error, .saved-job-values').text('');
+                dialog.find('.check-saved-job').off('click').prop({hidden: true, disabled: false});
+            }
+
+            function showJobReadback(dialog, state, id, schedule) {
+                const readback = {id: id};
+                state.readback = readback;
+                const button = dialog.find('.check-saved-job');
+                const output = dialog.find('.saved-job-values');
+                button.prop('hidden', false).on('click', function () {
+                    button.prop('disabled', true);
+                    function unavailable() {
+                        if (state.readback !== readback) return;
+                        output.text(jobsSavedValuesUnavailableLabel);
+                        button.prop('disabled', false);
+                    }
+                    $.ajax({
+                        url: '<%= request.getContextPath() %>/ws/rs/jobs/job/' + id,
+                        dataType: 'json',
+                        timeout: jobsRequestTimeout
+                    }).done(function (data) {
+                        if (state.readback !== readback) return;
+                        const saved = firstJob(data);
+                        if (!saved || String(saved.id) !== id) {
+                            unavailable();
+                            return;
+                        }
+                        if (schedule) {
+                            output.text(saved.cronExpression || dialog.data('not-available'));
+                        } else {
+                            const type = $('#jobType option').filter(function () {
+                                return this.value === String(saved.oscarJobTypeId);
+                            }).text() || saved.oscarJobTypeId;
+                            const provider = $('#jobProvider option').filter(function () {
+                                return this.value === String(saved.providerNo);
+                            }).text() || saved.providerNo;
+                            const fields = {jobName: saved.name, jobType: type,
+                                jobDescription: saved.description, jobProvider: provider};
+                            output.text(Object.entries(fields).map(function ([field, value]) {
+                                return $('label[for="' + field + '"]').text().replace(/[:*]+$/, '') + ': ' + (value || '');
+                            }).concat(saved.enabled ? dialog.data('enabled') : dialog.data('disabled')).join('\n'));
+                        }
+                        state.readback = null;
+                        button.off('click').prop({hidden: true, disabled: false});
+                        dialog.find('.save-error').text('');
+                        updateJobSaveButton();
+                        setScheduleEditable(scheduleEditable);
+                    }).fail(unavailable);
+                });
+                updateJobSaveButton();
+                setScheduleEditable(scheduleEditable);
+            }
+
             function saveJobDialog(dialog, form, endpoint, expectedId, state) {
-                if (state.pending) return;
+                if (state.pending || state.readback) return;
                 if (expectedId === '0' && state.createUnconfirmed) {
                     dialog.find('.save-error').text(jobsSaveUnconfirmedLabel);
                     return;
                 }
+                clearJobSaveFeedback(dialog, state);
+                const schedule = state === scheduleSaveState;
                 const serialized = form.serialize();
                 const controls = form.find(':input').add(dialog.dialog('widget').find('button'));
                 const disabled = controls.map(function () { return this.disabled; }).get();
@@ -145,18 +207,24 @@
                     if (expectedId === '0') state.createUnconfirmed = true;
                     finish();
                     dialog.find('.save-error').text(expectedId === '0' ? jobsSaveUnconfirmedLabel : jobsSaveErrorLabel);
+                    if (expectedId !== '0') showJobReadback(dialog, state, expectedId, schedule);
                 }
                 try {
-                    $.ajax({url: endpoint, type: 'POST', data: serialized, dataType: 'json'})
+                    $.ajax({url: endpoint, type: 'POST', data: serialized, dataType: 'json', timeout: jobsRequestTimeout})
                         .done(function (data) {
                             const jobs = data && data.jobs;
                             const saved = Array.isArray(jobs) ? (jobs.length === 1 ? jobs[0] : null) : jobs;
                             if (!saved || !/^[1-9][0-9]*$/.test(String(saved.id))
-                                    || (expectedId !== '0' && String(saved.id) !== expectedId)) {
+                                    || (expectedId !== '0' && String(saved.id) !== expectedId)
+                                    || (schedule && !['ACTIVE', 'DISABLED', 'FAILED'].includes(data.scheduleActivation))) {
                                 refused();
                                 return;
                             }
                             finish();
+                            if (schedule && data.scheduleActivation === 'FAILED') {
+                                dialog.find('.save-error').text(jobsScheduleActivationFailedLabel);
+                                return;
+                            }
                             dialog.dialog('close');
                             listJobs();
                         }).fail(refused);
@@ -189,6 +257,7 @@
             var scheduleEditable = true;
 
             function resetScheduleDialog() {
+                clearJobSaveFeedback($('#scheduleDialog'), scheduleSaveState);
                 ['minute', 'hour', 'day', 'month', 'weekday'].forEach(function (type) {
                     $('input:radio[name=' + type + '_chooser]')[0].checked = true;
                     $('#' + type + ' option:selected').prop('selected', false);
@@ -200,10 +269,12 @@
 
             function setScheduleEditable(editable) {
                 scheduleEditable = editable;
-                $('.ui-dialog:has(#scheduleDialog) .ui-dialog-buttonpane button.btn-primary').prop('disabled', !editable);
+                $('.ui-dialog:has(#scheduleDialog) .ui-dialog-buttonpane button.btn-primary')
+                    .prop('disabled', !editable || scheduleSaveState.pending || Boolean(scheduleSaveState.readback));
             }
 
             function scheduleJob(jobId) {
+                if (scheduleSaveState.pending) return;
                 var request = ++scheduleRequestSeq;
                 //do we already have an existing cronExpression
                 jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/job/" + jobId, {},
@@ -334,6 +405,7 @@
 
             function editJob(jobId) {
                 if (jobSaveState.pending) return;
+                clearJobSaveFeedback($('#new-job'), jobSaveState);
                 const generation = ++jobEditorGeneration;
                 jobEditorLoading = true;
                 jobEditorLoadFailed = false;
@@ -366,6 +438,7 @@
 
             function addNewJob() {
                 if (jobSaveState.pending) return;
+                clearJobSaveFeedback($('#new-job'), jobSaveState);
                 ++jobEditorGeneration;
                 jobEditorLoading = false;
                 jobEditorLoadFailed = false;
@@ -599,9 +672,13 @@
     <input type="button" class="btn btn-primary" value="<fmt:message key="admin.jobs.addNew"/>" onClick="addNewJob()"/>
 
 
-    <div id="new-job" title="<fmt:message key="admin.jobs.editorTitle"/>">
+    <div id="new-job" title="<fmt:message key="admin.jobs.editorTitle"/>"
+         data-enabled="<fmt:message key='admin.jobs.enabledStatus'/>"
+         data-disabled="<fmt:message key='admin.jobs.disabledStatus'/>">
         <p class="validateTips"></p>
         <p class="save-error text-danger" role="alert" aria-live="polite"></p>
+        <button type="button" class="btn btn-secondary check-saved-job" hidden><fmt:message key="admin.jobs.checkSavedJob"/></button>
+        <pre class="saved-job-values text-wrap" role="status"></pre>
 
         <form id="jobForm">
             <input type="hidden" name="job.id" id="jobId" value="0"/>
@@ -649,9 +726,12 @@
     </div>
 
 
-    <div id="scheduleDialog" title="<fmt:message key="admin.jobs.scheduleJob"/>">
+    <div id="scheduleDialog" title="<fmt:message key="admin.jobs.scheduleJob"/>"
+         data-not-available="<fmt:message key='admin.jobs.notAvailable'/>">
         <p class="validateTips"></p>
         <p class="save-error text-danger" role="alert" aria-live="polite"></p>
+        <button type="button" class="btn btn-secondary check-saved-job" hidden><fmt:message key="admin.jobs.checkSavedJob"/></button>
+        <pre class="saved-job-values text-wrap" role="status"></pre>
 
         <form id="crontab-form">
             <input type="hidden" name="scheduleJobId" id="scheduleJobId" value="0"/>
