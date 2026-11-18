@@ -79,7 +79,9 @@ class PrivacyStatementStaticMetadataTomcatIntegrationTest {
         ((StandardJarScanner) context.getJarScanner()).setScanClassPath(false);
         context.addMimeMapping("html", "text/html");
         context.addMimeMapping("txt", "text/plain");
-        Tomcat.addServlet(context, "default", new DefaultServlet()).setLoadOnStartup(1);
+        var defaultServlet = Tomcat.addServlet(context, "default", new DefaultServlet());
+        defaultServlet.addInitParameter("useStrongETags", "true");
+        defaultServlet.setLoadOnStartup(1);
         context.addServletMappingDecoded("/", "default");
         Tomcat.addServlet(context, "protocol-controls", new HttpServlet() {
             private static final long serialVersionUID = 1L;
@@ -207,7 +209,23 @@ class PrivacyStatementStaticMetadataTomcatIntegrationTest {
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.headers().allValues("Vary").stream().flatMap(value -> java.util.Arrays.stream(value.split(",")))
                 .map(String::trim)).contains("X-Requested-With");
-        assertThat(response.headers().firstValue("Cache-Control")).hasValue("public, max-age=600");
+        assertThat(response.headers().allValues("Cache-Control")).contains("public, max-age=600");
+        assertThat(response.headers().allValues("Cache-Control").contains("no-cache")).isEqualTo(requestedWith.isEmpty());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void shouldMatchOnlyTheSelectedRepresentation_whenTheRequestHasIfMatch(String method) throws Exception {
+        var undecorated = request("fixture.html", "GET", "X-Requested-With", "XMLHttpRequest");
+        String tag = undecorated.headers().firstValue("ETag").orElseThrow();
+        assertThat(tag).startsWith("\"");
+
+        assertThat(request("fixture.html", method, "If-Match", tag).statusCode()).isEqualTo(412);
+        assertThat(request("fixture.html", method, "If-Match", "*").statusCode()).isEqualTo(200);
+        assertThat(request("fixture.html", method, "If-Match", tag,
+                "X-Requested-With", "XMLHttpRequest").statusCode()).isEqualTo(200);
+        assertThat(request("missing.html", method).statusCode()).isEqualTo(404);
+        assertThat(request("missing.html", method, "If-Match", "*").statusCode()).isEqualTo(412);
     }
 
     @Test
@@ -289,9 +307,13 @@ class PrivacyStatementStaticMetadataTomcatIntegrationTest {
     }
 
     @Test
-    void shouldRetainFileBytesAndConditionalCaching_whenTheStatementIsDisabled() throws Exception {
+    void shouldRevalidateTheBareFile_whenTheStatementIsDisabled() throws Exception {
         CarlosProperties.getInstance().setProperty("confidentiality_statement.v1", "");
         assertUndecoratedFile("fixture.html");
+        assertThat(request("fixture.html", "GET").headers().allValues("Cache-Control")).contains("no-cache");
+        assertThat(request("fixture.html", "HEAD").headers().allValues("Cache-Control")).contains("no-cache");
+        assertThat(request("fixture.html", "GET", "X-Requested-With", "XMLHttpRequest")
+                .headers().allValues("Cache-Control")).containsExactly("public, max-age=600");
     }
 
     @Test

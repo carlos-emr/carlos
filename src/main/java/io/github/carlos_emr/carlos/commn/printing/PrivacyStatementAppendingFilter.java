@@ -168,17 +168,18 @@ public class PrivacyStatementAppendingFilter implements Filter {
             isConfidentialityNotePrinted = isConfidentialtyNotePrinted(httpRequest);
             String statement = isConfidentialityNotePrinted ? "" : getPrivacyStatement();
             HttpServletRequest downstreamRequest = httpRequest;
-            boolean staticHtmlVariant = !statement.isEmpty()
+            boolean staticHtmlVariant = !isConfidentialityNotePrinted
                     && ("GET".equals(httpRequest.getMethod()) || "HEAD".equals(httpRequest.getMethod()))
                     && hasHtmlResourceType(httpRequest);
-            boolean decoratedStaticHtml = staticHtmlVariant && !RequestNegotiation.isAjax(httpRequest);
+            boolean ordinaryStaticHtml = staticHtmlVariant && !RequestNegotiation.isAjax(httpRequest);
+            boolean decoratedStaticHtml = ordinaryStaticHtml && !statement.isEmpty();
             if (decoratedStaticHtml) {
                 // The file's validators and ranges describe only its undecorated bytes.
                 downstreamRequest = new PrintStatementRequest(httpRequest);
             }
 
             DelegatingServletResponse delegatingServletResponse = new DelegatingServletResponse(staticHtmlVariant
-                    ? new StaticHtmlMetadataResponse(httpResponse, decoratedStaticHtml) : httpResponse);
+                    ? new StaticHtmlMetadataResponse(httpResponse, decoratedStaticHtml, ordinaryStaticHtml) : httpResponse);
             chain.doFilter(downstreamRequest, delegatingServletResponse);
 
             if (decoratedStaticHtml && delegatingServletResponse.getStatus() == HttpServletResponse.SC_NOT_MODIFIED) {
@@ -268,15 +269,18 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
     /** Applies static representation metadata before any body write can commit the response. */
     private static final class StaticHtmlMetadataResponse extends HttpServletResponseWrapper {
+        private static final String CACHE_CONTROL = "Cache-Control";
         private static final String REQUEST_VARIANT = "X-Requested-With";
         private static final List<String> FILE_METADATA = List.of("ETag", "Last-Modified", "Accept-Ranges");
         private final Map<String, List<Runnable>> metadata = new LinkedHashMap<>();
         private final boolean decorated;
+        private final boolean revalidate;
         private boolean suppressing;
 
-        private StaticHtmlMetadataResponse(HttpServletResponse response, boolean decorated) {
+        private StaticHtmlMetadataResponse(HttpServletResponse response, boolean decorated, boolean revalidate) {
             super(response);
             this.decorated = decorated;
+            this.revalidate = revalidate;
             for (String name : FILE_METADATA) {
                 for (String value : response.getHeaders(name)) {
                     metadata.computeIfAbsent(metadataKey(name), ignored -> new ArrayList<>())
@@ -285,6 +289,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
             }
             updatePolicy();
             ensureRequestVariant();
+            ensureRevalidation();
         }
 
         private static String metadataKey(String name) {
@@ -324,9 +329,27 @@ public class PrivacyStatementAppendingFilter implements Filter {
             super.addHeader("Vary", REQUEST_VARIANT);
         }
 
+        private void ensureRevalidation() {
+            if (!revalidate) return;
+            for (String header : super.getHeaders(CACHE_CONTROL)) {
+                for (String directive : header.split(",")) {
+                    if (Ascii.equalsIgnoreCase("no-cache", directive.trim())) return;
+                }
+            }
+            // A later settings change can render a different page even when the file has not changed.
+            super.addHeader(CACHE_CONTROL, "no-cache");
+        }
+
         @Override public void setHeader(String name, String value) {
-            if (isFileMetadata(name)) record(name, true, () -> super.setHeader(name, value));
-            else { super.setHeader(name, value); updatePolicy(); if ("vary".equals(metadataKey(name))) ensureRequestVariant(); }
+            if (isFileMetadata(name)) {
+                record(name, true, () -> super.setHeader(name, value));
+            } else {
+                super.setHeader(name, value);
+                updatePolicy();
+                String key = metadataKey(name);
+                if ("vary".equals(key)) ensureRequestVariant();
+                if ("cache-control".equals(key)) ensureRevalidation();
+            }
         }
         @Override public void addHeader(String name, String value) {
             if (isFileMetadata(name)) record(name, false, () -> super.addHeader(name, value));
@@ -356,20 +379,24 @@ public class PrivacyStatementAppendingFilter implements Filter {
             suppressing = false;
             updatePolicy();
             ensureRequestVariant();
+            ensureRevalidation();
         }
     }
 
     /** Hides file validators and ranges from requests for decorated static HTML. */
     private static final class PrintStatementRequest extends HttpServletRequestWrapper {
+        private static final String IF_MATCH = "If-Match";
+        private static final String NONMATCHING_TAG = "W/\"carlos-print-statement\"";
         private final boolean wildcard;
+        private final boolean explicitIfMatch;
 
-        // FindSecBugs SERVLET_HEADER: the untrusted header only preserves HTTP's wildcard existence condition;
-        // it grants no privilege and every other file validator is hidden from the decorating request.
-        @SuppressFBWarnings(value = "SERVLET_HEADER", justification = "Untrusted header selects only the HTTP wildcard existence condition, not authorization; all other file validators are hidden")
+        @SuppressFBWarnings(value = "SERVLET_HEADER", justification = "Untrusted headers select HTTP preconditions, with a fixed nonmatching tag for explicit If-Match")
         private PrintStatementRequest(HttpServletRequest request) {
             super(request);
             String tag = request.getHeader("If-None-Match");
             wildcard = tag != null && "*".equals(tag.trim());
+            String ifMatch = request.getHeader(IF_MATCH);
+            explicitIfMatch = ifMatch != null && !"*".equals(ifMatch.trim());
         }
 
         private boolean isHiddenHeader(String name) {
@@ -380,11 +407,17 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
         @Override
         public String getHeader(String name) {
+            if (explicitIfMatch && Ascii.equalsIgnoreCase(IF_MATCH, name)) return NONMATCHING_TAG;
             return isHiddenHeader(name) ? null : super.getHeader(name);
         }
 
         @Override
         public Enumeration<String> getHeaders(String name) {
+            // If-Match uses strong comparison, so a weak tag never matches the bare file.
+            // Let the servlet keep its normal existence and error handling.
+            if (explicitIfMatch && Ascii.equalsIgnoreCase(IF_MATCH, name)) {
+                return Collections.enumeration(List.of(NONMATCHING_TAG));
+            }
             return isHiddenHeader(name) ? Collections.emptyEnumeration() : super.getHeaders(name);
         }
 

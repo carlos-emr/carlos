@@ -1039,6 +1039,46 @@ class PrivacyStatementAppendingFilterUnitTest {
         }
     }
 
+    @Test
+    void shouldRetainRevalidation_whenDownstreamReplacesCacheControl() throws Exception {
+        try (var notice = configuredStatement("FAKE static metadata notice")) {
+            var request = staticRequest();
+            request.addHeader("If-Match", "\"FAKE-bare-file\"");
+            var response = new MockHttpServletResponse();
+            response.setHeader("Cache-Control", "public, max-age=120");
+            filter.doFilter(request, response, (req, res) -> {
+                var httpRequest = (jakarta.servlet.http.HttpServletRequest) req;
+                var httpResponse = (jakarta.servlet.http.HttpServletResponse) res;
+                String tag = httpRequest.getHeader("if-match");
+                assertThat(tag).startsWith("W/\"");
+                assertThat(java.util.Collections.list(httpRequest.getHeaders("If-Match"))).containsExactly(tag);
+                assertThat(response.getHeaders("Cache-Control")).containsExactly("public, max-age=120", "no-cache");
+                httpResponse.setHeader("cAcHe-CoNtRoL", "private, max-age=30");
+                assertThat(response.getHeaders("Cache-Control")).containsExactly("private, max-age=30", "no-cache");
+                httpResponse.setHeader("Cache-Control", "private, No-Cache");
+                assertThat(response.getHeaders("Cache-Control")).containsExactly("private, No-Cache");
+                httpResponse.reset();
+                assertThat(response.getHeaders("Cache-Control")).containsExactly("no-cache");
+            });
+        }
+    }
+
+    @Test
+    void shouldKeepPreexistingMetadata_whenTheResponseIsNotOk() throws Exception {
+        try (var notice = configuredStatement("FAKE static metadata notice")) {
+            var response = new MockHttpServletResponse();
+            response.setHeader("ETag", "\"FAKE-original-tag\"");
+            filter.doFilter(staticRequest(), response, (req, res) -> {
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                http.setStatus(201);
+                http.setContentType("text/html");
+                http.getWriter().write("FAKE body");
+            });
+            assertThat(response.getHeader("ETag")).isEqualTo("\"FAKE-original-tag\"");
+            assertThat(response.getContentAsString()).contains("FAKE body", "FAKE static metadata notice");
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void shouldKeepVaryAndUnrelatedHeaders_whenStaticHtmlUsesTypedHeaderCalls(boolean ajax) throws Exception {

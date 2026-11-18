@@ -11,9 +11,16 @@ The privacy filter now omits bare-file ETag, Last-Modified, and Accept-Ranges
 metadata when it decorates a successful representation. HEAD omits the bare-file
 length. For GET/HEAD resources whose MIME type is HTML and whose statement will
 be appended, downstream cache validation does not see obsolete file ETags or
-modification dates. Other request data, including Range/If-Range, is retained.
-Wildcard existence conditions still return 304, with no bare-file metadata.
+modification dates. Ordinary decorated requests ignore Range and If-Range and
+return the entire page. AJAX requests still support file ranges. An explicit
+If-Match for the file cannot match the decorated page and returns 412.
+Wildcard existence preconditions retain their normal behavior. A wildcard
+If-None-Match still returns 304 without bare-file metadata.
 The configured statement is read at most once for each filter invocation.
+
+Ordinary static HTML requires revalidation even when the notice is disabled.
+The browser test keeps the same URL and browser session across enabling and
+disabling the statement on an otherwise cacheable file.
 
 All twelve real-HTTP metadata cases pass after repair, including every servlet
 header accessor, unrelated-header preservation, and wildcard GET/HEAD conditions.
