@@ -115,23 +115,22 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
                         ? Files.createTempDirectory(imageFolder.toPath(), ".carlos-image-",
                                 PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")))
                         : Files.createTempDirectory(imageFolder.toPath(), ".carlos-image-");
-                try (java.io.Closeable directoryCleanup = () -> Files.deleteIfExists(stagingDirectory)) {
-                    var staged = stagingDirectory.resolve("image");
-                    try (java.io.Closeable fileCleanup = () -> Files.deleteIfExists(staged)) {
-                        try (InputStream fis = PathValidationUtils.openValidatedUploadInputStream(image);
-                             OutputStream fos = Files.newOutputStream(staged, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
-                            byte[] buffer = new byte[4096];
-                            int bytesRead;
-                            while ((bytesRead = fis.read(buffer)) != -1) {
-                                fos.write(buffer, 0, bytesRead);
-                            }
-                            fos.flush();
+                try (var cleanup = new StagingCleanup(stagingDirectory)) {
+                    var staged = cleanup.staged;
+                    try (InputStream fis = PathValidationUtils.openValidatedUploadInputStream(image);
+                         OutputStream fos = Files.newOutputStream(staged, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                        byte[] buffer = new byte[4096];
+                        int bytesRead;
+                        while ((bytesRead = fis.read(buffer)) != -1) {
+                            fos.write(buffer, 0, bytesRead);
                         }
-                        if (posix && Files.exists(destination)) {
-                            Files.setPosixFilePermissions(staged, Files.getPosixFilePermissions(destination));
-                        }
-                        Files.move(staged, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+                        fos.flush();
                     }
+                    if (posix && Files.exists(destination)) {
+                        Files.setPosixFilePermissions(staged, Files.getPosixFilePermissions(destination));
+                    }
+                    Files.move(staged, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+                    cleanup.published = true;
                 }
             }
 
@@ -154,6 +153,30 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
             MiscUtils.getLogger().error("Image upload failed for file: {}", imageFileName, e);
             addActionError("Upload failed: an error occurred while saving the image. Please try again or contact support.");
             return ERROR;
+        }
+    }
+
+    /** Cleanup failure after atomic publication cannot make a completed upload retryable. */
+    private static final class StagingCleanup implements java.io.Closeable {
+        private final java.nio.file.Path directory;
+        private final java.nio.file.Path staged;
+        private boolean published;
+
+        private StagingCleanup(java.nio.file.Path directory) {
+            this.directory = directory;
+            this.staged = directory.resolve("image");
+        }
+
+        @Override
+        public void close() throws IOException {
+            // Before publication, try-with-resources preserves the original copy failure
+            // and suppresses cleanup failures; both deletion attempts still run.
+            try (java.io.Closeable directoryCleanup = () -> Files.deleteIfExists(directory)) {
+                Files.deleteIfExists(staged);
+            } catch (IOException | SecurityException failure) {
+                if (!published) throw failure;
+                MiscUtils.getLogger().warn("Image upload succeeded but temporary staging cleanup failed", failure);
+            }
         }
     }
 

@@ -7,6 +7,7 @@ package io.github.carlos_emr.carlos.eform;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -62,6 +63,78 @@ class EFormImagePublicationOwnershipUnitTest {
 
     private enum Consumer { FORM_IMPORT, IMAGE_UPLOAD }
     private enum CopyFailure { READ, WRITE, CLOSE, MOVE }
+    private enum CleanupFailure { IO, SECURITY }
+
+    @ParameterizedTest
+    @EnumSource(CleanupFailure.class)
+    void shouldReportPublishedImageAsUploaded_whenStagingDirectoryCleanupFails(CleanupFailure mode) throws Exception {
+        Path images = Files.createDirectory(scratch.resolve("images"));
+        Path shared = Files.writeString(images.resolve("existing.png"), "FAKE previously committed image");
+        Exception cleanup = mode == CleanupFailure.IO
+                ? new IOException("FAKE staging cleanup refusal") : new SecurityException("FAKE staging cleanup refusal");
+        var failures = new AtomicInteger();
+        try (var folder = mockStatic(ImageUpload2Action.class);
+             var capture = LogCapture.forLogger(ImageUpload2Action.class.getName() + "$StagingCleanup");
+             var files = mockStatic(Files.class, call -> {
+                 if (call.getMethod().getName().equals("deleteIfExists")) {
+                     Path path = call.getArgument(0);
+                     if (images.equals(path.getParent()) && path.getFileName().toString().startsWith(".carlos-image-")) {
+                         failures.incrementAndGet();
+                         throw cleanup;
+                     }
+                 }
+                 return call.callRealMethod();
+             })) {
+            folder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            assertThat(uploadReplacing(shared)).isEqualTo("FAKE uploaded consumer image");
+            assertThat(failures.get()).isEqualTo(1);
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(org.apache.logging.log4j.Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage()).contains("Image upload succeeded");
+                assertThat(event.getThrown()).isSameAs(cleanup);
+            });
+        }
+        assertThat(Files.readString(shared)).isEqualTo("FAKE uploaded consumer image");
+    }
+
+    @ParameterizedTest
+    @EnumSource(CleanupFailure.class)
+    void shouldPreserveCopyFailure_whenStagingDirectoryCleanupAlsoFails(CleanupFailure mode) throws Exception {
+        Path images = Files.createDirectory(scratch.resolve("images"));
+        Path shared = Files.writeString(images.resolve("existing.png"), "FAKE previously committed image");
+        var primary = new IOException("FAKE primary copy refusal");
+        Exception cleanup = mode == CleanupFailure.IO
+                ? new IOException("FAKE staging cleanup refusal") : new SecurityException("FAKE staging cleanup refusal");
+        try (var folder = mockStatic(ImageUpload2Action.class);
+             var capture = LogCapture.forLogger(ImageUpload2Action.class);
+             var paths = mockStatic(PathValidationUtils.class, call -> {
+                 if (call.getMethod().getName().equals("openValidatedUploadInputStream")) {
+                     return new java.io.FilterInputStream((java.io.InputStream) call.callRealMethod()) {
+                         @Override public int read(byte[] bytes, int offset, int length) throws IOException {
+                             throw primary;
+                         }
+                     };
+                 }
+                 return call.callRealMethod();
+             });
+             var files = mockStatic(Files.class, call -> {
+                 if (call.getMethod().getName().equals("deleteIfExists")) {
+                     Path path = call.getArgument(0);
+                     if (images.equals(path.getParent()) && path.getFileName().toString().startsWith(".carlos-image-")) {
+                         throw cleanup;
+                     }
+                 }
+                 return call.callRealMethod();
+             })) {
+            folder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            assertThat(uploadReplacing(shared, "error")).isEqualTo("FAKE previously committed image");
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(org.apache.logging.log4j.Level.ERROR);
+                assertThat(event.getThrown()).isSameAs(primary);
+                assertThat(event.getThrown().getSuppressed()).containsExactly(cleanup);
+            });
+        }
+    }
 
     @Test
     void shouldRollbackOwnPublishedAssets_whenALaterPathValidationFails() throws Exception {
