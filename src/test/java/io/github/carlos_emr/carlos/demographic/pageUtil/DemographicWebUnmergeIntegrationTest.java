@@ -255,6 +255,28 @@ class DemographicWebUnmergeIntegrationTest {
     }
 
     @Test
+    void shouldPreserveEarlierUnmergeAttribution_whenAnActiveLinkIsRemoved() {
+        int historicalId = new TransactionTemplate(transactionManager).execute(status -> {
+            var historical = new DemographicMerged();
+            historical.setDemographicNo(first);
+            historical.setMergedTo(untouched);
+            historical.setDeleted(1);
+            historical.setLastUpdateUser("999997");
+            historical.setLastUpdateDate(java.sql.Date.valueOf("2005-04-01"));
+            em.persist(historical);
+            return historical.getId();
+        });
+        String history = "SELECT deleted, lastUpdateUser, lastUpdateDate FROM demographic_merged WHERE id=?";
+        var previous = sql.queryForMap(history, historicalId);
+
+        assertThat(unmerge("999998", Integer.toString(first))).isEqualTo("successUnMerge");
+
+        assertThat(active(first)).isZero();
+        assertThat(sql.queryForMap(history, historicalId)).isEqualTo(previous);
+        assertThat(logged(first)).isEqualTo(1);
+    }
+
+    @Test
     void shouldRefuseTheEntireSelection_whenALaterPatientIsNoLongerMerged() {
         sql.update("UPDATE demographic_merged SET deleted=1 WHERE demographic_no=?", second);
         assertThat(unmerge("999998", Integer.toString(first), Integer.toString(second))).isEqualTo("failureUnMerge");

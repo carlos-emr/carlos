@@ -95,6 +95,7 @@ MERGE_REQUIRED_CASES = {"shouldRefuseDeniedParticipants_beforeAnyDatabaseOrAudit
 
 UNMERGE_REQUIRED_CASES = {
     'shouldRefuseARepeatedUnmerge_withoutAnotherAuditOrRecycleWrite',
+    'shouldPreserveEarlierUnmergeAttribution_whenAnActiveLinkIsRemoved',
     'shouldRefuseTheEntireSelection_whenALaterPatientIsNoLongerMerged',
     "shouldRollbackEveryParticipant_whenALaterStorageValueIsMalformed",
     'shouldCanonicalizeAndDeduplicate_whenSelectedIdsHaveEquivalentSpellings',
@@ -275,6 +276,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
     def test_original_16_case_unmerge_reports_are_refused_in_every_mode(self):
         self.seed()
         added = {'shouldRefuseARepeatedUnmerge_withoutAnotherAuditOrRecycleWrite',
+                 'shouldPreserveEarlierUnmergeAttribution_whenAnActiveLinkIsRemoved',
                  'shouldRefuseTheEntireSelection_whenALaterPatientIsNoLongerMerged'}
         for mode in ('generated', 'flyway', 'bc-flyway'):
             suffix = '' if mode == 'generated' else '-' + mode

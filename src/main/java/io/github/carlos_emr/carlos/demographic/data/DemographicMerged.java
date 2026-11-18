@@ -124,7 +124,7 @@ public class DemographicMerged {
     }
 
     /**
-     * Removes a patient's merge links and chart restriction, saves the restriction in the recycle bin,
+     * Removes a patient's active merge links and chart restriction, saves the restriction in the recycle bin,
      * and writes the audit record. The caller supplies a shared transaction for all changes to commit together.
      *
      * @param loggedInInfo authenticated actor used for the audit and merge history
@@ -136,7 +136,8 @@ public class DemographicMerged {
      */
     public void UnMerge(LoggedInInfo loggedInInfo, String demographic_no, String curUser_no) {
 
-        List<io.github.carlos_emr.carlos.commn.model.DemographicMerged> dms = dao.findByDemographicNo(Integer.parseInt(demographic_no));
+        List<io.github.carlos_emr.carlos.commn.model.DemographicMerged> dms =
+                dao.findCurrentByDemographicNo(Integer.parseInt(demographic_no));
         for (io.github.carlos_emr.carlos.commn.model.DemographicMerged dm : dms) {
             dm.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
             dm.setLastUpdateDate(new Date());
