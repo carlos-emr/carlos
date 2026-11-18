@@ -135,7 +135,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should dispatch the Resolve POST to the status update instead of rendering the manager")
-    void shouldResolveEmail_whenDispatchedFromExecute() {
+    void shouldResolveEmail_whenDispatchedFromExecute() throws Exception {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         EmailLog resolved = new EmailLog();
         resolved.setStatus(EmailLog.EmailStatus.RESOLVED);
@@ -146,6 +146,10 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         verify(emailManager).updateEmailStatus(loggedInInfo, 7003, EmailLog.EmailStatus.RESOLVED, null);
         verifyNoInteractions(emailComposeManager);
         assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentType()).startsWith("application/json");
+        var acknowledgement = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(acknowledgement.size()).isEqualTo(1);
+        assertThat(acknowledgement.path("resolvedLogId").textValue()).isEqualTo("7003");
     }
 
     @Test

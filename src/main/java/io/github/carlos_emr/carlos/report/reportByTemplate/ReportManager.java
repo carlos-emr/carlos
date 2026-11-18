@@ -35,16 +35,20 @@
 package io.github.carlos_emr.carlos.report.reportByTemplate;
 
 import java.util.ArrayList;
+import java.io.IOException;
+import java.io.StringReader;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import org.jdom2.Document;
+import org.jdom2.Content;
+import org.jdom2.JDOMException;
 import org.jdom2.Element;
-import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.jdom2.output.XMLOutputter;
+import org.jdom2.output.Format;
 import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
 import io.github.carlos_emr.carlos.commn.model.ReportTemplates;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -122,9 +126,7 @@ public class ReportManager {
             boolean sequence = rt.isSequence();
 
             if (!paramXML.equals("")) {
-                paramXML = UtilXML.escapeXML(paramXML); //escapes anomalies such as "date >= {mydate}" the '>' character
-                SAXBuilder parser = XmlUtils.createSecureSAXBuilder(); // NOSONAR java:S2755 — XXE protection applied via XmlUtils.createSecureSAXBuilder()
-                Document doc = parser.build(new java.io.ByteArrayInputStream(paramXML.getBytes()));
+                Document doc = parseTemplateXml(paramXML);
                 Element root = doc.getRootElement();
 
                 List<Element> paramsXml = root.getChildren("param");
@@ -221,16 +223,89 @@ public class ReportManager {
     }
 
     public Document readXml(String xml) throws Exception {
-        SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
-        xml = UtilXML.escapeXML(xml); //escapes anomalies such as "date >= {mydate}" the '>' character
-        //xml  UtilXML.escapeAllXML(xml, "<param-list>");  //escapes all markup in <report> tag, otherwise can't retrieve element.getText()
-        Document doc = parser.build(new java.io.ByteArrayInputStream(xml.getBytes()));
+        Document doc = parseTemplateXml(xml);
         if (doc.getRootElement().getName().equals("report")) {
             Element newRoot = new Element("report-list");
             Element oldRoot = doc.detachRootElement();
             newRoot.setContent(oldRoot);
             doc.removeContent();
             doc.setRootElement(newRoot);
+        }
+        return doc;
+    }
+
+    // Disjoint possessive chunks avoid recursive backtracking through long metadata tags.
+    private static final java.util.regex.Pattern EMPTY_PARAMETER = java.util.regex.Pattern.compile(
+            "<param(?=[\\s/])(?:[^<>\"'/]++|/(?!\\s*>)|\"[^\"]*+\"|'[^']*+')*+/\\s*+>");
+
+    /** Restores empty parameter metadata while retaining the established legacy SQL escaping policy. */
+    private static Document parseTemplateXml(String xml) throws JDOMException, IOException {
+        Document doc = XmlUtils.createSecureSAXBuilder().build(new StringReader(UtilXML.escapeXML(xml)));
+        Element root = doc.getRootElement();
+        List<Element> reports = "report".equals(root.getName()) ? List.of(root)
+                : root.getChildren().stream().filter(element -> "report".equals(element.getName())).toList();
+        for (Element report : reports) {
+            for (int index = 0; index < report.getContentSize(); index++) {
+                Content content = report.getContent(index);
+                if (content.getCType() != Content.CType.Text) {
+                    continue;
+                }
+                String text = content.getValue();
+                if (!text.contains("<param")) {
+                    continue;
+                }
+                // Only report-level metadata is repaired; query text keeps its legacy interpretation.
+                Element wrapper = new Element("report", report.getNamespace());
+                for (var namespace : report.getNamespacesInScope()) {
+                    wrapper.addNamespaceDeclaration(namespace);
+                }
+                String wrapperXml = new XMLOutputter(Format.getRawFormat().setExpandEmptyElements(true))
+                        .outputString(wrapper);
+                String closingTag = "</" + wrapper.getQualifiedName() + ">";
+                // Recover only complete empty parameter metadata. Other report text may
+                // legitimately contain literal or unmatched <param spellings.
+                var matcher = EMPTY_PARAMETER.matcher(text);
+                List<Content> restored = new ArrayList<>();
+                int cursor = 0;
+                int commentStart = text.indexOf("<!--");
+                int commentEnd = commentStart < 0 ? -1 : text.indexOf("-->", commentStart + 4);
+                while (matcher.find()) {
+                    // Walk each comment boundary once; commented-out metadata remains literal text.
+                    while (commentStart >= 0 && commentEnd >= 0 && matcher.start() >= commentEnd + 3) {
+                        commentStart = text.indexOf("<!--", commentEnd + 3);
+                        commentEnd = commentStart < 0 ? -1 : text.indexOf("-->", commentStart + 4);
+                    }
+                    if (commentStart >= 0 && matcher.start() >= commentStart) {
+                        continue;
+                    }
+                    String fragmentXml = wrapperXml.replace(closingTag,
+                            matcher.group().replace("&", "&amp;") + closingTag);
+                    Element parameter;
+                    try {
+                        Document fragment = XmlUtils.createSecureSAXBuilder().build(new StringReader(fragmentXml));
+                        parameter = fragment.getRootElement().getChildren().getFirst();
+                    } catch (JDOMException malformedLiteral) {
+                        continue;
+                    }
+                    if (parameter.getAttributeValue("id") == null || parameter.getAttributeValue("type") == null
+                            || parameter.getAttributeValue("description") == null) {
+                        continue;
+                    }
+                    if (matcher.start() > cursor) {
+                        restored.add(new org.jdom2.Text(text.substring(cursor, matcher.start())));
+                    }
+                    restored.add(parameter.detach());
+                    cursor = matcher.end();
+                }
+                if (cursor > 0) {
+                    if (cursor < text.length()) {
+                        restored.add(new org.jdom2.Text(text.substring(cursor)));
+                    }
+                    report.removeContent(index);
+                    report.addContent(index, restored);
+                    index += restored.size() - 1;
+                }
+            }
         }
         return doc;
     }
