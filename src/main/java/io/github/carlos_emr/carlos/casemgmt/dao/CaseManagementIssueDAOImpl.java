@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.TypedQuery;
 
 import org.apache.logging.log4j.Logger;
@@ -166,6 +167,16 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
     @Override
     public CaseManagementIssue findById(Long id) {
         return id == null ? null : entityManager().find(CaseManagementIssue.class, id);
+    }
+
+    @Override
+    public CaseManagementIssue findByIdForUpdate(Long id) {
+        CaseManagementIssue issue = entityManager().find(CaseManagementIssue.class, id, LockModeType.PESSIMISTIC_WRITE);
+        if (issue != null) {
+            // An open request persistence context may already contain an older instance.
+            entityManager().refresh(issue, LockModeType.PESSIMISTIC_WRITE);
+        }
+        return issue;
     }
 
     @Override

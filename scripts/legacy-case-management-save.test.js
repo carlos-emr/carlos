@@ -29,6 +29,8 @@ function legacy(fields) {
 }
 
 for (const [label, fields, expected] of [
+  ['a checked patient-issue identity', [{ type: 'checkbox', name: 'selectedCaseIssueId', checked: true }], true],
+  ['a checked unsaved catalogue issue', [{ type: 'checkbox', name: 'selectedCatalogIssueId', checked: true }], true],
   ['a checked issue', [{ type: 'checkbox', name: 'issueCheckList[0].checked', checked: true }], true],
   ['no checked issue', [{ type: 'checkbox', name: 'issueCheckList[0].checked', checked: false }], false],
   ['an unrelated Sign checkbox', [{ type: 'checkbox', name: 'sign', checked: true }], false],

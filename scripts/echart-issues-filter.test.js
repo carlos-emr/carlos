@@ -205,6 +205,9 @@ test('Assign rejects edited suggestions and ignores repeat clicks while an issue
 
 test('Change uses the same current fragment for both resolved and unresolved issues', () => {
   const h = harness();
+  vm.runInContext(block('    var NOTE_ISSUE_FIELDS =', '    function restoreRenderedIssueChoice('), h.context);
+  h.context.noteSwitchSavePending = false;
+  h.context.issueUpdatesPending = 0;
   h.input.focus = () => {};
   for (const name of ['changeDiagnosisResolved', 'changeDiagnosisUnresolved']) {
     h.context[name]('3');
