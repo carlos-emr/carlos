@@ -2619,6 +2619,62 @@
                   "container": ""
                 }
               ]
+            },
+            {
+              "name": "shouldPreserveDateWrites_whenJvmAndConnectionZonesDiffer(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldPreserveDateWrites_whenJvmAndConnectionZonesDiffer(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldPreserveDateWrites_whenJvmAndConnectionZonesDiffer(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldPreserveNullDateWrites_withEveryCalendarOverload(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldPreserveNullDateWrites_withEveryCalendarOverload(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldPreserveNullDateWrites_withEveryCalendarOverload(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldPreserveNamedDateWrites_withAndWithoutCalendar(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldPreserveNamedDateWrites_withAndWithoutCalendar(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldPreserveNamedDateWrites_withAndWithoutCalendar(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldUseCurrentJvmZoneForDateWrites_afterConnectionWasOpened(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldUseCurrentJvmZoneForDateWrites_afterConnectionWasOpened(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldUseCurrentJvmZoneForDateWrites_afterConnectionWasOpened(boolean)[2]",
+                  "container": ""
+                }
+              ]
             }
           ]
         },
@@ -4858,7 +4914,7 @@
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
         "DemographicMergeMariaDbIntegrationTest": 9,
-        "JdbcConnectorMariaDbIntegrationTest": 32,
+        "JdbcConnectorMariaDbIntegrationTest": 40,
         "BilledProviderReportDaoIntegrationTest": 2,
         "MariaDbDaoHarnessIntegrationTest": 1,
         "MeasurementDaoIntegrationTest": 1,
