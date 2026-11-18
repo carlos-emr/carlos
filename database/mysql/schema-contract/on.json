@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "91fe35adb46239b8b880c7d7e8b5b4e67d0b3f753b795cc34ac9418b1c59a020",
+ "migration_sha256": "7014e52a720220e6a04a37f77acd03019761dc6b892b520adc763d810bdac602",
  "province": "on",
  "schema": {
   "checks": [
@@ -23,6 +23,11 @@
     "billing_filename_import",
     "billing_filename_reason",
     "`reason` in ('unchanged','collision')"
+   ],
+   [
+    "mcedt_credential",
+    "chk_mcedt_credential_singleton",
+    "`id` = 1"
    ],
    [
     "o19_imported_signature_owner",
@@ -117613,6 +117618,30 @@
     3
    ],
    [
+    "mcedt_credential",
+    "encrypted_password",
+    "longtext",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    2
+   ],
+   [
+    "mcedt_credential",
+    "id",
+    "tinyint(4)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    1
+   ],
+   [
     "mdsMSH",
     "acceptAckType",
     "char(2)",
@@ -137001,6 +137030,17 @@
     "NO"
    ],
    [
+    "mcedt_credential",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
     "mdsMSH",
     "PRIMARY",
     0,
@@ -138348,6 +138388,17 @@
     0,
     1,
     "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "property",
+    "idx_property_name",
+    1,
+    1,
+    "name",
     "A",
     null,
     "BTREE",
@@ -143907,6 +143958,15 @@
     null
    ],
    [
+    "mcedt_credential",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
     "mdsMSH",
     "PRIMARY",
     1,
@@ -147682,6 +147742,12 @@
    ],
    [
     "lst_service_restriction",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "mcedt_credential",
     "InnoDB",
     "Dynamic",
     "utf8mb4_general_ci"

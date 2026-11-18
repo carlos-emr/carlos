@@ -2,10 +2,10 @@
   "format": 1,
   "profiles": {
     "on": {
-      "physicalContractSha256": "805f0d1357d7dfc1601a8e154cb7ab17ae4413dea1040ac82c1c0c03410458ba"
+      "physicalContractSha256": "872203ebc81a5aa54df7122941250264d6bed6794119419020ed709ffbfa9661"
     },
     "bc": {
-      "physicalContractSha256": "720ee1ec6b155d9571f715d9f64fff01be6e7817743221f734327c1aadfba161"
+      "physicalContractSha256": "0527bb2c48dacf58a8ec72ba2198757d3b4ad7aa23cda397ae76bd255161343d"
     }
   },
   "tables": {
@@ -378,6 +378,7 @@
     "lst_program_type": "REFERENCE",
     "lst_sector": "REFERENCE",
     "lst_service_restriction": "REFERENCE",
+    "mcedt_credential": "OPERATIONAL",
     "mdsMSH": "DOCUMENT",
     "mdsNTE": "DOCUMENT",
     "mdsOBR": "DOCUMENT",
@@ -403,6 +404,7 @@
     "messengerMembershipLock": "OPERATIONAL",
     "msgDemoMap": "DOCUMENT",
     "mygroup": "REFERENCE",
+    "o19_imported_signature_owner": "OPERATIONAL",
     "oscarKeys": "OPERATIONAL",
     "oscar_msg_type": "REFERENCE",
     "oscarcommlocations": "REFERENCE",
@@ -519,8 +521,7 @@
     "wcb_bp_code": "REFERENCE",
     "wcb_noi_code": "REFERENCE",
     "wcb_side": "REFERENCE",
-    "workflow": "DOCUMENT",
-    "o19_imported_signature_owner": "OPERATIONAL"
+    "workflow": "DOCUMENT"
   },
   "requiredScopes": {
     "Demographics": [
@@ -1513,6 +1514,7 @@
     "casemgmt_note_link": "Exported with the note it belongs to (decision recorded with the note-link change): each row says which record a note is attached to (table_name, table_id, other_id: a document, prescription, eForm, tickler, e-mail, another note, an allergy, a lab, a prevention, the patient record or an appointment). The note itself is exported once, as the chart shows it, in its own ClinicalNotes or CPP occurrence under its per-note authorization; every link row of every revision travels exactly in that occurrence's source context (the note details of a ClinicalNotes entry, which also opens with a statement naming the records, or the CARLOS.NativeHistory.v1 residual of a CPP item). Captured with the seven history categories and scoped through the parent note (CdsExportIndirectPatientScopeReadSupport); a link whose note is missing or names no existing patient still holds every chart.",
     "GroupNoteLink": "Operational, rule GROUP_NOTE_RECIPIENT_LINK: a CAISI group note is written in one chart (casemgmt_note.demographic_no) and shown read-only in each recipient chart this row names (GroupNoteAction, GroupNoteSelect2Action; CaseManagementView2Action shows it only in a facility with group notes enabled and to a provider holding the note's reporter role). The row carries only that linkage: note id, recipient, created time, whether the recipient is an anonymous client generated for the session and whether the share is still active. The note itself is exported once, with the chart that wrote it, under its per-note authorization. Copying it into a recipient's package would disclose a note of another chart (group notes commonly name the other members) without that chart's authorization, and a data summary of the row would show only another chart's note number. No longer holds the recipient chart.",
     "o19_imported_signature_owner": "OSCAR 19 import provenance: which imported DigitalSignature rows the migration bound to which patient and module (V1.0.59.35). It holds no clinical value of its own; each signature row is exported with its parent under the DigitalSignature ruling.",
-    "secObjPrivilege": "Access control configuration; no row is a clinical occurrence. Only the row Merge Records writes for a merged chart (role _all, object _eChart$ and the chart number) is captured, as merge_privileges under Demographics, and carried exactly in CARLOS.MergeLinks.v1; it is never an input of the export's authorization."
+    "secObjPrivilege": "Access control configuration; no row is a clinical occurrence. Only the row Merge Records writes for a merged chart (role _all, object _eChart$ and the chart number) is captured, as merge_privileges under Demographics, and carried exactly in CARLOS.MergeLinks.v1; it is never an input of the export's authorization.",
+    "mcedt_credential": "Clinic-wide encrypted MCEDT account credential and stable transaction lock; no patient ownership or clinical records. Operational state is excluded from patient CDS exports."
   }
 }

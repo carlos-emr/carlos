@@ -53,12 +53,23 @@ class CdsExportSourceCatalogueUnitTest {
     }
 
     @Test
+    void shouldExcludeGlobalMcedtCredential_fromEveryPatientExportCategory() {
+        var catalogue = CdsExportSourceCatalogue.current();
+        assertThat(catalogue.tables().get("mcedt_credential"))
+                .isEqualTo(CdsExportSourceCatalogue.Disposition.OPERATIONAL);
+        assertThat(catalogue.patientScopes()).doesNotContainKey("mcedt_credential");
+        for (CdsCategory category : CdsCategory.values()) {
+            assertThat(catalogue.required(Set.of(category))).doesNotContain("mcedt_credential");
+        }
+    }
+
+    @Test
     void shouldBindEveryRuling_toTheExactShippedOntarioAndBcPhysicalContracts() throws Exception {
         var catalogue = CdsExportSourceCatalogue.current();
-        assertThat(catalogue.tables()).hasSize(512);
+        assertThat(catalogue.tables()).hasSize(513);
         assertThat(catalogue.profiles())
                 .extracting(profile -> profile.tables().size())
-                .containsExactly(459, 492);
+                .containsExactly(460, 493);
         assertThat(catalogue.tables().get("eChart"))
                 .isEqualTo(CdsExportSourceCatalogue.Disposition.DOCUMENT);
         assertThat(catalogue.tables().get("allergies"))

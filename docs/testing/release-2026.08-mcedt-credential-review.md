@@ -72,3 +72,18 @@ to the tracked inventory. The original one-case failure (missing migration
 merge-order registration) is retained; the ledger is corrected and all five
 migration-order controls pass. Final Node report SHA-256:
 `a622abac48d99d12fa96845233e30296f8984a8437f73aa06268ed47661b5a01`.
+
+The first combined DEB build stopped at the schema-contract guard, before any
+DEB was produced. Both ON and BC reference schemas were then migrated from
+empty databases and validated on MariaDB 11.8.8 with 32 KiB pages. Their exported
+contracts add only the singleton table and property-name index: every prior
+physical definition is unchanged. The generated contract hashes, CDS catalogue
+and its descriptor binding are refreshed together. The new global credential
+table has an explicit OPERATIONAL ruling and is excluded from every patient
+export category. All 10 catalogue/resource cases pass against the four exact
+updated resources ahead of the unchanged production classes; JUnit SHA-256:
+`bd9e7e3cd3d3417ba368f27eaedd4d29a9b48b47fe93f5bd85185933feeb15e6`.
+The initial reference-startup attempt failed before migration because its socket
+readiness probe observed the temporary initialization server; the corrected
+retake waits for the actual TCP listener. Both owned reference schemas/server
+are retired. A fresh WAR/DEB qualification is required for these resources.
