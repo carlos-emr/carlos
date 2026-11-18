@@ -885,7 +885,8 @@
         "build",
         "packaged-full",
         "installed-package-reinstall",
-        "manual-report-configured-jasper"
+        "manual-report-configured-jasper",
+        "manual-log-provider-order"
       ]
     },
     {
@@ -4850,6 +4851,155 @@
             }
           ]
         },
+        "io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": {
+          "check": "java-native-flyway",
+          "cases": [
+            {
+              "name": "shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)[2]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)[3]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)[4]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)[5]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)[6]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)[7]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)[8]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)[9]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)[2]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)[3]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)[4]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)[5]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)[6]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)[7]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)[8]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)[9]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)[2]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)[3]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)[4]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)[5]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)[6]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)[7]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)[8]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)[9]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldPersistExplicitFlagChanges_whenUpdatingALegacyNullNote(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldPersistExplicitFlagChanges_whenUpdatingALegacyNullNote(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldPersistExplicitFlagChanges_whenUpdatingALegacyNullNote(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldUseTheNullablePublishedColumnTypes_onThePhysicalSchema",
+              "container": ""
+            }
+          ]
+        },
         "io.github.carlos_emr.carlos.commn.dao.SiteRenameClockMariaDbIntegrationTest": {
           "check": "java-native-generated",
           "cases": [
@@ -5040,7 +5190,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest",
+        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -5049,7 +5199,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 168,
+      "minimumCases": 198,
       "requiredFamilies": {
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
@@ -5079,6 +5229,7 @@
         "TicklerPatientAccessMariaDbIntegrationTest": 12,
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
         "ReportingPatientListAuditMariaDbIntegrationTest": 4,
+        "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
         "SiteRenameClockMariaDbIntegrationTest": 8
       },
       "requiresEnvironment": [
@@ -5109,7 +5260,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,LegacyBcTeleplanExportMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest",
+        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,LegacyBcTeleplanExportMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -5118,7 +5269,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 195,
+      "minimumCases": 225,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 22,
@@ -5146,6 +5297,7 @@
         "TicklerPatientAccessMariaDbIntegrationTest": 12,
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
         "ReportingPatientListAuditMariaDbIntegrationTest": 4,
+        "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
         "SiteRenameClockMariaDbIntegrationTest": 8
       },
       "requiresEnvironment": [
@@ -8119,6 +8271,43 @@
         "java": "25"
       },
       "timeoutSeconds": 3600
+    },
+    {
+      "id": "manual-log-provider-order",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "log-provider-order"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "log-provider-order",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
     },
     {
       "id": "manual-demographic-converted-limits",
