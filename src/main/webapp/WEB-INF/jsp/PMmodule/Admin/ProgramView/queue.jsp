@@ -104,8 +104,8 @@
         form.submit();
 	}
 </script>
-<html:hidden property="clientId" />
-<html:hidden property="queueId" />
+<input type="hidden" name="clientId" value="${carlos:forHtmlAttribute(param.clientId)}" />
+<input type="hidden" name="queueId" value="${carlos:forHtmlAttribute(param.queueId)}" />
 
 <%
 	ProgramProviderDAO ppd =(ProgramProviderDAO)SpringUtils.getBean("programProviderDAO");
@@ -270,29 +270,24 @@ String reason ="";
 <c:if test="${requestScope.do_reject != null}">
 	<table width="100%" border="1" cellspacing="2" cellpadding="3">
 		<tr>
-			<td width="5%"><html:radio property="radioRejectionReason"
-				value="1" /></td>
-			<td>Client requires acute care</td>
+			<td width="5%"><input type="radio" name="radioRejectionReason" id="rejection-acute-care" value="1" /></td>
+			<td><label for="rejection-acute-care">Client requires acute care</label></td>
 		</tr>
 		<tr>
-			<td width="5%"><html:radio property="radioRejectionReason"
-				value="2" /></td>
-			<td>Client not interested</td>
+			<td width="5%"><input type="radio" name="radioRejectionReason" id="rejection-not-interested" value="2" /></td>
+			<td><label for="rejection-not-interested">Client not interested</label></td>
 		</tr>
 		<tr>
-			<td width="5%"><html:radio property="radioRejectionReason"
-				value="3" /></td>
-			<td>Client does not fit program criteria</td>
+			<td width="5%"><input type="radio" name="radioRejectionReason" id="rejection-criteria" value="3" /></td>
+			<td><label for="rejection-criteria">Client does not fit program criteria</label></td>
 		</tr>
 		<tr>
-			<td width="5%"><html:radio property="radioRejectionReason"
-				value="4" /></td>
-			<td>Program does not have space available</td>
+			<td width="5%"><input type="radio" name="radioRejectionReason" id="rejection-no-space" value="4" /></td>
+			<td><label for="rejection-no-space">Program does not have space available</label></td>
 		</tr>
 		<tr>
-			<td width="5%"><html:radio property="radioRejectionReason"
-				value="5" /></td>
-			<td>Other</td>
+			<td width="5%"><input type="radio" name="radioRejectionReason" id="rejection-other" value="5" /></td>
+			<td><label for="rejection-other">Other</label></td>
 		</tr>
 		<tr class="b">
 			<td width="20%">Rejection Note:</td>

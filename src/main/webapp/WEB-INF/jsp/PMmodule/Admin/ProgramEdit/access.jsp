@@ -78,16 +78,20 @@
 <br />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<tr class="b">
-		<td width="20%">Name :</td>
-		<td><html:select property="access.accessTypeId">
-			<html:options collection="accessTypes" property="id"
-				labelProperty="name" />
-		</html:select> <html:hidden property="access.id" /> <html:hidden
-			property="access.programId" /></td>
+		<td width="20%"><label for="program-access-type">Name:</label></td>
+		<td>
+			<select name="access.accessTypeId" id="program-access-type">
+				<c:forEach var="accessType" items="${accessTypes}">
+					<option value="${carlos:forHtmlAttribute(accessType.id)}" <c:if test="${accessType.id == access.accessTypeId}">selected</c:if>>${carlos:forHtmlContent(accessType.name)}</option>
+				</c:forEach>
+			</select>
+			<input type="hidden" name="access.id" value="${carlos:forHtmlAttribute(access.id)}" />
+			<input type="hidden" name="access.programId" value="${carlos:forHtmlAttribute(requestScope.id)}" />
+		</td>
 	</tr>
 	<tr class="b">
-		<td width="20%">All Roles:</td>
-		<td><html:checkbox property="access.allRoles" /></td>
+		<td width="20%"><label for="program-access-all-roles">All Roles:</label></td>
+		<td><input type="checkbox" name="access.allRoles" id="program-access-all-roles" value="true" <c:if test="${access.allRoles}">checked</c:if> /></td>
 	</tr>
 	<tr class="b">
 		<td width="20%">Roles:</td>
@@ -100,6 +104,7 @@
 	<tr>
 		<td colspan="2"><input type="button" value="Save"
 			onclick="this.form.elements['method'].value='save_access';this.form.submit()" />
-		<html:cancel /></td>
+			<a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${carlos:forUriComponent(requestScope.id)}&amp;view.tab=Access">Cancel</a>
+		</td>
 	</tr>
 </table>

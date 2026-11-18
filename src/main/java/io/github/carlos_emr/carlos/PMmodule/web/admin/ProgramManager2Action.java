@@ -800,8 +800,8 @@ public class ProgramManager2Action extends ActionSupport {
         Program program = this.getProgram();
         Program realProgram = programManager.getProgram(program.getId());
 
-        if (program.getMaxAllowed() < program.getNumOfMembers()) {
-            addActionMessage(getText("program.max_too_small", program.getName()));
+        if (realProgram.getMaxAllowed() != null && realProgram.getMaxAllowed() < realProgram.getNumOfMembers()) {
+            addActionMessage(getText("program.max_too_small", realProgram.getName()));
             setEditAttributes(request, String.valueOf(program.getId()));
 
             return edit();
@@ -818,15 +818,14 @@ public class ProgramManager2Action extends ActionSupport {
 
         // copy over modified attributes
         realProgram.setDefaultServiceRestrictionDays(defaultRestrictionDays);
-        if (maxRestrictionDays != null && maxRestrictionDays != 0)
-            realProgram.setMaximumServiceRestrictionDays(maxRestrictionDays);
+        realProgram.setMaximumServiceRestrictionDays(maxRestrictionDays);
 
         // save program & sign the modification of the program
         programManager.saveProgram(realProgram);
 
         ProgramSignature programSignature = new ProgramSignature();
         programSignature.setProgramId(program.getId());
-        programSignature.setProgramName(program.getName());
+        programSignature.setProgramName(realProgram.getName());
         String providerNo = (String) request.getSession().getAttribute("user");
         programSignature.setProviderId(providerNo);
         programSignature.setProviderName(providerManager.getProvider(providerNo).getFormattedName());
@@ -835,7 +834,7 @@ public class ProgramManager2Action extends ActionSupport {
         programSignature.setUpdateDate(now);
         programManager.saveProgramSignature(programSignature);
 
-        addActionMessage(getText("program.saved", program.getName()));
+        addActionMessage(getText("program.saved", realProgram.getName()));
         LogAction.log("write", "edit program", String.valueOf(program.getId()), request);
 
         setEditAttributes(request, String.valueOf(program.getId()));
@@ -1345,6 +1344,9 @@ public class ProgramManager2Action extends ActionSupport {
             request.setAttribute("id", programId);
             request.setAttribute("programName", programManager.getProgram(programId).getName());
             request.setAttribute("providers", programManager.getProgramProviders(programId));
+            if ("Staff".equals(request.getParameter("view.tab"))) {
+                request.setAttribute("availableProviders", providerManager.getActiveProviders());
+            }
             request.setAttribute("functional_users", programManager.getFunctionalUsers(programId));
 
             List teams = programManager.getProgramTeams(programId);

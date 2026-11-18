@@ -46,7 +46,6 @@ function add_status(form) {
 		return false;
 	}
 	
-	form.elements['client_status.id'].value='0';
 	form.elements['method'].value='save_status';
 	form.submit();
 }
@@ -79,15 +78,16 @@ function add_status(form) {
 </c:if>
 <c:if test="${empty client_statuses}">No statuses are currently defined for this program.</c:if>
 <br />
-<html:hidden property="client_status.id" />
+<input type="hidden" name="client_status.id" value="${carlos:forHtmlAttribute(client_status.id)}" />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<tr class="b">
-		<td width="20%">Name:</td>
-		<td><html:text property="client_status.name" size="50" maxlength="255"/></td>
+		<td width="20%"><label for="program-client-status-name">Name:</label></td>
+		<td><input type="text" name="client_status.name" id="program-client-status-name" size="50" maxlength="255" value="${carlos:forHtmlAttribute(client_status.name)}" /></td>
 	</tr>
 	<tr>
 		<td colspan="2">
-			<input type="button" value="Save" onclick="add_status(this.form)" /> <html:cancel />
+			<input type="button" value="Save" onclick="add_status(this.form)" />
+			<a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${carlos:forUriComponent(requestScope.id)}&amp;view.tab=Client%20Status">Cancel</a>
 		</td>
 	</tr>
 </table>
