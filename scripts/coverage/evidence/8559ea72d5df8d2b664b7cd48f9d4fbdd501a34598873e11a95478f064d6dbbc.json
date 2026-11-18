@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "91557015118a0038cb68e44393669d70628ddc19",
+  "comparisonSha256": "849dd75ab133603a4e4158973403f46c761aa8c163a75fad31a7b6f3b7c4cee8",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/managers/DemographicManagerImpl.java": {
+      "lines": 96.95431472081218,
+      "instructions": 96.42521166509877,
+      "branches": 84.42622950819673,
+      "sourceBlob": "52df3a532cbb176dab95252c13ea975eabc83727"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/PatientConsentManagerImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6b7054f8e7891b06c34c078f98fd633e3ea4275b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/ScheduleManagerImpl.java": {
+      "lines": 98.9247311827957,
+      "instructions": 99.42307692307692,
+      "branches": 100.0,
+      "sourceBlob": "b5dce04f042efca2356f048c110ebb83bcc88dd6"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/DiseaseRegistryService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "1d945790b61039adeae306965459f104d8d58e66"
+    }
+  },
+  "baselineCommit": "e6a5a9b8a5ec2be1a77545aacc3524cb66023c41",
+  "baselineSourceTree": "91557015118a0038cb68e44393669d70628ddc19",
+  "baselineReportSha256": "4fd0559784c70d2f807f52c600b818ff939d88145171c490a1f1b0b6da8428ff",
+  "baselineLane": "Exact fresh JDK25 classes for four audit write paths;253 focused unit cases,14 native scheduling cases,2 H2 transaction cases,9 native demographic merge cases and84 manager/DAO/endpoint controls. All362 unique actual JUnit cases pass with zero skips. Native MariaDB11.8.8 with 32K pages; private owned databases retired. Includes seven reproduced pre-repair failures and one added extension deletion regression. Selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 362,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "48ae219c51df8fbfc228cce018c90e295a612c910570da37d2c165334da9fffc",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}

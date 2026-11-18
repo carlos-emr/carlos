@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/CasemgmtNoteLockDaoImpl.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "df056137809ff00bc1497aa77376dddf739854f0"
+  },
+  "evidenceSha256": "3bb04f57ed01640d20534e3c6f5600bd2293a0819a9f3b84780cbf6c01e15bbe"
+}

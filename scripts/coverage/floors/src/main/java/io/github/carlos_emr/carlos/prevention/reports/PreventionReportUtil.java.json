@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/prevention/reports/PreventionReportUtil.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 80.0,
+    "instructions": 84.7457627118644,
+    "branches": 87.5,
+    "sourceBlob": "d33807754886034d01ab435577c44d1dd12657df"
+  },
+  "evidenceSha256": "ce956f2f39cc453f30996371154378fbab68952b99b9a9e1302839eb70a01444"
+}

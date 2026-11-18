@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/report/ClinicalReports/SQLNumerator.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 86.66666666666667,
+    "instructions": 79.59183673469387,
+    "branches": 64.28571428571429,
+    "sourceBlob": "8ff8edba4bcfe71651c975599bb9b645f00173d1"
+  },
+  "evidenceSha256": "5e8fa15d606a265ffeb492ab81efe978a3df75ce128dd0a15bb4c6f18cc0d09f"
+}
