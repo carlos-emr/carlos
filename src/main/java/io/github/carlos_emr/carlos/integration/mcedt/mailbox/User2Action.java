@@ -34,7 +34,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtSecurity;
-import io.github.carlos_emr.carlos.integration.mcedt.McedtCredentials;
+import io.github.carlos_emr.carlos.integration.mcedt.McedtCredentialService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -43,7 +43,15 @@ public class User2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private McedtCredentials credentials = SpringUtils.getBean(McedtCredentials.class);
+    private final McedtCredentialService credentials;
+
+    public User2Action() {
+        this(SpringUtils.getBean(McedtCredentialService.class));
+    }
+
+    User2Action(McedtCredentialService credentials) {
+        this.credentials = java.util.Objects.requireNonNull(credentials);
+    }
 
     @Override
     public String execute() throws Exception {
@@ -71,6 +79,7 @@ public class User2Action extends ActionSupport {
             credentials.savePassword(this.getPassword());
             request.getSession().setAttribute("isPassChange", "true"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
         } catch (Exception e) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn("MCEDT password change failed; credential storage was not updated");
             request.getSession().setAttribute("isPassChange", "false"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
         }
 

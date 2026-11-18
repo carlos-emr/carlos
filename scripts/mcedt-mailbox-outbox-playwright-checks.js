@@ -93,7 +93,8 @@ const STEP = {
   addRefused: 'Add refuses a name that is not an OHIP or OBEC claim file and a name that carries a path, and writes nothing',
   remove: 'Upload ▸ Delete Selected removes only the ticked owned file',
   removeRefused: 'Delete Selected refuses a list with a path in it and removes nothing outside the outbox',
-  password: 'Menu ▸ Change Password writes the mcedt_account_password property and no page echoes it',
+  password: 'Menu ▸ Change Password writes the encrypted MCEDT credential and no page echoes it',
+  passwordFailure: 'Change Password reports a storage failure without claiming success or changing the credential',
   mutators: 'Delete, Add and Change Password work with a token, and GET and a tokenless POST of each are refused and change nothing',
   privileges: 'a login without _admin.billing is refused by every MCEDT route, and one holding it for reading only cannot change anything',
   shortNameControl: 'Add refuses a two-character name that is not a claim file with the application\'s message, and the one-character request is sent',
@@ -188,6 +189,24 @@ async function workflow(s) {
   // ---- clinic-wide state, registered BEFORE anything can change it (cleanup runs newest first) ------------
   const parking = L.createPropertyParking({ sql, name: L.PASSWORD_PROPERTY, marker });
   s.cleanup(() => parking.restore());
+  const credentialBackup = `mcedt_pw_bak_${hex}`;
+  h.assert(/^mcedt_pw_bak_[a-f0-9]{16}$/.test(credentialBackup), 'The credential backup name is not owned by this run');
+  let credentialParked = false;
+  let originalCredentialDigest = null;
+  const credentialDigest = () => sql.value("SELECT SHA2(CONCAT(id,':',IFNULL(HEX(encrypted_password),'NULL')),256) FROM mcedt_credential WHERE id=1");
+  s.cleanup(() => {
+    if (!credentialParked) return;
+    if (String(sql.value(`SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=${q(credentialBackup)}`)) === '0') {
+      h.assert(credentialDigest() === originalCredentialDigest, 'Credential changed before its backup was created');
+      credentialParked = false;
+      return;
+    }
+    h.assert(String(sql.value(`SELECT COUNT(*) FROM \`${credentialBackup}\` WHERE id=1`)) === '1', 'Owned encrypted-credential backup is missing');
+    sql.execute(`START TRANSACTION; DELETE FROM mcedt_credential WHERE id=1; INSERT INTO mcedt_credential(id,encrypted_password) SELECT id,encrypted_password FROM \`${credentialBackup}\` WHERE id=1; COMMIT;`);
+    h.assert(credentialDigest() === originalCredentialDigest, 'Encrypted MCEDT credential was not restored exactly');
+    sql.execute(`DROP TABLE \`${credentialBackup}\``);
+    credentialParked = false;
+  });
   s.cleanup(() => { if (ledger) ledger.restore(); });
   const markers = D.markerFiles(marker);
   s.cleanup(() => markers.remove());
@@ -212,11 +231,11 @@ async function workflow(s) {
   const url = (route) => h.appUrl(config.baseUrl, route);
   const outboxFile = (name) => path.join(outbox, name);
   const ownedRows = () => String(sql.value(`SELECT COUNT(*) FROM provider WHERE first_name=${q(marker)} OR last_name=${q(marker)}`));
-  const propertyWhere = `name=${q(L.PASSWORD_PROPERTY)}`;
-  const propertyRows = () => String(sql.value(`SELECT COUNT(*) FROM property WHERE ${propertyWhere}`));
-  const storedDigest = () => sql.value(`SELECT IFNULL(SHA2(\`value\`,256),'') FROM property WHERE ${propertyWhere} ORDER BY id LIMIT 1`);
-  const propertyHolds = (value) => sql.value(`SELECT COUNT(*) FROM property WHERE ${propertyWhere} AND value=${q(value)}`);
-  const encryptedPropertyRows = () => String(sql.value(`SELECT COUNT(*) FROM property WHERE ${propertyWhere} AND LEFT(value,5)='{ENC}'`));
+  const propertyWhere = 'id=1 AND encrypted_password IS NOT NULL';
+  const propertyRows = () => String(sql.value(`SELECT COUNT(*) FROM mcedt_credential WHERE ${propertyWhere}`));
+  const storedDigest = () => sql.value("SELECT IFNULL(SHA2(encrypted_password,256),'') FROM mcedt_credential WHERE id=1");
+  const propertyHolds = (value) => sql.value(`SELECT COUNT(*) FROM mcedt_credential WHERE id=1 AND encrypted_password=${q(value)}`);
+  const encryptedPropertyRows = () => String(sql.value("SELECT COUNT(*) FROM mcedt_credential WHERE id=1 AND LEFT(encrypted_password,5)='{ENC}'"));
   const parentNames = () => fs.readdirSync(ledger.parent).sort();
   const visibleState = () => JSON.stringify([ledger.visible(), parentNames()]);
   const mailbox = () => admin.frameLocator('#myFrame');
@@ -274,7 +293,7 @@ async function workflow(s) {
    */
   async function refused(label, send, kind = 'file') {
     const spec = kind === 'property'
-      ? { table: 'property', where: propertyWhere, count: propertyRows }
+      ? { table: 'mcedt_credential', where: propertyWhere, count: propertyRows }
       : { table: 'provider', where: `first_name=${q(marker)} OR last_name=${q(marker)}`, count: ownedRows };
     const before = spec.count();
     const response = await send();
@@ -284,10 +303,10 @@ async function workflow(s) {
   /** Run `probe` and require that it changed neither the outbox, the directory beside it nor the property. */
   async function unchanged(label, probe) {
     const files = visibleState();
-    const digest = parking.digest();
+    const digest = `${parking.digest()}:${credentialDigest()}`;
     const result = await probe();
     h.assert(visibleState() === files, `${label}: the outbox or the directory beside it changed`);
-    h.assert(parking.digest() === digest, `${label}: the ${L.PASSWORD_PROPERTY} property changed`);
+    h.assert(`${parking.digest()}:${credentialDigest()}` === digest, `${label}: the MCEDT credential changed`);
     return result;
   }
 
@@ -297,6 +316,12 @@ async function workflow(s) {
     h.assert(ledger.found.every((entry) => entry.kind === 'file' || entry.kind === 'dir'), 'The outbox holds an entry that is neither a file nor a directory');
     console.log(`  outbox before: ${ledger.found.length} entr${ledger.found.length === 1 ? 'y' : 'ies'}; password property rows before: ${propertyRows()}`);
     parking.park();
+    h.assert(String(sql.value('SELECT COUNT(*) FROM mcedt_credential WHERE id=1')) === '1', 'The seeded MCEDT credential record is unavailable');
+    h.assert(String(sql.value("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME LIKE 'mcedt\\_pw\\_bak\\_%'")) === '0', 'An interrupted encrypted-credential backup must be restored before this check');
+    originalCredentialDigest = credentialDigest();
+    credentialParked = true;
+    sql.execute(`CREATE TABLE \`${credentialBackup}\` AS SELECT id,encrypted_password FROM mcedt_credential WHERE id=1`);
+    sql.execute('UPDATE mcedt_credential SET encrypted_password=NULL WHERE id=1');
     h.assert(propertyRows() === '0', 'The MCEDT password rows were not parked');
     // The bystander the Delete step must leave alone, and a file beside the outbox a traversal would reach.
     seeded = {
@@ -583,6 +608,40 @@ async function workflow(s) {
 
   // =========================================================================================================
   // Finding 189 (variant `plaintext`): the pinned step holds only the stored value; Change Password itself ran above.
+  if (full || PIN === 'plaintext') await s.step(STEP.passwordFailure, async () => {
+    const before = storedDigest();
+    sql.execute(`INSERT INTO \`${credentialBackup}\`(id,encrypted_password) SELECT 2,encrypted_password FROM mcedt_credential WHERE id=1; DELETE FROM mcedt_credential WHERE id=1;`);
+    try {
+      await openMailboxFromAdministration();
+      await mailbox().getByRole('button', { name: 'Change Password' }).click();
+      await mailbox().locator('#password').waitFor({ state: 'visible', timeout: 20000 });
+      await mailbox().locator('#password').fill(passwords.probe);
+      await mailbox().locator('#conPassword').fill(passwords.probe);
+      let sawFailureAlert = false;
+      const observeFailure = dialog => { if (/Unable to change the EDT password/.test(dialog.message())) sawFailureAlert = true; };
+      admin.on('dialog', observeFailure);
+      let dialogs;
+      try {
+        dialogs = await h.withExpectedDialogs(admin, async () => {
+          const captured = await captureRequest(admin, u => u.pathname.endsWith('/mcedt/kaichpass'),
+            () => mailbox().getByRole('button', { name: 'Update Password' }).click());
+          h.assert(captured.status === 200, 'The failed password change did not return its page');
+          await until(() => sawFailureAlert, 'The failed password change did not display its failure alert');
+          await until(() => mailbox().locator('#password').inputValue().then(value => value === ''), 'The failed password form was not redisplayed');
+        });
+      } finally { admin.off('dialog', observeFailure); }
+      h.assert(dialogs.some(dialog => /Unable to change the EDT password/.test(dialog.text || ''))
+        && !dialogs.some(dialog => /changed successfully/.test(dialog.text || '')), 'The storage failure did not show only its explicit failure alert');
+      h.assert(!await mailbox().locator('html').innerHTML().then(body => body.includes(passwords.probe)), 'The failed page echoes a password');
+      h.assert(String(sql.value('SELECT COUNT(*) FROM mcedt_credential')) === '0', 'The failed save silently recreated or changed credential storage');
+    } finally {
+      sql.execute(`INSERT INTO mcedt_credential(id,encrypted_password) SELECT 1,encrypted_password FROM \`${credentialBackup}\` WHERE id=2; DELETE FROM \`${credentialBackup}\` WHERE id=2;`);
+      h.assert(storedDigest() === before, 'The owned storage-failure probe did not restore its credential exactly');
+    }
+    await mailbox().getByRole('button', { name: 'Cancel', exact: true }).click();
+    await mailbox().getByRole('heading', { name: 'Welcome To MCEDT' }).waitFor({ state: 'visible', timeout: 20000 });
+  });
+
   if (PIN === 'plaintext') {
     await s.step(STEP.plaintext, async () => {
       h.assert(propertyHolds(passwords.second) === '0' && encryptedPropertyRows() === '1', 'The MCEDT password is stored exactly as typed or without its encryption marker');

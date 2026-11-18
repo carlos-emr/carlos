@@ -75,7 +75,7 @@ public class DelegateFactory {
         config.setKeystoreUser(props.getProperty("mcedt.keystore.user"));
         config.setKeystorePassword(props.getProperty("mcedt.keystore.pass"));
         config.setUserNameTokenUser(props.getProperty("mcedt.service.user"));
-        config.setUserNameTokenPassword(SpringUtils.getBean(McedtCredentials.class)
+        config.setUserNameTokenPassword(SpringUtils.getBean(McedtCredentialService.class)
                 .getPassword(props.getProperty("mcedt.service.pass")));
         config.setServiceUrl(props.getProperty("mcedt.service.url"));
         config.setConformanceKey(props.getProperty("mcedt.service.conformanceKey"));

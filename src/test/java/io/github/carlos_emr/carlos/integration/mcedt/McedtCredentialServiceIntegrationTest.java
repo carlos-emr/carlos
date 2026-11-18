@@ -1,0 +1,207 @@
+/*
+ * Copyright (c) 2026 CARLOS Contributors.
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+package io.github.carlos_emr.carlos.integration.mcedt;
+
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
+import io.github.carlos_emr.carlos.utility.EncryptionUtils;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
+import java.lang.reflect.Field;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.crypto.spec.SecretKeySpec;
+import javax.sql.DataSource;
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.context.annotation.*;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.orm.jpa.*;
+import org.springframework.orm.jpa.persistenceunit.PersistenceManagedTypes;
+import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.transaction.support.TransactionTemplate;
+import static org.junit.jupiter.api.Assertions.*;
+
+/** Real committed transactions in a unique, owned H2 or explicitly disposable MariaDB database. */
+@Tag("integration")
+@Isolated("Temporary application encryption key")
+class McedtCredentialServiceIntegrationTest {
+    static class OwnedDataSource extends DriverManagerDataSource implements AutoCloseable {
+        final boolean mariaDb;
+        private final String database="mcedt_credential_test_"+UUID.randomUUID().toString().replace("-","");
+        private final String adminUrl;
+        private boolean created;
+        final java.util.Queue<String> jdbcFailures=new ConcurrentLinkedQueue<>();
+        private Object observed(Object target,Class<?> contract) {
+            return Proxy.newProxyInstance(contract.getClassLoader(),new Class<?>[]{contract},(proxy,method,args)->{
+                try {
+                    Object result=method.invoke(target,args);
+                    if(result instanceof java.sql.PreparedStatement)return observed(result,java.sql.PreparedStatement.class);
+                    return result;
+                } catch(InvocationTargetException failure) {
+                    if(failure.getCause() instanceof SQLException sql)jdbcFailures.add(sql.getClass().getSimpleName()+":"+sql.getSQLState()+":"+sql.getErrorCode());
+                    throw failure.getCause();
+                }
+            });
+        }
+        @Override public Connection getConnection() throws SQLException {return (Connection)observed(super.getConnection(),Connection.class);}
+        OwnedDataSource() throws SQLException {
+            adminUrl=System.getenv("CARLOS_TEST_MCEDT_MARIADB_URL");mariaDb=adminUrl!=null;
+            if(mariaDb) {
+                if(!"jdbc:mariadb://127.0.0.1:13360/".equals(adminUrl)
+                        || !"true".equals(System.getenv("CARLOS_TEST_MCEDT_MARIADB_DISPOSABLE")))throw new IllegalStateException("MCEDT physical tests require their explicit disposable loopback server");
+                try(Connection connection=DriverManager.getConnection(adminUrl,"root","");var statement=connection.createStatement()) {
+                    statement.execute("CREATE DATABASE `"+database+"` CHARACTER SET utf8mb4 COLLATE utf8mb4_bin");created=true;
+                }catch(SQLException failure){if(created)close();throw failure;}
+                setUrl(adminUrl+database);setUsername("root");setPassword("");
+            } else {setUrl("jdbc:h2:mem:"+database+";MODE=MySQL;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=15000;NON_KEYWORDS=VALUE");setUsername("sa");setPassword("");}
+        }
+        @Override public void close() throws SQLException {
+            if(mariaDb) {if(created)try(Connection connection=DriverManager.getConnection(adminUrl,"root","");var statement=connection.createStatement()){statement.execute("DROP DATABASE `"+database+"`");created=false;}}
+            else try(Connection connection=getConnection();var statement=connection.createStatement()){statement.execute("SHUTDOWN");}
+        }
+    }
+    @Configuration
+    @EnableTransactionManagement
+    static class Database {
+        @Bean(destroyMethod="close") OwnedDataSource dataSource() throws SQLException {return new OwnedDataSource();}
+        @Bean LocalContainerEntityManagerFactoryBean entityManagerFactory(DataSource source) {
+            var factory=new LocalContainerEntityManagerFactoryBean();factory.setDataSource(source);
+            factory.setPersistenceUnitName("testPersistenceUnit");factory.setManagedTypes(PersistenceManagedTypes.of(UserProperty.class.getName()));
+            factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());factory.setJpaPropertyMap(Map.of("hibernate.hbm2ddl.auto","create-drop","hibernate.hbm2ddl.halt_on_error","true","hibernate.show_sql","false"));return factory;
+        }
+        @Bean PlatformTransactionManager transactionManager(EntityManagerFactory factory) {return new JpaTransactionManager(factory);}
+        @Bean McedtCredentialService credentials() {return new McedtCredentialService();}
+    }
+    private AnnotationConfigApplicationContext context;
+    private McedtCredentialService credentials;
+    private EntityManager em;
+    private TransactionTemplate tx;
+    private DataSource source;
+    private Field keyField;
+    private Object originalKey;
+
+    @BeforeEach
+    void prepare() throws Exception {
+        keyField=EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");keyField.setAccessible(true);originalKey=keyField.get(null);keyField.set(null,new SecretKeySpec(new byte[32],"AES"));
+        context=new AnnotationConfigApplicationContext(Database.class);credentials=context.getBean(McedtCredentialService.class);
+        em=SharedEntityManagerCreator.createSharedEntityManager(context.getBean(EntityManagerFactory.class));tx=new TransactionTemplate(context.getBean(PlatformTransactionManager.class));source=context.getBean(DataSource.class);
+        tx.executeWithoutResult(status->{
+            em.createNativeQuery("CREATE TABLE mcedt_credential (id TINYINT PRIMARY KEY CHECK(id=1), encrypted_password LONGTEXT)").executeUpdate();
+            em.createNativeQuery("INSERT INTO mcedt_credential VALUES(1,NULL)").executeUpdate();
+            em.createNativeQuery("CREATE INDEX idx_property_name ON property(name)").executeUpdate();
+        });
+    }
+    @AfterEach
+    void cleanup() throws Exception {
+        try {
+            if(context!=null)context.close();
+            // Closing the context closes only its UUID datasource, after its JPA factory.
+        } finally {if(keyField!=null)keyField.set(null,originalKey);}
+    }
+    private int legacy(String value) {return tx.execute(status->{var p=new UserProperty();p.setName(UserProperty.MCEDT_ACCOUNT_PASSWORD);p.setValue(value);em.persist(p);em.flush();return p.getId();});}
+    private long legacyCount() {return tx.execute(status->em.createQuery("SELECT COUNT(p) FROM UserProperty p WHERE p.name=:name",Long.class).setParameter("name",UserProperty.MCEDT_ACCOUNT_PASSWORD).getSingleResult());}
+    private String stored() {return tx.execute(status->(String)em.createNativeQuery("SELECT encrypted_password FROM mcedt_credential WHERE id=1",String.class).getSingleResult());}
+    private void cipher(String value) {tx.executeWithoutResult(status->em.createNativeQuery("UPDATE mcedt_credential SET encrypted_password=:value WHERE id=1").setParameter("value",value).executeUpdate());}
+    private void assertStaticFailure(Runnable work) {var error=assertThrows(IllegalStateException.class,work::run);assertNull(error.getCause());assertFalse(error.getMessage().contains("FAKE"));}
+
+    @Test
+    void shouldCommitEncryptedCredential_whenCreatedAndReplaced() throws Exception {
+        credentials.savePassword("FAKE-first");String first=stored();assertNotEquals("FAKE-first",first);assertEquals("FAKE-first",EncryptionUtils.decrypt(first));
+        credentials.savePassword("FAKE-second");assertNotEquals(first,stored());assertEquals("FAKE-second",credentials.getPassword("fallback"));assertEquals(0,legacyCount());
+    }
+    @ParameterizedTest @ValueSource(strings={"FAKE-legacy","{ENC}literal-legacy","{ENC}AAAA"})
+    void shouldMigrateOpaqueLegacyPassword_withoutInterpretingItsPrefix(String password) throws Exception {legacy(password);legacy("FAKE-duplicate");assertEquals(password,credentials.getPassword("fallback"));assertEquals(password,EncryptionUtils.decrypt(stored()));assertEquals(0,legacyCount());}
+    @Test
+    void shouldRemoveEveryLegacyDuplicate_whenSavingReplacement() throws Exception {legacy("FAKE-first");legacy("FAKE-second");credentials.savePassword("FAKE-replacement");assertEquals(0,legacyCount());assertEquals("FAKE-replacement",EncryptionUtils.decrypt(stored()));}
+    @ParameterizedTest @NullAndEmptySource @ValueSource(strings={"  "})
+    void shouldKeepConfiguredFallback_withBlankLegacyPassword(String value) {legacy(value);assertEquals("FAKE-fallback",credentials.getPassword("FAKE-fallback"));assertEquals(0,legacyCount());}
+    @ParameterizedTest @NullAndEmptySource @ValueSource(strings={"  "})
+    void shouldKeepConfiguredFallback_withBlankReplacement(String value) {legacy("FAKE-old");credentials.savePassword(value);assertEquals("FAKE-fallback",credentials.getPassword("FAKE-fallback"));assertEquals(0,legacyCount());}
+    @Test
+    void shouldKeepConfiguredFallback_whenNoLegacyPasswordExists() {assertEquals("FAKE-fallback",credentials.getPassword("FAKE-fallback"));assertNull(stored());}
+    @Test
+    void shouldKeepExistingCiphertext_whenAlreadyMigrated() throws Exception {String encrypted=EncryptionUtils.encrypt("FAKE-current");cipher(encrypted);legacy("FAKE-obsolete");assertEquals("FAKE-current",credentials.getPassword("fallback"));assertEquals(encrypted,stored());assertEquals(0,legacyCount());}
+    @ParameterizedTest @ValueSource(strings={"{ENC}invalid!","FAKE-wrong-format"})
+    void shouldFailClosed_withoutTreatingCorruptCiphertextAsPlaintext(String encrypted) {cipher(encrypted);legacy("FAKE-survive");assertStaticFailure(()->credentials.getPassword("fallback"));assertEquals(encrypted,stored());assertEquals(1,legacyCount());}
+    @Test
+    void shouldPreserveLegacyRows_whenEncryptionKeyIsUnavailable() throws Exception {legacy("FAKE-legacy");legacy("FAKE-duplicate");keyField.set(null,null);assertStaticFailure(()->credentials.savePassword("FAKE-replacement"));assertStaticFailure(()->credentials.getPassword("fallback"));assertNull(stored());assertEquals(2,legacyCount());}
+    @Test
+    void shouldRollBackEncryptedWrite_whenLegacyRemovalFails() {int id=legacy("FAKE-parent");tx.executeWithoutResult(status->{em.createNativeQuery("CREATE TABLE owned_reference (property_id INT REFERENCES property(id))").executeUpdate();em.createNativeQuery("INSERT INTO owned_reference VALUES(:id)").setParameter("id",id).executeUpdate();});assertStaticFailure(()->credentials.getPassword("fallback"));assertNull(stored());assertEquals(1,legacyCount());}
+    @ParameterizedTest @ValueSource(strings={"x","😀"})
+    void shouldRetainFullLegacyCapacity_withExpandedCiphertext(String character) throws Exception {String password=character.repeat(4000);credentials.savePassword(password);assertTrue(stored().length()>4000);assertEquals(password,credentials.getPassword("fallback"));}
+    @Test
+    void shouldRejectOverlongInput_beforeMutatingStorage() {legacy("FAKE-before");assertStaticFailure(()->credentials.savePassword("x".repeat(4001)));assertNull(stored());assertEquals(1,legacyCount());}
+    @Test
+    void shouldFailClosed_whenSingletonLockRecordIsMissing() {tx.executeWithoutResult(status->em.createNativeQuery("DELETE FROM mcedt_credential").executeUpdate());assertStaticFailure(()->credentials.savePassword("FAKE-value"));assertStaticFailure(()->credentials.getPassword("fallback"));}
+
+    private void awaitDatabaseBlock(int blocker,Future<?> waiting,String table) throws Exception {
+        long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(10);
+        String sql=((OwnedDataSource)source).mariaDb
+                ? "SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE ID NOT IN(CONNECTION_ID(),?) AND DB=DATABASE() AND COMMAND='Query' AND LOWER(INFO) LIKE CONCAT('%',?,'%') AND LOWER(INFO) LIKE '%for update%'"
+                : "SELECT COUNT(*) FROM INFORMATION_SCHEMA.SESSIONS WHERE BLOCKER_ID=?";
+        try(Connection connection=source.getConnection();var query=connection.prepareStatement(sql)) {
+            query.setInt(1,blocker);
+            if(((OwnedDataSource)source).mariaDb)query.setString(2,table);
+            while(System.nanoTime()<deadline) {
+                try(var rows=query.executeQuery()) {
+                    rows.next();
+                    if(rows.getInt(1)>0) {
+                        // The contender has reached the actual database lock operation.
+                        // A scheduling delay before its call cannot satisfy this signal.
+                        assertThrows(TimeoutException.class,()->waiting.get(200,TimeUnit.MILLISECONDS));
+                        return;
+                    }
+                }
+                assertFalse(waiting.isDone(),"contender completed before the actual database lock was observed");TimeUnit.MILLISECONDS.sleep(10);
+            }
+        }
+        StringBuilder diagnostic=new StringBuilder("No database session was observed blocked by writer ").append(blocker);
+        if(((OwnedDataSource)source).mariaDb)try(Connection connection=source.getConnection();var query=connection.createStatement()) {
+            // Metadata only: never record SQL text or credential values.
+            for(String probe:new String[]{"SELECT trx_id,trx_mysql_thread_id,trx_state FROM information_schema.INNODB_TRX","SELECT requesting_trx_id,blocking_trx_id FROM information_schema.INNODB_LOCK_WAITS","SELECT ID,COMMAND,STATE FROM information_schema.PROCESSLIST WHERE DB=DATABASE()"}) {
+                try(var rows=query.executeQuery(probe)){diagnostic.append(" [");while(rows.next()){for(int i=1;i<=rows.getMetaData().getColumnCount();i++)diagnostic.append(rows.getString(i)).append(':');diagnostic.append(';');}diagnostic.append(']');}
+            }
+        }
+        fail(diagnostic.toString());
+    }
+    private void hold(CountDownLatch locked,CountDownLatch release,AtomicInteger session) {
+        session.set(((Number)em.createNativeQuery(((OwnedDataSource)source).mariaDb?"SELECT CONNECTION_ID()":"SELECT SESSION_ID()").getSingleResult()).intValue());locked.countDown();
+        try {assertTrue(release.await(15,TimeUnit.SECONDS));}catch(InterruptedException error){Thread.currentThread().interrupt();throw new IllegalStateException(error);}
+    }
+    private <T> T completed(Future<T> operation) throws Exception {
+        try {return operation.get(15,TimeUnit.SECONDS);}
+        catch(ExecutionException failure) {throw new AssertionError("Credential operation failed; JDBC classes/states/codes only: "+((OwnedDataSource)source).jdbcFailures,failure);}
+    }
+    @Test
+    void shouldSerializeFirstSaves_usingTheSeededDatabaseLock() throws Exception {
+        var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();
+        try(var pool=Executors.newFixedThreadPool(2)) {
+            var first=pool.submit(()->tx.executeWithoutResult(status->{credentials.savePassword("FAKE-first");hold(locked,release,session);}));
+            try {assertTrue(locked.await(15,TimeUnit.SECONDS));var second=pool.submit(()->credentials.savePassword("FAKE-second"));awaitDatabaseBlock(session.get(),second,"mcedt_credential");release.countDown();first.get(15,TimeUnit.SECONDS);second.get(15,TimeUnit.SECONDS);assertEquals("FAKE-second",credentials.getPassword("fallback"));assertEquals(0,legacyCount());assertEquals(1L,tx.execute(status->((Number)em.createNativeQuery("SELECT COUNT(*) FROM mcedt_credential").getSingleResult()).longValue()).longValue());}
+            finally {release.countDown();}
+        }
+    }
+    @Test
+    void shouldWaitForLegacyWriter_withoutRestoringAStalePassword() throws Exception {
+        int id=legacy("FAKE-old");var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();
+        try(var pool=Executors.newFixedThreadPool(2)) {
+            var writer=pool.submit(()->tx.executeWithoutResult(status->{var row=em.find(UserProperty.class,id,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);row.setValue("FAKE-new");em.flush();hold(locked,release,session);}));
+            try {assertTrue(locked.await(15,TimeUnit.SECONDS));var reader=pool.submit(()->credentials.getPassword("fallback"));awaitDatabaseBlock(session.get(),reader,"property");release.countDown();writer.get(15,TimeUnit.SECONDS);assertEquals("FAKE-new",completed(reader));assertEquals("FAKE-new",EncryptionUtils.decrypt(stored()));assertEquals(0,legacyCount());}
+            finally {release.countDown();}
+        }
+    }
+}

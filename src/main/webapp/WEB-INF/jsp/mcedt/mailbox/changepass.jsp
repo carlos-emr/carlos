@@ -63,6 +63,8 @@
                 alert('EDT Password has been changed successfully.');
                 return gobacktoedthome();
                 //return true;
+            } else if (isSucess === false) {
+                alert('Unable to change the EDT password. Please try again or contact your administrator.');
             }
 
         }
