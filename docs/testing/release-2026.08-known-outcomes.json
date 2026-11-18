@@ -84,12 +84,6 @@
       "finding": 329,
       "step": "requested reminder has an implemented and visible persisted outcome",
       "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "chart-informed-consent",
-      "finding": 332,
-      "step": "cancelled informed-consent confirmation leaves the banner and stored consent unchanged",
-      "disposition": "required installed retake; blocks release readiness"
     }
   ],
   "retiredNodeTodos": [
@@ -209,6 +203,12 @@
       "finding": 331,
       "step": "Issue Editor adds a coded issue and lists it",
       "disposition": "Fixed for #6078 in release PR6258, adapted from PR6116. The isolated admin-issue-editor-save active regression verifies Save/Cancel tokens and token-less POST refusal. Strict exact-JSP component PASS on Ubuntu26.04 (11.828s), zero residue and byte-exact JSP/property restoration. New combined DEB and integrated release retake remain required."
+    },
+    {
+      "check": "chart-informed-consent",
+      "finding": 332,
+      "step": "cancelled informed-consent confirmation leaves the banner and stored consent unchanged",
+      "disposition": "Fixed for #5886 in release PR6257. Active native regression: Cancel stores nothing; confirming records the originating patient and survives reopening. Strict exact-JSP component PASS on Ubuntu26.04 (47.226s), zero residue and byte-exact JSP/property restoration. New combined DEB and integrated release retake remain required."
     },
     {
       "check": "login-mfa-no-pin",

@@ -18270,11 +18270,7 @@
       ],
       "profile": "private-consent",
       "fixtures": "An unused CONSENT_PROGRAM_ID is reserved for a marker-owned program, one throwaway doctor with exactly that default program and membership, and an owned patient. Cancelling changes nothing; confirming persists once and removes the banner. Cleanup removes the program, defaults, memberships, account and chart support rows.",
-      "expectedFailure": {
-        "finding": 332,
-        "step": "cancelled informed-consent confirmation leaves the banner and stored consent unchanged"
-      },
-      "notes": "Task 46: owned program/clinician, Cancel/OK, exact patient extension and reopened state. Finding 332: current release reads the static checked attribute, so the native click never opens its confirmation; later confirmed-save assertions remain behind that failure."
+      "notes": "Task 46: owned program/clinician, Cancel/OK, exact patient extension and reopened state. Native clicks use the live checkbox state; cancellation clears the selection and a subsequent confirmed click stores consent for the originating patient."
     },
     {
       "name": "document-clinical-followup",
