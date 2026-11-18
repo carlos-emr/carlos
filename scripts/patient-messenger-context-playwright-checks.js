@@ -19,6 +19,13 @@ const {
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 
+async function waitForPatientInbox(page, timeout = 45000) {
+  await page.waitForLoadState('domcontentloaded');
+  // A newly opened window can finish its initial about:blank document before
+  // the inbox destination arrives. Its own heading is the readiness boundary.
+  await page.locator('h2').waitFor({state: 'visible', timeout});
+}
+
 async function main() {
   const config = readConfig();
   const demos = (process.env.MESSENGER_CONTEXT_DEMOGRAPHICS || '1,2').split(',');
@@ -59,7 +66,7 @@ async function main() {
         chart.locator('#leftNavBar a,#rightNavBar a').filter({ hasText: /^\s*Messenger\s*$/ }).first().click(),
       ]);
       wireStrictPage(inbox, `patient-inbox-${index}`, recorder);
-      await inbox.waitForLoadState('domcontentloaded');
+      await waitForPatientInbox(inbox);
       async function assertPatientContext() {
         await assertNotErrorPage(inbox, 'patient Messenger inbox');
         const heading = await inbox.locator('h2').innerText();
@@ -79,7 +86,7 @@ async function main() {
               inbox.locator(`a[href*="orderby=${field}"], a[href*="orderby=!${field}"]`).first().click(),
             ]);
             assert(response.status() === 200, `patient message sort returned HTTP ${response.status()}`);
-            await inbox.waitForLoadState('domcontentloaded');
+            await waitForPatientInbox(inbox);
             await assertPatientContext();
           } catch (error) { throw markFailedStep(error, label); }
         }
@@ -102,4 +109,4 @@ async function main() {
   }
 }
 if (require.main === module) runCheck({ name: 'patient-messenger-context', run: main });
-module.exports = { main };
+module.exports = { main, waitForPatientInbox };

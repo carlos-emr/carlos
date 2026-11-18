@@ -53,6 +53,6 @@ final class TotpGenerator {
         byte[] hash = mac.doFinal(ByteBuffer.allocate(Long.BYTES).putLong(counter).array());
         int offset = hash[hash.length - 1] & 0x0F;
         int truncated = ByteBuffer.wrap(hash, offset, Integer.BYTES).getInt() & 0x7FFFFFFF;
-        return String.format(Locale.getDefault(), "%06d", truncated % 1_000_000);
+        return String.format(Locale.ROOT, "%06d", truncated % 1_000_000);
     }
 }
