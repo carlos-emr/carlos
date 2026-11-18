@@ -3323,7 +3323,11 @@ function updateCPPNote() {
     var closeWithoutSaveMsg;
     function closeEnc(e) {
         Event.stop(e);
-        if (!lostNoteLock && (origCaseNote != $F(caseNote) || origObservationDate != $("observationDate").value || noteIssuesChanged)) {
+        var editor = $(caseNote);
+        var observationDate = $("observationDate");
+        // Losing write authority never makes unsaved note changes safe to discard.
+        if ((editor && origCaseNote != editor.value)
+                || (observationDate && origObservationDate != observationDate.value) || noteIssuesChanged) {
             if (confirm(closeWithoutSaveMsg)) {
                 clearAutoSaveTimer();
                 window.close();

@@ -314,3 +314,45 @@ test('Sign & Save submits as before when the heartbeat gives no answer within th
   assert.equal(h.submits().length, 1);
   assert.deepEqual(h.alerts, []);
 });
+
+
+for (const changed of ['text', 'date', 'issues']) {
+  for (const discard of [false, true]) {
+    test(`Close after lock loss prompts before discarding ${changed} changes (${discard ? 'discard' : 'cancel'})`, () => {
+      const h = harness(); let prompts = 0; let closed = 0;
+      vm.runInContext(slice('    var closeWithoutSaveMsg;', '    // Bind each newly rendered editor'), h.context);
+      Object.assign(h.context, {lostNoteLock: true, origCaseNote: changed === 'text' ? 'previous text' : TYPED,
+        origObservationDate: changed === 'date' ? 'previous date' : 'today', noteIssuesChanged: changed === 'issues',
+        closeWithoutSaveMsg: 'Discard unsaved changes?', Event: {stop() {}},
+        confirm: message => {prompts++; assert.equal(message, 'Discard unsaved changes?'); return discard;}});
+      h.fields.observationDate = {value: 'today'};
+      h.context.window.close = () => {closed++;};
+      h.context.closeEnc({});
+      assert.equal(prompts, 1);
+      assert.equal(closed, discard ? 1 : 0);
+      assert.equal(h.editor.value, TYPED);
+      assert.equal(h.context.noteIssuesChanged, changed === 'issues');
+      assert.equal(h.context.lostNoteLock, true);
+      assert.equal(h.effects.includes('resume autosave'), false);
+      assert.equal(h.effects.includes('pause autosave'), discard);
+      assert.equal(h.requests.length, 0, 'Close must never try to write against a lost lock');
+    });
+  }
+}
+
+for (const editorPresent of [true, false]) {
+  test(`Close after lock loss accepts a clean chart ${editorPresent ? 'with' : 'without'} an editor`, () => {
+    const h = harness(); let prompts = 0; let closed = 0;
+    vm.runInContext(slice('    var closeWithoutSaveMsg;', '    // Bind each newly rendered editor'), h.context);
+    Object.assign(h.context, {lostNoteLock: true, origCaseNote: TYPED,
+      origObservationDate: 'today', noteIssuesChanged: false, Event: {stop() {}},
+      confirm: () => {prompts++; return true;}});
+    h.fields.observationDate = {value: 'today'};
+    if (!editorPresent) delete h.fields.editor1;
+    h.context.window.close = () => {closed++;};
+    h.context.closeEnc({});
+    assert.equal(prompts, 0); assert.equal(closed, 1);
+    assert.equal(h.context.lostNoteLock, true);
+    assert.equal(h.requests.length, 0);
+  });
+}
