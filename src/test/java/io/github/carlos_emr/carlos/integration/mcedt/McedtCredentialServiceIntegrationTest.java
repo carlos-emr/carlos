@@ -335,4 +335,37 @@ class McedtCredentialServiceIntegrationTest {
         }
     }
 
+    @Test
+    void shouldAllowPreferenceInsert_whileMigratedCredentialReadRemainsOpen() throws Exception {
+        credentials.savePassword("FAKE-current");
+        assertEquals(0, legacyCount());
+        var read = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        var readerSession = new AtomicInteger();
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var reader = pool.submit(() -> tx.executeWithoutResult(status -> {
+                assertEquals("FAKE-current", credentials.getPassword("fallback"));
+                hold(read, release, readerSession);
+            }));
+            try {
+                assertTrue(read.await(15, TimeUnit.SECONDS));
+                var insert = pool.submit(() -> tx.execute(status -> {
+                    var preference = new UserProperty();
+                    preference.setName("provider.language");
+                    preference.setValue("FAKE-language");
+                    em.persist(preference);
+                    em.flush();
+                    return preference.getId();
+                }));
+                int inserted = insert.get(5, TimeUnit.SECONDS);
+                assertEquals(1L, release.getCount());
+                release.countDown();
+                completed(reader);
+                assertEquals("FAKE-language", tx.execute(status -> em.find(UserProperty.class, inserted).getValue()));
+            } finally {
+                release.countDown();
+            }
+        }
+    }
+
 }
