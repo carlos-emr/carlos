@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtSecurity;
@@ -74,13 +76,24 @@ public class User2Action extends ActionSupport {
     }
 
     public String changePassword() throws Exception {
+        var session = request.getSession();
+        var login = LoggedInInfo.getLoggedInInfoFromSession(session);
+        String actor = login == null ? null : login.getLoggedInProviderNo();
+        if (actor == null) {
+            throw new SecurityException("MCEDT password change requires an authenticated provider");
+        }
+        String outcome;
         try {
-
-            credentials.savePassword(this.getPassword());
-            request.getSession().setAttribute("isPassChange", "true"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
-        } catch (Exception e) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn("MCEDT password change failed; credential storage was not updated");
-            request.getSession().setAttribute("isPassChange", "false"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
+            credentials.savePassword(getPassword(), actor);
+            outcome = "true";
+        } catch (RuntimeException failure) {
+            MiscUtils.getLogger().warn("MCEDT password change failed; credential storage was not updated");
+            outcome = "false";
+        }
+        try {
+            session.setAttribute("isPassChange", outcome); // nosemgrep: tainted-session-from-http-request -- storage outcome selects a fixed literal
+        } catch (IllegalStateException invalidated) {
+            // A concurrent logout removes this request's feedback destination.
         }
 
         return SUCCESS;

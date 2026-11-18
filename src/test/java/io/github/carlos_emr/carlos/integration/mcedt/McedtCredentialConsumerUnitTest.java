@@ -9,19 +9,25 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilder;
 import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilderConfig;
 import io.github.carlos_emr.carlos.integration.mcedt.mailbox.User2Action;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import ca.ontario.health.edt.EDTDelegate;
 import io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -32,6 +38,7 @@ import static org.mockito.Mockito.*;
 @Isolated("Static MCEDT delegate cache")
 @Execution(ExecutionMode.SAME_THREAD)
 class McedtCredentialConsumerUnitTest extends CarlosUnitTestBase {
+    private static final String AUDIT_ACTOR = "611";
     private McedtCredentialService credentials;
     private Map<String, EDTDelegate> delegates;
     private Map<String, byte[]> fingerprints;
@@ -58,20 +65,62 @@ class McedtCredentialConsumerUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    private static MockHttpServletRequest authenticatedRequest() {
+        var request = new MockHttpServletRequest();
+        var actor = mock(LoggedInInfo.class);
+        when(actor.getLoggedInProviderNo()).thenReturn(AUDIT_ACTOR);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), actor);
+        return request;
+    }
+
     @Test
     void shouldConfirmPasswordChange_afterCredentialCommit() throws Exception {
-        var request=new MockHttpServletRequest();
+        var request=authenticatedRequest();
         try(MockedStatic<ServletActionContext> servlet=mockStatic(ServletActionContext.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
-            var action=new User2Action();action.setPassword("FAKE-input");assertEquals("success",action.changePassword());verify(credentials).savePassword("FAKE-input");assertEquals("true",request.getSession().getAttribute("isPassChange"));
+            var action=new User2Action();action.setPassword("FAKE-input");assertEquals("success",action.changePassword());verify(credentials).savePassword("FAKE-input", AUDIT_ACTOR);assertEquals("true",request.getSession().getAttribute("isPassChange"));
         }
     }
     @Test
     void shouldExposeFailureState_withoutEchoingCredential() throws Exception {
-        var request=new MockHttpServletRequest();doThrow(new IllegalStateException("FAKE-sensitive-cause")).when(credentials).savePassword(anyString());
-        try(MockedStatic<ServletActionContext> servlet=mockStatic(ServletActionContext.class)) {
+        var request=authenticatedRequest();
+        doThrow(new IllegalStateException("FAKE-sensitive-cause")).when(credentials).savePassword(anyString(), eq(AUDIT_ACTOR));
+        try(MockedStatic<ServletActionContext> servlet=mockStatic(ServletActionContext.class);
+                var log=LogCapture.forLogger(User2Action.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
-            var action=new User2Action();action.setPassword("FAKE-input");assertEquals("success",action.changePassword());assertEquals("false",request.getSession().getAttribute("isPassChange"));assertFalse(request.getSession().getAttribute("isPassChange").toString().contains("FAKE"));
+            var action=new User2Action();action.setPassword("FAKE-input");assertEquals("success",action.changePassword());assertEquals("false",request.getSession().getAttribute("isPassChange"));
+            assertEquals(List.of("MCEDT password change failed; credential storage was not updated"), log.messages());
+            assertNull(log.events().getFirst().getThrown());
+        }
+    }
+
+    @Test
+    void shouldRetainTheSuccessOutcome_whenLogoutInvalidatesFeedbackAfterCommit() throws Exception {
+        var request = authenticatedRequest();
+        var session = request.getSession(false);
+        doAnswer(call -> {
+            session.invalidate();
+            return null;
+        }).when(credentials).savePassword("FAKE-input", AUDIT_ACTOR);
+        try (var servlet = mockStatic(ServletActionContext.class);
+                var log = LogCapture.forLogger(User2Action.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            var action = new User2Action();
+            action.setPassword("FAKE-input");
+            assertEquals("success", action.changePassword());
+            verify(credentials).savePassword("FAKE-input", AUDIT_ACTOR);
+            assertTrue(log.events().isEmpty());
+        }
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void shouldRefuseCredentialChanges_whenTheSessionHasNoAuditActor(boolean hasLogin) {
+        var request = new MockHttpServletRequest();
+        if (hasLogin) LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            assertThrows(SecurityException.class, new User2Action()::changePassword);
+            verifyNoInteractions(credentials);
         }
     }
     @Test
@@ -116,6 +165,40 @@ class McedtCredentialConsumerUnitTest extends CarlosUnitTestBase {
             var first=DelegateFactory.getEDTDelegateInstance();DelegateFactory.refreshDelegates();
             assertNotSame(first,DelegateFactory.getEDTDelegateInstance());
             assertEquals(2,builders.constructed().size());
+        }
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void shouldRejectAnOlderPasswordObservation_whenANewerDelegateWasPublished(boolean refresh) {
+        String service = "FAKE-local-service";
+        var reads = new AtomicInteger();
+        var newer = new AtomicReference<EDTDelegate>();
+        var builtPasswords = new ArrayList<String>();
+        when(credentials.getPassword(any())).thenAnswer(call -> {
+            if (reads.getAndIncrement() == 0) {
+                newer.set(DelegateFactory.getEDTDelegateInstance(service));
+                return "FAKE-older";
+            }
+            return "FAKE-newer";
+        });
+        try (var properties = mockStatic(CarlosProperties.class);
+                var actions = mockStatic(ActionUtils.class);
+                var builders = mockConstruction(EdtClientBuilder.class, (builder, construction) -> {
+                    builtPasswords.add(((EdtClientBuilderConfig) construction.arguments().getFirst()).getUserNameTokenPassword());
+                    when(builder.build(EDTDelegate.class)).thenReturn(mock(EDTDelegate.class));
+                })) {
+            properties.when(CarlosProperties::getInstance).thenReturn(mock(CarlosProperties.class));
+            actions.when(ActionUtils::getServiceIds).thenReturn(List.of(service));
+            if (refresh) {
+                DelegateFactory.refreshDelegates();
+                assertNotSame(newer.get(), DelegateFactory.getEDTDelegateInstance(service));
+                assertEquals(List.of("FAKE-newer", "FAKE-newer"), builtPasswords);
+            } else {
+                EDTDelegate observed = DelegateFactory.getEDTDelegateInstance(service);
+                assertSame(newer.get(), observed);
+                assertEquals(List.of("FAKE-newer"), builtPasswords);
+            }
+            assertEquals(refresh ? 4 : 3, reads.get());
         }
     }
 

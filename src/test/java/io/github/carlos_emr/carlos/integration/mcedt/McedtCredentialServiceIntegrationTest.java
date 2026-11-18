@@ -37,7 +37,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.context.annotation.*;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.orm.jpa.*;
 import org.springframework.orm.jpa.persistenceunit.PersistenceManagedTypes;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
@@ -52,6 +54,7 @@ import static org.mockito.Mockito.*;
 @Isolated("Temporary application encryption key and delegate cache")
 @Execution(ExecutionMode.SAME_THREAD)
 class McedtCredentialServiceIntegrationTest {
+    private static final String AUDIT_ACTOR = "611";
     static class OwnedDataSource extends DriverManagerDataSource implements AutoCloseable {
         final boolean mariaDb;
         private final String database="mcedt_credential_test_"+UUID.randomUUID().toString().replace("-","");
@@ -112,9 +115,19 @@ class McedtCredentialServiceIntegrationTest {
         keyField=EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");keyField.setAccessible(true);originalKey=keyField.get(null);keyField.set(null,new SecretKeySpec(new byte[32],"AES"));
         context=new AnnotationConfigApplicationContext(Database.class);credentials=context.getBean(McedtCredentialService.class);
         em=SharedEntityManagerCreator.createSharedEntityManager(context.getBean(EntityManagerFactory.class));tx=new TransactionTemplate(context.getBean(PlatformTransactionManager.class));source=context.getBean(DataSource.class);
+        if (((OwnedDataSource) source).mariaDb) {
+            try (Connection connection = source.getConnection()) {
+                ScriptUtils.executeSqlScript(connection, new FileSystemResource(
+                        "database/mysql/migration/common/V1.0.59.51__mcedt_encrypted_credential_storage.sql"));
+            }
+            return;
+        }
         tx.executeWithoutResult(status->{
-            em.createNativeQuery("CREATE TABLE mcedt_credential (id TINYINT PRIMARY KEY CHECK(id=1), encrypted_password LONGTEXT)").executeUpdate();
-            em.createNativeQuery("INSERT INTO mcedt_credential VALUES(1,NULL)").executeUpdate();
+            em.createNativeQuery("CREATE TABLE mcedt_credential (id TINYINT PRIMARY KEY CHECK(id=1), encrypted_password LONGTEXT,"
+                    + " lastUpdateUser VARCHAR(100) NOT NULL DEFAULT 'system',"
+                    + " lastUpdateDate TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)").executeUpdate();
+            em.createNativeQuery("INSERT INTO mcedt_credential(id, encrypted_password, lastUpdateUser) VALUES(1,NULL,'migration')")
+                    .executeUpdate();
             em.createNativeQuery("CREATE INDEX idx_property_name ON property(name)").executeUpdate();
         });
     }
@@ -128,22 +141,35 @@ class McedtCredentialServiceIntegrationTest {
     private int legacy(String value) {return tx.execute(status->{var p=new UserProperty();p.setName(UserProperty.MCEDT_ACCOUNT_PASSWORD);p.setValue(value);em.persist(p);em.flush();return p.getId();});}
     private long legacyCount() {return tx.execute(status->em.createQuery("SELECT COUNT(p) FROM UserProperty p WHERE p.name=:name",Long.class).setParameter("name",UserProperty.MCEDT_ACCOUNT_PASSWORD).getSingleResult());}
     private String stored() {return tx.execute(status->(String)em.createNativeQuery("SELECT encrypted_password FROM mcedt_credential WHERE id=1",String.class).getSingleResult());}
+    private Object[] audit() {
+        return tx.execute(status -> (Object[]) em.createNativeQuery(
+                "SELECT lastUpdateUser,lastUpdateDate FROM mcedt_credential WHERE id=1").getSingleResult());
+    }
     private void cipher(String value) {tx.executeWithoutResult(status->em.createNativeQuery("UPDATE mcedt_credential SET encrypted_password=:value WHERE id=1").setParameter("value",value).executeUpdate());}
     private void assertStaticFailure(Runnable work) {var error=assertThrows(IllegalStateException.class,work::run);assertNull(error.getCause());assertFalse(error.getMessage().contains("FAKE"));}
 
     @Test
     void shouldCommitEncryptedCredential_whenCreatedAndReplaced() throws Exception {
-        credentials.savePassword("FAKE-first");String first=stored();assertNotEquals("FAKE-first",first);assertEquals("FAKE-first",EncryptionUtils.decrypt(first));
-        credentials.savePassword("FAKE-second");assertNotEquals(first,stored());assertEquals("FAKE-second",credentials.getPassword("fallback"));assertEquals(0,legacyCount());
+        var seed = audit();
+        assertEquals("migration", seed[0]);
+        assertNotNull(seed[1]);
+        tx.executeWithoutResult(status -> em.createNativeQuery(
+                "UPDATE mcedt_credential SET lastUpdateDate='2000-01-01 00:00:00' WHERE id=1").executeUpdate());
+        var priorTime = audit()[1];
+        credentials.savePassword("FAKE-first", AUDIT_ACTOR);String first=stored();assertNotEquals("FAKE-first",first);assertEquals("FAKE-first",EncryptionUtils.decrypt(first));
+        credentials.savePassword("FAKE-second", AUDIT_ACTOR);assertNotEquals(first,stored());assertEquals("FAKE-second",credentials.getPassword("fallback"));assertEquals(0,legacyCount());
+        var replacement = audit();
+        assertEquals(AUDIT_ACTOR, replacement[0]);
+        assertNotEquals(priorTime, replacement[1]);
     }
     @ParameterizedTest @ValueSource(strings={"FAKE-legacy","{ENC}literal-legacy","{ENC}AAAA"})
-    void shouldMigrateOpaqueLegacyPassword_withoutInterpretingItsPrefix(String password) throws Exception {legacy(password);legacy("FAKE-duplicate");assertEquals(password,credentials.getPassword("fallback"));assertEquals(password,EncryptionUtils.decrypt(stored()));assertEquals(0,legacyCount());}
+    void shouldMigrateOpaqueLegacyPassword_withoutInterpretingItsPrefix(String password) throws Exception {legacy(password);legacy("FAKE-duplicate");assertEquals(password,credentials.getPassword("fallback"));assertEquals(password,EncryptionUtils.decrypt(stored()));assertEquals(0,legacyCount());assertEquals("system",audit()[0]);}
     @Test
-    void shouldRemoveEveryLegacyDuplicate_whenSavingReplacement() throws Exception {legacy("FAKE-first");legacy("FAKE-second");credentials.savePassword("FAKE-replacement");assertEquals(0,legacyCount());assertEquals("FAKE-replacement",EncryptionUtils.decrypt(stored()));}
+    void shouldRemoveEveryLegacyDuplicate_whenSavingReplacement() throws Exception {legacy("FAKE-first");legacy("FAKE-second");credentials.savePassword("FAKE-replacement", AUDIT_ACTOR);assertEquals(0,legacyCount());assertEquals("FAKE-replacement",EncryptionUtils.decrypt(stored()));}
     @ParameterizedTest @NullAndEmptySource @ValueSource(strings={"  "})
     void shouldKeepConfiguredFallback_withBlankLegacyPassword(String value) {legacy(value);assertEquals("FAKE-fallback",credentials.getPassword("FAKE-fallback"));assertEquals(0,legacyCount());}
     @ParameterizedTest @NullAndEmptySource @ValueSource(strings={"  "})
-    void shouldKeepConfiguredFallback_withBlankReplacement(String value) {legacy("FAKE-old");credentials.savePassword(value);assertEquals("FAKE-fallback",credentials.getPassword("FAKE-fallback"));assertEquals(0,legacyCount());}
+    void shouldKeepConfiguredFallback_withBlankReplacement(String value) {legacy("FAKE-old");credentials.savePassword(value, AUDIT_ACTOR);assertEquals("FAKE-fallback",credentials.getPassword("FAKE-fallback"));assertEquals(0,legacyCount());}
     @Test
     void shouldKeepConfiguredFallback_whenNoLegacyPasswordExists() {assertEquals("FAKE-fallback",credentials.getPassword("FAKE-fallback"));assertNull(stored());}
     @Test
@@ -151,25 +177,28 @@ class McedtCredentialServiceIntegrationTest {
     @ParameterizedTest @ValueSource(strings={"{ENC}invalid!","FAKE-wrong-format"})
     void shouldFailClosed_withoutTreatingCorruptCiphertextAsPlaintext(String encrypted) {cipher(encrypted);legacy("FAKE-survive");assertStaticFailure(()->credentials.getPassword("fallback"));assertEquals(encrypted,stored());assertEquals(1,legacyCount());}
     @Test
-    void shouldPreserveLegacyRows_whenEncryptionKeyIsUnavailable() throws Exception {legacy("FAKE-legacy");legacy("FAKE-duplicate");keyField.set(null,null);assertStaticFailure(()->credentials.savePassword("FAKE-replacement"));assertStaticFailure(()->credentials.getPassword("fallback"));assertNull(stored());assertEquals(2,legacyCount());}
+    void shouldPreserveLegacyRows_whenEncryptionKeyIsUnavailable() throws Exception {legacy("FAKE-legacy");legacy("FAKE-duplicate");keyField.set(null,null);assertStaticFailure(()->credentials.savePassword("FAKE-replacement", AUDIT_ACTOR));assertStaticFailure(()->credentials.getPassword("fallback"));assertNull(stored());assertEquals(2,legacyCount());}
     @Test
     void shouldRollBackEncryptedWrite_whenLegacyRemovalFails() {int id=legacy("FAKE-parent");tx.executeWithoutResult(status->{em.createNativeQuery("CREATE TABLE owned_reference (property_id INT REFERENCES property(id))").executeUpdate();em.createNativeQuery("INSERT INTO owned_reference VALUES(:id)").setParameter("id",id).executeUpdate();});assertStaticFailure(()->credentials.getPassword("fallback"));assertNull(stored());assertEquals(1,legacyCount());}
     @ParameterizedTest @ValueSource(strings={"x","😀"})
-    void shouldRetainFullLegacyCapacity_withExpandedCiphertext(String character) throws Exception {String password=character.repeat(4000);credentials.savePassword(password);assertTrue(stored().length()>4000);assertEquals(password,credentials.getPassword("fallback"));}
+    void shouldRetainFullLegacyCapacity_withExpandedCiphertext(String character) throws Exception {String password=character.repeat(4000);credentials.savePassword(password, AUDIT_ACTOR);assertTrue(stored().length()>4000);assertEquals(password,credentials.getPassword("fallback"));}
     @Test
-    void shouldRejectOverlongInput_beforeMutatingStorage() {legacy("FAKE-before");assertStaticFailure(()->credentials.savePassword("x".repeat(4001)));assertNull(stored());assertEquals(1,legacyCount());}
+    void shouldRejectOverlongInput_beforeMutatingStorage() {legacy("FAKE-before");assertStaticFailure(()->credentials.savePassword("x".repeat(4001), AUDIT_ACTOR));assertNull(stored());assertEquals(1,legacyCount());}
     @Test
-    void shouldFailClosed_whenSingletonLockRecordIsMissing() {tx.executeWithoutResult(status->em.createNativeQuery("DELETE FROM mcedt_credential").executeUpdate());assertStaticFailure(()->credentials.savePassword("FAKE-value"));assertStaticFailure(()->credentials.getPassword("fallback"));}
+    void shouldFailClosed_whenSingletonLockRecordIsMissing() {tx.executeWithoutResult(status->em.createNativeQuery("DELETE FROM mcedt_credential").executeUpdate());assertStaticFailure(()->credentials.savePassword("FAKE-value", AUDIT_ACTOR));assertStaticFailure(()->credentials.getPassword("fallback"));}
 
-    private void awaitDatabaseBlock(int blocker,Future<?> waiting,String table) throws Exception {
+    private void awaitDatabaseBlock(int blocker, AtomicInteger contender, Future<?> waiting) throws Exception {
         long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(10);
         String sql=((OwnedDataSource)source).mariaDb
-                ? "SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE ID NOT IN(CONNECTION_ID(),?) AND DB=DATABASE() AND COMMAND='Query' AND LOWER(INFO) LIKE CONCAT('%',?,'%') AND (LOWER(INFO) LIKE '%for update%' OR LOWER(INFO) LIKE '%delete %')"
-                : "SELECT COUNT(*) FROM INFORMATION_SCHEMA.SESSIONS WHERE BLOCKER_ID=?";
+                ? "SELECT COUNT(*) FROM information_schema.INNODB_LOCK_WAITS waits"
+                    + " JOIN information_schema.INNODB_TRX writer ON writer.trx_id=waits.blocking_trx_id"
+                    + " JOIN information_schema.INNODB_TRX reader ON reader.trx_id=waits.requesting_trx_id"
+                    + " WHERE writer.trx_mysql_thread_id=? AND reader.trx_mysql_thread_id=?"
+                : "SELECT COUNT(*) FROM INFORMATION_SCHEMA.SESSIONS WHERE BLOCKER_ID=? AND SESSION_ID=?";
         try(Connection connection=source.getConnection();var query=connection.prepareStatement(sql)) {
             query.setInt(1,blocker);
-            if(((OwnedDataSource)source).mariaDb)query.setString(2,table);
             while(System.nanoTime()<deadline) {
+                query.setInt(2, contender.get());
                 try(var rows=query.executeQuery()) {
                     rows.next();
                     if(rows.getInt(1)>0) {
@@ -179,7 +208,9 @@ class McedtCredentialServiceIntegrationTest {
                         return;
                     }
                 }
-                assertFalse(waiting.isDone(),"contender completed before the actual database lock was observed");TimeUnit.MILLISECONDS.sleep(10);
+                assertFalse(waiting.isDone(),"contender completed before the actual database lock was observed");
+                // The InnoDB information-schema views reuse a recent lock snapshot.
+                TimeUnit.MILLISECONDS.sleep(200);
             }
         }
         StringBuilder diagnostic=new StringBuilder("No database session was observed blocked by writer ").append(blocker);
@@ -191,8 +222,20 @@ class McedtCredentialServiceIntegrationTest {
         }
         fail(diagnostic.toString());
     }
+    private int databaseSession() {
+        return ((Number) em.createNativeQuery(((OwnedDataSource) source).mariaDb
+                ? "SELECT CONNECTION_ID()" : "SELECT SESSION_ID()").getSingleResult()).intValue();
+    }
+
+    private <T> T observeContender(AtomicInteger session, java.util.function.Supplier<T> operation) {
+        return tx.execute(status -> {
+            session.set(databaseSession());
+            return operation.get();
+        });
+    }
+
     private void hold(CountDownLatch locked,CountDownLatch release,AtomicInteger session) {
-        session.set(((Number)em.createNativeQuery(((OwnedDataSource)source).mariaDb?"SELECT CONNECTION_ID()":"SELECT SESSION_ID()").getSingleResult()).intValue());locked.countDown();
+        session.set(databaseSession());locked.countDown();
         try {assertTrue(release.await(15,TimeUnit.SECONDS));}catch(InterruptedException error){Thread.currentThread().interrupt();throw new IllegalStateException(error);}
     }
     private <T> T completed(Future<T> operation) throws Exception {
@@ -202,18 +245,43 @@ class McedtCredentialServiceIntegrationTest {
     @Test
     void shouldSerializeFirstSaves_usingTheSeededDatabaseLock() throws Exception {
         var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();
+        var contender = new AtomicInteger();
         try(var pool=Executors.newFixedThreadPool(2)) {
-            var first=pool.submit(()->tx.executeWithoutResult(status->{credentials.savePassword("FAKE-first");hold(locked,release,session);}));
-            try {assertTrue(locked.await(15,TimeUnit.SECONDS));var second=pool.submit(()->credentials.savePassword("FAKE-second"));awaitDatabaseBlock(session.get(),second,"mcedt_credential");release.countDown();first.get(15,TimeUnit.SECONDS);second.get(15,TimeUnit.SECONDS);assertEquals("FAKE-second",credentials.getPassword("fallback"));assertEquals(0,legacyCount());assertEquals(1L,tx.execute(status->((Number)em.createNativeQuery("SELECT COUNT(*) FROM mcedt_credential").getSingleResult()).longValue()).longValue());}
+            var first=pool.submit(()->tx.executeWithoutResult(status->{credentials.savePassword("FAKE-first", AUDIT_ACTOR);hold(locked,release,session);}));
+            try {
+                assertTrue(locked.await(15, TimeUnit.SECONDS));
+                var second = pool.submit(() -> observeContender(contender, () -> {
+                    credentials.savePassword("FAKE-second", AUDIT_ACTOR);
+                    return null;
+                }));
+                awaitDatabaseBlock(session.get(), contender, second);
+                release.countDown();
+                completed(first);
+                completed(second);
+                assertEquals("FAKE-second", credentials.getPassword("fallback"));
+                assertEquals(0, legacyCount());
+                assertEquals(1L, tx.execute(status -> ((Number) em.createNativeQuery(
+                        "SELECT COUNT(*) FROM mcedt_credential").getSingleResult()).longValue()).longValue());
+            }
             finally {release.countDown();}
         }
     }
     @Test
     void shouldWaitForLegacyWriter_withoutRestoringAStalePassword() throws Exception {
         int id=legacy("FAKE-old");var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();
+        var contender = new AtomicInteger();
         try(var pool=Executors.newFixedThreadPool(2)) {
             var writer=pool.submit(()->tx.executeWithoutResult(status->{var row=em.find(UserProperty.class,id,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);row.setValue("FAKE-new");em.flush();hold(locked,release,session);}));
-            try {assertTrue(locked.await(15,TimeUnit.SECONDS));var reader=pool.submit(()->credentials.getPassword("fallback"));awaitDatabaseBlock(session.get(),reader,"property");release.countDown();writer.get(15,TimeUnit.SECONDS);assertEquals("FAKE-new",completed(reader));assertEquals("FAKE-new",EncryptionUtils.decrypt(stored()));assertEquals(0,legacyCount());}
+            try {
+                assertTrue(locked.await(15, TimeUnit.SECONDS));
+                var reader = pool.submit(() -> observeContender(contender, () -> credentials.getPassword("fallback")));
+                awaitDatabaseBlock(session.get(), contender, reader);
+                release.countDown();
+                completed(writer);
+                assertEquals("FAKE-new", completed(reader));
+                assertEquals("FAKE-new", EncryptionUtils.decrypt(stored()));
+                assertEquals(0, legacyCount());
+            }
             finally {release.countDown();}
         }
     }
@@ -223,7 +291,7 @@ class McedtCredentialServiceIntegrationTest {
     }
     @ParameterizedTest @ValueSource(booleans={false,true})
     void shouldReplaceCachedClient_afterCommittedPasswordRotationIncludingAnotherInstance(boolean otherInstance) throws Exception {
-        credentials.savePassword("FAKE-first");
+        credentials.savePassword("FAKE-first", AUDIT_ACTOR);
         List<EdtClientBuilderConfig> observed=new ArrayList<>();
         try(var spring=mockStatic(SpringUtils.class);var properties=mockStatic(CarlosProperties.class);
                 var builders=mockConstruction(EdtClientBuilder.class,(builder,construction)->{
@@ -240,11 +308,11 @@ class McedtCredentialServiceIntegrationTest {
                 delegates.clear();fingerprints.clear();
                 var first=DelegateFactory.getEDTDelegateInstance("FAKE-local-service");
                 assertEquals("FAKE-first",observed.getFirst().getUserNameTokenPassword());
-                tx.executeWithoutResult(status->{credentials.savePassword("FAKE-rolled-back");status.setRollbackOnly();});
+                tx.executeWithoutResult(status->{credentials.savePassword("FAKE-rolled-back", AUDIT_ACTOR);status.setRollbackOnly();});
                 assertSame(first,DelegateFactory.getEDTDelegateInstance("FAKE-local-service"));
                 assertEquals(1,builders.constructed().size());
                 if(otherInstance)cipher(EncryptionUtils.encrypt("FAKE-second"));
-                else credentials.savePassword("FAKE-second");
+                else credentials.savePassword("FAKE-second", AUDIT_ACTOR);
                 var second=DelegateFactory.getEDTDelegateInstance("FAKE-local-service");
                 assertNotSame(first,second);
                 assertEquals("FAKE-second",observed.getLast().getUserNameTokenPassword());
@@ -284,7 +352,7 @@ class McedtCredentialServiceIntegrationTest {
 
     @ParameterizedTest @ValueSource(strings={"FAKE-current","  "})
     void shouldAllowNewPreferenceInsert_whileMigratedCredentialReadRemainsOpen(String password) throws Exception {
-        credentials.savePassword(password);
+        credentials.savePassword(password, AUDIT_ACTOR);
         var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();
         try(var pool=Executors.newFixedThreadPool(2)) {
             var reader=pool.submit(()->tx.executeWithoutResult(status->{
@@ -312,9 +380,10 @@ class McedtCredentialServiceIntegrationTest {
         obsoleteLegacyRead(true);
     }
     private void obsoleteLegacyRead(boolean renamed) throws Exception {
-        credentials.savePassword("FAKE-current");int id=legacy("FAKE-old");
+        credentials.savePassword("FAKE-current", AUDIT_ACTOR);int id=legacy("FAKE-old");
         Integer snapshotIsolation=((OwnedDataSource)source).mariaDb?tx.execute(status->((Number)em.createNativeQuery("SELECT @@innodb_snapshot_isolation").getSingleResult()).intValue()):null;
         var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();
+        var contender = new AtomicInteger();
         try(var pool=Executors.newFixedThreadPool(2)) {
             var writer=pool.submit(()->tx.executeWithoutResult(status->{
                 var row=em.find(UserProperty.class,id,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
@@ -322,12 +391,12 @@ class McedtCredentialServiceIntegrationTest {
                 em.flush();hold(locked,release,session);
             }));
             try {
-                assertTrue(locked.await(15,TimeUnit.SECONDS));var reader=pool.submit(()->tx.execute(status->{
+                assertTrue(locked.await(15,TimeUnit.SECONDS));var reader=pool.submit(()->observeContender(contender,()->{
                     String password=credentials.getPassword("FAKE-fallback");
                     if(snapshotIsolation!=null)assertEquals(snapshotIsolation,((Number)em.createNativeQuery("SELECT @@innodb_snapshot_isolation").getSingleResult()).intValue(),"the cleanup statement must restore this same connection's setting");
                     return password;
                 }));
-                awaitDatabaseBlock(session.get(),reader,"property");release.countDown();completed(writer);
+                awaitDatabaseBlock(session.get(),contender,reader);release.countDown();completed(writer);
                 assertEquals("FAKE-current",completed(reader));assertEquals(0,legacyCount());
                 if(renamed)assertEquals("provider.language",tx.execute(status->em.find(UserProperty.class,id).getName()));
                 if(snapshotIsolation!=null)assertEquals(snapshotIsolation,tx.execute(status->((Number)em.createNativeQuery("SELECT @@innodb_snapshot_isolation").getSingleResult()).intValue()));
@@ -337,7 +406,7 @@ class McedtCredentialServiceIntegrationTest {
 
     @Test
     void shouldAllowPreferenceInsert_whileMigratedCredentialReadRemainsOpen() throws Exception {
-        credentials.savePassword("FAKE-current");
+        credentials.savePassword("FAKE-current", AUDIT_ACTOR);
         assertEquals(0, legacyCount());
         var read = new CountDownLatch(1);
         var release = new CountDownLatch(1);

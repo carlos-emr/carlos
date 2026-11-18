@@ -60,20 +60,32 @@ public class DelegateFactory {
     private static UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
     private static Map<String, EDTDelegate> edtDelegates = new HashMap<>();
     private static final Map<String, byte[]> credentialFingerprints = new HashMap<>();
+    private static long cacheGeneration;
 
     public static EDTDelegate getEDTDelegateInstance(String serviceId) {
         // Read before the cache monitor: no client construction/cache lock is
         // held while a credential transaction waits on a database row lock.
-        String password = currentPassword();
-        byte[] fingerprint = passwordFingerprint(password);
-        synchronized (edtDelegates) {
-            EDTDelegate cached = edtDelegates.get(serviceId);
-            if (cached == null || !MessageDigest.isEqual(fingerprint, credentialFingerprints.get(serviceId))) {
-                cached = newDelegate(serviceId, password);
-                edtDelegates.put(serviceId, cached);
-                credentialFingerprints.put(serviceId, fingerprint);
+        while (true) {
+            long observed = cacheGeneration();
+            String password = currentPassword();
+            byte[] fingerprint = passwordFingerprint(password);
+            synchronized (edtDelegates) {
+                if (observed != cacheGeneration) continue;
+                EDTDelegate cached = edtDelegates.get(serviceId);
+                if (cached == null || !MessageDigest.isEqual(fingerprint, credentialFingerprints.get(serviceId))) {
+                    cached = newDelegate(serviceId, password);
+                    edtDelegates.put(serviceId, cached);
+                    credentialFingerprints.put(serviceId, fingerprint);
+                    cacheGeneration++;
+                }
+                return cached;
             }
-            return cached;
+        }
+    }
+
+    private static long cacheGeneration() {
+        synchronized (edtDelegates) {
+            return cacheGeneration;
         }
     }
 
@@ -131,13 +143,19 @@ public class DelegateFactory {
      * Refreshes created delegates in the event that information has been updated
      */
     public static void refreshDelegates() {
-        String password = currentPassword();
-        byte[] fingerprint = passwordFingerprint(password);
-        synchronized (edtDelegates) {
-            // Explicit refresh still rebuilds clients for certificate/config changes.
-            for (String serviceId : ActionUtils.getServiceIds()) {
-                edtDelegates.put(serviceId, newDelegate(serviceId, password));
-                credentialFingerprints.put(serviceId, fingerprint);
+        while (true) {
+            long observed = cacheGeneration();
+            String password = currentPassword();
+            byte[] fingerprint = passwordFingerprint(password);
+            synchronized (edtDelegates) {
+                if (observed != cacheGeneration) continue;
+                cacheGeneration++;
+                // Explicit refresh still rebuilds clients for certificate/config changes.
+                for (String serviceId : ActionUtils.getServiceIds()) {
+                    edtDelegates.put(serviceId, newDelegate(serviceId, password));
+                    credentialFingerprints.put(serviceId, fingerprint);
+                }
+                break;
             }
         }
         // Suggests for the Garbage Collector to run in an effort to clean up any lingering connections

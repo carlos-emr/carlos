@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "cff8e76f6701476c25ada0a073eb398ac9b38956a729b5c4cb23fbf37d9cff3f",
+ "migration_sha256": "a7cd2548a24d028d73cdfeea33163236e1852a7de189c3c4ae2ab2841d5ba5a7",
  "province": "bc",
  "schema": {
   "checks": [
@@ -166816,6 +166816,30 @@
     null,
     null,
     1
+   ],
+   [
+    "mcedt_credential",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    4
+   ],
+   [
+    "mcedt_credential",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'system'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    3
    ],
    [
     "mdsMSH",

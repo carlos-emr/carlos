@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "978ef7ba8cf689de2a49cad49453362ca9282ca651d130af41b42991735d9a3d",
+ "migration_sha256": "519c727d6ceb6239a43078dee4d36b87a1deeaf582a6601e3f94f4f78721b6f5",
  "province": "on",
  "schema": {
   "checks": [
@@ -117640,6 +117640,30 @@
     null,
     null,
     1
+   ],
+   [
+    "mcedt_credential",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    4
+   ],
+   [
+    "mcedt_credential",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'system'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    3
    ],
    [
     "mdsMSH",

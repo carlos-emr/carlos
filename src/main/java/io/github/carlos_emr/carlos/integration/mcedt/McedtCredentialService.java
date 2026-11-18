@@ -40,9 +40,12 @@ public class McedtCredentialService {
         return query.getResultList();
     }
 
-    private void store(String encrypted) {
-        entityManager.createNativeQuery("UPDATE mcedt_credential SET encrypted_password = :password WHERE id = 1")
-                .setParameter("password", encrypted).executeUpdate();
+    private void store(String encrypted, String actor) {
+        entityManager.createNativeQuery("UPDATE mcedt_credential SET encrypted_password = :password,"
+                        + " lastUpdateUser = :actor, lastUpdateDate = CURRENT_TIMESTAMP WHERE id = 1")
+                .setParameter("password", encrypted)
+                .setParameter("actor", actor)
+                .executeUpdate();
     }
 
     private void removeLegacy(List<UserProperty> rows) {
@@ -70,9 +73,10 @@ public class McedtCredentialService {
      * Encrypts the replacement before changing storage and removes all legacy duplicates.
      *
      * @param password replacement plaintext under the existing null/blank and 4000-character contract
+     * @param actor authenticated provider identifier recorded with the change
      * @throws IllegalStateException if validation, encryption or persistence fails, without a credential-bearing cause
      */
-    public void savePassword(String password) {
+    public void savePassword(String password, String actor) {
         try {
             if (password != null && password.codePointCount(0, password.length()) > 4000) {
                 throw new IllegalArgumentException("MCEDT password exceeds storage contract");
@@ -80,7 +84,7 @@ public class McedtCredentialService {
             String encrypted = EncryptionUtils.encrypt(password);
             lockCredential();
             List<UserProperty> legacy = legacyPasswords(true);
-            store(encrypted);
+            store(encrypted, actor);
             removeLegacy(legacy);
         } catch (Exception failure) {
             throw new IllegalStateException("Unable to securely save the MCEDT password");
@@ -107,7 +111,7 @@ public class McedtCredentialService {
             List<UserProperty> legacy = legacyPasswords(encrypted == null);
             if (encrypted == null && !legacy.isEmpty()) {
                 encrypted = EncryptionUtils.encrypt(legacy.get(0).getValue());
-                store(encrypted);
+                store(encrypted, "system");
             }
             if (!EncryptionUtils.isEncrypted(encrypted)) {
                 throw new IllegalStateException("Invalid MCEDT credential format");
