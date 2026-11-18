@@ -550,6 +550,8 @@
       "area": "EBS transport and WS-Security qualification",
       "sources": [
         "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtClientBuilderTransportUnitTest.java",
+        "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptor.java",
+        "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/DynamicWSS4JInInterceptor.java",
         "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentResolverSpi.java",
         "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/mailbox/CidPrefixResourceResolver.java",
         "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentResolverSpiUnitTest.java",
@@ -563,9 +565,9 @@
         "scripts/ci/run-public-api-oracle.py",
         "scripts/ci/WarWireCompatibilityProbe.java"
       ],
-      "implementation": "Preserve the extensive independent loopback HTTPS tests; run them against packaged classpath and qualify actual approved staging MCEDT/HCV deployment settings. Add a separate test for CXF-owned spill-cache retention rather than claiming application replay closure covers it.",
-      "cases": "Signed/encrypted SOAP/MTOM, exact bytes, TLS 1.2/1.3, mTLS/hostname/trust failures, proxy/auth, stalled/progressing/truncated bodies, plain/multipart fault chains, thread-local cleanup and concurrent clients; ordinary crypto properties remain readable, ENC(...) has explicit refusal; async/HTTP2/custom extensions inventoried.",
-      "acceptance": "Supported Ministry flows work on deployed transport and resources stay bounded. The documented pre-existing CXF spill-cache finding and unavailable staging credentials remain explicit unresolved gates. CXF-owned spill caches and vendor staging are separate required acceptance; replay-buffer cleanup alone is insufficient.",
+      "implementation": "Run the independent loopback HTTPS tests against the packaged classpath and qualify approved staging MCEDT/HCV deployment settings. The #5745 loopback regressions use a private directory and a low threshold to verify CXF-owned spill-cache cleanup alongside application replay cleanup.",
+      "cases": "Signed/encrypted SOAP/MTOM, exact bytes for distinct attachments, TLS 1.2/1.3, mTLS/hostname/trust failures, proxy/auth, stalled/progressing/truncated bodies, plain/multipart fault chains, thread-local cleanup and concurrent clients. Response completion and faults release CXF-owned spill files and preserve unrelated files. Ordinary crypto properties remain readable, ENC(...) has explicit refusal, and async/HTTP2/custom extensions are inventoried.",
+      "acceptance": "Supported Ministry flows work on deployed transport and resources stay bounded. Both CXF attachment caches and replay buffers are released. Packaged staging qualification remains required and depends on authorized access.",
       "requiredChecks": [
         "evidence-self-tests",
         "coverage-self-tests",
@@ -8493,9 +8495,22 @@
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptor.java": {
-      "reason": "Owned replay closes once and attachment thread-local is cleared on normal and fault chains.",
+      "reason": "Owned replay and CXF attachment caches are released and the attachment thread-local is cleared on normal and fault chains. Cleanup reads no additional MIME parts.",
       "tests": [
-        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptorUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptorUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtClientBuilderTransportUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T19"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/DynamicWSS4JInInterceptor.java": {
+      "reason": "The signed HTTPS fixture verifies that each exchange releases WSS4J attachment readers and delivers the exact payloads for concurrent responses and downloads containing multiple attachments.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtClientBuilderTransportUnitTest.java"
       ],
       "checks": [
         "java-all"
