@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "0795eea070d44a6671693a65877429c3bc13bedd",
+  "comparisonSha256": "44270dc259833e9ad77eb836bb3f6b3efc8c5bb981bedb6f1b6e2b9f532591c2",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/printing/PrivacyStatementAppendingFilter.java": {
+      "lines": 98.91891891891892,
+      "instructions": 99.31318681318682,
+      "branches": 97.5609756097561,
+      "sourceBlob": "43a72e6d48a0fb06b6cf5ec3e0ad487f5175704f"
+    }
+  },
+  "baselineCommit": "7c1fb52020dc42a671e993560498c129bfab6526",
+  "baselineSourceTree": "0795eea070d44a6671693a65877429c3bc13bedd",
+  "baselineReportSha256": "8afbf2be7e5000969424d5c8bd99ee46cd27422d39e00721f1d2c4ff42aa0641",
+  "baselineLane": "Focused privacy statement, response wrappers and embedded Tomcat static representation tests",
+  "baselineTestCounts": {
+    "tests": 256,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "c660fa5a42426aae58df6c43187bb8a79a7970e2aaec76b3b0c0bdff84778f6d",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}
