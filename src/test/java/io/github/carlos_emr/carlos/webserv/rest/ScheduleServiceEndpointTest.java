@@ -248,8 +248,14 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
                 mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class));
         registerMock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class,
                 mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class));
-        when(mockScheduleManager.updateAppointment(any(), eq(42), eq("1000"), any()))
-                .thenThrow(new io.github.carlos_emr.carlos.managers.AppointmentUpdateException(reason));
+        if (path.endsWith("updateAppointment")) {
+            when(mockScheduleManager.updateAppointment(any(), eq(42), eq("1000"), any()))
+                    .thenThrow(new io.github.carlos_emr.carlos.managers.AppointmentUpdateException(reason));
+        } else {
+            when(mockScheduleManager.updateAppointment(any(), eq(42), eq("1000"),
+                    any(io.github.carlos_emr.carlos.managers.ScheduleManager.AppointmentUpdateAction.class), any()))
+                    .thenThrow(new io.github.carlos_emr.carlos.managers.AppointmentUpdateException(reason));
+        }
         try (Response response = request().path(path)
                 .post("{\"id\":42,\"editVersion\":\"1000\",\"reason\":\"FAKE-edit\"}")) {
             assertThat(response.getStatus()).isEqualTo(status);

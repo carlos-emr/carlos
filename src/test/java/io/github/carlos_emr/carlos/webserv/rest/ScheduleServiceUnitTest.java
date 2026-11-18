@@ -506,9 +506,10 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         current.setCreator("server-creator");
         current.setLastUpdateUser("server-updater");
         current.setUpdateDateTime(new Date(123000));
-        when(scheduleManager.updateAppointment(eq(loggedInInfo), eq(42), eq("123000"), any()))
+        when(scheduleManager.updateAppointment(eq(loggedInInfo), eq(42), eq("123000"),
+                eq(io.github.carlos_emr.carlos.managers.ScheduleManager.AppointmentUpdateAction.valueOf(field.toUpperCase(java.util.Locale.ROOT))), any()))
                 .thenAnswer(call -> {
-                    java.util.function.Consumer<Appointment> edit = call.getArgument(3);
+                    java.util.function.Consumer<Appointment> edit = call.getArgument(4);
                     edit.accept(current);
                     return current;
                 });
