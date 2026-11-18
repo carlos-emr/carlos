@@ -274,7 +274,8 @@ public class FaxImporter {
         }
 
         for (FaxConfig faxConfig : faxConfigList) {
-            if (!faxConfig.isActive() || !faxConfig.isDownload() || !pollBackoff.isDue(faxConfig.getId())) {
+            Integer accountId = faxConfig.getId();
+            if (!faxConfig.isActive() || !faxConfig.isDownload() || !pollBackoff.isDue(accountId, pollCheckpoint)) {
                 continue;
             }
 
@@ -282,13 +283,19 @@ public class FaxImporter {
             List<FaxJob> faxList;
             try {
                 providerClient = faxProviderClientFactory.getClient(faxConfig);
+                if (!pollBackoff.isCurrent(accountId, pollCheckpoint)) {
+                    continue;
+                }
                 faxList = providerClient.listInboundFaxes(faxConfig);
             } catch (FaxProviderException | RuntimeException e) {
                 recordPollFailure(faxConfig, e, pollCheckpoint);
                 continue;
             }
-            if (pollBackoff.recovered(faxConfig.getId())) {
-                log.warn("Inbound fax polling recovered for account {} ({})", faxConfig.getId(), faxConfig.getProviderType());
+            if (!pollBackoff.isCurrent(accountId, pollCheckpoint)) {
+                continue;
+            }
+            if (pollBackoff.recovered(accountId)) {
+                log.warn("Inbound fax polling recovered for account {} ({})", accountId, faxConfig.getProviderType());
             }
 
             // Only account setup/listing failures back off the account. A local document failure

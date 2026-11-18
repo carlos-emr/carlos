@@ -23,8 +23,8 @@ class FaxPollBackoffUnitTest extends CarlosUnitTestBase {
         for (int minutes : new int[]{1, 2, 4, 8, 16, 32, 60, 60}) {
             backoff.failed(1);
             assertThat(backoff.snapshot().get(1).nextRetry()).isEqualTo(NOW.plus(Duration.ofMinutes(minutes)));
-            assertThat(backoff.isDue(1)).isFalse();
-            assertThat(backoff.isDue(2)).isTrue();
+            assertThat(backoff.isDue(1, backoff.checkpoint())).isFalse();
+            assertThat(backoff.isDue(2, backoff.checkpoint())).isTrue();
         }
         assertThat(backoff.snapshot().get(1).attempts()).isEqualTo(8);
         assertThat(backoff.snapshot().get(1).firstFailure()).isEqualTo(NOW);
@@ -42,9 +42,9 @@ class FaxPollBackoffUnitTest extends CarlosUnitTestBase {
         var backoff = new FaxPollBackoff(clock);
         assertThat(backoff.failed(1)).isTrue();
         clock.now = NOW.plusSeconds(59);
-        assertThat(backoff.isDue(1)).isFalse();
+        assertThat(backoff.isDue(1, backoff.checkpoint())).isFalse();
         clock.now = NOW.plusSeconds(60);
-        assertThat(backoff.isDue(1)).isTrue();
+        assertThat(backoff.isDue(1, backoff.checkpoint())).isTrue();
     }
 
     @Test
@@ -56,7 +56,7 @@ class FaxPollBackoffUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(snapshot::clear).isInstanceOf(UnsupportedOperationException.class);
         assertThat(backoff.recovered(1)).isTrue();
         assertThat(backoff.recovered(1)).isFalse();
-        assertThat(backoff.isDue(1)).isTrue();
+        assertThat(backoff.isDue(1, backoff.checkpoint())).isTrue();
         backoff.retainAccounts(Set.of(1));
         assertThat(backoff.snapshot()).isEmpty();
         assertThat(snapshot).hasSize(2);
@@ -72,10 +72,11 @@ class FaxPollBackoffUnitTest extends CarlosUnitTestBase {
         backoff.reset(1);
         assertThat(backoff.failed(1, old)).isFalse();
         assertThat(backoff.snapshot()).isEmpty();
-        assertThat(backoff.isDue(1)).isTrue();
+        assertThat(backoff.isDue(1, old)).isFalse();
+        assertThat(backoff.isDue(1, backoff.checkpoint())).isTrue();
         assertThat(backoff.failed(1, backoff.checkpoint())).isTrue();
         assertThat(backoff.snapshot().get(1).attempts()).isEqualTo(1);
-        assertThat(backoff.isDue(1)).isFalse();
+        assertThat(backoff.isDue(1, backoff.checkpoint())).isFalse();
     }
 
     @Test

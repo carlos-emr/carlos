@@ -19,15 +19,18 @@ package io.github.carlos_emr.carlos.fax.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
@@ -459,7 +462,8 @@ class FaxImporterPollTest extends CarlosUnitTestBase {
         when(faxConfigDao.findAll(null, null)).thenReturn(List.of(stale, healthy));
         var backoff = mock(FaxPollBackoff.class);
         org.springframework.test.util.ReflectionTestUtils.setField(faxImporter, "pollBackoff", backoff);
-        when(backoff.isDue(any())).thenReturn(true);
+        when(backoff.isDue(any(), anyLong())).thenReturn(true);
+        when(backoff.isCurrent(any(), anyLong())).thenReturn(true);
         when(backoff.snapshot()).thenReturn(java.util.Map.of());
         when(faxProviderClientFactory.getClient(stale)).thenThrow(new IllegalStateException("PRIVATE_STALE_FAILURE"));
         when(faxProviderClientFactory.getClient(healthy)).thenReturn(faxProviderClient);
@@ -516,34 +520,48 @@ class FaxImporterPollTest extends CarlosUnitTestBase {
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"configurationRead", "clientSetup", "providerRequest"})
-    void shouldIgnoreFailuresFromTheOldPollingCycle_afterConfigurationReset(String resetDuring) throws Exception {
+    void shouldDiscardTheStalePoll_afterConfigurationReset(String resetDuring) throws Exception {
         FaxConfig config = createFaxConfig(1, true, true);
-        var firstRead = new java.util.concurrent.atomic.AtomicBoolean(true);
+        FaxConfig other = createFaxConfig(2, true, true);
+        FaxJob staleFax = mock(FaxJob.class);
+        var firstRead = new AtomicBoolean(true);
         when(faxConfigDao.findAll(null, null)).thenAnswer(call -> {
-            if (firstRead.getAndSet(false) && resetDuring.equals("configurationRead")) faxImporter.resetPollingBackoff(1);
-            return List.of(config);
+            if (firstRead.getAndSet(false) && resetDuring.equals("configurationRead")) {
+                faxImporter.resetPollingBackoff(1);
+            }
+            return List.of(config, other);
         });
-        var firstSetup = new java.util.concurrent.atomic.AtomicBoolean(true);
+        when(faxProviderClientFactory.getClient(other)).thenReturn(faxProviderClient);
+        when(faxProviderClient.listInboundFaxes(other)).thenReturn(List.of());
+        var firstSetup = new AtomicBoolean(true);
         when(faxProviderClientFactory.getClient(config)).thenAnswer(call -> {
             if (firstSetup.getAndSet(false) && resetDuring.equals("clientSetup")) {
                 faxImporter.resetPollingBackoff(1);
-                throw new FaxProviderException("FAKE old configuration failure");
             }
             return faxProviderClient;
         });
-        var firstRequest = new java.util.concurrent.atomic.AtomicBoolean(true);
+        var firstRequest = new AtomicBoolean(true);
         when(faxProviderClient.listInboundFaxes(config)).thenAnswer(call -> {
-            if (firstRequest.getAndSet(false) && !resetDuring.equals("clientSetup")) {
-                if (resetDuring.equals("providerRequest")) faxImporter.resetPollingBackoff(1);
-                throw new FaxProviderException("FAKE old request failure");
+            if (firstRequest.getAndSet(false) && resetDuring.equals("providerRequest")) {
+                faxImporter.resetPollingBackoff(1);
+                return List.of(staleFax);
             }
             return List.of();
         });
+
         faxImporter.poll();
+
+        verify(faxProviderClientFactory, times(resetDuring.equals("configurationRead") ? 0 : 1)).getClient(config);
+        verify(faxProviderClient, times(resetDuring.equals("providerRequest") ? 1 : 0)).listInboundFaxes(config);
+        verify(faxProviderClient).listInboundFaxes(other);
+        verifyNoInteractions(staleFax);
         assertThat(faxImporter.getPollingFailures()).isEmpty();
+
         faxImporter.poll();
-        verify(faxProviderClientFactory, times(2)).getClient(config);
-        verify(faxProviderClient, times(resetDuring.equals("clientSetup") ? 1 : 2)).listInboundFaxes(config);
+
+        verify(faxProviderClientFactory, times(resetDuring.equals("configurationRead") ? 1 : 2)).getClient(config);
+        verify(faxProviderClient, times(resetDuring.equals("providerRequest") ? 2 : 1)).listInboundFaxes(config);
+        verify(faxProviderClient, times(2)).listInboundFaxes(other);
         assertThat(faxImporter.getPollingFailures()).isEmpty();
     }
 

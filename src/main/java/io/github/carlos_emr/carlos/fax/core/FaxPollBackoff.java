@@ -47,9 +47,9 @@ final class FaxPollBackoff {
         this.clock = clock;
     }
 
-    synchronized boolean isDue(Integer accountId) {
+    synchronized boolean isDue(Integer accountId, long checkpoint) {
         PollingFailure failure = failures.get(accountId);
-        return failure == null || !clock.instant().isBefore(failure.nextRetry());
+        return isCurrent(accountId, checkpoint) && (failure == null || !clock.instant().isBefore(failure.nextRetry()));
     }
 
     /** Capture before reading configurations so a reset also invalidates a stale configuration snapshot. */
@@ -57,8 +57,12 @@ final class FaxPollBackoff {
         return resetSequence;
     }
 
+    synchronized boolean isCurrent(Integer accountId, long checkpoint) {
+        return resets.getOrDefault(accountId, 0L) <= checkpoint;
+    }
+
     synchronized boolean failed(Integer accountId, long checkpoint) {
-        if (resets.getOrDefault(accountId, 0L) > checkpoint) {
+        if (!isCurrent(accountId, checkpoint)) {
             return false;
         }
         return failed(accountId);
