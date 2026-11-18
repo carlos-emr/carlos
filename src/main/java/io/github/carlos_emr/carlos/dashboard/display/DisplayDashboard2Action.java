@@ -95,6 +95,9 @@ public class DisplayDashboard2Action extends ActionSupport {
             providers = providerManager.getProviders(loggedInInfo, Boolean.TRUE);
         }
 
+        // The heading provider is also shown when no override was selected. Keep
+        // that display default separate from the template's own provider default.
+        request.setAttribute("dashboardProviderNo", dashboardManager.getRequestedProviderNo(loggedInInfo));
         request.setAttribute("preferredProvider", preferredProvider);
         request.setAttribute("providers", providers);
 

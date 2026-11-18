@@ -16,9 +16,13 @@ ActionContext factory; the initial obsolete-constructor compilation failure is
 retained separately and is not a bug reproduction. Valid before JUnit SHA-256:
 `84f9287dec6e4c5684844e98f908af1ecd841d72a82c44c6871a9c03e876f6c7`.
 
-All 25 Java controls pass, including concurrent isolation, missing identities,
+All 37 Java controls pass, including concurrent isolation, missing identities,
 blank selection, permission refusal/revocation and existing encrypted shared
-links. Changed manager lines/instructions/branches have 100% coverage.
+links. Twelve action-to-template controls additionally preserve `all`, `%` and
+`loggedInProvider` defaults independently of the displayed heading, while
+explicit selections override those defaults for indicators and drilldowns.
+Provider refusals use the existing Struts `SecurityException` to return 403.
+Changed manager lines/instructions/branches have 100% coverage.
 All 27 focused client controls pass; the complete Node retake passes all 8,119
 cases with zero failures, skips, cancellations or TODOs and unchanged test-source
 fingerprints. Its generated case inventory is retained. The first full run's
@@ -31,7 +35,8 @@ the fixture now loads the real helper and adds bulk-action window-scope controls
 
 The native dashboard workflow now creates two owned providers and five patients,
 opens two windows under one login, switches the second provider, and verifies
-both patient lists/CSV exports, the second window’s native exclusion provider,
+both patient lists/CSV exports, clinic-wide defaults confined to the five owned
+IDs, explicit overrides, the second window’s native exclusion provider,
 and first-window navigation. Its existing bulk
 and authorization controls remain selected. New rebuilt-DEB/browser qualification
 is pending the next combined batch; the JVM/client proofs above do not claim

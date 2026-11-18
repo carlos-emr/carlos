@@ -114,6 +114,7 @@ public class DisplayDrilldown2Action extends ActionSupport {
             preferredProvider = providerManager.getProvider(loggedInInfo, dashboardManager.getRequestedProviderNo(loggedInInfo));
         }
 
+        request.setAttribute("dashboardProviderNo", providerNo);
         request.setAttribute("preferredProvider", preferredProvider);
         request.setAttribute("drilldown", drilldown);
         return SUCCESS;

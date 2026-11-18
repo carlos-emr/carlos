@@ -70,7 +70,7 @@
 </head>
 
 <body>
-<input type="hidden" id="dashboardProviderNo" value="${carlos:forHtmlAttribute(preferredProvider.providerNo)}">
+<input type="hidden" id="dashboardProviderNo" value="${carlos:forHtmlAttribute(dashboardProviderNo)}">
 
 <div class="container">
     <div class="row" id="dashboardPanel">

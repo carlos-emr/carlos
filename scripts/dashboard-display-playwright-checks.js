@@ -177,6 +177,22 @@ async function workflow(s) {
       ${h.sqlString(marker + ' Owned patients')},'CARLOS EMR','2026-01-01','Synthetic','Synthetic',
       ${h.sqlString(templateXml(marker))},1,0,0); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(dashboardId) && /^[1-9]\d*$/.test(indicatorId), 'The dashboard fixture was not created');
+  const clinicIndicators = ['all', '%'].map(alias => {
+    const name = `${marker} Clinic ${alias}`;
+    // Even the clinic-wide default is restricted to this run's five owned IDs.
+    const template = templateXml(marker)
+      .replaceAll('value="loggedInProvider"', `value="${alias}"`)
+      .replaceAll("WHERE d.provider_no = '${provider}'",
+        "WHERE d.provider_no LIKE '${provider}' AND d.demographic_no IN (" + patients.join(',') + ')')
+      .replaceAll(`${marker} Patient status`, name);
+    const id = sql.value(`INSERT INTO indicatorTemplate (dashboardId,name,category,subCategory,framework,frameworkVersion,
+        definition,notes,template,active,locked,shared)
+      VALUES (${dashboardId},${h.sqlString(name)},${h.sqlString(marker + ' Category')},
+        ${h.sqlString(marker + ' Owned patients')},'CARLOS EMR','2026-01-01','Synthetic','Synthetic',
+        ${h.sqlString(template)},1,0,0); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(id), 'A clinic-default indicator was not created');
+    return {id, alias};
+  });
 
   const ctx = await h.newContext(s.context.browser(), s.config);
   ctx.setDefaultTimeout(TIMEOUT);
@@ -229,13 +245,13 @@ async function workflow(s) {
     h.assert((await page.locator('.dashboardHeading h2').innerText()).trim() === marker, 'The dashboard window shows another dashboard');
     return page;
   }
-  async function drillDown(page) {
-    await page.locator(`#indicatorId_${indicatorId} .indicatorPanelContainer`).waitFor();
-    await page.locator(`#indicatorId_${indicatorId} .dropdown-toggle`).click();
+  async function drillDown(page, targetId = indicatorId) {
+    await page.locator(`#indicatorId_${targetId} .indicatorPanelContainer`).waitFor();
+    await page.locator(`#indicatorId_${targetId} .dropdown-toggle`).click();
     const [response] = await Promise.all([
       page.waitForResponse(r => /\/web\/dashboard\/display\/DrilldownDisplay$/.test(new URL(r.url()).pathname)
         && r.request().method() === 'POST' && r.request().resourceType() === 'document'),
-      page.locator(`#getDrilldown_${indicatorId}`).click(),
+      page.locator(`#getDrilldown_${targetId}`).click(),
     ]);
     await page.waitForLoadState('load');
     return response;
@@ -258,6 +274,39 @@ async function workflow(s) {
     h.assert(JSON.stringify(plots) === JSON.stringify([[['Active', Number(active)], ['Not active', Number(inactive)]]]),
       'Indicator counts differ from the owned-scope SQL counts');
     h.assert(await dashboard.locator(`#graphCanvas_${indicatorId}`).evaluate(c => c.width > 0 && c.height > 0), 'The indicator chart was not drawn');
+  });
+
+  await s.step('all and wildcard template defaults survive native drilldown and CSV until a provider is explicitly chosen', async () => {
+    for (const {id, alias} of clinicIndicators) {
+      const page = await openDashboard('dashboard-clinic-default-' + alias);
+      try {
+        await page.locator(`#graphPlots_${id}`).waitFor({ state: 'attached' });
+        h.assert(await page.locator('#dashboardProviderNo').inputValue() === '', 'A heading became an explicit provider override');
+        h.assert(await page.locator(`#graphPlots_${id}`).inputValue() === JSON.stringify([[['Active', 3], ['Not active', 2]]]),
+          'A clinic-wide template default was narrowed to the logged-in provider');
+        h.assert((await drillDown(page, id)).status() === 200, 'Clinic-default drilldown was refused');
+        h.assert(await page.locator('#dashboardProviderNo').inputValue() === '', 'Drilldown replaced the template default');
+        const shown = await page.locator('#drilldownTable input.patientChecked').evaluateAll(inputs => inputs.map(input => input.id).sort());
+        h.assert(JSON.stringify(shown) === JSON.stringify([...patients].sort()), 'Clinic-default drilldown lost owned patients');
+        const outcome = await ui.clickDownloadsOrOpens(page, page.locator(`#exportResults_${id}`),
+          { context: ctx, recorder, label: 'dashboard-clinic-export-' + alias, timeout: TIMEOUT });
+        h.assert(outcome.kind === 'download', 'Clinic-default CSV did not download');
+        const expected = sql.rows(`SELECT demographic_no,last_name,patient_status FROM demographic
+          WHERE demographic_no IN (${patients.join(',')}) ORDER BY demographic_no`);
+        h.assert(fs.readFileSync(await outcome.download.path(), 'utf8') ===
+          ['Patient Id,Last Name,Status', ...expected.map(row => row.join(','))].join('\n') + '\n',
+          'Clinic-default CSV narrowed the template scope');
+        await ui.clickAndAwaitReload(page, page.locator('.backtoDashboardBtn'),
+          { label: 'return to clinic-default dashboard', timeout: TIMEOUT });
+        await page.locator('#providerNo').selectOption(otherFixture.providerNo);
+        await ui.clickAndAwaitReload(page, page.locator('input[type="submit"][value="Change Dashboard Provider"]'),
+          { label: 'explicitly override clinic-default provider', timeout: TIMEOUT });
+        await page.locator(`#graphPlots_${id}`).waitFor({ state: 'attached' });
+        h.assert(await page.locator('#dashboardProviderNo').inputValue() === otherFixture.providerNo, 'The explicit selection was lost');
+        h.assert(await page.locator(`#graphPlots_${id}`).inputValue() === JSON.stringify([[['Active', 1], ['Not active', 1]]]),
+          'The explicit provider selection did not override the clinic-wide default');
+      } finally { await page.close(); }
+    }
   });
 
   await s.step('two windows of one login keep their provider-specific lists, exports and exclusions after switching the second window', async () => {
