@@ -15,13 +15,12 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * The classic note editor takes its edit lock by POST once it has loaded.
+ * The classic note keeps its text readable until the clinician chooses Edit.
  *
  * <p>Opening the editor by GET (a link, a note search result) takes no lock
  * ({@link CaseManagementEntryNoteOpenUnitTest}), and its Save needs this session's lock. So the
- * page posts {@code method=isNoteEdited} on load, as the chart's own editor does, and when another
- * provider holds the note or the request fails it shows the existing lost-lock message at once,
- * before anything is typed. A page without the editor form (no right to write notes) takes no lock.
+ * Edit button posts {@code method=isNoteEdited}. The form enables changes after the response confirms
+ * session ownership and shows the existing lost-lock message when the request fails.
  * This is a source-pattern guard over the shipping JSP.</p>
  */
 @Tag("unit")
@@ -37,14 +36,13 @@ class CaseManagementEntryNoteLockJspRegressionTest {
     }
 
     @Test
-    @DisplayName("should take the note lock on load, before the autosave timer, only when the editor form is there")
-    void shouldTakeTheNoteLockOnLoad_whenTheEditorFormIsPresent() {
+    @DisplayName("should read the note without a lock or autosave before the clinician chooses Edit")
+    void shouldLeaveTheNoteReadOnly_untilTheClinicianChoosesEdit() {
         String init = function("init");
 
-        assertThat(page).contains("<body onload=\"init()\">");
-        assertThat(init).contains("if (document.getElementById('caseManagementEntryForm')) takeNoteLock();");
-        assertThat(init.indexOf("takeNoteLock();")).isLessThan(init.indexOf("setTimer();"));
-        assertThat(page).contains("<form name=\"caseManagementEntryForm\" id=\"caseManagementEntryForm\"");
+        assertThat(init).doesNotContain("takeNoteLock()", "setTimer()");
+        assertThat(page).contains("id=\"editLegacyNote\" onclick=\"takeNoteLock()\"", "wrap=\"soft\" readonly",
+                "value=\"Save\" disabled data-note-lock-edit");
     }
 
     @Test
@@ -67,9 +65,10 @@ class CaseManagementEntryNoteLockJspRegressionTest {
 
         assertThat(page).contains("<fmt:message var=\"noteLockLostLabel\" key=\"encounter.noteLockLostError.msg\"/>");
         assertThat(lock).contains("alert('${carlos:forJavaScriptBlock(noteLockLostLabel)}');");
-        assertThat(lock).contains("answer = JSON.parse(lockRequest.responseText).isNoteEdited;");
+        assertThat(lock).contains("owned = JSON.parse(lockRequest.responseText).ownedBySession === true;");
         assertThat(lock).contains("if (lockRequest.status === 200) {");
-        assertThat(lock).contains("if (answer !== 'unlocked' && answer !== 'user') warn();");
+        assertThat(lock).contains("if (!owned)", "note.readOnly = false;", "setTimer();");
+        assertThat(lock.indexOf("if (!owned)")).isLessThan(lock.indexOf("note.readOnly = false;"));
     }
 
     /** The body of a top-level page function, up to the next function at the same indent. */

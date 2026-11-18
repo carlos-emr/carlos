@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.casemgmt.web;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
@@ -61,7 +62,7 @@ import static org.mockito.Mockito.when;
  * <p>A GET of the note editor (a link, a note search result) only reads: it writes no note lock
  * row, no old-note history and no note link, and it leaves this session's cached lock as it is.
  * Opening by POST, as the chart's own editor does, still takes and caches the lock and stores an
- * old note's history. The classic editor page takes its lock by POST once it has loaded
+ * old note's history. The classic editor page takes its lock by POST when the clinician chooses Edit
  * ({@link CaseManagementEntryNoteLockJspRegressionTest}). Every patient and note here is FAKE.</p>
  */
 @Tag("unit")
@@ -189,8 +190,8 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should open a new note and leave every lock alone when another provider holds the note, by GET")
-    void shouldOpenANewNote_whenAnotherProviderHoldsTheNoteByGet() throws Exception {
+    @DisplayName("should show the saved note and leave every lock alone when another provider holds it, by GET")
+    void shouldReadTheSavedNote_whenAnotherProviderHoldsItsLock() throws Exception {
         CasemgmtNoteLock theirs = lock(5001L, OTHER_PROVIDER, "FAKE-their-session");
         when(locks.findByNoteDemo(Integer.valueOf(PATIENT), 5001L)).thenReturn(theirs);
         CasemgmtNoteLock otherEditor = lock(0L, PROVIDER, session.getId());
@@ -198,7 +199,7 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
 
         open("GET", OpenPath.SAVED_NOTE);
 
-        assertThat(form().getCaseNote().getId()).isNull();
+        assertThat(form().getCaseNote().getId()).isEqualTo(5001L);
         assertThat(form().getCaseNote().getDemographic_no()).isEqualTo(PATIENT);
         verify(locks, never()).persist(any());
         verify(locks, never()).merge(any());
@@ -227,7 +228,7 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
         assertThat(opened.getCaseNote().getHistory()).isEqualTo(ORIGINAL_TEXT);
 
         // Struts' session map writes the form through to the HTTP session, and the classic editor's
-        // page-load POST (method=isNoteEdited) takes this session's lock on the note.
+        // Edit button posts method=isNoteEdited to take this session's lock on the note.
         session.setAttribute("caseManagementEntryForm" + PATIENT, opened);
         CasemgmtNoteLock taken = lock(5001L, PROVIDER, session.getId());
         taken.setId(10L);
@@ -276,6 +277,39 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
         real.saveNote(null, revision, PROVIDER, "FAKE Doctor", null, "doctor");
         verify(notes).saveNote(revision);
         assertThat(revision.getHistory()).startsWith(REVISED_TEXT).contains(ORIGINAL_TEXT);
+    }
+
+    @Test
+    void shouldConfirmLockOwnership_onlyForTheSessionThatHoldsIt() throws Exception {
+        when(security.hasPrivilege(login, "_eChart", "w", PATIENT)).thenReturn(true);
+        when(security.hasPrivilege(login, "_casemgmt.notes", "w", PATIENT)).thenReturn(true);
+        when(manager.getNote("5001")).thenReturn(note(5001L, ORIGINAL_TEXT));
+        CasemgmtNoteLock existing = lock(5001L, PROVIDER, "FAKE-other-session");
+        when(locks.findByNoteDemo(Integer.valueOf(PATIENT), 5001L)).thenReturn(existing);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/carlos/CaseManagementEntry");
+        request.setSession(session);
+        request.setParameter("demographicNo", PATIENT);
+        request.setParameter("noteId", "5001");
+        ObjectMapper json = new ObjectMapper();
+
+        CaseManagementEntry2Action refused = action(request);
+        refused.isNoteEdited();
+        var conflict = json.readTree(((MockHttpServletResponse) refused.response).getContentAsString());
+        assertThat(conflict.path("isNoteEdited").asText()).isEqualTo("user");
+        assertThat(conflict.path("ownedBySession").booleanValue()).isFalse();
+        assertThat(session.getAttribute(CACHE_KEY)).isNull();
+
+        CasemgmtNoteLock owned = lock(5001L, PROVIDER, session.getId());
+        when(locks.findByNoteDemo(Integer.valueOf(PATIENT), 5001L)).thenReturn(owned);
+        CaseManagementEntry2Action accepted = action(request);
+        accepted.isNoteEdited();
+        var confirmed = json.readTree(((MockHttpServletResponse) accepted.response).getContentAsString());
+        assertThat(confirmed.path("isNoteEdited").asText()).isEqualTo("user");
+        assertThat(confirmed.path("ownedBySession").booleanValue()).isTrue();
+        assertThat(session.getAttribute(CACHE_KEY)).isSameAs(owned);
+        verify(locks, never()).persist(any());
+        verify(locks, never()).merge(any());
     }
 
     private void open(String httpMethod, OpenPath path) throws Exception {

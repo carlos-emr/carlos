@@ -532,8 +532,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String demono = getDemographicNo(request);
         Integer demographicNo = Integer.parseInt(demono);
         // Opening the editor by GET (a link, a note search result) only reads. The note lock and an
-        // old note's history are stored when the editor opens by POST: the chart's own editor posts
-        // here, and the classic editor page takes its lock by POST (method=isNoteEdited) on load.
+        // old note's history are stored when the chart editor opens by POST. The classic editor
+        // requests its lock separately when the clinician chooses Edit.
         boolean opensForEditing = "POST".equals(request.getMethod());
         current = System.currentTimeMillis();
         logger.debug("Get demo and providers no " + String.valueOf(current - start));
@@ -795,7 +795,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return NONE;
         }
 
-        if (noteOpenLock.lockedByAnotherProvider()) {
+        if (opensForEditing && noteOpenLock.lockedByAnotherProvider()) {
             note = makeNewNote(providerNo, demono, request);
             cform.setCaseNote(note);
         }
@@ -1130,13 +1130,16 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             ret = "other";
         } else if (casemgmtNoteLock.isLockedBySameUser()) {
             ret = "user";
-        } else {
+        }
+        boolean ownedBySession = !casemgmtNoteLock.isLocked() && Objects.equals(casemgmtNoteLock.getSessionId(), sessionId);
+        if (ownedBySession) {
             storeCachedNoteLock(request.getSession(), "casemgmtNoteLock" + demoNo, casemgmtNoteLock);
         }
 
         Map<String, String> jsonMap = new HashMap<String, String>();
         jsonMap.put("isNoteEdited", ret);
         ObjectNode json = objectMapper.valueToTree(jsonMap);
+        json.put("ownedBySession", ownedBySession);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         response.getWriter().write(json.toString());
