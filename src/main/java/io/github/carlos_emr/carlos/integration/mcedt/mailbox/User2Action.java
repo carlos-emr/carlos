@@ -28,16 +28,13 @@
  */
 package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
 
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.struts2.ActionSupport;
-import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
-import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtSecurity;
+import io.github.carlos_emr.carlos.integration.mcedt.McedtCredentials;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -46,8 +43,7 @@ public class User2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private static Logger logger = MiscUtils.getLogger();
-    private UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
+    private McedtCredentials credentials = SpringUtils.getBean(McedtCredentials.class);
 
     @Override
     public String execute() throws Exception {
@@ -72,13 +68,7 @@ public class User2Action extends ActionSupport {
     public String changePassword() throws Exception {
         try {
 
-            UserProperty prop = userPropertyDAO.getProp(UserProperty.MCEDT_ACCOUNT_PASSWORD);
-            if (prop == null) {
-                prop = new UserProperty();
-                prop.setName(UserProperty.MCEDT_ACCOUNT_PASSWORD);
-            }
-            prop.setValue(this.getPassword());
-            userPropertyDAO.saveProp(prop);
+            credentials.savePassword(this.getPassword());
             request.getSession().setAttribute("isPassChange", "true"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
         } catch (Exception e) {
             request.getSession().setAttribute("isPassChange", "false"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal

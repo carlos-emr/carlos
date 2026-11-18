@@ -32,7 +32,6 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
-import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilder;
 import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilderConfig;
 import io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils;
@@ -76,9 +75,8 @@ public class DelegateFactory {
         config.setKeystoreUser(props.getProperty("mcedt.keystore.user"));
         config.setKeystorePassword(props.getProperty("mcedt.keystore.pass"));
         config.setUserNameTokenUser(props.getProperty("mcedt.service.user"));
-        //config.setUserNameTokenPassword(props.getProperty("mcedt.service.pass"));
-        UserProperty prop = userPropertyDAO.getProp(UserProperty.MCEDT_ACCOUNT_PASSWORD);
-        config.setUserNameTokenPassword((prop == null || prop.getValue() == null || prop.getValue().trim().equals("")) ? props.getProperty("mcedt.service.pass") : prop.getValue());
+        config.setUserNameTokenPassword(SpringUtils.getBean(McedtCredentials.class)
+                .getPassword(props.getProperty("mcedt.service.pass")));
         config.setServiceUrl(props.getProperty("mcedt.service.url"));
         config.setConformanceKey(props.getProperty("mcedt.service.conformanceKey"));
         config.setServiceId((serviceId == null || serviceId.trim().equals("")) ? props.getProperty("mcedt.service.id") : serviceId);
