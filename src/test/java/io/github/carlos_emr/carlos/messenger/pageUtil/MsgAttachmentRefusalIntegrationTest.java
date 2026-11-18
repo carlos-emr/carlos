@@ -34,6 +34,10 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -119,9 +123,13 @@ class MsgAttachmentRefusalIntegrationTest {
         }
     }
 
-    @Test
-    void shouldShowActionableNotice_forAStaleAttachmentSelection() throws Exception {
-        var response = post("/messenger/Doc2PDF", "en");
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @Execution(ExecutionMode.SAME_THREAD)
+    void shouldShowActionableNotice_forAStaleAttachmentSelection(boolean preview) throws Exception {
+        String route = "/messenger/Doc2PDF?isPreview=" + preview;
+        ATTACHMENT_KEPT.set(false);
+        var response = post(route, "en");
         assertThat(response.statusCode()).isEqualTo(400);
         assertThat(response.body()).contains("CARLOS Error: 400");
         var notice = Jsoup.parse(response.body()).select("#messenger-attachment-unavailable[role=alert]");
@@ -129,7 +137,7 @@ class MsgAttachmentRefusalIntegrationTest {
                 assertThat(element.text()).contains(ATTACH_NOTICE, "Reopen the attachment chooser"));
         assertThat(ATTACHMENT_KEPT.get()).isTrue();
 
-        var localized = post("/messenger/Doc2PDF", "fr");
+        var localized = post(route, "fr");
         assertThat(localized.statusCode()).isEqualTo(400);
         assertThat(Jsoup.parse(localized.body()).select("#messenger-attachment-unavailable"))
                 .singleElement().satisfies(element -> assertThat(element.text()).contains("indisponible", "Rouvrez"));
@@ -186,7 +194,12 @@ class MsgAttachmentRefusalIntegrationTest {
                         (req, res, route) -> { throw new AssertionError("A stale attachment reached rendering"); }, converter);
                 action.setDemographic_no(Integer.toString(PATIENT));
                 action.setAttachmentKey(key);
-                action.setItem(new String[]{"encounter"});
+                if (Boolean.parseBoolean(request.getParameter("isPreview"))) {
+                    action.setIsPreview(true);
+                    action.setPreviewItem("encounter");
+                } else {
+                    action.setItem(new String[]{"encounter"});
+                }
                 action.execute();
             } finally {
                 ActionContext.clear();

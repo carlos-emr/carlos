@@ -236,8 +236,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
         }
         Optional<Attachment> attachment = resolver.resolve(item.get(), demographicNo, patientName, labels);
         if (attachment.isEmpty()) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Unknown attachment item");
-            return NONE;
+            return attachmentUnavailable();
         }
         String html = render(attachment.get(), demographicNo, loggedInInfo);
         if (html == null) {
@@ -285,9 +284,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
             Optional<Attachment> attachment = resolver.resolve(item, demographicNo, patientName, labels);
             if (attachment.isEmpty()) {
                 // A stale chooser must not silently remove an item the sender explicitly selected.
-                request.setAttribute("carlosMessengerAttachmentUnavailable", true);
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
-                return NONE;
+                return attachmentUnavailable();
             }
             String html = render(attachment.get(), demographicNo, loggedInInfo);
             String pdf = html == null ? null : pdfConverter.toBase64Pdf(request, response, html);
@@ -317,6 +314,12 @@ public class MsgAttachPDF2Action extends ActionSupport {
         }
         MsgAttachmentStaging.stagePdfs(request.getSession(), attachmentKey, demographicNo, stored);
         return SUCCESS;
+    }
+
+    private String attachmentUnavailable() throws IOException {
+        request.setAttribute("carlosMessengerAttachmentUnavailable", true);
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+        return NONE;
     }
 
     /**
