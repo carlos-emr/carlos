@@ -8,7 +8,8 @@ resource exhaustion while accepting large images and bulk form packages:
 | Expanded bytes in one entry | 256 MiB (268,435,456 bytes) |
 | Expanded bytes across the archive | 1 GiB (1,073,741,824 bytes) |
 | ZIP entries, including directories and archiver metadata | 10,000 |
-| Expanded bytes in one properties or form HTML entry | 16 MiB (16,777,216 bytes) |
+| Expanded bytes in one properties entry | 16 MiB (16,777,216 bytes) |
+| Expanded bytes in one retained form HTML entry | 50 MiB (52,428,800 bytes) |
 | Expanded bytes across properties and retained form HTML | 64 MiB (67,108,864 bytes) |
 
 These are abuse backstops, not recommended image sizes. Large images, image-heavy
@@ -17,6 +18,10 @@ users should not need to downsample ordinary assets or split ordinary packages.
 Assets stream to private staging files using a fixed-size copy buffer. The larger
 ceilings bound disk expansion. The separate text ceilings bound properties parsed
 and HTML retained in memory, including HTML whose filename has a non-HTML extension.
+The HTML entry ceiling matches the supported multipart upload capacity, so a
+supported large form can be exported and imported again. The 64 MiB aggregate
+text ceiling still applies to bulk packages; split packages whose combined
+properties and retained HTML exceed that ceiling.
 Properties are staged and checked before parsing; all retained HTML is checked
 before any asset or form is published. Properties from skipped forms also count.
 They apply to bytes actually decompressed, independently of ZIP size metadata or

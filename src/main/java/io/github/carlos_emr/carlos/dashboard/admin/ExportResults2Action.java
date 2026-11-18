@@ -58,15 +58,18 @@ public class ExportResults2Action extends ActionSupport {
             return "unauthorized";
         }
 
-        String indicatorId = request.getParameter("indicatorId");
-        String indicatorName = request.getParameter("indicatorName");
-
         String providerNo = dashboardManager.getRequestedProviderNo(loggedInInfo);
+        int indicatorId = Integer.parseInt(request.getParameter("indicatorId"));
+        String indicatorName = request.getParameter("indicatorName");
+        String metricLabel = request.getParameter("sharedMetricLabel");
+
         String csvFile;
-        if (providerNo != null) {
-            csvFile = dashboardManager.exportDrilldownQueryResultsToCSV(loggedInInfo, providerNo, Integer.parseInt(indicatorId));
+        if (metricLabel != null && !metricLabel.isBlank() && !"null".equals(metricLabel)) {
+            csvFile = dashboardManager.exportDrilldownQueryResultsToCSV(loggedInInfo, providerNo, indicatorId, metricLabel);
+        } else if (providerNo != null) {
+            csvFile = dashboardManager.exportDrilldownQueryResultsToCSV(loggedInInfo, providerNo, indicatorId);
         } else {
-            csvFile = dashboardManager.exportDrilldownQueryResultsToCSV(loggedInInfo, Integer.parseInt(indicatorId));
+            csvFile = dashboardManager.exportDrilldownQueryResultsToCSV(loggedInInfo, indicatorId);
         }
 
         if (indicatorName == null || indicatorName.isEmpty()) {
