@@ -171,7 +171,7 @@ class CiBrowserFixturesTest(unittest.TestCase):
         root = Path(__file__).resolve().parents[2]
         contract = json.loads((root / 'docs/testing/release-2026.08-ci-browser-fixtures.json').read_text())
         selected = fixtures.validate_contract(contract, (root / '.github/workflows/script-regressions.yml').read_text())
-        self.assertEqual(len(selected), 17)
+        self.assertEqual(len(selected), 18)
         for row in selected:
             self.assertEqual(hashlib.sha256((root / row['source']).read_bytes()).hexdigest(), row['sourceSha256'])
         plan = fixtures.gate.load_plan()

@@ -44,6 +44,16 @@ class RBTGroupNameOutputEncodingJspRegressionUnitTest extends CarlosUnitTestBase
     private static final Pattern EL_EXPRESSION = Pattern.compile("\\$\\{[^}]*}");
 
     @Test
+    void shouldEncodeValidationMessage_inTemplateGroupsJsp() throws IOException {
+        String jsp = Files.readString(GROUPS_JSP, StandardCharsets.UTF_8);
+        String active = jsp.replaceAll("(?s)<%--.*?--%>", "");
+        var alerts = org.jsoup.Jsoup.parse(active).select("div[role=alert]");
+        assertThat(alerts).hasSize(1);
+        assertThat(alerts.first().html().trim()).isEqualTo("${carlos:forHtml(errormsg)}");
+        assertThat(active).doesNotContainPattern("\\$\\{\\s*errormsg\\s*}");
+    }
+
+    @Test
     @DisplayName("should keep the manager from Java-escaping the stored label")
     void shouldNotJavaEscapeLabel_inManager() throws IOException {
         String source = Files.readString(MANAGER_JAVA, StandardCharsets.UTF_8);

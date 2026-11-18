@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/report/ClinicalReports/SQLDenominator.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "3ee27f0788653a829364bc02556559fe711a68ea"
+  },
+  "evidenceSha256": "5e8fa15d606a265ffeb492ab81efe978a3df75ce128dd0a15bb4c6f18cc0d09f"
+}
