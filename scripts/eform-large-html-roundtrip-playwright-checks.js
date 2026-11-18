@@ -1,5 +1,8 @@
 #!/usr/bin/env node
-/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+/*
+ * Copyright (c) 2026 CARLOS Contributors.
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 'use strict';
 const fs=require('node:fs');
 const {createHash}=require('node:crypto');

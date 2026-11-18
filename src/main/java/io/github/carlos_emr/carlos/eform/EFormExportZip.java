@@ -62,6 +62,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * Utility class for exporting eForms as ZIP archives.
  */
 public class EFormExportZip {
+    /** Bound retained HTML allocations through registration, across importer instances. */
+    private static final Object IMPORT_REGISTRATION_LOCK = new Object();
     private static final Logger _log = MiscUtils.getLogger();
 
     // Backstops for egregious expansion, with room for large images and bulk form packages.
@@ -263,7 +265,8 @@ public class EFormExportZip {
      * Generous abuse safeguards allow 256 MiB per entry, 1 GiB expanded overall and 10,000
      * entries, including directories and skipped archiver metadata. Large image assets and
      * multi-form packages within these ceilings are accepted without a compression-ratio limit.
-     * Properties and form HTML additionally allow 16 MiB per entry and 64 MiB combined,
+     * Properties allow 16 MiB per entry and retained form HTML allows 50 MiB per entry,
+     * with a shared 64 MiB text budget,
      * checked before parsing properties or publishing any form or asset.
      * Counters use actual decompressed bytes, including when ZIP sizes are absent or false.
      * A limit failure closes the input and removes this import's private staging directory
@@ -322,12 +325,27 @@ public class EFormExportZip {
                 }
             }
 
-            publishImportFiles(imageTempFolderDir, eformTable, eformTableFailed, tempFiles, errors);
-            _log.info("Registering: " + eformTable.values().size() + " eforms");
-            //write constructed eforms
-            for (EForm eform : eformTable.values()) {
-                _log.info("New eform: {}", LogSafe.sanitize(eform.getFormName()));
-                EFormUtil.saveEForm(eform);
+            // Extraction remains concurrent and disk-backed. Only one request retains
+            // its HTML strings through persistence, regardless of importer instance.
+            synchronized (IMPORT_REGISTRATION_LOCK) {
+                // Another local import may have registered this name while extraction
+                // was running. Recheck before loading HTML or publishing its assets.
+                var candidates = eformTable.entrySet().iterator();
+                while (candidates.hasNext()) {
+                    var candidate = candidates.next();
+                    EForm form = candidate.getValue();
+                    if (EFormUtil.formExistsInDB(form.getFormName())) {
+                        errors.add("Skipped form '" + form.getFormName() + "', form already exists");
+                        eformTableFailed.put(candidate.getKey(), form);
+                        candidates.remove();
+                    }
+                }
+                publishImportFiles(imageTempFolderDir, eformTable, eformTableFailed, tempFiles, errors);
+                _log.info("Registering: " + eformTable.values().size() + " eforms");
+                for (EForm eform : eformTable.values()) {
+                    _log.info("New eform: {}", LogSafe.sanitize(eform.getFormName()));
+                    EFormUtil.saveEForm(eform);
+                }
             }
         } finally {
             deleteDirectory(imageTempFolderDir);
@@ -427,14 +445,10 @@ public class EFormExportZip {
             _log.info("Inspecting eForm import entry");
             if (eformTable.containsKey(tempFile.getKey())) {
                 File extractedTempFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
-                try (FileInputStream fis = new FileInputStream(extractedTempFile);
-                     ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-                    inputToOutput(fis, baos);
-                    String html = new String(baos.toByteArray());
-                    // Do not log raw uploaded HTML; log only its length.
-                    _log.debug("Loaded eform HTML content ({} chars)", html.length());
-                    eformTable.get(tempFile.getKey()).setFormHtml(html);
-                }
+                String html = new String(Files.readAllBytes(extractedTempFile.toPath()));
+                // Do not log raw uploaded HTML; log only its length.
+                _log.debug("Loaded eform HTML content ({} chars)", html.length());
+                eformTable.get(tempFile.getKey()).setFormHtml(html);
             } else if (!eformTableFailed.containsKey(tempFile.getKey())) {
                 publishImportAsset(tempFile, imageTempFolderDir, errors);
             }

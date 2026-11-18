@@ -1,4 +1,7 @@
-/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+/*
+ * Copyright (c) 2026 CARLOS Contributors.
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 package io.github.carlos_emr.carlos.eform;
 
 import io.github.carlos_emr.carlos.eform.data.EForm;
@@ -24,7 +27,7 @@ class EFormLargeHtmlRoundTripUnitTest {
 
     @ParameterizedTest
     @CsvSource({"html,17825792", "png,17825792", "html,52428800"})
-    void exportedHtmlWithinUploadCapacityCanBeImported(String extension, int bytes) throws Exception {
+    void shouldReimportExactExportedHtml_withSupportedRetainedSize(String extension, int bytes) throws Exception {
         String prefix="<!doctype html><p>Synthetic Ω</p>";
         String html=prefix+"x".repeat(bytes-prefix.getBytes(StandardCharsets.UTF_8).length);
         assertThat(html.getBytes(StandardCharsets.UTF_8)).hasSize(bytes);
