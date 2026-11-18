@@ -37,3 +37,21 @@ DEBs will qualify these exact production classes, with the existing native
 appointment audit lifecycle selected as a GUI compatibility control. That GUI
 uses its normal appointment routes; no browser proof of an unused REST UI is
 claimed.
+
+### Audit lookup failure rolls back field edits
+
+Status, type and urgency edits use `LogAction.addLogStrict` inside their existing
+transaction. Failure while locating the audit DAO now propagates and rolls back
+both the changed appointment and its prior-state archive. The existing generic
+manager update keeps its established audit API. Three regressions read committed
+appointment and archive state: all three fail before repair on both H2 and actual
+MariaDB 11.8.8/32K, and all pass after repair. The MariaDB before/after JUnit hashes
+are `efa00736474feb03ac7c8c6daa082534f4fec82e9a65e04e0bd030dd5653dffe`
+and `ca9e083d272e9667920c2f359edef7bb49a97e46738862f8aaea06b658c7aa25`.
+
+All 289 selected schedule controls pass with 100% changed-line, instruction and
+branch coverage. Their JUnit SHA-256 is
+`64f3313943d93113c81bf9ba376ef142e8fca7b6e58dab9981d52d5fc35ee625`.
+The physical component runner uses an independent disposable MariaDB server;
+the application schema is untouched and the server is retired. This repair is
+pending the next rebuilt DEB/native qualification.

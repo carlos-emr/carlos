@@ -60,7 +60,7 @@ class AppointmentFieldAuditUnitTest extends ScheduleUnitTestBase {
         edit(field,request());
         String action="AppointmentManager.updateAppointment"+field;
         String patient=String.valueOf(TEST_DEMO_NO);
-        logActionMock.verify(()->LogAction.addLogSynchronous(mockLoggedInInfo,action,LogConst.CON_APPT,"67",patient,"id=67"));
+        logActionMock.verify(()->LogAction.addLogStrict(mockLoggedInInfo,action,LogConst.CON_APPT,"67",patient,"id=67"));
         logActionMock.verifyNoMoreInteractions();verify(archives).archiveAppointment(current);verify(appointments).merge(current);verify(appointments).flush();
         assertThat(current.getStatus()).isEqualTo(field.equals("Status")?"C":"t");assertThat(current.getType()).isEqualTo(field.equals("Type")?"FAKE-new-type":"original-type");assertThat(current.getUrgency()).isEqualTo(field.equals("Urgency")?"urgent":"original-urgency");assertThat(current.getName()).isEqualTo("FAKE-original-name");assertThat(current.getLastUpdateUser()).isEqualTo(TEST_PROVIDER);
     }
@@ -224,7 +224,7 @@ class AppointmentFieldAuditUnitTest extends ScheduleUnitTestBase {
         var input=request();input.setEditVersion("1000");edit(field,input);
         assertThat(before.get()).containsExactly("1000","t","original-type","original-urgency");
         assertThat(current.getEditVersion()).isEqualTo("2000");
-        logActionMock.verify(()->LogAction.addLogSynchronous(mockLoggedInInfo,"AppointmentManager.updateAppointment"+field,
+        logActionMock.verify(()->LogAction.addLogStrict(mockLoggedInInfo,"AppointmentManager.updateAppointment"+field,
                 LogConst.CON_APPT,"67",String.valueOf(TEST_DEMO_NO),"id=67"));
         logActionMock.verifyNoMoreInteractions();
     }
