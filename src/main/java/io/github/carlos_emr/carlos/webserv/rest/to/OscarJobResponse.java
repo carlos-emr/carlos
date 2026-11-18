@@ -32,11 +32,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlElement;
 import jakarta.xml.bind.annotation.XmlRootElement;
 
 import io.github.carlos_emr.carlos.webserv.rest.to.model.OscarJobTo1;
 
 @XmlRootElement
+@XmlAccessorType(XmlAccessType.NONE)
 public class OscarJobResponse {
 
     public enum ScheduleActivation { ACTIVE, DISABLED, FAILED }
@@ -44,6 +49,7 @@ public class OscarJobResponse {
     private List<OscarJobTo1> jobs = new ArrayList<OscarJobTo1>();
     private ScheduleActivation scheduleActivation;
 
+    @XmlElement
     public List<OscarJobTo1> getJobs() {
         return jobs;
     }
@@ -53,6 +59,7 @@ public class OscarJobResponse {
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
+    @JsonProperty
     public ScheduleActivation getScheduleActivation() {
         return scheduleActivation;
     }
