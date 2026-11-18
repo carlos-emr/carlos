@@ -527,7 +527,8 @@
         "scripts/form-growth-clinical-geometry-playwright-checks.js",
         "scripts/form-rourke2020-growth-playwright-checks.js",
         "scripts/lib/growth-clinical-oracle.js",
-        "docs/testing/growth-clinical-geometry-inventory.md"
+        "docs/testing/growth-clinical-geometry-inventory.md",
+        "scripts/privacy-static-html-metadata-playwright-checks.js"
       ],
       "implementation": "Rerun the established before/after PDF corpus on the final packaged WAR; extend renderer security and concurrency, and preserve the already-added half-letter browser dimension/content assertions.",
       "cases": "A4/Letter/A6/396x612 half-letter, print/reprint/fax, auto-print, signatures, long patient/pharmacy headers, all Rourke/BC/legacy forms, long notes and checked marks, CJK/emoji/accents, no host fonts/unwritable font cache, PDF 2.0 consumers, Brotli input, warm-cache two-patient parallel rendering; Flying Saucer resource/network/path refusals. Native Rourke/Growth output for fixed male/female infant birth dates, independent WHO grid/curve/unit/age-axis and median relationships, irregular and birth/24-month-edge observations, form/module inclusion and exact duplicate representation, complete saved-history and unrelated-control preservation.",
@@ -541,7 +542,8 @@
         "packaged-full",
         "http-client-compatibility",
         "java-browser-pdf",
-        "manual-jasper-production"
+        "manual-jasper-production",
+        "manual-privacy-static-html-metadata"
       ]
     },
     {
