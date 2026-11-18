@@ -29,8 +29,8 @@ fingerprints. Its generated case inventory is retained. The first full run's
 16 failures came from the existing controller fixture omitting the new helper;
 the fixture now loads the real helper and adds bulk-action window-scope controls.
 
-- Java JUnit SHA-256: `12a39f59e926b42322768906830dfdd49378d3de2640ce97c22e87d4d942cde0`.
-- Source-bound coverage SHA-256: `cdb2849e7b1e15c64b29dd5dd4f2062477bddd3e2197f127b9e02fa1b0b54c84`.
+- Java JUnit SHA-256: `7b94f72996924bd6386a6d6b761331594ee0953891573c4190049534ad992a1f`.
+- Source-bound coverage SHA-256: `d06c74488f5c82c86bd53f47083b0b9dfa8aa06df9357f7e35880967e38f6bba`.
 - Complete Node report SHA-256: `14e9aa273135cba754cef45178ecfacff485c2c74bdfaad5db0b989c4cc31643`.
 
 The native dashboard workflow now creates two owned providers and five patients,
