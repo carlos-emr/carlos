@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
@@ -37,7 +38,7 @@ import static org.mockito.Mockito.when;
  *
  * <p>Each page with a real same-origin POST form is pushed through the real filter as rendered template text (JSP
  * comments, directives and scriptlets removed, expressions replaced by a placeholder), and must come out carrying the
- * client script, unless it bootstraps the token itself with {@code csrf-token.jspf}.
+ * client script, unless every POST form includes {@code csrf-token.jspf} within its markup.
  *
  * <p>This is a source-level approximation, not a JSP render: {@code <%@ include %>} and
  * {@code <jsp:include>} are not expanded. A page that took its {@code </head>} or {@code </body>}
@@ -57,6 +58,9 @@ class CaisicoreJspCsrfTokenRegressionUnitTest {
     private static final String CONTEXT = "/carlos";
     private static final String CLIENT_SCRIPT = "<script src=\"" + CONTEXT + "/csrfguard\"></script>";
     private static final String TOKEN_BOOTSTRAP = "/WEB-INF/jspf/csrf-token.jspf";
+    private static final String TOKEN_MARKER = "carlos-csrf-token-include";
+    private static final Pattern TOKEN_DIRECTIVE = Pattern.compile(
+            "<%@\\s*include\\s+file\\s*=\\s*(['\"])" + Pattern.quote(TOKEN_BOOTSTRAP) + "\\1\\s*%>");
 
     /** Every caisicore JSP whose rendered template text holds a real POST form, in name order. */
     static Stream<Path> pagesWithPostForms() throws IOException {
@@ -82,12 +86,12 @@ class CaisicoreJspCsrfTokenRegressionUnitTest {
     @MethodSource("pagesWithPostForms")
     @DisplayName("should receive the CSRFGuard client, or bootstrap the token itself, when it has a POST form")
     void shouldReceiveCsrfGuardClient_whenPageHasPostForm(Path page) throws Exception {
-        String source = read(page);
-        if (source.contains(TOKEN_BOOTSTRAP)) {
+        String html = rendered(read(page));
+        if (!needsClient(html)) {
             return;
         }
 
-        String served = serveThroughFilter(rendered(source));
+        String served = serveThroughFilter(html);
 
         assertThat(served)
                 .as("%s must render </head> or </body> so the filter adds the CSRFGuard client", page.getFileName())
@@ -116,24 +120,44 @@ class CaisicoreJspCsrfTokenRegressionUnitTest {
         assertThat(hasRealPostForm(rendered)).isTrue();
     }
 
+    @Test
+    void shouldRequireClient_whenATokenIncludeIsCommentedOutOrOutsideThePostForm() {
+        String formStart = "<form action=\"/carlos/issueAdmin\" method=\"post\">";
+        String include = "<%@ include file=\"" + TOKEN_BOOTSTRAP + "\" %>";
+        String bareForm = formStart + "</form>";
+
+        assertThat(needsClient(rendered(formStart + "<%-- " + include + " --%></form>"))).isTrue();
+        assertThat(needsClient(rendered(include + bareForm))).isTrue();
+        assertThat(needsClient(rendered(formStart + include + "</form>" + bareForm))).isTrue();
+        assertThat(needsClient(rendered(formStart + include + "</form>"))).isFalse();
+    }
+
     /** True when the page has a POST form whose action is a URL, the forms CSRFGuard's client fills in. */
     private static boolean hasRealPostForm(String html) {
-        for (Element form : Jsoup.parse(html).select("form")) {
+        return postForms(html).findAny().isPresent();
+    }
+
+    private static boolean needsClient(String html) {
+        return postForms(html).anyMatch(form -> form.getAllElements().stream().noneMatch(element ->
+                TOKEN_MARKER.equals(element.normalName())
+                        || ("jsp:include".equals(element.normalName()) && TOKEN_BOOTSTRAP.equals(element.attr("page")))));
+    }
+
+    private static Stream<Element> postForms(String html) {
+        return Jsoup.parse(html).select("form").stream().filter(form -> {
             String method = form.attr("method").trim().toLowerCase(Locale.ROOT);
             String action = form.attr("action").trim().toLowerCase(Locale.ROOT);
-            if ("post".equals(method) && !action.isEmpty() && !action.startsWith("javascript:")) {
-                return true;
-            }
-        }
-        return false;
+            return "post".equals(method) && !action.isEmpty() && !action.startsWith("javascript:");
+        });
     }
 
     /**
      * Approximates what the JSP renders as template text: JSP comments, directives and scriptlets produce no output,
-     * and an expression produces some text.
+     * and an expression produces some text. A direct token include leaves a marker in its form.
      */
     private static String rendered(String jsp) {
-        return jsp.replaceAll("(?s)<%--.*?--%>", "")
+        String withoutComments = jsp.replaceAll("(?s)<%--.*?--%>", "");
+        return TOKEN_DIRECTIVE.matcher(withoutComments).replaceAll("<" + TOKEN_MARKER + "></" + TOKEN_MARKER + ">")
                 .replaceAll("(?s)<%=.*?%>", "x")
                 .replaceAll("(?s)<%.*?%>", "");
     }
