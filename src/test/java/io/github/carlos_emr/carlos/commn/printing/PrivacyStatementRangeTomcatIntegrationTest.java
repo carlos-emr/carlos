@@ -4,6 +4,10 @@
  */
 package io.github.carlos_emr.carlos.commn.printing;
 
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import io.github.carlos_emr.CarlosProperties;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -25,6 +29,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -33,6 +39,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PrivacyStatementRangeTomcatIntegrationTest {
     private static final byte[] HTML = ("<html><body>" + "FAKE-5782-content-".repeat(32)
             + "</body></html>").getBytes(StandardCharsets.UTF_8);
+    private static final byte[] SMALL_PARTIAL = "<p>FAKE partial content</p>".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] LARGE_PARTIAL = "<p>FAKE partial content</p>".repeat(60000)
+            .getBytes(StandardCharsets.UTF_8);
     @TempDir Path directory;
     private Tomcat tomcat;
     private URI uri;
@@ -52,6 +61,18 @@ class PrivacyStatementRangeTomcatIntegrationTest {
         context.addMimeMapping("html", "text/html");
         Tomcat.addServlet(context, "default", new DefaultServlet()).setLoadOnStartup(1);
         context.addServletMappingDecoded("/", "default");
+        Tomcat.addServlet(context, "partial-fixture", new HttpServlet() {
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+                byte[] bytes = "large".equals(request.getParameter("size")) ? LARGE_PARTIAL : SMALL_PARTIAL;
+                response.setContentLengthLong(bytes.length);
+                response.setContentType("text/html;charset=UTF-8");
+                response.setStatus(HttpServletResponse.SC_PARTIAL_CONTENT);
+                response.setHeader("Content-Range", "bytes 0-" + (bytes.length - 1) + "/" + (bytes.length + 200));
+                response.getOutputStream().write(bytes);
+            }
+        });
+        context.addServletMappingDecoded("/partial.html", "partial-fixture");
         FilterDef definition = new FilterDef();
         definition.setFilterName("privacy");
         definition.setFilter(new PrivacyStatementAppendingFilter());
@@ -62,6 +83,10 @@ class PrivacyStatementRangeTomcatIntegrationTest {
         context.addFilterMap(mapping);
         tomcat.start();
         uri = URI.create("http://127.0.0.1:" + tomcat.getConnector().getLocalPort() + "/carlos/fixture.html");
+    }
+
+    private static HttpRequest.Builder request(URI uri) {
+        return HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(15));
     }
 
     @AfterEach
@@ -76,14 +101,14 @@ class PrivacyStatementRangeTomcatIntegrationTest {
         var properties = CarlosProperties.getInstance();
         Object original = properties.setProperty("confidentiality_statement.v1", "FAKE-5782-NOTICE");
         try (HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build()) {
-            var full = client.send(HttpRequest.newBuilder(uri).GET().build(), HttpResponse.BodyHandlers.ofByteArray());
+            var full = client.send(request(uri).GET().build(), HttpResponse.BodyHandlers.ofByteArray());
             assertThat(full.statusCode()).isEqualTo(200);
             assertThat(new String(full.body(), StandardCharsets.UTF_8))
                     .contains("FAKE-5782-NOTICE", "FAKE-5782-content-".repeat(32), "<html><body>", "</body></html>");
 
             // AJAX selects the raw file representation. A decorated static representation
             // may ignore Range and return a complete 200 under the metadata policy.
-            var partial = client.send(HttpRequest.newBuilder(uri).header("X-Requested-With", "XMLHttpRequest")
+            var partial = client.send(request(uri).header("X-Requested-With", "XMLHttpRequest")
                     .header("Range", "bytes=0-99").GET().build(),
                     HttpResponse.BodyHandlers.ofByteArray());
             assertThat(partial.statusCode()).isEqualTo(206);
@@ -91,11 +116,34 @@ class PrivacyStatementRangeTomcatIntegrationTest {
             assertThat(partial.headers().firstValue("Content-Range")).contains("bytes 0-99/" + HTML.length);
             assertThat(partial.headers().firstValueAsLong("Content-Length")).hasValue(100);
 
-            var ignored = client.send(HttpRequest.newBuilder(uri).header("Range", "bytes=0-99")
+            var ignored = client.send(request(uri).header("Range", "bytes=0-99")
                     .header("If-Range", "Thu, 01 Jan 1970 00:00:00 GMT").GET().build(), HttpResponse.BodyHandlers.ofByteArray());
             assertThat(ignored.statusCode()).isEqualTo(200);
             assertThat(new String(ignored.body(), StandardCharsets.UTF_8))
                     .contains("FAKE-5782-NOTICE", "FAKE-5782-content-".repeat(32), "<html><body>", "</body></html>");
+        } finally {
+            if (original == null) properties.remove("confidentiality_statement.v1");
+            else properties.put("confidentiality_statement.v1", original);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldKeepDeclaredLengthAndBytes_whenAnOrdinaryServletReturnsPartialHtml(boolean large) throws Exception {
+        var properties = CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "FAKE-5782-NOTICE");
+        try (HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build()) {
+            byte[] expected = large ? LARGE_PARTIAL : SMALL_PARTIAL;
+            int length = expected.length;
+            String resource = large ? "partial.html?size=large" : "partial.html";
+            var response = client.send(request(uri.resolve(resource))
+                    .header("Range", "bytes=0-" + (length - 1)).GET().build(),
+                    HttpResponse.BodyHandlers.ofByteArray());
+            assertThat(response.statusCode()).isEqualTo(HttpServletResponse.SC_PARTIAL_CONTENT);
+            assertThat(response.headers().firstValueAsLong("Content-Length")).hasValue(length);
+            assertThat(response.headers().firstValue("Content-Range"))
+                    .contains("bytes 0-" + (length - 1) + "/" + (length + 200));
+            assertThat(response.body()).isEqualTo(expected);
         } finally {
             if (original == null) properties.remove("confidentiality_statement.v1");
             else properties.put("confidentiality_statement.v1", original);

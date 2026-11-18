@@ -19484,7 +19484,9 @@
         "all"
       ],
       "timeoutSec": 120,
-      "env": [],
+      "env": [
+        "MYSQL_PASSWORD"
+      ],
       "notes": "Issue #5782. Authenticated HTTP protocol checks against the actual installed DefaultServlet: full HTML carries the privacy notice, a single byte range preserves exact bytes and Content-Range, and an ignored If-Range returns a decorated full response.",
       "fixtures": "Read-only packaged /usr/share/carlos-emr/webapp/carlos/gpl.htm and a configured confidentiality statement. No clinical fixtures or configuration changes."
     },

@@ -806,18 +806,24 @@ class PrivacyStatementAppendingFilterUnitTest {
         try {
             var request = new MockHttpServletRequest("GET", "/fixture.html");
             request.addHeader("Range", "bytes=0-3");
-            var response = new MockHttpServletResponse();
+            MockHttpServletResponse response = stream ? new MockHttpServletResponse() : new BufferingWriterResponse();
             filter.doFilter(request, response, (req, res) -> {
                 var http = (jakarta.servlet.http.HttpServletResponse) res;
-                http.setStatus(206);
-                http.setContentType("text/html;charset=UTF-8");
-                http.setHeader("Content-Range", "bytes 0-3/100");
+                if (!stream) http.setStatus(206);
                 http.setContentLengthLong(4);
+                http.setContentType("text/html;charset=UTF-8");
+                if (stream) http.setStatus(206);
+                http.setHeader("Content-Range", "bytes 0-3/100");
+                assertThat(response.getHeader("Content-Length")).isEqualTo("4");
                 if (stream) http.getOutputStream().write("BODY".getBytes(StandardCharsets.UTF_8));
                 else http.getWriter().write("BODY");
             });
             assertThat(response.getStatus()).isEqualTo(206);
-            assertThat(response.getContentAsByteArray()).isEqualTo("BODY".getBytes(StandardCharsets.UTF_8));
+            if (stream) {
+                assertThat(response.getContentAsByteArray()).isEqualTo("BODY".getBytes(StandardCharsets.UTF_8));
+            } else {
+                assertThat(response.getContentAsString()).isEqualTo("BODY");
+            }
             assertThat(response.getHeader("Content-Range")).isEqualTo("bytes 0-3/100");
             assertThat(response.getContentLength()).isEqualTo(4);
         } finally {
