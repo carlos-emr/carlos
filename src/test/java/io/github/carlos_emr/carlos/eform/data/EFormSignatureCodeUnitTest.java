@@ -18,7 +18,7 @@
 package io.github.carlos_emr.carlos.eform.data;
 
 import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -48,8 +48,8 @@ class EFormSignatureCodeUnitTest {
     /** The literal marker EForm replaces (EFormBase.signatureMarker). */
     private static final String SIGNATURE_MARKER = "${oscar_signature_code}";
 
-    private static final Pattern REQUEST_ID_VARIABLE =
-            Pattern.compile("var _signatureRequestId = '([0-9a-f]{32})';");
+    private static final Pattern REQUEST_ID_VARIABLE = Pattern.compile("var _signatureRequestId = '([^']+)';");
+    private static final Pattern PREVIEW_URL_VARIABLE = Pattern.compile("var _imageUrl = '([^']+)';");
 
     private static EForm formWithSignatureMarker() {
         EForm eform = new EForm();
@@ -58,9 +58,16 @@ class EFormSignatureCodeUnitTest {
     }
 
     private static String requestIdIn(EForm eform) {
-        Matcher variable = REQUEST_ID_VARIABLE.matcher(eform.getFormHtml());
-        assertThat(variable.find()).as("signature request id variable in the form").isTrue();
-        return variable.group(1);
+        String requestId = variableValue(eform, REQUEST_ID_VARIABLE, "signature request id");
+        assertThat(requestId).matches("[0-9a-f]{32}");
+        return requestId;
+    }
+
+    private static String variableValue(EForm eform, Pattern declaration, String description) {
+        Matcher variable = declaration.matcher(eform.getFormHtml());
+        assertThat(variable.find()).as("%s variable in the form", description).isTrue();
+        // The JavaScript encoder may emit a hex escape even for a lowercase letter in the id.
+        return StringEscapeUtils.unescapeJava(variable.group(1).replace("\\x", "\\u00"));
     }
 
     @Test
@@ -75,7 +82,8 @@ class EFormSignatureCodeUnitTest {
         assertThat(DigitalSignatureUtils.isIssued(session, requestId)).isTrue();
         assertThat(DigitalSignatureUtils.isIssued(new MockHttpSession(), requestId)).isFalse();
         // The preview image URL carries the same id as the pad's variable.
-        assertThat(StringUtils.countMatches(eform.getFormHtml(), requestId)).isEqualTo(2);
+        assertThat(variableValue(eform, PREVIEW_URL_VARIABLE, "preview URL"))
+                .endsWith("&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + requestId);
         assertThat(eform.getFormHtml())
                 .doesNotContain(SIGNATURE_MARKER)
                 .contains("var _browserType = 'ALL';")
