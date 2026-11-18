@@ -37,6 +37,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Configuration;
@@ -195,6 +197,28 @@ class KeyPairGenCreateClientKeysIntegrationTest {
     @Test
     void shouldPreserveClientName_whenTheStoredServerPublicKeyIsTruncated() {
         verifyDamageRefusesClientKey(key -> key.setPublicKey(key.getPublicKey().substring(0, 16)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"?", "\r\n"})
+    void shouldReturnCanonicalServerPublicKey_whenStoredTextContainsExtraCharacters(String separator) {
+        assertThat(KeyPairGen.createKeys("oscar", null)).isEqualTo("success");
+        String canonicalPublicKey = KeyPairGen.getPublic();
+        var em = factory.createEntityManager();
+        try {
+            em.getTransaction().begin();
+            em.find(OscarKey.class, "oscar").setPublicKey(
+                    canonicalPublicKey.substring(0, 16) + separator + canonicalPublicKey.substring(16));
+            em.getTransaction().commit();
+        } finally {
+            em.close();
+        }
+
+        ClientKeys result = KeyPairGen.createClientKeys(SERVICE, "CML");
+
+        assertThat(result.status()).isEqualTo(ClientKeyStatus.CREATED);
+        assertThat(result.carlosPublicKey()).isEqualTo(canonicalPublicKey);
+        assertThat(clientKeyRows()).isOne();
     }
 
     private void verifyDamageRefusesClientKey(Consumer<OscarKey> damage) {

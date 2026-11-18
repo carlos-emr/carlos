@@ -129,7 +129,8 @@ class KeyPairGenCreateClientKeysUnitTest extends CarlosUnitTestBase {
         assertThat(stored.getValue().getService()).isEqualTo(SERVICE);
         assertThat(stored.getValue().getType()).isEqualTo("CML");
         assertThat(result.clientPrivateKey()).isNotBlank().isEqualTo(stored.getValue().getBase64EncodedPrivateKey());
-        assertThat(result.carlosPublicKey()).isEqualTo(carlosPublicKey);
+        assertThat(Base64.getDecoder().decode(result.carlosPublicKey()))
+                .isEqualTo(Base64.getMimeDecoder().decode(carlosPublicKey));
     }
 
     @Test

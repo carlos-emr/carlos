@@ -238,14 +238,15 @@ public final class KeyPairGen {
         if (carlosKey == null) {
             return new ClientKeys(ClientKeyStatus.CARLOS_KEY_MISSING, null, null);
         }
-        String carlosPublicKey = carlosKey.getPublicKey();
-        if (carlosPublicKey == null || carlosPublicKey.isBlank()) {
+        String storedPublicKey = carlosKey.getPublicKey();
+        if (storedPublicKey == null || storedPublicKey.isBlank()) {
             // The row exists, so it cannot be created again from the page; handing the client an
             // empty public key would only move the failure to its first upload.
             logger.error("The CARLOS key pair is stored without a public key");
             return new ClientKeys(ClientKeyStatus.FAILED, null, null);
         }
-        if (!isUsableServerPair(carlosPublicKey, carlosKey.getPrivateKey())) {
+        String carlosPublicKey = verifiedServerPublicKey(storedPublicKey, carlosKey.getPrivateKey());
+        if (carlosPublicKey == null) {
             logger.error("The stored CARLOS key pair is damaged");
             return new ClientKeys(ClientKeyStatus.FAILED, null, null);
         }
@@ -257,9 +258,9 @@ public final class KeyPairGen {
         return new ClientKeys(ClientKeyStatus.CREATED, clientPrivateKey, carlosPublicKey);
     }
 
-    private static boolean isUsableServerPair(String publicKey, String privateKey) {
+    private static String verifiedServerPublicKey(String publicKey, String privateKey) {
         if (privateKey == null || privateKey.isBlank()) {
-            return false;
+            return null;
         }
         try {
             KeyFactory rsa = KeyFactory.getInstance("RSA");
@@ -271,10 +272,10 @@ public final class KeyPairGen {
             byte[] signed = proof.sign();
             proof.initVerify(publicRsa);
             proof.update(SERVER_KEY_CHECK);
-            return proof.verify(signed);
+            return proof.verify(signed) ? Base64.encodeBase64String(publicRsa.getEncoded()) : null;
         } catch (GeneralSecurityException | IllegalArgumentException | ProviderException e) {
             // Provider details may include input data. The caller logs only the generic failure.
-            return false;
+            return null;
         }
     }
 }
