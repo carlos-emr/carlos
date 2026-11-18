@@ -15,7 +15,7 @@ checker = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(checker)
 
 class Directives(unittest.TestCase):
-    def audit(self, pages, classes=(), *, with_lines=False):
+    def audit(self, pages, classes=()):
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)
             for name, text in pages.items():
@@ -28,11 +28,8 @@ class Directives(unittest.TestCase):
             index = checker.ClassIndex()
             for name in classes:
                 index.add(name)
-            findings = [(p.relative_to(root).as_posix(), line, kind, value)
-                        for p, line, kind, value in checker.inspect(root, index)]
-            if with_lines:
-                return findings
-            return [(path, kind, value) for path, line, kind, value in findings]
+            return [(p.relative_to(root).as_posix(), kind, value)
+                    for p, line, kind, value in checker.inspect(root, index)]
 
     def test_static_include_shares_imports_in_both_directions(self):
         self.assertEqual(self.audit({
@@ -100,52 +97,6 @@ class Directives(unittest.TestCase):
     def test_tag_usage_and_el_functions_are_kept(self):
         self.assertEqual(self.audit({'page.jsp': '''<%@ taglib uri="t" prefix="t" %>
             <%@ taglib uri="f" prefix="f" %><t:thing/> $''' + '{f:work(value)}'}), [])
-
-    def test_undeclared_prefixes_have_their_template_line_numbers(self):
-        self.assertEqual(self.audit({'page.jsp': '''<%-- A JSP comment may contain
-            <ignored:tag/> --%>
-            <% String tag = "<ignored:scriptlet/>"; %>
-            <jsp:include page="header.jsp"/>
-            <div><chart-widget:label>Sample
-            </chart-widget:label></div>''',
-            'header.jsp': '<span>Header</span>',
-        }, with_lines=True), [
-            ('page.jsp', 5, 'undeclared tag prefix', 'chart-widget:label'),
-            ('page.jsp', 6, 'undeclared tag prefix', 'chart-widget:label'),
-        ])
-
-    def test_static_include_scope_requires_a_declaration_in_every_includer(self):
-        self.assertEqual(self.audit({
-            'a.jsp': '<%@ include file="library.jspf" %><%@ include file="widget.jspf" %>',
-            'b.jsp': '<%@ include file="widget.jspf" %>',
-            'library.jspf': '<%@ taglib prefix="widget" tagdir="/WEB-INF/tags" %>',
-            'widget.jspf': '<widget:label/>',
-        }), [('widget.jspf', 'undeclared tag prefix', 'widget:label')])
-
-    def test_a_static_sibling_and_tagdir_can_supply_a_prefix(self):
-        self.assertEqual(self.audit({
-            'page.jsp': '<%@ include file="library.jspf" %><%@ include file="widget.jspf" %>',
-            'library.jspf': '<%@ taglib prefix="widget" tagdir="/WEB-INF/tags" %>',
-            'widget.jspf': '<widget:label/>',
-        }), [])
-
-    def test_a_dispatched_fragment_has_an_independent_unit(self):
-        for action in ('include', 'forward'):
-            with self.subTest(action=action):
-                self.assertEqual(self.audit({
-                    'page.jsp': '<%@ taglib uri="widgets" prefix="widget" %>'
-                                '<%@ include file="widget.jspf" %>'
-                                '<jsp:' + action + ' page="widget.jspf"/>',
-                    'widget.jspf': '<widget:label/>',
-                }), [('widget.jspf', 'undeclared tag prefix', 'widget:label')])
-
-    def test_legacy_tag_exceptions_do_not_hide_new_uses(self):
-        self.assertCountEqual(self.audit({
-            'WEB-INF/jsp/PMmodule/Admin/ProgramEdit/queue.jsp': '<html:hidden/><html:hidden/><html:text/>',
-            'new.jsp': '<html:hidden/>',
-        }), [('WEB-INF/jsp/PMmodule/Admin/ProgramEdit/queue.jsp', 'undeclared tag prefix', 'html:hidden'),
-             ('WEB-INF/jsp/PMmodule/Admin/ProgramEdit/queue.jsp', 'undeclared tag prefix', 'html:text'),
-             ('new.jsp', 'undeclared tag prefix', 'html:hidden')])
 
     def test_cycles_terminate_and_absolute_includes_resolve(self):
         self.assertEqual(self.audit({

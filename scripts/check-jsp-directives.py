@@ -60,6 +60,18 @@ def attributes(text):
     return {name: value for name, quote, value in ATTRIBUTE.findall(text)}
 
 
+def jsp_path(webapp, source, name):
+    base = webapp if name.startswith('/') else source.parent
+    return (base / name.lstrip('/')).resolve()
+
+
+def dispatched_pages(template):
+    for match in DYNAMIC_DISPATCH.finditer(template):
+        name = attributes(match[1]).get('page', '').partition('?')[0]
+        if name:
+            yield name
+
+
 def reachable(start, edges):
     seen, pending = set(), [start]
     while pending:
@@ -149,7 +161,7 @@ def translation_units(webapp):
             name = attrs.get('file')
             if not name:
                 raise ValueError(f'include without a literal file: {path}')
-            target = (webapp / name.lstrip('/') if name.startswith('/') else path.parent / name).resolve()
+            target = jsp_path(webapp, path, name)
             if not target.is_relative_to(webapp) or not target.is_file():
                 raise ValueError(f'missing or outside-webapp static include: {path}: {name}')
             if target not in texts:
@@ -173,13 +185,18 @@ def translation_units(webapp):
     bodies = {p: DIRECTIVE.sub(directive_body, COMMENT.sub('', data)) for p, data in texts.items()}
     closures = {p: reachable(p, children) for p in texts}
     roots = {p for p in texts if p.suffix in ('.jsp', '.tag') or not parents[p]}
-    for path, template in templates.items():
-        for match in DYNAMIC_DISPATCH.finditer(template):
-            name = attributes(match[1]).get('page', '').partition('?')[0]
-            if name:
-                target = (webapp / name.lstrip('/') if name.startswith('/') else path.parent / name).resolve()
-                if target in texts:
-                    roots.add(target)
+    dispatches = {path: tuple(dispatched_pages(template)) for path, template in templates.items()}
+    pending_roots = list(roots)
+    while pending_roots:
+        root = pending_roots.pop()
+        # Relative dispatch uses the executing JSP's path, including for
+        # actions written in one of its statically included fragments.
+        names = {name for member in closures[root] for name in dispatches[member]}
+        for name in names:
+            target = jsp_path(webapp, root, name)
+            if target in texts and target not in roots:
+                roots.add(target)
+                pending_roots.append(target)
 
     declared = {
         p: {attrs['prefix'] for match, attrs in matches if match[1] == 'taglib' and 'prefix' in attrs}
