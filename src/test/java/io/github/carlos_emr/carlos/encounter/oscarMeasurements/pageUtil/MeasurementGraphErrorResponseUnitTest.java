@@ -373,13 +373,38 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         assertThat(MeasurementGraphAction22Action.unplottedLabValues(List.of())).isZero();
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldPlotValidBloodPressureAndCountUnplottableResults_whenTheHistoryContainsText() throws Exception {
+        request.setParameter("type", "BP");
+        AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
+        var results = java.util.Arrays.asList("120/80", "Pending", "120/", "120/80/70", "NaN/80", "120/Infinity", null);
+        executeGraphWithMeasurements("BP", results, rendered);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        Map<String, Object> config = rendered.get().toConfig();
+        assertThat(config).containsEntry("note", "FAKE-NOTE 6");
+        var datasets = (List<Map<String, Object>>) config.get("datasets");
+        assertThat(datasets).extracting(dataset -> dataset.get("label")).containsExactly("Diastolic", "Systolic");
+        assertThat(datasets).extracting(dataset -> {
+            var points = (List<Map<String, Object>>) dataset.get("data");
+            assertThat(points).hasSize(1);
+            return points.getFirst().get("y");
+        }).containsExactly(80.0, 120.0);
+    }
+
     private void executeMeasurementChart(String result, AtomicReference<MeasurementChart> rendered) throws Exception {
+        executeGraphWithMeasurements("WT", result == null ? List.of() : List.of(result), rendered);
+    }
+
+    private void executeGraphWithMeasurements(String type, List<String> results,
+                                               AtomicReference<MeasurementChart> rendered) throws Exception {
         DemographicNameAgeString nameLookup = mock(DemographicNameAgeString.class);
         when(nameLookup.getNameAgeString(login, 101)).thenReturn("Synthetic patient");
         ArrayList<EctMeasurementsDataBean> values = new ArrayList<>();
-        if (result != null) {
-            values.add(new EctMeasurementsDataBean(42, "WT", "Weight", "kg", "101", "", "",
-                    result, "", "", "2024-01-15", "2024-01-15", "1",
+        for (String result : results) {
+            values.add(new EctMeasurementsDataBean(42, type, type.equals("BP") ? "Blood pressure" : "Weight",
+                    type.equals("BP") ? "mmHg" : "kg", "101", "", "", result, "", "", "2024-01-15", "2024-01-15", "1",
                     new Date(1_705_276_800_000L), new Date(1_705_276_800_000L)));
         }
         try (var servlet = mockStatic(ServletActionContext.class);

@@ -290,14 +290,13 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         return notShown > 0 ? chart.withNote(notShownNote(notShown)) : chart;
     }
 
-    /** Measurements the chart cannot plot: values with no single number. A BP request reads its own pairs. */
+    /** Counts measurements the chart cannot plot, including incomplete or nonnumeric BP pairs. */
     static int unplottedMeasurements(List<EctMeasurementsDataBean> measurements, String typeIdName) {
-        if ("BP".equals(typeIdName)) {
-            return 0;
-        }
+        boolean bloodPressure = "BP".equals(typeIdName);
         int notShown = 0;
         for (EctMeasurementsDataBean measurement : measurements) {
-            if (numericResult(measurement.getDataField()) == null) notShown++;
+            String value = measurement.getDataField();
+            if (bloodPressure ? bloodPressurePair(value) == null : numericResult(value) == null) notShown++;
         }
         return notShown;
     }
@@ -322,20 +321,32 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         Series systolic = new Series(SYSTOLIC);
         Series diastolic = new Series(DIASTOLIC);
         for (EctMeasurementsDataBean measurement : measurements) {
-            if (StringUtils.isNotEmpty(measurement.getDataField())) {
-                String[] values = measurement.getDataField().split("/");
-                if (values.length != 2) {
-                    throw new IllegalArgumentException("Invalid blood pressure measurement");
-                }
-                Day day = new Day(measurement.getDateObservedAsDate().toInstant());
-                systolic.addOrUpdate(day, Double.parseDouble(values[0]));
-                diastolic.addOrUpdate(day, Double.parseDouble(values[1]));
-            }
+            BloodPressure pair = bloodPressurePair(measurement.getDataField());
+            if (pair == null) continue;
+            Day day = new Day(measurement.getDateObservedAsDate().toInstant());
+            systolic.addOrUpdate(day, pair.systolic());
+            diastolic.addOrUpdate(day, pair.diastolic());
         }
         SeriesCollection dataset = new SeriesCollection();
         dataset.addSeries(diastolic);
         dataset.addSeries(systolic);
         return dataset;
+    }
+
+    private record BloodPressure(double systolic, double diastolic) {}
+
+    private static BloodPressure bloodPressurePair(String value) {
+        if (value == null) return null;
+        String[] values = value.split("/", -1);
+        if (values.length != 2) return null;
+        try {
+            double systolic = Double.parseDouble(values[0]);
+            double diastolic = Double.parseDouble(values[1]);
+            return Double.isFinite(systolic) && Double.isFinite(diastolic)
+                    ? new BloodPressure(systolic, diastolic) : null;
+        } catch (NumberFormatException invalidReading) {
+            return null;
+        }
     }
 
     private static SeriesCollection numericMeasurementSeries(List<EctMeasurementsDataBean> measurements) {
