@@ -6872,7 +6872,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Valid search, parsed-card confirmation and exact patient updates; malformed, missing, oversized and nameless tracks return HTTP 400 without disclosure or database changes, and a subsequent valid swipe remains usable.",
+      "notes": "Valid search, parsed-card confirmation and exact patient updates. Native validation must use POST with the track in the request body and absent from its URL; GET/HEAD are refused with 405/Allow POST. Malformed, missing, oversized and nameless tracks return HTTP 400 without disclosure or database changes, and a subsequent valid POST swipe remains usable (#4529).",
       "fixtures": "Owned synthetic patient given a unique synthetic HIN (valid Ontario check digit) and an X0X postal code; removed by runWorkflow."
     },
     {
