@@ -98,10 +98,6 @@
     }
 
 
-    if (request.getParameter("clear") != null && request.getParameter("clear").equals("yes")) {
-        session.removeAttribute("ClinicalReports");
-    }
-
     EctMeasurementTypesBeanHandler hd = new EctMeasurementTypesBeanHandler();
     Vector<EctMeasurementTypesBean> vec = hd.getMeasurementTypeVector();
 

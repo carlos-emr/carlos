@@ -39,6 +39,7 @@ import java.util.List;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import java.util.Map;
 import java.util.AbstractMap;
@@ -55,6 +56,7 @@ import io.github.carlos_emr.carlos.report.data.ReportLimitNotice;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.springframework.web.util.WebUtils;
 
 public class RunClinicalReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -230,12 +232,7 @@ public class RunClinicalReport2Action extends ActionSupport {
         float percentage = re.getPercentage();
 
 
-        ArrayList arrList = (ArrayList) request.getSession().getAttribute("ClinicalReports");
-        if (arrList == null) {
-            arrList = new ArrayList();
-        }
-        arrList.add(re);
-        request.getSession().setAttribute("ClinicalReports", arrList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- arrList contains ReportEvaluator results computed server-side from DAO queries
+        appendToHistory(request.getSession(), re);
 
         request.setAttribute("extraValues", extraVal);
         request.setAttribute("name", re.getName());
@@ -255,6 +252,16 @@ public class RunClinicalReport2Action extends ActionSupport {
 
         request.setAttribute("max_numerator", maxNumerator);
         return SUCCESS;
+    }
+
+    /** Appends the completed report without modifying any history a page is already reading. */
+    static void appendToHistory(HttpSession session, ReportEvaluator report) {
+        synchronized (WebUtils.getSessionMutex(session)) {
+            List<?> previous = (List<?>) session.getAttribute("ClinicalReports");
+            ArrayList<Object> history = previous == null ? new ArrayList<>() : new ArrayList<>(previous);
+            history.add(report);
+            session.setAttribute("ClinicalReports", history); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- completed report and previous entries are computed server-side
+        }
     }
 
     /** Whether a numerator or denominator was posted; "Select Below" posts an empty value. */

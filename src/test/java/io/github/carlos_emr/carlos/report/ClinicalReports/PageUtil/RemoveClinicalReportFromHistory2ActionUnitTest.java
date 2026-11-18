@@ -18,6 +18,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +30,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.web.util.WebUtils;
 
 /**
  * "Del" next to a report in the Clinical Reports list removes that report, and "Clear" empties the list. The
@@ -61,8 +66,8 @@ class RemoveClinicalReportFromHistory2ActionUnitTest extends CarlosUnitTestBase 
 
         assertThat(remove()).isEqualTo(ActionSupport.SUCCESS);
 
-        assertThat(reports).containsExactly(first, third);
-        assertThat(request.getSession().getAttribute("ClinicalReports")).isSameAs(reports);
+        assertThat(reports).containsExactly(first, second, third);
+        assertThat(history()).containsExactly(first, third);
     }
 
     @Test
@@ -74,7 +79,8 @@ class RemoveClinicalReportFromHistory2ActionUnitTest extends CarlosUnitTestBase 
         assertThat(remove()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(remove()).isEqualTo(ActionSupport.SUCCESS);
 
-        assertThat(reports).containsExactly(second, third);
+        assertThat(reports).containsExactly(first, second, third);
+        assertThat(history()).containsExactly(second, third);
     }
 
     @Test
@@ -148,7 +154,8 @@ class RemoveClinicalReportFromHistory2ActionUnitTest extends CarlosUnitTestBase 
 
         assertThat(remove()).isEqualTo(ActionSupport.SUCCESS);
 
-        assertThat(reports).containsExactly("FAKE-not-a-report", second);
+        assertThat(reports).containsExactly(first, "FAKE-not-a-report", second);
+        assertThat(history()).containsExactly("FAKE-not-a-report", second);
     }
 
     @Test
@@ -170,6 +177,57 @@ class RemoveClinicalReportFromHistory2ActionUnitTest extends CarlosUnitTestBase 
         assertThat(reports).containsExactly(first, second);
     }
 
+    @Test
+    void shouldKeepTheNewReport_whenAppendingOverlapsRemovalOfTheLastReport() throws Exception {
+        var removingLast = new CountDownLatch(1);
+        var appendRequested = new CountDownLatch(1);
+        var session = new MockHttpSession(request.getServletContext()) {
+            @Override
+            public void removeAttribute(String name) {
+                if ("ClinicalReports".equals(name)) {
+                    assertThat(Thread.holdsLock(WebUtils.getSessionMutex(this))).isTrue();
+                    removingLast.countDown();
+                    try {
+                        assertThat(appendRequested.await(5, TimeUnit.SECONDS)).isTrue();
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        throw new AssertionError(interrupted);
+                    }
+                }
+                super.removeAttribute(name);
+            }
+        };
+        request.setSession(session);
+        request.setParameter("key", first.getKey());
+        var firstSnapshot = reports(first);
+        var removal = removalAction(response);
+
+        try (var workers = Executors.newFixedThreadPool(2)) {
+            var removed = workers.submit(removal::execute);
+            assertThat(removingLast.await(5, TimeUnit.SECONDS)).isTrue();
+            var appended = workers.submit(() -> {
+                appendRequested.countDown();
+                RunClinicalReport2Action.appendToHistory(session, second);
+            });
+            assertThat(removed.get(5, TimeUnit.SECONDS)).isEqualTo(ActionSupport.SUCCESS);
+            appended.get(5, TimeUnit.SECONDS);
+        }
+
+        assertThat(firstSnapshot).containsExactly(first);
+        List<Object> afterRemoval = history();
+        assertThat(afterRemoval).containsExactly(second);
+
+        RunClinicalReport2Action.appendToHistory(session, third);
+
+        assertThat(afterRemoval).containsExactly(second);
+        assertThat(history()).containsExactly(second, third);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Object> history() {
+        return (List<Object>) request.getSession().getAttribute("ClinicalReports");
+    }
+
     private List<Object> reports(Object... runReports) {
         List<Object> reports = new ArrayList<>(List.of(runReports));
         request.getSession().setAttribute("ClinicalReports", reports);
@@ -181,12 +239,16 @@ class RemoveClinicalReportFromHistory2ActionUnitTest extends CarlosUnitTestBase 
     }
 
     private String remove(MockHttpServletResponse answer) {
+        return removalAction(answer).execute();
+    }
+
+    private RemoveClinicalReportFromHistory2Action removalAction(MockHttpServletResponse answer) {
         var security = createAndRegisterMock(SecurityInfoManager.class);
         when(security.hasPrivilege(any(), eq("_report"), eq("r"), isNull())).thenReturn(true);
         try (var servlet = mockStatic(ServletActionContext.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(answer);
-            return new RemoveClinicalReportFromHistory2Action().execute();
+            return new RemoveClinicalReportFromHistory2Action();
         }
     }
 }

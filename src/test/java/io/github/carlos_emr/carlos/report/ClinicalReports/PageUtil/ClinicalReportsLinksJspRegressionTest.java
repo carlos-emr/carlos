@@ -72,6 +72,12 @@ class ClinicalReportsLinksJspRegressionTest {
         assertThat(page).contains("name=\"key\" value=\"<carlos:encode value='<%= re.getKey() %>' context=\"htmlAttribute\"/>\"");
     }
 
+    @Test
+    void shouldLeaveHistoryAlone_whenTheReportPageReceivesALegacyClearParameter() throws Exception {
+        String page = Files.readString(JSP, StandardCharsets.UTF_8);
+        assertThat(page).doesNotContain("request.getParameter(\"clear\")", "session.removeAttribute(\"ClinicalReports\")");
+    }
+
     /** The page's links to its own routes, with any scriptlet in the query (a list position) as 0. */
     private static List<String> links() throws Exception {
         Matcher matcher = CONTEXT_LINK.matcher(Files.readString(JSP, StandardCharsets.UTF_8));
