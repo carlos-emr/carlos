@@ -16,7 +16,7 @@ ActionContext factory; the initial obsolete-constructor compilation failure is
 retained separately and is not a bug reproduction. Valid before JUnit SHA-256:
 `84f9287dec6e4c5684844e98f908af1ecd841d72a82c44c6871a9c03e876f6c7`.
 
-All 37 Java controls pass, including concurrent isolation, missing identities,
+All 41 Java controls pass, including concurrent isolation, missing identities,
 blank selection, permission refusal/revocation and existing encrypted shared
 links. Twelve action-to-template controls additionally preserve `all`, `%` and
 `loggedInProvider` defaults independently of the displayed heading, while
@@ -29,8 +29,8 @@ fingerprints. Its generated case inventory is retained. The first full run's
 16 failures came from the existing controller fixture omitting the new helper;
 the fixture now loads the real helper and adds bulk-action window-scope controls.
 
-- Java JUnit SHA-256: `7b94f72996924bd6386a6d6b761331594ee0953891573c4190049534ad992a1f`.
-- Source-bound coverage SHA-256: `d06c74488f5c82c86bd53f47083b0b9dfa8aa06df9357f7e35880967e38f6bba`.
+- Java JUnit SHA-256: `5a2c5e8d31a1bbd2c746bb4b6fbbc39e97a0bfaac4a9837a7222726c9f1ce69a`.
+- Source-bound coverage SHA-256: `e31426f4b42b72872e5a3f64ede9de6e40f44856391551c0ee0a8d0892ec70a5`.
 - Complete Node report SHA-256: `14e9aa273135cba754cef45178ecfacff485c2c74bdfaad5db0b989c4cc31643`.
 
 The native dashboard workflow now creates two owned providers and five patients,
