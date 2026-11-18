@@ -158,6 +158,9 @@ public class FrmBCAR2020Record extends FrmRecord {
                 .collect(Collectors.joining(" / "));
     }
 
+    static final String RETIRED_SAVE_MESSAGE =
+            "Legacy BCAR 2020 saving is unavailable; reopen the BC Antenatal Record to save.";
+
     /**
      * Refuses the retired generic save path. BCAR 2020 saves must use
      * {@link FrmBCAR20202Action}, which persists a new form version transactionally.
@@ -167,7 +170,7 @@ public class FrmBCAR2020Record extends FrmRecord {
     @Deprecated
     @Override
     public int saveFormRecord(Properties props) throws SQLException {
-        throw new SQLException("Legacy BCAR 2020 saving is unavailable; reopen the BC Antenatal Record to save.");
+        throw new SQLException(RETIRED_SAVE_MESSAGE);
     }
 
     public String findActionValue(String submit) throws SQLException {

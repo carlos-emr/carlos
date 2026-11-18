@@ -117,7 +117,8 @@ class FrmBCAR2020LegacySaveUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @CsvSource({"save,0", "save,7", "update,0", "update,7", "autosaveAjax,0", "autosaveAjax,7"})
+    @CsvSource({"save,0", "save,7", "update,0", "update,7", "autosaveAjax,0", "autosaveAjax,7",
+            "saveFormLetter,0", "saveFormLetter,7"})
     void shouldNotAcknowledgeOrAuditASave_throughTheGenericFormAction(String operation, String formId) {
         request.setParameter("formId", formId);
         request.setParameter("submit", "update".equals(operation) ? "save" : operation);
