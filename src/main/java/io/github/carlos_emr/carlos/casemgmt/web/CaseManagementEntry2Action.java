@@ -2100,7 +2100,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (removedIssue != null && removedIssue.getId().equals(existingId)) continue;
             IssueDisplay issueDisplay = checkBoxBean.getIssueDisplay();
             boolean persisted = existingId != null && existingId > 0;
-            boolean editorSelected = "on".equalsIgnoreCase(checkBoxBean.getChecked());
+            String editorChecked = checkBoxBean.getChecked();
+            boolean editorSelected = editorChecked != null && "on".equals(editorChecked.toLowerCase(Locale.ROOT));
             boolean selected = selectionById
                     ? (persisted ? selectedIssues.contains(existingId.toString())
                                  : selectedCatalogIssues.contains(Long.toString(editorIssue.getIssue_id())))
@@ -2131,7 +2132,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 CaseManagementIssue existing = caseManagementIssueDao.getIssuebyId(demo,
                         String.valueOf(checkBoxBean.getIssue().getIssue_id()));
                 if (existing != null) {
-                    if ("on".equalsIgnoreCase(checkBoxBean.getChecked())) issueset.add(copyIssueForRevision(existing));
+                    if (editorSelected) issueset.add(copyIssueForRevision(existing));
                     if (!existing.isResolved()) ongoing += issueDisplay.getDescription() + "\n";
                 }
                 continue;
