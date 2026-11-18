@@ -4835,7 +4835,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Two owned synthetic patients merged and unmerged through Administration > Merge Patient Records; demographic_merged, secObjPrivilege and recyclebin rows removed."
+      "fixtures": "Owned synthetic patients merged and unmerged through Administration > Merge Patient Records; forged form provider must not override authenticated recycle/audit attribution (#6004); demographic_merged, secObjPrivilege and recyclebin rows removed."
     },
     {
       "name": "patient-set-cohort",
@@ -4959,12 +4959,32 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owns one PW<hex>-coded issue (plus a GET-probe code) and the synthetic patient's notes/casemgmt_issue/CPP/eChart rows; adds the issue through Administration > CAISI > Issue Editor and assigns it from the chart's CPP item editor.",
-      "notes": "CAISI profile live validation on 2026-11-01: native starter CPP note passed; native Issue Editor save returned HTTP 403, finding 331. Issue search/assignment and duplicate/refusal assertions remain behind this failure.",
+      "notes": "The #6078 CSRF repair restores native issue creation, chart lookup/assignment and duplicate/GET refusal controls. The remaining silent duplicate-code message is finding 362 (#5479 item 6); the separate admin-issue-editor-save check requires Save/Cancel tokens and continued token-less POST refusal.",
       "profile": "caisi-admin",
       "expectedFailure": {
-        "finding": 331,
-        "step": "Issue Editor adds a coded issue and lists it"
+        "finding": 362,
+        "step": "the refused duplicate shows \"Issue code already exists.\" on the form"
       }
+    },
+    {
+      "name": "admin-issue-editor-save",
+      "script": "scripts/admin-issue-editor-save-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "profile": "caisi-admin",
+      "fixtures": "Three marker-owned issue codes; native Save creates one row, Cancel and the token-less POST create none. Cleanup requires the owned code and marker description.",
+      "notes": "Release repair for #6078, adapted from #6116: the real add form loads the CSRFGuard client, sends its token for Save and Cancel, and still refuses a token-less POST. Kept separate from the broader chart/duplicate-message workflow."
     },
     {
       "name": "security-password-length",
@@ -6280,8 +6300,8 @@
       "env": [
         "TICKLER_DST_GAP_ZONE"
       ],
-      "notes": "Checks dashboard counts, filtering, CSV export, selected-patient ticklers and diagnoses, GET refusal, and drilldown without provider-switch privileges. Invalid keyboard input retains text and guidance without Save; supported 24-hour and mixed-case AM/PM values save their exact times. Optional TICKLER_DST_GAP_ZONE=America/Toronto or America/Vancouver requires that installed clinic timezone and verifies its real spring gap, explicit refusal, no writes, retained draft and successful correction. Vancouver uses the historical 2026-03-08 gap because it stays on daylight time afterwards.",
-      "fixtures": "SQL-seeded dashboard and indicator template (no shipped dashboard, no working import UI), a throwaway login holding the dashboard privileges and three owned patients; all removed."
+      "notes": "Checks dashboard counts, filtering, CSV export, selected-patient ticklers and diagnoses, GET refusal, and drilldown without provider-switch privileges. Invalid keyboard input retains text and guidance without Save; supported 24-hour and mixed-case AM/PM values save their exact times. Optional TICKLER_DST_GAP_ZONE=America/Toronto or America/Vancouver requires that installed clinic timezone and verifies its real spring gap, explicit refusal, no writes, retained draft and successful correction. Vancouver uses the historical 2026-03-08 gap because it stays on daylight time afterwards. Also switches a second window of the same login to a second owned provider and verifies both patient lists, CSV exports and first-window navigation retain their individual scopes. Checks all and wildcard clinic-wide template defaults, their drilldowns and CSV exports across five owned patient IDs, then explicit provider overrides. Owned shared whole-metric and slice callback bookmarks display an explicit provider, then real Export and Dashboard controls retain that scope; CSV must equal the displayed owned rows.",
+      "fixtures": "SQL-seeded dashboard with logged-in-provider, all and wildcard templates, two owned provider/login fixtures, and five owned patients; clinic-wide templates are restricted to those IDs; per-provider dashboard privileges including the existing manager-write requirement for shared-library reads; all removed."
     },
     {
       "name": "shared-outcomes-launch",
@@ -18095,11 +18115,7 @@
       "timeoutSec": 300,
       "profile": "appointment-options",
       "env": [],
-      "expectedFailure": {
-        "finding": 329,
-        "step": "requested reminder has an implemented and visible persisted outcome"
-      },
-      "notes": "Issue 5268: checked/unchecked real Add requests and cancellation; emailApptReminder=yes exposes an unimplemented emailPt option. Finding 329 keeps reminder outcome distinct from booking success."
+      "notes": "Issue 5887. With emailApptReminder=yes, the native Add and Edit forms omit the unsupported reminder option. Booking, cancellation and saving an edit preserve the ordinary appointment workflow."
     },
     {
       "name": "document-public-visibility",
@@ -18250,11 +18266,7 @@
       ],
       "profile": "private-consent",
       "fixtures": "An unused CONSENT_PROGRAM_ID is reserved for a marker-owned program, one throwaway doctor with exactly that default program and membership, and an owned patient. Cancelling changes nothing; confirming persists once and removes the banner. Cleanup removes the program, defaults, memberships, account and chart support rows.",
-      "expectedFailure": {
-        "finding": 332,
-        "step": "cancelled informed-consent confirmation leaves the banner and stored consent unchanged"
-      },
-      "notes": "Task 46: owned program/clinician, Cancel/OK, exact patient extension and reopened state. Finding 332: current release reads the static checked attribute, so the native click never opens its confirmation; later confirmed-save assertions remain behind that failure."
+      "notes": "Task 46: owned program/clinician, Cancel/OK, exact patient extension and reopened state. Native clicks use the live checkbox state; cancellation clears the selection and a subsequent confirmed click stores consent for the originating patient."
     },
     {
       "name": "document-clinical-followup",
@@ -19522,6 +19534,28 @@
       ],
       "fixtures": "Owns the runWorkflow patient and one marker-named REST-created patient and admission; removes exact owned custom-field/archive/admission rows and verifies cleanup. Disposable exclusive host only. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#5999: six converted field lengths refuse REST create/update before side effects; exact schema limits and supplementary Unicode boundary values persist without truncation."
+    },
+    {
+      "name": "eform-large-html-roundtrip",
+      "script": "scripts/eform-large-html-roundtrip-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "manual": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "mutates": [
+        "eform"
+      ],
+      "notes": "Manual regression for #6018: creates one owned synthetic 17 MiB template, exports it through Manage eForms, removes the source and imports the downloaded ZIP. Verifies exact HTML byte length and SHA-256 without dumping the large value, no patient instances and unchanged unrelated template hashes. The 50 MiB HTML and separate 16 MiB properties/64 MiB aggregate limits also have JVM controls.",
+      "fixtures": "One marker-named synthetic template, removed only after verifying its name, file, provider, byte length, digest and lack of patient instances; owned download scratch directory. Requires an exclusive disposable host. It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     }
   ]
 }
