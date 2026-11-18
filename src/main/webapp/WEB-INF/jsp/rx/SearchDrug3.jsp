@@ -1773,7 +1773,7 @@ function renderRxStage() {
         var target = document.getElementById('inactive_' + id);
         if (!target) return;
         target.setAttribute('role', 'status');
-        target.textContent = 'Checking drug status…';
+        target.textContent = 'Checking drug status\u2026';
         var unavailable = function() { target.textContent = 'Drug status could not be checked. Please verify before prescribing.'; };
         var data = 'method=inactiveDate&din=' + encodeURIComponent(dinNumber) + '&id=' + encodeURIComponent(id);
         CarlosAjax.request(ctx + '/rx/searchDrug', {method: 'post', postBody: data,
