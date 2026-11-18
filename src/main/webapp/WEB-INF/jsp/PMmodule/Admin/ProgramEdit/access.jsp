@@ -90,7 +90,7 @@
 		</td>
 	</tr>
 	<tr class="b">
-		<td width="20%"><label for="program-access-all-roles">All Roles:</label></td>
+		<td style="width: 20%;"><label for="program-access-all-roles">All Roles:</label></td>
 		<td><input type="checkbox" name="access.allRoles" id="program-access-all-roles" value="true" <c:if test="${access.allRoles}">checked</c:if> /></td>
 	</tr>
 	<tr class="b">

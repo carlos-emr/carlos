@@ -798,9 +798,14 @@ public class ProgramManager2Action extends ActionSupport {
 
     public String save_restriction_settings() {
         Program program = this.getProgram();
-        Program realProgram = programManager.getProgram(program.getId());
+        Program realProgram = program == null ? null : programManager.getProgram(program.getId());
+        if (realProgram == null) {
+            addActionMessage(getText("program.missing"));
+            return list();
+        }
 
-        if (realProgram.getMaxAllowed() != null && realProgram.getMaxAllowed() < realProgram.getNumOfMembers()) {
+        Integer maxAllowed = realProgram.getMaxAllowed();
+        if (maxAllowed != null && maxAllowed < realProgram.getNumOfMembers()) {
             addActionMessage(getText("program.max_too_small", realProgram.getName()));
             setEditAttributes(request, String.valueOf(program.getId()));
 

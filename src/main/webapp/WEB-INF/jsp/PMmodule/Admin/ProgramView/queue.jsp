@@ -270,23 +270,23 @@ String reason ="";
 <c:if test="${requestScope.do_reject != null}">
 	<table width="100%" border="1" cellspacing="2" cellpadding="3">
 		<tr>
-			<td width="5%"><input type="radio" name="radioRejectionReason" id="rejection-acute-care" value="1" /></td>
+			<td style="width: 5%;"><input type="radio" name="radioRejectionReason" id="rejection-acute-care" value="1" /></td>
 			<td><label for="rejection-acute-care">Client requires acute care</label></td>
 		</tr>
 		<tr>
-			<td width="5%"><input type="radio" name="radioRejectionReason" id="rejection-not-interested" value="2" /></td>
+			<td style="width: 5%;"><input type="radio" name="radioRejectionReason" id="rejection-not-interested" value="2" /></td>
 			<td><label for="rejection-not-interested">Client not interested</label></td>
 		</tr>
 		<tr>
-			<td width="5%"><input type="radio" name="radioRejectionReason" id="rejection-criteria" value="3" /></td>
+			<td style="width: 5%;"><input type="radio" name="radioRejectionReason" id="rejection-criteria" value="3" /></td>
 			<td><label for="rejection-criteria">Client does not fit program criteria</label></td>
 		</tr>
 		<tr>
-			<td width="5%"><input type="radio" name="radioRejectionReason" id="rejection-no-space" value="4" /></td>
+			<td style="width: 5%;"><input type="radio" name="radioRejectionReason" id="rejection-no-space" value="4" /></td>
 			<td><label for="rejection-no-space">Program does not have space available</label></td>
 		</tr>
 		<tr>
-			<td width="5%"><input type="radio" name="radioRejectionReason" id="rejection-other" value="5" /></td>
+			<td style="width: 5%;"><input type="radio" name="radioRejectionReason" id="rejection-other" value="5" /></td>
 			<td><label for="rejection-other">Other</label></td>
 		</tr>
 		<tr class="b">

@@ -146,7 +146,7 @@
 <br />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<tr class="b">
-		<td width="20%"><label for="program-staff-provider">Provider:</label></td>
+		<td style="width: 20%;"><label for="program-staff-provider">Provider:</label></td>
 		<td>
 			<input type="hidden" name="provider.id" />
 			<select name="provider.providerNo" id="program-staff-provider">
@@ -158,7 +158,7 @@
 		</td>
 	</tr>
 	<tr class="b">
-		<td width="20%"><label for="program-staff-role">Role:</label></td>
+		<td style="width: 20%;"><label for="program-staff-role">Role:</label></td>
 		<td>
 			<select name="provider.roleId" id="program-staff-role">
 				<c:forEach var="role" items="${roles}">
