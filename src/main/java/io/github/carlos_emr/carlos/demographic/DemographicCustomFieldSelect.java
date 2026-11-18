@@ -25,7 +25,9 @@ import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jsoup.nodes.Element;
+import org.jsoup.nodes.TextNode;
 import org.jsoup.parser.Parser;
+import org.jsoup.select.NodeFilter.FilterResult;
 
 /**
  * Selects a patient's saved value in a configured custom-field {@code <select>} on the Master Record
@@ -193,7 +195,7 @@ public final class DemographicCustomFieldSelect {
                 options.add(new OptionTag(value.end(), Parser.unescapeEntities(raw, true), selected));
             } else {
                 int insertAt = html.charAt(close - 1) == '/' ? close - 1 : close;
-                options.add(new OptionTag(insertAt, optionText(html, close + 1), selected));
+                options.add(new OptionTag(insertAt, optionText(option), selected));
             }
         }
         return options;
@@ -252,128 +254,30 @@ public final class DemographicCustomFieldSelect {
                     p = q;
                 }
             }
-            if (attributes != null) {
-                // HTML attribute names fold only the ASCII letters.
-                StringBuilder name = new StringBuilder(nameEnd - nameStart);
-                for (int i = nameStart; i < nameEnd; i++) {
-                    char letter = html.charAt(i);
-                    name.append(letter >= 'A' && letter <= 'Z' ? (char) (letter + 'a' - 'A') : letter);
-                }
-                attributes.add(new Attribute(name.toString(), nameStart, p, valueStart, valueEnd));
+            // HTML attribute names fold only the ASCII letters.
+            StringBuilder name = new StringBuilder(nameEnd - nameStart);
+            for (int i = nameStart; i < nameEnd; i++) {
+                char letter = html.charAt(i);
+                name.append(letter >= 'A' && letter <= 'Z' ? (char) (letter + 'a' - 'A') : letter);
             }
+            attributes.add(new Attribute(name.toString(), nameStart, p, valueStart, valueEnd));
         }
         return -1;
     }
 
-    /**
-     * The value a browser posts for an option without a value attribute: its text up to the next
-     * option, optgroup or end of the select, tags and comments left out, decoded, with ASCII whitespace
-     * collapsed and trimmed.
-     */
-    private static String optionText(String html, int from) {
+    /** Collects the text a browser posts for an option with no value attribute. */
+    private static String optionText(Element option) {
         StringBuilder text = new StringBuilder();
-        int n = html.length();
-        int i = from;
-        while (i < n) {
-            int lt = html.indexOf('<', i);
-            if (lt < 0) {
-                text.append(html, i, n);
-                break;
+        option.filter((node, depth) -> {
+            if (node.nameIs("template")) {
+                return FilterResult.SKIP_ENTIRELY;
             }
-            text.append(html, i, lt);
-            if (startsTag(html, lt, "option") || startsTag(html, lt, "/option") || startsTag(html, lt, "optgroup")
-                    || startsTag(html, lt, "/optgroup") || startsTag(html, lt, "/select")) {
-                break;
+            if (node instanceof TextNode content) {
+                text.append(content.getWholeText());
             }
-            int skipped = skipNonMarkup(html, lt);
-            if (skipped < 0) {
-                break;
-            }
-            if (skipped > lt) {
-                i = skipped;
-                continue;
-            }
-            i = afterTagOrText(html, lt);
-            if (i < 0) {
-                break;
-            }
-            if (i == lt + 1) {
-                text.append('<');
-            }
-        }
-        String decoded = Parser.unescapeEntities(text.toString(), false);
-        // HTML's own whitespace (tab, line feed, form feed, carriage return, space); a no-break space stays.
-        return StringUtils.strip(decoded.replaceAll("[\\t\\n\\f\\r ]+", " "), " ");
-    }
-
-    /** Advances over a whole tag, or one literal less-than sign in text. */
-    private static int afterTagOrText(String html, int lt) {
-        int name = lt + 1;
-        if (name < html.length() && html.charAt(name) == '/') {
-            name++;
-        }
-        if (name >= html.length() || !isAsciiLetter(html.charAt(name))) {
-            return lt + 1;
-        }
-        int close = readAttributes(html, name, null);
-        return close < 0 ? -1 : close + 1;
-    }
-
-    private static boolean isAsciiLetter(char c) {
-        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
-    }
-
-    /**
-     * Skips a comment, a {@code <!...>} or {@code <?...>} declaration, or an element whose body is text,
-     * not markup ({@code script}, {@code style}, {@code textarea}, {@code title}, {@code noscript}),
-     * starting at {@code lt}.
-     *
-     * @return the index after it, {@code lt} when it is none of these, or -1 when it is not closed
-     */
-    private static int skipNonMarkup(String html, int lt) {
-        if (html.startsWith("<!-->", lt)) {
-            return lt + 5; // an empty comment, closed at once
-        }
-        if (html.startsWith("<!--->", lt)) {
-            return lt + 6;
-        }
-        if (html.startsWith("<!--", lt)) {
-            int end = html.indexOf("-->", lt + 4);
-            return end < 0 ? -1 : end + 3;
-        }
-        if (html.startsWith("<!", lt) || html.startsWith("<?", lt)) {
-            int end = html.indexOf('>', lt + 2);
-            return end < 0 ? -1 : end + 1;
-        }
-        for (String rawText : new String[]{"script", "style", "textarea", "title", "noscript"}) {
-            if (startsTag(html, lt, rawText)) {
-                int end = indexOfIgnoreCase(html, "</" + rawText, lt + 1);
-                int closeTag = end < 0 ? -1 : html.indexOf('>', end);
-                return closeTag < 0 ? -1 : closeTag + 1;
-            }
-        }
-        return lt;
-    }
-
-    /** Whether a tag named {@code name} (any case) starts at {@code lt}. */
-    private static boolean startsTag(String html, int lt, String name) {
-        int after = lt + 1 + name.length();
-        if (!html.regionMatches(true, lt + 1, name, 0, name.length()) || after > html.length()) {
-            return false;
-        }
-        if (after == html.length()) {
-            return false;
-        }
-        char next = html.charAt(after);
-        return Character.isWhitespace(next) || next == '>' || next == '/';
-    }
-
-    private static int indexOfIgnoreCase(String html, String part, int from) {
-        for (int at = from; at + part.length() <= html.length(); at++) {
-            if (html.regionMatches(true, at, part, 0, part.length())) {
-                return at;
-            }
-        }
-        return -1;
+            return FilterResult.CONTINUE;
+        });
+        // HTML collapses its ASCII whitespace. A no-break space remains part of the value.
+        return StringUtils.strip(text.toString().replaceAll("[\\t\\n\\f\\r ]+", " "), " ");
     }
 }

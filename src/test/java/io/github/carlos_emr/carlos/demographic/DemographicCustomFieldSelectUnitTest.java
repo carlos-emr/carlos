@@ -156,6 +156,15 @@ class DemographicCustomFieldSelectUnitTest {
     }
 
     @Test
+    void shouldMatchImplicitOptionText_withoutInertTemplateOrScriptContent() {
+        String template = "<select name=FAKE_field><option>Plain</option>"
+                + "<option> A <template>hint</template> &amp; B <script>0;</script></option></select>";
+
+        assertThat(DemographicCustomFieldSelect.markSaved(template, "A & B"))
+                .contains("<option selected> A <template>hint</template> &amp; B <script>0;</script></option>");
+    }
+
+    @Test
     @DisplayName("should match an option without a value attribute by its text, as a browser posts it")
     void shouldMatchAnOptionByItsText_whenItHasNoValueAttribute() {
         String template = "<select name=\"FAKE_field\"><option>--</option><option>A &amp; B</option>"
