@@ -4065,6 +4065,26 @@
       }
     },
     {
+      "name": "admin-issue-editor-save",
+      "script": "scripts/admin-issue-editor-save-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owns up to three PS<hex>-coded issue rows (saved, cancelled and token-less probe codes); adds one through Administration > CAISI > Issue Editor and removes all of them in cleanup.",
+      "notes": "Pins #6078: the add form must load the CSRFGuard client so Save and Cancel post a CSRF token.",
+      "profile": "caisi-admin"
+    },
+    {
       "name": "security-password-length",
       "script": "scripts/security-password-length-playwright-checks.js",
       "tiers": [
