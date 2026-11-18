@@ -37,6 +37,7 @@
     "test:playwright-list": "node scripts/run-playwright-suite.js --list",
     "test:lab-merged-patient-routing-playwright": "node scripts/lab-merged-patient-routing-playwright-checks.js",
     "test:login-playwright": "node scripts/login-playwright-checks.js",
+    "test:login-legacy-intake-playwright": "node scripts/login-legacy-intake-playwright-checks.js",
     "test:allergy-class-shortcut-alert-playwright": "node scripts/allergy-class-shortcut-alert-playwright-checks.js",
     "test:csrfguard-client-browser": "node scripts/csrfguard-client-browser-check.js",
     "test:consult-attachment-ownership-playwright": "node scripts/consult-attachment-ownership-playwright-checks.js",
@@ -1037,6 +1038,7 @@
     "test:consultation-correctness-playwright": "node scripts/consultation-correctness-playwright-checks.js",
     "test:server-table-installed-playwright": "node scripts/server-table-installed-playwright-checks.js",
     "test:admin-keygen-create-key-retry-playwright": "node scripts/admin-keygen-create-key-retry-playwright-checks.js",
+    "test:playwright:log-provider-order": "node scripts/log-provider-order-playwright-checks.js",
     "check:demographic-converted-limits": "node scripts/demographic-converted-limits-playwright-checks.js"
   },
   "dependencies": {
