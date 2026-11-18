@@ -98,6 +98,9 @@ async function workflow(s) {
       const targetRow = page.locator(`input[name="nameSelected"][value="${target}"]`).locator('xpath=ancestor::tr[1]');
       await Promise.all([page.waitForEvent('framenavigated', {predicate: frame => frame === page.mainFrame()}),
         targetRow.locator('input[type="submit"][name="submit"]').click()]);
+      // A frame commits before the replacement HTML is parsed. Keep the blank/error
+      // checks, but apply them to the completed document rather than its empty body.
+      await page.waitForLoadState('domcontentloaded');
       await h.assertNotErrorPage(page, 'report field move');
       h.assert(metadata() === before, 'Move here deleted or changed configured field metadata');
       h.assert(JSON.stringify(rows().map(row => row[0])) === JSON.stringify(expected),
