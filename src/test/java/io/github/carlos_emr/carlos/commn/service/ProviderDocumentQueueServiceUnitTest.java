@@ -22,6 +22,15 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 class ProviderDocumentQueueServiceUnitTest extends CarlosUnitTestBase {
     private final QueueDao queues = mock(QueueDao.class);
+
+    @Test
+    void shouldCheckQueueExistence_whenAnExistingDaoUsesTheDefaultMethod() {
+        QueueDao existing = mock(QueueDao.class, CALLS_REAL_METHODS);
+        when(existing.find(42)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Queue());
+
+        assertThat(existing.lockExistingQueue(42)).isTrue();
+        assertThat(existing.lockExistingQueue(43)).isFalse();
+    }
     private final SecObjectNameDao security = mock(SecObjectNameDao.class);
     private final UserPropertyDAO properties = mock(UserPropertyDAO.class);
     private final ProviderDocumentQueueService service = new ProviderDocumentQueueService(queues, security, properties);
