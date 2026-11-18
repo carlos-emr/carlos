@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "31fc9eccaa185e78ad8dc0db07f5ffc108e92dbb",
+  "comparisonSha256": "5cc3afb11b4ab822f608842d663714a66ad89b798646a4a536cd2f77be006a90",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/eform/upload/ImageUpload2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "3117266d97e8424e4ba8ac233481a9ea7cb6c973"
+    }
+  },
+  "baselineCommit": "999851a5ce39684dc4016b30029c408e0ecf0fee",
+  "baselineSourceTree": "31fc9eccaa185e78ad8dc0db07f5ffc108e92dbb",
+  "baselineReportSha256": "bc31fdbf37a728154501aa8e37c03075c1b3b9be18608403ca1cb65c20b0b6f6",
+  "baselineLane": "Focused eForm upload binding, validated file opening and transactional ZIP regression tests",
+  "baselineTestCounts": {
+    "tests": 198,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "5b8625320d96ee09b5477eba211867b3c735f90637f78ea03d6ed0d76e397f2a",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

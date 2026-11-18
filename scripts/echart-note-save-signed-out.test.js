@@ -58,13 +58,15 @@ function harness(heartbeat = valid) {
     },
   };
   const fields = {
-    editor1: editor, autosaveTime: { textContent: 'previous status' },
+    editor1: editor, autosaveTime: { textContent: 'previous status', setAttribute(name, value) { this[name] = value; } },
     notCPP: { update: html => { replaced.push(html); editor.value = ''; } },
   };
   const context = {
     caseNote: 'editor1', ctx: '/carlos', chartContext: '', demographicNo: '123', fullChart: 'false',
     caisiEnabled: false, savingNoteError: 'save failed', invalidObservationDateError: 'invalid date',
-    sessionEndedNotSavedError: SIGNED_OUT,
+    sessionEndedNotSavedError: SIGNED_OUT, lostNoteLock: false,
+    draftSaveConflictMessage: 'Draft conflict',
+    noteLockLostError: 'Your note lock has been lost; copy your text and reopen the chart.',
     URL, AbortController, window: { location: { href: `${ORIGIN}/carlos/CaseManagementEntry?method=edit` } },
     setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
     clearTimeout: id => { timers[id - 1].cleared = true; },
@@ -81,6 +83,7 @@ function harness(heartbeat = valid) {
   vm.createContext(context);
   vm.runInContext(chartActionUrlSource(source), context);
   vm.runInContext(slice('    var ajaxRequest;', '    function submitIssue('), context);
+  vm.runInContext(slice('function showAutosaveStatus(', 'function autosaveAcknowledged('), context);
   vm.runInContext(slice('    function saveNoteAjax(', '    var changeIssueMsg;'), context);
   const shortcut = source.match(/jQuery\(document\)\.on\('keydown', function\(e\) \{[\s\S]*?\n        \}\);/);
   assert.ok(shortcut, 'the production keyboard shortcut is present');
@@ -121,11 +124,36 @@ test('Save refused with 401 keeps the editor and says to sign in again', () => {
   assert.equal(h.editor.disabled, false);
 });
 
+for (const signed of [false, true]) {
+  test(`Save with ${signed ? 'a signing choice' : 'no signing choice'} explains a lost lock and stops autosave`, () => {
+    const h = harness();
+    if (signed) h.entryForm.elements.sign.value = 'on';
+    h.context.saveNoteAjax('save', 'list');
+    const conflict = { status: 409, getResponseHeader: name => name === 'X-Carlos-Note-Lock-Lost' ? 'true' : null };
+    h.requests[0].options.onFailure(conflict);
+    h.requests[0].options.onComplete({ status: 409 });
+    assert.equal(h.context.lostNoteLock, true);
+    assert.deepEqual(h.alerts, [h.context.noteLockLostError]);
+    assert.equal(h.editor.value, TYPED);
+    assert.equal(h.editor.disabled, false);
+    assert.deepEqual(h.replaced, []);
+    assert.equal(h.effects.includes('resume autosave'), false);
+    assert.equal(h.fields.autosaveTime['data-autosave-state'], 'conflict');
+    assert.equal(h.fields.autosaveTime.textContent, h.context.draftSaveConflictMessage);
+    assert.equal(h.context.saveNoteAjax('save', 'list'), false);
+    assert.equal(h.requests.length, 1, 'Another toolbar click must keep the draft without a second POST');
+  });
+}
+
 test('Save refused for another reason still names the status', () => {
-  const h = harness();
-  h.context.saveNoteAjax('save', 'list');
-  h.requests[0].options.onFailure({ status: 500 });
-  assert.deepEqual(h.alerts, ['save failed 500']);
+  for (const status of [409, 500]) {
+    const h = harness();
+    h.context.saveNoteAjax('save', 'list');
+    h.requests[0].options.onFailure({ status, getResponseHeader: () => null });
+    assert.deepEqual(h.alerts, ['save failed ' + status]);
+    assert.equal(h.context.lostNoteLock, false);
+    assert.ok(h.effects.includes('resume autosave'));
+  }
 });
 
 for (const rejected of [
@@ -173,6 +201,38 @@ for (const [name, responseURL] of [
 function signAndSave(h) {
   h.entryForm.elements.sign.value = 'on';
   return h.context.savePage('saveAndExit', '');
+}
+
+const chartNotes = fs.readFileSync(path.join(__dirname,
+  '../src/main/webapp/WEB-INF/jsp/casemgmt/ChartNotes.jsp'), 'utf8');
+const fullFormHandlers = [...chartNotes.matchAll(/onclick="([^"]*savePage\('saveAndExit', ''\)[^"]*)"/g)]
+  .map(match => match[1]);
+assert.equal(fullFormHandlers.length, 3, 'the three JSP toolbar handlers are present');
+
+for (const [index, label, expected] of [
+  [0, 'Sign & Save', ['on', 'off', 'false']],
+  [1, 'Verify', ['on', 'on', 'false']],
+  [2, 'Bill', ['on', 'off', 'true']],
+]) {
+  test(`the rendered ${label} handler refuses a lost lock and clears its flags`, async () => {
+    const flags = ['sign', 'verify', 'toBill'];
+    const clickToolbar = h => vm.runInContext(`(function (event) { ${fullFormHandlers[index]} })`, h.context)({
+      preventDefault() {}, stopPropagation() {}
+    });
+    const blocked = harness();
+    blocked.context.lostNoteLock = true;
+    assert.equal(clickToolbar(blocked), false);
+    assert.equal(blocked.fetches.length, 0);
+    assert.deepEqual(blocked.submits(), []);
+    assert.equal(blocked.editor.value, TYPED);
+    assert.deepEqual(blocked.alerts, [blocked.context.noteLockLostError]);
+    assert.deepEqual(flags.map(flag => blocked.entryForm.elements[flag].value), ['off', 'off', 'false']);
+
+    const allowed = harness();
+    assert.equal(clickToolbar(allowed), false);
+    await settled();
+    assert.deepEqual(allowed.submits().map(fields => flags.map(flag => fields[flag])), [expected]);
+  });
 }
 
 test('Sign & Save asks the session heartbeat without following a redirect, then submits once', async () => {
@@ -297,3 +357,45 @@ test('Sign & Save submits as before when the heartbeat gives no answer within th
   assert.equal(h.submits().length, 1);
   assert.deepEqual(h.alerts, []);
 });
+
+
+for (const changed of ['text', 'date', 'issues']) {
+  for (const discard of [false, true]) {
+    test(`Close after lock loss prompts before discarding ${changed} changes (${discard ? 'discard' : 'cancel'})`, () => {
+      const h = harness(); let prompts = 0; let closed = 0;
+      vm.runInContext(slice('    var closeWithoutSaveMsg;', '    // Bind each newly rendered editor'), h.context);
+      Object.assign(h.context, {lostNoteLock: true, origCaseNote: changed === 'text' ? 'previous text' : TYPED,
+        origObservationDate: changed === 'date' ? 'previous date' : 'today', noteIssuesChanged: changed === 'issues',
+        closeWithoutSaveMsg: 'Discard unsaved changes?', Event: {stop() {}},
+        confirm: message => {prompts++; assert.equal(message, 'Discard unsaved changes?'); return discard;}});
+      h.fields.observationDate = {value: 'today'};
+      h.context.window.close = () => {closed++;};
+      h.context.closeEnc({});
+      assert.equal(prompts, 1);
+      assert.equal(closed, discard ? 1 : 0);
+      assert.equal(h.editor.value, TYPED);
+      assert.equal(h.context.noteIssuesChanged, changed === 'issues');
+      assert.equal(h.context.lostNoteLock, true);
+      assert.equal(h.effects.includes('resume autosave'), false);
+      assert.equal(h.effects.includes('pause autosave'), discard);
+      assert.equal(h.requests.length, 0, 'Close must never try to write against a lost lock');
+    });
+  }
+}
+
+for (const editorPresent of [true, false]) {
+  test(`Close after lock loss accepts a clean chart ${editorPresent ? 'with' : 'without'} an editor`, () => {
+    const h = harness(); let prompts = 0; let closed = 0;
+    vm.runInContext(slice('    var closeWithoutSaveMsg;', '    // Bind each newly rendered editor'), h.context);
+    Object.assign(h.context, {lostNoteLock: true, origCaseNote: TYPED,
+      origObservationDate: 'today', noteIssuesChanged: false, Event: {stop() {}},
+      confirm: () => {prompts++; return true;}});
+    h.fields.observationDate = {value: 'today'};
+    if (!editorPresent) delete h.fields.editor1;
+    h.context.window.close = () => {closed++;};
+    h.context.closeEnc({});
+    assert.equal(prompts, 0); assert.equal(closed, 1);
+    assert.equal(h.context.lostNoteLock, true);
+    assert.equal(h.requests.length, 0);
+  });
+}

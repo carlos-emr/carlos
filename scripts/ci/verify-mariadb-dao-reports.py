@@ -104,6 +104,18 @@ REQUIRED_CASES = {
         "shouldRetainExplicitEmptyStringClears_inTheNativeTransaction",
         "shouldReportConflict_withoutOverwritingAnOlderTransactionSnapshot",
     },
+    "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": {
+        f"{method}(Boolean, Integer, boolean, int)[{index}]"
+        for method in (
+            "shouldLoadNullableFlags_whenReadingANoteById",
+            "shouldLoadNullableFlags_whenReadingANoteIdList",
+            "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList",
+        )
+        for index in range(1, 10)
+    } | {
+        f"shouldPersistExplicitFlagChanges_whenUpdatingALegacyNullNote(boolean)[{index}]"
+        for index in (1, 2)
+    } | {"shouldUseTheNullablePublishedColumnTypes_onThePhysicalSchema"},
     "SiteRenameClockMariaDbIntegrationTest": {
         'shouldIncludeTheLaterUnrelatedEdit_whenSyncContinuesFromTheRenamedSite(boolean)[1]',
         'shouldIncludeTheLaterUnrelatedEdit_whenSyncContinuesFromTheRenamedSite(boolean)[2]',
@@ -156,6 +168,7 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, 
                        "LegacyLabNativeMariaDbIntegrationTest": 7, "ConsultationArchiveDaoIntegrationTest": 1,
                        "ArchiveAuditTimestampIntegrationTest": 2,
                        "CaseManagementNoteLockMariaDbIntegrationTest": 15,
+                       "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
                        "CaseManagementIssueDAOIntegrationTest": 22,
                        "ConsultationListProjectionIntegrationTest": 17,
                        "RxCorrectionSaveRollbackIntegrationTest": 2,
@@ -174,6 +187,7 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, 
                            "ConsultationArchiveDaoIntegrationTest": 1,
                            "ArchiveAuditTimestampIntegrationTest": 2,
                            "CaseManagementNoteLockMariaDbIntegrationTest": 15,
+                       "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
                            "BcBillingNativeMariaDbIntegrationTest": 22,
                            "FormXmlImportServiceIntegrationTest": 7,
                            "EFormApColumnLookupIntegrationTest": 2,

@@ -39,6 +39,35 @@ class RequiredExecutionsTest(unittest.TestCase):
             stream = next(row for row in plan['workstreams'] if row['id'] == stream_id)
             self.assertIn(lane_id, stream['requiredChecks'])
 
+    def test_legacy_note_flag_skips_route_every_native_invocation(self):
+        checks = {check['id']: check for check in gate.load_plan()['checks']}
+        family = 'CaseManagementNoteLegacyFlagsMariaDbIntegrationTest'
+        classname = 'io.github.carlos_emr.carlos.casemgmt.dao.' + family
+        route = checks['java-all']['routedSkips'][classname]
+        self.assertEqual(route['check'], 'java-native-flyway')
+        expected = {
+            'shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)': 9,
+            'shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)': 9,
+            'shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)': 9,
+            'shouldPersistExplicitFlagChanges_whenUpdatingALegacyNullNote(boolean)': 2,
+            'shouldUseTheNullablePublishedColumnTypes_onThePhysicalSchema': 1,
+        }
+        self.assertEqual(len(route['cases']), len(expected))
+        self.assertEqual({row['name'] for row in route['cases']}, set(expected))
+        for row in route['cases']:
+            self.assertEqual(row.get('container', ''), '')
+            count = expected[row['name']]
+            if count > 1:
+                self.assertEqual(row['destinations'], [
+                    {'name': row['name'] + f'[{index}]', 'container': ''}
+                    for index in range(1, count + 1)])
+        for lane_id in ('java-native-flyway', 'java-native-bc-flyway'):
+            lane = checks[lane_id]
+            self.assertGreaterEqual(lane['requiredFamilies'][family], sum(expected.values()))
+            selection = next(arg.removeprefix('-Dtest=') for arg in lane['command']
+                             if arg.startswith('-Dtest='))
+            self.assertIn(family, selection.split(','))
+
     def test_path_bindings_reject_non_object_entries(self):
         plan = gate.read_json(gate.DEFAULT_PLAN)
         with tempfile.TemporaryDirectory() as temporary:

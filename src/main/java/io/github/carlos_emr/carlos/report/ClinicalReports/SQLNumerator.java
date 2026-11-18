@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery;
+import io.github.carlos_emr.carlos.report.data.ReportLimitNotice;
 
 /**
  * The class should evaluate a query that has a count returned.  If the count is = 0 then false is returned if >0 is returned true
@@ -111,7 +112,11 @@ public class SQLNumerator implements Numerator {
             }
             MiscUtils.getLogger().debug("demo " + demographicNo + " eval: " + evalTrue);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Clinical report numerator query failed", e);
+            // A row, size or time refusal is the user's to fix: RunClinicalReport2Action logs it once as a
+            // warning and the error page names the limit. Only other failures are errors here.
+            if (ReportLimitNotice.find(e) == null) {
+                MiscUtils.getLogger().error("Clinical report numerator query failed", e);
+            }
             throw new IllegalStateException("Clinical report could not be completed; narrow the filters or retry", e);
         }
 
@@ -143,7 +148,11 @@ public class SQLNumerator implements Numerator {
             }
             MiscUtils.getLogger().debug("demo " + demographicNo + " eval: " + evalTrue);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Clinical report numerator query failed", e);
+            // A row, size or time refusal is the user's to fix: RunClinicalReport2Action logs it once as a
+            // warning and the error page names the limit. Only other failures are errors here.
+            if (ReportLimitNotice.find(e) == null) {
+                MiscUtils.getLogger().error("Clinical report numerator query failed", e);
+            }
             throw new IllegalStateException("Clinical report could not be completed; narrow the filters or retry", e);
         }
 
