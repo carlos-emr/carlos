@@ -31,7 +31,8 @@ the fixture now loads the real helper and adds bulk-action window-scope controls
 
 The native dashboard workflow now creates two owned providers and five patients,
 opens two windows under one login, switches the second provider, and verifies
-both patient lists/CSV exports plus first-window navigation. Its existing bulk
+both patient lists/CSV exports, the second window’s native exclusion provider,
+and first-window navigation. Its existing bulk
 and authorization controls remain selected. New rebuilt-DEB/browser qualification
 is pending the next combined batch; the JVM/client proofs above do not claim
 that browser execution has already occurred.

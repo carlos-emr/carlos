@@ -85,6 +85,7 @@ function templateXml(marker) {
     <drillDownActions>
       <action id="tickler" name="Assign Tickler" />
       <action id="dxUpdate" name="Add To Disease Registry" value="${DX_CODE}" />
+      <action id="demoExcl" name="Exclude Patients" />
     </drillDownActions>
     <query>SELECT d.* ${scope} ORDER BY d.demographic_no</query>
   </drillDownQuery>
@@ -259,7 +260,7 @@ async function workflow(s) {
     h.assert(await dashboard.locator(`#graphCanvas_${indicatorId}`).evaluate(c => c.width > 0 && c.height > 0), 'The indicator chart was not drawn');
   });
 
-  await s.step('two windows of one login keep their provider-specific lists and exports after switching the second window', async () => {
+  await s.step('two windows of one login keep their provider-specific lists, exports and exclusions after switching the second window', async () => {
     const other = await openDashboard('dashboard-window-b');
     const shownRows = async page => page.locator('#drilldownTable tbody tr').evaluateAll(rows => rows.map(row =>
       [row.querySelector('input.patientChecked').id, row.cells[3].textContent.trim(), row.cells[4].textContent.trim()]));
@@ -287,6 +288,21 @@ async function workflow(s) {
       h.assert(JSON.stringify((await shownRows(other)).sort()) === JSON.stringify([...expectedOther].sort()),
         'The second window did not retain its own patient list');
       await verifyExport(other, expectedOther, 'dashboard-window-b-export');
+      await other.locator(`input.patientChecked[id="${otherPatients[0]}"]`).check();
+      await other.locator('#actionMenuLink').click();
+      await other.locator('#excludePatientsChecked').click();
+      await other.locator('#modalConfirmPatientExclusion').waitFor({ state: 'visible' });
+      const excluded = other.waitForResponse(response => /\/web\/dashboard\/display\/BulkPatientAction$/.test(new URL(response.url()).pathname)
+        && response.request().method() === 'POST');
+      await other.locator('#confirmPatientExclusion').click();
+      h.assert((await excluded).status() === 200, 'The second window exclusion was refused');
+      const identifier = `${marker} Patient status|${marker} Category|${marker} Owned patients`;
+      const exclusion = `SELECT COUNT(*) FROM demographicExt WHERE demographic_no=${otherPatients[0]}
+        AND key_val='excludeIndicator' AND value=${h.sqlString(identifier)}`;
+      h.assert(sql.value(exclusion + ` AND provider_no=${h.sqlString(otherFixture.providerNo)}`) === '1',
+        'The second window exclusion did not retain its selected provider');
+      h.assert(sql.value(exclusion + ` AND provider_no=${P}`) === '0',
+        'The second window exclusion was filed under the first window provider');
     } finally { await other.close(); }
     await ui.clickAndAwaitReload(dashboard, dashboard.locator('.backtoDashboardBtn'),
       { label: 'return first window to its dashboard', timeout: TIMEOUT });
