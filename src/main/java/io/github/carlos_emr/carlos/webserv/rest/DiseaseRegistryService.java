@@ -146,7 +146,9 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
             dx.setStatus('A');
             dx.setProviderNo(getCurrentProvider().getProviderNo());
             dxresearchDao.persist(dx);
-            LogAction.addLog(getLoggedInInfo(), "Dxresearch.add", "dxresearch", "" + dx.getId(), "" + demographicNo, dx.toString());
+            LogAction.addLog(getLoggedInInfo(), "Dxresearch.add", "dxresearch", "" + dx.getId(), "" + demographicNo,
+                    "dxresearchId=" + dx.getId() + ";codingSystem="
+                            + io.github.carlos_emr.carlos.utility.LogSafe.sanitize(dx.getCodingSystem()));
         }
 
         return Response.ok().build();
