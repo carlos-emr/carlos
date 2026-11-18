@@ -37,6 +37,13 @@ public class McedtCredentialService {
                 .getResultList();
     }
 
+    private boolean hasLegacyPassword() {
+        return !entityManager.createQuery("SELECT p.id FROM UserProperty p WHERE p.name = :name", Integer.class)
+                .setParameter("name", UserProperty.MCEDT_ACCOUNT_PASSWORD)
+                .setMaxResults(1)
+                .getResultList().isEmpty();
+    }
+
     private void store(String encrypted) {
         entityManager.createNativeQuery("UPDATE mcedt_credential SET encrypted_password = :password WHERE id = 1")
                 .setParameter("password", encrypted).executeUpdate();
@@ -81,12 +88,14 @@ public class McedtCredentialService {
      */
     public String getPassword(String fallback) {
         try {
-            // Both reads must be current locking reads. An ordinary ciphertext
-            // SELECT would open a repeatable-read snapshot before a legacy writer
-            // commits and can produce MariaDB error1020 when its row is then locked.
+            // First-read migration uses current locking reads throughout so it
+            // waits for any legacy writer without opening a snapshot of stale data.
             String encrypted = (String) entityManager.createNativeQuery(
                     "SELECT encrypted_password FROM mcedt_credential WHERE id = 1 FOR UPDATE", String.class).getSingleResult();
-            List<UserProperty> legacy = lockedLegacyPasswords();
+            // A migrated installation only needs a property lock if a legacy row
+            // remains. A locking query on an empty index range blocks preference inserts.
+            List<UserProperty> legacy = encrypted == null || hasLegacyPassword()
+                    ? lockedLegacyPasswords() : List.of();
             if (encrypted == null && !legacy.isEmpty()) {
                 encrypted = EncryptionUtils.encrypt(legacy.get(0).getValue());
                 store(encrypted);
@@ -95,7 +104,9 @@ public class McedtCredentialService {
                 throw new IllegalStateException("Invalid MCEDT credential format");
             }
             String password = EncryptionUtils.decrypt(encrypted);
-            removeLegacy(legacy);
+            if (!legacy.isEmpty()) {
+                removeLegacy(legacy);
+            }
             return password == null || password.trim().isEmpty() ? fallback : password;
         } catch (Exception failure) {
             throw new IllegalStateException("Unable to securely read the MCEDT password");
