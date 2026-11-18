@@ -110,7 +110,7 @@ class EFormExportZipArchiverMetadataImportUnitTest {
                 saved.add(invocation.getArgument(0));
                 return "1";
             });
-            List<String> errors = new EFormExportZip().importForm(new ByteArrayInputStream(zip));
+            List<String> errors = new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(zip));
             return new Result(errors, saved);
         }
     }

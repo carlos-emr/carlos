@@ -77,7 +77,7 @@ class EFormExportZipLimitsUnitTest {
         try (var folders = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
             folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
             // Scale down only rejection fixtures; acceptance tests exercise the public defaults.
-            assertThatThrownBy(() -> new EFormExportZip().importForm(
+            assertThatThrownBy(() -> new EFormExportZip(Runnable::run).importForm(
                     new ByteArrayInputStream(archive), 16L << 20, 64L << 20, 1024))
                     .isInstanceOf(IOException.class).hasMessageContaining(message);
             forms.verify(() -> EFormUtil.saveEForm(any(EForm.class)), never());
@@ -95,12 +95,13 @@ class EFormExportZipLimitsUnitTest {
     private void accepted(byte[] archive, String asset, long expectedBytes, int expectedForms) throws Exception {
         try (var folders = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
             folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
-            assertThat(new EFormExportZip().importForm(new ByteArrayInputStream(archive))).isEmpty();
+            assertThat(new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(archive))).isEmpty();
             forms.verify(() -> EFormUtil.saveEForm(any(EForm.class)), times(expectedForms));
         }
         assertThat(Files.size(images.resolve(asset))).isEqualTo(expectedBytes);
         try (var staged = Files.list(images.resolve("extractFolder"))) {
-            assertThat(staged).isEmpty();
+            assertThat(staged.map(path -> path.getFileName().toString()))
+                    .containsExactly(EFormImagePublicationLock.LOCK_FILE_NAME);
         }
     }
 
@@ -163,7 +164,7 @@ class EFormExportZipLimitsUnitTest {
         try (var folders = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
             folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
             forms.when(() -> EFormUtil.formExistsInDB(any())).thenReturn(formsAlreadyExist);
-            assertThatThrownBy(() -> new EFormExportZip().importForm(new ByteArrayInputStream(archive)))
+            assertThatThrownBy(() -> new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(archive)))
                     .isInstanceOf(IOException.class).hasMessageContaining("text byte limit");
             forms.verify(() -> EFormUtil.saveEForm(any(EForm.class)), never());
         }
@@ -234,7 +235,7 @@ class EFormExportZipLimitsUnitTest {
         ByteArrayInputStream input = spy(new ByteArrayInputStream(archive("unused", 0, 0)));
         try (var folders = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
             folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
-            assertThatThrownBy(() -> new EFormExportZip().importForm(input)).isInstanceOf(IOException.class);
+            assertThatThrownBy(() -> new EFormExportZip(Runnable::run).importForm(input)).isInstanceOf(IOException.class);
             verify(input).close();
             forms.verify(() -> EFormUtil.saveEForm(any(EForm.class)), never());
         }

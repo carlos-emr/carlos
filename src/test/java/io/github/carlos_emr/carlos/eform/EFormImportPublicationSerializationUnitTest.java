@@ -33,14 +33,17 @@ import static org.mockito.Mockito.mockStatic;
 class EFormImportPublicationSerializationUnitTest {
     @TempDir Path images;
 
-    private byte[] archive(String name) throws IOException {
+    private byte[] archive(String name, String diagram) throws IOException {
         var bytes = new ByteArrayOutputStream();
         try (var zip = new ZipOutputStream(bytes)) {
             zip.putNextEntry(new ZipEntry("eform.properties"));
             zip.write(("form.name="+name+"\nform.htmlFilename=form.html\n").getBytes(StandardCharsets.UTF_8));
             zip.closeEntry();
             zip.putNextEntry(new ZipEntry("form.html"));
-            zip.write(name.getBytes(StandardCharsets.UTF_8));
+            zip.write(("<img src='" + diagram + "'>").getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+            zip.putNextEntry(new ZipEntry(diagram));
+            zip.write(diagram.getBytes(StandardCharsets.UTF_8));
             zip.closeEntry();
         }
         return bytes.toByteArray();
@@ -58,14 +61,15 @@ class EFormImportPublicationSerializationUnitTest {
                 registered.add(call.<EForm>getArgument(0).getFormName());
                 return "fixture";
             });
-            return new EFormExportZip().importForm(new ByteArrayInputStream(bytes));
+            return new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(bytes));
         }
     }
 
     @ParameterizedTest
     @ValueSource(booleans={false,true})
     void shouldWaitForRegistration_beforeLoadingAnotherImportsHtml(boolean sameName) throws Exception {
-        byte[] firstArchive=archive("first"),secondArchive=archive(sameName?"first":"second");
+        byte[] firstArchive = archive("first", "first.png");
+        byte[] secondArchive = archive(sameName ? "first" : "second", "second.png");
         var firstSaving=new CountDownLatch(1);var secondSaving=new CountDownLatch(1);
         var release=new CountDownLatch(1);
         var firstThread=new AtomicReference<Thread>();var secondThread=new AtomicReference<Thread>();
@@ -80,7 +84,7 @@ class EFormImportPublicationSerializationUnitTest {
                 while(System.nanoTime()<deadline && secondSaving.getCount()!=0) {
                     Thread contender=secondThread.get();
                     var info=contender==null?null:ManagementFactory.getThreadMXBean().getThreadInfo(contender.threadId());
-                    if(info!=null && info.getThreadState()==Thread.State.BLOCKED
+                    if(info!=null && info.getThreadState()==Thread.State.WAITING
                             && info.getLockOwnerId()==firstThread.get().threadId()) {
                         observedOwner=true;
                         break;
@@ -96,10 +100,13 @@ class EFormImportPublicationSerializationUnitTest {
                     assertThat(secondErrors).containsExactly("Skipped form 'first', form already exists");
                     assertThat(secondSaving.getCount()).isEqualTo(1);
                     assertThat(registered).containsExactly("first");
+                    assertThat(images.resolve("second.png")).doesNotExist();
                 } else {
                     assertThat(secondErrors).isEmpty();
                     assertThat(registered).containsExactlyInAnyOrder("first","second");
+                    assertThat(images.resolve("second.png")).isRegularFile();
                 }
+                assertThat(images.resolve("first.png")).isRegularFile();
             } finally {release.countDown();}
         }
         // A cooperating publication implementation may retain its empty lock inode.

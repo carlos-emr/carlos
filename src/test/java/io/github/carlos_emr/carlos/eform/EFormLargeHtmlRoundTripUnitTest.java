@@ -37,7 +37,7 @@ class EFormLargeHtmlRoundTripUnitTest {
         try (var folders=mockStatic(ImageUpload2Action.class);var forms=mockStatic(EFormUtil.class)) {
             folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
             forms.when(()->EFormUtil.formExistsInDB(any())).thenReturn(false);
-            assertThat(new EFormExportZip().importForm(new ByteArrayInputStream(exported.toByteArray()))).isEmpty();
+            assertThat(new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(exported.toByteArray()))).isEmpty();
             forms.verify(()->EFormUtil.saveEForm(argThat(imported->html.equals(imported.getFormHtml()))),times(1));
         }
         // A cooperating publication implementation may retain its empty lock inode.

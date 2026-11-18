@@ -113,14 +113,15 @@ class EFormExportZipConcurrentImportUnitTest {
                 saved.add(invocation.<EForm>getArgument(0).getFormHtml());
                 return "owned-fixture";
             });
-            List<String> errors = new EFormExportZip().importForm(new PausedZip(bytes, extracted, proceed));
+            List<String> errors = new EFormExportZip(Runnable::run).importForm(new PausedZip(bytes, extracted, proceed));
             return new Result(errors, saved);
         }
     }
 
     private List<Path> stagingDirectories() throws IOException {
         try (Stream<Path> paths = Files.list(images.resolve("extractFolder"))) {
-            return paths.toList();
+            return paths.filter(path -> !path.getFileName().toString()
+                    .equals(EFormImagePublicationLock.LOCK_FILE_NAME)).toList();
         }
     }
 
@@ -315,7 +316,7 @@ class EFormExportZipConcurrentImportUnitTest {
     }
 
     @Test
-    void laterFormSaveFailureCannotEraseAnAlreadyPublishedOrUnrelatedAsset() throws Exception {
+    void formSaveFailureRemovesOnlyAssetPublishedByThisImport() throws Exception {
         Path unrelated = Files.writeString(images.resolve("other.png"), "OTHER-IMPORT-COMPLETE");
         Map<String, String> entries = new LinkedHashMap<>();
         entries.put("fixture/eform.properties", "form.name=Owned\nform.htmlFilename=form.html\n");
@@ -325,11 +326,37 @@ class EFormExportZipConcurrentImportUnitTest {
              MockedStatic<EFormUtil> forms = mockStatic(EFormUtil.class)) {
             imageFolder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
             forms.when(() -> EFormUtil.saveEForm(any(EForm.class))).thenThrow(new IllegalStateException("database unavailable"));
-            assertThatThrownBy(() -> new EFormExportZip().importForm(new ByteArrayInputStream(zip(entries))))
+            assertThatThrownBy(() -> new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(zip(entries))))
                     .isInstanceOf(IllegalStateException.class).hasMessage("database unavailable");
         }
-        assertThat(Files.readString(images.resolve("published.png"))).isEqualTo("COMPLETE-PUBLISHED-ASSET");
+        assertThat(images.resolve("published.png")).doesNotExist();
         assertThat(Files.readString(unrelated)).isEqualTo("OTHER-IMPORT-COMPLETE");
+        assertThat(stagingDirectories()).isEmpty();
+    }
+
+    @Test
+    void mixedArchiveKeepsSharedAssetsAndAssetsFromTheRetainedFormDirectory() throws Exception {
+        Map<String, String> entries = new LinkedHashMap<>();
+        entries.put("refused/eform.properties", "form.name=Duplicate\nform.htmlFilename=refused.html\n");
+        entries.put("refused/refused.html", "<img src='orphan.png'><img src='shared.png'>");
+        entries.put("refused/orphan.png", "REFUSED");
+        entries.put("refused/shared.png", "SHARED");
+        entries.put("retained/eform.properties", "form.name=New\nform.htmlFilename=retained.html\n");
+        entries.put("retained/retained.html", "<img src='${oscar_image_path}shared.png'>");
+        entries.put("retained/indirect.png", "RETAINED");
+        try (var folders = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
+            folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            forms.when(() -> EFormUtil.formExistsInDB("Duplicate")).thenReturn(true);
+
+            List<String> errors = new EFormExportZip(Runnable::run)
+                    .importForm(new ByteArrayInputStream(zip(entries)));
+
+            assertThat(errors).containsExactly("Skipped form 'Duplicate', form already exists");
+            forms.verify(() -> EFormUtil.saveEForm(any(EForm.class)));
+        }
+        assertThat(images.resolve("orphan.png")).doesNotExist();
+        assertThat(Files.readString(images.resolve("shared.png"))).isEqualTo("SHARED");
+        assertThat(Files.readString(images.resolve("indirect.png"))).isEqualTo("RETAINED");
         assertThat(stagingDirectories()).isEmpty();
     }
 }
