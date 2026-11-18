@@ -983,6 +983,7 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(recordedPreviews).isEmpty();
 
             response = new MockHttpServletResponse();
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
             MsgAttachPDF2Action attach = newAction();
             attach.setItem(new String[]{"currentEncounter"});
             assertThat(attach.execute()).isEqualTo(ActionSupport.NONE);
