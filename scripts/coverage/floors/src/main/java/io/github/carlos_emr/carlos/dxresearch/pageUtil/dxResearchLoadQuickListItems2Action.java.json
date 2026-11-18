@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/dxresearch/pageUtil/dxResearchLoadQuickListItems2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "60f5d90ffac8093bf90200ce6468e084ddba99db"
+  },
+  "evidenceSha256": "be80bf83094624e05e1694038902a2f9bf621ac75cd35c505fcbaffb8ed90f8c"
+}
