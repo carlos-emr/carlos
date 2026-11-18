@@ -80,7 +80,7 @@ public class PharmacyService extends AbstractServiceImpl {
     private PharmacyInfoConverter converter = new PharmacyInfoConverter();
 
     /**
-     * Loads all active pharmacies available on the system
+     * Lists pharmacy records of every status, including inactive (soft-deleted) entries.
      * <p/>
      * A null offset starts at the first row; a null limit uses the DAO maximum (5000).
      * A zero limit returns an empty page. Negative values and limits above the maximum
@@ -88,7 +88,7 @@ public class PharmacyService extends AbstractServiceImpl {
      *
      * @param offset First record in the entire result set to be returned
      * @param limit  Maximum total number of records that should be returned
-     * @return Returns all pharmacy records available on the system
+     * @return OscarSearchResponse&lt;PharmacyInfoTo1&gt; containing a page of records; status "1" is active and status "0" is inactive
      * @throws BadRequestException if pagination is negative or the limit exceeds the DAO maximum
      */
     @GET

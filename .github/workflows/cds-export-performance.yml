@@ -7,27 +7,8 @@ name: CDS installed export scaling
 # (run-cds-performance-ci.py) builds and retires the runtime, database and evidence.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
     branches: [main, develop, experimental, 'release/*', 'staging/*', 'hotfix/*']
-    paths:
-      - 'src/main/**'
-      - 'src/test/java/**/cdsimport/cli/**'
-      - 'src/test/resources/demographic/cds-import-*.xml'
-      - 'database/mysql/migration/**'
-      - 'scripts/ci/run-cds-export-scaling.py'
-      - 'scripts/ci/test_run_cds_export_scaling.py'
-      - 'scripts/ci/CdsExportScalingFixture.java'
-      - 'scripts/ci/run-cds-performance.py'
-      - 'scripts/ci/run-cds-performance-ci.py'
-      - 'scripts/ci/test_run_cds_performance.py'
-      - 'scripts/ci/cds-performance-runtime.Dockerfile'
-      - 'scripts/ci/cds_war_manifest.py'
-      - 'scripts/ci/test_cds_war_manifest.py'
-      - 'scripts/ci/CdsImportMariaDbBootstrap.java'
-      - 'scripts/ci/CdsWorkloadValidator.java'
-      - 'debian/carlos-ctl.pin'
-      - 'pom.xml'
-      - '.github/actions/dev-container/**'
-      - '.github/workflows/cds-export-performance.yml'
   # No workflow_dispatch: this job runs the carlos-ctl commit named by the committed pin, a ref
   # computed at run time, so a manual run from the default branch would execute it with
   # default-branch cache scope. Pull requests cover every qualifying head.
@@ -42,7 +23,12 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    uses: ./.github/workflows/cds-change-detection.yml
+
   installed-export-scaling:
+    needs: changes
+    if: needs.changes.outputs.run-tests == 'true'
     name: Installed CDS export ${{ matrix.profile }}
     runs-on: ubuntu-24.04
     # The longest job, imported-charts, first imports its three charts (about 10 minutes on the

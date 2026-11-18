@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "78d11bc908098a474cfd0b07984f5530fe49e6c4",
+  "comparisonSha256": "b91b9fcb8a3dadd722508d122abfaab3286320786a2731dd6f9035170b508dbb",
+  "baselineCommit": "a4271fc3c0d4fada9e6220925a331560fec6211a",
+  "baselineSourceTree": "78d11bc908098a474cfd0b07984f5530fe49e6c4",
+  "baselineReportSha256": "6a6a77bd04106ecc949c37292d994b17f4383854352ae1396e15fb8096daa1c1",
+  "baselineLane": "Focused Java 25 and JaCoCo test run for the merged source and tests of PR #6227; only the selected Java file is covered by this record.",
+  "baselineTestCounts": {
+    "tests": 39,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "377a151acfc1ea1019ba718ccc13fe28895413c7fc5740931bbadbec7d9abef0",
+  "baselineTestReportsHashFormat": "SHA-256 of a filename-to-SHA-256 JSON object with sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLegacyFlagsIntegrationTest",
+    "io.github.carlos_emr.carlos.casemgmt.model.CaseManagementEntityEqualityUnitTest"
+  ],
+  "priorSourceEvidenceSha256": [
+    "f32f80da15719172db4ab5d062de012c2af82ce9f852c267ab37f785dba69235",
+    "01030fbfcb6aab44f7e9bbb791593417feb0c53cae89f30ba61a6334bb980977"
+  ],
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/model/CaseManagementNote.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "8eb22a0e97951bdbe8d8fe970a7a7db8edac6852"
+    }
+  }
+}

@@ -36,7 +36,8 @@ Image publication shares a lease with image uploads. Extraction and budget
 checks finish before the lease is acquired; another import cannot adopt a
 provisional image, or an upload replace its inode, until publication or rollback
 finishes. A JVM guard and filesystem lock coordinate cooperating application JVMs
-using the same image directory. Form registration remains outside the lease.
+using the same image directory. Form registration and asset publication hold
+the lease through the database transaction.
 
 The empty `extractFolder/.publication.lock` inode is permanent coordination
 metadata. Keep it when checking or cleaning staging residue: removing it can

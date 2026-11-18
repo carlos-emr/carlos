@@ -31,7 +31,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * Another import must not adopt them, and an upload must not overwrite their inode, before a
  * failed pass has rolled them back. The process lock avoids overlapping FileLocks within one
  * JVM; the filesystem lock also protects cooperating JVMs sharing the same image directory.
- * Archive extraction and form persistence take place outside this short publication phase.</p>
+ * Archive extraction takes place outside this publication phase.</p>
  *
  * @since 2026-11-17
  */

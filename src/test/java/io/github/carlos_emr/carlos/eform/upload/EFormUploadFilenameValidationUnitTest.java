@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.eform.upload;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
@@ -184,6 +185,29 @@ class EFormUploadFilenameValidationUnitTest extends CarlosUnitTestBase {
 
         assertThat(action.getImage()).isNotNull();
         assertThat(action.getImage().getCanonicalPath()).isEqualTo(upload.toFile().getCanonicalPath());
+    }
+
+    @Test
+    void shouldReplaceAnExistingImage_underTheZipPublicationLease() throws Exception {
+        Path images = Files.createDirectory(tempDir.resolve("images"));
+        Path existing = Files.writeString(images.resolve("diagram.png"), "OLD");
+        Path upload = Files.writeString(tempDir.resolve("upload.png"), "REPLACEMENT");
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getContent()).thenReturn(upload.toFile());
+        when(uploadedFile.getContentType()).thenReturn("image/png");
+        when(uploadedFile.getOriginalName()).thenReturn("diagram.png");
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.getEformImageDirectory()).thenReturn(images.toString());
+        try (var configurations = mockStatic(CarlosProperties.class)) {
+            configurations.when(CarlosProperties::getInstance).thenReturn(properties);
+            ImageUpload2Action action = new ImageUpload2Action();
+            action.withUploadedFiles(List.of(uploadedFile));
+
+            assertThat(action.execute()).isEqualTo("success");
+            assertThat(request.getAttribute("status")).isEqualTo("uploaded");
+        }
+        assertThat(Files.readString(existing)).isEqualTo("REPLACEMENT");
+        assertThat(images.resolve("extractFolder").resolve(".publication.lock")).isRegularFile();
     }
 
     @Test

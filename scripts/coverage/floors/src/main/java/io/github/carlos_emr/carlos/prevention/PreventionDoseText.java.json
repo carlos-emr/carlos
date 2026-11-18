@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/prevention/PreventionDoseText.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "7d8b278b6484ae58ce9d1278e3f88753d4e72c66"
+  },
+  "evidenceSha256": "8efff780ba608af430680ad481eaa2bca87b819fe98fd6fdf0cbc3cc010f89d4"
+}

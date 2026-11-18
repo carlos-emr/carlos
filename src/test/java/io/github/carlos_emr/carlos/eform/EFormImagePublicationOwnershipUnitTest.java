@@ -177,7 +177,7 @@ class EFormImagePublicationOwnershipUnitTest {
              })) {
             folder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
             byte[] archive = archive(Map.of("first.png", "FAKE first", "second.png", "FAKE second"));
-            assertThatThrownBy(() -> new EFormExportZip().importForm(new ByteArrayInputStream(archive)))
+            assertThatThrownBy(() -> new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(archive)))
                     .isSameAs(failure);
         }
         assertThat(validations.get()).isEqualTo(2);
@@ -359,7 +359,7 @@ class EFormImagePublicationOwnershipUnitTest {
                      })) {
                     folder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
                     try {
-                        new EFormExportZip().importForm(new ByteArrayInputStream(archive));
+                        new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(archive));
                         throw new AssertionError("The later publication was not refused");
                     } catch (IOException expected) {
                         return expected;
@@ -401,7 +401,7 @@ class EFormImagePublicationOwnershipUnitTest {
                 registrations.incrementAndGet();
                 return "FAKE committed form";
             });
-            new EFormExportZip().importForm(new ByteArrayInputStream(archive(entries)));
+            new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(archive(entries)));
         }
         assertThat(registrations.get()).isEqualTo(1);
         return accepted.get();

@@ -129,6 +129,39 @@ class LogReport2ActionTest extends CarlosUnitTestBase {
         }
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldSortProviderNamesIgnoringCase_withoutChangingSiteScopeOrNullOrdering(boolean siteRestricted) throws Exception {
+        request.removeParameter("submit");
+        var providers = new ArrayList<>(List.of(
+                createProvider("alice-z", "alice", "Zebra"),
+                createProvider("bob-a", "Bob", "Able"),
+                createProvider("alice-a", "Alice", "able"),
+                createProvider("bob-z", "bob", "zebra"),
+                createProvider("alice-null", "ALICE", null),
+                createProvider("null-both", null, null),
+                createProvider("null-first", null, "Z"),
+                createProvider("equal-name", "aLiCe", "ABLE")));
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null)).thenReturn(siteRestricted);
+        if (siteRestricted) when(providerDataDao.findByProviderSite("site-user")).thenReturn(providers);
+        else when(providerDataDao.findAllOrderByLastName()).thenReturn(providers);
+
+        assertThat(new LogReport2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        @SuppressWarnings("unchecked")
+        Vector<Properties> choices = (Vector<Properties>) request.getAttribute("vecProvider");
+        assertThat(choices).extracting(row -> row.getProperty("providerNo"))
+                .containsExactly("null-both", "null-first", "alice-null", "alice-a", "equal-name", "alice-z", "bob-a", "bob-z");
+        if (siteRestricted) {
+            verify(providerDataDao).findByProviderSite("site-user");
+            verify(providerDataDao, never()).findAllOrderByLastName();
+        } else {
+            verify(providerDataDao).findAllOrderByLastName();
+            verify(providerDataDao, never()).findByProviderSite(any());
+        }
+        org.mockito.Mockito.verifyNoInteractions(oscarLogDao);
+    }
+
     @Test
     @DisplayName("should return empty results when site-restricted user requests another provider")
     void shouldReturnEmptyResults_whenSiteRestrictedUserRequestsAnotherProvider() throws Exception {

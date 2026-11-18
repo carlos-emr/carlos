@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "422f7ce31c15450184c801b28f4f70567e22e822",
+  "comparisonSha256": "c7da00f081452cd2ac4a4ba89249610b5cff15d55fed6ce699f0c344f784a17c",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/managers/PatientConsentManagerImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "8b0fcfbd0202eec8830ffc5933fd957f86b57715"
+    }
+  },
+  "baselineCommit": "8a5a3c32ce86c9aa67f847157cfec86a7ddd229d",
+  "baselineSourceTree": "422f7ce31c15450184c801b28f4f70567e22e822",
+  "baselineReportSha256": "a7c57ef93e8138a45d6e8a4a638e9468fa3986cf3d65083533ad029c1baf8842",
+  "baselineLane": "Fresh exact JDK25 selected-source classes and existing/regression controls. All259 unique actual JUnit cases pass with zero failures/errors/skips. Component inputs and exact JUnit hashes retained; selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 259,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "2ec27f45bea24f212619bbb003ba28ed98a45d06321a97df2a0d66924c886feb",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}
