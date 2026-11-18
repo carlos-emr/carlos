@@ -461,7 +461,16 @@ It also covers object diagnostics/equality, audit text and JavaScript encoding.
 
 ### HTTP responses, permissions and validation
 
-- REST list pagination rejects negative offsets with HTTP 400.
+- REST demographic and pharmacy lists reject negative offsets or limits, and
+  limits above 500 patients or 5000 pharmacies, with HTTP 400. Clients that used
+  `limit=-1` or `offset=-1` must send a supported page size and a nonnegative
+  offset instead. See the [REST list contract](api-collections-index.md#rest-list-pagination-and-demographic-validation).
+- REST demographic creation and update reject over-length values in fields
+  checked by `Demographic.validateFieldLengths()` with HTTP 400 and a `text/plain`
+  body naming the fields and limits. Checked fields include names, pronouns,
+  gender, title, addresses and contact details. JSON/XML clients
+  must handle this plain-text error response; submitted patient values are not
+  included.
 - Email-resolution requests distinguish invalid input (400), missing records
   (404) and conflicting identity (409). Manage Emails requires `_email` READ
   for viewing and WRITE for mutations; update custom role assignments.
