@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.test.base;
 
 import io.github.carlos_emr.carlos.util.persistence.OscarMySQL5Dialect;
 import io.github.carlos_emr.carlos.utility.MariaDbCompatibilityDriver;
+import io.github.carlos_emr.carlos.utility.MariaDbJdbcCompatibility;
 import org.flywaydb.core.Flyway;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.config.BeanDefinition;
@@ -33,10 +34,8 @@ public class MariaDbDaoTestContextInitializer
     @Override
     public void initialize(ConfigurableApplicationContext context) {
         if (!"true".equals(System.getenv("CARLOS_TEST_MARIADB_DAO"))) return;
-        String server = System.getenv("CARLOS_TEST_MARIADB_URL");
-        if (server == null || !server.startsWith("jdbc:mariadb:") || !server.endsWith("/") || server.contains("?")) {
-            throw new IllegalArgumentException("MariaDB DAO tests require a server JDBC URL ending in / without a database");
-        }
+        String configuredServer = MariaDbTestUrl.requireServerUrl(System.getenv("CARLOS_TEST_MARIADB_URL"));
+        String server = MariaDbJdbcCompatibility.normalizeUrl(configuredServer);
         String schemaMode = System.getenv().getOrDefault("CARLOS_TEST_MARIADB_SCHEMA", "generated");
         if (!List.of("generated", "flyway").contains(schemaMode)) {
             throw new IllegalArgumentException("MariaDB test schema must be generated or flyway");
@@ -54,7 +53,8 @@ public class MariaDbDaoTestContextInitializer
         if (!List.of("DEFAULT", "CONVERT_TO_NULL", "EXCEPTION", "ROUND").contains(zeroDates)) {
             throw new IllegalArgumentException("Unsupported MariaDB test zero-date policy");
         }
-        String jdbcUrl = server + database + "?connectionCollation=utf8mb4_general_ci"
+        String jdbcUrl = configuredServer + database + "?connectionCollation=utf8mb4_general_ci"
+                + (MariaDbTestUrl.usesLegacyScheme(configuredServer) ? "&characterEncoding=UTF-8" : "")
                 + ("DEFAULT".equals(zeroDates) ? "" : "&zeroDateTimeBehavior=" + zeroDates)
                 + "&useOldAliasMetadataBehavior=true&jdbcCompliantTruncation=false&useInformationSchema=false";
         Properties credentials = new Properties();
@@ -74,7 +74,7 @@ public class MariaDbDaoTestContextInitializer
             // including a failed context refresh. No pre-existing database is opened or dropped.
             beans.registerSingleton("mariaDbDaoTestDatabase", cleanup);
             beans.registerDisposableBean("mariaDbDaoTestDatabase", cleanup);
-            if (migrated) Flyway.configure().dataSource(jdbcUrl, credentials.getProperty("user"),
+            if (migrated) Flyway.configure().dataSource(MariaDbJdbcCompatibility.normalizeUrl(jdbcUrl), credentials.getProperty("user"),
                             credentials.getProperty("password"))
                     // BC's published wide legacy form tables require the packaged server's
                     // innodb_strict_mode=0 during bootstrap (60-carlos-emr.cnf).
