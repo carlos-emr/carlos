@@ -521,6 +521,31 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldDrawTheLabResultWithoutRanges_whenRowsLackUsableRangeData() throws Exception {
+        request.setParameter("method", "actualLab");
+        request.setParameter("labType", "CML");
+        request.setParameter("identifier", "synthetic-code");
+        request.setParameter("testName", "Synthetic potassium");
+        var noRange = new java.util.HashMap<>(labValue("3.5 - 5.0"));
+        noRange.remove("range");
+        var undated = new java.util.HashMap<>(labValue("3.5 - 5.0"));
+        undated.remove("collDate");
+        undated.remove("collDateDate");
+        AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
+        try (var labs = mockStatic(CommonLabTestValues.class)) {
+            labs.when(() -> CommonLabTestValues.findValuesForTest("CML", 101, "Synthetic potassium", "synthetic-code"))
+                    .thenReturn(new ArrayList<>(List.of(noRange, labValue("Unavailable"), undated)));
+            executeMeasurementChart(null, rendered);
+        }
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(datasets(rendered.get())).filteredOn(dataset -> "line".equals(dataset.get("kind"))).singleElement()
+                .satisfies(dataset -> assertThat(points(dataset)).extracting(point -> point.get("y")).containsExactly(4.2));
+        assertThat(datasets(rendered.get())).filteredOn(dataset -> "range".equals(dataset.get("kind")))
+                .allSatisfy(dataset -> assertThat(points(dataset)).isEmpty());
+    }
+
+    @Test
     void shouldAnswer422_whenALabReferenceRangeHasMoreThanTwoBounds() throws Exception {
         request.setParameter("method", "actualLab");
         request.setParameter("labType", "CML");
