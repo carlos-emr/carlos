@@ -27,9 +27,13 @@ import java.util.Locale;
 import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Tag("unit")
+@Isolated("Temporarily changes JVM locale defaults")
 class TotpGeneratorUnitTest {
     private final TotpGenerator generator = new TotpGenerator();
     // RFC 6238 appendix B publishes this test key; it is not an application credential.
@@ -40,6 +44,8 @@ class TotpGeneratorUnitTest {
     @Test
     void shouldMatchRfc6238Sha1Vectors_withSixDigitDefault() throws Exception {
         Locale previous = Locale.getDefault();
+        Locale previousFormat = Locale.getDefault(Locale.Category.FORMAT);
+        Locale previousDisplay = Locale.getDefault(Locale.Category.DISPLAY);
         try {
             Locale.setDefault(Locale.US);
             long[] seconds = {59, 1111111109, 1111111111, 1234567890, 2000000000, 20000000000L};
@@ -51,6 +57,8 @@ class TotpGeneratorUnitTest {
             }
         } finally {
             Locale.setDefault(previous);
+            Locale.setDefault(Locale.Category.FORMAT, previousFormat);
+            Locale.setDefault(Locale.Category.DISPLAY, previousDisplay);
         }
     }
 
@@ -65,15 +73,25 @@ class TotpGeneratorUnitTest {
                 .isNotEqualTo(generator.generateOneTimePasswordString(key, boundary.minusMillis(1)));
     }
 
-    @Test
-    void shouldUseDefaultLocale_forFormattedDigits() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"ar-EG", "fa-IR", "th-TH-u-nu-thai", "en-CA", "fr-CA"})
+    void shouldKeepProtocolDigitsAscii_withDifferentDefaultLocales(String languageTag) throws Exception {
         Locale previous = Locale.getDefault();
+        Locale previousFormat = Locale.getDefault(Locale.Category.FORMAT);
+        Locale previousDisplay = Locale.getDefault(Locale.Category.DISPLAY);
         try {
-            Locale.setDefault(Locale.forLanguageTag("ar-EG"));
-            assertThat(generator.generateOneTimePasswordString(key, Instant.ofEpochSecond(59)))
-                    .isEqualTo("٢٨٧٠٨٢");
+            Locale.setDefault(Locale.forLanguageTag(languageTag));
+            long[] seconds = {59, 1111111109, 1111111111, 1234567890, 2000000000, 20000000000L};
+            String[] expected = {"287082", "081804", "050471", "005924", "279037", "353130"};
+            for (int index = 0; index < seconds.length; index++) {
+                assertThat(generator.generateOneTimePasswordString(key, Instant.ofEpochSecond(seconds[index])))
+                        .as("RFC 6238 at %s seconds with %s", seconds[index], languageTag)
+                        .isEqualTo(expected[index]).matches("[0-9]{6}");
+            }
         } finally {
             Locale.setDefault(previous);
+            Locale.setDefault(Locale.Category.FORMAT, previousFormat);
+            Locale.setDefault(Locale.Category.DISPLAY, previousDisplay);
         }
     }
 }

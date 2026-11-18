@@ -5424,7 +5424,7 @@
       ],
       "timeoutSec": 360,
       "env": [],
-      "notes": "#5725: two template schemas and four tabs sharing one context/login. Alternating native runs and actual CSV/XLS downloads prove per-instance parameters, values and cell types. Includes empty results and normal Back clear-session beacons and subsequent tab closure; beacons are never suppressed.",
+      "notes": "#5813: a lone empty text parameter survives native upload, edit, reopen, run and export while the other template stays unchanged. #5725: two template schemas (text and list parameters) and four tabs sharing one context/login. Alternating native runs and actual CSV/XLS downloads prove per-instance parameters, values and cell types. Includes empty results and normal Back clear-session beacons and subsequent tab closure; beacons are never suppressed.",
       "fixtures": "Two natively uploaded marker-owned templates and two owned synthetic patients. Native middle-click opens report instances from the Administration library. Clinical rows remain unchanged; exact owned templates/patient and scratch-download cleanup are verified. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "mutates": [
         "reportTemplates"
@@ -5671,7 +5671,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Issue #5641: Resolve must dispatch to the status update, store RESOLVED, and retain the resolved card and filter result after reloading Manage Emails.",
+      "notes": "Issues #5641 and #6020: Resolve must acknowledge the requested row, store RESOLVED, and retain the resolved card and filter result after reload. Replaying the application's timeout HTML at the response boundary must retain the FAILED card, button and stored state while reporting the failed resolution.",
       "fixtures": "Owned LOCAL emailConfig pointing at an in-process 127.0.0.1 SMTP sink, owned eForm template and owned patient email (one valid example.com, one .invalid); nothing leaves the host; emailConfig snapshot asserted unchanged. The sender is offered clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -6872,7 +6872,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Valid search, parsed-card confirmation and exact patient updates; malformed, missing, oversized and nameless tracks return HTTP 400 without disclosure or database changes, and a subsequent valid swipe remains usable.",
+      "notes": "Valid search, parsed-card confirmation and exact patient updates. Native validation must use POST with the track in the request body and absent from its URL; GET/HEAD are refused with 405/Allow POST. Malformed, missing, oversized and nameless tracks return HTTP 400 without disclosure or database changes, and a subsequent valid POST swipe remains usable (#4529).",
       "fixtures": "Owned synthetic patient given a unique synthetic HIN (valid Ontario check digit) and an X0X postal code; removed by runWorkflow."
     },
     {
@@ -8276,7 +8276,7 @@
         "property:doc_default_queue"
       ],
       "fixtures": "Disposable installed database only; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Requires CREATE/DROP TRIGGER permission for a marker-scoped security-write fault. Creates three marker-named queues through the provider form and Administration. Restores the provider default and removes owned queues/security objects and trigger on completion or interruption.",
-      "notes": "#4054: generated queue IDs, exact security association, duplicate-name creation failure with a later global MAX, and rollback/retry after a security-object failure. Opens the registered legacy default-queue view route because no Preferences link currently exposes it."
+      "notes": "#4054 and #6015: generated queue IDs, exact security association, preservation of ampersands, plus, percent and Unicode in Administration queue names, duplicate-name creation failure with a later global MAX, and rollback/retry after a security-object failure. Opens the registered legacy default-queue view route because no Preferences link currently exposes it."
     },
     {
       "name": "get-reject-inbox-queue",
@@ -10331,11 +10331,7 @@
       "timeoutSec": 360,
       "env": [],
       "fixtures": "The runWorkflow FAKE- patient; its preventions and their preventionsExt rows are removed in cleanup. SKIP when cvc.url replaces the brand picker, or without Poppler pdftotext.",
-      "notes": "Issue #5279 section 7. A Tdap recorded through the brand picker (ADACEL 0.5 mL IM) is amended to 1 vial SC: the replacement stores them and keeps the vaccine, DIN, manufacturer, lot, site and comment, the original is archived unchanged, and the reopened form, summary and printout show the new dose. LAST, a dose saved without a unit must reopen with that dose and survive an unchanged save. Fails at that last step while finding 322 (#5431) stands; every earlier step passes.",
-      "expectedFailure": {
-        "finding": 322,
-        "step": "a dose saved with no unit reopens with that dose and survives an unchanged save"
-      }
+      "notes": "Issue #5279 section 7. A Tdap recorded through the brand picker (ADACEL 0.5 mL IM) is amended to 1 vial SC: the replacement stores them and keeps the vaccine, DIN, manufacturer, lot, site and comment, the original is archived unchanged, and the reopened form, summary and printout show the new dose. LAST, a dose saved without a unit must reopen with that dose and survive an unchanged save. Also checks legacy compact, unknown-unit, multiword, repeated-space, quoted Unicode, ampersand/markup, trailing-space, nonnumeric, mixed-case unit and blank doses through reopening and unchanged saves (#5431)."
     },
     {
       "name": "prevention-brand-picker-units-routes",
@@ -13033,6 +13029,24 @@
       ],
       "notes": "For eleven write families (appointment add, update and delete; demographic add and update; Ontario bill save; eform/addEForm; messenger send; consultation request; AddPrevention; measurement save) the logged-in clinician performs the write through the real UI, the request is captured, and the same session replays it with ONLY the CSRF token removed (header, form parameter and query; X-Requested-With, Origin and Referer kept), aimed at a new marker: it must pass h.assertRefused (CSRFGuard's 403 carrying the application header, and an unchanged marker-keyed COUNT(*)), and the same replay with the session's token must write, so the refusal was about the token. Replays that need fresh server state get it the way the page would: an eForm replay uses the submission id of a fresh rendering of the same form, a demographic update the extension-row ids a fresh rendering carries. Then /ws/rs, which CSRFGuard does not cover: POST /ws/rs/tickler/add (what eForms built with the eForm Generator's tickler option call) writes when sent with the session cookie as application/json and no CSRF material at all (control, sent by the API client so no CSRFGuard script stamps a token), the session cookie is SameSite=Lax, and the same body form-encoded and multipart writes nothing, refused by the application with 415 (assertRefused alsoRefusedBy [415]). text/plain is sent too; behind the packaged front door the WAF answers it before CARLOS, so it is printed as a NOTE (application not reached) with its rows asserted unchanged, and without the front door it must be the application's 415 (confirmed once directly at Tomcat). Passes on 2026.08 (no defect found). Ontario only: the bill family posts the Ontario bill save; the other families have not been run on BC (issue #4439).",
       "fixtures": "Owned FAKE patient (runWorkflow, given a synthetic HIN for the bill family), an owned eForm template (<marker> csrf form), owned appointments (the update target, three delete targets, and the bill family's on BILLING_SUBMIT_DATE), and the rows each family writes, keyed by the run marker (<marker>-<family>-<tag> in the appointment reason, the new patient's last name, the city, the eForm subject, the message subject, the consultation reason, the prevention comment, the measurement comment and the REST tickler message). Cleanup removes them by key (with the appointment archive, new-patient child rows, bill items, eForm values, delivery rows above the run's high-water marks, consultation extension rows and signatures, prevention extension rows, and measurement history) and asserts them gone. No clinic-wide state is changed."
+    },
+    {
+      "name": "download-missing",
+      "script": "scripts/download-missing-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "ONEDT_INBOX",
+        "DOCUMENT_DIR"
+      ],
+      "fixtures": "No file or patient fixtures. Uses the authenticated workflow session and requires both configured directories to exist; the random missing basename must not exist.",
+      "notes": "Issue #4569. Arms the BackupDownload and OscarDownload session directories through their real MOH and OBEC pages, then requires an application HTTP 404 with no attachment for a missing basename."
     },
     {
       "name": "direct-response-contract",
@@ -18707,8 +18721,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Owns the runWorkflow patient, a marker-named report with generated configuration/filter rows and a marker-named legacy billing header/detail and a synthetic provider/role; cleanup recovers generated identifiers by marker and asserts owned rows are gone. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Verifies typed report field metadata and add/delete commits, provider role and PHCP counts, and authenticated CSV dispatch after JSP relocation."
+      "fixtures": "Owns the runWorkflow patient, a second marker-named cohort patient and their current extension values, a marker-named report with generated configuration/filter rows, a marker-named legacy billing header/detail and a synthetic provider/role; cleanup verifies ownership, recovers identifiers by marker and asserts owned rows are gone. Must not run concurrently with other checks (EXCLUSIVE=1).",
+      "notes": "Verifies typed report field metadata and add/delete commits; #5926 Move here preserves all fields and metadata through downward/upward/no-op moves and reload; provider role and PHCP counts; authenticated CSV dispatch; and current extension values for every selected patient with NULL timestamps and physical bound-key collation controls."
     },
     {
       "name": "allergy-partial-start-date",
@@ -19443,6 +19457,25 @@
       ],
       "fixtures": "Owned FAKE patients, source note, 121 synthetic tray associations and isolated authorization identities. Each owned row is removed and cleanup asserted. Enable pmm.client.search.outside.of.domain.enabled. The check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1), because the billing tray is shared.",
       "notes": "#5928: installed Client Search bounds data and HTML to 10 rows, retains note identity and criteria drafts through repeated POST paging with fresh CSRF, applies global sorting and native Soundex paging; BC tray bounds each page to 50 rows and preserves both unsaved fee codes."
+    },
+    {
+      "name": "demographic-converted-limits",
+      "script": "scripts/demographic-converted-limits-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON",
+        "BC"
+      ],
+      "timeoutSec": 420,
+      "manual": true,
+      "mutates": [
+        "demographic"
+      ],
+      "fixtures": "Owns the runWorkflow patient and one marker-named REST-created patient and admission; removes exact owned custom-field/archive/admission rows and verifies cleanup. Disposable exclusive host only. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5999: six converted field lengths refuse REST create/update before side effects; exact schema limits and supplementary Unicode boundary values persist without truncation."
     }
   ]
 }

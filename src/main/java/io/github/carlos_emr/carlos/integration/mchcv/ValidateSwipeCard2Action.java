@@ -70,7 +70,7 @@ public class ValidateSwipeCard2Action extends ActionSupport {
      * The magneticStripe property is populated automatically by Struts 2 from
      * the request parameter before this method is called.
      *
-     * @return "success" for a parsed card, or "none" after rejecting malformed input with HTTP 400
+     * @return "success" for a parsed card, or "none" after rejecting non-POST or malformed input
      * @throws Exception if authorization, the response, or health-card validation fails
      */
     @Override
@@ -78,6 +78,29 @@ public class ValidateSwipeCard2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
+        }
+
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
+        // Struts merges query and body parameters; track data must only arrive in the body.
+        String query = request.getQueryString();
+        if (query != null) {
+            try {
+                for (String parameter : query.split("&")) {
+                    String key = parameter.split("=", 2)[0];
+                    if ("magneticStripe".equals(java.net.URLDecoder.decode(key, java.nio.charset.StandardCharsets.UTF_8))) {
+                        response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                        return NONE;
+                    }
+                }
+            } catch (IllegalArgumentException invalidQueryEncoding) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
         }
 
         String magneticStripe = this.getMagneticStripe();
