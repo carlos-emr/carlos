@@ -205,13 +205,13 @@
         "scripts/admin-jobs-save-browser-checks.js"
       ],
       "source": "scripts/admin-jobs-save-browser-checks.js",
-      "sourceSha256": "d44389c8d4bbf2e71d64bbeaaed1a7e8c7149bc1857c40a89a96c3a1769f21e1",
+      "sourceSha256": "178940f36951183d96318713b579c57a0c9134b221a666637d8b96b287ddaa6d",
       "minimumAssertions": 98,
       "requiredCases": [
         "shouldKeepJobDialogOpen_whileItsSaveIsPending",
-        "shouldRetainJobDialogEntries_afterRefusalAndAllowRetry",
+        "shouldRetainJobDialogEntries_andRequireReadbackAfterALostReply",
         "shouldKeepScheduleDialogOpen_whileItsSaveIsPending",
-        "shouldRetainScheduleDialogEntries_afterRefusalAndAllowRetry",
+        "shouldRetainScheduleDialogEntries_andRequireReadbackAfterALostReply",
         "shouldKeepTheEditorOpen_forHtmlAcknowledgement",
         "shouldKeepTheEditorOpen_forWrongAcknowledgement",
         "shouldKeepTheEditorOpen_forEmptyAcknowledgement",
@@ -219,7 +219,9 @@
         "shouldKeepTheEditorOpen_forMultipleAcknowledgement",
         "shouldKeepTheEditorOpen_forNullAcknowledgement",
         "shouldBlockBlindCreationRetry_whenTheInsertCannotBeConfirmed",
-        "shouldIgnoreAnOldEditorLoad_afterOpeningANewDraft"
+        "shouldIgnoreAnOldEditorLoad_afterOpeningANewDraft",
+        "shouldReportAStoredSchedule_whenActivationFails",
+        "shouldReleaseTheDialog_andKeepTheDraft_whenAnAcceptedPostTimesOut"
       ]
     }
   ],
