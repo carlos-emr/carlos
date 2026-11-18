@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/demographic/DemographicCustomFieldSelect.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 88.41463414634147,
+    "instructions": 92.45982694684795,
+    "branches": 72.6027397260274,
+    "sourceBlob": "92adbad8215e8da033d0a87d4dc4f1641a89ba52"
+  },
+  "evidenceSha256": "267034c01f3a6c70871e491a72573d2a92787732063f3af77e51c6b7ba266e79"
+}
