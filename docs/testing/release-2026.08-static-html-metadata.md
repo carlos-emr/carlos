@@ -94,3 +94,28 @@ A fresh 666-case rerun passes (JUnit SHA-256
 `69aa00afcc52a3f41a96761e6e20563d1c28f4d208ff81fe31ab6bdad6b87039`);
 source-bound floors are retained. Evidence SHA-256
 `0cf9583c95483bb17bdcf59120b9844de3b6a5475b58632bfe17e7f7b0cc8cb6`.
+
+## Static cache review follow-up
+
+Four of seventeen real HTTP cases fail on the previous public implementation:
+both two-mebibyte pages commit bare-file validators, and both cacheable request
+variants omit X-Requested-With from Vary. Before JUnit SHA-256:
+`d11d88a1e97abe8b1e7f73fa7b7448194466690bb41bb4aaede674836d976b2c`.
+
+Static metadata now passes through a status-aware wrapper before any body write
+can commit. It withholds the bare validators for decorated full responses and
+restores them for exact partial responses or a non-HTML final type. It retains
+existing Vary tokens and wildcard values, adds X-Requested-With to ordinary and
+AJAX variants, and reapplies the variant after resets and downstream Vary writes.
+The current full-filter HTTP fixture includes authentication, capture and logout
+wrappers for the large captured page. All 631 selected Java cases pass with zero
+failures/errors/skips. Changed-source coverage is 100% lines, 99.510284%
+instructions and 99.462366% branches, retaining both parents' floors.
+
+- Current JUnit SHA-256: `2acbf64d741c9e89933dcccc89446a2c2055bd8f43a75bcf7796ef5dad1984e8`.
+- Source-bound coverage SHA-256: `2ce8f0a367a668686ccf64d6b2c211a95ffd03dc22ee15c38b843cc419b94664`.
+
+The native check now adds same-URL browser AJAX/ordinary fetches and an owned
+two-mebibyte static HTML file which is removed during cleanup. Existing installed
+proofs above precede this follow-up. The rebuilt-DEB and browser retake for these
+latest changes is pending the next combined qualification.
