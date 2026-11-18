@@ -41,6 +41,7 @@ import java.io.OutputStream;
 import java.io.Serializable;
 import java.text.ParseException;
 import java.util.*;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -83,6 +84,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
     private static final String VALUE_DATE_LABEL = "{1} \n {2}";
     private static final String SYSTOLIC = "Systolic";
     private static final String DIASTOLIC = "Diastolic";
+    // A separator follows a bound. A leading sign or a sign after an exponent marker is part of the number.
+    private static final Pattern LAB_REFERENCE_SEPARATOR = Pattern.compile("(?<=[^\\s+\\-eEpP])\\s*-");
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
@@ -540,7 +543,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         if (range == null || !range.contains("-") || collectionDate == null) {
             return;
         }
-        String[] bounds = range.split("-");
+        String[] bounds = LAB_REFERENCE_SEPARATOR.split(range, -1);
         if (bounds.length != 2) {
             throw new GraphDataException(GraphDataException.Problem.REFERENCE_RANGE, testName,
                     "Invalid laboratory reference range");

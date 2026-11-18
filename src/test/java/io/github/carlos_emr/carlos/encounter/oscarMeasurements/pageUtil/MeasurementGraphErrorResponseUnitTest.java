@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -493,8 +494,11 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         assertThat((List<Map<String, Object>>) config.get("medications")).isEmpty();
     }
 
-    @Test
-    void shouldDrawTheLabValueWithItsReferenceRange_forALabChartWithoutMedications() throws Exception {
+    @ParameterizedTest
+    @CsvSource({"3.5 - 5.0, 3.5, 5.0", "-2 - 2, -2.0, 2.0", "-2--1, -2.0, -1.0",
+            "1e-2 - 2e-1, 0.01, 0.2", "3.5% - 5.0%, 3.5, 5.0"})
+    void shouldDrawTheLabValueWithItsReferenceRange_forALabChartWithoutMedications(
+            String rangeText, double low, double high) throws Exception {
         request.setParameter("method", "actualLab");
         request.setParameter("labType", "CML");
         request.setParameter("identifier", "synthetic-code");
@@ -502,7 +506,7 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
         try (var labs = mockStatic(CommonLabTestValues.class)) {
             labs.when(() -> CommonLabTestValues.findValuesForTest("CML", 101, "Synthetic potassium", "synthetic-code"))
-                    .thenReturn(new ArrayList<>(List.of(labValue("3.5 - 5.0"))));
+                    .thenReturn(new ArrayList<>(List.of(labValue(rangeText))));
             executeMeasurementChart(null, rendered);
         }
 
@@ -512,7 +516,7 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
                 .satisfies(dataset -> assertThat(points(dataset)).extracting(point -> point.get("y")).containsExactly(4.2));
         assertThat(datasets(rendered.get())).filteredOn(dataset -> "range".equals(dataset.get("kind"))).singleElement()
                 .satisfies(range -> assertThat(points(range)).singleElement()
-                        .satisfies(bounds -> assertThat(bounds).containsEntry("low", 3.5).containsEntry("high", 5.0)));
+                        .satisfies(bounds -> assertThat(bounds).containsEntry("low", low).containsEntry("high", high)));
     }
 
     @Test
