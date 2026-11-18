@@ -126,13 +126,15 @@ class ProgramFormControlsIntegrationTest {
     @Test
     void shouldRetainSelectedValues_inTheRenderedProgramForms() throws Exception {
         Element access = render("ProgramManager?view.tab=Access", "programManagerForm");
-        assertThat(access.selectFirst("select[name='access.accessTypeId']").val()).isEqualTo("18");
+        assertThat(access.select("select[name='access.accessTypeId'] option[selected]"))
+                .extracting(Element::val).containsExactly("18");
         assertThat(access.selectFirst("select[name='access.accessTypeId'] option").text()).isEqualTo(FIXTURE_NAME);
         assertThat(access.select("input[name='access.allRoles'][checked]")).hasSize(1);
 
         Element staff = render("ProgramManager?view.tab=Staff", "programManagerForm");
         assertThat(staff.selectFirst("select[name='provider.providerNo'] option[value='123']").text()).isEqualTo(FIXTURE_NAME);
-        assertThat(staff.selectFirst("select[name='provider.roleId']").val()).isEqualTo("33");
+        assertThat(staff.select("select[name='provider.roleId'] option[selected]"))
+                .extracting(Element::val).containsExactly("33");
 
         Element settings = render("ProgramManager?view.tab=Service%20Restrictions", "programManagerForm");
         assertThat(settings.selectFirst("input[name='program.maximumServiceRestrictionDays']").val()).isEqualTo("60");
