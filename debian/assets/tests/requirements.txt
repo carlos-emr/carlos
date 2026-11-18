@@ -1,0 +1,4 @@
+# PyPI's bcrypt-5.0.0-cp39-abi3-manylinux_2_34_x86_64.whl for the Ubuntu x86-64
+# Debian Python workflow running CPython 3.14. Verify the wheel digest when updating.
+bcrypt==5.0.0 \
+    --hash=sha256:611f0a17aa4a25a69362dcc299fda5c8a3d4f160e2abb3831041feb77393a14a

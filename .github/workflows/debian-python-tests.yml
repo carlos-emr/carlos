@@ -25,6 +25,8 @@ on:
     paths:
       - 'debian/**'
       - 'scripts/migration/o19/**'
+      - 'scripts/ci/carlos_ctl_pin.py'
+      - 'scripts/ci/git_environment.py'
       - 'scripts/ci/prepare-cli-manifest-test-copy.py'
       - 'scripts/ci/prepare-o19-native.sh'
       - 'scripts/ci/fetch-flyway.sh'
@@ -49,6 +51,8 @@ on:
     paths:
       - 'debian/**'
       - 'scripts/migration/o19/**'
+      - 'scripts/ci/carlos_ctl_pin.py'
+      - 'scripts/ci/git_environment.py'
       - 'scripts/ci/prepare-cli-manifest-test-copy.py'
       - 'scripts/ci/prepare-o19-native.sh'
       - 'scripts/ci/run-python-release-tests.py'
@@ -84,34 +88,14 @@ jobs:
         with:
           persist-credentials: false
       - name: Check out the pinned carlos-ctl release
-        run: |
-          set -euo pipefail
-          tag="$(sed -n 's/^tag=//p' debian/carlos-ctl.pin)"
-          if [ -z "$tag" ]; then
-            echo "::error::debian/carlos-ctl.pin names no tag"
-            exit 1
-          fi
-          if git clone --quiet --depth 1 --branch "$tag" \
-              https://github.com/carlos-emr/carlos-ctl.git "$CARLOS_CTL_SRC"; then
-            echo "carlos-ctl $tag at $(git -C "$CARLOS_CTL_SRC" rev-parse HEAD)"
-          else
-            # the pin's pre-release fallback commit (see debian/carlos-ctl.pin)
-            fallback="$(sed -n 's/^fallback=//p' debian/carlos-ctl.pin)"
-            if [ -z "$fallback" ]; then
-              echo "::error::carlos-ctl tag $tag is not published and debian/carlos-ctl.pin names no fallback commit"
-              exit 1
-            fi
-            git clone --quiet https://github.com/carlos-emr/carlos-ctl.git "$CARLOS_CTL_SRC"
-            git -C "$CARLOS_CTL_SRC" checkout --quiet "$fallback"
-            echo "::warning::carlos-ctl tag $tag is not published yet; testing against the pin's fallback commit $fallback"
-          fi
+        run: python3 scripts/ci/carlos_ctl_pin.py "$CARLOS_CTL_SRC"
       # Ubuntu 26.04 ships Python 3.14. The runner's 3.12 CSV reader has
       # a known QUOTE_NOTNULL bug and cannot validate the target semantics.
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
       - name: Install the CLI's runtime dependency
-        run: pip install bcrypt==5.0.0
+        run: 'python3 -m pip install --require-hashes --only-binary=:all: -r debian/assets/tests/requirements.txt'
       - name: Packaging-contract tests
         # Do not import these as debian.assets: python-debian, installed on
         # Debian development hosts, owns the top-level debian package.
