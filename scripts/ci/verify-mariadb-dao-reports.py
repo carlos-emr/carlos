@@ -38,6 +38,7 @@ REQUIRED_CASES = {
     },
     "AppointmentUpdateDaoIntegrationTest": {
         "shouldRefuseStoredPatient_beforeArchivalOrMutation",
+        "shouldRollbackArchiveAndMutation_whenFlushFails",
         "shouldRollbackArchiveAndEdit_whenReplacementPatientIsDenied",
         "shouldRollbackFieldEditAndArchive_whenAuditFails",
         "shouldAllowAssignedPatientWrite_withoutReadPermission",
@@ -121,7 +122,7 @@ REQUIRED_CASES = {
 # AbstractDaoFindAllOrderingIntegrationTest pins issue #5308 where it matters: MariaDB returns an
 # unordered page in secondary-index order, so its paging cases must execute on the physical server.
 # CaseManagementIssueDAO adds one duplicate-link case on the legacy Flyway schema only.
-REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
+REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 18,**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
                           "JdbcConnectorMariaDbIntegrationTest": 32,
                           "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1,
                           "AbstractDaoFindAllOrderingIntegrationTest": 6,

@@ -64,6 +64,7 @@ ADMISSION_REQUIRED_CASES = {
 
 APPOINTMENT_REQUIRED_CASES = {
     "shouldRefuseStoredPatient_beforeArchivalOrMutation",
+    "shouldRollbackArchiveAndMutation_whenFlushFails",
     "shouldRollbackArchiveAndEdit_whenReplacementPatientIsDenied",
     "shouldRollbackFieldEditAndArchive_whenAuditFails",
     "shouldAllowAssignedPatientWrite_withoutReadPermission",
@@ -143,6 +144,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
         for selected, required in MODULE.REQUIRED.items():
             required = dict(required)
             if selected == "generated":
+                required["AppointmentUpdateDaoIntegrationTest"] = 18
                 required["MeasurementDaoIntegrationTest"] += 3000 - sum(required.values())
             for family, count in required.items():
                 suite = self.suite(family)
@@ -249,6 +251,21 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             with self.subTest(optimized=optimized):
                 result = self.invoke(optimized)
                 self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_generated_appointment_report_requires_eighteen_cases(self):
+        self.seed()
+        family = "AppointmentUpdateDaoIntegrationTest"
+        suite = self.suite(family)
+        report = self.reports / ("TEST-" + suite + ".xml")
+        original = report.read_text()
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+        case = (f'<testcase classname="{suite}" '
+                'name="shouldRollbackArchiveAndMutation_whenFlushFails"></testcase>')
+        self.assertIn(case, original)
+        report.write_text(original.replace(case, "", 1).replace('tests="18"', 'tests="17"', 1))
+        self.assert_refused(self.invoke(), f"Required MariaDB generated coverage missing: {family}")
 
     def test_another_package_or_nested_class_cannot_supply_required_inbox_cases(self):
         self.seed()
