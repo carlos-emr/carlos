@@ -25,9 +25,13 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFileAttributes;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.UserDefinedFileAttributeView;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -41,6 +45,7 @@ import java.util.zip.ZipOutputStream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -62,7 +67,7 @@ class EFormImagePublicationOwnershipUnitTest {
     Path scratch;
 
     private enum Consumer { FORM_IMPORT, IMAGE_UPLOAD }
-    private enum CopyFailure { READ, WRITE, CLOSE, MOVE }
+    private enum CopyFailure { READ, WRITE, CLOSE, METADATA, MOVE }
     private enum CleanupFailure { IO, SECURITY }
 
     @ParameterizedTest
@@ -180,6 +185,8 @@ class EFormImagePublicationOwnershipUnitTest {
     @EnumSource(CopyFailure.class)
     void shouldKeepThePreviousImage_whenAnUploadCopyFails(CopyFailure failureMode) throws Exception {
         Path images = Files.createDirectory(scratch.resolve("images"));
+        assumeTrue(failureMode != CopyFailure.METADATA || "Linux".equals(System.getProperty("os.name"))
+                && Files.getFileStore(images).supportsFileAttributeView(PosixFileAttributeView.class));
         Path shared = Files.writeString(images.resolve("existing.png"), "FAKE previously committed image");
         var failure = new IOException("FAKE image copy refusal");
         try (var folder = mockStatic(ImageUpload2Action.class);
@@ -200,6 +207,10 @@ class EFormImagePublicationOwnershipUnitTest {
                  return call.callRealMethod();
              });
              var files = mockStatic(Files.class, call -> {
+                 if (failureMode == CopyFailure.METADATA && call.getMethod().getName().equals("readAttributes")
+                         && shared.equals(call.getArgument(0)) && PosixFileAttributes.class.equals(call.getArgument(1))) {
+                     throw failure;
+                 }
                  if (failureMode == CopyFailure.MOVE && call.getMethod().getName().equals("move")) {
                      throw new java.nio.file.AtomicMoveNotSupportedException(
                              call.getArgument(0).toString(), call.getArgument(1).toString(), "FAKE unsupported atomic publication");
@@ -225,6 +236,25 @@ class EFormImagePublicationOwnershipUnitTest {
             assertThat(staging.toList()).containsExactly(images.resolve("extractFolder")
                     .resolve(EFormImagePublicationLock.LOCK_FILE_NAME));
         }
+    }
+
+    @Test
+    void shouldPreserveAnExistingImageExtendedAttribute_whenReplacingTheBytes() throws Exception {
+        Path images = Files.createDirectory(scratch.resolve("images"));
+        assumeTrue(Files.getFileStore(images).supportsFileAttributeView(UserDefinedFileAttributeView.class));
+        Path shared = Files.writeString(images.resolve("existing.png"), "FAKE previously committed image");
+        var attributes = Files.getFileAttributeView(shared, UserDefinedFileAttributeView.class);
+        String name = "xdg.comment";
+        byte[] expected = "FAKE existing image metadata".getBytes(StandardCharsets.UTF_8);
+        attributes.write(name, ByteBuffer.wrap(expected));
+
+        try (var folder = mockStatic(ImageUpload2Action.class)) {
+            folder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            assertThat(uploadReplacing(shared)).isEqualTo("FAKE uploaded consumer image");
+        }
+        var actual = ByteBuffer.allocate(attributes.size(name));
+        attributes.read(name, actual);
+        assertThat(actual.array()).isEqualTo(expected);
     }
 
     @Test
