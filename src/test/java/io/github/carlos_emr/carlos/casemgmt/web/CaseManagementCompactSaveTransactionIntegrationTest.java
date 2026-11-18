@@ -1711,7 +1711,7 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         SecurityInfoManager security = (SecurityInfoManager) ReflectionTestUtils.getField(action, "securityInfoManager");
         when(security.hasPrivilege(login, "_demographic", "r", "1")).thenReturn(true);
         when(security.hasPrivilege(login, "_casemgmt.issues", "w", "1")).thenReturn(true);
-        action.setDeleteId("0");
+        request.setParameter("caseIssueId", Long.toString(caseIssueId));
         return checkbox;
     }
 

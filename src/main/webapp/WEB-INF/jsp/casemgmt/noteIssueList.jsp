@@ -301,9 +301,9 @@
     <c:if test="${issueCheckList.issue.resolved == true}">
         <tr>
             <td style="width: 50%; background-color: #CCCCFF;">
-                <c:set var="winame" value="noteIssueDetails${status.index}" />
+                <c:set var="winame" value="noteIssueDetails${carlos:forHtmlAttribute(issueCheckList.issue.id)}" />
 
-                <c:set var="submitString" value="this.form.method.value='issueChange'; this.form.lineId.value='${status.index}'; return ajaxUpdateIssues('issueChange', $('noteIssues').up().id);" />
+                <c:set var="submitString" value="return queueIssueMutation('issueChange', this);" />
                 <c:set var="id" value="noteIssue${status.index}" />
 
                 <c:set var="writeAccess" value="${issueCheckList.issueDisplay.writeAccess}" />
@@ -316,9 +316,8 @@
                 </a>
 
                 <c:if test="${issueCheckList.used == false && writeAccess}">
-                    <c:set var="submitDelete" value="removeIssue('${winame}');document.forms['caseManagementEntryForm'].deleteId.value='${status.index}';return ajaxUpdateIssues('issueDelete', $('noteIssues').up().id);" />
                     &nbsp;
-                    <a href="#" onclick="${submitDelete}">Delete</a>&nbsp;
+                    <a href="#" onclick="return queueIssueMutation('issueDelete', this);">Delete</a>&nbsp;
                 </c:if>
 
                 <c:if test="${writeAccess}">
@@ -380,7 +379,7 @@
             <c:forEach var="issueCheckList" items="${caseManagementEntryForm.issueCheckList}" varStatus="status">
     <c:if test="${issueCheckList.issue.resolved == false}">
 
-        <c:set var="winame" value="noteIssueDetails${status.index}" />
+        <c:set var="winame" value="noteIssueDetails${carlos:forHtmlAttribute(issueCheckList.issue.id)}" />
 
         <c:set var="countUnresolvedIssue" value="${status.index + 1}" />
 
@@ -389,7 +388,7 @@
         </c:if>
 
         <td style="width: 50%; background-color: #CCCCFF;">
-            <c:set var="submitString" value="this.form.method.value='issueChange'; this.form.lineId.value='${status.index}'; return ajaxUpdateIssues('issueChange', $('noteIssues').up().id);" />
+            <c:set var="submitString" value="return queueIssueMutation('issueChange', this);" />
             <c:set var="id" value="noteIssue${status.index}" />
 
             <c:set var="writeAccess" value="${issueCheckList.issueDisplay.writeAccess}" />
@@ -402,9 +401,8 @@
             </a>
 
             <c:if test="${issueCheckList.used == false && writeAccess}">
-                <c:set var="submitDelete" value="removeIssue('${winame}');document.forms['caseManagementEntryForm'].deleteId.value='${status.index}';return ajaxUpdateIssues('issueDelete', $('noteIssues').up().id);" />
                 &nbsp;
-                <a href="#" onclick="${submitDelete}">Delete</a>
+                <a href="#" onclick="return queueIssueMutation('issueDelete', this);">Delete</a>
                 &nbsp;
             </c:if>
 

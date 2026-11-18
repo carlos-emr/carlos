@@ -319,7 +319,6 @@
         <c:if test="${param.from=='casemgmt'||requestScope.from=='casemgmt'}">
             <input type="hidden" name="from" value="casemgmt"/>
         </c:if>
-        <input type="hidden" name="lineId" value="0"/>
         <input type="hidden" name="addIssue" value="null"/>
         <input type="hidden" name="deleteId" value="0"/>
 
@@ -419,8 +418,8 @@
             <td>
                 <c:if test="${cbb.issueDisplay.location eq 'local'}">
                     <c:if test="${!cbb.used}">
-                        <button type="submit" 
-                                onclick="this.form.method.value='issueDelete'; this.form.deleteId.value='${status.index}';">
+                        <button type="submit" name="caseIssueId" value="${carlos:forHtmlAttribute(cbb.issue.id)}"
+                                onclick="this.form.method.value='issueDelete';">
                             Delete
                         </button>
                     </c:if>

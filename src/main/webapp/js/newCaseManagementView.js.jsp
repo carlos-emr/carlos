@@ -3511,6 +3511,7 @@ function updateCPPNote() {
     var issueUpdateFailed = false;
     var issueRefreshQueue = [];
     var issueRefreshPending = false;
+    var pendingIssueDeletes = new Set();
     var queuedNoteSave = null;
     var noteSwitchSavePending = false;
     var noteSavingMessage = "${carlos:forJavaScriptBlock(noteSavingLabel)}";
@@ -3682,7 +3683,23 @@ function updateCPPNote() {
         issueRefreshQueue.shift()();
     }
 
-    function ajaxUpdateIssues(method, div, preserveSelections, complete, failureMessage) {
+    function queueIssueMutation(method, control) {
+        var row = control.closest('td');
+        var checkbox = row.querySelector('input[type="checkbox"][data-issue-id]');
+        var id = checkbox.getAttribute('data-issue-id');
+        if (pendingIssueDeletes.has(id)) return false;
+
+        var mutation = new URLSearchParams({caseIssueId: id});
+        if (method === 'issueChange') {
+            var flag = control.name.slice(control.name.lastIndexOf('.') + 1);
+            mutation.set('issue' + flag.charAt(0).toUpperCase() + flag.slice(1), control.value);
+        } else {
+            removeIssue(row.querySelector('[id^="noteIssueDetails"]').id);
+        }
+        return ajaxUpdateIssues(method, control.closest('.sig').id, null, null, null, mutation);
+    }
+
+    function ajaxUpdateIssues(method, div, preserveSelections, complete, failureMessage, mutation) {
         // Mutations refresh the current editor; opening a different note must not
         // inherit the previous note's selections. Explicit edit refreshes opt in.
         if (preserveSelections == null) preserveSelections = method !== 'edit';
@@ -3693,6 +3710,10 @@ function updateCPPNote() {
             return false;
         }
         complete = complete || beginIssueUpdate();
+        // Status changes run in click order. Once deletion is queued, further
+        // status or delete clicks for that issue cannot affect its final state.
+        var deletedId = method === 'issueDelete' && mutation ? mutation.get('caseIssueId') : null;
+        if (deletedId) pendingIssueDeletes.add(deletedId);
         // Serialize whole refresh pairs. An older editor-load response must not
         // replace the CPP-created issue fields after this refresh has installed them.
         issueRefreshQueue.push(function () {
@@ -3701,6 +3722,7 @@ function updateCPPNote() {
                 if (finished) return;
                 finished = true;
                 issueRefreshPending = false;
+                if (deletedId) pendingIssueDeletes.delete(deletedId);
                 try { complete(succeeded); }
                 finally { runNextIssueRefresh(); }
             }
@@ -3711,6 +3733,9 @@ function updateCPPNote() {
 
                 var url = chartActionUrl("/CaseManagementEntry");
                 var p = Form.serialize(frm);
+                // Read editor fields from the refreshed form, but submit the
+                // issue identity and status the clinician chose before it changed.
+                if (mutation) p += '&' + mutation.toString();
                 var assignedIssue = (method === 'makeIssue' || method === 'issueAdd') && frm.elements && frm.elements.newIssueId
                     ? String(frm.elements.newIssueId.value) : '';
                 if (preserveSelections && method === 'edit') p += '&preserveIssueEditor=true&forceNote=true';
