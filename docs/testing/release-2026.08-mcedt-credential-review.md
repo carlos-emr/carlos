@@ -177,3 +177,74 @@ MariaDB error 1020 after a legacy writer commits (one of 31 cases; JUnit
 `70fd8abae44b4d6d908d2d7c252ba1a5ea98a6579e98ae70e2f2e53fe544ee58`).
 The final guarded cleanup passes all 31. Its merged source-bound coverage evidence
 SHA-256 is `f56e7ba0300bd281435e5ba9d649a7b9f5fed5737fb05aca5486cd8eb86f6617`.
+
+## Final cache, audit and native-guard review revision
+
+The client cache now records a publication generation. A lookup or explicit refresh
+that read an older password retries outside the monitor if another operation has
+published a newer client. The generation advances with each publication, including
+a partially completed explicit refresh. Existing unchanged-password reuse and
+explicit certificate/configuration refresh behavior remain covered. Two controlled
+thread interleavings plus post-commit session-feedback failure reproduce three
+failures in nine cases before this revision (JUnit
+`c00aee8b308f7ed07a59b1146149b2723e4a6b8c8a1ecab21a8c88e99e4c73e6`).
+The action's storage-failure catch now encloses only the save. A session invalidated
+after commit cannot report that storage was not updated. Its warning is captured
+and checked for both the synthetic password and sensitive exception text.
+
+The singleton includes lastUpdateUser and lastUpdateDate, as required by the
+repository's database guidance. Explicit replacements record the authenticated
+provider (or the bounded mcedt-service fallback); first-read migration records
+mcedt-migration. Ordinary reads do not rewrite the audit stamp. Audit and ciphertext
+changes roll back together. Two audit regressions fail against the previous
+service (33-case JUnit
+`600ee05d6b4d131a460a1f0b05a9f5f5a2a33f449449abfe7abc946012948954`).
+
+Final exact-source validation passes 50 distinct cases: 39 H2 transactions and
+11 consumer/base-href unit controls. The same 39 transaction cases pass physically
+on MariaDB 11.8.8/32 KiB pages: 89 actual executions across the two database lanes,
+with no failures, errors or skips. H2 JUnit: `72e45c9d50d143fa2cb93d2cd7c9c73a8217e291380dabc22fe41a2ad47f9d3e`.
+MariaDB JUnit: `c87b35f1d04f9e388aed5a60f3c3a86df6e3e3594dadd2fd3605b0f861bb0e9a`. Each physical schema/server is retired.
+
+The contention probe matches the known writer and contender session IDs in
+INNODB_LOCK_WAITS joined to INNODB_TRX. Some engine-stage waits on this MariaDB
+build do not appear in that view; in that case a one-second native lock timeout
+(error 1205, captured from the actual contender's JDBC operation) proves a database
+lock wait rather than a slow scan. The UUID fixture has only its held writer and
+contender; its observer does not write. The test then waits for the controlled
+writer release and retries in a fresh transaction before checking the committed
+value and cleanup. This retry belongs to the test protocol, not production behavior.
+Earlier metadata-only attempts and their raw failures are retained.
+
+Service and action changed-line/instruction/branch coverage stays 100% throughout.
+Delegate coverage rises to 93.02325581395348% lines, 93.45238095238095% instructions
+and 100% branches. Source-bound coverage evidence:
+`504b01687db0834209cb713bb21573566060ed559c7cb6175af5c8ccca47d2e9`.
+
+Fresh complete Ontario and BC Flyway chains validate. Their physical contracts
+add only the two credential audit columns; every prior physical definition stays
+unchanged. Reapplying the migration preserves existing opaque credential bytes,
+actor and date, and keeps one singleton/index. A simulated pre-audit two-column
+table also adopts the columns without changing its opaque credential bytes.
+The migration checksum is -605900384; source SQL SHA-256:
+`0b0e0d21c31bc3b0faf30f1e445ae4f627caf130bf37ebbed1f9704ab3da717d`. Both owned reference schemas/servers are
+retired. The tracked contracts feed the generated WAR resources; no generated
+resource copy is maintained under src/main/resources.
+
+The native entry point now refuses nonexclusive execution before database/browser
+setup. All variants check for interrupted encrypted backups before parking legacy
+rows or demanding the singleton, naming each allowlisted backup and recovery
+steps. Successful saves must leave no live legacy property and must record their
+actor/time. A failed save must preserve the live/parked property digest and leave
+the missing singleton absent. Backup and restoration include all audit fields.
+SQL comparison values are bound, while owned table identifiers remain allowlisted.
+All 94 guard/state/manifest cases pass. The complete Node 22 run passes all 8,139
+cases in 573 files, with no skips/cancellations/TODOs and unchanged
+source fingerprints; its generated inventory is validated. Full report SHA-256:
+`6cd2e406d30322d36bfec5e2f33af0301c27779805bea6d5c5358d913c2b8038`.
+
+These final source/schema proofs do not replace the next rebuilt Ubuntu 26.04
+DEB and native after qualification. The intermediate installed pass above remains
+historical. The final audit-schema, cache and native-guard revision awaits that
+new combined package. No Ministry authentication or external service call is
+claimed by these tests.
