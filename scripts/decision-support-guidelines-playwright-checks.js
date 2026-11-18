@@ -262,4 +262,4 @@ async function workflow(s) {
   });
 }
 if (require.main === module) runWorkflow('decision-support-guidelines', workflow);
-module.exports = { workflow };
+module.exports = { workflow, createGuidelineLoginFixture };

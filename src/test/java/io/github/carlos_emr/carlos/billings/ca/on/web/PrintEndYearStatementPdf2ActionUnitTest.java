@@ -126,7 +126,7 @@ class PrintEndYearStatementPdf2ActionUnitTest extends CarlosUnitTestBase {
                 .patientNo(demographicNo).patientName("FAKE-" + demographicNo).build();
         when(mockService.findUniquePatient(any(), eq(demographicNo), any(), any())).thenReturn(patient);
         when(mockService.aggregateInvoices(eq(patient), any(), any()))
-                .thenReturn(new PatientEndYearStatementService.Result(summary, List.of()));
+                .thenReturn(new PatientEndYearStatementService.Result(summary, List.of(), List.of()));
         return summary;
     }
 
@@ -141,7 +141,7 @@ class PrintEndYearStatementPdf2ActionUnitTest extends CarlosUnitTestBase {
         // NONE terminates direct-response processing after the binary write
         assertThat(action.execute()).isEqualTo("none");
 
-        verify(mockService, times(1)).writePdfResponse(any(), any(), eq(thisPatient), eq("2025-01-01"), eq("2025-12-31"));
+        verify(mockService, times(1)).writePdfResponse(any(), any(), org.mockito.ArgumentMatchers.argThat(value -> value.summary() == thisPatient), eq("2025-01-01"), eq("2025-12-31"));
     }
 
     @Test
@@ -161,7 +161,7 @@ class PrintEndYearStatementPdf2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.execute()).isEqualTo("none");
 
         verify(mockService).findUniquePatient(any(), eq("101"), isNull(), isNull());
-        verify(mockService, times(1)).writePdfResponse(any(), any(), eq(onScreen), eq("2025-01-01"), eq("2025-12-31"));
+        verify(mockService, times(1)).writePdfResponse(any(), any(), org.mockito.ArgumentMatchers.argThat(value -> value.summary() == onScreen), eq("2025-01-01"), eq("2025-12-31"));
     }
 
     @Test

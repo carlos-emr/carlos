@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -802,7 +800,7 @@ public interface AdditionalLabInvestigationsType extends XmlObject
      *
      * <p>Provides comprehensive static factory methods for creating new instances and
      * parsing XML data from various sources (String, File, URL, InputStream, Reader,
-     * XMLStreamReader, DOM Node, XMLInputStream).</p>
+     * XMLStreamReader, DOM Node).</p>
      *
      * <p>All parse methods support optional XmlOptions for controlling the parsing
      * behavior, including validation, error handling, and namespace processing.</p>
@@ -997,64 +995,6 @@ public interface AdditionalLabInvestigationsType extends XmlObject
          */
         public static AdditionalLabInvestigationsType parse(final Node node, final XmlOptions options) throws XmlException {
             return (AdditionalLabInvestigationsType)XmlBeans.getContextTypeLoader().parse(node, AdditionalLabInvestigationsType.type, options);
-        }
-
-        /**
-         * Parses an AdditionalLabInvestigationsType from an XMLInputStream with default options.
-         *
-         * @param xis XMLInputStream the XML input stream
-         * @return AdditionalLabInvestigationsType the parsed instance
-         * @throws XmlException if the XML is invalid or cannot be parsed
-         * @throws XMLStreamException if an error occurs while processing the XML stream
-         * @deprecated XMLInputStream is deprecated; use XMLStreamReader instead
-         */
-        @Deprecated
-        public static AdditionalLabInvestigationsType parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (AdditionalLabInvestigationsType)XmlBeans.getContextTypeLoader().parse(xis, AdditionalLabInvestigationsType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Parses an AdditionalLabInvestigationsType from an XMLInputStream with the specified options.
-         *
-         * @param xis XMLInputStream the XML input stream
-         * @param options XmlOptions the XML options to use for parsing
-         * @return AdditionalLabInvestigationsType the parsed instance
-         * @throws XmlException if the XML is invalid or cannot be parsed
-         * @throws XMLStreamException if an error occurs while processing the XML stream
-         * @deprecated XMLInputStream is deprecated; use XMLStreamReader instead
-         */
-        @Deprecated
-        public static AdditionalLabInvestigationsType parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (AdditionalLabInvestigationsType)XmlBeans.getContextTypeLoader().parse(xis, AdditionalLabInvestigationsType.type, options);
-        }
-
-        /**
-         * Creates a validating XMLInputStream from an existing XMLInputStream with default options.
-         *
-         * @param xis XMLInputStream the XML input stream to validate
-         * @return XMLInputStream a validating XML input stream
-         * @throws XmlException if the XML is invalid
-         * @throws XMLStreamException if an error occurs while processing the XML stream
-         * @deprecated XMLInputStream is deprecated; use XMLStreamReader instead
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, AdditionalLabInvestigationsType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Creates a validating XMLInputStream from an existing XMLInputStream with the specified options.
-         *
-         * @param xis XMLInputStream the XML input stream to validate
-         * @param options XmlOptions the XML options to use for validation
-         * @return XMLInputStream a validating XML input stream
-         * @throws XmlException if the XML is invalid
-         * @throws XMLStreamException if an error occurs while processing the XML stream
-         * @deprecated XMLInputStream is deprecated; use XMLStreamReader instead
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, AdditionalLabInvestigationsType.type, options);
         }
 
         /**

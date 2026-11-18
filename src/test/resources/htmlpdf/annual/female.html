@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html>
+    <head>
+    
+        
+        <title>Annual Health Review</title>
+        <link rel="stylesheet" type="text/css" href="form/annualStyle.css">
+        <link rel="stylesheet" type="text/css" media="print" href="form/print.css">
+        
+    <script type="text/javascript">function onPrint() { window.print(); }</script>
+</head>
+
+    
+
+
+    
+
+    <BODY bgproperties="fixed" onLoad="javascript:window.focus()"
+          topmargin="0" leftmargin="0" rightmargin="0">
+    <form action="form/formname" method="post">
+
+
+        <input type="hidden" name="demographic_no"
+               value="1"/>
+        <input type="hidden" name="ID"
+               value="1"/>
+        <input type="hidden" name="provider_no"
+               value="999998"/>
+        <input type="hidden" name="formCreated"
+               value="2026/10/29"/>
+        <input type="hidden" name="form_class" value="Annual"/>
+        <input type="hidden" name="form_link" value="formannualfemale.jsp"/>
+        <input type="hidden" name="provNo"
+               value="999998"/>
+        <input type="hidden" name="submit" value="exit"/>
+
+        <table class="Head" class="hidePrint">
+            <tr>
+                <td align="left"><input type="submit"
+                                        value="Save"
+                                        onclick="javascript:return onSave();"/> <input type="submit"
+                                                                                       value="Save and Exit"
+                                                                                       onclick="javascript:return onSaveExit();"/>
+                    <input type="submit"
+                           value="Exit"
+                           onclick="javascript:return onExit();"/> <input type="button"
+                                                                          value="Print"
+                                                                          onclick="javascript:return onPrint();"/>
+                    <input type="button"
+                           value="Print Page"
+                           onclick="javascript: popupPage(700,950,'form/formannualfemaleprint?demographic_no=1&formId=1&provNo=1')"/>
+                </td>
+                <td align='right'><a
+                        href="javascript: popupPage(700,950,'decision/annualreview/annualreviewplanner?demographic_no=1&formId=1&provNo=1');">Annual Review Planner</a></td>
+            </tr>
+        </table>
+
+        <table cellspacing="3" cellpadding="0" width="100%">
+            <tr>
+                <td><big><i><b>ANNUAL FEMALE HEALTH REVIEW</b></i></big></td>
+                <td><b>Name:</b> <input
+                        type="text" class="Input" name="pName" readonly="true" size="30"
+                        value="FAKE-Patient, Alice"/></td>
+                <td><b>Age:</b> <input type="text"
+                                                                                    class="Input" readonly="true"
+                                                                                    name="age" size="11"
+                                                                                    value="42"
+                                                                                    readonly="true"/></td>
+                <td><b>Date</b><small>(yyyy/mm/dd)</small>:
+                    <input type="text" class="Input" name="formDate" size="11"
+                           value="2026/10/29"/></td>
+            </tr>
+        </table>
+        <table width="100%">
+            <tr>
+                <td rowspan="4">
+                    <table class="DashedBorder" width="100%">
+                        <tr>
+                            <td><b>CURRENT CONCERNS:</b></td>
+                        </tr>
+                        <tr>
+                            <td><textarea style="height: 480px; width: 400px;"
+                                          name="currentConcerns">FAKE-concern one: fatigue since August
+FAKE-concern two: knee pain, left side</textarea>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td align="center">See chart for continuation
+                                &nbsp;&nbsp;&nbsp; <input type="checkbox" name="currentConcernsNo"
+                                         /> &nbsp;No&nbsp;&nbsp;&nbsp; <input
+                                        type="checkbox" name="currentConcernsYes"
+                                        checked="checked" /> &nbsp;Yes</td>
+                        </tr>
+                    </table>
+                </td>
+                <td>
+                    <table width="100%">
+                        <tr>
+                            <td colspan="3"><b>SYSTEMS REVIEW:</b></td>
+                            <td>&nbsp;</td>
+                        </tr>
+                        <tr>
+                            <td><b>N</b></td>
+                            <td colspan="2"><b>AbN</b></td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox" name="headN"
+                                    checked="checked" /></td>
+                            <td><input type="checkbox" name="headAbN"
+                                     /></td>
+                            <td align="left" nowrap="true">Head &amp; Neck:
+                            </td>
+                            <td align="right"><input type="text" name="head"
+                                                     class="SystemsReview"
+                                                     value="normal exam"/></td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox" name="respN"
+                                    checked="checked" /></td>
+                            <td><input type="checkbox" name="respAbN"
+                                     /></td>
+                            <td>Resp:
+                            </td>
+                            <td align="right"><input type="text" name="resp"
+                                                     class="SystemsReview"
+                                                     value="clear, no wheeze"/></td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox" name="cardioN"
+                                     /></td>
+                            <td><input type="checkbox" name="cardioAbN"
+                                    checked="checked" /></td>
+                            <td>Cardio:
+                            </td>
+                            <td align="right"><input type="text" name="cardio"
+                                                     class="SystemsReview"
+                                                     value="regular rhythm"/></td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox" name="giN"
+                                    checked="checked" /></td>
+                            <td><input type="checkbox" name="giAbN"
+                                     /></td>
+                            <td>G.I.:</td>
+                            <td align="right"><input type="text" name="gi"
+                                                     class="SystemsReview" value="FAKE-GI note"/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox" name="guN"
+                                     /></td>
+                            <td><input type="checkbox" name="guAbN"
+                                     /></td>
+                            <td>G.U.:</td>
+                            <td align="right"><input type="text" name="gu"
+                                                     class="SystemsReview" value="no complaints"/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox" name="skinN"
+                                     /></td>
+                            <td><input type="checkbox" name="skinAbN"
+                                    checked="checked" /></td>
+                            <td>Skin:
+                            </td>
+                            <td colspan="3" align="right"><input type="text" name="skin"
+                                                                 class="SystemsReview"
+                                                                 value="mole on left arm, évaluer"/></td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox" name="mskN"
+                                     /></td>
+                            <td><input type="checkbox" name="mskAbN"
+                                     /></td>
+                            <td>MSK:
+                            </td>
+                            <td colspan="3" align="right"><input type="text" name="msk"
+                                                                 class="SystemsReview"
+                                                                 value="full range of motion"/></td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox" name="endocrinN"
+                                    checked="checked" /></td>
+                            <td><input type="checkbox" name="endocrinAbN"
+                                     /></td>
+                            <td>Endocrin:
+                            </td>
+                            <td colspan="3" align="right"><input type="text"
+                                                                 name="endocrin" class="SystemsReview"
+                                                                 value="TSH reviewed"/></td>
+                        </tr>
+                        <tr>
+                            <td valign="top"><input type="checkbox" name="otherN"
+                                     /></td>
+                            <td valign="top"><input type="checkbox" name="otherAbN"
+                                     /></td>
+                            <td valign="top">OTHER:
+                            </td>
+                            <td colspan="3" align="right"><textarea name="other"
+                                                                    class="SystemsReview"
+                                                                    style="height: 50px;">FAKE-other finding line one
+FAKE-other finding line two</textarea>
+                            </td>
+                        </tr>
+
+                    </table>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <table width="100%">
+                        <tr>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                            <td nowrap="true">GTPAL Revisions?&nbsp; <input
+                                    type="checkbox" name="noGtpalRevisions"
+                                     /> No <input
+                                    type="checkbox" name="yesGtpalRevisions"
+                                    checked="checked" /> Yes <input
+                                    type="checkbox" name="frontSheet"
+                                     /> Front Sheet Updated</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                            <td>LMP<small>(yyyy/mm/dd)</small>:
+                                <input type="text" name="lmp"
+                                       value="2026/09/30" size="11"/>
+                                &nbsp;&nbsp;&nbsp; Menopause: <input
+                                        type="text" name="menopause" size="3" maxlength="3"
+                                        value="12"/> /yrs.</td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox" name="papSmearsN"
+                                    checked="checked" /></td>
+                            <td><input type="checkbox" name="papSmearsAbN"
+                                     /></td>
+                            <td nowrap="true">Previous Pap. Smears: <input
+                                    type="text" name="papSmears" style="width: 285px;"
+                                    value="2025/03/14 normal"/></td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <table>
+                        <tr>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                            <td colspan="4">REVIEW:
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;</td>
+                            <td><input type="checkbox" name="drugs"
+                                    checked="checked" /></td>
+                            <td>Drugs</td>
+                            <td style="width: 190px;">&nbsp;</td>
+                            <td align="right"><input type="checkbox" name="medSheet"
+                                     /></td>
+                            <td>Med. Sheet Updated</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;</td>
+                            <td><input type="checkbox" name="allergies"
+                                    checked="checked" /></td>
+                            <td colspan="2" nowrap="true">Allergies &amp; Drug Reactions</td>
+                            <td align="right"><input type="checkbox" name="frontSheet1"
+                                     /></td>
+                            <td>Front Sheet Updated</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;</td>
+                            <td><input type="checkbox" name="familyHistory"
+                                    checked="checked" /></td>
+                            <td colspan="2">Family History</td>
+                            <td align="right"><input type="checkbox" name="frontSheet2"
+                                     /></td>
+                            <td>Front Sheet Updated</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+        <table width="100%">
+            <tr>
+                <td class="DashedBorder">
+                    <table>
+                        <tr>
+                            <td colspan="3" nowrap="true"><b>LIFESTYLE REVIEW:</b></td>
+                            <td><b><i><small>("Any concerns with ...?")</small></i></b></td>
+                        </tr>
+                        <tr>
+                            <td>No</td>
+                            <td colspan="2">Yes</td>
+                            <td>&nbsp;</td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox" name="smokingNo"
+                                    checked="checked" /></td>
+                            <td><input type="checkbox" name="smokingYes"
+                                     /></td>
+                            <td>Smoking:
+                            </td>
+                            <td align="right"><input type="text" name="smoking"
+                                                     class="LifestyleReview"
+                                                     value="never"/></td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox" name="alcoholNo"
+                                     /></td>
+                            <td><input type="checkbox" name="alcoholYes"
+                                    checked="checked" /></td>
+                            <td>Alcohol:
+                            </td>
+                            <td align="right"><input type="text" name="alcohol"
+                                                     class="LifestyleReview"
+                                                     value="2 drinks per week"/></td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox" name="otcNo"
+                                     /></td>
+                            <td><input type="checkbox" name="otcYes"
+                                     /></td>
+                            <td>OTC/Illicit Drugs:
+                            </td>
+                            <td align="right"><input type="text" name="otc"
+                                                     class="LifestyleReview"
+                                                     value="none"/></td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox" name="exerciseNo"
+                                     /></td>
+                            <td><input type="checkbox" name="exerciseYes"
+                                    checked="checked" /></td>
+                            <td>Exercise/Sports</td>
+                            <td align="right"><input type="text" name="exercise"
+                                                     class="LifestyleReview"
+                                                     value="walks 30 min daily"/></td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox" name="nutritionNo"
+                                    checked="checked" /></td>
+                            <td><input type="checkbox" name="nutritionYes"
+                                     /></td>
+                            <td>Nutrition:
+                            </td>
+                            <td align="right"><input type="text" name="nutrition"
+                                                     class="LifestyleReview"
+                                                     value="balanced diet"/></td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox" name="dentalNo"
+                                     /></td>
+                            <td><input type="checkbox" name="dentalYes"
+                                    checked="checked" /></td>
+                            <td>Dental Hygiene:
+                            </td>
+                            <td align="right"><input type="text" name="dental"
+                                                     class="LifestyleReview"
+                                                     value="last visit 2026/05"/></td>
+                        </tr>
+                        <tr>
+                            <td valign="top"><input type="checkbox" name="relationshipNo"
+                                     /></td>
+                            <td valign="top"><input type="checkbox" name="relationshipYes"
+                                     /></td>
+                            <td valign="top">Relationship Issues:
+                            </td>
+                            <td align="right"><textarea name="relationship"
+                                                        class="LifestyleReview"
+                                                        rows="2"></textarea>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox" name="sexualityNo"
+                                     /></td>
+                            <td><input type="checkbox" name="sexualityYes"
+                                     /></td>
+                            <td nowrap="true">Sexuality Risks (STD/HIV):
+                            </td>
+                            <td align="right"><input type="text" name="sexuality"
+                                                     class="LifestyleReview"
+                                                     value="no concerns"/></td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox" name="occupationalNo"
+                                     /></td>
+                            <td><input type="checkbox" name="occupationalYes"
+                                     /></td>
+                            <td nowrap="true">Occupational Risks:
+                            </td>
+                            <td align="right"><input type="text" name="occupational"
+                                                     class="LifestyleReview"
+                                                     value="office work"/></td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox" name="drivingNo"
+                                     /></td>
+                            <td><input type="checkbox" name="drivingYes"
+                                     /></td>
+                            <td nowrap="true">Driving Safety:
+                            </td>
+                            <td align="right"><input type="text" name="driving"
+                                                     class="LifestyleReview"
+                                                     value="no concerns"/></td>
+                        </tr>
+                        <tr>
+                            <td><input type="checkbox" name="travelNo"
+                                     /></td>
+                            <td><input type="checkbox" name="travelYes"
+                                     /></td>
+                            <td nowrap="true">Foreign Travel (in last yr.):
+                            </td>
+                            <td align="right"><input type="text" name="travel"
+                                                     class="LifestyleReview"
+                                                     value="none planned"/></td>
+                        </tr>
+                        <tr>
+                            <td valign="top"><input type="checkbox" name="otherNo"
+                                     /></td>
+                            <td valign="top"><input type="checkbox" name="otherYes"
+                                     /></td>
+                            <td nowrap="true" valign="top">OTHER:
+                            </td>
+                            <td rowspan="3" align="right"><textarea name="otherLifestyle"
+                                                                    class="LifestyleReview"
+                                                                    rows="6"></textarea>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td width="100%" valign="top" class="DashedBorder">
+                    <table width="100%">
+                        <tr>
+                            <td width="50%" colspan="2"><b>SCREENING REVIEW:</b></td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;</td>
+                        </tr>
+                        <tr>
+                            <td><a
+                                    href="javascript: popupPage(700,950,'decision/annualreview/annualreviewplanner?demographic_no=1&formId=1&provN
+o=1');">Risk/Check List</a></td>
+                        </tr>
+                        <!--tr>
+                    <td><input type="checkbox" name="mammogram" checked="checked" /></td>
+                    <td>Mammogram</td>
+                </tr>
+                <tr>
+                    <td><input type="checkbox" name="breast"  /></td>
+                    <td>Breast-Self Exam</td>
+                </tr>
+                <tr>
+                    <td><input type="checkbox" name="pap"  /></td>
+                    <td>Pap Smear</td>
+                </tr>
+                <tr>
+                    <td><input type="checkbox" name="femaleImmunization"  /></td>
+                    <td>Immunization</td>
+                </tr>
+                <tr>
+                    <td><input type="checkbox" name="precontraceptive"  /></td>
+                    <td nowrap="true">Precontraceptive Councelling (Rubella, Folate)</td>
+                </tr>
+                <tr>
+                    <td><input type="checkbox" name="femaleCardiac" checked="checked" /></td>
+                    <td>Cardiac Risk Factors</td>
+                </tr>
+                <tr>
+                    <td><input type="checkbox" name="osteoporosis"  /></td>
+                    <td>Osteoporosis Risk</td>
+                </tr>
+                <tr>
+                    <td><input type="checkbox" name="femaleOther1c"  /></td>
+                    <td><input type="text" name="femaleOther1" class="ScreeningReview" value="FAKE-other screening 1" /></td>
+                </tr>
+                <tr>
+                    <td><input type="checkbox" name="femaleOther2c"  /></td>
+                    <td><input type="text" name="femaleOther2" class="ScreeningReview" value="" /></td>
+                </tr-->
+                    </table>
+                </td>
+            </tr>
+        </table>
+        <table width="100%" class="tableWithBorder">
+            <tr>
+                <td colspan="9"><b>PHYSICAL SIGNS:</b></td>
+            </tr>
+            <tr>
+                <td><b>VITALS: </b></td>
+                <td>B.P:
+                    <input type="text" name="bprTop" size="5" maxlength="3"
+                           value="120"/>/ <input
+                            type="text" name="bprBottom" size="5" maxlength="3"
+                            value="80"/> (R)</td>
+                <td align="right">Pulse:
+                </td>
+                <td><input type="text" name="pulse" size="10" maxlength="10"
+                           value="72"/> /min
+                </td>
+                <td align="right">Height:
+                </td>
+                <td><input type="text" name="height" size="10" maxlength="4"
+                           value="170"/> cm.</td>
+                <td align="right">Weight: <input
+                        type="text" name="weight" size="10" maxlength="4"
+                        value="68"/> Kg.</td>
+            <tr>
+                <td>&nbsp;</td>
+                <td>B.P:
+                    <input type="text" name="bplTop" size="5" maxlength="3"
+                           value="118"/>/ <input
+                            type="text" name="bplBottom" size="5" maxlength="3"
+                            value="78"/> (L)</td>
+                <td align="right">Rhythm:
+                </td>
+                <td><input type="text" name="rhythm" size="10" maxlength="10"
+                           value="regular"/></td>
+                <td align="right">Urine Dipstick:
+                </td>
+                <td><input type="text" name="urine" size="20" maxlength="30"
+                           value="negative"/></td>
+            </tr>
+        </table>
+        <table style="page-break-before: always;" width="100%">
+            <tr>
+                <td rowspan="3">
+                    <table width="100%" class="DashedBorder">
+                        <tr>
+                            <td><b> PHYSICAL SIGNS: </b></td>
+                        </tr>
+                        <tr>
+                            <td><textarea name="physicalSigns"
+                                          class="PhysicalSigns">General: well appearing
+Chest: clear bilaterally, ≥ normal range</textarea>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+        <table width="100%" class="TableWithBorder">
+            <tr>
+                <td>
+                    <table width="100%">
+                        <tr>
+                            <td><b>ASSESSMENT</b></td>
+                        </tr>
+                        <tr>
+                            <td align="center"><textarea name="assessment"
+                                                         class="AssessmentPlan">FAKE-assessment line one
+FAKE-assessment line two</textarea>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td>
+                    <table width="100%">
+                        <tr>
+                            <td align="center"><b>PLAN</b></td>
+                        </tr>
+                        <tr>
+                            <td align="center"><textarea name="plan"
+                                                         class="AssessmentPlan">FAKE-plan line one
+FAKE-plan line two (follow up in 3 months)</textarea>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2" align="right">Signature: <input
+                        type="text" name="signature" size="30"
+                        value="Dr. FAKE-Provider"/></td>
+            </tr>
+        </table>
+        </td>
+        </tr>
+        </table>
+
+        <table class="Head" class="hidePrint">
+            <tr>
+                <td align="left"><input type="submit"
+                                        value="Save"
+                                        onclick="javascript:return onSave();"/> <input type="submit"
+                                                                                       value="Save and Exit"
+                                                                                       onclick="javascript:return onSaveExit();"/>
+                    <input type="submit"
+                           value="Exit"
+                           onclick="javascript:return onExit();"/> <input type="button"
+                                                                          value="Print"
+                                                                          onclick="javascript:return onPrint();"/></td>
+                <td align='right'><a
+                        href="javascript: popupPage(700,950,'decision/annualreview/annualreviewplanner?demographic_no=1&formId=1&provNo=1');">Annual Review Planner</a></td>
+            </tr>
+        </table>
+
+    </form>
+    </body>
+</html>

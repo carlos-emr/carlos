@@ -37,11 +37,25 @@ import io.github.carlos_emr.carlos.commn.model.Appointment.BookingSource;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 
+@jakarta.xml.bind.annotation.XmlType(propOrder={"appointmentDate", "billing", "billingDetail", "bookingSource", "createDateTime", "creator", "creatorSecurityId", "demographicSnapshot", "demographicNo", "endTime", "id", "importedStatus", "lastUpdateUser", "location", "name", "notes", "programId", "providerSnapshot", "providerNo", "reason", "reasonCode", "remarks", "resources", "startTime", "status", "style", "type", "updateDateTime", "urgency"})
 public class AppointmentTo1 implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     private Integer id;
+
+    private String editVersion;
+
+    /** Echo the last read token to detect conflicts; null or blank retains legacy last-writer-wins updates. */
+    @jakarta.xml.bind.annotation.XmlTransient
+    @com.fasterxml.jackson.annotation.JsonIgnore(false)
+    public String getEditVersion() {
+        return editVersion;
+    }
+
+    public void setEditVersion(String editVersion) {
+        this.editVersion = editVersion;
+    }
 
     private String providerNo;
 
@@ -87,8 +101,8 @@ public class AppointmentTo1 implements Serializable {
     private Integer reasonCode;
 
 
-    private Demographic demographic;
-    private Provider provider;
+    private EmbeddedDemographicTo1 demographic;
+    private EmbeddedProviderTo1 provider;
 
     private BillingDetailTo1 billingDetail;
 
@@ -300,20 +314,32 @@ public class AppointmentTo1 implements Serializable {
         this.reasonCode = reasonCode;
     }
 
-    public Demographic getDemographic() {
-        return demographic;
-    }
+    /** Detached Java compatibility view; the wire uses the dedicated snapshot below. */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @jakarta.xml.bind.annotation.XmlTransient
+    public Demographic getDemographic() { return io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.demographicDomain(demographic); }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("demographic")
+    @jakarta.xml.bind.annotation.XmlElement(name="demographic")
+    public EmbeddedDemographicTo1 getDemographicSnapshot() { return demographic; }
+    public void setDemographicSnapshot(EmbeddedDemographicTo1 value) { demographic = value; }
 
     public void setDemographic(Demographic demographic) {
-        this.demographic = demographic;
+        this.demographic = io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.demographic(null, demographic);
     }
 
-    public Provider getProvider() {
-        return provider;
-    }
+    /** Detached Java compatibility view; the wire uses the dedicated snapshot below. */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @jakarta.xml.bind.annotation.XmlTransient
+    public Provider getProvider() { return io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.providerDomain(provider); }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("provider")
+    @jakarta.xml.bind.annotation.XmlElement(name="provider")
+    public EmbeddedProviderTo1 getProviderSnapshot() { return provider; }
+    public void setProviderSnapshot(EmbeddedProviderTo1 value) { provider = value; }
 
     public void setProvider(Provider provider) {
-        this.provider = provider;
+        this.provider = io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.provider(null, provider);
     }
 
     public BillingDetailTo1 getBillingDetail() {

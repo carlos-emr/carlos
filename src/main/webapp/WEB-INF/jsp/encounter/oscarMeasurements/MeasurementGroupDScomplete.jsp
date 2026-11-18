@@ -49,7 +49,7 @@
 
 
 
-<%@ page import="java.util.*" %>
+
 
 <%
     // Shows the result only: the add or remove is done by encounter/oscarMeasurements/MeasurementGroupDecisionSupport,

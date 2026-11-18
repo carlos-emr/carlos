@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 
@@ -33,7 +34,6 @@ package io.github.carlos_emr.carlos.utility;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.EncodeHintType;
 import com.google.zxing.WriterException;
-import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
@@ -87,7 +87,8 @@ public class QrCodeUtils {
             endIndex = Math.min(startIndex + maxQrCodeDataSize, s.length());
 
             String stringChunk = s.substring(startIndex, endIndex);
-            logger.debug("Encoding chunk : " + stringChunk);
+            // Callers include clinical HL7 data; diagnostics must never include the chunk contents.
+            logger.debug("Encoding QR chunk: chunkIndex={}, chunkLength={}", results.size(), stringChunk.length());
 
             results.add(toSingleQrCodeBufferedImage(stringChunk, ec, scaleFactor));
 
@@ -112,7 +113,14 @@ public class QrCodeUtils {
         int baseSize = 100;
         BitMatrix bitMatrix = qrCodeWriter.encode(s, BarcodeFormat.QR_CODE, baseSize, baseSize, hints);
 
-        BufferedImage bufferedImage = MatrixToImageWriter.toBufferedImage(bitMatrix);
+        // Match ZXing's default opaque black/white TYPE_BYTE_BINARY image exactly.
+        BufferedImage bufferedImage = new BufferedImage(bitMatrix.getWidth(), bitMatrix.getHeight(),
+                BufferedImage.TYPE_BYTE_BINARY);
+        for (int y = 0; y < bitMatrix.getHeight(); y++) {
+            for (int x = 0; x < bitMatrix.getWidth(); x++) {
+                bufferedImage.setRGB(x, y, bitMatrix.get(x, y) ? 0xFF000000 : 0xFFFFFFFF);
+            }
+        }
 
         if (scaleFactor != 1) {
             int newWidth = bufferedImage.getWidth() * scaleFactor;

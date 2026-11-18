@@ -1,0 +1,537 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsimport.service;
+
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportStatementWaits;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsExactNumeric;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReceiptDto;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.HexFormat;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.hibernate.Session;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * Exact native-row receipts, read through the owning transaction's physical connection.
+ *
+ * <p>A receipt names exactly the rows its unit wrote: each writer returns the id of every row
+ * it inserted, its date, extension and issue-link rows included, and the receipt digests those
+ * rows and no others. Nothing is found by key: {@code partial_date} and {@code preventionsExt}
+ * have no foreign key, so a row another writer left behind for a reused id would otherwise be
+ * named as the import's own. The one lookup is a unit's file references, which are found by the
+ * run and unit that wrote them: their id is the hash of run, unit and file, so the lookup names
+ * exactly this unit's own rows.
+ *
+ * <p>A target table may have been widened locally: a table of up to MariaDB's own 4,096 columns
+ * is read and witnessed whole, and its digest statement is as long as its columns make it.
+ */
+@Service
+public class CdsTargetReceiptService {
+    private static final ObjectMapper JSON = new ObjectMapper();
+
+    /**
+     * MariaDB's own limit on the columns of one table; a locally widened target table up to it is
+     * receipted and witnessed whole.
+     */
+    static final int MAXIMUM_COLUMNS = CdsNativeRowDigest.MAXIMUM_COLUMNS;
+
+    /**
+     * The rows one unit's receipt names: the importer's own stored format, which no source file
+     * reaches. Since a receipt names only the rows its unit wrote, this counts the importer's
+     * writes and nothing else. A unit is one CDS element or one page of at most
+     * {@link CdsSourceFieldService#PAGE_SIZE} source fields, and each kind writes a fixed set of
+     * rows: a demographic record at most 12 (with its two physicians and pharmacy), a
+     * prescription or allergy its row and at most two date rows, a vaccine its row, at most 14
+     * extension rows and a date row, a care element its row and at most ten extension rows, a
+     * note at most six, a laboratory result four, a report at most two representations of four
+     * rows each, a contact two. Elements the schema lets repeat without limit (ResultReviewer,
+     * ReportReviewed, NoteReviewer, ParticipatingProviders, ContactPurpose, any repeated child)
+     * add no row to a unit: their values are source fields, 32 to a unit. The largest unit is a
+     * field page whose every field carries an audited correction: 32 field rows (one reference
+     * each) and 34 file rows (the reference and its file), 100 references in all. The exporter
+     * reads receipts back under the same bound (CdsExportRetainedReceiptVerificationDto,
+     * CdsNativeBaselineCodec), so the two stay in step.
+     */
+    private static final int MAXIMUM_REFERENCES = 192;
+    private static final Map<String, String> PRIMARY_KEYS =
+            Map.ofEntries(
+                    Map.entry("demographic", "demographic_no"),
+                    Map.entry("drugs", "drugid"),
+                    Map.entry("allergies", "allergyid"),
+                    Map.entry("preventions", "id"),
+                    Map.entry("preventionsExt", "id"),
+                    Map.entry("partial_date", "id"),
+                    Map.entry("appointment", "appointment_no"),
+                    Map.entry("document", "document_no"),
+                    Map.entry("casemgmt_note", "note_id"),
+                    Map.entry("casemgmt_issue", "id"),
+                    Map.entry("casemgmt_note_ext", "id"),
+                    Map.entry("measurements", "id"),
+                    Map.entry("measurementsExt", "id"),
+                    Map.entry("hl7TextMessage", "lab_id"),
+                    Map.entry("hl7TextInfo", "id"),
+                    Map.entry("patientLabRouting", "id"),
+                    Map.entry("providerLabRouting", "id"),
+                    Map.entry("DemographicContact", "id"),
+                    Map.entry("Contact", "id"),
+                    Map.entry("admission", "am_id"),
+                    Map.entry("demographicExt", "id"),
+                    Map.entry("demographiccust", "demographic_no"),
+                    Map.entry("pharmacyInfo", "recordID"),
+                    Map.entry("demographicPharmacy", "id"),
+                    Map.entry("cds_laboratory_result", "id"),
+                    Map.entry("cds_import_file", "id"),
+                    Map.entry("cds_import_file_reference", "id"),
+                    Map.entry("cds_import_field", "id"));
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
+
+    private final io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys
+            baselineKeys;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CdsTargetReceiptService(CdsImportConfigurationService configuration) {
+        this(configuration.nativeBaselineKeys());
+    }
+
+    /** Explicit keys, for wiring outside the import context (qualification tools, tests). */
+    public CdsTargetReceiptService(
+            io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys keys) {
+        baselineKeys = java.util.Objects.requireNonNull(keys);
+    }
+
+    public record Reference(String table, String id, String digest) {}
+
+    private record Captured(
+            List<Reference> references,
+            List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState> states) {}
+
+    /** Actual native and evidence tables, including association tables with composite keys. */
+    public static java.util.Set<String> targetTables() {
+        java.util.Set<String> tables = new java.util.HashSet<>(PRIMARY_KEYS.keySet());
+        tables.add("ctl_document");
+        tables.add("casemgmt_issue_notes");
+        return java.util.Set.copyOf(tables);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public CdsImportReceiptDto capture(Map<String, String> targets) {
+        return capture(targets, null, null);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public CdsImportReceiptDto capture(Map<String, String> targets, String run, String unit) {
+        if (targets.isEmpty() || targets.size() > MAXIMUM_REFERENCES)
+            throw new CdsImportException("TARGET_REFERENCE_COUNT_INVALID");
+        entityManager.flush();
+        Captured captured =
+                entityManager
+                        .unwrap(Session.class)
+                        .doReturningWork(
+                                connection -> {
+                                    List<Reference> found = new ArrayList<>();
+                                    ReceiptReader reader =
+                                            new ReceiptReader(connection, true, entityManager);
+                                    for (var entry : targets.entrySet()) {
+                                        String table = entry.getKey();
+                                        // Several rows of one physical table may be written in
+                                        // one bounded unit (source fields, a medication's two
+                                        // date rows, a vaccine's extensions).
+                                        int separator = table.indexOf('#');
+                                        if (separator >= 0) table = table.substring(0, separator);
+                                        add(connection, found, table, entry.getValue(), reader);
+                                    }
+                                    // Publication ownership and unit references are part of
+                                    // completeness, not best-effort cleanup metadata.
+                                    if (run != null && unit != null)
+                                        fileDependencies(connection, found, run, unit, reader);
+                                    return new Captured(
+                                            List.copyOf(found),
+                                            List.copyOf(reader.states.values()));
+                                });
+        try {
+            String encoded =
+                    JSON.writeValueAsString(Map.of("protocol", 2, "refs", captured.references()));
+            if (encoded.length() > 65536) throw new CdsImportException("TARGET_RECEIPT_TOO_LARGE");
+            String targetDigest = digest(encoded);
+            String baseline;
+            try {
+                baseline =
+                        io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec
+                                .seal(encoded, targetDigest, captured.states(), baselineKeys);
+            } catch (java.io.IOException unavailable) {
+                // The witness is never stored unsealed and a unit never commits without it.
+                if ("CDS_NATIVE_BASELINE_KEY_UNAVAILABLE".equals(unavailable.getMessage()))
+                    throw new CdsImportException("NATIVE_BASELINE_KEY_UNAVAILABLE");
+                throw new CdsImportException("NATIVE_BASELINE_SEAL_FAILED", false, unavailable);
+            }
+            return new CdsImportReceiptDto(encoded, targetDigest, false, baseline);
+        } catch (IllegalArgumentException failure) {
+            throw new CdsImportException("NATIVE_BASELINE_REQUIRES_REVIEW", false, failure);
+        } catch (java.io.IOException failure) {
+            throw new CdsImportException("TARGET_RECEIPT_ENCODING_FAILED", false, failure);
+        }
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public boolean verify(CdsImportReceiptDto receipt) {
+        if (receipt == null
+                || receipt.targetReferences() == null
+                || receipt.targetReferences().length() > 65536
+                || !digest(receipt.targetReferences()).equals(receipt.targetDigest())) return false;
+        try {
+            io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec.Document
+                    baseline;
+            try {
+                baseline =
+                        receipt.nativeBaseline() == null
+                                ? null
+                                : io.github.carlos_emr.carlos.demographic.cds.contract
+                                        .CdsNativeBaselineCodec.unseal(
+                                        receipt.nativeBaseline(),
+                                        receipt.targetReferences(),
+                                        receipt.targetDigest(),
+                                        baselineKeys);
+            } catch (java.io.IOException unavailable) {
+                if ("CDS_NATIVE_BASELINE_KEY_UNAVAILABLE".equals(unavailable.getMessage()))
+                    throw new CdsImportException("NATIVE_BASELINE_KEY_UNAVAILABLE");
+                throw unavailable;
+            }
+            JsonNode document = JSON.readTree(receipt.targetReferences());
+            JsonNode references = document.path("refs");
+            if (document.path("protocol").asInt() != 2
+                    || !references.isArray()
+                    || references.isEmpty()
+                    || references.size() > MAXIMUM_REFERENCES) return false;
+            return entityManager
+                    .unwrap(Session.class)
+                    .doReturningWork(
+                            connection -> {
+                                ReceiptReader reader =
+                                        new ReceiptReader(
+                                                connection,
+                                                baseline != null && baseline.protocol() == 2,
+                                                entityManager);
+                                for (JsonNode reference : references) {
+                                    String actual =
+                                            reader.digest(
+                                                    reference.path("table").asText(),
+                                                    reference.path("id").asText());
+                                    if (actual == null
+                                            || !actual.equals(reference.path("digest").asText()))
+                                        return false;
+                                }
+                                if (baseline != null && baseline.protocol() == 2)
+                                    for (var previous : baseline.rows()) {
+                                        var current =
+                                                reader.states.get(
+                                                        previous.table() + "/" + previous.id());
+                                        if (current == null
+                                                || !current.columns().equals(previous.columns()))
+                                            return false;
+                                        for (int i = 0; i < previous.cells().size(); i++) {
+                                            var exact = previous.cells().get(i).exactNumeric();
+                                            if (exact != null
+                                                    && !exact.equals(
+                                                            current.cells().get(i).exactNumeric()))
+                                                return false;
+                                        }
+                                    }
+                                return true;
+                            });
+        } catch (java.io.IOException | IllegalArgumentException invalid) {
+            return false;
+        }
+    }
+
+    private static void fileDependencies(
+            Connection connection,
+            List<Reference> references,
+            String run,
+            String unit,
+            ReceiptReader reader)
+            throws java.sql.SQLException {
+        try (PreparedStatement query =
+                connection.prepareStatement(
+                        "select id,file_id from cds_import_file_reference where run_id=? and unit_key=? order by id")) {
+            query.setString(1, run);
+            query.setString(2, unit);
+            try (ResultSet rows = query.executeQuery()) {
+                while (rows.next()) {
+                    add(
+                            connection,
+                            references,
+                            "cds_import_file_reference",
+                            rows.getString(1),
+                            reader);
+                    add(connection, references, "cds_import_file", rows.getString(2), reader);
+                }
+            }
+        }
+    }
+
+    private static void add(
+            Connection connection,
+            List<Reference> references,
+            String table,
+            String id,
+            ReceiptReader reader)
+            throws java.sql.SQLException {
+        if (references.size() >= MAXIMUM_REFERENCES)
+            throw new CdsImportException("TARGET_RECEIPT_TOO_LARGE");
+        String hash = reader.digest(table, id);
+        if (hash == null) throw new CdsImportException("TARGET_ROW_MISSING");
+        references.add(new Reference(table, id, hash));
+    }
+
+    /** Actual-driver regression entry point; every value returned by the server has a fixed bound. */
+    static String rowDigest(Connection connection, String table, String id)
+            throws java.sql.SQLException {
+        return new ReceiptReader(connection, false, null).digest(table, id);
+    }
+
+    /**
+     * One bounded schema cache per capture/verification, discarded with its physical connection
+     * callback. Its reads wait for the database rather than failing on a clock: a read the server
+     * ends at its deadline (a metadata lock, a busy server) is sent again on the same connection
+     * inside the unit's transaction ({@link CdsImportStatementWaits}); the transaction's entity
+     * manager, when there is one, lets a raised socket timeout be put back at its completion.
+     */
+    private static final class ReceiptReader {
+        private final Connection connection;
+        private final EntityManager transaction;
+        private final Map<String, List<Column>> columns = new HashMap<>();
+        private final boolean collect;
+        private final Map<
+                        String,
+                        io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState>
+                states = new java.util.LinkedHashMap<>();
+
+        private ReceiptReader(Connection connection, boolean collect, EntityManager transaction) {
+            this.connection = connection;
+            this.collect = collect;
+            this.transaction = transaction;
+        }
+
+        private List<Column> columns(String table) throws java.sql.SQLException {
+            if (table == null
+                    || !PRIMARY_KEYS.containsKey(table)
+                            && !"ctl_document".equals(table)
+                            && !"casemgmt_issue_notes".equals(table)) {
+                throw new CdsImportException("TARGET_REFERENCE_INVALID");
+            }
+            List<Column> existing = columns.get(table);
+            if (existing != null) return existing;
+            List<Column> found =
+                    CdsImportStatementWaits.await(
+                            transaction, connection, seconds -> readColumns(table, seconds));
+            if (found.isEmpty()) throw new CdsImportException("TARGET_COLUMNS_MISSING");
+            columns.put(table, List.copyOf(found));
+            return columns.get(table);
+        }
+
+        // Only native receipt-catalogue names reach this identifier-only metadata query.
+        @SuppressWarnings("java:S2077")
+        // FindSecBugs SQL_INJECTION_JDBC: The table name is refused unless it is a key of the fixed PRIMARY_KEYS map or one of the two fixed link tables, on the lines above the statement; no other value reaches the SQL text.
+        // FindSecBugs SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING: The text varies only by that allow-listed table name; identifiers cannot be bound.
+        // FindSecBugs IMPROPER_UNICODE: Matches the fixed ASCII column name verified_epoch in JDBC metadata of a CARLOS table; not an authorization decision.
+        @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING", "IMPROPER_UNICODE"}, justification = "SQL_INJECTION_JDBC: the table name is refused unless it is a key of the fixed PRIMARY_KEYS map or one of the two fixed link tables, on the lines above the statement; no other value reaches the SQL text; SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING: the text varies only by that allow-listed table name; identifiers cannot be bound; IMPROPER_UNICODE: matches the fixed ASCII column name verified_epoch in JDBC metadata of a CARLOS table; not an authorization decision")
+        private List<Column> readColumns(String table, int seconds)
+                throws java.sql.SQLException {
+            if (table == null
+                    || !PRIMARY_KEYS.containsKey(table)
+                            && !"ctl_document".equals(table)
+                            && !"casemgmt_issue_notes".equals(table)) {
+                throw new CdsImportException("TARGET_REFERENCE_INVALID");
+            }
+            List<Column> found = new ArrayList<>();
+            try (var statement =
+                    connection.prepareStatement("SELECT * FROM `" + table + "` WHERE 1=0")) {
+                statement.setQueryTimeout(seconds);
+                try (var result = statement.executeQuery()) {
+                    var metadata = result.getMetaData();
+                    if (metadata.getColumnCount() > MAXIMUM_COLUMNS)
+                        throw new CdsImportException("TARGET_COLUMN_COUNT_REQUIRES_REVIEW");
+                    for (int i = 1; i <= metadata.getColumnCount(); i++) {
+                        String name = metadata.getColumnName(i);
+                        if (table.equals("cds_import_file")
+                                && name.equalsIgnoreCase("verified_epoch")) continue;
+                        found.add(
+                                new Column(
+                                        name,
+                                        metadata.getColumnTypeName(i),
+                                        metadata.getPrecision(i),
+                                        metadata.getScale(i)));
+                    }
+                }
+            }
+            return found;
+        }
+
+        private String digest(String table, String id) throws java.sql.SQLException {
+            return CdsImportStatementWaits.await(
+                    transaction, connection, seconds -> digest(table, id, seconds));
+        }
+
+        // FindSecBugs SQL_INJECTION_JDBC: The table and key come from the fixed PRIMARY_KEYS map or the two fixed link tables (columns() refuses any other table), column names come from JDBC metadata of that table with backticks doubled, and the row id is checked against [A-Za-z0-9_-]{1,64} and bound.
+        // FindSecBugs SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING: The text varies only by those allow-listed table and key names and the escaped metadata column names; identifiers cannot be bound.
+        @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"}, justification = "SQL_INJECTION_JDBC: the table and key come from the fixed PRIMARY_KEYS map or the two fixed link tables (columns() refuses any other table), column names come from JDBC metadata of that table with backticks doubled, and the row id is checked against [A-Za-z0-9_-]{1,64} and bound; SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING: the text varies only by those allow-listed table and key names and the escaped metadata column names; identifiers cannot be bound")
+        private String digest(String table, String id, int seconds)
+                throws java.sql.SQLException {
+            String key = PRIMARY_KEYS.get(table);
+            boolean documentLink = "ctl_document".equals(table),
+                    noteLink = "casemgmt_issue_notes".equals(table);
+            boolean composite = documentLink || noteLink;
+            if ((!composite && key == null) || id == null || !id.matches("[A-Za-z0-9_-]{1,64}"))
+                throw new CdsImportException("TARGET_REFERENCE_INVALID");
+            String[] pair = composite ? id.split("_", -1) : null;
+            if (composite
+                    && (pair.length != 2
+                            || !pair[0].matches("[0-9]{1,19}")
+                            || !pair[1].matches("[0-9]{1,19}")))
+                throw new CdsImportException("TARGET_REFERENCE_INVALID");
+            String where =
+                    documentLink
+                            ? "module='demographic' and module_id=? and document_no=?"
+                            : noteLink ? "note_id=? and id=?" : "`" + key + "`=?";
+            List<Column> selected = columns(table);
+            StringBuilder sql = new StringBuilder("SELECT ");
+            for (Column column : selected) {
+                if (sql.length() > 7) sql.append(',');
+                String name = "`" + column.name().replace("`", "``") + "`";
+                sql.append(name)
+                        .append(" IS NULL,OCTET_LENGTH(CAST(")
+                        .append(name)
+                        .append(" AS BINARY)),SHA2(CAST(")
+                        .append(name)
+                        .append(" AS BINARY),256)");
+            }
+            var floating =
+                    collect
+                            ? selected.stream()
+                                    .filter(column -> CdsExactNumeric.codec(column.type()) != null)
+                                    .toList()
+                            : List.<Column>of();
+            for (var column : floating)
+                sql.append(",`").append(column.name().replace("`", "``")).append('`');
+            // As long as the table's columns make it; the server's max_allowed_packet is the
+            // only limit on its length.
+            sql.append(" FROM `").append(table).append("` WHERE ").append(where);
+            try (PreparedStatement statement =
+                    floating.isEmpty()
+                            ? connection.prepareStatement(sql.toString())
+                            : CdsJdbcAdmissionGuard.prepareBinaryRead(connection, sql.toString())) {
+                statement.setString(1, composite ? pair[0] : id);
+                if (composite) statement.setString(2, pair[1]);
+                statement.setMaxRows(2);
+                statement.setQueryTimeout(seconds);
+                // Table/key names are allowlisted; metadata names escape backticks; row IDs remain
+                // bound.
+                // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
+                try (ResultSet row = statement.executeQuery()) {
+                    if (!row.next()) return null;
+                    var hash = CdsNativeRowDigest.hasher(selected);
+                    var cells =
+                            collect
+                                    ? new ArrayList<
+                                            io.github.carlos_emr.carlos.demographic.cds.contract
+                                                    .CdsNativeRowState.Cell>()
+                                    : null;
+                    int index = 1;
+                    for (Column column : selected) {
+                        if (row.getBoolean(index)) {
+                            hash.append(true, 0, null);
+                            if (collect)
+                                cells.add(
+                                        new io.github.carlos_emr.carlos.demographic.cds.contract
+                                                .CdsNativeRowState.Cell(true, 0, null));
+                        } else {
+                            long length = row.getLong(index + 1);
+                            String value = row.getString(index + 2);
+                            if (length < 0 || value == null || !value.matches("[0-9a-fA-F]{64}"))
+                                throw new CdsImportException("TARGET_ROW_HASH_UNAVAILABLE");
+                            hash.append(false, length, value);
+                            if (collect) {
+                                int position = floating.indexOf(column);
+                                var exact =
+                                        position < 0
+                                                ? null
+                                                : CdsExactNumeric.readBinary(
+                                                        row,
+                                                        selected.size() * 3 + position + 1,
+                                                        CdsExactNumeric.codec(column.type()));
+                                if (position >= 0 && exact == null)
+                                    throw new CdsImportException(
+                                            "NATIVE_BASELINE_NUMERIC_NULL_MISMATCH");
+                                cells.add(
+                                        new io.github.carlos_emr.carlos.demographic.cds.contract
+                                                .CdsNativeRowState.Cell(
+                                                false,
+                                                length,
+                                                value,
+                                                exact == null ? null : exact.witness()));
+                            }
+                        }
+                        index += 3;
+                    }
+                    if (row.next()) throw new CdsImportException("TARGET_REFERENCE_AMBIGUOUS");
+                    String result = hash.finish();
+                    if (collect) {
+                        var state =
+                                new io.github.carlos_emr.carlos.demographic.cds.contract
+                                        .CdsNativeRowState(table, id, selected, cells);
+                        if (!result.equals(state.digest()))
+                            throw new CdsImportException("NATIVE_BASELINE_REQUIRES_REVIEW");
+                        var previous = states.putIfAbsent(table + "/" + id, state);
+                        if (previous != null && !previous.equals(state))
+                            throw new CdsImportException("TARGET_ROW_CHANGED_DURING_RECEIPT");
+                    }
+                    return result;
+                }
+            }
+        }
+    }
+
+    private static String digest(String value) {
+        return HexFormat.of()
+                .formatHex(CdsImportKeys.digest().digest(value.getBytes(StandardCharsets.UTF_8)));
+    }
+}

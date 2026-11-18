@@ -5,7 +5,6 @@
  */
 package io.github.carlos_emr.carlos.login;
 
-import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -31,7 +30,7 @@ class TotpWindowUnitTest {
     @Test
     @DisplayName("should mirror the time step of the generator used for validation")
     void shouldMirrorTimeStep_ofValidationGenerator() {
-        Duration generatorTimeStep = new TimeBasedOneTimePasswordGenerator().getTimeStep();
+        Duration generatorTimeStep = new TotpGenerator().getTimeStep();
 
         assertThat(generatorTimeStep).isEqualTo(TotpWindow.TIME_STEP);
     }

@@ -1,5 +1,5 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -18,7 +18,9 @@
     if (request.getParameter("submit") != null && request.getParameter("submit").equals("Report in CSV")) {
         if (true) {
             out.clearBuffer();
-            request.getRequestDispatcher("reportDownload").include(request, response); //forward request&response to the target page
+            // This JSP lives below WEB-INF; use the registered servlet name so relocation and
+            // the Struts URL mapper cannot turn the authenticated CSV export into a 404.
+            request.getServletContext().getNamedDispatcher("reportDownload").forward(request, response);
             return;
         }
     }
@@ -26,7 +28,7 @@
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*, io.github.carlos_emr.carlos.report.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.pageUtil.*" %>
-<%@ page import="io.github.carlos_emr.carlos.login.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportConfigData" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportCreator" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
@@ -48,13 +50,23 @@
     // strict SQL-identifier regex. The query is executed with psql.getParamsArray() as
     // bind parameters — no user input is concatenated into the SQL string.
     RptFormQuery formQuery = new RptFormQuery();
-    ParameterizedSql psql = formQuery.getQueryStr(reportId, request);
+    Vector vecFieldCaption;
+    Vector vecFieldName;
+    Vector vecFieldValue;
+    try {
+        ParameterizedSql psql = formQuery.getQueryStr(reportId, request);
 
-    RptReportConfigData formConfig = new RptReportConfigData();
-    Vector[] vecField = formConfig.getAllFieldNameValue(SAVE_AS, reportId);
-    Vector vecFieldCaption = vecField[1];
-    Vector vecFieldName = vecField[0];
-    Vector vecFieldValue = (new RptReportCreator()).query(psql.getSql(), vecFieldCaption, psql.getParamsArray());
+        RptReportConfigData formConfig = new RptReportConfigData();
+        Vector[] vecField = formConfig.getAllFieldNameValue(SAVE_AS, reportId);
+        vecFieldCaption = vecField[1];
+        vecFieldName = vecField[0];
+        vecFieldValue = (new RptReportCreator()).query(psql.getSql(), vecFieldCaption, psql.getParamsArray());
+    } catch (Exception reportFailure) {
+        // The report still fails through the error page. When a configured_report.* limit stopped it,
+        // that page names the limit, so the user can narrow the report or ask for the limit to be raised.
+        io.github.carlos_emr.carlos.report.data.ReportLimitNotice.publish(request, reportFailure);
+        throw reportFailure;
+    }
 
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

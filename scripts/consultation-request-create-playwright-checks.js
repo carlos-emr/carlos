@@ -48,6 +48,8 @@
  *   MYSQL_HOST/USER/PASSWORD/DATABASE
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { CONSULTATION_ROWS, createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
@@ -180,16 +182,9 @@ function runCleanup() {
 }
 // Node does not run finally blocks on SIGINT/SIGTERM (the suite loop's `timeout`
 // sends TERM), so restore the fixtures here too before exiting.
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    console.error(`${signal} received; restoring fixtures before exiting.`);
-    runCleanup();
-    cleanupMysqlDefaults();
-    process.exit(130);
-  });
-}
+// Signals unwind through the shared entry point and the existing finally below.
 
-(async () => {
+legacyHarness.runLegacyCheck('consultation-request-create',async({cancellation})=>{
   const recorder = createRecorder();
   initMysqlDefaults();
   // Staging and the browser launch sit inside the protected scope so a failure in
@@ -200,51 +195,74 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     const provider = sql(`SELECT provider_no FROM security WHERE user_name='${escapeSql(config.testUser)}'`);
     assert(provider, 'the configured test login has no provider');
     demographicNo = createOwnedPatient(ownedSql, { marker: ownedMarker, provider });
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
+    cancellation?.throwIfCancelled();
     await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
 
     // 1. Operator path: patient consultation list -> "New Consultation" popup.
     const listPage = await openConsultationList(context, recorder);
+    cancellation?.throwIfCancelled();
     const popupPromise = context.waitForEvent('page', { timeout: 30000 });
     await listPage.locator('a.btn', { hasText: /New Consultation/i }).first().click();
+    cancellation?.throwIfCancelled();
     const formPage = await popupPromise;
+    cancellation?.throwIfCancelled();
     wirePage(formPage, 'consult-form', recorder);
     await formPage.waitForLoadState('domcontentloaded', { timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await formPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(formPage, 'consultation form');
+    cancellation?.throwIfCancelled();
     await formPage.locator('#EctConsultationFormRequest2Form').waitFor({ state: 'attached', timeout: 30000 });
+    cancellation?.throwIfCancelled();
     assert((await formPage.locator('#demographicNo').inputValue()) === demographicNo,
       'consultation form did not carry the patient it was opened for');
+    cancellation?.throwIfCancelled();
 
     // 2. Service, then consultant, through the pickers.
     const serviceLabel = await pickFirstAutocomplete(formPage, '#serviceInput', 'service');
+    cancellation?.throwIfCancelled();
     const serviceId = await formPage.locator('#service').inputValue();
+    cancellation?.throwIfCancelled();
     assert(/^\d+$/.test(serviceId) && serviceId !== '0', `service picker did not populate #service (got "${serviceId}")`);
     const specialistLabel = await pickFirstAutocomplete(formPage, '#specialistInput', 'specialist');
+    cancellation?.throwIfCancelled();
     const specialistId = await formPage.locator('#specialist').inputValue();
+    cancellation?.throwIfCancelled();
     assert(/^\d+$/.test(specialistId), `specialist picker did not populate #specialist (got "${specialistId}")`);
     // The picker copies the consultant's own name into the visible input; the
     // list entry can carry extra service badges, so match on the name prefix.
     const specialistName = (await formPage.locator('#specialistInput').inputValue()).trim();
+    cancellation?.throwIfCancelled();
     assert(specialistName && specialistLabel.startsWith(specialistName),
       `specialist picker text "${specialistName}" did not come from the chosen entry "${specialistLabel}"`);
 
     // 3. Clinical content and submit.
     await formPage.locator('#urgency').selectOption('1');
+    cancellation?.throwIfCancelled();
     await formPage.locator('textarea[name="reasonForConsultation"]').fill(reasonText);
+    cancellation?.throwIfCancelled();
     await formPage.locator('textarea[name="appointmentNotes"]').fill(notesText);
+    cancellation?.throwIfCancelled();
     await Promise.all([
       formPage.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname.endsWith('/encounter/RequestConsultation'), { timeout: 30000 }),
       formPage.locator('input[name="submitSaveOnly"]').click(),
     ]);
+    cancellation?.throwIfCancelled();
     await formPage.waitForLoadState('domcontentloaded', { timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(formPage, 'consultation confirmation');
+    cancellation?.throwIfCancelled();
     // The redirect must retain the successful create confirmation.
     assert(/ViewConfirmConsultationRequest/.test(formPage.url()),
       `submit did not land on the confirmation page (url ${formPage.url()})`);
     const confirmText = await formPage.locator('body').innerText();
+    cancellation?.throwIfCancelled();
     assert(/Consultation Request Form has been\s+Created/i.test(confirmText),
       'confirmation did not show the successful create message');
     assert(/This window will close in 5 seconds/i.test(confirmText),
@@ -263,38 +281,54 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 
     // 5. Reopen the saved request.
     const viewPage = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(viewPage, 'consult-view', recorder);
     await gotoApp(viewPage, config.baseUrl, `/encounter/ViewRequest?requestId=${encodeURIComponent(row.requestId)}`);
+    cancellation?.throwIfCancelled();
     await viewPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(viewPage, 'saved consultation');
+    cancellation?.throwIfCancelled();
     assert((await viewPage.locator('#specialist').inputValue()) === specialistId,
       'reopened request did not restore the chosen specialist');
+    cancellation?.throwIfCancelled();
     assert((await viewPage.locator('#specialistInput').inputValue()).trim() === specialistName,
       'reopened request did not show the consultant name');
+    cancellation?.throwIfCancelled();
     assert((await viewPage.locator('textarea[name="reasonForConsultation"]').inputValue()) === reasonText,
       'reopened request did not restore the reason text');
+    cancellation?.throwIfCancelled();
     const updatedReason = `${reasonText} updated`;
     await viewPage.locator('textarea[name="reasonForConsultation"]').fill(updatedReason);
+    cancellation?.throwIfCancelled();
     await Promise.all([
       viewPage.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname.endsWith('/encounter/RequestConsultation'), { timeout: 30000 }),
       viewPage.locator('input[name="update"]').click(),
     ]);
+    cancellation?.throwIfCancelled();
     await viewPage.waitForLoadState('domcontentloaded', { timeout: 30000 });
+    cancellation?.throwIfCancelled();
     assert(/Consultation Request Form has been\s+Updated/i.test(await viewPage.locator('body').innerText()),
       'confirmation did not show the successful update message');
+    cancellation?.throwIfCancelled();
     const updatedRows = findRequestRows();
     assert(updatedRows.length === 1 && updatedRows[0].requestId === row.requestId
       && updatedRows[0].reason === updatedReason, 'update did not persist on the original consultation');
     await viewPage.close();
+    cancellation?.throwIfCancelled();
 
     // 6. It shows in the patient's list. The confirmation popup refreshes its
     // opener when it auto-closes, so navigate the list page fresh rather than
     // racing that reload.
     await formPage.close().catch(() => {});
+    cancellation?.throwIfCancelled();
     await gotoApp(listPage, config.baseUrl, `/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests?de=${encodeURIComponent(demographicNo)}`);
+    cancellation?.throwIfCancelled();
     await listPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     const listText = await listPage.locator('body').innerText();
+    cancellation?.throwIfCancelled();
     assert(listText.includes(specialistName) && /Urgent/i.test(listText),
       'patient consultation list did not show the new request');
 
@@ -314,4 +348,4 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     runCleanup();
     cleanupMysqlDefaults();
   }
-})();
+});

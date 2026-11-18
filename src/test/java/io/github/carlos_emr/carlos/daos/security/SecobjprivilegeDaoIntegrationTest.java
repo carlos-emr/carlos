@@ -237,10 +237,12 @@ public class SecobjprivilegeDaoIntegrationTest extends CarlosTestBase {
 
     private void applyMigration(Path migration) throws IOException {
         String sql = Files.readString(migration);
+        boolean h2 = entityManager.unwrap(org.hibernate.Session.class).doReturningWork(
+                connection -> "H2".equals(connection.getMetaData().getDatabaseProductName()));
         for (String statement : sql.replaceAll("(?m)^\\s*--.*$", "").split(";")) {
             String trimmed = statement.trim();
             if (!trimmed.isEmpty()) {
-                entityManager.createNativeQuery(toH2CompatibleSql(trimmed)).executeUpdate();
+                entityManager.createNativeQuery(h2 ? toH2CompatibleSql(trimmed) : trimmed).executeUpdate();
             }
         }
         entityManager.flush();

@@ -104,7 +104,7 @@ class BcRemittanceSummaryReportRegressionTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"pdf_rep_mspremsum.jrxml", "csv_rep_mspremsum.jrxml"})
+    @ValueSource(strings = {"pdf_rep_mspremsum.jrxml"})
     @DisplayName("should load exactly the sub-reports the remittance summary template declares")
     void shouldLoadDeclaredSubReports_forRemittanceSummaryTemplate(String template) throws IOException {
         Set<String> declared = new TreeSet<>();

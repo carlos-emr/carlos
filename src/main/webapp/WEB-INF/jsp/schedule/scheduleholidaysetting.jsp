@@ -56,7 +56,7 @@
 
 %>
 <%@ page
-        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*"
+        import="java.util.*, io.github.carlos_emr.*, java.lang.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -68,7 +68,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleHoliday" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleHolidayDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+
 <%
     ScheduleHolidayDao scheduleHolidayDao = SpringUtils.getBean(ScheduleHolidayDao.class);
     ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());

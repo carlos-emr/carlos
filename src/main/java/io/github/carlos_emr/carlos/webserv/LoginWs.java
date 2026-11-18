@@ -67,7 +67,7 @@ public class LoginWs extends AbstractWs {
      */
     @Deprecated
     public LoginResultTransfer login(String userName, String password) throws NotAuthorisedException {
-        logger.info("Login attempt : user=" + userName);
+        logger.info("SOAP login attempt");
 
         List<Security> securities = securityDao.findByUserName(userName);
         Security security = null;
@@ -93,7 +93,7 @@ public class LoginWs extends AbstractWs {
      * @throws NotAuthorisedException if password is incorrect
      */
     public LoginResultTransfer2 login2(String userName, String password) throws NotAuthorisedException {
-        logger.info("Login attempt : user=" + userName);
+        logger.info("SOAP login attempt");
 
         List<Security> securities = securityDao.findByUserName(userName);
         Security security = null;

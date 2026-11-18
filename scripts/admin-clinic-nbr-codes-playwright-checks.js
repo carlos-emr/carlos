@@ -15,6 +15,7 @@
  * the marker). clinic_nbr is snapshotted byte-exact before the first click; cleanup deletes the
  * rows the run added and puts every other row back exactly. EXCLUSIVE=1: the codes are clinic-wide.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { openAdminPage, reopenAdminPage } = require('./lib/admin-frame');
@@ -83,7 +84,7 @@ async function workflow(s) {
   await s.step('a GET carrying an add is refused with 405 and stores nothing', async () => {
     const count = sql.value('SELECT COUNT(*) FROM clinic_nbr');
     const params = new URLSearchParams({ method: 'add', nbr: `${code}9`, nbrDesc: `${marker} via GET` });
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, `/${ACTION}?${params}`), { maxRedirects: 0 });
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, `/${ACTION}?${params}`), { maxRedirects: 0 });
     h.assert(response.status() === 405, `A GET add answered ${response.status()}, not 405`);
     h.assert(sql.value('SELECT COUNT(*) FROM clinic_nbr') === count, 'A refused GET stored a code');
   });

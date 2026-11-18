@@ -211,4 +211,14 @@
         <function-signature>java.lang.String forJava(java.lang.String)</function-signature>
     </function>
 
+    <function>
+        <name>tableSortType</name>
+        <function-class>io.github.carlos_emr.carlos.utility.TableSortValues</function-class>
+        <function-signature>java.lang.String type(java.lang.Object)</function-signature>
+    </function>
+    <function>
+        <name>tableSortValue</name>
+        <function-class>io.github.carlos_emr.carlos.utility.TableSortValues</function-class>
+        <function-signature>java.lang.String value(java.lang.Object)</function-signature>
+    </function>
 </taglib>

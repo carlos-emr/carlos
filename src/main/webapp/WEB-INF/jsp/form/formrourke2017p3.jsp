@@ -51,10 +51,10 @@
 %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
@@ -64,7 +64,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="prevention.reporting.calendar" var="rourkeCalendarLabel"/>
 <%@ taglib uri="/WEB-INF/rourke-tag.tld" prefix="rourke" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%

@@ -82,7 +82,6 @@
         String billingUrl = request.getContextPath() + "/billing?billRegion=BC&billForm="
             + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(oscarVariables.getProperty("default_view", ""))
             + "&hotclick=&appointment_no=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(apptNo)
-            + "&demographic_name=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(demoName)
             + "&status=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(apptStatus)
             + "&demographic_no=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(demoNo)
             + "&user_no=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(userno)

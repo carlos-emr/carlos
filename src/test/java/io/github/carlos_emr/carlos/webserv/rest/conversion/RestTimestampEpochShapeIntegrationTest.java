@@ -40,6 +40,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -61,6 +62,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("integration")
 @Tag("rest")
 @Transactional
+@ContextConfiguration(locations = "classpath:test-context-rest-timestamp.xml", inheritLocations = false)
 class RestTimestampEpochShapeIntegrationTest extends CarlosTestBase {
 
     private static final int DEMOGRAPHIC_NO = 38771;

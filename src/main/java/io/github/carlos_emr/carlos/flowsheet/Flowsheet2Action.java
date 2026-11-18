@@ -28,6 +28,8 @@
  */
 package io.github.carlos_emr.carlos.flowsheet;
 
+import io.github.carlos_emr.carlos.utility.ContentDigests;
+import io.github.carlos_emr.carlos.utility.LegacyXmlBeans;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
@@ -47,7 +49,6 @@ import java.util.UUID;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.xmlbeans.XmlOptions;
@@ -167,7 +168,7 @@ public class Flowsheet2Action extends ActionSupport {
 
     private FlowSheetUserCreated create(FlowSheetUserCreated fsuc) {
 
-        FlowsheetDocument fd = FlowsheetDocument.Factory.newInstance();
+        FlowsheetDocument fd = LegacyXmlBeans.newInstance(FlowsheetDocument.class, FlowsheetDocument.type);
         Flowsheet fs = fd.addNewFlowsheet();
         fs.setName(fsuc.getName());
         fs.setDsRules("");
@@ -220,7 +221,7 @@ public class Flowsheet2Action extends ActionSupport {
 
     private FlowSheetUserCreated create2(FlowSheetUserCreated fsuc, Flowsheet flowsheet) {
 
-        FlowsheetDocument fd = FlowsheetDocument.Factory.newInstance();
+        FlowsheetDocument fd = LegacyXmlBeans.newInstance(FlowsheetDocument.class, FlowsheetDocument.type);
         Flowsheet fs = fd.addNewFlowsheet();
         fs.setName(fsuc.getName());
         fs.setDsRules("");
@@ -350,7 +351,7 @@ public class Flowsheet2Action extends ActionSupport {
         FlowsheetDocument fd = null;
         Flowsheet flowsheet = null;
         try {
-            fd = FlowsheetDocument.Factory.parse(new StringReader(fsuc.getXmlContent()));
+            fd = LegacyXmlBeans.parse(FlowsheetDocument.class, FlowsheetDocument.type, new StringReader(fsuc.getXmlContent()));
             flowsheet = fd.getFlowsheet();
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -425,7 +426,7 @@ public class Flowsheet2Action extends ActionSupport {
         FlowsheetDocument fd = null;
         Flowsheet flowsheet = null;
         try {
-            fd = FlowsheetDocument.Factory.parse(new StringReader(fsuc.getXmlContent()));
+            fd = LegacyXmlBeans.parse(FlowsheetDocument.class, FlowsheetDocument.type, new StringReader(fsuc.getXmlContent()));
             flowsheet = fd.getFlowsheet();
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -644,7 +645,7 @@ public class Flowsheet2Action extends ActionSupport {
 
             try {
 
-                FlowsheetDocument fd = FlowsheetDocument.Factory.parse(new StringReader(fileData));
+                FlowsheetDocument fd = LegacyXmlBeans.parse(FlowsheetDocument.class, FlowsheetDocument.type, new StringReader(fileData));
                 Flowsheet flowsheet = fd.getFlowsheet();
 
 
@@ -701,7 +702,7 @@ public class Flowsheet2Action extends ActionSupport {
 
         if (fsuc != null) {
             try {
-                fd = FlowsheetDocument.Factory.parse(new StringReader(fsuc.getXmlContent()));
+                fd = LegacyXmlBeans.parse(FlowsheetDocument.class, FlowsheetDocument.type, new StringReader(fsuc.getXmlContent()));
                 flowsheet = fd.getFlowsheet();
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
@@ -769,7 +770,7 @@ public class Flowsheet2Action extends ActionSupport {
 
         if (fsuc != null) {
             try {
-                fd = FlowsheetDocument.Factory.parse(new StringReader(fsuc.getXmlContent()));
+                fd = LegacyXmlBeans.parse(FlowsheetDocument.class, FlowsheetDocument.type, new StringReader(fsuc.getXmlContent()));
                 flowsheet = fd.getFlowsheet();
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
@@ -793,7 +794,7 @@ public class Flowsheet2Action extends ActionSupport {
                     r.put("param", condition.getParam());
                     r.put("value", condition.getValue());
 
-                    String sha256hex = DigestUtils.sha256Hex(recommendation.getStrength() + ":" + condition.getType() + ":" + condition.getParam() + ":" + condition.getValue());
+                    String sha256hex = ContentDigests.sha256Hex(recommendation.getStrength() + ":" + condition.getType() + ":" + condition.getParam() + ":" + condition.getValue());
 
                     r.put("hash", sha256hex);
 
@@ -822,7 +823,7 @@ public class Flowsheet2Action extends ActionSupport {
 
         if (fsuc != null) {
             try {
-                fd = FlowsheetDocument.Factory.parse(new StringReader(fsuc.getXmlContent()));
+                fd = LegacyXmlBeans.parse(FlowsheetDocument.class, FlowsheetDocument.type, new StringReader(fsuc.getXmlContent()));
                 flowsheet = fd.getFlowsheet();
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
@@ -837,7 +838,7 @@ public class Flowsheet2Action extends ActionSupport {
                     for (int x = 0; x < rules.getRecommendationArray().length; x++) {
                         Recommendation r = rules.getRecommendationArray(x);
                         Condition condition = r.getCondition();
-                        String sha256hex = DigestUtils.sha256Hex(r.getStrength() + ":" + condition.getType() + ":" + condition.getParam() + ":" + condition.getValue());
+                        String sha256hex = ContentDigests.sha256Hex(r.getStrength() + ":" + condition.getType() + ":" + condition.getParam() + ":" + condition.getValue());
 
                         if (!hash.equals(sha256hex)) {
                             newRecs.add(r);
@@ -890,7 +891,7 @@ public class Flowsheet2Action extends ActionSupport {
 
         if (fsuc != null) {
             try {
-                fd = FlowsheetDocument.Factory.parse(new StringReader(fsuc.getXmlContent()));
+                fd = LegacyXmlBeans.parse(FlowsheetDocument.class, FlowsheetDocument.type, new StringReader(fsuc.getXmlContent()));
                 flowsheet = fd.getFlowsheet();
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
@@ -907,7 +908,7 @@ public class Flowsheet2Action extends ActionSupport {
 
                         for (int y = 0; y < r.getConditionArray().length; y++) {
 
-                            String sha256hex = DigestUtils.sha256Hex(r.getIndicationColor() + ":" + r.getConditionArray()[y].getType() + ":" + r.getConditionArray()[y].getParam() + ":" + r.getConditionArray()[y].getValue());
+                            String sha256hex = ContentDigests.sha256Hex(r.getIndicationColor() + ":" + r.getConditionArray()[y].getType() + ":" + r.getConditionArray()[y].getParam() + ":" + r.getConditionArray()[y].getValue());
 
                             if (hash.equals(sha256hex)) {
                                 r.removeCondition(y);
@@ -969,7 +970,7 @@ public class Flowsheet2Action extends ActionSupport {
 
         if (fsuc != null) {
             try {
-                fd = FlowsheetDocument.Factory.parse(new StringReader(fsuc.getXmlContent()));
+                fd = LegacyXmlBeans.parse(FlowsheetDocument.class, FlowsheetDocument.type, new StringReader(fsuc.getXmlContent()));
                 flowsheet = fd.getFlowsheet();
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
@@ -1007,7 +1008,7 @@ public class Flowsheet2Action extends ActionSupport {
 
         if (fsuc != null) {
             try {
-                fd = FlowsheetDocument.Factory.parse(new StringReader(fsuc.getXmlContent()));
+                fd = LegacyXmlBeans.parse(FlowsheetDocument.class, FlowsheetDocument.type, new StringReader(fsuc.getXmlContent()));
                 flowsheet = fd.getFlowsheet();
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
@@ -1033,7 +1034,7 @@ public class Flowsheet2Action extends ActionSupport {
                         r.put("param", c.getParam());
                         r.put("value", c.getValue());
 
-                        String sha256hex = DigestUtils.sha256Hex(rule.getIndicationColor() + ":" + c.getType() + ":" + c.getParam() + ":" + c.getValue());
+                        String sha256hex = ContentDigests.sha256Hex(rule.getIndicationColor() + ":" + c.getType() + ":" + c.getParam() + ":" + c.getValue());
 
                         r.put("hash", sha256hex);
 
@@ -1064,7 +1065,7 @@ public class Flowsheet2Action extends ActionSupport {
 
         if (fsuc != null) {
             try {
-                fd = FlowsheetDocument.Factory.parse(new StringReader(fsuc.getXmlContent()));
+                fd = LegacyXmlBeans.parse(FlowsheetDocument.class, FlowsheetDocument.type, new StringReader(fsuc.getXmlContent()));
                 flowsheet = fd.getFlowsheet();
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
@@ -1137,7 +1138,7 @@ public class Flowsheet2Action extends ActionSupport {
 
         if (fsuc != null) {
             try {
-                fd = FlowsheetDocument.Factory.parse(new StringReader(fsuc.getXmlContent()));
+                fd = LegacyXmlBeans.parse(FlowsheetDocument.class, FlowsheetDocument.type, new StringReader(fsuc.getXmlContent()));
                 flowsheet = fd.getFlowsheet();
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
@@ -1219,7 +1220,7 @@ public class Flowsheet2Action extends ActionSupport {
 
         if (fsuc != null) {
             try {
-                fd = FlowsheetDocument.Factory.parse(new StringReader(fsuc.getXmlContent()));
+                fd = LegacyXmlBeans.parse(FlowsheetDocument.class, FlowsheetDocument.type, new StringReader(fsuc.getXmlContent()));
                 flowsheet = fd.getFlowsheet();
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
@@ -1282,7 +1283,7 @@ public class Flowsheet2Action extends ActionSupport {
         FlowsheetDocument fd = null;
         Flowsheet flowsheet = null;
         try {
-            fd = FlowsheetDocument.Factory.parse(new StringReader(fsuc.getXmlContent()));
+            fd = LegacyXmlBeans.parse(FlowsheetDocument.class, FlowsheetDocument.type, new StringReader(fsuc.getXmlContent()));
             flowsheet = fd.getFlowsheet();
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -1358,7 +1359,7 @@ public class Flowsheet2Action extends ActionSupport {
         FlowsheetDocument fd = null;
         Flowsheet flowsheet = null;
         try {
-            fd = FlowsheetDocument.Factory.parse(new StringReader(fsuc.getXmlContent()));
+            fd = LegacyXmlBeans.parse(FlowsheetDocument.class, FlowsheetDocument.type, new StringReader(fsuc.getXmlContent()));
             flowsheet = fd.getFlowsheet();
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);

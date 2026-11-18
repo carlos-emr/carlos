@@ -28,6 +28,7 @@ import java.sql.Timestamp;
 import java.text.ParseException;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 import java.util.Map;
 import java.util.Properties;
 import java.util.ArrayList;
@@ -54,7 +55,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
-import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 /**
@@ -594,7 +594,7 @@ public class BillingCorrectionRecordService {
                         request.getParameter("provider_no")))
                 || (existObj.getLocation() != null && !existObj.getLocation()
                 .equals(request.getParameter("xml_slicode")))
-                || !StringUtils.nullSafeEquals(existObj.getClinic(),
+                || !Objects.equals(existObj.getClinic(),
                 request.getParameter("site"))
                 || (existObj.getProvince() != null && !existObj.getProvince()
                 .equals(request.getParameter("hc_type")))) {

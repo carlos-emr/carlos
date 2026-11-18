@@ -1,0 +1,66 @@
+<?xml version="1.0" standalone="yes"?>
+<xs:schema version="1.0" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:complexType name="drugTransfer">
+    <xs:sequence>
+      <xs:element name="archived" type="xs:boolean"/>
+      <xs:element name="archivedDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="archivedReason" type="xs:string" minOccurs="0"/>
+      <xs:element name="atc" type="xs:string" minOccurs="0"/>
+      <xs:element name="brandName" type="xs:string" minOccurs="0"/>
+      <xs:element name="comment" type="xs:string" minOccurs="0"/>
+      <xs:element name="createDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="customInstructions" type="xs:boolean"/>
+      <xs:element name="customName" type="xs:string" minOccurs="0"/>
+      <xs:element name="customNote" type="xs:boolean" minOccurs="0"/>
+      <xs:element name="demographicId" type="xs:int" minOccurs="0"/>
+      <xs:element name="dispenseInterval" type="xs:string" minOccurs="0"/>
+      <xs:element name="dosage" type="xs:string" minOccurs="0"/>
+      <xs:element name="drugForm" type="xs:string" minOccurs="0"/>
+      <xs:element name="durUnit" type="xs:string" minOccurs="0"/>
+      <xs:element name="duration" type="xs:string" minOccurs="0"/>
+      <xs:element name="endDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="freqCode" type="xs:string" minOccurs="0"/>
+      <xs:element name="gcnSeqNo" type="xs:int"/>
+      <xs:element name="genericName" type="xs:string" minOccurs="0"/>
+      <xs:element name="hideFromCpp" type="xs:boolean"/>
+      <xs:element name="hideFromDrugProfile" type="xs:boolean" minOccurs="0"/>
+      <xs:element name="id" type="xs:int" minOccurs="0"/>
+      <xs:element name="lastRefillDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="lastUpdateDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="longTerm" type="xs:boolean" minOccurs="0"/>
+      <xs:element name="method" type="xs:string" minOccurs="0"/>
+      <xs:element name="noSubs" type="xs:boolean"/>
+      <xs:element name="nonAuthoritative" type="xs:boolean" minOccurs="0"/>
+      <xs:element name="outsideProviderName" type="xs:string" minOccurs="0"/>
+      <xs:element name="outsideProviderOhip" type="xs:string" minOccurs="0"/>
+      <xs:element name="pastMed" type="xs:boolean"/>
+      <xs:element name="patientCompliance" type="xs:boolean" minOccurs="0"/>
+      <xs:element name="pickupDateTime" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="position" type="xs:int" minOccurs="0"/>
+      <xs:element name="priorRxProtocol" type="xs:string" minOccurs="0"/>
+      <xs:element name="prn" type="xs:boolean"/>
+      <xs:element name="protocol" type="xs:string" minOccurs="0"/>
+      <xs:element name="providerNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="quantity" type="xs:string" minOccurs="0"/>
+      <xs:element name="refillDuration" type="xs:int" minOccurs="0"/>
+      <xs:element name="refillQuantity" type="xs:int" minOccurs="0"/>
+      <xs:element name="regionalIdentifier" type="xs:string" minOccurs="0"/>
+      <xs:element name="repeat" type="xs:int" minOccurs="0"/>
+      <xs:element name="route" type="xs:string" minOccurs="0"/>
+      <xs:element name="rxDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="rxStatus" type="xs:string" minOccurs="0"/>
+      <xs:element name="scriptNo" type="xs:int" minOccurs="0"/>
+      <xs:element name="special" type="xs:string" minOccurs="0"/>
+      <xs:element name="special_instruction" type="xs:string" minOccurs="0"/>
+      <xs:element name="startDateUnknown" type="xs:boolean"/>
+      <xs:element name="takeMax" type="xs:float"/>
+      <xs:element name="takeMin" type="xs:float"/>
+      <xs:element name="unit" type="xs:string" minOccurs="0"/>
+      <xs:element name="unitName" type="xs:string" minOccurs="0"/>
+      <xs:element name="writtenDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="eTreatmentType" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>
+

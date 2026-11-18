@@ -12,16 +12,19 @@
  * regression in one would not show there.
  *
  * Asserts, per box: the casemgmt_note row (exact text, signed, not archived), its link to the box's
- * own issue code (casemgmt_issue_notes -> issue.code), one casemgmt_note_ext row per field the box
- * shows (exact keys and values, dates stored as dates), and that the box lists the item. Then, on
- * Medical History: reopening prefills every field; editing keeps the SAME note id, replaces the text
- * and the changed field without duplicating a single extension row; Archive flags the note and the
- * box stops listing it; the issue history popup lists the saved text; the chart print with the CPP icon on
- * (pdftotext) lists the active items of every box, leaves out the Family History item flagged Hide in CPP
- * and, after the Archive, the archived Medical History item.
+ * own issue code (casemgmt_issue_notes -> issue.code), exactly one casemgmt_note_ext row per field
+ * filled in (exact keys and values, dates stored as dates) and none for a field left blank or hidden
+ * (#5365: the editor posts every input, and empty ones used to be stored as empty rows), and that the
+ * box lists the item. Then, on Medical History: reopening prefills every field; an edit saves a NEW
+ * revision (#4641: same uuid, higher note id) that carries the new text and the changed field once,
+ * while the earlier revision keeps its text and rows; Archive saves an archived revision with the same
+ * rows and the box stops listing it; the issue history popup lists the saved text; the chart print with
+ * the CPP icon on (pdftotext) lists the active items of every box, leaves out the Family History item
+ * flagged Hide in CPP and, after the Archive, the archived Medical History item.
  *
- * Fixtures: the owned FAKE-PW patient (runWorkflow). Every note, link, extension, casemgmt_issue,
- * casemgmt_cpp and eChart row of that patient is deleted in cleanup and asserted gone.
+ * Fixtures: the owned FAKE-PW patient (runWorkflow). Every note, link, extension, signature
+ * (hash_audit), casemgmt_issue, casemgmt_cpp and eChart row of that patient is deleted in cleanup and
+ * asserted gone.
  * Coverage plan §2.5 cpp-boxes (gap-clinical).
  */
 const h = require('./lib/playwright-harness');
@@ -92,6 +95,13 @@ async function workflow(s) {
   const owned = `SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient}`;
   const noteCount = () => sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`);
   s.cleanup(() => {
+    // A signed save hashes the note into hash_audit (type 'enc', the note id in `id`), one row per
+    // revision. The ids are read before the notes go, so the closing count still names them; they
+    // are bound, not spliced into the statement.
+    const noteIds = sql.rows(owned).map(([id]) => Number(id));
+    h.assert(noteIds.every(id => Number.isSafeInteger(id) && id > 0), 'An owned note id was not numeric');
+    const signatures = `FROM hash_audit WHERE type='enc' AND id IN (${noteIds.map(() => '?').join(',') || 'NULL'})`;
+    sql.execute(`DELETE ${signatures}`, noteIds);
     sql.execute(`DELETE FROM casemgmt_issue_notes WHERE note_id IN (${owned});
       DELETE FROM casemgmt_note_ext WHERE note_id IN (${owned});
       DELETE FROM casemgmt_note_link WHERE note_id IN (${owned});
@@ -99,6 +109,7 @@ async function workflow(s) {
       DELETE FROM casemgmt_issue WHERE demographic_no=${patient};
       DELETE FROM casemgmt_cpp WHERE demographic_no=${patient};
       DELETE FROM eChart WHERE demographicNo=${patient}`);
+    h.assert(sql.value(`SELECT COUNT(*) ${signatures}`, noteIds) === '0', 'Owned CPP signature rows were not removed');
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM casemgmt_issue WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM casemgmt_cpp WHERE demographic_no=${patient})`) === '0', 'Owned CPP rows were not removed');
@@ -138,6 +149,20 @@ async function workflow(s) {
   const extRows = id => sql.rows(`SELECT key_val, COALESCE(NULLIF(value,''), date_value) FROM casemgmt_note_ext
     WHERE note_id=${id} ORDER BY key_val`).map(r => r.join('='));
 
+  // A CPP edit, Hide in CPP and Archive each save a NEW revision row (#4641) under the item's uuid
+  // rather than rewriting the row they opened; the box lists the newest one.
+  const latestRevision = id => sql.value(`SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient}
+    AND uuid=(SELECT uuid FROM casemgmt_note WHERE note_id=${id}) ORDER BY note_id DESC LIMIT 1`);
+  const revisionCount = id => sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}
+    AND uuid=(SELECT uuid FROM casemgmt_note WHERE note_id=${id})`);
+  /** Waits for the save that opened at `id` to commit its revision, and returns the new note id. */
+  async function nextRevision(id, what) {
+    await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}
+      AND uuid=(SELECT uuid FROM casemgmt_note WHERE note_id=${id}) AND note_id>${id}`, '1',
+    `${what} did not save exactly one new revision of the item`);
+    return latestRevision(id);
+  }
+
   const expectedExt = box => [
     ...Object.values(box.fields), ...Object.values(box.select),
   ].map(([key, value]) => `${key}=${value}`).sort();
@@ -173,9 +198,10 @@ async function workflow(s) {
   const medical = BOXES[0];
   const medId = () => noteIdFor(texts[medical.code]);
 
-  await s.step('reopening an item prefills every field, and an edit keeps the note id and every extension row once', async () => {
+  await s.step('reopening an item prefills every field, and an edit saves one new revision carrying every extension row once', async () => {
     const id = medId();
     const before = noteCount();
+    const originalRows = extRows(id);
     await chart.locator(`${medical.container} a[onclick*="noteId=${id}"]`).first().click();
     await dialog.waitFor({state: 'visible'});
     const shown = await chart.evaluate(({fields, selects}) => ({
@@ -195,12 +221,21 @@ async function workflow(s) {
     await button('Sign & Save').click();
     h.assert((await arrived).status() < 400, 'Saving the edit failed');
     await dialog.waitFor({state: 'hidden', timeout: 10000});
-    await expectValue(sql, `SELECT note FROM casemgmt_note WHERE note_id=${id}`, texts.edited,
-      'The edit did not update the same note row');
-    h.assert(noteCount() === before, 'The edit created another note instead of updating the item');
-    const rows = extRows(id);
-    h.assert(rows.length === 7 && rows.includes('Problem Status=PWRelapsed') && !rows.includes('Problem Status=PWResolved'),
-      `After the edit the extension rows are ${JSON.stringify(rows)}; each key must exist exactly once with the new status`);
+    const revised = await nextRevision(id, 'The edit');
+    await expectValue(sql, `SELECT note FROM casemgmt_note WHERE note_id=${revised}`, texts.edited,
+      'The edit did not store the new text on the new revision');
+    h.assert(noteCount() === String(Number(before) + 1), 'The edit saved other notes besides one revision of the item');
+    h.assert(sql.value(`SELECT note FROM casemgmt_note WHERE note_id=${id}`) === texts[medical.code],
+      'The edit rewrote the earlier revision instead of keeping it as history');
+    const wanted = expectedExt(medical).map(row => row === 'Problem Status=PWResolved' ? 'Problem Status=PWRelapsed' : row).sort();
+    const rows = extRows(revised).map(row => row.replace(/ 00:00:00$/, '')).sort();
+    h.assert(JSON.stringify(rows) === JSON.stringify(wanted),
+      `After the edit the extension rows are ${JSON.stringify(rows)}; wanted each filled field exactly once, `
+      + `with the new status and no blank field: ${JSON.stringify(wanted)}`);
+    h.assert(JSON.stringify(extRows(id)) === JSON.stringify(originalRows),
+      'The edit changed the extension rows of the earlier revision');
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_issue_notes WHERE note_id=${revised}`) === '1',
+      'The new revision is not linked to exactly its own issue');
   });
 
   await s.step('the box title opens the issue history listing the saved item', async () => {
@@ -213,7 +248,7 @@ async function workflow(s) {
     await history.close();
   });
 
-  await s.step('Family History "Hide in CPP = Yes" is stored on the note without archiving it', async () => {
+  await s.step('Family History "Hide in CPP = Yes" is stored on the item without archiving it', async () => {
     const family = BOXES[3];
     const id = noteIdFor(texts[family.code]);
     await chart.locator(`${family.container} a[onclick*="noteId=${id}"]`).first().click();
@@ -222,9 +257,15 @@ async function workflow(s) {
     const arrived = chart.waitForResponse(isNoteSave, {timeout: 20000});
     await button('Sign & Save').click();
     h.assert((await arrived).status() < 400, 'Saving Hide in CPP answered an error');
-    await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note_ext WHERE note_id=${id} AND key_val='Hide Cpp' AND value='1'`,
-      '1', 'Hide in CPP was not stored on the note');
-    h.assert(sql.value(`SELECT archived FROM casemgmt_note WHERE note_id=${id}`) === '0', 'Hiding archived the note');
+    await dialog.waitFor({state: 'hidden', timeout: 10000});
+    const hidden = await nextRevision(id, 'Hide in CPP');
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note_ext WHERE note_id=${hidden} AND key_val='Hide Cpp' AND value='1'`) === '1',
+      'Hide in CPP was not stored on the item');
+    const wanted = [...expectedExt(family), 'Hide Cpp=1'].sort();
+    const rows = extRows(hidden).map(row => row.replace(/ 00:00:00$/, '')).sort();
+    h.assert(JSON.stringify(rows) === JSON.stringify(wanted),
+      `Family History: after Hide in CPP the extension rows are ${JSON.stringify(rows)}, wanted ${JSON.stringify(wanted)}`);
+    h.assert(sql.value(`SELECT archived FROM casemgmt_note WHERE note_id=${hidden}`) === '0', 'Hiding archived the item');
   });
 
   const scratch = print.scratchDir();
@@ -247,15 +288,22 @@ async function workflow(s) {
     h.assert(!text.includes(texts.FamHistory), 'The CPP print carries the Family History item that is flagged Hide in CPP');
   });
 
-  await s.step('Archive removes the item from the box and flags the note archived', async () => {
+  await s.step('Archive removes the item from the box and saves an archived revision with the same rows', async () => {
     const id = medId();
+    const rowsBefore = extRows(id);
+    const revisionsBefore = Number(revisionCount(id));
     await chart.locator(`${medical.container} a[onclick*="noteId=${id}"]`).first().click();
     await dialog.waitFor({state: 'visible'});
     const arrived = chart.waitForResponse(isNoteSave, {timeout: 20000});
     await button('Archive').click();
     h.assert((await arrived).status() < 400, 'Archive answered an error');
-    await expectValue(sql, `SELECT archived FROM casemgmt_note WHERE note_id=${id}`, '1', 'Archive did not flag the note');
-    h.assert(extRows(id).length === 7, 'Archive changed the extension rows');
+    const archived = await nextRevision(id, 'Archive');
+    await expectValue(sql, `SELECT archived FROM casemgmt_note WHERE note_id=${archived}`, '1', 'Archive did not flag the item archived');
+    h.assert(sql.value(`SELECT archived FROM casemgmt_note WHERE note_id=${id}`) === '0',
+      'Archive rewrote the earlier revision instead of saving a new one');
+    h.assert(Number(revisionCount(id)) === revisionsBefore + 1, 'Archive saved more than one revision');
+    h.assert(JSON.stringify(extRows(archived)) === JSON.stringify(rowsBefore),
+      `Archive changed the extension rows: ${JSON.stringify(extRows(archived))} after ${JSON.stringify(rowsBefore)}`);
     await chart.waitForFunction(({selector, text}) => !document.querySelector(selector).innerText.includes(text),
       {selector: medical.container, text: texts.edited}, {timeout: 15000})
       .catch(() => { throw new Error('The archived item is still listed in the Medical History box'); });

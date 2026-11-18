@@ -29,9 +29,9 @@
 
 --%>
 <!DOCTYPE html>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetUserCreatedDao" %>
+
+
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -48,12 +48,12 @@
 %>
 
 
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>

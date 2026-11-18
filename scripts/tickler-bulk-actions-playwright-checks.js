@@ -7,7 +7,15 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { waitForTicklerTable } = require('./tickler-forward-filters-playwright-checks');
+const { withTicklerConfirmations } = require('./lib/tickler-confirmation');
 
+/**
+ * Drives the main task list's bulk actions (Check All, Clear All, Complete, reactivation and Delete, which
+ * asks for one native confirmation, #5683) against four owned tasks and checks that only the ticked ids are
+ * posted. The tasks are removed and verified gone.
+ *
+ * @param {object} s the workflow session from lib/workflow-session.js (patient, marker, sql, steps)
+ */
 async function workflow(s) {
   const manualRefresh = process.env.TICKLER_BULK_ONLY === 'state-actions';
   h.assert(!process.env.TICKLER_BULK_ONLY || manualRefresh, 'TICKLER_BULK_ONLY must be state-actions when set');
@@ -55,12 +63,23 @@ async function workflow(s) {
     }
     await waitForTicklerTable(list);
   }
+  /**
+   * Clicks Complete or Delete on the main task list and checks the posted form carries exactly the
+   * ticked ids and a CSRF token. Delete raises one native confirmation that is accepted; Complete none.
+   *
+   * @param {'Complete'|'Delete'} action the button to press
+   * @param {string[]} selected the task ids that must be in the POST
+   */
   async function submit(action, selected) {
-    const [response] = await Promise.all([
-      list.waitForResponse(r => r.request().method() === 'POST' && h.pathOnly(r.url()).endsWith('/tickler/DbTicklerMain')),
-      list.waitForNavigation({ waitUntil: 'domcontentloaded' }),
-      button(action).click(),
-    ]);
+    // Delete asks for confirmation (#5683) and Complete does not; the helper answers it and counts it.
+    let response;
+    await withTicklerConfirmations(list, action === 'Delete' ? 1 : 0, async () => {
+      [response] = await Promise.all([
+        list.waitForResponse(r => r.request().method() === 'POST' && h.pathOnly(r.url()).endsWith('/tickler/DbTicklerMain')),
+        list.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+        button(action).click(),
+      ]);
+    });
     h.assert(response.status() < 400, `${action} answered HTTP ${response.status()}`);
     const form = new URLSearchParams(response.request().postData());
     h.assert(JSON.stringify(form.getAll('checkbox').sort()) === JSON.stringify([...selected].sort()),
