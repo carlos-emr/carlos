@@ -155,6 +155,7 @@ public class ConfigureFax2Action extends ActionSupport {
             FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
             List<FaxConfig> savedFaxConfigList = faxConfigDao.findAll(null, null);
             List<FaxConfig> faxConfigList = new ArrayList<FaxConfig>();
+            List<Integer> failedBackoffResets = new ArrayList<>();
 
             String faxUrl = request.getParameter("faxUrl");
             String siteUser = request.getParameter("siteUser");
@@ -275,7 +276,14 @@ public class ConfigureFax2Action extends ActionSupport {
 
                 for (FaxConfig faxConfig1 : faxConfigList) {
                     faxConfigDao.saveEntity(faxConfig1);
-                    resetPollingBackoff(faxConfig1.getId());
+                    Integer accountId = faxConfig1.getId();
+                    try {
+                        resetPollingBackoff(accountId);
+                    } catch (RuntimeException failure) {
+                        failedBackoffResets.add(accountId);
+                        MiscUtils.getLogger().warn("Fax polling retry reset failed for account {} ({})",
+                                accountId, failure.getClass().getSimpleName());
+                    }
                 }
 
                 for (FaxConfig faxConfig2 : savedFaxConfigList) {
@@ -309,7 +317,9 @@ public class ConfigureFax2Action extends ActionSupport {
 
             jsonObject = objectMapper.createObjectNode();
             jsonObject.put("success", true);
-            jsonObject.put("message", "Configuration saved!");
+            String backoffWarning = failedBackoffResets.isEmpty() ? ""
+                    : " Fax polling retry reset failed for account IDs " + failedBackoffResets + ".";
+            jsonObject.put("message", "Configuration saved!" + backoffWarning);
 
             // Auto-start scheduler if any active config exists and scheduler isn't running
             try {
@@ -320,7 +330,7 @@ public class ConfigureFax2Action extends ActionSupport {
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Failed to auto-start fax scheduler after config save ({})", e.getClass().getSimpleName());
                 jsonObject.put("message", "Configuration saved, but fax scheduler failed to start. "
-                        + "Use the Restart button to start it manually.");
+                        + "Use the Restart button to start it manually." + backoffWarning);
             }
         } catch (ConfigurationValidationException ex) {
             // Only messages authored by this action's validators are safe to expose.
