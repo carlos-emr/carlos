@@ -31,10 +31,10 @@ SENTINEL = ".lab-measurement-filter-migrated"
 KEY = "HL7_LAB_MEASUREMENT_FILTER="
 
 
-def metadata_preservation_function(text):
-    function = re.search(r'^        preserve_lab_filter_metadata\(\) \{.*?^        \}\n', text, re.S | re.M)
+def locked_rewrite_function(text):
+    function = re.search(r'^        migrate_lab_filter\(\) \{.*?^        \}\n', text, re.S | re.M)
     if not function:
-        raise AssertionError("no preserve_lab_filter_metadata function in carlos-emr.postinst")
+        raise AssertionError("no migrate_lab_filter function in carlos-emr.postinst")
     return function.group(0)
 
 
@@ -47,7 +47,7 @@ def migration_block():
         raise AssertionError(
             "no LAB_FILTER_SENTINEL block in carlos-emr.postinst -- this "
             "contract has lost its subject")
-    return metadata_preservation_function(text) + m.group(0)
+    return locked_rewrite_function(text) + m.group(0)
 
 
 def old_line():
@@ -197,12 +197,12 @@ class TestLabFilterMigration(unittest.TestCase):
                          "before=1\n{0}\n".format(shipped_line()))
 
     def test_keeps_the_file_and_fails_when_the_rewrite_fails(self):
-        # A failed copy must keep the original and leave the migration eligible to retry.
+        # A failed rewrite must leave the migration eligible to retry.
         bin_dir = Path(self.tmp.name) / "bin"
         bin_dir.mkdir()
-        cp = bin_dir / "cp"
-        cp.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
-        cp.chmod(0o755)
+        python = bin_dir / "python3"
+        python.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+        python.chmod(0o755)
         self.write_properties("before=1", old_line())
         before = self.properties.read_bytes()
 

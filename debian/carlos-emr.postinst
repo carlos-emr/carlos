@@ -1094,28 +1094,80 @@ OAUTH_ACCESS_DEFAULTS
         # is written on fresh installs too, so a value set later is never
         # rewritten). Not gated on $2, for the purge-then-reinstall reason given
         # there. The new line is the skeleton's, so the /etc copy and the WAR
-        # default cannot disagree. The line is full of regex and sed
-        # metacharacters, so it is matched and replaced as a FIXED string (grep
-        # -F, awk ENVIRON, which unlike awk -v unfolds no backslash), never as
-        # a pattern, and the rewrite goes through a temporary file renamed over
-        # the original after checking its owner, mode, ACL and extended attributes.
+        # default cannot disagree. Match the stock line as bytes under the same
+        # POSIX record lock as CarlosProperties. Update the opened inode so
+        # managed links, metadata, and writers waiting on the lock stay attached.
         # scripts/deb-upgrade-verify.sh holds the old line's digest
         # (LAB_FILTER_OLD_SHA); scripts/deb-upgrade-snapshot.test.js and
         # debian/assets/tests/test_lab_filter_migration.py hold them together.
-        preserve_lab_filter_metadata() {
-            cp --attributes-only --preserve=mode,ownership,xattr -- "$1" "$2" || return
-            python3 - "$1" "$2" <<'PY'
+        migrate_lab_filter() {
+            python3 - "$1" "$2" "$3" "$4" <<'PY'
+import errno
+import fcntl
 import os
+import re
 import stat
 import sys
 
-def metadata(path):
-    entry = os.stat(path)
-    attributes = {name: os.getxattr(path, name) for name in os.listxattr(path)}
-    return entry.st_uid, entry.st_gid, stat.S_IMODE(entry.st_mode), attributes
+path, old, new, marker = map(os.fsencode, sys.argv[1:])
+# Properties accepts an indented key and '=', ':' or whitespace as separators.
+definition = re.compile(rb"^\s*HL7_LAB_MEASUREMENT_FILTER(?:[\s=:]|$)")
 
-if metadata(sys.argv[1]) != metadata(sys.argv[2]):
-    sys.exit('the staged configuration metadata differs from the original')
+def open_configuration():
+    try:
+        return os.open(path, os.O_RDWR | os.O_NONBLOCK), "r+b"
+    except OSError as error:
+        if error.errno not in (errno.EACCES, errno.EPERM, errno.EROFS):
+            raise
+        return os.open(path, os.O_RDONLY | os.O_NONBLOCK), "rb"
+
+def write_configuration(configuration, content):
+    configuration.seek(0)
+    configuration.write(content)
+    configuration.flush()
+    configuration.truncate(len(content))
+    os.fsync(configuration.fileno())
+
+def migrate():
+    try:
+        fd, mode = open_configuration()
+    except FileNotFoundError:
+        if os.path.lexists(path):
+            raise
+        return "unchanged"
+    with os.fdopen(fd, mode) as configuration:
+        opened = os.fstat(fd)
+        if not stat.S_ISREG(opened.st_mode):
+            raise OSError("the configuration target is not a regular file")
+        writable = mode == "r+b"
+        fcntl.lockf(configuration, fcntl.LOCK_EX if writable else fcntl.LOCK_SH)
+        if not os.path.samestat(opened, os.stat(path)):
+            raise OSError("the configuration target changed while waiting for its lock")
+        original = configuration.read()
+        lines = original.split(b"\n")
+        definitions = [index for index, line in enumerate(lines) if definition.match(line)]
+        if old != new and len(definitions) == 1 and lines[definitions[0]] == old:
+            if not writable:
+                raise OSError("the configuration target is read-only")
+            lines[definitions[0]] = new
+            updated = b"\n".join(lines)
+            if not updated.endswith(b"\n"):
+                updated += b"\n"
+            try:
+                write_configuration(configuration, updated)
+                if not os.path.samestat(opened, os.stat(path)):
+                    raise OSError("the configuration target changed during the update")
+            except (OSError, KeyboardInterrupt):
+                write_configuration(configuration, original)
+                raise
+            return "updated"
+        return "custom" if definitions and marker in lines[definitions[-1]] else "unchanged"
+
+try:
+    print(migrate())
+except OSError as error:
+    print(str(error), file=sys.stderr)
+    sys.exit(1)
 PY
         }
 
@@ -1126,9 +1178,6 @@ PY
             if [ "$(grep -c '^HL7_LAB_MEASUREMENT_FILTER=' "${SHARE}/skel/carlos.properties" 2>/dev/null || true)" = 1 ]; then
                 LAB_FILTER_NEW="$(grep '^HL7_LAB_MEASUREMENT_FILTER=' "${SHARE}/skel/carlos.properties")"
             fi
-            # A definition in java.util.Properties syntax: the key, indented or
-            # not, then '=', ':' or whitespace (or nothing, an empty value).
-            LAB_FILTER_KEY_RE='^[[:space:]]*HL7_LAB_MEASUREMENT_FILTER([[:space:]=:]|$)'
             if [ -z "${LAB_FILTER_NEW}" ] || [ "${LAB_FILTER_NEW}" = "HL7_LAB_MEASUREMENT_FILTER=" ]; then
                 # A skeleton without exactly one definition, or with an empty one
                 # (which would file every result as an empty value), is a broken
@@ -1136,23 +1185,13 @@ PY
                 # retries.
                 echo "carlos-emr: WARNING: ${SHARE}/skel/carlos.properties does not define one non-empty HL7_LAB_MEASUREMENT_FILTER; ${PROPERTIES} left as it is" >&2
             else
-                if [ -f "${PROPERTIES}" ] && [ "${LAB_FILTER_NEW}" != "${LAB_FILTER_OLD}" ] \
-                    && [ "$(grep -cE "${LAB_FILTER_KEY_RE}" "${PROPERTIES}" || true)" = 1 ] \
-                    && grep -qxF -e "${LAB_FILTER_OLD}" "${PROPERTIES}"; then
-                    lab_filter_tmp="$(mktemp "${PROPERTIES}.XXXXXX")"
-                    if LAB_FILTER_OLD="${LAB_FILTER_OLD}" LAB_FILTER_NEW="${LAB_FILTER_NEW}" \
-                            awk '$0 == ENVIRON["LAB_FILTER_OLD"] { print ENVIRON["LAB_FILTER_NEW"]; next } { print }' \
-                            "${PROPERTIES}" > "${lab_filter_tmp}" \
-                        && preserve_lab_filter_metadata "${PROPERTIES}" "${lab_filter_tmp}" \
-                        && mv -f "${lab_filter_tmp}" "${PROPERTIES}"; then
-                        echo "carlos-emr: corrected the stock HL7_LAB_MEASUREMENT_FILTER, which filed lab results of five or more digits and signs as their first four characters (#4613)"
-                    else
-                        rm -f "${lab_filter_tmp}"
-                        echo "carlos-emr: ERROR: could not rewrite HL7_LAB_MEASUREMENT_FILTER in ${PROPERTIES}" >&2
-                        exit 1
-                    fi
-                elif [ -f "${PROPERTIES}" ] \
-                    && grep -E "${LAB_FILTER_KEY_RE}" "${PROPERTIES}" | tail -n 1 | grep -qF -e '[+-\\?]{1,4}'; then
+                if ! lab_filter_status="$(migrate_lab_filter "${PROPERTIES}" "${LAB_FILTER_OLD}" "${LAB_FILTER_NEW}" '[+-\\?]{1,4}')"; then
+                    echo "carlos-emr: ERROR: could not rewrite HL7_LAB_MEASUREMENT_FILTER in ${PROPERTIES}; fix the configuration target, then run sudo dpkg --configure -a" >&2
+                    exit 1
+                fi
+                if [ "${lab_filter_status}" = "updated" ]; then
+                    echo "carlos-emr: corrected the stock HL7_LAB_MEASUREMENT_FILTER, which filed lab results of five or more digits and signs as their first four characters (#4613)"
+                elif [ "${lab_filter_status}" = "custom" ]; then
                     # Not the exact stock line (CRLF endings, trailing blanks, an
                     # edited copy, a second definition), so it is the operator's to
                     # change, but the definition in effect (java.util.Properties
@@ -1179,8 +1218,7 @@ PY
         # the key is defined once, ONLY once (the sentinel is written on fresh
         # installs too). An install still on the pre-#4613 line was moved
         # straight to the skeleton's line above, so this finds nothing to do.
-        # The rewrite is the #4613 one: a fixed-string match, awk ENVIRON, and a
-        # temporary file renamed over the original after verifying its metadata.
+        # Use the same locked in-place rewrite as the #4613 migration.
         # scripts/deb-upgrade-verify.sh holds the #4613 line's digest
         # (LAB_FILTER_WORDS_OLD_SHA); scripts/deb-upgrade-snapshot.test.js and
         # debian/assets/tests/test_lab_filter_words_migration.py hold them together.
@@ -1191,29 +1229,18 @@ PY
             if [ "$(grep -c '^HL7_LAB_MEASUREMENT_FILTER=' "${SHARE}/skel/carlos.properties" 2>/dev/null || true)" = 1 ]; then
                 LAB_FILTER_WORDS_NEW="$(grep '^HL7_LAB_MEASUREMENT_FILTER=' "${SHARE}/skel/carlos.properties")"
             fi
-            LAB_FILTER_WORDS_KEY_RE='^[[:space:]]*HL7_LAB_MEASUREMENT_FILTER([[:space:]=:]|$)'
             if [ -z "${LAB_FILTER_WORDS_NEW}" ] || [ "${LAB_FILTER_WORDS_NEW}" = "HL7_LAB_MEASUREMENT_FILTER=" ]; then
                 # A broken build: rewrite nothing and write no sentinel, so a
                 # fixed package retries.
                 echo "carlos-emr: WARNING: ${SHARE}/skel/carlos.properties does not define one non-empty HL7_LAB_MEASUREMENT_FILTER; ${PROPERTIES} left as it is" >&2
             else
-                if [ -f "${PROPERTIES}" ] && [ "${LAB_FILTER_WORDS_NEW}" != "${LAB_FILTER_WORDS_OLD}" ] \
-                    && [ "$(grep -cE "${LAB_FILTER_WORDS_KEY_RE}" "${PROPERTIES}" || true)" = 1 ] \
-                    && grep -qxF -e "${LAB_FILTER_WORDS_OLD}" "${PROPERTIES}"; then
-                    lab_filter_words_tmp="$(mktemp "${PROPERTIES}.XXXXXX")"
-                    if LAB_FILTER_WORDS_OLD="${LAB_FILTER_WORDS_OLD}" LAB_FILTER_WORDS_NEW="${LAB_FILTER_WORDS_NEW}" \
-                            awk '$0 == ENVIRON["LAB_FILTER_WORDS_OLD"] { print ENVIRON["LAB_FILTER_WORDS_NEW"]; next } { print }' \
-                            "${PROPERTIES}" > "${lab_filter_words_tmp}" \
-                        && preserve_lab_filter_metadata "${PROPERTIES}" "${lab_filter_words_tmp}" \
-                        && mv -f "${lab_filter_words_tmp}" "${PROPERTIES}"; then
-                        echo "carlos-emr: updated the stock HL7_LAB_MEASUREMENT_FILTER, which filed a word at the start of a longer lab result, or a date found in it, as that result's value (\"No organisms seen\" as \"No\", \"Negative 2026-10-09\" as the date) (#6121)"
-                    else
-                        rm -f "${lab_filter_words_tmp}"
-                        echo "carlos-emr: ERROR: could not rewrite HL7_LAB_MEASUREMENT_FILTER in ${PROPERTIES}" >&2
-                        exit 1
-                    fi
-                elif [ -f "${PROPERTIES}" ] \
-                    && grep -E "${LAB_FILTER_WORDS_KEY_RE}" "${PROPERTIES}" | tail -n 1 | grep -qF -e '^\\b('; then
+                if ! lab_filter_status="$(migrate_lab_filter "${PROPERTIES}" "${LAB_FILTER_WORDS_OLD}" "${LAB_FILTER_WORDS_NEW}" '^\\b(')"; then
+                    echo "carlos-emr: ERROR: could not rewrite HL7_LAB_MEASUREMENT_FILTER in ${PROPERTIES}; fix the configuration target, then run sudo dpkg --configure -a" >&2
+                    exit 1
+                fi
+                if [ "${lab_filter_status}" = "updated" ]; then
+                    echo "carlos-emr: updated the stock HL7_LAB_MEASUREMENT_FILTER, which filed a word at the start of a longer lab result, or a date found in it, as that result's value (\"No organisms seen\" as \"No\", \"Negative 2026-10-09\" as the date) (#6121)"
+                elif [ "${lab_filter_status}" = "custom" ]; then
                     # Not the exact stock line, so it is the operator's to change,
                     # but the definition in effect (java.util.Properties keeps the
                     # last) still has a #4613-style word alternative (^\\b(word),

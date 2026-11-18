@@ -18,6 +18,7 @@ Run (from the repository root):
 """
 
 import errno
+import fcntl
 import os
 import re
 import stat
@@ -25,9 +26,10 @@ import struct
 import subprocess
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from test_lab_filter_migration import metadata_preservation_function
+from test_lab_filter_migration import locked_rewrite_function
 
 ROOT = Path(__file__).resolve().parents[3]
 POSTINST = ROOT / "debian" / "carlos-emr.postinst"
@@ -46,7 +48,7 @@ def migration_block():
         raise AssertionError(
             "no LAB_FILTER_WORDS_SENTINEL block in carlos-emr.postinst -- this "
             "contract has lost its subject")
-    return metadata_preservation_function(text) + m.group(0)
+    return locked_rewrite_function(text) + m.group(0)
 
 
 def old_line():
@@ -96,15 +98,15 @@ class TestLabFilterWordsMigration(unittest.TestCase):
         self.skel.write_text("other=stock\n{0}\n".format(shipped_line()),
                              encoding="utf-8")
 
-    def run_block(self, lock_held="1", path=None):
+    def run_block(self, lock_held="1", *, extra_env=None):
         env = dict(os.environ, PROVISION_LOCK_HELD=lock_held,
                    STATE=str(self.state), SHARE=str(self.share),
                    PROPERTIES=str(self.properties))
-        if path:
-            env["PATH"] = path + os.pathsep + env["PATH"]
+        if extra_env:
+            env.update(extra_env)
         return subprocess.run(["sh", "-c", "set -e\n" + migration_block()],
                               env=env, capture_output=True, text=True,
-                              check=False)
+                              check=False, timeout=10)
 
     def write_properties(self, *lines):
         self.properties.write_text("".join(l + "\n" for l in lines),
@@ -227,40 +229,78 @@ class TestLabFilterWordsMigration(unittest.TestCase):
         self.assertIn("still matches its words at the start of a result", result.stderr)
         self.assertTrue((self.state / SENTINEL).exists())
 
-    def test_keeps_the_file_and_fails_when_the_rewrite_fails(self):
-        bin_dir = Path(self.tmp.name) / "bin"
-        bin_dir.mkdir()
-        cp = bin_dir / "cp"
-        cp.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
-        cp.chmod(0o755)
+    def test_restores_the_inode_contents_when_sync_fails(self):
+        fixture = Path(self.tmp.name) / "python-fixture"
+        fixture.mkdir()
+        (fixture / "sitecustomize.py").write_text(
+            "import os\n"
+            "native_fsync = os.fsync\n"
+            "def fail_once(fd):\n"
+            "    os.fsync = native_fsync\n"
+            "    raise OSError('synthetic sync failure')\n"
+            "os.fsync = fail_once\n",
+            encoding="utf-8",
+        )
         self.write_properties("before=1", old_line())
         before = self.properties.read_bytes()
+        opened = self.properties.stat()
 
-        result = self.run_block(path=str(bin_dir))
+        result = self.run_block(extra_env={"PYTHONPATH": str(fixture)})
 
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertIn("could not rewrite HL7_LAB_MEASUREMENT_FILTER", result.stderr)
+        self.assertIn("synthetic sync failure", result.stderr)
         self.assertEqual(self.properties.read_bytes(), before)
+        self.assertTrue(os.path.samestat(opened, self.properties.stat()))
         self.assertEqual(list(self.etc.iterdir()), [self.properties],
                          "the temporary file is left behind")
         self.assertFalse((self.state / SENTINEL).exists())
 
-    def test_keeps_the_original_when_metadata_verification_fails(self):
-        bin_dir = Path(self.tmp.name) / "bin"
-        bin_dir.mkdir()
-        cp = bin_dir / "cp"
-        cp.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-        cp.chmod(0o755)
+    def test_updates_the_target_of_a_managed_symlink(self):
         self.write_properties(old_line())
-        before = self.properties.read_bytes()
+        managed = self.etc / "clinic.properties"
+        self.properties.rename(managed)
+        self.properties.symlink_to(managed.name)
+        opened = managed.stat()
 
-        result = self.run_block(path=str(bin_dir))
+        result = self.run_block()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.properties.readlink(), Path(managed.name))
+        self.assertTrue(os.path.samestat(opened, managed.stat()))
+        self.assertEqual(managed.read_text(encoding="utf-8"), shipped_line() + "\n")
+        self.assertTrue((self.state / SENTINEL).exists())
+
+    def test_leaves_a_dangling_managed_link_eligible_for_retry(self):
+        self.properties.symlink_to("missing-clinic.properties")
+
+        result = self.run_block()
 
         self.assertEqual(result.returncode, 1, result.stderr)
-        self.assertIn("staged configuration metadata differs", result.stderr)
-        self.assertEqual(self.properties.read_bytes(), before)
-        self.assertEqual(list(self.etc.iterdir()), [self.properties])
+        self.assertIn("fix the configuration target", result.stderr)
+        self.assertEqual(self.properties.readlink(), Path("missing-clinic.properties"))
         self.assertFalse((self.state / SENTINEL).exists())
+
+    def test_keeps_writes_from_a_process_that_holds_the_configuration_lock(self):
+        self.write_properties(old_line())
+        with ThreadPoolExecutor(max_workers=1) as pool, self.properties.open("r+b") as writer:
+            fcntl.lockf(writer, fcntl.LOCK_EX)
+            try:
+                pending = pool.submit(self.run_block)
+                with self.assertRaises(TimeoutError):
+                    pending.result(timeout=0.25)
+                writer.seek(0, os.SEEK_END)
+                writer.write(b"concurrent.setting=kept\n")
+                writer.flush()
+            finally:
+                fcntl.lockf(writer, fcntl.LOCK_UN)
+            result = pending.result(timeout=10)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(os.path.samestat(os.fstat(writer.fileno()), self.properties.stat()))
+            writer.seek(0)
+            self.assertEqual(writer.read().decode("utf-8"),
+                             shipped_line() + "\nconcurrent.setting=kept\n")
+        self.assertTrue((self.state / SENTINEL).exists())
 
     def test_runs_only_once(self):
         self.write_properties(old_line())
