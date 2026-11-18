@@ -35,3 +35,12 @@ Transaction report SHA-256:
 
 This fix is not part of the earlier installed `b4048148` build. Qualification of
 the next combined package and its browser checks is tracked separately.
+
+The Sonar follow-up separates the two checked-exception overload calls into
+individual callable lambdas and avoids Java's restricted `record` identifier in
+local test variables. All 166 related cases pass again without failures, errors,
+or skips; report SHA-256:
+`8b77af8fe424124b9ed6c2bd399da3457c5e0d8d6f2c85cf9397e0e106607963`.
+Fresh source-bound changed-line coverage remains 100/100/100 percent. This
+follow-up changes test structure and documentation only; production code is
+identical to the frozen combined package source.
