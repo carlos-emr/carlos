@@ -486,6 +486,44 @@ public class FaxImporter {
     }
 
     /**
+     * Tracks a saved account while an administrator verifies its credentials.
+     *
+     * @param accountId the persisted account identifier
+     * @return a probe to close when verification finishes
+     * @throws NullPointerException if no account identifier is supplied
+     */
+    public PollingBackoffProbe beginPollingBackoffProbe(Integer accountId) {
+        return new PollingBackoffProbe(accountId);
+    }
+
+    /** Keeps the account's reset marker available until a credential probe ends. */
+    public final class PollingBackoffProbe implements AutoCloseable {
+        private final Integer accountId;
+        private final long checkpoint;
+        private boolean closed;
+
+        private PollingBackoffProbe(Integer accountId) {
+            this.accountId = java.util.Objects.requireNonNull(accountId);
+            checkpoint = pollBackoff.beginProbe(accountId);
+        }
+
+        /** Clear the retry deadline only if the verified configuration generation is current. */
+        public synchronized void resetIfCurrent() {
+            if (!closed) {
+                pollBackoff.resetAfterProbe(accountId, checkpoint);
+            }
+        }
+
+        @Override
+        public synchronized void close() {
+            if (!closed) {
+                closed = true;
+                pollBackoff.endProbe(accountId);
+            }
+        }
+    }
+
+    /**
      * Safe operational metadata; never contains credentials or provider response text.
      *
      * @param attempts int number of consecutive failed polls

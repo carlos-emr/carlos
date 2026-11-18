@@ -104,4 +104,23 @@ class FaxPollBackoffUnitTest extends CarlosUnitTestBase {
         assertThat(backoff.failed(2, previous)).isFalse();
         assertThat(backoff.snapshot()).containsOnlyKeys(1);
     }
+
+    @Test
+    void shouldKeepAnAccountResetUntilAllItsProbesFinish() {
+        var backoff = new FaxPollBackoff(Clock.fixed(NOW, ZoneOffset.UTC));
+        backoff.beginProbe(1);
+        long probeCheckpoint = backoff.beginProbe(1);
+        backoff.reset(1);
+        backoff.endProbe(1);
+
+        backoff.retainAccounts(Set.of());
+        backoff.failed(1, backoff.checkpoint());
+        backoff.resetAfterProbe(1, probeCheckpoint);
+
+        assertThat(backoff.isCurrent(1, probeCheckpoint)).isFalse();
+        assertThat(backoff.snapshot()).containsOnlyKeys(1);
+        backoff.endProbe(1);
+        backoff.retainAccounts(Set.of());
+        assertThat(backoff.isCurrent(1, probeCheckpoint)).isTrue();
+    }
 }

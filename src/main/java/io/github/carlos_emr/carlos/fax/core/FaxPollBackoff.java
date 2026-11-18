@@ -41,6 +41,7 @@ final class FaxPollBackoff {
     private final Clock clock;
     private final Map<Integer, PollingFailure> failures = new HashMap<>();
     private final Map<Integer, Long> resets = new HashMap<>();
+    private final Map<Integer, Integer> activeProbes = new HashMap<>();
     private long resetSequence;
 
     FaxPollBackoff(Clock clock) {
@@ -74,6 +75,21 @@ final class FaxPollBackoff {
         recovered(accountId);
     }
 
+    synchronized long beginProbe(Integer accountId) {
+        activeProbes.merge(accountId, 1, Integer::sum);
+        return resetSequence;
+    }
+
+    synchronized void endProbe(Integer accountId) {
+        activeProbes.computeIfPresent(accountId, (id, count) -> count == 1 ? null : count - 1);
+    }
+
+    synchronized void resetAfterProbe(Integer accountId, long checkpoint) {
+        if (isCurrent(accountId, checkpoint)) {
+            reset(accountId);
+        }
+    }
+
     synchronized boolean failed(Integer accountId) {
         PollingFailure previous = failures.get(accountId);
         Instant now = clock.instant();
@@ -91,7 +107,7 @@ final class FaxPollBackoff {
 
     synchronized void retainAccounts(Set<Integer> accountIds) {
         failures.keySet().retainAll(accountIds);
-        resets.keySet().retainAll(accountIds);
+        resets.keySet().removeIf(id -> !accountIds.contains(id) && !activeProbes.containsKey(id));
     }
 
     synchronized Map<Integer, PollingFailure> snapshot() {

@@ -376,11 +376,11 @@ public class ConfigureFax2Action extends ActionSupport {
     public String testConnection() {
         requireLoggedInWithPrivilege("_admin.fax", "w");
 
-        try {
+        Integer configId = parseConfigId(request.getParameter("id"));
+        try (var backoffProbe = beginPollingBackoffProbe(configId)) {
             String faxUser = StringUtils.trimToEmpty(request.getParameter("faxUser"));
             String faxPassword = request.getParameter("faxPassword");
             String[] providerTypes = request.getParameterValues("providerType");
-            Integer configId = parseConfigId(request.getParameter("id"));
 
             if (faxUser.isEmpty()) {
                 sendJsonError(text("admin.configureFax.test.missingAccountNumber",
@@ -428,7 +428,7 @@ public class ConfigureFax2Action extends ActionSupport {
             }
             FaxProviderClient client = SpringUtils.getBean(FaxProviderClientFactory.class).getClient(probe);
             client.verifyConnection(probe);
-            resetVerifiedAccountBackoff(configId, probe);
+            resetVerifiedAccountBackoff(configId, probe, backoffProbe);
             sendJsonSuccess(text("admin.configureFax.test.success",
                     "Connection successful. SRFax accepted the account number and password."));
         } catch (ConfigurationValidationException e) {
@@ -810,8 +810,22 @@ public class ConfigureFax2Action extends ActionSupport {
         }
     }
 
-    private void resetVerifiedAccountBackoff(Integer accountId, FaxConfig probe) {
+    private FaxImporter.PollingBackoffProbe beginPollingBackoffProbe(Integer accountId) {
         if (accountId == null) {
+            return null;
+        }
+        try {
+            return SpringUtils.getBean(FaxImporter.class).beginPollingBackoffProbe(accountId);
+        } catch (RuntimeException failure) {
+            MiscUtils.getLogger().warn("Could not check fax polling backoff before verification ({})",
+                    failure.getClass().getSimpleName());
+            return null;
+        }
+    }
+
+    private void resetVerifiedAccountBackoff(Integer accountId, FaxConfig probe,
+            FaxImporter.PollingBackoffProbe backoffProbe) {
+        if (backoffProbe == null) {
             return;
         }
         try {
@@ -819,7 +833,7 @@ public class ConfigureFax2Action extends ActionSupport {
             if (persisted != null && persisted.getProviderType() == probe.getProviderType()
                     && Objects.equals(persisted.getFaxUser(), probe.getFaxUser())
                     && Objects.equals(persisted.getFaxPasswd(), probe.getFaxPasswd())) {
-                resetPollingBackoff(accountId);
+                backoffProbe.resetIfCurrent();
             }
         } catch (RuntimeException failure) {
             MiscUtils.getLogger().warn("Could not check fax polling backoff after verification ({})",

@@ -566,6 +566,23 @@ class FaxImporterPollTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldIgnoreAClosedProbe() throws Exception {
+        FaxConfig config = createFaxConfig(1, true, true);
+        when(faxConfigDao.findAll(null, null)).thenReturn(List.of(config));
+        when(faxProviderClientFactory.getClient(config)).thenThrow(new FaxProviderException("FAKE unavailable"));
+        var probe = faxImporter.beginPollingBackoffProbe(1);
+        probe.close();
+        probe.close();
+        faxImporter.poll();
+        var failure = faxImporter.getPollingFailures().get(1);
+
+        probe.resetIfCurrent();
+
+        assertThat(failure).isNotNull();
+        assertThat(faxImporter.getPollingFailures().get(1)).isEqualTo(failure);
+    }
+
+    @Test
     void shouldNotWaitForAnInflightRequest_orLetItsLaterFailureRestoreBackoff() throws Exception {
         FaxConfig config = createFaxConfig(1, true, true);
         when(faxConfigDao.findAll(null, null)).thenReturn(List.of(config));
