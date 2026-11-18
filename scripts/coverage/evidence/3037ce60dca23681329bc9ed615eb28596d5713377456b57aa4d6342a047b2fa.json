@@ -9,19 +9,31 @@
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "ebd72e4ef93a96f152b3bf5f4af8eee66ffef435"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/messenger/data/MsgMessageData.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "2606175ceb37d767189fa3426fdca34c3babbefc"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/util/ConcatPDF.java": {
+      "lines": 85.71428571428571,
+      "instructions": 86.48648648648648,
+      "branches": 100.0,
+      "sourceBlob": "8b9fe36c6637a0cb934eb674e6ec6728825d7b22"
     }
   },
-  "baselineCommit": "8e2fd7fd715940bc677a61894c4aa56790e919ab",
+  "baselineCommit": "e7c3879dd0df58d33178cfee1899fc33335acc00",
   "baselineSourceTree": "e1acf98925dec34f71752e503c06eddcc3a630ce",
-  "baselineReportSha256": "4405695bd615ac8601c702f90f74f4082cca513f934cf1724e726959cc566620",
-  "baselineLane": "PR #6161 focused JDK 25 chart print and Messenger tests",
+  "baselineReportSha256": "d439aafca3aea2d2d086d7b1573b2766fcda6df8985f159faf3b269c14f79662",
+  "baselineLane": "PR #6161 focused JDK 25 chart attachment and merge tests",
   "baselineTestCounts": {
-    "tests": 112,
+    "tests": 113,
     "skipped": 0,
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "c8fb78a3fec7fc2f529c96957357cd24ee3e84914f8c62cebe81ed3f16630010",
+  "baselineTestReportsSha256": "0685eb7c12e48164ea5b30c06b1c558b35d0d45ce1df4b4ff83727622ebdcb21",
   "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
   "baselineSelectedTestClasses": [
     "io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintAssemblyUnitTest",

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/util/ConcatPDF.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 85.71428571428571,
+    "instructions": 86.48648648648648,
+    "branches": 100.0,
+    "sourceBlob": "8b9fe36c6637a0cb934eb674e6ec6728825d7b22"
+  },
+  "evidenceSha256": "3037ce60dca23681329bc9ed615eb28596d5713377456b57aa4d6342a047b2fa"
+}
