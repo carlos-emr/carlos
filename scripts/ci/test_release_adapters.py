@@ -1,6 +1,7 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 import importlib.util
 import json
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -259,6 +260,49 @@ class ScopeInventoryTest(unittest.TestCase):
             result = scope.inventory({"baselines": {"olderMain": baseline, "currentMain": baseline}, "checks": [], "workstreams": []}, root)
             self.assertEqual(len(result["unownedProductionPaths"]), 321)
             self.assertFalse(result["ready"])
+
+    def test_changed_release_build_inputs_need_ownership_but_test_scripts_do_not(self):
+        scope = module_from("release_scope_build_inputs", "release-scope-audit.py")
+        paths = ("scripts/build-demo-additive.sh", "scripts/check-demo-additive.sh",
+                 "scripts/schema-contract.py", "scripts/check-war-container-apis.py",
+                 "scripts/test-o19-input-lifecycle.py", "scripts/migration/o19/generate_manifests.py",
+                 "scripts/ci/check-release-base-image.sh",
+                 ".github/workflows/deb-packages.yml", ".github/workflows/publish-release.yml")
+        for path in paths:
+            with self.subTest(path=path):
+                self.assertTrue(scope.runtime_path(path), path)
+        for path in ("scripts/build-demo-additive.test.js", "scripts/ci/test_release_adapters.py",
+                     ".github/workflows/script-regressions.yml", "docs/testing/coverage-floor-policy.md"):
+            with self.subTest(path=path):
+                self.assertFalse(scope.runtime_path(path), path)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            def git(*args):
+                return subprocess.check_output(["git", *args], cwd=root,
+                    env=gate.separate_checkout_environment(), stderr=subprocess.DEVNULL).decode().strip()
+            git("init", "--quiet"); git("config", "user.email", "synthetic@example.invalid")
+            git("config", "user.name", "Synthetic test")
+            (root / "README").write_text("synthetic baseline")
+            git("add", "."); git("commit", "--quiet", "-m", "test: build baseline")
+            base = git("rev-parse", "HEAD")
+            for path in paths:
+                file = root / path; file.parent.mkdir(parents=True, exist_ok=True)
+                file.write_text("synthetic changed build input")
+            test_file = root / "scripts/ci/test_example.py"; test_file.parent.mkdir(parents=True, exist_ok=True)
+            test_file.write_text("synthetic test-only change")
+            git("add", "."); git("commit", "--quiet", "-m", "test: changed build inputs")
+            result = scope.inventory({"baselines": {"currentMain": base}, "checks": [], "workstreams": []}, root)
+            self.assertEqual(set(result["unownedProductionPaths"]), set(paths))
+            self.assertFalse(result["ready"])
+
+    def test_scripts_named_by_debian_rules_are_production_inputs(self):
+        scope = module_from("release_scope_rules_inputs", "release-scope-audit.py")
+        rules = (Path(__file__).resolve().parents[2] / "debian/rules").read_text()
+        inputs = set(re.findall(r"scripts/[A-Za-z0-9_./-]+\.(?:sh|py)\b", rules))
+        self.assertGreaterEqual(len(inputs), 6)
+        for path in inputs:
+            with self.subTest(path=path):
+                self.assertTrue(scope.runtime_path(path), path)
 
     def test_production_classification_does_not_hide_migrations_or_package_scripts(self):
         scope = module_from("release_scope", "release-scope-audit.py")
