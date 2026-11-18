@@ -176,6 +176,56 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
      * and restore original behavior. Failure to close can cause subsequent
      * tests to fail or behave unexpectedly.</p>
      */
+    @Test
+    void shouldIdentifyTheSavedExtensionKey_withoutRecordingItsValue() {
+        DemographicExt ext = createTestDemographicExt(TEST_DEMO_NO, "FAKE_KEY\r\nforged", "PRIVATE_EXTENSION_VALUE");
+        ext.setId(null);
+        org.mockito.Mockito.doAnswer(call -> { ext.setId(65); return null; }).when(mockDemographicExtDao).saveEntity(ext);
+        manager.createExtension(mockLoggedInInfo, ext);
+        var data = org.mockito.ArgumentCaptor.forClass(String.class);
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(
+                eq(mockLoggedInInfo), eq("DemographicManager.createExtension"), data.capture()));
+        assertThat(data.getValue()).contains("id=65", "key=FAKE_KEY").doesNotContain("PRIVATE_EXTENSION_VALUE", "\r", "\n");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"add", "update"})
+    void shouldIdentifyNewExtensionAudits_afterSavingTheDemographic(String operation) {
+        Demographic demographic = createTestDemographicWithId(TEST_DEMO_NO);
+        DemographicExt ext = createTestDemographicExt(TEST_DEMO_NO, "FAKE_KEY", "PRIVATE_EXTENSION_VALUE");
+        ext.setId(null);
+        demographic.setExtras(new DemographicExt[]{ext});
+        org.mockito.Mockito.doAnswer(call -> { ext.setId(65); return null; }).when(mockDemographicExtDao).saveEntity(ext);
+        if (operation.equals("update")) {
+            when(mockDemographicDao.getDemographicById(TEST_DEMO_NO)).thenReturn(createTestDemographicWithId(TEST_DEMO_NO));
+            manager.updateDemographic(mockLoggedInInfo, demographic);
+        } else {
+            manager.addDemographic(mockLoggedInInfo, demographic);
+        }
+        var data = org.mockito.ArgumentCaptor.forClass(String.class);
+        String action = "DemographicManager." + operation + "Demographic ext";
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(
+                eq(mockLoggedInInfo), eq(action), data.capture()));
+        assertThat(data.getValue()).contains("id=65", "key=FAKE_KEY").doesNotContain("PRIVATE_EXTENSION_VALUE", "null");
+    }
+
+    @Test
+    void shouldRetainTheRemovedExtensionKey_withoutRecordingItsValue() {
+        Demographic demographic = createTestDemographicWithId(TEST_DEMO_NO);
+        DemographicExt ext = createTestDemographicExt(TEST_DEMO_NO, "FAKE_REMOVED_KEY", "PRIVATE_EXTENSION_VALUE");
+        ext.setId(77);
+        when(mockDemographicExtDao.getDemographicExtByDemographicNo(TEST_DEMO_NO)).thenReturn(List.of(ext));
+        when(mockDemographicExtDao.find(ext.getId())).thenReturn(ext);
+        manager.deleteDemographic(mockLoggedInInfo, demographic);
+        var data = org.mockito.ArgumentCaptor.forClass(String.class);
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(
+                eq(mockLoggedInInfo), eq("DemographicManager.deleteDemographic ext"), data.capture()));
+        assertThat(data.getValue()).contains("id=77", "key=FAKE_REMOVED_KEY").doesNotContain("PRIVATE_EXTENSION_VALUE");
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(
+                eq(mockLoggedInInfo), eq("DemographicManager.removeDemographicExt"), data.capture()));
+        assertThat(data.getValue()).contains("id=77", "key=FAKE_REMOVED_KEY").doesNotContain("PRIVATE_EXTENSION_VALUE");
+    }
+
     @AfterEach
     void tearDown() {
         if (demographicContactCreatorMock != null) {

@@ -72,6 +72,12 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public static final int ALIAS_MAX_LENGTH = 70;
     public static final int PRONOUN_MAX_LENGTH = 25;
     public static final int GENDER_MAX_LENGTH = 25;
+    public static final int TITLE_MAX_LENGTH = 10;
+    public static final int OFFICIAL_LANGUAGE_MAX_LENGTH = 60;
+    public static final int SPOKEN_LANGUAGE_MAX_LENGTH = 60;
+    public static final int COUNTRY_OF_ORIGIN_MAX_LENGTH = 4;
+    public static final int NEWSLETTER_MAX_LENGTH = 32;
+    public static final int ANONYMOUS_MAX_LENGTH = 32;
     /** The pref_name column ({@code varchar(30) NOT NULL}); see {@link #prefNameForNameUsed(String)}. */
     public static final int PREF_NAME_MAX_LENGTH = 30;
     public static final int ADDRESS_MAX_LENGTH = 60;
@@ -339,6 +345,12 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         addFieldLengthError(errors, "Preferred name", alias, ALIAS_MAX_LENGTH);
         addFieldLengthError(errors, "Pronouns", pronoun, PRONOUN_MAX_LENGTH);
         addFieldLengthError(errors, "Gender", gender, GENDER_MAX_LENGTH);
+        addFieldLengthError(errors, "Title", title, TITLE_MAX_LENGTH);
+        addFieldLengthError(errors, "Official language", officialLanguage, OFFICIAL_LANGUAGE_MAX_LENGTH);
+        addFieldLengthError(errors, "Spoken language", spokenLanguage, SPOKEN_LANGUAGE_MAX_LENGTH);
+        addFieldLengthError(errors, "Country of origin", countryOfOrigin, COUNTRY_OF_ORIGIN_MAX_LENGTH);
+        addFieldLengthError(errors, "Newsletter", newsletter, NEWSLETTER_MAX_LENGTH);
+        addFieldLengthError(errors, "Anonymous", anonymous, ANONYMOUS_MAX_LENGTH);
         addFieldLengthError(errors, "Address", address, ADDRESS_MAX_LENGTH);
         addFieldLengthError(errors, "City", city, CITY_MAX_LENGTH);
         addFieldLengthError(errors, "Province", province, PROVINCE_MAX_LENGTH);
