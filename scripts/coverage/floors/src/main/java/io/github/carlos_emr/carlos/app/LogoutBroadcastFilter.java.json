@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/app/LogoutBroadcastFilter.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 91.48936170212765,
+    "instructions": 93.25153374233129,
+    "branches": 78.26086956521739,
+    "sourceBlob": "14447829d85fa243294bf93dbc3f4a4583538c52"
+  },
+  "evidenceSha256": "7b2fb0ddbf26e1bc4bab557b30d5366606d2e260cd335f3463b0d67b8a23bb99"
+}

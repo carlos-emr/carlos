@@ -52,3 +52,29 @@ decorated GPL page retains its bare-file ETag. The original manifest is restored
 byte exactly afterward; the temporary entrypoint is removed, properties and restart
 count remain unchanged, and service health passes. Pre-fix installed JUnit SHA-256:
 `6603d689fb5429ad7616d9a57595e4dded014c5b126d71be118978075440a185`.
+
+The first combined installed run (`08fb174856d298ec58467b5397884cef92706fd2`)
+passes decorated GET but exposes a second HEAD interaction: the authenticated
+logout filter creates a script-only body when DefaultServlet supplied metadata
+without opening a body channel. The outer capture then advertises those 1,749
+bytes instead of the 23,784-byte GET. The failed default-profile report is retained
+with SHA-256 `92661a6910cb83f5cad98a9c30792bdb0ed89f076da98127c15e236e0ae68c46`;
+its other 27 workflows pass, and properties and health are restored.
+
+A new real-Tomcat regression reproduces that interaction with the production
+capture, logout and privacy filters: HEAD advertises 1,749 bytes versus a 292-byte
+GET. Its thirteen-case before report has one regression failure and twelve
+passing controls; SHA-256
+`550730c1459f873cf5541090390ac078a63badcfc7101d0da6da8e435e1bf58f`.
+The logout filter now leaves a HEAD response without a body channel empty and
+removes its unrepresentative length. Writer and stream controls preserve the
+existing full-body paths.
+
+All 666 related filter cases now pass without failures, errors or skips,
+including thirteen metadata HTTP cases and three additional HEAD channel
+controls. Report SHA-256:
+`7d2103745ab866a5a97fcc7eb5a70e8746d2c88bb5b956997d7502a359ce1b27`.
+Privacy floors remain 97.53/97.83/94.44; logout floors rise from
+90.48/92.52/75.00 to 91.49/93.25/78.26 percent. These are source-bound fresh
+measurements. Positive installed verification of this follow-up and its next
+combined DEB are pending; the failed combined package is not labelled complete.
