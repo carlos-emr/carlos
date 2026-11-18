@@ -35,3 +35,8 @@ checks decorated GET, HEAD, conditional file-date GET, and wildcard behavior.
 It honors `CARLOS_INSTALLED_WEBAPP_DIR` and changes no clinical data or settings.
 Native installed qualification is pending the next package; `b4048148` lacks this
 fix. The separate partial-response repair in #6226 remains an integration control.
+
+All 8,111 complete Node cases pass on Node 22.23.5 with zero failures, skips,
+cancellations, or TODOs, and all 570 test-source fingerprints verified. The case
+inventory is generated from that actual execution. Node report SHA-256:
+`a622abac48d99d12fa96845233e30296f8984a8437f73aa06268ed47661b5a01`.
