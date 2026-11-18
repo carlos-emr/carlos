@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/form/FrmBCAR2020Record.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "4b938aa07550ba8ad6936b5cbcfbb76bb08278bf"
+  },
+  "evidenceSha256": "a5fd7c49d70dabc8ae5a40860919c84591546605dcea5669d3e18f5332eff291"
+}
