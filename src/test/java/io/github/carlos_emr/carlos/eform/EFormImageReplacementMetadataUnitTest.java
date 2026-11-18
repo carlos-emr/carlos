@@ -43,7 +43,16 @@ class EFormImageReplacementMetadataUnitTest {
         }
     }
     private MockedStatic<Files> metadata() throws Exception {
-        var files=mockStatic(Files.class);
+        // Class initialization and JAR loading may also use Files on this test thread.
+        var files = mockStatic(Files.class, call -> {
+            if (call.getArguments().length > 0) {
+                Object path = call.getArgument(0);
+                if (existing.equals(path) || staged.equals(path)) {
+                    return RETURNS_DEFAULTS.answer(call);
+                }
+            }
+            return call.callRealMethod();
+        });
         files.when(()->Files.isRegularFile(existing,LinkOption.NOFOLLOW_LINKS)).thenReturn(true);
         files.when(()->Files.isRegularFile(staged,LinkOption.NOFOLLOW_LINKS)).thenReturn(true);
         files.when(()->Files.readAttributes(existing,PosixFileAttributes.class,LinkOption.NOFOLLOW_LINKS)).thenReturn(original);
