@@ -17,6 +17,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.parallel.Isolated;
@@ -63,17 +74,36 @@ class McedtCredentialConsumerUnitTest extends CarlosUnitTestBase {
         var request=new MockHttpServletRequest();
         try(MockedStatic<ServletActionContext> servlet=mockStatic(ServletActionContext.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
-            var action=new User2Action();action.setPassword("FAKE-input");assertEquals("success",action.changePassword());verify(credentials).savePassword("FAKE-input");assertEquals("true",request.getSession().getAttribute("isPassChange"));
+            var action=new User2Action();action.setPassword("FAKE-input");assertEquals("success",action.changePassword());verify(credentials).savePassword(eq("FAKE-input"), isNull());assertEquals("true",request.getSession().getAttribute("isPassChange"));
         }
     }
     @Test
     void shouldExposeFailureState_withoutEchoingCredential() throws Exception {
-        var request=new MockHttpServletRequest();doThrow(new IllegalStateException("FAKE-sensitive-cause")).when(credentials).savePassword(anyString());
-        try(MockedStatic<ServletActionContext> servlet=mockStatic(ServletActionContext.class)) {
-            servlet.when(ServletActionContext::getRequest).thenReturn(request);servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
-            var action=new User2Action();action.setPassword("FAKE-input");assertEquals("success",action.changePassword());assertEquals("false",request.getSession().getAttribute("isPassChange"));assertFalse(request.getSession().getAttribute("isPassChange").toString().contains("FAKE"));
+        var request=new MockHttpServletRequest();doThrow(new IllegalStateException("FAKE-sensitive-cause")).when(credentials).savePassword(anyString(), any());
+        try (var servlet = mockStatic(ServletActionContext.class); var logs = LogCapture.forLogger(User2Action.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            var action = new User2Action(); action.setPassword("FAKE-input");
+            assertEquals("success", action.changePassword());
+            assertEquals("false", request.getSession().getAttribute("isPassChange"));
+            assertEquals(List.of("MCEDT password change failed; credential storage was not updated"), logs.messages());
+            assertTrue(logs.messages().stream().noneMatch(message -> message.contains("FAKE-input") || message.contains("FAKE-sensitive-cause")));
+            assertTrue(logs.events().stream().allMatch(event -> event.getThrown() == null));
         }
     }
+    @Test
+    void shouldForwardTheAuthenticatedActor_withTheReplacementCredential() throws Exception {
+        var request = new MockHttpServletRequest();
+        request.getSession().setAttribute("user", "FAKE-provider");
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            var action = new User2Action(); action.setPassword("FAKE-input");
+            assertEquals("success", action.changePassword());
+            verify(credentials).savePassword("FAKE-input", "FAKE-provider");
+        }
+    }
+
     @Test
     void shouldSupplyDecryptedCredential_toActualDelegateBuilder() throws Exception {
         when(credentials.getPassword("FAKE-fallback")).thenReturn("FAKE-decrypted");var props=mock(CarlosProperties.class);when(props.getProperty("mcedt.service.pass")).thenReturn("FAKE-fallback");var observed=new AtomicReference<EdtClientBuilderConfig>();
@@ -116,6 +146,83 @@ class McedtCredentialConsumerUnitTest extends CarlosUnitTestBase {
             var first=DelegateFactory.getEDTDelegateInstance();DelegateFactory.refreshDelegates();
             assertNotSame(first,DelegateFactory.getEDTDelegateInstance());
             assertEquals(2,builders.constructed().size());
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRetryAnOlderCredentialObservation_afterANewerClientWasPublished(boolean refresh) throws Exception {
+        var oldRead = new CountDownLatch(1);
+        var resumeOld = new CountDownLatch(1);
+        var reads = new AtomicInteger();
+        var builtPasswords = new ConcurrentLinkedQueue<String>();
+        var props = mock(CarlosProperties.class);
+        var serviceId = "FAKE-publication-service";
+        when(credentials.getPassword(any())).thenAnswer(call -> {
+            if (reads.getAndIncrement() == 0) {
+                oldRead.countDown();
+                assertTrue(resumeOld.await(10, TimeUnit.SECONDS));
+                return "FAKE-obsolete";
+            }
+            return "FAKE-current";
+        });
+        try (var executor = Executors.newSingleThreadExecutor();
+                var properties = mockStatic(CarlosProperties.class);
+                var builders = mockConstruction(EdtClientBuilder.class, (builder, context) -> {
+                    builtPasswords.add(((EdtClientBuilderConfig) context.arguments().get(0)).getUserNameTokenPassword());
+                    when(builder.build(EDTDelegate.class)).thenReturn(mock(EDTDelegate.class));
+                })) {
+            properties.when(CarlosProperties::getInstance).thenReturn(props);
+            var delayed = executor.submit(() -> {
+                try (var spring = mockStatic(SpringUtils.class);
+                        var workerProperties = mockStatic(CarlosProperties.class);
+                        var actions = mockStatic(ActionUtils.class);
+                        var workerBuilders = mockConstruction(EdtClientBuilder.class, (builder, context) -> {
+                            builtPasswords.add(((EdtClientBuilderConfig) context.arguments().get(0)).getUserNameTokenPassword());
+                            when(builder.build(EDTDelegate.class)).thenReturn(mock(EDTDelegate.class));
+                        })) {
+                    spring.when(() -> SpringUtils.getBean(McedtCredentialService.class)).thenReturn(credentials);
+                    workerProperties.when(CarlosProperties::getInstance).thenReturn(props);
+                    actions.when(ActionUtils::getServiceIds).thenReturn(List.of(serviceId));
+                    if (refresh) {
+                        DelegateFactory.refreshDelegates();
+                        return null;
+                    }
+                    return DelegateFactory.getEDTDelegateInstance(serviceId);
+                }
+            });
+            try {
+                assertTrue(oldRead.await(5, TimeUnit.SECONDS));
+                EDTDelegate newer = DelegateFactory.getEDTDelegateInstance(serviceId);
+                assertNotNull(newer);
+                resumeOld.countDown();
+                EDTDelegate result = delayed.get(10, TimeUnit.SECONDS);
+                assertFalse(builtPasswords.contains("FAKE-obsolete"), "An older observation replaced the current delegate");
+                if (!refresh) {
+                    assertSame(newer, result);
+                }
+                assertTrue(reads.get() >= 3, "The stale observation must trigger another credential read");
+            } finally {
+                resumeOld.countDown();
+            }
+        }
+    }
+
+    @Test
+    void shouldNotReportStorageFailure_whenSessionFeedbackFailsAfterCommit() throws Exception {
+        var request = mock(HttpServletRequest.class);
+        var session = mock(HttpSession.class);
+        when(request.getSession()).thenReturn(session);
+        doThrow(new IllegalStateException("FAKE-invalidated-session")).when(session).setAttribute("isPassChange", "true");
+        try (var servlet = mockStatic(ServletActionContext.class); var logs = LogCapture.forLogger(User2Action.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            var action = new User2Action();
+            action.setPassword("FAKE-input");
+            assertThrows(IllegalStateException.class, action::changePassword);
+            verify(credentials).savePassword(eq("FAKE-input"), isNull());
+            verify(session, never()).setAttribute("isPassChange", "false");
+            assertTrue(logs.messages().stream().noneMatch(message -> message.contains("storage was not updated")));
         }
     }
 

@@ -193,16 +193,16 @@ async function workflow(s) {
   h.assert(/^mcedt_pw_bak_[a-f0-9]{16}$/.test(credentialBackup), 'The credential backup name is not owned by this run');
   let credentialParked = false;
   let originalCredentialDigest = null;
-  const credentialDigest = () => sql.value("SELECT SHA2(CONCAT(id,':',IFNULL(HEX(encrypted_password),'NULL')),256) FROM mcedt_credential WHERE id=1");
+  const credentialDigest = () => sql.value("SELECT SHA2(CONCAT(id,':',IFNULL(HEX(encrypted_password),'NULL'),':',HEX(lastUpdateUser),':',CAST(lastUpdateDate AS CHAR)),256) FROM mcedt_credential WHERE id=1");
   s.cleanup(() => {
     if (!credentialParked) return;
-    if (String(sql.value(`SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=${q(credentialBackup)}`)) === '0') {
+    if (String(sql.value('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [credentialBackup])) === '0') {
       h.assert(credentialDigest() === originalCredentialDigest, 'Credential changed before its backup was created');
       credentialParked = false;
       return;
     }
     h.assert(String(sql.value(`SELECT COUNT(*) FROM \`${credentialBackup}\` WHERE id=1`)) === '1', 'Owned encrypted-credential backup is missing');
-    sql.execute(`START TRANSACTION; DELETE FROM mcedt_credential WHERE id=1; INSERT INTO mcedt_credential(id,encrypted_password) SELECT id,encrypted_password FROM \`${credentialBackup}\` WHERE id=1; COMMIT;`);
+    sql.execute(`START TRANSACTION; DELETE FROM mcedt_credential WHERE id=1; INSERT INTO mcedt_credential(id,encrypted_password,lastUpdateUser,lastUpdateDate) SELECT id,encrypted_password,lastUpdateUser,lastUpdateDate FROM \`${credentialBackup}\` WHERE id=1; COMMIT;`);
     h.assert(credentialDigest() === originalCredentialDigest, 'Encrypted MCEDT credential was not restored exactly');
     sql.execute(`DROP TABLE \`${credentialBackup}\``);
     credentialParked = false;
@@ -234,7 +234,8 @@ async function workflow(s) {
   const propertyWhere = 'id=1 AND encrypted_password IS NOT NULL';
   const propertyRows = () => String(sql.value(`SELECT COUNT(*) FROM mcedt_credential WHERE ${propertyWhere}`));
   const storedDigest = () => sql.value("SELECT IFNULL(SHA2(encrypted_password,256),'') FROM mcedt_credential WHERE id=1");
-  const propertyHolds = (value) => sql.value(`SELECT COUNT(*) FROM mcedt_credential WHERE id=1 AND encrypted_password=${q(value)}`);
+  const propertyHolds = value => sql.value('SELECT COUNT(*) FROM mcedt_credential WHERE id=1 AND encrypted_password=?', [value]);
+  const legacyPropertyRows = () => String(sql.value('SELECT COUNT(*) FROM property WHERE name=?', [L.PASSWORD_PROPERTY]));
   const encryptedPropertyRows = () => String(sql.value("SELECT COUNT(*) FROM mcedt_credential WHERE id=1 AND LEFT(encrypted_password,5)='{ENC}'"));
   const parentNames = () => fs.readdirSync(ledger.parent).sort();
   const visibleState = () => JSON.stringify([ledger.visible(), parentNames()]);
@@ -312,15 +313,18 @@ async function workflow(s) {
 
   // =========================================================================================================
   await s.step(STEP.setup, async () => {
+    const interrupted = sql.rows('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND LEFT(TABLE_NAME,13)=?', ['mcedt_pw_bak_']).flat();
+    h.assert(interrupted.every(name => /^mcedt_pw_bak_[a-f0-9]{16}$/.test(name)), 'An unrecognized encrypted-credential backup requires operator inspection');
+    h.assert(interrupted.length === 0, 'Interrupted encrypted-credential backup(s): ' + interrupted.join(', ')
+      + '. Restore singleton id=1 from its backup row id=1 without displaying the credential, verify the original digest, then drop only the recovered backup.');
     ledger = L.createOutboxLedger({ outbox });
     h.assert(ledger.found.every((entry) => entry.kind === 'file' || entry.kind === 'dir'), 'The outbox holds an entry that is neither a file nor a directory');
     console.log(`  outbox before: ${ledger.found.length} entr${ledger.found.length === 1 ? 'y' : 'ies'}; password property rows before: ${propertyRows()}`);
     parking.park();
     h.assert(String(sql.value('SELECT COUNT(*) FROM mcedt_credential WHERE id=1')) === '1', 'The seeded MCEDT credential record is unavailable');
-    h.assert(String(sql.value("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME LIKE 'mcedt\\_pw\\_bak\\_%'")) === '0', 'An interrupted encrypted-credential backup must be restored before this check');
     originalCredentialDigest = credentialDigest();
     credentialParked = true;
-    sql.execute(`CREATE TABLE \`${credentialBackup}\` AS SELECT id,encrypted_password FROM mcedt_credential WHERE id=1`);
+    sql.execute(`CREATE TABLE \`${credentialBackup}\` AS SELECT id,encrypted_password,lastUpdateUser,lastUpdateDate FROM mcedt_credential WHERE id=1`);
     sql.execute('UPDATE mcedt_credential SET encrypted_password=NULL WHERE id=1');
     h.assert(propertyRows() === '0', 'The MCEDT password rows were not parked');
     // The bystander the Delete step must leave alone, and a file beside the outbox a traversal would reach.
@@ -578,7 +582,10 @@ async function workflow(s) {
           await mailbox().getByRole('heading', { name: 'Welcome To MCEDT' }).waitFor({ state: 'visible', timeout: 20000 });
         });
         h.assert(dialogs.some((dialog) => /changed successfully/.test(dialog.text || '')), `Round ${round}: no success alert after Update Password`);
-        h.assert(propertyRows() === '1', `Round ${round}: the ${L.PASSWORD_PROPERTY} property has ${propertyRows()} rows, not one`);
+        h.assert(propertyRows() === '1', `Round ${round}: the encrypted singleton does not hold exactly one credential`);
+        h.assert(legacyPropertyRows() === '0', `Round ${round}: the password change also wrote a live legacy property`);
+        h.assert(sql.value('SELECT COUNT(*) FROM mcedt_credential WHERE id=1 AND lastUpdateUser=? AND lastUpdateDate IS NOT NULL', [provider]) === '1',
+          `Round ${round}: the password change omitted its authenticated actor or update time`);
         // Both the full workflow and the focused pin verify encrypted storage without reading a credential.
         h.assert(propertyHolds(value) === '0' && encryptedPropertyRows() === '1',
           `Round ${round}: the synthetic MCEDT credential was not encrypted at rest`);
@@ -610,7 +617,8 @@ async function workflow(s) {
   // Finding 189 (variant `plaintext`): the pinned step holds only the stored value; Change Password itself ran above.
   if (full || PIN === 'plaintext') await s.step(STEP.passwordFailure, async () => {
     const before = storedDigest();
-    sql.execute(`INSERT INTO \`${credentialBackup}\`(id,encrypted_password) SELECT 2,encrypted_password FROM mcedt_credential WHERE id=1; DELETE FROM mcedt_credential WHERE id=1;`);
+    const legacyBefore = parking.digest();
+    sql.execute(`INSERT INTO \`${credentialBackup}\`(id,encrypted_password,lastUpdateUser,lastUpdateDate) SELECT 2,encrypted_password,lastUpdateUser,lastUpdateDate FROM mcedt_credential WHERE id=1; DELETE FROM mcedt_credential WHERE id=1;`);
     try {
       await openMailboxFromAdministration();
       await mailbox().getByRole('button', { name: 'Change Password' }).click();
@@ -634,8 +642,9 @@ async function workflow(s) {
         && !dialogs.some(dialog => /changed successfully/.test(dialog.text || '')), 'The storage failure did not show only its explicit failure alert');
       h.assert(!await mailbox().locator('html').innerHTML().then(body => body.includes(passwords.probe)), 'The failed page echoes a password');
       h.assert(String(sql.value('SELECT COUNT(*) FROM mcedt_credential')) === '0', 'The failed save silently recreated or changed credential storage');
+      h.assert(parking.digest() === legacyBefore, 'The failed save changed a live or parked legacy password property');
     } finally {
-      sql.execute(`INSERT INTO mcedt_credential(id,encrypted_password) SELECT 1,encrypted_password FROM \`${credentialBackup}\` WHERE id=2; DELETE FROM \`${credentialBackup}\` WHERE id=2;`);
+      sql.execute(`INSERT INTO mcedt_credential(id,encrypted_password,lastUpdateUser,lastUpdateDate) SELECT 1,encrypted_password,lastUpdateUser,lastUpdateDate FROM \`${credentialBackup}\` WHERE id=2; DELETE FROM \`${credentialBackup}\` WHERE id=2;`);
       h.assert(storedDigest() === before, 'The owned storage-failure probe did not restore its credential exactly');
     }
     await mailbox().getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -644,7 +653,7 @@ async function workflow(s) {
 
   if (PIN === 'plaintext') {
     await s.step(STEP.plaintext, async () => {
-      h.assert(propertyHolds(passwords.second) === '0' && encryptedPropertyRows() === '1', 'The MCEDT password is stored exactly as typed or without its encryption marker');
+      h.assert(propertyHolds(passwords.second) === '0' && encryptedPropertyRows() === '1' && legacyPropertyRows() === '0', 'The MCEDT password is stored exactly as typed or without its encryption marker');
     });
   }
 
@@ -775,5 +784,10 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow(NAME, workflow, { openPatient: false });
+if (require.main === module) runWorkflow(NAME, workflow, {
+  openPatient: false,
+  preflightConfig: () => {
+    if (process.env.EXCLUSIVE !== '1') throw new h.SkipCheck('MCEDT credential restoration requires EXCLUSIVE=1');
+  },
+});
 module.exports = { workflow, STEP, validatePin };

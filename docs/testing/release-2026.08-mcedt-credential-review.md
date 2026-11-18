@@ -9,8 +9,10 @@ retains the encrypted representation of the former 4,000-character capacity,
 including supplementary Unicode. Larger submitted passwords are refused before
 storage changes.
 
-Reads and writes acquire the singleton database lock, then lock legacy rows in
-ID order. A first read treats every legacy value as plaintext, including a
+All reads and writes acquire the singleton database lock. Saves and reads that
+can migrate legacy values also lock legacy rows in ID order. Ordinary reads after
+ciphertext exists use a nonlocking legacy lookup, avoiding absent-name gap locks.
+A first read treats every legacy value as plaintext, including a
 literal `{ENC}` prefix. The first legacy row remains the effective credential;
 all legacy duplicates are removed in the same transaction. Already migrated
 ciphertext is authenticated and decrypted; corruption fails closed. Missing or
@@ -20,7 +22,7 @@ only static errors. The page now shows an explicit failure alert, and the action
 emits a fixed credential-free warning. The Struts constructor resolves its
 dependency and delegates to a package-private injection constructor.
 
-All 34 selected Java 25 cases pass: eight unit controls and 26 real H2 transaction
+Historical first-review validation: all 34 selected Java 25 cases pass: eight unit controls and 26 real H2 transaction
 cases. The same 26 transaction cases pass on a disposable MariaDB 11.8.8 server
 with 32 KiB pages. Each case owns a UUID database; cleanup never deletes a
 credential from a shared fixture or application database. Lock assertions first
@@ -31,8 +33,9 @@ preference update to commit before its credential locks are released.
 
 The first physical runs exposed a real MariaDB `HY000/1020` failure after the
 legacy writer committed. An ordinary encrypted-value SELECT had opened a
-repeatable-read snapshot before the legacy locking read. The final implementation
-uses current locking reads for both values. The failed physical reports are
+repeatable-read snapshot before the legacy locking read. That historical first-review implementation
+used current locking reads for both values. The later gap-lock cleanup revision
+below records the final distinction between migrating and ordinary reads. The failed physical reports are
 retained; the corrected 23-case retake passes with no failures/errors/skips.
 The actual migration also passes independently: EXPLAIN selects
 `idx_property_name`, LONGTEXT is reported, and inserting a second singleton ID
@@ -70,6 +73,14 @@ server-side owned backup, verify both password changes without reading a
 credential, exercise the visible storage-failure alert and restore exact state.
 Their rebuilt-DEB qualification is recorded below. No Ministry transport or
 authentication is exercised.
+
+The migration creates and seeds the encrypted namespace; it does not remove old
+plaintext property rows by itself. After upgrading, complete one successful
+Change Password operation in Administration > MCEDT Mailbox (or a credential read
+through an approved MCEDT operation), then verify removal without reading values:
+`SELECT COUNT(*) FROM property WHERE name='mcedt_account_password';` must be zero.
+An installation that never invokes either path can retain plaintext in its
+current database and new backups. Cleanup does not alter backups already taken.
 
 Upgrade while application instances are stopped, as the packaged service upgrade
 does, and upgrade every instance before resuming MCEDT use. Older code reads only

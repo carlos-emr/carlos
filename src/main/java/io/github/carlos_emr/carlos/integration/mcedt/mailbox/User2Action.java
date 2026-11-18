@@ -74,15 +74,18 @@ public class User2Action extends ActionSupport {
     }
 
     public String changePassword() throws Exception {
+        String actor = (String) request.getSession().getAttribute("user");
         try {
 
-            credentials.savePassword(this.getPassword());
-            request.getSession().setAttribute("isPassChange", "true"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
+            credentials.savePassword(this.getPassword(), actor);
         } catch (Exception e) {
             io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn("MCEDT password change failed; credential storage was not updated");
             request.getSession().setAttribute("isPassChange", "false"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
+            return SUCCESS;
         }
-
+        // Feedback can fail after commit (for example after concurrent logout).
+        // Such a failure must not claim that credential storage was unchanged.
+        request.getSession().setAttribute("isPassChange", "true"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
         return SUCCESS;
     }
 

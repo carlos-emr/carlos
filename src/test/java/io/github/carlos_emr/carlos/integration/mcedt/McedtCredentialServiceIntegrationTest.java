@@ -113,8 +113,8 @@ class McedtCredentialServiceIntegrationTest {
         context=new AnnotationConfigApplicationContext(Database.class);credentials=context.getBean(McedtCredentialService.class);
         em=SharedEntityManagerCreator.createSharedEntityManager(context.getBean(EntityManagerFactory.class));tx=new TransactionTemplate(context.getBean(PlatformTransactionManager.class));source=context.getBean(DataSource.class);
         tx.executeWithoutResult(status->{
-            em.createNativeQuery("CREATE TABLE mcedt_credential (id TINYINT PRIMARY KEY CHECK(id=1), encrypted_password LONGTEXT)").executeUpdate();
-            em.createNativeQuery("INSERT INTO mcedt_credential VALUES(1,NULL)").executeUpdate();
+            em.createNativeQuery("CREATE TABLE mcedt_credential (id TINYINT PRIMARY KEY CHECK(id=1), encrypted_password LONGTEXT, lastUpdateUser VARCHAR(100) NOT NULL DEFAULT 'mcedt-migration', lastUpdateDate TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)").executeUpdate();
+            em.createNativeQuery("INSERT INTO mcedt_credential(id,encrypted_password) VALUES(1,NULL)").executeUpdate();
             em.createNativeQuery("CREATE INDEX idx_property_name ON property(name)").executeUpdate();
         });
     }
@@ -130,6 +130,62 @@ class McedtCredentialServiceIntegrationTest {
     private String stored() {return tx.execute(status->(String)em.createNativeQuery("SELECT encrypted_password FROM mcedt_credential WHERE id=1",String.class).getSingleResult());}
     private void cipher(String value) {tx.executeWithoutResult(status->em.createNativeQuery("UPDATE mcedt_credential SET encrypted_password=:value WHERE id=1").setParameter("value",value).executeUpdate());}
     private void assertStaticFailure(Runnable work) {var error=assertThrows(IllegalStateException.class,work::run);assertNull(error.getCause());assertFalse(error.getMessage().contains("FAKE"));}
+
+    private void oldAudit() {
+        tx.executeWithoutResult(status -> em.createNativeQuery(
+                "UPDATE mcedt_credential SET lastUpdateUser='FAKE-before', lastUpdateDate='2001-09-09 09:00:00' WHERE id=1").executeUpdate());
+    }
+    private void assertAudit(String actor) {
+        Object[] values = tx.execute(status -> (Object[]) em.createNativeQuery(
+                "SELECT lastUpdateUser,CASE WHEN lastUpdateDate>'2001-09-09 09:00:00' THEN 1 ELSE 0 END FROM mcedt_credential WHERE id=1", Object[].class).getSingleResult());
+        assertEquals(actor, values[0]);
+        assertEquals(1, ((Number) values[1]).intValue());
+    }
+    @Test
+    void shouldAuditDefaultServiceWrites_withoutIncludingTheCredential() {
+        oldAudit();
+        credentials.savePassword("FAKE-secret-audit-input");
+        assertAudit("mcedt-service");
+    }
+    @Test
+    void shouldAuditFirstReadMigration_withoutAuditingOrdinaryReads() {
+        oldAudit(); legacy("FAKE-migrate-audit-input");
+        assertEquals("FAKE-migrate-audit-input", credentials.getPassword("fallback"));
+        assertAudit("mcedt-migration");
+        oldAudit();
+        assertEquals("FAKE-migrate-audit-input", credentials.getPassword("fallback"));
+        assertEquals("FAKE-before", tx.execute(status -> (String) em.createNativeQuery(
+                "SELECT lastUpdateUser FROM mcedt_credential WHERE id=1", String.class).getSingleResult()));
+    }
+
+    @Test
+    void shouldAuditExplicitActorAndTime_whenPasswordChanges() {
+        oldAudit(); credentials.savePassword("FAKE-secret-audit-input", "FAKE-provider");
+        assertAudit("FAKE-provider");
+    }
+    @ParameterizedTest @NullAndEmptySource @ValueSource(strings={"  "})
+    void shouldUseTheServiceActor_whenAuthenticatedActorIsMissing(String actor) {
+        credentials.savePassword("FAKE-secret-audit-input", actor);
+        assertAudit("mcedt-service");
+    }
+    @Test
+    void shouldBoundAuditActors_beforeChangingStorage() {
+        assertStaticFailure(() -> credentials.savePassword("FAKE-secret-audit-input", "x".repeat(101)));
+        assertNull(stored());
+        credentials.savePassword("FAKE-secret-audit-input", "x".repeat(100));
+        assertAudit("x".repeat(100));
+    }
+    @Test
+    void shouldRollBackAuditAndCredential_whenTheCallerRollsBack() {
+        oldAudit();
+        tx.executeWithoutResult(status -> {
+            credentials.savePassword("FAKE-secret-audit-input", "FAKE-provider");
+            status.setRollbackOnly();
+        });
+        assertNull(stored());
+        assertEquals("FAKE-before", tx.execute(status -> (String) em.createNativeQuery(
+                "SELECT lastUpdateUser FROM mcedt_credential WHERE id=1", String.class).getSingleResult()));
+    }
 
     @Test
     void shouldCommitEncryptedCredential_whenCreatedAndReplaced() throws Exception {
@@ -161,38 +217,47 @@ class McedtCredentialServiceIntegrationTest {
     @Test
     void shouldFailClosed_whenSingletonLockRecordIsMissing() {tx.executeWithoutResult(status->em.createNativeQuery("DELETE FROM mcedt_credential").executeUpdate());assertStaticFailure(()->credentials.savePassword("FAKE-value"));assertStaticFailure(()->credentials.getPassword("fallback"));}
 
-    private void awaitDatabaseBlock(int blocker,Future<?> waiting,String table) throws Exception {
+    private void awaitDatabaseBlock(int blocker,AtomicInteger contender,Future<?> waiting) throws Exception {
         long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(10);
         String sql=((OwnedDataSource)source).mariaDb
-                ? "SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE ID NOT IN(CONNECTION_ID(),?) AND DB=DATABASE() AND COMMAND='Query' AND LOWER(INFO) LIKE CONCAT('%',?,'%') AND (LOWER(INFO) LIKE '%for update%' OR LOWER(INFO) LIKE '%delete %')"
-                : "SELECT COUNT(*) FROM INFORMATION_SCHEMA.SESSIONS WHERE BLOCKER_ID=?";
-        try(Connection connection=source.getConnection();var query=connection.prepareStatement(sql)) {
-            query.setInt(1,blocker);
-            if(((OwnedDataSource)source).mariaDb)query.setString(2,table);
-            while(System.nanoTime()<deadline) {
-                try(var rows=query.executeQuery()) {
-                    rows.next();
-                    if(rows.getInt(1)>0) {
-                        // The contender has reached the actual database lock operation.
-                        // A scheduling delay before its call cannot satisfy this signal.
-                        assertThrows(TimeoutException.class,()->waiting.get(200,TimeUnit.MILLISECONDS));
-                        return;
+                ? "SELECT COUNT(*) FROM information_schema.INNODB_LOCK_WAITS waits "
+                        + "JOIN information_schema.INNODB_TRX blocked ON blocked.trx_id=waits.requesting_trx_id "
+                        + "JOIN information_schema.INNODB_TRX writer ON writer.trx_id=waits.blocking_trx_id "
+                        + "WHERE writer.trx_mysql_thread_id=? AND blocked.trx_mysql_thread_id=?"
+                : "SELECT COUNT(*) FROM INFORMATION_SCHEMA.SESSIONS WHERE BLOCKER_ID=? AND SESSION_ID=?";
+        try (Connection connection = source.getConnection()) {
+            while (System.nanoTime() < deadline) {
+                // Obtain a fresh information-schema statement for each observation.
+                try (var query = connection.prepareStatement(sql)) {
+                    query.setInt(1, blocker);
+                    query.setInt(2, contender.get());
+                    try (var rows = query.executeQuery()) {
+                        rows.next();
+                        if (rows.getInt(1) > 0) {
+                            assertThrows(TimeoutException.class, () -> waiting.get(200, TimeUnit.MILLISECONDS));
+                            return;
+                        }
                     }
                 }
-                assertFalse(waiting.isDone(),"contender completed before the actual database lock was observed");TimeUnit.MILLISECONDS.sleep(10);
+                assertFalse(waiting.isDone(), "contender completed before its writer-specific database wait was observed");
+                TimeUnit.MILLISECONDS.sleep(50);
             }
         }
         StringBuilder diagnostic=new StringBuilder("No database session was observed blocked by writer ").append(blocker);
         if(((OwnedDataSource)source).mariaDb)try(Connection connection=source.getConnection();var query=connection.createStatement()) {
             // Metadata only: never record SQL text or credential values.
-            for(String probe:new String[]{"SELECT trx_id,trx_mysql_thread_id,trx_state FROM information_schema.INNODB_TRX","SELECT requesting_trx_id,blocking_trx_id FROM information_schema.INNODB_LOCK_WAITS","SELECT ID,COMMAND,STATE FROM information_schema.PROCESSLIST WHERE DB=DATABASE()"}) {
+            for(String probe:new String[]{"SELECT trx_id,trx_mysql_thread_id,trx_state,trx_operation_state,trx_requested_lock_id,trx_wait_started,trx_rows_locked FROM information_schema.INNODB_TRX","SELECT requesting_trx_id,blocking_trx_id FROM information_schema.INNODB_LOCK_WAITS","SELECT TABLE_NAME,ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()","SELECT ID,TIME,COMMAND,STATE,LEFT(SUBSTRING_INDEX(INFO,CHAR(39),1),200) FROM information_schema.PROCESSLIST WHERE DB=DATABASE()"}) {
                 try(var rows=query.executeQuery(probe)){diagnostic.append(" [");while(rows.next()){for(int i=1;i<=rows.getMetaData().getColumnCount();i++)diagnostic.append(rows.getString(i)).append(':');diagnostic.append(';');}diagnostic.append(']');}
             }
         }
         fail(diagnostic.toString());
     }
+    private int sessionId() {
+        return ((Number) em.createNativeQuery(((OwnedDataSource)source).mariaDb
+                ? "SELECT CONNECTION_ID()" : "SELECT SESSION_ID()").getSingleResult()).intValue();
+    }
     private void hold(CountDownLatch locked,CountDownLatch release,AtomicInteger session) {
-        session.set(((Number)em.createNativeQuery(((OwnedDataSource)source).mariaDb?"SELECT CONNECTION_ID()":"SELECT SESSION_ID()").getSingleResult()).intValue());locked.countDown();
+        session.set(sessionId());locked.countDown();
         try {assertTrue(release.await(15,TimeUnit.SECONDS));}catch(InterruptedException error){Thread.currentThread().interrupt();throw new IllegalStateException(error);}
     }
     private <T> T completed(Future<T> operation) throws Exception {
@@ -201,19 +266,19 @@ class McedtCredentialServiceIntegrationTest {
     }
     @Test
     void shouldSerializeFirstSaves_usingTheSeededDatabaseLock() throws Exception {
-        var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();
+        var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();var contender=new AtomicInteger();
         try(var pool=Executors.newFixedThreadPool(2)) {
             var first=pool.submit(()->tx.executeWithoutResult(status->{credentials.savePassword("FAKE-first");hold(locked,release,session);}));
-            try {assertTrue(locked.await(15,TimeUnit.SECONDS));var second=pool.submit(()->credentials.savePassword("FAKE-second"));awaitDatabaseBlock(session.get(),second,"mcedt_credential");release.countDown();first.get(15,TimeUnit.SECONDS);second.get(15,TimeUnit.SECONDS);assertEquals("FAKE-second",credentials.getPassword("fallback"));assertEquals(0,legacyCount());assertEquals(1L,tx.execute(status->((Number)em.createNativeQuery("SELECT COUNT(*) FROM mcedt_credential").getSingleResult()).longValue()).longValue());}
+            try {assertTrue(locked.await(15,TimeUnit.SECONDS));var second=pool.submit(()->tx.executeWithoutResult(status->{contender.set(sessionId());credentials.savePassword("FAKE-second");}));awaitDatabaseBlock(session.get(),contender,second);release.countDown();first.get(15,TimeUnit.SECONDS);second.get(15,TimeUnit.SECONDS);assertEquals("FAKE-second",credentials.getPassword("fallback"));assertEquals(0,legacyCount());assertEquals(1L,tx.execute(status->((Number)em.createNativeQuery("SELECT COUNT(*) FROM mcedt_credential").getSingleResult()).longValue()).longValue());}
             finally {release.countDown();}
         }
     }
     @Test
     void shouldWaitForLegacyWriter_withoutRestoringAStalePassword() throws Exception {
-        int id=legacy("FAKE-old");var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();
+        int id=legacy("FAKE-old");var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();var contender=new AtomicInteger();
         try(var pool=Executors.newFixedThreadPool(2)) {
             var writer=pool.submit(()->tx.executeWithoutResult(status->{var row=em.find(UserProperty.class,id,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);row.setValue("FAKE-new");em.flush();hold(locked,release,session);}));
-            try {assertTrue(locked.await(15,TimeUnit.SECONDS));var reader=pool.submit(()->credentials.getPassword("fallback"));awaitDatabaseBlock(session.get(),reader,"property");release.countDown();writer.get(15,TimeUnit.SECONDS);assertEquals("FAKE-new",completed(reader));assertEquals("FAKE-new",EncryptionUtils.decrypt(stored()));assertEquals(0,legacyCount());}
+            try {assertTrue(locked.await(15,TimeUnit.SECONDS));var reader=pool.submit(()->tx.execute(status->{contender.set(sessionId());return credentials.getPassword("fallback");}));awaitDatabaseBlock(session.get(),contender,reader);release.countDown();writer.get(15,TimeUnit.SECONDS);assertEquals("FAKE-new",completed(reader));assertEquals("FAKE-new",EncryptionUtils.decrypt(stored()));assertEquals(0,legacyCount());}
             finally {release.countDown();}
         }
     }
@@ -314,7 +379,7 @@ class McedtCredentialServiceIntegrationTest {
     private void obsoleteLegacyRead(boolean renamed) throws Exception {
         credentials.savePassword("FAKE-current");int id=legacy("FAKE-old");
         Integer snapshotIsolation=((OwnedDataSource)source).mariaDb?tx.execute(status->((Number)em.createNativeQuery("SELECT @@innodb_snapshot_isolation").getSingleResult()).intValue()):null;
-        var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();
+        var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();var contender=new AtomicInteger();
         try(var pool=Executors.newFixedThreadPool(2)) {
             var writer=pool.submit(()->tx.executeWithoutResult(status->{
                 var row=em.find(UserProperty.class,id,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
@@ -323,11 +388,12 @@ class McedtCredentialServiceIntegrationTest {
             }));
             try {
                 assertTrue(locked.await(15,TimeUnit.SECONDS));var reader=pool.submit(()->tx.execute(status->{
+                    contender.set(sessionId());
                     String password=credentials.getPassword("FAKE-fallback");
                     if(snapshotIsolation!=null)assertEquals(snapshotIsolation,((Number)em.createNativeQuery("SELECT @@innodb_snapshot_isolation").getSingleResult()).intValue(),"the cleanup statement must restore this same connection's setting");
                     return password;
                 }));
-                awaitDatabaseBlock(session.get(),reader,"property");release.countDown();completed(writer);
+                awaitDatabaseBlock(session.get(),contender,reader);release.countDown();completed(writer);
                 assertEquals("FAKE-current",completed(reader));assertEquals(0,legacyCount());
                 if(renamed)assertEquals("provider.language",tx.execute(status->em.find(UserProperty.class,id).getName()));
                 if(snapshotIsolation!=null)assertEquals(snapshotIsolation,tx.execute(status->((Number)em.createNativeQuery("SELECT @@innodb_snapshot_isolation").getSingleResult()).intValue()));
