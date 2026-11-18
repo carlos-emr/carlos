@@ -323,6 +323,22 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRestoreDraft_whenAttachmentStagingFailsInALiveSession() throws Exception {
+        String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
+        List<EmailAttachment> eForm = file("A");
+        when(emailComposeManager.prepareEFormAttachments(any(), eq("20001"), any(), any())).thenReturn(eForm);
+        var failure = new IllegalStateException("Synthetic attachment staging failure");
+
+        try (var staging = org.mockito.Mockito.mockStatic(EmailAttachmentStaging.class)) {
+            staging.when(() -> EmailAttachmentStaging.stage(session, 10001, eForm)).thenThrow(failure);
+            assertThatThrownBy(() -> prepare(keyA)).isSameAs(failure);
+        }
+
+        verify(emailComposeManager).discardPreparedAttachments(eForm);
+        assertShowsWindow(prepare(keyA), "10001", "20001", false, "A");
+    }
+
+    @Test
     @DisplayName("should keep the prepared files when the window opens")
     void shouldKeepPreparedAttachments_whenComposeSucceeds() throws Exception {
         String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));

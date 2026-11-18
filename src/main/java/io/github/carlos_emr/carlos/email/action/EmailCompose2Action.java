@@ -352,8 +352,9 @@ public class EmailCompose2Action extends ActionSupport {
             stagedAttachments = EmailAttachmentStaging.stage(session, demographicNo, emailAttachmentList);
         } catch (RuntimeException e) {
             // Nothing was staged (for example, the session ended meanwhile), so no window can send
-            // these files: delete them now rather than leave them to the purge job.
+            // these files. Discard them and let a live compose window retry from its original draft.
             emailComposeManager.discardPreparedAttachments(emailAttachmentList);
+            restoreDraft.run();
             throw e;
         }
         request.setAttribute("emailAttachmentList", stagedAttachments.prepared().attachments());
