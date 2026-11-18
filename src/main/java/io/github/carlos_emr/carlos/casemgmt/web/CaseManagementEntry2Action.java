@@ -2505,32 +2505,20 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      * @return boolean true if this session owns the lock, false otherwise
      */
     private boolean hasNoteLock(String demo) {
-        return noteLockState(demo, null) == NoteLockState.OWNED;
-    }
-
-    private enum NoteLockState { OWNED, LOST, UNVERIFIED }
-
-    private NoteLockState noteLockState(String demo, Integer autosaveReference) {
         HttpSession session = request.getSession();
         CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session lock keyed by demographic scope
         try {
             if (casemgmtNoteLockSession == null) {
-                return NoteLockState.UNVERIFIED;
+                return false;
             }
             CasemgmtNoteLock casemgmtNoteLock = casemgmtNoteLockDao.find(casemgmtNoteLockSession.getId());
             String currentSessionId = session.getId();
-            if (casemgmtNoteLock != null
+            return casemgmtNoteLock != null
                     && Objects.equals(casemgmtNoteLock.getSessionId(), casemgmtNoteLockSession.getSessionId())
-                    && Objects.equals(currentSessionId, casemgmtNoteLockSession.getSessionId())) {
-                return NoteLockState.OWNED;
-            }
-            // A patient-wide cache can belong to another editor. Confirm loss only for its checked note.
-            Long cachedNote = casemgmtNoteLockSession.getNoteId();
-            return autosaveReference != null && cachedNote != null && Math.max(0L, cachedNote) == autosaveReference
-                    ? NoteLockState.LOST : NoteLockState.UNVERIFIED;
+                    && Objects.equals(currentSessionId, casemgmtNoteLockSession.getSessionId());
         } catch (Exception e) {
             logger.warn("Lock check failed unexpectedly ({})", e.getClass().getSimpleName());
-            return NoteLockState.UNVERIFIED;
+            return false;
         }
     }
 
@@ -3617,12 +3605,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         Integer reference = authorizedAutosaveNoteReference(loggedInInfo, demographicNo, programId, noteId);
         if (reference == null) return null;
 
-        NoteLockState lock = noteLockState(demographicNo, reference);
-        if (lock != NoteLockState.OWNED) {
-            if (lock == NoteLockState.LOST) response.setHeader("X-Carlos-Note-Lock-Lost", "true");
-            response.setStatus(HttpServletResponse.SC_CONFLICT);
-            return null;
-        }
+        if (ownedNoteLock(demographicNo, reference) == null) return null;
 
         try {
             caseManagementMgr.replaceTmpSave(providerNo, demographicNo, programId, noteId, note);

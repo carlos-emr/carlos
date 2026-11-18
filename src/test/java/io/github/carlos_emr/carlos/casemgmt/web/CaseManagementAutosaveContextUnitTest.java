@@ -88,6 +88,8 @@ class CaseManagementAutosaveContextUnitTest extends CarlosUnitTestBase {
         CasemgmtNoteLock lock = new CasemgmtNoteLock();
         lock.setId(10L);
         lock.setNoteId(501L);
+        lock.setDemographicNo(101);
+        lock.setProviderNo("999998");
         lock.setSessionId(request.getSession().getId());
         request.getSession().setAttribute("casemgmtNoteLock101", lock);
         when(locks.find(10L)).thenReturn(lock);
@@ -147,6 +149,52 @@ class CaseManagementAutosaveContextUnitTest extends CarlosUnitTestBase {
         assertThat(response.getHeader("X-Carlos-Note-Lock-Lost")).isEqualTo("true");
         assertThat(note.getNote()).isEqualTo("Previous persisted text");
         verify(manager, never()).replaceTmpSave(any(), any(), any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldUseTheSelectedNoteLock_whenAnotherProgramOwnsThePatientCache(boolean selectedStillOwned) {
+        var session = request.getSession();
+        var selected = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock101");
+        var selectedForm = new CaseManagementEntryFormBean();
+        selectedForm.setCaseNote(note);
+        session.setAttribute(ChartProgramContext.formKey(request, "101"), selectedForm);
+        var other = new MockHttpServletRequest();
+        other.setSession(session);
+        other.setParameter("demographicNo", "101");
+        ChartProgramContext.remember(other, "22");
+        CaseManagementNote otherNote = new CaseManagementNote();
+        otherNote.setId(502L);
+        otherNote.setDemographic_no("101");
+        otherNote.setProgram_no("22");
+        var otherForm = new CaseManagementEntryFormBean();
+        otherForm.setCaseNote(otherNote);
+        session.setAttribute(ChartProgramContext.formKey(other, "101"), otherForm);
+        var otherLock = new CasemgmtNoteLock();
+        otherLock.setId(11L);
+        otherLock.setNoteId(502L);
+        otherLock.setDemographicNo(101);
+        otherLock.setProviderNo("999998");
+        otherLock.setSessionId(session.getId());
+        session.setAttribute("casemgmtNoteLock101", otherLock);
+        when(locks.find(11L)).thenReturn(selectedStillOwned ? null : otherLock);
+        when(locks.findBySession(session.getId())).thenReturn(java.util.List.of(selectedStillOwned ? selected : otherLock));
+
+        action.autosave();
+
+        if (selectedStillOwned) {
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getHeader("X-Carlos-Note-Lock-Lost")).isNull();
+            verify(manager).replaceTmpSave("999998", "101", "11", "501", "Current unsaved text");
+        } else {
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(response.getHeader("X-Carlos-Note-Lock-Lost")).isEqualTo("true");
+            assertThat(note.getNote()).isEqualTo("Previous persisted text");
+            verify(manager, never()).replaceTmpSave(any(), any(), any(), any(), any());
+        }
+        verify(locks).findBySession(session.getId());
+        verify(locks, never()).find(11L);
+        assertThat(session.getAttribute("casemgmtNoteLock101")).isSameAs(otherLock);
     }
 
     @Test
