@@ -64,3 +64,11 @@ plaintext properties and cannot consume ciphertext; mixed old/new MCEDT writers
 are unsupported. Keeping plaintext available to those writers would defeat the
 storage repair. Retain the installation encryption key with its existing
 credential backups and use compatible code/schema when restoring them.
+
+The complete post-review Node retake passes all 8,111 cases across 570 files
+on Node 22.23.5 with zero failures, skips, cancellations or TODOs, and every
+test-source fingerprint unchanged. The generated inventory is byte-identical
+to the tracked inventory. The original one-case failure (missing migration
+merge-order registration) is retained; the ledger is corrected and all five
+migration-order controls pass. Final Node report SHA-256:
+`a622abac48d99d12fa96845233e30296f8984a8437f73aa06268ed47661b5a01`.
