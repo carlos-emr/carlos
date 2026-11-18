@@ -114,17 +114,20 @@ async function workflow(s) {
   await s.step('a crafted over-long note past the browser is refused with 400, shown above the list and by its note box, and changes no row', async () => {
     const before = all();
     const mark = failureMark(s.recorder);
+    const draft = '\n' + 'C'.repeat(LIMIT - 1);
+    const submittedDate = '2026-01-02';
     // As a hand-made request would: the page's own row selection, then a submit that skips its checks.
     const [response] = await Promise.all([
       f.manager.waitForResponse(r => r.request().method() === 'POST'
         && h.pathOnly(r.url()).endsWith('/waitinglist/SetupDisplayWaitingList'), { timeout: 20000 }),
-      f.patientRow(s.patient).locator('textarea').evaluate((box, { list, value }) => {
+      f.patientRow(s.patient).locator('textarea').evaluate((box, { list, value, date }) => {
         box.value = value;
+        box.closest('tr').querySelector('input[name$="].onListSince"]').value = date;
         setParameters(box);
         box.form.waitingListId.value = list;
         box.form.update.value = 'Y';
         HTMLFormElement.prototype.submit.call(box.form);
-      }, { list: String(f.list.id), value: 'C'.repeat(LIMIT + 1) }),
+      }, { list: String(f.list.id), value: draft, date: submittedDate }),
     ]);
     await f.manager.waitForLoadState('domcontentloaded');
     h.assert(response.status() === 400, `A crafted over-long note was answered ${response.status()}, not 400`);
@@ -137,11 +140,20 @@ async function workflow(s) {
     h.assert(await f.patientRow(s.patient).locator('textarea').getAttribute('aria-describedby') === await rowMessage.getAttribute('id'),
       'The refused note box does not point at its message');
     h.assert(await f.manager.locator('[data-carlos-waiting-list-note-row-error]').count() === 1, 'A row other than the refused one shows the message');
+    h.assert(await f.patientRow(s.patient).locator('textarea').inputValue() === draft,
+      'The refused note lost its leading newline or another character');
+    h.assert(await f.patientRow(s.patient).locator('input[name$="].onListSince"]').inputValue() === submittedDate,
+      'The refused row lost its edited date');
     h.assert(all() === before, 'A refused note changed the list');
     // The refusal is this step's expected result, not a page defect. The browser logs the refused load after the
     // page has loaded, so give it a moment before claiming the 400 and its console line.
     await f.manager.waitForTimeout(1000);
     consumeExpectedFailure(s.recorder, mark, { status: 400, path: /\/waitinglist\/SetupDisplayWaitingList$/ });
+    const corrected = draft.slice(0, -1);
+    await update(corrected, undefined);
+    const [saved] = current(s.patient);
+    h.assert(saved[0].replace(/\r\n/g, '\n') === corrected && saved[1] === submittedDate,
+      'Resubmitting the corrected note did not retain its leading newline or the originally edited date');
   });
 }
 if (require.main === module) runWorkflow(process.env.WAITING_LIST_ACTION === 'remove' ? 'waiting-list-manager-remove' : 'waiting-list-row-edit',

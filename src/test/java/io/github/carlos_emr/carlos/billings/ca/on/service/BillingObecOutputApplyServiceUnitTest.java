@@ -383,11 +383,12 @@ class BillingObecOutputApplyServiceUnitTest {
                 .doesNotContain("1234567890");
     }
 
-    @Test
-    void shouldCountAnEarlierBareLineFeedAsTheFormWillSendIt_whenTheAlertHoldsOne() {
-        // An earlier apply left a bare LF in the alert. Stored, it is one character and the alert would
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"\n", "\r"})
+    void shouldCountAnEarlierSingleCharacterLineBreakAsTheFormWillSendIt_whenTheAlertHoldsOne(String lineBreak) {
+        // In storage the line break uses one character and the alert would
         // fit; the Master Record form sends it back as CR LF, so it is one over and stays unwritten.
-        String existing = "A".repeat(100) + "\n" + "A".repeat(DemographicCust.ALERT_MAX_LENGTH - formLength("") - 101);
+        String existing = "A".repeat(100) + lineBreak + "A".repeat(DemographicCust.ALERT_MAX_LENGTH - formLength("") - 101);
         String stored = existing + "\n" + MESSAGE;
         assertThat(stored.length()).isLessThanOrEqualTo(DemographicCust.ALERT_MAX_LENGTH);
         assertThat(BillingObecOutputApplyService.asFormSubmits(stored).length())

@@ -177,14 +177,17 @@ class WLWaitingListNoteLengthActionUnitTest extends CarlosWebTestBase {
         }
 
         @Test
-        void shouldHandTheSubmittedNoteToThePage_whenItIsRefused() throws Exception {
-            postRowEdit(TOO_LONG);
+        void shouldHandTheSubmittedNoteAndDateToThePage_whenTheNoteIsRefused() throws Exception {
+            String draft = "\r\n" + TOO_LONG;
+            String date = "2026-01-02";
+            postRowEdit(draft);
+            getMockRequest().setParameter("waitingListBean[0].onListSince", date);
 
             runPage();
 
-            // The text the user typed reaches the page as a request attribute set by the action.
             assertThat(getMockRequest().getAttribute(WLSetupDisplayWaitingList2Action.NOTE_SUBMITTED))
-                    .isEqualTo(TOO_LONG);
+                    .isEqualTo(draft);
+            assertThat(getMockRequest().getAttribute(WLSetupDisplayWaitingList2Action.DATE_SUBMITTED)).isEqualTo(date);
         }
 
         @Test
@@ -199,6 +202,7 @@ class WLWaitingListNoteLengthActionUnitTest extends CarlosWebTestBase {
             assertThat(result).isEqualTo("continue");
             assertThat(getMockRequest().getAttribute(WLSetupDisplayWaitingList2Action.NOTE_ERRORS)).isNull();
             assertThat(getMockRequest().getAttribute(WLSetupDisplayWaitingList2Action.NOTE_SUBMITTED)).isNull();
+            assertThat(getMockRequest().getAttribute(WLSetupDisplayWaitingList2Action.DATE_SUBMITTED)).isNull();
             ArgumentCaptor<WaitingList> saved = ArgumentCaptor.forClass(WaitingList.class);
             verify(mockWaitingListDao).saveEntity(saved.capture());
             assertThat(saved.getValue().getNote()).isEqualTo(LONGEST);

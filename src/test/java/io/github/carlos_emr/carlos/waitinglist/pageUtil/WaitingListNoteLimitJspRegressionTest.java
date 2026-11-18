@@ -95,8 +95,10 @@ class WaitingListNoteLimitJspRegressionTest {
                 noteBox.indexOf("</textarea>"));
         // Only the row the action refused (the row and patient posted) shows the posted text, encoded for the
         // text-area body; every other row shows its saved note, encoded the same way.
-        assertThat(body).isEqualTo("${noteRefusedHere ? carlos:forHtmlContent(waitingListSubmittedNote)"
+        assertThat(body).isEqualTo("\n${noteRefusedHere ? carlos:forHtmlContent(waitingListSubmittedNote)"
                 + " : carlos:forHtmlContent(waitingListBean.note)}");
+        assertThat(row).contains("value=\"${carlos:forHtmlAttribute(noteRefusedHere"
+                + " ? waitingListSubmittedDate : waitingListBean.onListSince)}\"");
         // The text comes from the action's request attribute, never from a raw parameter.
         assertThat(body).doesNotContain("param.");
         assertThat(WLSetupDisplayWaitingList2Action.NOTE_SUBMITTED).isEqualTo("waitingListSubmittedNote");

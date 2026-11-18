@@ -119,6 +119,8 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
      * note parameter, and the page encodes it for the text-area body; the page never echoes a raw parameter.
      */
     static final String NOTE_SUBMITTED = "waitingListSubmittedNote";
+    /** Submitted date belonging to the same refused row as {@link #NOTE_SUBMITTED}. */
+    static final String DATE_SUBMITTED = "waitingListSubmittedDate";
 
     private final SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
@@ -249,6 +251,7 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
                 log.warn("WLSetupDisplayWaitingList2Action/execute(): refused a waiting-list note over its length limit"); // NOSONAR javasecurity:S5145 — fixed text, no request data
                 request.setAttribute(NOTE_ERRORS, noteErrors);
                 request.setAttribute(NOTE_SUBMITTED, waitingListNote);
+                request.setAttribute(DATE_SUBMITTED, onListSince);
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             } else {
                 try {
@@ -283,7 +286,6 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
 
         log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListId = {}", LogSafe.sanitize(waitingListId));
         log.debug("WLSetupDisplayWaitingList2Action/execute(): demographicNo = {}", LogSafe.sanitize(demographicNo));
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListNote = {}", LogSafe.sanitize(waitingListNote));
         log.debug("WLSetupDisplayWaitingList2Action/execute(): onListSince = {}", LogSafe.sanitize(onListSince));
 
         WLWaitingListBeanHandler hd = null;
