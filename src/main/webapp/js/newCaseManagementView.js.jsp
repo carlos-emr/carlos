@@ -4758,20 +4758,32 @@ function autoSave() {
 
 
     function doInformedConsent(demographicNo) {
-        var checked = jQuery("#informedConsentCheck").attr("checked");
-        if (checked) {
+        var checkbox = jQuery("#informedConsentCheck");
+        var checked = checkbox.is(':checked');
+        if (checked && !checkbox.prop("disabled")) {
             var forSure = window.confirm("Are you sure you would like to indicate that Informed Consent has been collected?");
             if (forSure) {
+                // Keep further saves disabled until the chart reloads after an unconfirmed write.
+                checkbox.prop("checked", false).prop("disabled", true);
+                var unconfirmed = function () {
+                    checkbox.prop("checked", false);
+                    window.alert("Informed consent save could not be confirmed. Reopen the chart and retry only if consent is still absent.");
+                };
                 jQuery.post(ctx + "/DemographicExtService",
                     {method: "saveNewValue", demographicNo: demographicNo, key: "informedConsent", value: "yes"},
                     function (data, textStatus) {
-                        if (data != undefined && parseInt(data.value) > 0) {
+                        var id = data && data.value;
+                        var saved = (typeof id === "number" && Number.isSafeInteger(id) && id > 0)
+                            || (typeof id === "string" && /^[1-9]\d*$/.test(id) && Number.isSafeInteger(Number(id)));
+                        if (saved) {
                             jQuery("#informedConsentDiv").remove();
+                        } else {
+                            unconfirmed();
                         }
-                    }, 'json');
+                    }, 'json').fail(unconfirmed);
 
             } else {
-                jQuery("#informedConsentCheck").attr("checked", false);
+                checkbox.prop("checked", false);
             }
         }
     }
