@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/DelegateFactory.java",
   "kind": "floor",
   "floor": {
-    "lines": 66.66666666666667,
-    "instructions": 64.28571428571429,
+    "lines": 90.0,
+    "instructions": 91.2,
     "branches": 100.0,
-    "sourceBlob": "1e0c5240e567f3c18c47570e9f424a5cf8cc7f94"
+    "sourceBlob": "839f659cd9c5fb152e4ea2f37feb2f56e91ccef1"
   },
-  "evidenceSha256": "43b5b1e96e775e41c805eb7c78fb6f48daaaa74a4ca4aa1eac68ef849d0fb6ca"
+  "evidenceSha256": "3e028a7aca10e02c6742d370616d8a15062dbde9fa4fd41aa402e136718ed3f8"
 }
