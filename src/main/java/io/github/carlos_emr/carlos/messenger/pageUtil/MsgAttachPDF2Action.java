@@ -282,16 +282,14 @@ public class MsgAttachPDF2Action extends ActionSupport {
             return NONE;
         }
         if (item.get().printsOwnPdf()) {
+            // A preview must fit the same record as attaching the chart notes by themselves.
+            long budget = chartNotesByteBudget(List.of(attachment.get()), new String[1], 0);
             byte[] pdf;
             try {
-                // A preview shows what attaching would send, and is held in memory until it is streamed, so it
-                // has the same cap as the chart notes alone in a message: a chart that could not be attached is
-                // refused here too, before it is read into memory.
-                pdf = printOwnPdf(attachment.get(), demographicNo, loggedInInfo, chartNotesByteBudget(0));
+                pdf = printOwnPdf(attachment.get(), demographicNo, loggedInInfo, budget);
             } catch (MsgEncounterPdfComposer.PrintTooLargeException tooLarge) {
                 // Nothing has been shown, so nothing is audited. Sizes only.
-                logger.warn("Refused a chart notes preview: the print passed the {} bytes a message can carry",
-                        chartNotesByteBudget(0));
+                logger.warn("Refused a chart notes preview: the print passed the {} bytes a message can carry", budget);
                 response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, PDFS_TOO_LARGE);
                 return NONE;
             } catch (CdsLegacyProjectionException unsupported) {
@@ -365,41 +363,35 @@ public class MsgAttachPDF2Action extends ActionSupport {
         // it is read into memory, copied or Base64-encoded (#6161 review). The print still renders and merges
         // on disk first, as the chart's own Print does. The stored order stays the chooser's.
         String[] pdfs = new String[order.size()];
-        long renderedChars = 0;
+        int chartIndex = -1;
         for (int i = 0; i < order.size(); i++) {
-            if (!order.get(i).printsOwnPdf()) {
+            if (order.get(i).printsOwnPdf()) {
+                chartIndex = i;
+            } else {
                 String html = render(attachments.get(i), demographicNo, loggedInInfo);
                 pdfs[i] = html == null ? null : pdfConverter.toBase64Pdf(request, response, html);
-                renderedChars += pdfs[i] == null ? 0 : pdfs[i].length();
             }
         }
         boolean chartNotesPrinted = false;
-        for (int i = 0; i < order.size(); i++) {
-            if (order.get(i).printsOwnPdf()) {
-                long budget = chartNotesByteBudget(renderedChars);
-                byte[] printed;
-                try {
-                    printed = printOwnPdf(attachments.get(i), demographicNo, loggedInInfo, budget);
-                } catch (CdsLegacyProjectionException unsupported) {
-                    // Nothing staged yet: the message keeps the attachments it had.
-                    response.sendError(HttpServletResponse.SC_CONFLICT, unsupported.getMessage());
-                    return NONE;
-                } catch (MsgEncounterPdfComposer.PrintTooLargeException tooLarge) {
-                    // Refused before it was read into memory, copied or encoded. Nothing is staged and
-                    // nothing has left the chart, so nothing is audited. Sizes only.
-                    logger.warn("Refused chart notes for a message: the print passed the {} bytes left of {}",
-                            budget, MessageTbl.PDF_ATTACHMENT_MAX_BYTES);
-                    response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, PDFS_TOO_LARGE);
-                    return NONE;
-                }
-                pdfs[i] = printed == null ? null : Base64.getEncoder().encodeToString(printed);
-                chartNotesPrinted = printed != null;
-                renderedChars += pdfs[i] == null ? 0 : pdfs[i].length();
+        if (chartIndex >= 0) {
+            long budget = chartNotesByteBudget(attachments, pdfs, chartIndex);
+            byte[] printed;
+            try {
+                printed = printOwnPdf(attachments.get(chartIndex), demographicNo, loggedInInfo, budget);
+            } catch (CdsLegacyProjectionException unsupported) {
+                // Nothing staged yet: the message keeps the attachments it had.
+                response.sendError(HttpServletResponse.SC_CONFLICT, unsupported.getMessage());
+                return NONE;
+            } catch (MsgEncounterPdfComposer.PrintTooLargeException tooLarge) {
+                // Refused before it was read into memory, copied or encoded. Nothing is staged and
+                // nothing has left the chart, so nothing is audited. Sizes only.
+                logger.warn("Refused chart notes for a message: the print passed the {} bytes left of {}",
+                        budget, MessageTbl.PDF_ATTACHMENT_MAX_BYTES);
+                response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, PDFS_TOO_LARGE);
+                return NONE;
             }
-        }
-        List<String[]> rendered = new ArrayList<>();
-        for (int i = 0; i < order.size(); i++) {
-            rendered.add(new String[]{pdfs[i], attachments.get(i).title()});
+            pdfs[chartIndex] = printed == null ? null : Base64.getEncoder().encodeToString(printed);
+            chartNotesPrinted = printed != null;
         }
 
         // Attach replaces this message's chart-PDF set with exactly what is ticked now (ticking
@@ -408,11 +400,8 @@ public class MsgAttachPDF2Action extends ActionSupport {
         // numbers each entry's FILE_ID (0, 1, ...), which the recipient's viewer uses to tell the
         // stored PDFs apart.
         MsgSessionBean records = new MsgSessionBean();
-        for (String[] entry : rendered) {
-            // A failed render is still recorded (status BAD, "(N/A)" title) so the sender sees it;
-            // empty content, not null, or the stored <CONTENT> would read "null".
-            records.setAppendPDFAttachment(entry[0] == null ? "" : entry[0], entry[1]);
-            records.setCurrentAttachmentCount(records.getCurrentAttachmentCount() + 1);
+        for (int i = 0; i < attachments.size(); i++) {
+            appendPdfRecord(records, i, pdfs[i], attachments.get(i).title());
         }
         String stored = records.getPDFAttachment();
         if (!MsgMessageData.pdfAttachmentFits(stored)) {
@@ -432,18 +421,28 @@ public class MsgAttachPDF2Action extends ActionSupport {
         return SUCCESS;
     }
 
-    /**
-     * The most PDF bytes the chart print may write for a message whose other PDFs already take
-     * {@code renderedChars} Base64 characters: what is left of the column, less Base64's 4-for-3
-     * expansion. The records' own framing is left to the final {@link MsgMessageData#pdfAttachmentFits}
-     * check, so this bound only has to keep a chart that cannot fit from being held whole.
-     *
-     * @param renderedChars the Base64 characters of the PDFs already rendered for this message
-     * @return the byte budget, never negative
-     */
-    static long chartNotesByteBudget(long renderedChars) {
-        long leftChars = Math.max(0, MessageTbl.PDF_ATTACHMENT_MAX_BYTES - renderedChars);
-        return leftChars / 4 * 3;
+    /** The chart's decoded PDF budget after the quoted record frames and the other payloads. */
+    private static long chartNotesByteBudget(List<Attachment> attachments, String[] pdfs, int chartIndex) {
+        MsgSessionBean frames = new MsgSessionBean();
+        long payloadBytes = -1; // Remove the placeholder for the chart notes' payload.
+        for (int i = 0; i < attachments.size(); i++) {
+            String pdf = pdfs[i];
+            boolean hasPayload = pdf != null && !pdf.isEmpty();
+            appendPdfRecord(frames, i, i == chartIndex || hasPayload ? "A" : "", attachments.get(i).title());
+            if (hasPayload) {
+                // Base64 only contains ASCII and needs no quoting. Count it without copying it.
+                payloadBytes += pdf.length() - 1;
+            }
+        }
+        long available = MessageTbl.PDF_ATTACHMENT_MAX_BYTES
+                - MsgMessageData.pdfAttachmentStorageBytes(frames.getPDFAttachment()) - payloadBytes;
+        return Math.max(0, available) / 4 * 3;
+    }
+
+    private static void appendPdfRecord(MsgSessionBean records, int index, String pdf, String title) {
+        records.setCurrentAttachmentCount(index);
+        // A failed render still has a BAD record with an empty <CONTENT> for the sender to see.
+        records.setAppendPDFAttachment(pdf == null ? "" : pdf, title);
     }
 
     /**

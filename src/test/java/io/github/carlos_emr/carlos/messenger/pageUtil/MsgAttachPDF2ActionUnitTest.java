@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -884,7 +885,7 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
         @DisplayName("should answer 413, keep the earlier attachments and record nothing for a chart too large to send")
         void shouldReturn413AndKeepEarlierAttachments_whenTheChartPrintPassesItsCap() throws Exception {
             // One byte more than a whole message can carry once Base64-encoded.
-            encounterPdf = new byte[(int) MsgAttachPDF2Action.chartNotesByteBudget(0) + 1];
+            encounterPdf = new byte[chartNotesOnlyByteBudget() + 1];
             givenEarlierAttachment();
             MsgAttachPDF2Action action = newAction();
             action.setItem(new String[]{"demographic", "currentEncounter"});
@@ -911,11 +912,13 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
 
-            // Two routed items rendered first, 2,000,000 Base64 characters; the print gets 3/4 of the rest.
-            assertThat(printBudgets).containsExactly((MessageTbl.PDF_ATTACHMENT_MAX_BYTES - 2_000_000L) / 4 * 3);
             // The stored order is still the chooser's (demographic, current encounter, prescriptions), although the
             // chart notes were printed last. Positions only: a failure must not print megabytes of records.
             String stored = stagedPdfs();
+            long bytesWithoutChartPayload = MsgMessageData.pdfAttachmentStorageBytes(stored)
+                    - Base64.getEncoder().encodeToString(encounterPdf).length();
+            assertThat(printBudgets).containsExactly(
+                    (MessageTbl.PDF_ATTACHMENT_MAX_BYTES - bytesWithoutChartPayload) / 4 * 3);
             int demographic = stored.indexOf("<TITLE>FAKE-Doe");
             int chartNotes = stored.indexOf("<TITLE>All current chart notes and CPP</TITLE>");
             int prescriptions = stored.toLowerCase(java.util.Locale.ROOT).indexOf("<title>current prescriptions</title>");
@@ -941,22 +944,34 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should cap a preview at what a message can carry of the chart notes alone")
-        void shouldCapThePreview_atWhatAMessageCanCarry() throws Exception {
-            MsgAttachPDF2Action action = newAction();
-            action.setIsPreview(true);
-            action.setPreviewItem("currentEncounter");
+        @DisplayName("should preview and attach the largest chart PDF that fits its message record")
+        void shouldPreviewAndAttach_theLargestChartPdfThatFits() throws Exception {
+            int largestPdf = chartNotesOnlyByteBudget();
+            encounterPdf = new byte[largestPdf];
+            MsgAttachPDF2Action preview = newAction();
+            preview.setIsPreview(true);
+            preview.setPreviewItem("currentEncounter");
 
-            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(preview.execute()).isEqualTo(ActionSupport.NONE);
 
-            assertThat(printBudgets).containsExactly(MsgAttachPDF2Action.chartNotesByteBudget(0));
-            assertThat(streamedPdfs).containsExactly(encounterPdf);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(streamedPdfs).hasSize(1);
+            assertThat(streamedPdfs.getFirst()).hasSize(largestPdf);
+            assertThat(recordedPreviews).containsExactly(PATIENT);
+
+            MsgAttachPDF2Action attach = newAction();
+            attach.setItem(new String[]{"currentEncounter"});
+
+            assertThat(attach.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(printBudgets).containsExactly((long) largestPdf, (long) largestPdf);
+            assertThat(recordedAttachments).containsExactly(PATIENT);
+            assertThat(MsgMessageData.pdfAttachmentFits(stagedPdfs())).isTrue();
         }
 
         @Test
-        @DisplayName("should answer 413 to a preview of a chart too large to attach, showing and recording nothing")
-        void shouldReturn413_forAPreviewOfAChartTooLargeToAttach() throws Exception {
-            encounterPdf = new byte[(int) MsgAttachPDF2Action.chartNotesByteBudget(0) + 1];
+        @DisplayName("should answer 413 to preview and attach for a chart PDF one byte over the limit")
+        void shouldReturn413_forAChartPdfOneByteOverTheLimit() throws Exception {
+            encounterPdf = new byte[chartNotesOnlyByteBudget() + 1];
             MsgAttachPDF2Action action = newAction();
             action.setIsPreview(true);
             action.setPreviewItem("currentEncounter");
@@ -966,6 +981,21 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
             assertThat(streamedPdfs).isEmpty();
             assertThat(recordedPreviews).isEmpty();
+
+            response = new MockHttpServletResponse();
+            MsgAttachPDF2Action attach = newAction();
+            attach.setItem(new String[]{"currentEncounter"});
+            assertThat(attach.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
+            assertThat(recordedAttachments).isEmpty();
+            assertThat(stagedPdfs()).isNull();
+        }
+
+        private int chartNotesOnlyByteBudget() {
+            MsgSessionBean record = new MsgSessionBean();
+            record.setAppendPDFAttachment("A", "All current chart notes and CPP");
+            int framingBytes = MsgMessageData.pdfAttachmentStorageBytes(record.getPDFAttachment()) - 1;
+            return (MessageTbl.PDF_ATTACHMENT_MAX_BYTES - framingBytes) / 4 * 3;
         }
 
         @Test

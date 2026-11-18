@@ -197,6 +197,21 @@ class ConcatPDFUnitTest {
 
             assertThat(countPages(out.toByteArray())).isEqualTo(3);
         }
+
+        @Test
+        void shouldReadRequiredStreamsWithoutBufferingTheWholeSource() throws Exception {
+            InputStream source = new ByteArrayInputStream(createPdf(2, "Required chart section")) {
+                @Override
+                public byte[] readAllBytes() {
+                    throw new AssertionError("The required PDF stream must be spooled to a file");
+                }
+            };
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+            ConcatPDF.concatRequired(List.of(source), out);
+
+            assertThat(countPages(out.toByteArray())).isEqualTo(2);
+        }
     }
 
     @Nested
