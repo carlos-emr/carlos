@@ -1583,11 +1583,9 @@ DELIMITER ;`);
           const submitted = await page.evaluate(id => {
             const form = document.forms.caseManagementEntryForm;
             const checkbox = form.querySelector(`input[data-issue-id="${id}"]`);
-            const index = checkbox && /^issueCheckList\[(\d+)\]\.checked$/.exec(checkbox.name);
-            const radioName = index && `issueCheckList[${index[1]}].issue.certain`;
-            const radio = radioName && Array.from(form.elements).find(input => input.name === radioName && input.value === 'true');
+            const radio = form.querySelector(`input[type="radio"][data-case-issue-id="${id}"][data-issue-field="certain"][value="true"]`);
             const csrf = globalThis.CarlosAjax?.getCsrfToken();
-            if (!index || !checkbox.checked || !radio || radio.disabled || !csrf) {
+            if (!checkbox?.checked || !radio || radio.disabled || !csrf) {
               throw new Error('The owned issue has no authorized rendered status control or CSRF token');
             }
             const body = new URLSearchParams(new FormData(form));
@@ -1598,7 +1596,6 @@ DELIMITER ;`);
             body.set('issueField', 'certain');
             body.set('issueValue', 'true');
             body.set('ajax', 'true');
-            body.set(radioName, 'true');
             body.set('CSRF-TOKEN', csrf);
             return { body: body.toString(), csrf };
           }, caseId);
