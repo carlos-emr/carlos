@@ -91,7 +91,7 @@ class DaySheetAcknowledgementAuthorizationUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(actor, "_report", "r", null)).thenReturn(false);
         var action = mappedAction();assertThrows(SecurityException.class, action::execute);
     }
-    @Test void shouldRefuseAnAnonymousRequest() throws Exception {
+    @Test void shouldRefuseRequest_whenAnonymous() throws Exception {
         request.getSession().invalidate();
         var action = mappedAction();assertThrows(SecurityException.class, action::execute);
     }
