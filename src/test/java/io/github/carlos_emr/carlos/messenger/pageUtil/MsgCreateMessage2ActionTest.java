@@ -462,9 +462,10 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
             assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND_FAILED)).isNull();
         }
 
-        @Test
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {RECIPIENT, "101: On Call"})
         @DisplayName("should confirm without a warning a send that an earlier version recorded without warning digits")
-        void shouldConfirmWithoutWarnings_whenTheSavedResultIsFromAnEarlierVersion() throws Exception {
+        void shouldConfirmWithoutWarnings_whenTheSavedResultIsFromAnEarlierVersion(String storedRecipient) throws Exception {
             repeatSubmission(null);
             // The first send took this window's attachments, as a real send does.
             MsgAttachmentStaging.take(getMockSession(), thisWindow);
@@ -474,11 +475,11 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
                     jakarta.servlet.http.HttpSession.class, String.class);
             answer.setAccessible(true);
             // A session that outlived a redeploy: "id:digest:recipients", with no warning digits.
-            String legacy = "77:" + digest.invoke(action) + ":" + RECIPIENT;
+            String legacy = "77:" + digest.invoke(action) + ":" + storedRecipient;
 
             assertThat(answer.invoke(action, getMockSession(), legacy)).isEqualTo("success");
 
-            assertThat(getMockRequest().getAttribute("SentMessageProvs")).isEqualTo(RECIPIENT);
+            assertThat(getMockRequest().getAttribute("SentMessageProvs")).isEqualTo(storedRecipient);
             assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.PATIENT_LINK_AFTER_SEND_FAILED)).isNull();
             assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ATTACHMENTS_AFTER_SEND_FAILED)).isNull();
             assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND_FAILED)).isNull();
@@ -1032,6 +1033,25 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
                 verify(messageListDao, times(1)).merge(ownCopy);
                 assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
                 assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow).pdfDemographicNo()).isEqualTo(202);
+            }
+
+            @Test
+            void shouldShowHowToArchiveAnAlreadySentReply_whenTheUsedFormRequestsArchiving() throws Exception {
+                String token = FormSubmissionGuard.issue(getMockSession(), FormSubmissionGuard.Scope.MESSENGER_SEND, null);
+                repeatSubmission(token);
+                getMockRequest().setParameter("archiveMessageId", "55");
+                assertThat(send()).isEqualTo("success");
+                assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND_FAILED)).isNull();
+
+                repeatSubmission(token);
+                getMockRequest().setParameter("archiveMessageId", "55");
+                getMockRequest().setParameter(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND, "1");
+                assertThat(send()).isEqualTo("success");
+
+                assertThat(sends.get()).isEqualTo(1);
+                assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND_FAILED))
+                        .isEqualTo(Boolean.TRUE);
+                verify(messageListDao, never()).findByProviderNoAndMessageNo(TEST_PROVIDER, 55L);
             }
 
             @Test

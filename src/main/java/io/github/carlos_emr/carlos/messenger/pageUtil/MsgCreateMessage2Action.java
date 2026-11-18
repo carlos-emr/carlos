@@ -194,7 +194,10 @@ public class MsgCreateMessage2Action extends ActionSupport {
      */
     private String answerUsedForm(HttpSession session, String savedResult) {
         String[] saved = savedResult == null ? new String[0] : savedResult.split(":", 3);
-        boolean sameMessage = saved.length == 3 && saved[1].equals(contentDigest())
+        String digest = contentDigest();
+        String versionedDigest = SAVED_SEND_VERSION + digest + ".";
+        boolean versioned = saved.length == 3 && saved[1].startsWith(versionedDigest);
+        boolean sameMessage = saved.length == 3 && (versioned || saved[1].equals(digest))
                 // Attachments staged for this window after it sent are not part of what was sent.
                 && MsgAttachmentStaging.peek(session, attachmentKey) == null;
         if (sameMessage) {
@@ -203,13 +206,18 @@ public class MsgCreateMessage2Action extends ActionSupport {
             // raised ("sent, but not linked to the patient") would otherwise never be seen. The
             // repeat retries none of those steps.
             String sentTo = saved[2];
-            if (AFTER_SEND_WARNINGS.matcher(sentTo).lookingAt()) {
+            if (versioned && AFTER_SEND_WARNINGS.matcher(sentTo).lookingAt()) {
                 for (int i = 0; i < AFTER_SEND_FAILURES.length; i++) {
                     if (sentTo.charAt(i) == '1') {
                         request.setAttribute(AFTER_SEND_FAILURES[i], Boolean.TRUE);
                     }
                 }
                 sentTo = sentTo.substring(AFTER_SEND_FAILURES.length + 1);
+            }
+            if (archiveRequested() && (!versioned || !saved[1].equals(versionedDigest + archiveIntent()))) {
+                // The reply was already delivered. The sent page tells the clinician how to
+                // archive the source from the inbox without resending or altering a different reply.
+                request.setAttribute(ARCHIVE_AFTER_SEND_FAILED, Boolean.TRUE);
             }
             request.setAttribute("SentMessageProvs", sentTo);
             return SUCCESS;
@@ -226,14 +234,12 @@ public class MsgCreateMessage2Action extends ActionSupport {
     }
 
     /**
-     * What a saved send records for its repeats: the message id, what was submitted, and who it was
-     * sent to, the last led by one digit per {@link #AFTER_SEND_FAILURES} entry once the after-send
-     * steps have run ({@code "100:"} for a failed patient link; {@code "000:"} before they run, so a
-     * recipient part never starts unannounced with what reads as digits). A result without the
-     * digits, recorded by an earlier version, confirms the send with no warning.
+     * Stores the message id, versioned content and archive intent, warning bits and recipient text.
+     * An older result has an unversioned digest and its entire recipient field is literal text.
      */
     private String savedResult(String messageId, String sentToWho, String afterSendWarnings) {
-        return messageId + ":" + contentDigest() + ":" + afterSendWarnings + ":" + (sentToWho == null ? "" : sentToWho);
+        return messageId + ":" + SAVED_SEND_VERSION + contentDigest() + "." + archiveIntent() + ":"
+                + afterSendWarnings + ":" + (sentToWho == null ? "" : sentToWho);
     }
 
     /** The after-send warnings of this request, as {@link #savedResult} records them. */
@@ -385,7 +391,7 @@ public class MsgCreateMessage2Action extends ActionSupport {
             if (claim != null && sent) {
                 // Recorded now, so a failure in the steps below still leaves the form sent; the
                 // repeat is answered only once the claim closes, with what is recorded last.
-                claim.saved(savedResult(messageId, sentToWho, "000"));
+                claim.saved(savedResult(messageId, sentToWho, archiveRequested() ? "001" : "000"));
             }
 
             if (messageId == null || messageId.isEmpty()) {
@@ -417,7 +423,7 @@ public class MsgCreateMessage2Action extends ActionSupport {
                 reportAfterSendFailure(ATTACHMENTS_AFTER_SEND_FAILED, "saved attachment cleanup", failed);
             }
 
-            if ("1".equals(request.getParameter(ARCHIVE_AFTER_SEND))) {
+            if (archiveRequested()) {
                 archiveRepliedMessage(userNo);
             }
             if (claim != null) {
@@ -469,6 +475,15 @@ public class MsgCreateMessage2Action extends ActionSupport {
             PATIENT_LINK_AFTER_SEND_FAILED, ATTACHMENTS_AFTER_SEND_FAILED, ARCHIVE_AFTER_SEND_FAILED};
     /** The recorded warning digits at the start of a saved result's recipient part ({@link #savedResult}). */
     private static final java.util.regex.Pattern AFTER_SEND_WARNINGS = java.util.regex.Pattern.compile("[01]{3}:");
+    private static final String SAVED_SEND_VERSION = "v2.";
+
+    private boolean archiveRequested() {
+        return "1".equals(request.getParameter(ARCHIVE_AFTER_SEND));
+    }
+
+    private String archiveIntent() {
+        return archiveRequested() ? "archive-" + archiveMessageId(request) : "send";
+    }
 
     private void reportAfterSendFailure(String attribute, String operation, RuntimeException failed) {
         // Exception messages can include clinical values; log only the operation and type.
