@@ -17424,8 +17424,8 @@
       "mutates": [
         "pharmacyInfo"
       ],
-      "fixtures": "Seven pharmacies named after the run marker are in the clinic-wide pharmacy list while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Issues #5308 and #5528: AbstractDaoImpl.findAll orders every page by the entity identifier. The session REST pharmacy list pages through it: a maximum-size first page holds exactly the first database rows in id order, small pages concatenate to the whole directory with no repeat or gap (a directory larger than one 5000-row page included), a re-read page is identical and an offset past the end is empty. Omitted pharmacy pagination keeps the maximum-size default and a zero limit is empty. Oversized limits and negative pagination on both pharmacy and demographic lists must return exactly HTTP 400."
+      "fixtures": "Seven pharmacies named after the run marker are in the clinic-wide pharmacy list while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). One of the seven owned pharmacies is inactive to verify that its explicit status is retained.",
+      "notes": "Issues #5308 and #5528: AbstractDaoImpl.findAll orders every page by the entity identifier. The session REST pharmacy list pages through it: a maximum-size first page holds exactly the first database rows in id order, small pages concatenate to the whole directory with no repeat or gap (a directory larger than one 5000-row page included), a re-read page is identical and an offset past the end is empty. Omitted pharmacy pagination keeps the maximum-size default and a zero limit is empty. Oversized limits and negative pagination on both pharmacy and demographic lists must return exactly HTTP 400. The all-status directory retains inactive pharmacies with status \"0\"; clients selecting active pharmacies filter status \"1\" while traversing pages (#6044)."
     },
     {
       "name": "appointment-options-roundtrip",

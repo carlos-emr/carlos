@@ -10,6 +10,14 @@ This index explains the three artifacts included in this repository for testing 
 | `docs/postman-soap-collection.json` | Postman Collection (SOAP) | SOAP requests packaged for Postman (HTTP + XML payloads). | Import into Postman; edit SOAP XML bodies and auth as needed. |
 | `docs/api-request-response-matrix.xlsx` | Excel Workbook | Canonical table of endpoints with method, path/action, expected request body, response body, and status codes. | Open to review coverage, expected fields (incl. null/empty arrays), and error handling. Useful for QA and third-party integrators. |
 
+## REST pharmacy directory statuses
+
+`GET /ws/rs/pharmacies/?offset=0&limit=5000` returns directory records of every
+status, including inactive (soft-deleted) pharmacies. A `status` value of `"1"`
+denotes an active pharmacy and `"0"` an inactive one. Clients displaying active
+pharmacy choices should select records with status `"1"` while traversing the
+directory pages. Inactive entries still count toward page offsets and limits.
+
 ## REST appointment edit compatibility and conflict detection
 
 Responses serialized as `AppointmentTo1` include an `editVersion` string. Fetch the
