@@ -70,6 +70,12 @@ APPOINTMENT_REQUIRED_CASES = {
     "shouldAllowAssignedPatientWrite_withoutReadPermission",
 }
 
+APPOINTMENT_FIELD_AUDIT_REQUIRED_CASES = {
+    "shouldRollBackFieldAndArchive_whenAuditDaoLookupFails(AppointmentUpdateAction)[1]",
+    "shouldRollBackFieldAndArchive_whenAuditDaoLookupFails(AppointmentUpdateAction)[2]",
+    "shouldRollBackFieldAndArchive_whenAuditDaoLookupFails(AppointmentUpdateAction)[3]",
+}
+
 RX_REQUIRED_CASES = {
     "shouldCommitPrescriptionAndDrugs_whenNativeWritesSucceed",
     "shouldRequireReconciliation_whenCommitSucceedsButAcknowledgementIsLost",
@@ -145,6 +151,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             required = dict(required)
             if selected == "generated":
                 required["AppointmentUpdateDaoIntegrationTest"] = 18
+                required["AppointmentFieldAuditTransactionIntegrationTest"] = 3
                 required["MeasurementDaoIntegrationTest"] += 3000 - sum(required.values())
             for family, count in required.items():
                 suite = self.suite(family)
@@ -159,6 +166,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     "RxPrescribeMariaDbIntegrationTest": RX_REQUIRED_CASES,
                     "TicklerPatientAccessMariaDbIntegrationTest": TICKLER_REQUIRED_CASES,
                     "AppointmentUpdateDaoIntegrationTest": APPOINTMENT_REQUIRED_CASES,
+                    "AppointmentFieldAuditTransactionIntegrationTest": APPOINTMENT_FIELD_AUDIT_REQUIRED_CASES,
                     "ProgramAdmissionAuditMariaDbIntegrationTest": ADMISSION_REQUIRED_CASES,
                     "ReportingPatientListAuditMariaDbIntegrationTest": REPORTING_REQUIRED_CASES,
                 }.get(family, set()) | MODULE.REQUIRED_CASES.get(family, set()))
@@ -225,7 +233,10 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
         self.seed()
         for mode in MODULE.REQUIRED:
             suffix = "" if mode == "generated" else "-" + mode
-            families = [("AppointmentUpdateDaoIntegrationTest", APPOINTMENT_REQUIRED_CASES)] if mode == "generated" else []
+            families = [
+                ("AppointmentUpdateDaoIntegrationTest", APPOINTMENT_REQUIRED_CASES),
+                ("AppointmentFieldAuditTransactionIntegrationTest", APPOINTMENT_FIELD_AUDIT_REQUIRED_CASES),
+            ] if mode == "generated" else []
             for family, names in families + [("SoapTokenHousekeepingDaoIntegrationTest", TOKEN_REQUIRED_CASES),
                                   ("DemographicMergeMariaDbIntegrationTest", MERGE_REQUIRED_CASES),
                                   ("SiteRenameClockMariaDbIntegrationTest", SITE_CLOCK_REQUIRED_CASES),

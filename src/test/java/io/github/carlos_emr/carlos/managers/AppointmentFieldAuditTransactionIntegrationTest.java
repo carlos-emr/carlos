@@ -33,6 +33,7 @@ import static org.mockito.Mockito.*;
 
 /** Reads committed state after audit lookup fails before an audit DAO joins the transaction. */
 @Tag("integration")
+@Tag("mariadb-native")
 @Isolated("Actual LogAction DAO cache")
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes=ScheduleLegacySyncIntegrationTest.Config.class)
