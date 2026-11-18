@@ -28,9 +28,11 @@
  */
 package io.github.carlos_emr.carlos.commn.printing;
 
+import com.google.common.base.Ascii;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashSet;
@@ -162,23 +164,24 @@ public class PrivacyStatementAppendingFilter implements Filter {
             isConfidentialityNotePrinted = isConfidentialtyNotePrinted(httpRequest);
             String statement = isConfidentialityNotePrinted ? "" : getPrivacyStatement();
             HttpServletRequest downstreamRequest = httpRequest;
-            boolean decoratedStaticHtml = !statement.isEmpty() && !RequestNegotiation.isAjax(httpRequest)
+            boolean staticHtmlVaries = !statement.isEmpty()
                     && ("GET".equals(httpRequest.getMethod()) || "HEAD".equals(httpRequest.getMethod()))
                     && hasHtmlResourceType(httpRequest);
+            boolean decoratedStaticHtml = staticHtmlVaries && !RequestNegotiation.isAjax(httpRequest);
             if (decoratedStaticHtml) {
                 // A static file's validators omit the configured print statement. Prevent
                 // DefaultServlet from returning 304 for that different representation.
                 downstreamRequest = new PrintStatementRequest(httpRequest);
             }
 
-            DelegatingServletResponse delegatingServletResponse = new DelegatingServletResponse(httpResponse);
+            DelegatingServletResponse delegatingServletResponse =
+                    new DelegatingServletResponse(httpResponse, staticHtmlVaries, decoratedStaticHtml);
             chain.doFilter(downstreamRequest, delegatingServletResponse);
 
             if (decoratedStaticHtml && delegatingServletResponse.getStatus() == HttpServletResponse.SC_NOT_MODIFIED) {
                 // A wildcard existence condition can still produce 304. Its metadata
                 // must not advertise the undecorated file's validators or length.
                 delegatingServletResponse.discardDeferredContentLength();
-                discardBareFileMetadata(delegatingServletResponse);
                 delegatingServletResponse.completeWithoutStatement();
                 return;
             }
@@ -220,7 +223,6 @@ public class PrivacyStatementAppendingFilter implements Filter {
                         && delegatingServletResponse.getStatus() == HttpServletResponse.SC_OK) {
                     // A static HEAD's bare length omits the statement appended on GET.
                     delegatingServletResponse.discardDeferredContentLength();
-                    discardBareFileMetadata(delegatingServletResponse);
                     return;
                 }
                 delegatingServletResponse.completeWithoutStatement();
@@ -411,6 +413,8 @@ public class PrivacyStatementAppendingFilter implements Filter {
         private boolean responseWriterObtained;
         private boolean responseOutputStreamObtained;
         private boolean appendBufferUnavailable;
+        private final boolean staticHtmlVaries;
+        private final boolean suppressBareFileHeaders;
 
         private DelegatingWriter writer;
         private ServletOutputStream outputStream;
@@ -419,8 +423,28 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 super::setContentLengthLong,
                 () -> super.setHeader(DeferredContentLength.HEADER, null));
 
-        public DelegatingServletResponse(HttpServletResponse response) {
+        public DelegatingServletResponse(HttpServletResponse response, boolean staticHtmlVaries,
+                boolean suppressBareFileHeaders) {
             super(response);
+            this.staticHtmlVaries = staticHtmlVaries;
+            this.suppressBareFileHeaders = suppressBareFileHeaders;
+            if (suppressBareFileHeaders) {
+                discardBareFileMetadata(response);
+            }
+            retainAjaxVary();
+        }
+
+        private boolean suppressBareFileHeader(String name) {
+            return suppressBareFileHeaders && (Ascii.equalsIgnoreCase("ETag", name)
+                    || Ascii.equalsIgnoreCase("Last-Modified", name) || Ascii.equalsIgnoreCase("Accept-Ranges", name));
+        }
+
+        private void retainAjaxVary() {
+            if (staticHtmlVaries && super.getHeaders("Vary").stream().flatMap(value -> Arrays.stream(value.split(",")))
+                    .map(String::trim).noneMatch(name -> "*".equals(name)
+                            || Ascii.equalsIgnoreCase(HTTP_HEADER_NAME_AJAX_REQUESTED_WITH, name))) {
+                super.addHeader("Vary", HTTP_HEADER_NAME_AJAX_REQUESTED_WITH);
+            }
         }
 
         /**
@@ -560,6 +584,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
         @Override
         public void setIntHeader(String name, int value) {
+            if (suppressBareFileHeader(name)) return;
             if (DeferredContentLength.isContentLengthHeader(name)) {
                 setContentLength(value);
             } else {
@@ -569,6 +594,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
         @Override
         public void addIntHeader(String name, int value) {
+            if (suppressBareFileHeader(name)) return;
             if (DeferredContentLength.isContentLengthHeader(name)) {
                 setContentLength(value);
             } else {
@@ -577,17 +603,30 @@ public class PrivacyStatementAppendingFilter implements Filter {
         }
 
         @Override
+        public void setDateHeader(String name, long date) {
+            if (!suppressBareFileHeader(name)) super.setDateHeader(name, date);
+        }
+
+        @Override
+        public void addDateHeader(String name, long date) {
+            if (!suppressBareFileHeader(name)) super.addDateHeader(name, date);
+        }
+
+        @Override
         public void setHeader(String name, String value) {
+            if (suppressBareFileHeader(name)) return;
             if (DeferredContentLength.isContentLengthHeader(name)) {
                 deferContentLengthHeader(value);
                 return;
             }
             super.setHeader(name, value);
+            if (Ascii.equalsIgnoreCase("Vary", name)) retainAjaxVary();
             updateContentLengthForType();
         }
 
         @Override
         public void addHeader(String name, String value) {
+            if (suppressBareFileHeader(name)) return;
             if (DeferredContentLength.isContentLengthHeader(name)) {
                 // Servlet 6.1: adding a null value is a no-op; setting one removes the header.
                 if (value != null) {
@@ -596,6 +635,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 return;
             }
             super.addHeader(name, value);
+            if (Ascii.equalsIgnoreCase("Vary", name)) retainAjaxVary();
             updateContentLengthForType();
         }
 
@@ -656,6 +696,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
         @Override
         public void reset() {
             super.reset();
+            retainAjaxVary();
             contentLength.onReset();
             writer = null;
             outputStream = null;
