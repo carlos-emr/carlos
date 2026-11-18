@@ -52,6 +52,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -243,6 +244,9 @@ public final class Frm2Action extends ActionSupport {
                 quickSaveForm(rec, request, response);
                 return null;
             } else if ("saveFormLetter".equals(request.getParameter("submit"))) {
+                if (rec instanceof FrmBCAR2020Record) {
+                    throw new SQLException(FrmBCAR2020Record.RETIRED_SAVE_MESSAGE);
+                }
                 for (Enumeration varEnum = request.getParameterNames(); varEnum.hasMoreElements(); ) {
                     String name = (String) varEnum.nextElement();
                     props.setProperty(name, request.getParameter(name));
