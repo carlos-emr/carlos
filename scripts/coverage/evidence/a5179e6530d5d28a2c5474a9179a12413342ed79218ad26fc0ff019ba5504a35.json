@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "f1e3550855ec5c2bfe4563c7a4b0ff4d446dac2e",
+  "comparisonSha256": "42cc52fee57a9546eed01171b1203b3a60dff5ac047d249d428a76f7aa9cdcaa",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/MSP/MSPReconcile.java": {
+      "lines": 78.81773399014779,
+      "instructions": 76.7713004484305,
+      "branches": 69.23076923076923,
+      "sourceBlob": "1bf130069d547a08c169ac0c23577e5985f39ff0"
+    }
+  },
+  "baselineCommit": "f1bffb720399db24043e651f9f2f81c8087c68c6",
+  "baselineSourceTree": "f1e3550855ec5c2bfe4563c7a4b0ff4d446dac2e",
+  "baselineReportSha256": "62f15b148cd311d5e894498f7b3470fefa41197a3844638d55b6f2cd1546c4bb",
+  "baselineLane": "Focused JDK25 claim-report and remittance regressions;47 actual passing engine events with unique method/parameter identities, zero skips. Selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 47,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "33f2a29dfa184ae1db6168a8a47f26a44cacff783469ac815da89dd365eb6b03",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}
