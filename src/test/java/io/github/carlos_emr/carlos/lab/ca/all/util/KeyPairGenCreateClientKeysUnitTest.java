@@ -28,7 +28,11 @@ import io.github.carlos_emr.carlos.lab.ca.all.util.KeyPairGen.ClientKeyStatus;
 import io.github.carlos_emr.carlos.lab.ca.all.util.KeyPairGen.ClientKeys;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 import org.apache.logging.log4j.Level;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -61,14 +65,23 @@ import static org.mockito.Mockito.when;
 class KeyPairGenCreateClientKeysUnitTest extends CarlosUnitTestBase {
 
     private static final String SERVICE = "fake-lab.client";
-    // Readable placeholders, not key material: these tests never decode a key.
-    private static final String CARLOS_PUBLIC_KEY = "FAKE-carlos-public-key";
+    private static String carlosPublicKey;
+    private static String carlosPrivateKey;
 
     @Mock
     private PublicKeyDao mockPublicKeyDao;
 
     @Mock
     private OscarKeyDao mockOscarKeyDao;
+
+    @BeforeAll
+    static void generateCarlosFixtureKeys() throws NoSuchAlgorithmException {
+        var generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        var pair = generator.generateKeyPair();
+        carlosPublicKey = Base64.getMimeEncoder().encodeToString(pair.getPublic().getEncoded());
+        carlosPrivateKey = Base64.getMimeEncoder().encodeToString(pair.getPrivate().getEncoded());
+    }
 
     @BeforeEach
     void setUp() {
@@ -81,7 +94,7 @@ class KeyPairGenCreateClientKeysUnitTest extends CarlosUnitTestBase {
         OscarKey key = new OscarKey();
         key.setName("oscar");
         key.setPublicKey(publicKey);
-        key.setPrivateKey("FAKE-carlos-private-key");
+        key.setPrivateKey(carlosPrivateKey);
         return key;
     }
 
@@ -106,7 +119,7 @@ class KeyPairGenCreateClientKeysUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should store the client key and return both keys when the CARLOS key exists")
     void shouldReturnBothKeys_whenCarlosKeyExists() {
-        when(mockOscarKeyDao.find("oscar")).thenReturn(carlosKey(CARLOS_PUBLIC_KEY));
+        when(mockOscarKeyDao.find("oscar")).thenReturn(carlosKey(carlosPublicKey));
 
         ClientKeys result = KeyPairGen.createClientKeys(SERVICE, "CML");
 
@@ -116,13 +129,13 @@ class KeyPairGenCreateClientKeysUnitTest extends CarlosUnitTestBase {
         assertThat(stored.getValue().getService()).isEqualTo(SERVICE);
         assertThat(stored.getValue().getType()).isEqualTo("CML");
         assertThat(result.clientPrivateKey()).isNotBlank().isEqualTo(stored.getValue().getBase64EncodedPrivateKey());
-        assertThat(result.carlosPublicKey()).isEqualTo(CARLOS_PUBLIC_KEY);
+        assertThat(result.carlosPublicKey()).isEqualTo(carlosPublicKey);
     }
 
     @Test
     @DisplayName("should create the client key on a retry once the CARLOS key has been created")
     void shouldCreateClientKey_whenRetriedAfterCarlosKeyCreated() {
-        when(mockOscarKeyDao.find("oscar")).thenReturn(null, carlosKey(CARLOS_PUBLIC_KEY));
+        when(mockOscarKeyDao.find("oscar")).thenReturn(null, carlosKey(carlosPublicKey));
 
         ClientKeys refused = KeyPairGen.createClientKeys(SERVICE, "CML");
         verifyNoInteractions(mockPublicKeyDao);
@@ -131,6 +144,21 @@ class KeyPairGenCreateClientKeysUnitTest extends CarlosUnitTestBase {
         assertThat(refused.status()).isEqualTo(ClientKeyStatus.CARLOS_KEY_MISSING);
         assertThat(retried.status()).isEqualTo(ClientKeyStatus.CREATED);
         verify(mockPublicKeyDao).persist(any(PublicKey.class));
+    }
+
+    @Test
+    void shouldStoreNothing_whenCarlosKeyHalvesComeFromDifferentPairs() throws NoSuchAlgorithmException {
+        var generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        String otherPublicKey = Base64.getEncoder().encodeToString(generator.generateKeyPair().getPublic().getEncoded());
+        when(mockOscarKeyDao.find("oscar")).thenReturn(carlosKey(otherPublicKey));
+
+        ClientKeys result = KeyPairGen.createClientKeys(SERVICE, "CML");
+
+        assertThat(result.status()).isEqualTo(ClientKeyStatus.FAILED);
+        assertThat(result.clientPrivateKey()).isNull();
+        assertThat(result.carlosPublicKey()).isNull();
+        verifyNoInteractions(mockPublicKeyDao);
     }
 
     @Test
@@ -176,7 +204,7 @@ class KeyPairGenCreateClientKeysUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should report a failure without keys when the client key cannot be stored")
     void shouldReportFailure_whenClientKeyNotStored() {
-        when(mockOscarKeyDao.find("oscar")).thenReturn(carlosKey(CARLOS_PUBLIC_KEY));
+        when(mockOscarKeyDao.find("oscar")).thenReturn(carlosKey(carlosPublicKey));
         doThrow(new IllegalStateException("Synthetic duplicate service")).when(mockPublicKeyDao).persist(any(PublicKey.class));
 
         ClientKeys result = KeyPairGen.createClientKeys(SERVICE, "CML");
@@ -198,7 +226,7 @@ class KeyPairGenCreateClientKeysUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should leave the private key out of the result's string form")
     void shouldOmitPrivateKey_fromToString() {
-        when(mockOscarKeyDao.find("oscar")).thenReturn(carlosKey(CARLOS_PUBLIC_KEY));
+        when(mockOscarKeyDao.find("oscar")).thenReturn(carlosKey(carlosPublicKey));
 
         ClientKeys result = KeyPairGen.createClientKeys(SERVICE, "CML");
 
@@ -216,13 +244,13 @@ class KeyPairGenCreateClientKeysUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ClientKeys(ClientKeyStatus.CARLOS_KEY_MISSING, "FAKE-client-private-key", null))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new ClientKeys(ClientKeyStatus.FAILED, null, CARLOS_PUBLIC_KEY))
+        assertThatThrownBy(() -> new ClientKeys(ClientKeyStatus.FAILED, null, carlosPublicKey))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ClientKeys(null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
 
         assertThat(new ClientKeys(ClientKeyStatus.FAILED, null, null).status()).isEqualTo(ClientKeyStatus.FAILED);
-        assertThat(new ClientKeys(ClientKeyStatus.CREATED, "FAKE-client-private-key", CARLOS_PUBLIC_KEY).carlosPublicKey())
-                .isEqualTo(CARLOS_PUBLIC_KEY);
+        assertThat(new ClientKeys(ClientKeyStatus.CREATED, "FAKE-client-private-key", carlosPublicKey).carlosPublicKey())
+                .isEqualTo(carlosPublicKey);
     }
 }

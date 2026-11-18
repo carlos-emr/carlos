@@ -13,7 +13,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const {parseKeyFile} = require('./admin-keygen-create-key-retry-playwright-checks');
+const {parseKeyFile, workflow} = require('./admin-keygen-create-key-retry-playwright-checks');
 
 const action = fs.readFileSync(path.join(__dirname,
   '../src/main/java/io/github/carlos_emr/carlos/admin/gate/ViewKeygenCreateKey2Action.java'), 'utf8');
@@ -48,3 +48,44 @@ test('the parser joins base64 that a client wrapped over several lines', () => {
     + '------ Oscar Public Key ------\nCCCC\r\nDD==\n------------------------------';
   assert.deepEqual(parseKeyFile(text), {service: 'svc', clientPrivate: 'AAAABBBB', carlosPublic: 'CCCCDD=='});
 });
+
+for (const ambiguous of [false, true]) {
+  const response = ambiguous ? 'a lost response' : 'an existing-key refusal';
+  test(`the cleanup leaves a concurrent server key in place after ${response}`, async () => {
+    const statements = [];
+    let cleanup;
+    const page = {
+      locator: selector => ({
+        fill: async () => {},
+        selectOption: async () => {},
+        innerText: async () => selector === '#fail' ? 'Failed: The oscar key pair has already been created' : 'Key Pair Creation',
+        allTextContents: async () => [],
+      }),
+      waitForResponse: async () => {
+        if (ambiguous) throw new Error('Synthetic response timeout');
+        return {status: () => 200};
+      },
+      waitForLoadState: async () => {},
+      url: () => 'http://127.0.0.1/carlos/admin/ViewKeygenCreateKey',
+      getByRole: () => ({click: async () => {}}),
+    };
+    const sql = {
+      execute: statement => statements.push(statement),
+      value: statement => {
+        statements.push(statement);
+        if (statement.includes('pubKey')) return 'FAKE-existing-key';
+        return statement.includes('oscarKeys') ? '1' : '0';
+      },
+    };
+    await assert.rejects(workflow({
+      sql,
+      marker: 'FAKE-PWkeygen',
+      config: {baseUrl: 'http://127.0.0.1/carlos'},
+      context: {newPage: async () => page},
+      cleanup: handler => { cleanup = handler; },
+      step: (description, action) => description.startsWith('the page creates the CARLOS key pair') ? action() : undefined,
+    }), ambiguous ? /Synthetic response timeout/ : /already been created/);
+    assert.throws(cleanup, /left in place/);
+    assert.ok(statements.every(statement => !/pubKey|DELETE FROM oscarKeys/i.test(statement)));
+  });
+}

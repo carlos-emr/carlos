@@ -30,9 +30,16 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.util;
 
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
+import java.security.ProviderException;
+import java.security.Signature;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.logging.log4j.Logger;
@@ -46,6 +53,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 public final class KeyPairGen {
 
     private static Logger logger = MiscUtils.getLogger();
+    private static final byte[] SERVER_KEY_CHECK = "CARLOS lab server key check".getBytes(StandardCharsets.US_ASCII);
 
     /**
      * Creates a new instance of KeyPairGen
@@ -197,10 +205,10 @@ public final class KeyPairGen {
 
     /**
      * Create and store the key pair for a client service (a lab or eData uploader), but only when
-     * the CARLOS ("oscar") key pair already exists.
+     * the CARLOS ("oscar") key pair is usable.
      *
      * <p>The client needs two keys: its own private key and the CARLOS public key. The CARLOS key
-     * is read first, and nothing is generated or stored without it. A stored client key takes its
+     * is checked first, and nothing is generated or stored if the server cannot use it. A stored client key takes its
      * service name for good: a retry with the same name is refused as a duplicate, and the Key
      * Manager cannot delete a key. Storing the client key before finding the CARLOS key missing
      * therefore left a name that could be neither retried nor removed (issue #6009).</p>
@@ -237,11 +245,36 @@ public final class KeyPairGen {
             logger.error("The CARLOS key pair is stored without a public key");
             return new ClientKeys(ClientKeyStatus.FAILED, null, null);
         }
+        if (!isUsableServerPair(carlosPublicKey, carlosKey.getPrivateKey())) {
+            logger.error("The stored CARLOS key pair is damaged");
+            return new ClientKeys(ClientKeyStatus.FAILED, null, null);
+        }
 
         String clientPrivateKey = createKeys(name, type);
         if (clientPrivateKey == null) {
             return new ClientKeys(ClientKeyStatus.FAILED, null, null);
         }
         return new ClientKeys(ClientKeyStatus.CREATED, clientPrivateKey, carlosPublicKey);
+    }
+
+    private static boolean isUsableServerPair(String publicKey, String privateKey) {
+        if (privateKey == null || privateKey.isBlank()) {
+            return false;
+        }
+        try {
+            KeyFactory rsa = KeyFactory.getInstance("RSA");
+            var publicRsa = rsa.generatePublic(new X509EncodedKeySpec(Base64.decodeBase64(publicKey)));
+            var privateRsa = rsa.generatePrivate(new PKCS8EncodedKeySpec(Base64.decodeBase64(privateKey)));
+            Signature proof = Signature.getInstance("SHA256withRSA");
+            proof.initSign(privateRsa);
+            proof.update(SERVER_KEY_CHECK);
+            byte[] signed = proof.sign();
+            proof.initVerify(publicRsa);
+            proof.update(SERVER_KEY_CHECK);
+            return proof.verify(signed);
+        } catch (GeneralSecurityException | IllegalArgumentException | ProviderException e) {
+            // Provider details may include input data. The caller logs only the generic failure.
+            return false;
+        }
     }
 }

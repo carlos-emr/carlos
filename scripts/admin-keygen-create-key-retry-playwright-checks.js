@@ -27,6 +27,7 @@ const {runWorkflow} = require('./lib/workflow-session');
 const TIMEOUT = 20000;
 const ROUTE = '/admin/ViewKeygenCreateKey';
 const CARLOS_KEY = `SELECT COUNT(*) FROM oscarKeys WHERE name='oscar'`;
+const CARLOS_CREATED = 'CARLOS key pair created successfully';
 
 async function preflight({sql}) {
   if (sql.value(CARLOS_KEY) !== '0') {
@@ -54,15 +55,14 @@ async function workflow(s) {
   const service = `${marker}.lab`;
   const owned = `service=${h.sqlString(service)}`;
   const contextPath = new URL(config.baseUrl).pathname.replace(/\/+$/, '');
-  // The public key of the CARLOS key pair this run had the page create, read back as soon as
-  // that request returns (the preflight found none). Cleanup removes only that pair: a CARLOS
-  // key pair it cannot match may be in use, so it is left in place and the cleanup fails.
+  // Read the public key only after the page confirms this run's creation succeeded.
+  // Cleanup leaves keys with unproven ownership in place.
   let createdCarlosKey = null;
   s.cleanup(() => {
     sql.execute(`DELETE FROM publicKeys WHERE ${owned}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM publicKeys WHERE ${owned}`) === '0', 'The owned client key row was not removed');
     if (createdCarlosKey !== null) {
-      sql.execute(`DELETE FROM oscarKeys WHERE name='oscar' AND pubKey=${h.sqlString(createdCarlosKey)}`);
+      sql.execute(`DELETE FROM oscarKeys WHERE name='oscar' AND BINARY pubKey=${h.sqlString(createdCarlosKey)}`);
     }
     h.assert(sql.value(CARLOS_KEY) === '0', createdCarlosKey === null
       ? 'A CARLOS key pair this run cannot show it created is present; it is left in place'
@@ -113,15 +113,12 @@ async function workflow(s) {
   });
 
   await s.step("the page creates the CARLOS key pair under the service name 'oscar'", async () => {
-    let shown;
-    try {
-      shown = await submitForPage('oscar');
-    } finally {
-      // Before any assertion, so cleanup knows the pair this request stored even if it then fails.
+    const shown = await submitForPage('oscar');
+    if (shown === CARLOS_CREATED) {
       createdCarlosKey = sql.value(`SELECT COALESCE(pubKey,'') FROM oscarKeys WHERE name='oscar'`) || null;
     }
     await shot('2-carlos-key-created');
-    h.assert(shown === 'CARLOS key pair created successfully', `Creating the CARLOS key pair showed "${shown}"`);
+    h.assert(shown === CARLOS_CREATED, `Creating the CARLOS key pair showed "${shown}"`);
     h.assert(createdCarlosKey, 'The CARLOS key pair was not stored');
     const publicKey = crypto.createPublicKey({key: der(createdCarlosKey), format: 'der', type: 'spki'});
     h.assert(publicKey.asymmetricKeyType === 'rsa' && publicKey.asymmetricKeyDetails.modulusLength >= 2048,

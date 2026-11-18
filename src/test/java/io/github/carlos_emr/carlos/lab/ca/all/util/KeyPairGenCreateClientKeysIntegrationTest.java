@@ -52,6 +52,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mockStatic;
@@ -184,6 +185,36 @@ class KeyPairGenCreateClientKeysIntegrationTest {
         } finally {
             em.close();
         }
+    }
+
+    @Test
+    void shouldPreserveClientName_whenTheStoredServerPrivateKeyIsNull() {
+        verifyDamageRefusesClientKey(key -> key.setPrivateKey(null));
+    }
+
+    @Test
+    void shouldPreserveClientName_whenTheStoredServerPublicKeyIsTruncated() {
+        verifyDamageRefusesClientKey(key -> key.setPublicKey(key.getPublicKey().substring(0, 16)));
+    }
+
+    private void verifyDamageRefusesClientKey(Consumer<OscarKey> damage) {
+        assertThat(KeyPairGen.createKeys("oscar", null)).isEqualTo("success");
+        var em = factory.createEntityManager();
+        try {
+            em.getTransaction().begin();
+            damage.accept(em.find(OscarKey.class, "oscar"));
+            em.getTransaction().commit();
+        } finally {
+            em.close();
+        }
+
+        ClientKeys result = KeyPairGen.createClientKeys(SERVICE, "CML");
+
+        assertThat(result.status()).isEqualTo(ClientKeyStatus.FAILED);
+        assertThat(result.clientPrivateKey()).isNull();
+        assertThat(result.carlosPublicKey()).isNull();
+        assertThat(KeyPairGen.checkName(SERVICE)).isFalse();
+        assertThat(clientKeyRows()).isZero();
     }
 
     @Test
