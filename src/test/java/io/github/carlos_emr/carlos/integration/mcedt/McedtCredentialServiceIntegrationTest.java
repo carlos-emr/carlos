@@ -34,6 +34,7 @@ import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.context.annotation.*;
@@ -318,13 +319,39 @@ class McedtCredentialServiceIntegrationTest {
             finally {release.countDown();}
         }
     }
-    @Test
-    void shouldWaitForLegacyWriter_withoutRestoringAStalePassword() throws Exception {
-        int id=legacy("FAKE-old");var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();var contender=new AtomicInteger();var nativeTimeout=new AtomicInteger();
-        try(var pool=Executors.newFixedThreadPool(2)) {
-            var writer=pool.submit(()->tx.executeWithoutResult(status->{var row=em.find(UserProperty.class,id,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);row.setValue("FAKE-new");em.flush();hold(locked,release,session);}));
-            try {assertTrue(locked.await(15,TimeUnit.SECONDS));var reader=pool.submit(()->contend(contender,nativeTimeout,release,()->credentials.getPassword("fallback")));awaitDatabaseBlock(session.get(),contender,nativeTimeout,reader);release.countDown();writer.get(15,TimeUnit.SECONDS);assertEquals("FAKE-new",completed(reader));assertEquals("FAKE-new",EncryptionUtils.decrypt(stored()));assertEquals(0,legacyCount());}
-            finally {release.countDown();}
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldWaitForLegacyWriter_withoutRestoringAStalePassword(boolean deleted) throws Exception {
+        int id = legacy("FAKE-old");
+        var locked = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        var session = new AtomicInteger();
+        var contender = new AtomicInteger();
+        var nativeTimeout = new AtomicInteger();
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var writer = pool.submit(() -> tx.executeWithoutResult(status -> {
+                var row = em.find(UserProperty.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+                if (deleted) {
+                    em.remove(row);
+                } else {
+                    row.setValue("FAKE-new");
+                }
+                em.flush();
+                hold(locked, release, session);
+            }));
+            try {
+                assertTrue(locked.await(15, TimeUnit.SECONDS));
+                var reader = pool.submit(() -> contend(contender, nativeTimeout, release,
+                        () -> credentials.getPassword("FAKE-fallback")));
+                awaitDatabaseBlock(session.get(), contender, nativeTimeout, reader);
+                release.countDown();
+                writer.get(15, TimeUnit.SECONDS);
+                assertEquals(deleted ? "FAKE-fallback" : "FAKE-new", completed(reader));
+                assertEquals(deleted ? null : "FAKE-new", EncryptionUtils.decrypt(stored()));
+                assertEquals(0, legacyCount());
+            } finally {
+                release.countDown();
+            }
         }
     }
     @SuppressWarnings("unchecked")
@@ -392,13 +419,22 @@ class McedtCredentialServiceIntegrationTest {
         }
     }
 
-    @ParameterizedTest @ValueSource(strings={"FAKE-current","  "})
-    void shouldAllowNewPreferenceInsert_whileMigratedCredentialReadRemainsOpen(String password) throws Exception {
-        credentials.savePassword(password);
+    @ParameterizedTest
+    @CsvSource({
+            "'FAKE-current', true, FAKE-current",
+            "'  ', true, FAKE-fallback",
+            ", true, FAKE-fallback",
+            ", false, FAKE-fallback"
+    })
+    void shouldAllowNewPreferenceInsert_whileCredentialReadRemainsOpen(
+            String password, boolean savePassword, String expected) throws Exception {
+        if (savePassword) {
+            credentials.savePassword(password);
+        }
         var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();
         try(var pool=Executors.newFixedThreadPool(2)) {
             var reader=pool.submit(()->tx.executeWithoutResult(status->{
-                assertEquals(password.isBlank()?"FAKE-fallback":password,credentials.getPassword("FAKE-fallback"));hold(locked,release,session);
+                assertEquals(expected,credentials.getPassword("FAKE-fallback"));hold(locked,release,session);
             }));
             try {
                 assertTrue(locked.await(15,TimeUnit.SECONDS));

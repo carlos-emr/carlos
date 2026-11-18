@@ -59,8 +59,6 @@ public class User2Action extends ActionSupport {
     public String execute() throws Exception {
         McedtSecurity.requireRead(request);
         if ("changePassword".equals(request.getParameter("method"))) {
-            McedtSecurity.requireWrite(request);
-            McedtSecurity.requirePost(request);
             return changePassword();
         }
         if ("cancel".equals(request.getParameter("method"))) {
@@ -76,6 +74,8 @@ public class User2Action extends ActionSupport {
     }
 
     public String changePassword() throws Exception {
+        McedtSecurity.requireWrite(request);
+        McedtSecurity.requirePost(request);
         var session = request.getSession();
         var login = LoggedInInfo.getLoggedInInfoFromSession(session);
         String actor = login == null ? null : login.getLoggedInProviderNo();

@@ -9,6 +9,7 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilder;
 import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilderConfig;
 import io.github.carlos_emr.carlos.integration.mcedt.mailbox.User2Action;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -45,6 +46,7 @@ import static org.mockito.Mockito.*;
 class McedtCredentialConsumerUnitTest extends CarlosUnitTestBase {
     private static final String AUDIT_ACTOR = "611";
     private McedtCredentialService credentials;
+    private SecurityInfoManager security;
     private Map<String, EDTDelegate> delegates;
     private Map<String, byte[]> fingerprints;
     private Map<String, EDTDelegate> originalDelegates;
@@ -56,6 +58,10 @@ class McedtCredentialConsumerUnitTest extends CarlosUnitTestBase {
     @BeforeEach void prepare() throws Exception {
         credentials=mock(McedtCredentialService.class);
         registerMock(McedtCredentialService.class,credentials);
+        security = mock(SecurityInfoManager.class);
+        when(security.hasPrivilege(any(LoggedInInfo.class), eq(McedtSecurity.PRIVILEGE), eq("w"), isNull()))
+                .thenReturn(true);
+        registerMock(SecurityInfoManager.class, security);
         registerMock(UserPropertyDAO.class,mock(UserPropertyDAO.class));
         delegates=cache("edtDelegates");fingerprints=cache("credentialFingerprints");
         synchronized(delegates) {
@@ -71,7 +77,7 @@ class McedtCredentialConsumerUnitTest extends CarlosUnitTestBase {
     }
 
     private static MockHttpServletRequest authenticatedRequest() {
-        var request = new MockHttpServletRequest();
+        var request = new MockHttpServletRequest("POST", "/mcedt");
         var actor = mock(LoggedInInfo.class);
         when(actor.getLoggedInProviderNo()).thenReturn(AUDIT_ACTOR);
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), actor);
@@ -120,8 +126,40 @@ class McedtCredentialConsumerUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest @ValueSource(booleans = {false, true})
     void shouldRefuseCredentialChanges_whenTheSessionHasNoAuditActor(boolean hasLogin) {
-        var request = new MockHttpServletRequest();
+        var request = new MockHttpServletRequest("POST", "/mcedt");
         if (hasLogin) LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            assertThrows(SecurityException.class, new User2Action()::changePassword);
+            verifyNoInteractions(credentials);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRefuseDirectCredentialChanges_withoutWritePrivilegeOrPost(boolean post) {
+        var request = authenticatedRequest();
+        if (post) {
+            when(security.hasPrivilege(any(LoggedInInfo.class), eq(McedtSecurity.PRIVILEGE), eq("w"), isNull()))
+                    .thenReturn(false);
+        } else {
+            request.setMethod("GET");
+        }
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            assertThrows(SecurityException.class, new User2Action()::changePassword);
+            verifyNoInteractions(credentials);
+        }
+    }
+
+    @Test
+    void shouldRefuseCredentialChange_whenLogoutRemovesTheActorAfterAuthorization() {
+        var request = authenticatedRequest();
+        when(security.hasPrivilege(any(LoggedInInfo.class), eq(McedtSecurity.PRIVILEGE), eq("w"), isNull()))
+                .thenAnswer(invocation -> {
+                    request.getSession(false).invalidate();
+                    return true;
+                });
         try (var servlet = mockStatic(ServletActionContext.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             assertThrows(SecurityException.class, new User2Action()::changePassword);
