@@ -439,9 +439,19 @@ public class FaxImporter {
         if (pollBackoff.failed(faxConfig.getId())) {
             String httpStatus = failure instanceof FaxProviderException providerFailure && providerFailure.getHttpStatus() > 0
                     ? Integer.toString(providerFailure.getHttpStatus()) : "n/a";
-            log.warn("Inbound fax polling failed for account {} ({}, HTTP {}, type={}); retries will back off up to one hour. "
+            log.error("Inbound fax polling failed for account {} ({}, HTTP {}, type={}); retries will back off up to one hour. "
                             + "Check credentials and configuration in Administration > Faxes > Configure Fax.",
                     faxConfig.getId(), faxConfig.getProviderType(), httpStatus, failure.getClass().getSimpleName());
+        } else {
+            PollingFailure state = pollBackoff.snapshot().get(faxConfig.getId());
+            // Attempts 2-7 follow delays of 1, 2, 4, 8, 16 and 32 minutes.
+            // Attempt 8 is the first retry after the one-hour cap was reached.
+            // A configuration reset can discard a stale poll's failure state.
+            if (state != null && state.attempts() >= 8) {
+                log.warn("Inbound fax polling still failing for account {} ({}) after {} consecutive failed polls; "
+                                + "retries remain one hour apart. Check Administration > Faxes > Configure Fax.",
+                        faxConfig.getId(), faxConfig.getProviderType(), state.attempts());
+            }
         }
     }
 
