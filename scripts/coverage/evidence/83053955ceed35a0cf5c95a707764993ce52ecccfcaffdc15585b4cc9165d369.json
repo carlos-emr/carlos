@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "6a0e6dea65b900b7e74fe24c730322e40241fdba",
+  "comparisonSha256": "4f8a38f81a89de925a45ac569b566daa6164c9c96b06900f04ff713e7c394147",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/dashboard/display/DisplayDashboard2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 83.33333333333333,
+      "sourceBlob": "28b1e5f5b6ac6942e035c6a7c0c2930758db05b1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/dashboard/display/DisplayDrilldown2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "c14548c740f9a86a3624520e5f20dd7294c4e331"
+    }
+  },
+  "baselineCommit": "a3a891003053b197b67b7545c4ab755ef7aa296c",
+  "baselineSourceTree": "6a0e6dea65b900b7e74fe24c730322e40241fdba",
+  "baselineReportSha256": "35f7660e62aeb7ee168b7e87d3a0d91b46f7b7778123f460b2429223e2407d36",
+  "baselineLane": "Focused dashboard display, provider selection and drilldown action tests",
+  "baselineTestCounts": {
+    "tests": 71,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "93457c05859fc392d860de1efd9499e9334f651ef9c31e616f50ff1d450bc389",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

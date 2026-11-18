@@ -205,7 +205,7 @@ function sendData(path, param, target) {
     if (target === "indicatorId") {
         // AJAX load for indicator panels — sanitize HTML before DOM insertion
         $.ajax({
-            url: ctx + path,
+            url: dashboardProviderUrl(ctx + path),
             type: 'POST',
             data: param,
             dataType: 'html',
@@ -226,7 +226,7 @@ function sendData(path, param, target) {
         // the response natively (including scripts, stylesheets, etc.)
         var form = document.createElement('form');
         form.method = 'POST';
-        form.action = ctx + path;
+        form.action = dashboardProviderUrl(ctx + path);
         if (typeof param === 'string') {
             param.split('&').forEach(function(pair) {
                 var parts = pair.split('=', 2);
