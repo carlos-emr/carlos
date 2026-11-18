@@ -120,6 +120,36 @@ class CaseManagementAutosaveContextUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldKeepAutosaveRetryable_whenTheLockLookupTemporarilyFails() {
+        var cached = (CasemgmtNoteLock) request.getSession().getAttribute("casemgmtNoteLock101");
+        when(locks.find(10L)).thenThrow(new IllegalStateException("Synthetic lookup failure")).thenReturn(cached);
+
+        action.autosave();
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getHeader("X-Carlos-Note-Lock-Lost")).isNull();
+        assertThat(note.getNote()).isEqualTo("Previous persisted text");
+
+        response.reset();
+        action.autosave();
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        verify(manager).replaceTmpSave("999998", "101", "11", "501", "Current unsaved text");
+    }
+
+    @Test
+    void shouldMarkConfirmedLockLoss_whenTheSelectedEditorsCachedLockNoLongerExists() {
+        when(locks.find(10L)).thenReturn(null);
+
+        action.autosave();
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getHeader("X-Carlos-Note-Lock-Lost")).isEqualTo("true");
+        assertThat(note.getNote()).isEqualTo("Previous persisted text");
+        verify(manager, never()).replaceTmpSave(any(), any(), any(), any(), any());
+    }
+
+    @Test
     void shouldReportFailureWithoutChangingEditorModel_whenDraftReplacementFails() {
         doThrow(new IllegalStateException("database unavailable")).when(manager)
                 .replaceTmpSave("999998", "101", "11", "501", "Current unsaved text");

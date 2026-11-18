@@ -2505,22 +2505,32 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      * @return boolean true if this session owns the lock, false otherwise
      */
     private boolean hasNoteLock(String demo) {
+        return noteLockState(demo, null) == NoteLockState.OWNED;
+    }
+
+    private enum NoteLockState { OWNED, LOST, UNVERIFIED }
+
+    private NoteLockState noteLockState(String demo, Integer autosaveReference) {
         HttpSession session = request.getSession();
         CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session lock keyed by demographic scope
         try {
             if (casemgmtNoteLockSession == null) {
-                return false;
+                return NoteLockState.UNVERIFIED;
             }
             CasemgmtNoteLock casemgmtNoteLock = casemgmtNoteLockDao.find(casemgmtNoteLockSession.getId());
-            if (casemgmtNoteLock == null) {
-                return false;
+            String currentSessionId = session.getId();
+            if (casemgmtNoteLock != null
+                    && Objects.equals(casemgmtNoteLock.getSessionId(), casemgmtNoteLockSession.getSessionId())
+                    && Objects.equals(currentSessionId, casemgmtNoteLockSession.getSessionId())) {
+                return NoteLockState.OWNED;
             }
-            String currentSessionId = request.getSession().getId();
-            return Objects.equals(casemgmtNoteLock.getSessionId(), casemgmtNoteLockSession.getSessionId())
-                && Objects.equals(currentSessionId, casemgmtNoteLockSession.getSessionId());
+            // A patient-wide cache can belong to another editor. Confirm loss only for its checked note.
+            Long cachedNote = casemgmtNoteLockSession.getNoteId();
+            return autosaveReference != null && cachedNote != null && Math.max(0L, cachedNote) == autosaveReference
+                    ? NoteLockState.LOST : NoteLockState.UNVERIFIED;
         } catch (Exception e) {
             logger.warn("Lock check failed unexpectedly ({})", e.getClass().getSimpleName());
-            return false;
+            return NoteLockState.UNVERIFIED;
         }
     }
 
@@ -3604,12 +3614,15 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return null;
         }
 
-        if (!hasNoteLock(demographicNo)) {
+        Integer reference = authorizedAutosaveNoteReference(loggedInInfo, demographicNo, programId, noteId);
+        if (reference == null) return null;
+
+        NoteLockState lock = noteLockState(demographicNo, reference);
+        if (lock != NoteLockState.OWNED) {
+            if (lock == NoteLockState.LOST) response.setHeader("X-Carlos-Note-Lock-Lost", "true");
             response.setStatus(HttpServletResponse.SC_CONFLICT);
             return null;
         }
-
-        if (!authorizeAutosaveNoteReference(loggedInInfo, demographicNo, programId, noteId)) return null;
 
         try {
             caseManagementMgr.replaceTmpSave(providerNo, demographicNo, programId, noteId, note);
@@ -3626,13 +3639,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     /** A draft may refer only to this chart's authorized, selected note; a new note uses zero. */
-    private boolean authorizeAutosaveNoteReference(LoggedInInfo login, String patient, String program, String rawId) {
+    private Integer authorizedAutosaveNoteReference(LoggedInInfo login, String patient, String program, String rawId) {
         int reference;
         try {
             reference = rawId == null || rawId.isEmpty() ? 0 : Integer.parseInt(rawId);
         } catch (NumberFormatException invalidReference) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            return false;
+            return null;
         }
         CaseManagementNote selected = null;
         if (reference > 0) {
@@ -3641,7 +3654,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                     || (!"0".equals(program) && caseManagementMgr.filterNotes(login,
                     login.getLoggedInProviderNo(), List.of(selected), program).isEmpty())) {
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                return false;
+                return null;
             }
         }
         CaseManagementEntryFormBean form = (CaseManagementEntryFormBean) request.getSession()
@@ -3652,10 +3665,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (expected != Math.max(0, reference) || (selected != null
                     && !Objects.equals(current.getProgram_no(), selected.getProgram_no()))) {
                 response.setStatus(HttpServletResponse.SC_CONFLICT);
-                return false;
+                return null;
             }
         }
-        return true;
+        return Math.max(0, reference);
     }
 
     public String restore() throws Exception {

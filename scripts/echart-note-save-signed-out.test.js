@@ -199,6 +199,38 @@ function signAndSave(h) {
   return h.context.savePage('saveAndExit', '');
 }
 
+const chartNotes = fs.readFileSync(path.join(__dirname,
+  '../src/main/webapp/WEB-INF/jsp/casemgmt/ChartNotes.jsp'), 'utf8');
+const fullFormHandlers = [...chartNotes.matchAll(/onclick="([^"]*savePage\('saveAndExit', ''\)[^"]*)"/g)]
+  .map(match => match[1]);
+assert.equal(fullFormHandlers.length, 3, 'the three JSP toolbar handlers are present');
+
+for (const [index, label, expected] of [
+  [0, 'Sign & Save', ['on', 'off', 'false']],
+  [1, 'Verify', ['on', 'on', 'false']],
+  [2, 'Bill', ['on', 'off', 'true']],
+]) {
+  test(`the rendered ${label} handler refuses a lost lock and clears its flags`, async () => {
+    const flags = ['sign', 'verify', 'toBill'];
+    const clickToolbar = h => vm.runInContext(`(function (event) { ${fullFormHandlers[index]} })`, h.context)({
+      preventDefault() {}, stopPropagation() {}
+    });
+    const blocked = harness();
+    blocked.context.lostNoteLock = true;
+    assert.equal(clickToolbar(blocked), false);
+    assert.equal(blocked.fetches.length, 0);
+    assert.deepEqual(blocked.submits(), []);
+    assert.equal(blocked.editor.value, TYPED);
+    assert.deepEqual(blocked.alerts, [blocked.context.noteLockLostError]);
+    assert.deepEqual(flags.map(flag => blocked.entryForm.elements[flag].value), ['off', 'off', 'false']);
+
+    const allowed = harness();
+    assert.equal(clickToolbar(allowed), false);
+    await settled();
+    assert.deepEqual(allowed.submits().map(fields => flags.map(flag => fields[flag])), [expected]);
+  });
+}
+
 test('Sign & Save asks the session heartbeat without following a redirect, then submits once', async () => {
   const h = harness();
   assert.equal(signAndSave(h), false);

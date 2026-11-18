@@ -3166,6 +3166,11 @@ function updateCPPNote() {
         return false;
     }
     function savePage(method, chain) {
+        if (lostNoteLock) {
+            resetNoteSignIntent(document.forms["caseManagementEntryForm"]);
+            alert(noteLockLostError);
+            return false;
+        }
         // Opening/editing a note refreshes its issue fields asynchronously. Save only
         // after both fragments finish, so the form and its issue selection stay intact.
         if (deferNoteSaveUntilIssues(function () { savePage(method, chain); })) return false;
@@ -4026,7 +4031,8 @@ function autoSave() {
     }
     function autosaveFailed(req, unexpectedResponse) {
         if (!currentEditor()) return;
-        if (req.status == 409 && !unexpectedResponse) {
+        if (req.status == 409 && !unexpectedResponse
+                && req.getResponseHeader?.("X-Carlos-Note-Lock-Lost") === "true") {
             lostNoteLock = true;
             showAutosaveStatus("conflict", draftSaveConflictMessage);
             return;

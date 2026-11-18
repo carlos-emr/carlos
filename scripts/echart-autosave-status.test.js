@@ -202,12 +202,31 @@ test('modern explicit cancellation does not announce an autosave failure and sta
 
 test('modern lock conflict stops periodic retries and keeps the text available for recovery', () => {
   const h = modern(); h.context.autoSave();
-  h.requests[0].options.onFailure({ status: 409 }); h.requests[0].options.onComplete();
+  h.requests[0].options.onFailure({
+    status: 409, getResponseHeader: name => name === 'X-Carlos-Note-Lock-Lost' ? 'true' : null
+  });
+  h.requests[0].options.onComplete();
   h.context.backup(); h.context.autoSave();
   assert.equal(h.requests.length, 1);
   assert.equal(h.status.attributes['data-autosave-state'], 'conflict');
   assert.equal(h.status.textContent, labels.draftSaveConflictLabel);
   assert.equal(h.timers.length, 0);
+  assert.equal(h.editor.value, 'Unsaved H&P + clinical text');
+});
+
+test('modern autosave can recover after an unconfirmed lock conflict', () => {
+  const h = modern();
+  h.context.autoSave();
+  h.requests[0].options.onFailure({ status: 409, getResponseHeader: () => null });
+  h.requests[0].options.onComplete();
+  assert.equal(h.context.lostNoteLock, false);
+  assert.equal(h.status.attributes['data-autosave-state'], 'failed');
+
+  h.context.backup();
+  assert.equal(h.requests.length, 2);
+  h.requests[1].options.onSuccess(ack());
+  h.requests[1].options.onComplete();
+  assert.equal(h.status.attributes['data-autosave-state'], 'saved');
   assert.equal(h.editor.value, 'Unsaved H&P + clinical text');
 });
 
