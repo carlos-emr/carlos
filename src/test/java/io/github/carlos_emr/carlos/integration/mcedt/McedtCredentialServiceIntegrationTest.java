@@ -4,7 +4,16 @@
  */
 package io.github.carlos_emr.carlos.integration.mcedt;
 
+import io.github.carlos_emr.CarlosProperties;
+import ca.ontario.health.edt.EDTDelegate;
+import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
+import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilder;
+import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilderConfig;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
@@ -22,6 +31,8 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -34,10 +45,12 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.support.TransactionTemplate;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 /** Real committed transactions in a unique, owned H2 or explicitly disposable MariaDB database. */
 @Tag("integration")
-@Isolated("Temporary application encryption key")
+@Isolated("Temporary application encryption key and delegate cache")
+@Execution(ExecutionMode.SAME_THREAD)
 class McedtCredentialServiceIntegrationTest {
     static class OwnedDataSource extends DriverManagerDataSource implements AutoCloseable {
         final boolean mariaDb;
@@ -204,4 +217,69 @@ class McedtCredentialServiceIntegrationTest {
             finally {release.countDown();}
         }
     }
+    @SuppressWarnings("unchecked")
+    private static <T> T cache(String name) throws Exception {
+        Field field=DelegateFactory.class.getDeclaredField(name);field.setAccessible(true);return (T)field.get(null);
+    }
+    @ParameterizedTest @ValueSource(booleans={false,true})
+    void shouldReplaceCachedClient_afterCommittedPasswordRotationIncludingAnotherInstance(boolean otherInstance) throws Exception {
+        credentials.savePassword("FAKE-first");
+        List<EdtClientBuilderConfig> observed=new ArrayList<>();
+        try(var spring=mockStatic(SpringUtils.class);var properties=mockStatic(CarlosProperties.class);
+                var builders=mockConstruction(EdtClientBuilder.class,(builder,construction)->{
+                    observed.add((EdtClientBuilderConfig)construction.arguments().get(0));
+                    when(builder.build(EDTDelegate.class)).thenReturn(mock(EDTDelegate.class));
+                })) {
+            spring.when(()->SpringUtils.getBean(McedtCredentialService.class)).thenReturn(credentials);
+            spring.when(()->SpringUtils.getBean(UserPropertyDAO.class)).thenReturn(mock(UserPropertyDAO.class));
+            properties.when(CarlosProperties::getInstance).thenReturn(mock(CarlosProperties.class));
+            Map<String,EDTDelegate> delegates=cache("edtDelegates");
+            Map<String,byte[]> fingerprints=cache("credentialFingerprints");
+            var previousDelegates=new HashMap<>(delegates);var previousFingerprints=new HashMap<>(fingerprints);
+            try {
+                delegates.clear();fingerprints.clear();
+                var first=DelegateFactory.getEDTDelegateInstance("FAKE-local-service");
+                assertEquals("FAKE-first",observed.getFirst().getUserNameTokenPassword());
+                tx.executeWithoutResult(status->{credentials.savePassword("FAKE-rolled-back");status.setRollbackOnly();});
+                assertSame(first,DelegateFactory.getEDTDelegateInstance("FAKE-local-service"));
+                assertEquals(1,builders.constructed().size());
+                if(otherInstance)cipher(EncryptionUtils.encrypt("FAKE-second"));
+                else credentials.savePassword("FAKE-second");
+                var second=DelegateFactory.getEDTDelegateInstance("FAKE-local-service");
+                assertNotSame(first,second);
+                assertEquals("FAKE-second",observed.getLast().getUserNameTokenPassword());
+                assertSame(second,DelegateFactory.getEDTDelegateInstance("FAKE-local-service"));
+                assertEquals(2,builders.constructed().size());
+            } finally {
+                delegates.clear();delegates.putAll(previousDelegates);
+                fingerprints.clear();fingerprints.putAll(previousFingerprints);
+            }
+        }
+    }
+    @Test
+    void shouldAllowUnrelatedPreferenceUpdate_whileCredentialTransactionHoldsItsLocks() throws Exception {
+        legacy("FAKE-legacy");
+        int preference=tx.execute(status->{
+            var row=new UserProperty();row.setName("FAKE-unrelated-preference");row.setValue("FAKE-before");
+            em.persist(row);em.flush();return row.getId();
+        });
+        var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();
+        try(var pool=Executors.newFixedThreadPool(2)) {
+            var reader=pool.submit(()->tx.executeWithoutResult(status->{
+                assertEquals("FAKE-legacy",credentials.getPassword("fallback"));hold(locked,release,session);
+            }));
+            try {
+                assertTrue(locked.await(15,TimeUnit.SECONDS));
+                var unrelated=pool.submit(()->tx.executeWithoutResult(status->{
+                    em.find(UserProperty.class,preference).setValue("FAKE-after");em.flush();
+                }));
+                // The unrelated commit must complete while MCEDT locks remain held.
+                unrelated.get(5,TimeUnit.SECONDS);
+                assertEquals(1L,release.getCount());
+                release.countDown();completed(reader);
+                assertEquals("FAKE-after",tx.execute(status->em.find(UserProperty.class,preference).getValue()));
+            } finally {release.countDown();}
+        }
+    }
+
 }

@@ -47,6 +47,10 @@ import java.io.File;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -55,12 +59,22 @@ public class DelegateFactory {
     private static Logger logger = MiscUtils.getLogger();
     private static UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
     private static Map<String, EDTDelegate> edtDelegates = new HashMap<>();
+    private static final Map<String, byte[]> credentialFingerprints = new HashMap<>();
 
     public static EDTDelegate getEDTDelegateInstance(String serviceId) {
-        if (edtDelegates.get(serviceId) == null) {
-            edtDelegates.put(serviceId, newDelegate(serviceId));
+        // Read before the cache monitor: no client construction/cache lock is
+        // held while a credential transaction waits on a database row lock.
+        String password = currentPassword();
+        byte[] fingerprint = passwordFingerprint(password);
+        synchronized (edtDelegates) {
+            EDTDelegate cached = edtDelegates.get(serviceId);
+            if (cached == null || !MessageDigest.isEqual(fingerprint, credentialFingerprints.get(serviceId))) {
+                cached = newDelegate(serviceId, password);
+                edtDelegates.put(serviceId, cached);
+                credentialFingerprints.put(serviceId, fingerprint);
+            }
+            return cached;
         }
-        return edtDelegates.get(serviceId);
     }
 
     public static EDTDelegate getEDTDelegateInstance() {
@@ -68,15 +82,38 @@ public class DelegateFactory {
         return getEDTDelegateInstance(props.getProperty("mcedt.service.id"));
     }
 
-    private static EDTDelegate newDelegate(String serviceId) {
+    private static String currentPassword() {
+        return SpringUtils.getBean(McedtCredentialService.class)
+                .getPassword(CarlosProperties.getInstance().getProperty("mcedt.service.pass"));
+    }
+
+    /** Cache identity only; neither plaintext nor its digest is logged or exposed. */
+    private static byte[] passwordFingerprint(String password) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.update(password == null ? (byte) 0 : (byte) 1);
+            if (password != null) {
+                byte[] encoded = password.getBytes(StandardCharsets.UTF_8);
+                try {
+                    digest.update(encoded);
+                } finally {
+                    Arrays.fill(encoded, (byte) 0);
+                }
+            }
+            return digest.digest();
+        } catch (NoSuchAlgorithmException unavailable) {
+            throw new IllegalStateException("Unable to identify MCEDT credential state");
+        }
+    }
+
+    private static EDTDelegate newDelegate(String serviceId, String password) {
         CarlosProperties props = CarlosProperties.getInstance();
         EdtClientBuilderConfig config = new EdtClientBuilderConfig();
         config.setLoggingRequired(!Boolean.valueOf(props.getProperty("mcedt.logging.skip")));
         config.setKeystoreUser(props.getProperty("mcedt.keystore.user"));
         config.setKeystorePassword(props.getProperty("mcedt.keystore.pass"));
         config.setUserNameTokenUser(props.getProperty("mcedt.service.user"));
-        config.setUserNameTokenPassword(SpringUtils.getBean(McedtCredentialService.class)
-                .getPassword(props.getProperty("mcedt.service.pass")));
+        config.setUserNameTokenPassword(password);
         config.setServiceUrl(props.getProperty("mcedt.service.url"));
         config.setConformanceKey(props.getProperty("mcedt.service.conformanceKey"));
         config.setServiceId((serviceId == null || serviceId.trim().equals("")) ? props.getProperty("mcedt.service.id") : serviceId);
@@ -94,9 +131,14 @@ public class DelegateFactory {
      * Refreshes created delegates in the event that information has been updated
      */
     public static void refreshDelegates() {
-        // For each service id, create a new updated delegate
-        for (String serviceId : ActionUtils.getServiceIds()) {
-            edtDelegates.put(serviceId, newDelegate(serviceId));
+        String password = currentPassword();
+        byte[] fingerprint = passwordFingerprint(password);
+        synchronized (edtDelegates) {
+            // Explicit refresh still rebuilds clients for certificate/config changes.
+            for (String serviceId : ActionUtils.getServiceIds()) {
+                edtDelegates.put(serviceId, newDelegate(serviceId, password));
+                credentialFingerprints.put(serviceId, fingerprint);
+            }
         }
         // Suggests for the Garbage Collector to run in an effort to clean up any lingering connections
         System.gc();
