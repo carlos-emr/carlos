@@ -92,6 +92,7 @@
                   class="inlineForm">
                 <input type="hidden" name="indicatorId" value="${ drilldown.id }">
                 <input type="hidden" name="dashboardProviderNo" value="${carlos:forHtmlAttribute(requestScope.dashboardProviderNo)}">
+                <input type="hidden" name="sharedMetricLabel" value="${carlos:forHtmlAttribute(requestScope.sharedMetricLabel)}">
                 <button class="btn btn-secondary exportResults" type="submit" id="exportResults_${ drilldown.id }">
                     <span class="fa-solid fa-download text-center" aria-hidden="true"></span>
                     Export

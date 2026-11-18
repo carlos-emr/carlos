@@ -69,10 +69,8 @@ public class DisplayDashboard2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardDisplay", SecurityInfoManager.READ, null)) {
             return "unauthorized";
         }
-        Boolean canChgDashboardUser = false;
-        if (securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardChgUser", SecurityInfoManager.READ, null)) {
-            canChgDashboardUser = true;
-        }
+        boolean canChgDashboardUser =
+                securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardChgUser", SecurityInfoManager.READ, null);
 
         String dashboardId = request.getParameter("dashboardId");
         int id = 0;
@@ -82,20 +80,19 @@ public class DisplayDashboard2Action extends ActionSupport {
 
         Provider preferredProvider = loggedInInfo.getLoggedInProvider();
         List<Provider> providers = new ArrayList<Provider>();
-        String requestedProviderNo = null;
+        String selectedProvider = request.getParameter("providerNo");
+        if (selectedProvider != null && !selectedProvider.isBlank()) {
+            dashboardManager.setRequestedProviderNo(loggedInInfo, selectedProvider);
+        }
+        String requestedProviderNo = dashboardManager.getRequestedProviderNo(loggedInInfo);
+        if (requestedProviderNo != null) {
+            logger.info("DashboardDisplay of provider_no {} requested by provider_no {}", LogSafe.sanitize(requestedProviderNo), LogSafe.sanitize(loggedInInfo.getLoggedInProviderNo())); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            if (!requestedProviderNo.equals(loggedInInfo.getLoggedInProviderNo())) {
+                preferredProvider = providerManager.getProvider(loggedInInfo, requestedProviderNo);
+            }
+        }
 
         if (canChgDashboardUser) {
-            requestedProviderNo = request.getParameter("providerNo");
-            if (requestedProviderNo != null && !requestedProviderNo.isBlank()) {
-                logger.info("DashboardDisplay of provider_no {} requested by provider_no {}", LogSafe.sanitize(requestedProviderNo), LogSafe.sanitize(loggedInInfo.getLoggedInProviderNo())); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                preferredProvider = providerManager.getProvider(loggedInInfo, requestedProviderNo);
-                dashboardManager.setRequestedProviderNo(loggedInInfo, requestedProviderNo);
-            } else {
-                requestedProviderNo = dashboardManager.getRequestedProviderNo(loggedInInfo);
-                if (requestedProviderNo != null) {
-                    preferredProvider = providerManager.getProvider(loggedInInfo, requestedProviderNo);
-                }
-            }
             providers = providerManager.getProviders(loggedInInfo, Boolean.TRUE);
         }
 

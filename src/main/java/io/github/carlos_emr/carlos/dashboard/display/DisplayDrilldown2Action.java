@@ -169,6 +169,7 @@ public class DisplayDrilldown2Action extends ActionSupport {
         }
 
         request.setAttribute("dashboardProviderNo", providerNo);
+        request.setAttribute("sharedMetricLabel", metricLabel);
         request.setAttribute("preferredProvider", providerManager.getProvider(loggedInInfo, providerNo));
         request.setAttribute("drilldown", drilldown);
         return SUCCESS;

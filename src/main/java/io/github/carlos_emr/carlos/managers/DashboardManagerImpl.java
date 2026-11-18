@@ -591,7 +591,11 @@ public class DashboardManagerImpl implements DashboardManager {
 
     @Override
     public String exportDrilldownQueryResultsToCSV(LoggedInInfo loggedInInfo, String providerNo, int indicatorId) {
+        return exportDrilldownQueryResultsToCSV(loggedInInfo, providerNo, indicatorId, "null");
+    }
 
+    @Override
+    public String exportDrilldownQueryResultsToCSV(LoggedInInfo loggedInInfo, String providerNo, int indicatorId, String metricLabel) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardDrilldown", SecurityInfoManager.READ, null)) {
             LogAction.addLog(loggedInInfo, "DashboardManager.exportDrilldownQueryResultsToCSV", null, null, null,
                     "User missing _dashboardDrilldown role with read access");
@@ -599,13 +603,17 @@ public class DashboardManagerImpl implements DashboardManager {
         }
 
         IndicatorTemplateXML templateXML = getIndicatorTemplateXML(loggedInInfo, indicatorId);
+        if (templateXML == null || (!"null".equals(metricLabel)
+                && (metricLabel == null || !metricLabel.equals(templateXML.getMetricLabel())))) {
+            return null;
+        }
         if (providerNo != null) {
             templateXML.setProviderNo(providerNo);
         }
 
         ExportQueryHandler exportQueryHandler = SpringUtils.getBean(ExportQueryHandler.class);
         exportQueryHandler.setLoggedInInfo(loggedInInfo);
-        exportQueryHandler.setParameters(templateXML.getDrilldownParameters("null"));
+        exportQueryHandler.setParameters(templateXML.getDrilldownParameters(metricLabel));
         exportQueryHandler.setColumns(templateXML.getDrilldownExportColumns());
         exportQueryHandler.setRanges(templateXML.getDrilldownRanges());
         exportQueryHandler.setQuery(templateXML.getDrilldownQuery());
