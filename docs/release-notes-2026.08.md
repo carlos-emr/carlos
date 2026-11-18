@@ -1,5 +1,13 @@
 # CARLOS 2026.08 release notes
 
+## Note lock recovery
+
+When another window takes a note lock, a refused toolbar save now explains that
+the lock was lost and tells the clinician to copy their text and reopen the chart.
+The draft remains available, and autosave stops for that editor. Opening a different
+editor restores its own saving. Close still asks before discarding unsaved text,
+dates or issue changes, including after a lock is lost.
+
 ## Audit identifiers after model diagnostic redaction
 
 Demographic-extension, consent-type, appointment and disease-registry creation audit
