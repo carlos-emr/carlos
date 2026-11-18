@@ -55,3 +55,13 @@ branch coverage. Their JUnit SHA-256 is
 The physical component runner uses an independent disposable MariaDB server;
 the application schema is untouched and the server is retired. This repair is
 pending the next rebuilt DEB/native qualification.
+
+The merged repair retains both histories, both rollback regressions and the CI
+MariaDB report expectations. All 307 selected JVM controls pass (JUnit
+`ef8d2327f941359fd43a7c3e7c4e995444d160c9dbecd1f615cdca2ec00f5ff5`),
+with 100% changed-line/instruction/branch coverage, evidence
+`13ac81122154d3c5da4be3f4befb4d8e22b3b87e060d1d8bf61f3a56dfc5fa9e`.
+All 21 transaction cases from both integration classes also pass on actual
+MariaDB 11.8.8/32K; JUnit
+`492f5cdb1d791c06ffe4c9fc852d80aac57f31ab905051fc4e5a86e84a0b5745`.
+The physical test server is retired and the application schema is untouched.
