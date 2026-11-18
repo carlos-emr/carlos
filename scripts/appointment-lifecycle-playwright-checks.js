@@ -58,7 +58,11 @@
  * that marker is deleted in a finally, including after a failure.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors, assertStrictPage, wireStrictPage, withExpectedDialogs } = require('./lib/playwright-harness');
+const { appointmentMonitorCleanup, finishAppointmentCleanup } = require('./lib/appointment-page-monitor-cleanup');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -74,7 +78,6 @@ const {
   login,
   validateBaseUrl,
   validateMysqlHost,
-  wirePage,
 } = require('./eform-local-playwright-utils');
 
 const config = {
@@ -111,6 +114,7 @@ const targetMonth = target.getUTCMonth() + 1;
 const targetDay = target.getUTCDate();
 const targetDate = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
 
+const monitorCleanup = appointmentMonitorCleanup({ sql, provider: providerNo, date: targetDate, baseUrl: config.baseUrl });
 const recorder = createRecorder();
 const passed = [];
 
@@ -122,6 +126,7 @@ function encodeOptionFileValue(value) {
 }
 
 function initMysqlDefaults() {
+  if(mysqlDefaults)return;
   if (/[\r\n]/.test(mysqlPassword)) {
     throw new Error('MYSQL_PASSWORD must not contain newline characters');
   }
@@ -184,8 +189,13 @@ function stampedArchiveRows() {
 
 function cleanupRows() {
   const like = escapeSql(`${stamp}%`);
-  sql(`DELETE FROM appointmentArchive WHERE reason LIKE '${like}' OR notes LIKE '${like}'`);
-  sql(`DELETE FROM appointment WHERE reason LIKE '${like}' OR notes LIKE '${like}'`);
+  finishAppointmentCleanup(() => {
+    sql(`DELETE FROM appointmentArchive WHERE reason LIKE '${like}' OR notes LIKE '${like}'`);
+    sql(`DELETE FROM appointment WHERE reason LIKE '${like}' OR notes LIKE '${like}'`);
+  }, () => {
+    const removed = monitorCleanup.cleanup();
+    if (removed) console.log(`cleanup appointment booking locks: ${removed} owned row(s)`);
+  });
 }
 
 async function waitFor(probe, description, timeoutMs = 30000) {
@@ -269,8 +279,9 @@ async function checkInvalidDuration(popup, button, label) {
   }
 }
 
-/** Books the appointment this check then operates on, from an empty slot link. */
-async function bookFromSlot(context, daySheet) {
+/** Opens and prepares the native booking form from an empty slot link. */
+async function openBookingForm(context, daySheet, {slotIndex = 0} = {}) {
+  await monitorCleanup.remember(context);
   // Scoped to the target provider's COLUMN, not just the first slot on the sheet.
   // appointmentprovideradminday.jsp builds its columns from the logged-in provider's
   // group (curProvider_no) and only falls back to the logged-in provider alone when
@@ -282,14 +293,9 @@ async function bookFromSlot(context, daySheet) {
     `day sheet for ${targetDate} rendered no bookable slot link in provider ${providerNo}'s column`);
 
   const popupPromise = context.waitForEvent('page', { timeout: 45000 });
-  await slots.first().click();
+  await slots.nth(slotIndex).click();
   const popup = await popupPromise;
-  // Not every slot prompts; only one whose template carries a confirmation
-  // message does. Accept whatever this popup raises during booking.
-  wirePage(popup, 'add-appointment', recorder, async (dialog, entry) => {
-    recorder.dialogs.push({ ...entry, accepted: true });
-    await dialog.accept().catch(() => {});
-  });
+  wireStrictPage(popup, 'add-appointment', recorder, { baseline: [] });
   // The context's page event can fire while the popup is still about:blank.
   // Waiting for that document's load state would pass immediately and make a
   // healthy appointment form look like an empty response.
@@ -328,6 +334,15 @@ async function bookFromSlot(context, daySheet) {
   assert(selected === demographicNo,
     `patient selection put demographic_no=${selected} on the booking form, expected ${demographicNo}`);
 
+  return popup;
+}
+
+async function bookFromSlot(context, daySheet, {configureAdd, slotIndex = 0} = {}) {
+  // A successful booking refreshes its opener without retaining every date parameter.
+  // Re-enter the intended day before booking another control appointment.
+  await openDaySheet(daySheet);
+  const existingIds = new Set(stampedAppointments().map(row => row.id));
+  const popup = await openBookingForm(context, daySheet, {slotIndex});
   const slotStart = await popup.locator('form#addappt input[name="start_time"]').inputValue();
   assert(/^\d{2}:\d{2}/.test(slotStart),
     `booking form start_time was not prefilled from the slot, got ${slotStart}`);
@@ -336,6 +351,7 @@ async function bookFromSlot(context, daySheet) {
   const intendedDuration = Number(await popup.locator('#duration').inputValue());
   assert(Number.isInteger(intendedDuration) && intendedDuration > 0,
     'the selected slot must provide a positive duration');
+  if (configureAdd) await configureAdd(popup);
   await checkInvalidDuration(popup, popup.locator('#addButton'), 'add appointment');
 
   const [response] = await Promise.all([
@@ -347,7 +363,7 @@ async function bookFromSlot(context, daySheet) {
   assert(response.status() < 400, `appointment AddRecord returned HTTP ${response.status()}`);
 
   const row2 = await waitFor(() => {
-    const rows = stampedAppointments();
+    const rows = stampedAppointments().filter(row => !existingIds.has(row.id));
     return rows.length === 1 ? rows[0] : null;
   }, `the booked ${stamp} appointment to reach the database`);
   assert(row2.date === targetDate, `booked appointment landed on ${row2.date}, expected ${targetDate}`);
@@ -377,7 +393,9 @@ async function openEditPopup(context, daySheet, appointmentNo, dialogHandler = n
   const popupPromise = context.waitForEvent('page', { timeout: 45000 });
   await link.click();
   const popup = await popupPromise;
-  wirePage(popup, 'edit-appointment', recorder, dialogHandler);
+  // Keep the exported helper's callback contract for the separate recurrence
+  // driver. This lifecycle check scopes its own confirmations to their clicks.
+  wireStrictPage(popup, 'edit-appointment', recorder, { baseline: [], dialogHandler });
   await popup.waitForURL(url => String(url) !== 'about:blank', {
     timeout: 45000, waitUntil: 'domcontentloaded',
   });
@@ -404,7 +422,7 @@ async function checkAppointmentLabels(context, daySheet, appointmentNo) {
     context.waitForEvent('page', { timeout: 45000 }),
     edit.locator('a[onclick*="ViewDemographicLabelPrintSetting"]').click(),
   ]);
-  wirePage(labels, 'appointment-labels', recorder);
+  wireStrictPage(labels, 'appointment-labels', recorder, { baseline: [] });
   await labels.waitForURL(url => String(url) !== 'about:blank', {
     timeout: 45000, waitUntil: 'domcontentloaded',
   });
@@ -484,7 +502,7 @@ async function submitEditWithReceipt(context, popup, appointmentNo) {
     popup.waitForResponse((response) => response.request().method() === 'POST'
       && /\/appointment\/UpdateRecord$/.test(new URL(response.url()).pathname), { timeout: 45000 }),
     receiptPromise.then((page) => {
-      wirePage(page, 'appointment-receipt', recorder);
+      wireStrictPage(page, 'appointment-receipt', recorder, { baseline: [] });
       return page;
     }),
     popup.locator('#printReceiptButton').click(),
@@ -537,6 +555,16 @@ async function submitEditWithReceipt(context, popup, appointmentNo) {
 
 async function editAppointment(context, daySheet, appointmentNo) {
   const popup = await openEditPopup(context, daySheet, appointmentNo);
+  const accessibility = await popup.evaluate(() => ({
+    language: document.documentElement.lang,
+    labelled: ['reasonCode', 'location', 'user_id'].every(name => {
+      const control = document.querySelector(`[name="${name}"]`);
+      return control && [...control.labels].some(label => label.textContent.trim().length > 0);
+    }),
+  }));
+  assert(accessibility.language && accessibility.labelled,
+    'edit appointment must declare its language and label its reason, location and creator controls');
+  pass('Edit Appointment exposes its language and associated reason, location and creator labels');
   const prefilled = await popup.locator('#reason').inputValue();
   assert(prefilled === bookedReason,
     `edit popup prefilled reason ${prefilled}, expected the booked ${bookedReason}`);
@@ -629,27 +657,80 @@ async function cancelAppointment(context, daySheet, appointmentNo) {
   }, 'appointment status to become Cancelled (C)');
 }
 
+/** Dismiss only the confirmation raised by this owned appointment's control. */
+async function clickDismissed(context, daySheet, appointmentNo, control, routes) {
+  let posts = 0;
+  let dialogs;
+  const popup = await openEditPopup(context, daySheet, appointmentNo);
+  const count = (request) => {
+    if (routes.test(new URL(request.url()).pathname)) posts += 1;
+  };
+  popup.on('request', count);
+  try {
+    const button = popup.locator(control);
+    assert(await button.count() > 0, `edit popup rendered no ${control} control`);
+    dialogs = await withExpectedDialogs(popup, () => button.click(), { accept: false });
+    assert(dialogs.length === 1 && dialogs[0].type === 'confirm',
+      `${control} must raise exactly one confirmation`);
+    // Long enough for the form's post to start, had the page sent it.
+    await popup.waitForTimeout(1500);
+  } finally {
+    popup.off('request', count);
+  }
+  await popup.close().catch(() => {});
+  return { confirmText: dialogs[0].text, posts };
+}
+
+/**
+ * Cancel Appt on a billed appointment asks to confirm (editappointment.jsp onButCancel). Dismissed, it must send no
+ * update and leave the appointment as it was. The appointment is marked billed the way billing it stores that (status
+ * B) and put back to its status afterwards; an unbilled appointment is cancelled with no question asked.
+ */
+async function dismissBilledCancel(context, daySheet, appointmentNo, statusBefore) {
+  const id = Number(appointmentNo);
+  const like = escapeSql(`${stamp}%`);
+  sql(`UPDATE appointment SET status='B' WHERE appointment_no=${id} AND reason LIKE '${like}'`);
+  let outcome;
+  let after;
+  try {
+    assert(stampedAppointments().map((row) => row.status).join() === 'B', 'the appointment was not marked billed');
+    outcome = await clickDismissed(context, daySheet, appointmentNo, '#cancelButton', /\/appointment\/(UpdateRecord|DeleteRecord)$/);
+    after = stampedAppointments();
+  } finally {
+    sql(`UPDATE appointment SET status='${escapeSql(statusBefore)}' WHERE appointment_no=${id} AND reason LIKE '${like}'`);
+  }
+  assert(outcome.confirmText && /billed/i.test(outcome.confirmText) && /cancel/i.test(outcome.confirmText),
+    `Cancel Appt on a billed appointment raised no or an unexpected confirmation: ${outcome.confirmText}`);
+  assert(outcome.posts === 0, `a dismissed Cancel Appt still sent ${outcome.posts} request(s)`);
+  assert(after.length === 1 && after[0].status === 'B', `a dismissed Cancel Appt changed the appointment: ${JSON.stringify(after)}`);
+  assert(stampedAppointments().map((row) => row.status).join() === statusBefore, 'the appointment did not get its status back');
+}
+
+/** Delete dismissed at its confirmation sends no DeleteRecord and leaves the appointment and the archive as they were. */
+async function dismissDeleteAppointment(context, daySheet, appointmentNo) {
+  const before = JSON.stringify(stampedAppointments());
+  const archivedBefore = stampedArchiveRows().length;
+  const outcome = await clickDismissed(context, daySheet, appointmentNo, '#deleteButton', /\/appointment\/DeleteRecord$/);
+  assert(outcome.confirmText && /delete/i.test(outcome.confirmText),
+    `appointment delete raised no or an unexpected confirmation: ${outcome.confirmText}`);
+  assert(outcome.posts === 0, `a dismissed delete still posted ${outcome.posts} time(s) to DeleteRecord`);
+  assert(JSON.stringify(stampedAppointments()) === before, 'a dismissed delete changed or removed the appointment');
+  assert(stampedArchiveRows().length === archivedBefore, 'a dismissed delete wrote an appointmentArchive row');
+}
+
 async function deleteAppointment(context, daySheet, appointmentNo) {
-  // The delete confirm is raised by the form's own onSubmit, not by the click, so
-  // the handler has to be installed with the popup: dismissing it cancels the
-  // submit and no POST is ever made.
-  let confirmText = null;
-  const popup = await openEditPopup(context, daySheet, appointmentNo, async (dialog, entry) => {
-    confirmText = dialog.message();
-    recorder.dialogs.push({ ...entry, accepted: true });
-    await dialog.accept().catch(() => {});
-  });
+  const popup = await openEditPopup(context, daySheet, appointmentNo);
 
   const deleteButton = popup.locator('#deleteButton');
   assert(await deleteButton.count() > 0, 'edit popup rendered no delete control');
-  const [response] = await Promise.all([
-    popup.waitForResponse((r) => r.request().method() === 'POST'
-      && /\/appointment\/DeleteRecord$/.test(new URL(r.url()).pathname), { timeout: 45000 }),
-    deleteButton.click(),
-  ]);
+  const responsePromise = popup.waitForResponse((r) => r.request().method() === 'POST'
+    && /\/appointment\/DeleteRecord$/.test(new URL(r.url()).pathname), { timeout: 45000 });
+  responsePromise.catch(() => {});
+  const dialogs = await withExpectedDialogs(popup, () => deleteButton.click());
+  const response = await responsePromise;
   assert(response.status() < 400, `appointment DeleteRecord returned HTTP ${response.status()}`);
-  assert(confirmText && /delete/i.test(confirmText),
-    `appointment delete raised an unexpected confirmation: ${confirmText}`);
+  assert(dialogs.length === 1 && dialogs[0].type === 'confirm' && /delete/i.test(dialogs[0].text),
+    `appointment delete raised an unexpected confirmation: ${JSON.stringify(dialogs)}`);
   await popup.waitForLoadState('domcontentloaded', { timeout: 45000 }).catch(() => {});
   await assertNotErrorPage(popup, 'appointment delete confirmation');
   await popup.close().catch(() => {});
@@ -664,7 +745,7 @@ async function deleteAppointment(context, daySheet, appointmentNo) {
     `appointmentArchive has no row for deleted appointment ${appointmentNo}: ${JSON.stringify(archived)}`);
 }
 
-async function main() {
+async function main({cancellation}={}) {
   initMysqlDefaults();
   let browser = null;
   let context = null;
@@ -674,8 +755,13 @@ async function main() {
   try {
     cleanupRows();
 
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
-    context = await browser.newContext({ ignoreHTTPSErrors: true });
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
+    context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+    cancellation?.throwIfCancelled();
+    // Wire before the initial popup response and before the shared login helper
+    // can choose its default baseline. No historical console baseline applies.
+    context.on('page', page => wireStrictPage(page, 'appointment-page', recorder, { baseline: [] }));
     // appointmentaddarecord.jsp calls self.close() on a SUCCESSFUL add, tearing the
     // confirmation down before it can be read. Neutralising close keeps the page
     // inspectable; the flag it sets is what the booking asserts instead.
@@ -684,29 +770,45 @@ async function main() {
         window.__carlosSelfCloseRequested = true;
       };
     });
+    cancellation?.throwIfCancelled();
 
     await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
 
     const daySheet = await context.newPage();
-    wirePage(daySheet, 'day-sheet', recorder);
+    cancellation?.throwIfCancelled();
+    wireStrictPage(daySheet, 'day-sheet', recorder, { baseline: [] });
     await openDaySheet(daySheet);
+    cancellation?.throwIfCancelled();
     pass(`day sheet renders bookable slots for ${targetDate}`);
 
     const booked = await bookFromSlot(context, daySheet);
+    cancellation?.throwIfCancelled();
     pass(`booked appointment ${booked.id} from a day-sheet slot for demographic ${demographicNo}`);
 
     await checkAppointmentLabels(context, daySheet, booked.id);
+    cancellation?.throwIfCancelled();
 
     const edited = await editAppointment(context, daySheet, booked.id);
+    cancellation?.throwIfCancelled();
     pass(`edit persisted reason, notes and the recomputed end_time (${edited.startTime}-${edited.endTime})`);
 
     const rotated = await rotateStatus(daySheet, booked.id, edited.status);
+    cancellation?.throwIfCancelled();
     pass(`day sheet status letter advanced the status ${edited.status} -> ${rotated.status}`);
 
+    await dismissBilledCancel(context, daySheet, booked.id, rotated.status);
+    cancellation?.throwIfCancelled();
+    pass('Cancel Appt on a billed appointment asked to confirm; dismissed, it sent nothing and kept the appointment');
     const cancelled = await cancelAppointment(context, daySheet, booked.id);
+    cancellation?.throwIfCancelled();
     pass(`edit popup cancelled the appointment (status=${cancelled.status}) without deleting it`);
 
+    await dismissDeleteAppointment(context, daySheet, booked.id);
+    cancellation?.throwIfCancelled();
+    pass('delete dismissed at its confirmation sent nothing and kept the appointment');
     await deleteAppointment(context, daySheet, booked.id);
+    cancellation?.throwIfCancelled();
     pass('delete removed the appointment and left an appointmentArchive record behind');
 
     assertNoPageErrors(recorder);
@@ -714,6 +816,7 @@ async function main() {
       `unexpected HTTP errors: ${JSON.stringify(recorder.badResponses, null, 2)}`);
     assert(recorder.consoleIssues.length === 0,
       `unexpected console issues: ${JSON.stringify(recorder.consoleIssues, null, 2)}`);
+    assertStrictPage(recorder);
     console.log(`\nPASS appointment lifecycle: ${passed.length} checks, 0 failures`);
   } catch (error) {
     console.error(`FAIL appointment lifecycle: ${error.stack || error.message}`);
@@ -730,11 +833,13 @@ async function main() {
   }
 
 }
-if (require.main === module) main().catch((error) => {
+if (require.main === module) legacyHarness.runLegacyCheck('appointment-lifecycle',async context=>{
+  await (main)(context).catch((error) => {
   console.error(error.stack || error.message);
   process.exitCode = 1;
+});
 });
 // Shared UI fixture: importing this module does not book or delete anything.
 module.exports = { config, recorder, targetDate, target, stamp, bookedReason, bookedNotes,
   initMysqlDefaults, cleanupMysqlDefaults, cleanupRows, sql, stampedAppointments, stampedArchiveRows,
-  openDaySheet, bookFromSlot, openEditPopup };
+  openDaySheet, openBookingForm, bookFromSlot, openEditPopup };

@@ -23,6 +23,7 @@
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { INBOX_LINK } = require('./messenger-demographic-link-playwright-checks');
 
 const TIMEOUT = 30000;
 
@@ -32,7 +33,12 @@ async function settle(page) {
   await h.assertNotErrorPage(page, 'messenger page');
 }
 
+// Resolves the control first, so a selector the page no longer matches fails naming
+// it rather than as an anonymous waitForResponse timeout (#5349).
 async function clickAndLoad(page, locator, pathname) {
+  await locator.waitFor({ timeout: TIMEOUT }).catch(e => {
+    throw new Error(`No visible control to open ${pathname}: ${locator} (${String(e.message).split('\n')[0]})`);
+  });
   await Promise.all([
     page.waitForResponse(r => r.request().isNavigationRequest() && r.frame() === page.mainFrame()
       && new URL(r.url()).pathname.endsWith(pathname), { timeout: TIMEOUT }),
@@ -190,8 +196,7 @@ async function workflow(s) {
     await clickAndLoad(inbox, inbox.locator(`a[href*="/messenger/ViewMessage?messageID=${id}&"]`).first(), '/messenger/ViewMessage');
     await inbox.locator('#msgSubject').waitFor();
   };
-  const toInbox = () => clickAndLoad(inbox, inbox.locator('a.btn[href*="/messenger/DisplayMessages"]:visible,'
-    + ' a.nav-link[href*="/messenger/DisplayMessages"]:not([href*="boxType"]):not([href*="orderby"]):visible').first(), '/messenger/DisplayMessages');
+  const toInbox = () => clickAndLoad(inbox, inbox.locator(INBOX_LINK).first(), '/messenger/DisplayMessages');
 
   // Opens the stored-PDF list for a message and downloads entry `index`.
   async function downloadStoredPdf(id, expectedTitles, index) {

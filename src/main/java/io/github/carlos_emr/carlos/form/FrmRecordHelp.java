@@ -222,12 +222,19 @@ public class FrmRecordHelp {
      * Whether a JDBC column type name denotes one of the boolean-valued columns these
      * legacy form tables use for checkbox fields.
      *
+     * <p>The one check for every legacy form record that turns a stored {@code 1} into the
+     * attribute text {@code checked='checked'}. MySQL Connector/J reports {@code tinyint(1)}
+     * as {@code BIT} and other widths as {@code TINYINT}; it never reports {@code TINY}, the
+     * name nineteen {@code Frm*Record} classes once compared against (issue #4466), so a
+     * saved tick was shown again as the raw value {@code 1}. A record class that reads a form row
+     * column by column must call this rather than compare type names itself.
+     *
      * @param columnTypeName value from {@code ResultSetMetaData.getColumnTypeName}; may be null
      * @return true for {@code TINYINT...} or {@code bit}, in any case
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (JDBC column type name); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (JDBC column type name); not a security or authorization decision")
-    private static boolean isBooleanColumnType(String columnTypeName) {
+    public static boolean isBooleanColumnType(String columnTypeName) {
         return columnTypeName != null
                 && (columnTypeName.regionMatches(true, 0, TINYINT_TYPE, 0, TINYINT_TYPE.length())
                         || BIT_TYPE.equalsIgnoreCase(columnTypeName));

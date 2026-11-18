@@ -158,20 +158,8 @@ public class PreventionDisplayConfig {
                     h.put(att.getName(), att.getValue());
                 }
 
-                //Do we have a mapped CVC Entry?
-                CVCMapping mapping = cvcMapping.findByOscarName(h.get("name"));
-                if (mapping != null) {
-                    if (mapping.getPreferCVC() != null && mapping.getPreferCVC()) {
-                        continue;
-                    }
-                    CVCImmunization cvcImm = cvcImmunizationDao.findBySnomedConceptId(mapping.getCvcSnomedId());
-                    if (cvcImm != null) {
-                        h.put("snomedConceptCode", mapping.getCvcSnomedId());
-                        h.put("cvcName", cvcImm.getPicklistName());
-                        h.put("ispa", String.valueOf(cvcImm.isIspa()));
-                        addedSnomeds.add(mapping.getCvcSnomedId());
-                    }
-
+                if (!includeConfiguredPrevention(h, addedSnomeds)) {
+                    continue;
                 }
 
                 if (h.get("name") != null) {
@@ -199,6 +187,7 @@ public class PreventionDisplayConfig {
             }
 
 
+
         } catch (Exception e) {
             loaded = false;
             MiscUtils.getLogger().error("Error", e);
@@ -216,6 +205,27 @@ public class PreventionDisplayConfig {
             this.preventions = new PreventionSnapshot(loadedList, loadedHash);
         }
     }
+
+    /** Enrich a configured item, or leave its preferred CVC replacement to the generic list. */
+    private boolean includeConfiguredPrevention(Map<String, String> prevention, List<String> addedSnomeds) {
+        CVCMapping mapping = cvcMapping.findByOscarName(prevention.get("name"));
+        if (mapping == null) {
+            return true;
+        }
+        if (Boolean.TRUE.equals(mapping.getPreferCVC())) {
+            return false;
+        }
+        CVCImmunization immunization = cvcImmunizationDao.findBySnomedConceptId(mapping.getCvcSnomedId());
+        if (immunization != null) {
+            prevention.put("snomedConceptCode", mapping.getCvcSnomedId());
+            prevention.put("cvcName", immunization.getPicklistName());
+            prevention.put("ispa", String.valueOf(immunization.isIspa()));
+            addedSnomeds.add(mapping.getCvcSnomedId());
+        }
+        return true;
+    }
+
+
 
 
     public ArrayList<Map<String, Object>> getConfigurationSets() {
@@ -281,133 +291,91 @@ public class PreventionDisplayConfig {
     }
 
 
-    public String getDisplay(LoggedInInfo loggedInInfo, Map<String, Object> setHash, String Demographic_no) {
-        String display = "style=\"display:none;\"";
-        DemographicData dData = new DemographicData();
-        log.debug("demoage " + Demographic_no);
-        Demographic demograph = dData.getDemographic(loggedInInfo, Demographic_no);
+    /**
+     * Returns the style attribute for a configuration set on the prevention page.
+     *
+     * @param setHash the configuration set
+     * @param demograph the patient, already looked up by the caller through
+     *        {@code DemographicManager}, which checks the caller's privileges
+     * @return {@code ""} when the set has an age range or a sex and the patient meets every one
+     *         it has; otherwise {@code style="display:none;"}, which also covers a set with
+     *         neither and an error such as a missing patient
+     */
+    public String getDisplay(Map<String, Object> setHash, Demographic demograph) {
+        String hidden = "style=\"display:none;\"";
+        if (demograph == null) {
+            return hidden;
+        }
         try {
-            String minAgeStr = (String) setHash.get("minAge");
-            String maxAgeStr = (String) setHash.get("maxAge");
+            String minAge = (String) setHash.get("minAge");
+            String maxAge = (String) setHash.get("maxAge");
             String sex = (String) setHash.get("sex");
-            int demoAge = demograph.getAgeInYears();
-            String demoSex = demograph.getSex();
-            boolean inAgeGroup = true;
-            log.debug("min age " + minAgeStr + " max age " + maxAgeStr + " sex " + sex + " demoAge " + demoAge
-                    + " demoSex " + demoSex);
-            if (minAgeStr != null && maxAgeStr != null) { // between ages
-                log.debug("HERE1");
-                int minAge = Integer.parseInt(minAgeStr);
-                int maxAge = Integer.parseInt(maxAgeStr);
-                if (minAge <= demoAge && maxAge >= demoAge) {
-                    display = "";
-                } else {
-                    inAgeGroup = false;
-                }
-            } else if (minAgeStr != null) { // older than
-                log.debug("HERE2");
-                int minAge = Integer.parseInt(minAgeStr);
-                if (minAge <= demoAge) {
-                    display = "";
-                } else {
-                    inAgeGroup = false;
-                }
-            } else if (maxAgeStr != null) { // younger than
-                log.debug("HERE3");
-                int maxAge = Integer.parseInt(maxAgeStr);
-                if (maxAge >= demoAge) {
-                    display = "";
-                } else {
-                    inAgeGroup = false;
-                }
-            }// else? neither defined should the default be to display it or
-            // not?
-
-            if (sex != null && inAgeGroup) {
-                log.debug("HERE4");
-                if (sex.equals(demoSex)) {
-                    display = "";
-                } else {
-                    display = "style=\"display:none;\"";
-                }
-            }
+            return matchesDemographic(minAge, maxAge, sex, demograph.getAgeInYears(), demograph.getSex())
+                    ? "" : hidden;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
+            return hidden;
         }
-        return display;
     }
 
     public boolean display(LoggedInInfo loggedInInfo, Map<String, String> setHash, String Demographic_no, int numberOfPrevs) {
-        boolean display = false;
-        PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
         DemographicData dData = new DemographicData();
         log.debug("demoage " + Demographic_no);
         Demographic demograph = dData.getDemographic(loggedInInfo, Demographic_no);
+        return display(setHash, demograph, numberOfPrevs);
+    }
+
+    /**
+     * Whether a prevention type shows for the patient, as
+     * {@link #display(LoggedInInfo, Map, String, int)} decides, for a patient the caller has
+     * already looked up through {@code DemographicManager}, which checks the caller's privileges.
+     * In its default view the prevention page calls this once per type, passing the patient from
+     * its {@link PreventionPageData}.
+     *
+     * @param setHash the prevention type
+     * @param demograph the patient
+     * @param numberOfPrevs how many preventions of this type the patient has
+     * @return whether the type shows; {@code false} also on an error such as a missing patient
+     */
+    public boolean display(Map<String, String> setHash, Demographic demograph, int numberOfPrevs) {
+        // A patient can disappear while an asynchronous prevention request is still running.
+        // This is an expected absence, not a configuration error to log once per type.
+        if (demograph == null) {
+            return false;
+        }
+        PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
         try {
             if (preventionManager.hideItem(setHash.get("name")) && numberOfPrevs == 0) {
-                //move to hidden list
-                display = false;
-            } else {
-                String minAgeStr = setHash.get("minAge");
-                String maxAgeStr = setHash.get("maxAge");
-                String sex = setHash.get("sex");
-                String minNumPrevs = setHash.get("showIfMinRecordNum");
-                int demoAge = demograph.getAgeInYears();
-                String demoSex = demograph.getSex();
-                boolean inAgeGroup = true;
-                //log.debug("min age " + minAgeStr + " max age " + maxAgeStr + " sex " + sex + " demoAge " + demoAge
-                //        + " demoSex " + demoSex);
-
-                if (minNumPrevs != null) {
-                    int minNum = Integer.parseInt(minNumPrevs);
-                    if (numberOfPrevs >= minNum) {
-                        display = true;
-                    }
-                }
-
-                if (!display) {
-
-                    if (minAgeStr != null && maxAgeStr != null) { // between ages
-                        //log.debug("HERE1");
-                        int minAge = Integer.parseInt(minAgeStr);
-                        int maxAge = Integer.parseInt(maxAgeStr);
-                        if (minAge <= demoAge && maxAge >= demoAge) {
-                            display = true;
-                        } else {
-                            inAgeGroup = false;
-                        }
-                    } else if (minAgeStr != null) { // older than
-                        //log.debug("HERE2");
-                        int minAge = Integer.parseInt(minAgeStr);
-                        if (minAge <= demoAge) {
-                            display = true;
-                        } else {
-                            inAgeGroup = false;
-                        }
-                    } else if (maxAgeStr != null) { // younger than
-                        //log.debug("HERE3");
-                        int maxAge = Integer.parseInt(maxAgeStr);
-                        if (maxAge >= demoAge) {
-                            display = true;
-                        } else {
-                            inAgeGroup = false;
-                        }
-                    }// else? neither defined should the default be to display it or
-                    // not?
-
-                    if (sex != null && inAgeGroup) {
-                        //log.debug("HERE4");
-                        if (sex.equals(demoSex)) {
-                            display = true;
-                        } else {
-                            display = false;
-                        }
-                    }
-                }
-            }//end check if prevention has been hidden
+                return false;
+            }
+            String minAge = setHash.get("minAge");
+            String maxAge = setHash.get("maxAge");
+            String sex = setHash.get("sex");
+            String minNumPrevs = setHash.get("showIfMinRecordNum");
+            int demoAge = demograph.getAgeInYears();
+            String demoSex = demograph.getSex();
+            // Existing records override the age and sex filters, as in the original display rules.
+            if (minNumPrevs != null && numberOfPrevs >= Integer.parseInt(minNumPrevs)) {
+                return true;
+            }
+            return matchesDemographic(minAge, maxAge, sex, demoAge, demoSex);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
+            return false;
         }
-        return display;
+    }
+
+    private static boolean matchesDemographic(String minAge, String maxAge, String sex, int age, String patientSex) {
+        // Parse both bounds before comparing, so malformed configuration still reaches the error logger.
+        Integer minimum = minAge == null ? null : Integer.valueOf(minAge);
+        Integer maximum = maxAge == null ? null : Integer.valueOf(maxAge);
+        if ((minimum != null && age < minimum) || (maximum != null && age > maximum)) {
+            return false;
+        }
+        if (sex != null) {
+            return sex.equals(patientSex);
+        }
+        // With no configured filter, a type/set stays hidden unless the record threshold showed it.
+        return minimum != null || maximum != null;
     }
 }

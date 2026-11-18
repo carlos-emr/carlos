@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFilenameDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONFavourite;
 import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao;
+import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
@@ -37,6 +38,8 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
+import java.util.ArrayList;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -55,14 +58,18 @@ class BillingOnLookupServiceUnitTest {
 
     private BillingONFavouriteDao favouriteDao;
     private ProviderDao providerDao;
+    private OscarAppointmentDao appointmentDao;
+    private AppointmentArchiveDao appointmentArchiveDao;
     private BillingOnLookupService service;
 
     @BeforeEach
     void setUp() {
         favouriteDao = mock(BillingONFavouriteDao.class);
         providerDao = mock(ProviderDao.class);
+        appointmentDao = mock(OscarAppointmentDao.class);
+        appointmentArchiveDao = mock(AppointmentArchiveDao.class);
         service = new BillingOnLookupService(
-                mock(OscarAppointmentDao.class),
+                appointmentDao,
                 mock(ProfessionalSpecialistDao.class),
                 mock(ClinicLocationDao.class),
                 providerDao,
@@ -70,7 +77,8 @@ class BillingOnLookupServiceUnitTest {
                 favouriteDao,
                 mock(DemographicManager.class),
                 mock(BillingONFilenameDao.class),
-                mock(ProviderSiteDao.class));
+                mock(ProviderSiteDao.class),
+                appointmentArchiveDao);
     }
 
     @Test
@@ -183,5 +191,35 @@ class BillingOnLookupServiceUnitTest {
         when(providerDao.getProvider("1234")).thenReturn(billableProvider("1234", "12345"));
 
         assertThat(service.getProviderObj("1234").getBillingGroupNo()).isEqualTo("12345");
+    }
+
+    @Test
+    void shouldArchiveReplacedStatus_beforeApplyingBilledStatus() {
+        Appointment appt = new Appointment();
+        appt.setId(77);
+        appt.setStatus("t");
+        when(appointmentDao.find(Integer.valueOf(77))).thenReturn(appt);
+        List<String> archivedStatuses = new ArrayList<>();
+        when(appointmentArchiveDao.archiveAppointment(any(Appointment.class))).thenAnswer(invocation -> {
+            archivedStatuses.add(((Appointment) invocation.getArgument(0)).getStatus());
+            return null;
+        });
+
+        boolean updated = service.updateApptStatus("77", "B", "999998");
+
+        assertThat(updated).isTrue();
+        assertThat(archivedStatuses).containsExactly("t");
+        assertThat(appt.getStatus()).isEqualTo("B");
+        verify(appointmentDao).merge(appt);
+    }
+
+    @Test
+    void shouldNotArchive_whenAppointmentNotFound() {
+        when(appointmentDao.find(Integer.valueOf(78))).thenReturn(null);
+
+        boolean updated = service.updateApptStatus("78", "B", "999998");
+
+        assertThat(updated).isFalse();
+        org.mockito.Mockito.verifyNoInteractions(appointmentArchiveDao);
     }
 }

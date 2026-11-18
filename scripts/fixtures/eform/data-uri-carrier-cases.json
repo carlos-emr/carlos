@@ -1,0 +1,145 @@
+{
+  "description": "Values the eForm data-URI carrier (issue #3552) must accept or refuse. Read by scripts/eform-data-uri-carrier.test.js (the page script, eform_floating_toolbar.js) and EFormDataUriCarrierUnitTest (the server, EFormDataUriCarrier) so both sides decide every case the same way: a value the page carries that the server refuses fails the whole save.",
+  "cases": [
+    {
+      "name": "canvas PNG",
+      "value": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl5n2QAAAAASUVORK5CYII=",
+      "accepted": true
+    },
+    {
+      "name": "JPEG",
+      "value": "data:image/jpeg;base64,/9j/4AAQSkZJRgA=",
+      "accepted": true
+    },
+    {
+      "name": "GIF",
+      "value": "data:image/gif;base64,R0lGODlhAQABAA==",
+      "accepted": true
+    },
+    {
+      "name": "WebP",
+      "value": "data:image/webp;base64,UklGRgAAAABXRUJQVlA4IA==",
+      "accepted": true
+    },
+    {
+      "name": "jSignature strokes",
+      "value": "data:image/jsignature;base30,3E13Z5Y5_1O24Z66_1O1Z3_3E2Z4",
+      "accepted": true
+    },
+    {
+      "name": "cleared jSignature pad",
+      "value": "data:image/jsignature;base30,",
+      "accepted": true
+    },
+    {
+      "name": "RCE-shaped PNG Base64 (CRS 932140)",
+      "value": "data:image/png;base64,iVBORw0KGgoAAAA/if+AAAAAAAAAAAAAAA==",
+      "accepted": true
+    },
+    {
+      "name": "HTML data URI",
+      "value": "data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==",
+      "accepted": false
+    },
+    {
+      "name": "SVG data URI (can carry script)",
+      "value": "data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+",
+      "accepted": false
+    },
+    {
+      "name": "javascript: URL",
+      "value": "javascript:alert(1)",
+      "accepted": false
+    },
+    {
+      "name": "PNG label over HTML bytes",
+      "value": "data:image/png;base64,PGh0bWw+PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==",
+      "accepted": false
+    },
+    {
+      "name": "JPEG label over PNG bytes",
+      "value": "data:image/jpeg;base64,iVBORw0KGgo=",
+      "accepted": false
+    },
+    {
+      "name": "WebP label over AVI bytes",
+      "value": "data:image/webp;base64,UklGRgAAAABBVkkgTElTVA==",
+      "accepted": false
+    },
+    {
+      "name": "markup after the payload",
+      "value": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl5n2QAAAAASUVORK5CYII\"><img src=x onerror=alert(1)>",
+      "accepted": false
+    },
+    {
+      "name": "whitespace inside the payload",
+      "value": "data:image/png;base64,iVBORw0K GgoAAAANSUhEUg==",
+      "accepted": false
+    },
+    {
+      "name": "unpadded payload",
+      "value": "data:image/png;base64,iVBORw0KGgo",
+      "accepted": false
+    },
+    {
+      "name": "padding in the middle",
+      "value": "data:image/png;base64,iVBORw0KGgo=AAAANSUhEUg=",
+      "accepted": false
+    },
+    {
+      "name": "triple padding",
+      "value": "data:image/png;base64,iVBORw0KGgoAAAANSUhEU===",
+      "accepted": false
+    },
+    {
+      "name": "empty raster payload",
+      "value": "data:image/png;base64,",
+      "accepted": false
+    },
+    {
+      "name": "upper-case scheme",
+      "value": "DATA:image/png;base64,iVBORw0KGgoAAAANSUhEUg==",
+      "accepted": false
+    },
+    {
+      "name": "upper-case subtype",
+      "value": "data:image/PNG;base64,iVBORw0KGgoAAAANSUhEUg==",
+      "accepted": false
+    },
+    {
+      "name": "leading space",
+      "value": " data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl5n2QAAAAASUVORK5CYII=",
+      "accepted": false
+    },
+    {
+      "name": "trailing newline",
+      "value": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl5n2QAAAAASUVORK5CYII=\n",
+      "accepted": false
+    },
+    {
+      "name": "jSignature with markup",
+      "value": "data:image/jsignature;base30,3E1<script>",
+      "accepted": false
+    },
+    {
+      "name": "jSignature with a space",
+      "value": "data:image/jsignature;base30,3E1 Z5",
+      "accepted": false
+    },
+    {
+      "name": "jSignature without the data: scheme",
+      "value": "image/jsignature;base30,3E13Z5Y5",
+      "accepted": false
+    },
+    {
+      "name": "plain clinical text",
+      "value": "Routine follow up.",
+      "accepted": false
+    },
+    {
+      "name": "empty value",
+      "value": "",
+      "accepted": false
+    }
+  ]
+}

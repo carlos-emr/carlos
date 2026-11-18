@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest.conversion;
 
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -81,7 +82,7 @@ public class NewAppointmentConverter extends AbstractConverter<Appointment, NewA
         d.setCreator(loggedInInfo.getLoggedInProviderNo());
         d.setDemographicNo(t.getDemographicNo());
         d.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
-        d.setLocation(t.getLocation());
+        AppointmentLocationResolver.setLocationText(d, t.getLocation());
         d.setNotes(t.getNotes());
         d.setProgramId(0);
         d.setProviderNo(t.getProviderNo());

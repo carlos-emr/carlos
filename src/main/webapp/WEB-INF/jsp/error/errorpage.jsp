@@ -34,9 +34,13 @@
     - Optional support contact information from LoginResourceBean
   Parameters:
     - _responseStatus: Existing HTTP error status, or 500 for a successful Struts error forward
+    - carlosErrorMessageKey (request scope, optional): message key set through ErrorPageMessage by an
+      action that knows why it refused the request; its translated text is shown above the status line
     - LoginResourceBean.supportLink: URL for support contact link (optional)
     - LoginResourceBean.supportName: Support contact display name (optional)
     - LoginResourceBean.supportText: Support contact descriptive text or HTML (optional)
+    - carlosReportLimitKey / carlosReportLimitValue / carlosReportLimitSetting: request attributes set by
+      ReportLimitNotice when a configured report was stopped by a limit (optional)
   @since 2026-03
 --%>
 <%@ page isErrorPage="true" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
@@ -201,6 +205,13 @@
 
 <div id="container">
     <div id="error-code">
+        <%-- Set through ErrorPageMessage by an action that knows why it refused the request: a short
+             translated message saying what to do. Server code chooses the key (request scope only),
+             and the text is encoded; nothing from the request is shown. --%>
+        <c:if test="${not empty requestScope.carlosErrorMessageKey}">
+            <fmt:message key="${requestScope.carlosErrorMessageKey}" var="_carlosErrorMessage"/>
+            <p id="error-message" class="lead">${carlos:forHtml(_carlosErrorMessage)}</p>
+        </c:if>
         <h2><fmt:message key="error.msgException"/>:</h2>
         <p>CARLOS Error: ${carlos:forHtml(_responseStatus)}</p>
         <%-- Set by CarlosExceptionMappingInterceptor when an action's uncaught exception was
@@ -211,6 +222,13 @@
             <p id="incident-reference"><fmt:message key="error.incidentReference"/>:
                 <code>${carlos:forHtml(carlosIncidentId)}</code><br/>
                 <small><fmt:message key="error.incidentReferenceHint"/></small></p>
+        </c:if>
+
+        <%-- Published by ReportLimitNotice when a configured report was stopped by one of its
+             configured_report.* limits: a bundle message naming the limit and, while an administrator
+             can still raise it, its carlos.properties setting. No exception text is rendered. --%>
+        <c:if test="${not empty carlosReportLimitKey}">
+            <p id="report-limit" class="alert alert-warning" role="alert"><fmt:message key="${carlosReportLimitKey}"><fmt:param value="${carlosReportLimitValue}"/></fmt:message><c:if test="${not empty carlosReportLimitSetting}"> <fmt:message key="report.limit.administratorCanRaise"><fmt:param value="${carlosReportLimitSetting}"/></fmt:message></c:if></p>
         </c:if>
 
         <div id="navigation">

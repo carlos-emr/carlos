@@ -16,6 +16,7 @@
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { multipartFields } = require('./lib/get-reject-probe');
+const { masterRecordLink } = require('./lib/master-record-link');
 const {
   directory, ownedPdfDocuments, seedOwnedPdfDocuments, removeOwnedPdfDocuments, assertOwnedPdfDocumentsRemoved,
 } = require('./lib/stored-pdf-documents');
@@ -61,7 +62,7 @@ async function workflow(s) {
 
   let report;
   await s.step('Master Record > Documents lists the owned unreviewed PDF', async () => {
-    report = await s.popup(s.master, s.master.locator('a[onclick*="/documentManager/ViewDocumentReport"]').first(), 'edoc-report');
+    report = await s.popup(s.master, masterRecordLink(s.master, '/documentManager/ViewDocumentReport').first(), 'edoc-report');
     await report.locator(`#docNo${doc.id}`).waitFor({ state: 'attached' });
     h.assert(await report.locator(`a[title="${doc.label}"]`).count() === 1, 'The owned document is missing from the report');
   });

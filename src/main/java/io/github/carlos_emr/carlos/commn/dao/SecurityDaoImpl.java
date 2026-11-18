@@ -33,10 +33,13 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.Date;
 import java.util.List;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.Security;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements SecurityDao {
@@ -45,16 +48,7 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
         super(Security.class);
     }
 
-    @Override
-    @org.springframework.transaction.annotation.Transactional(
-            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public Security findForUpdate(Integer id) {
-        Security security = entityManager.find(Security.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
-        if (security != null) {
-            entityManager.refresh(security, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
-        }
-        return security;
-    }
+
 
     @Override
     public List<Security> findAllOrderBy(String propertyName) {
@@ -160,5 +154,23 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
         @SuppressWarnings("unchecked")
         List<Security> secList = query.getResultList();
         return secList;
+    }
+
+    // MANDATORY: a lock taken in a transaction of its own would be released before the caller's
+    // comparison and write, which is the window this method exists to close.
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Security findForUpdate(Integer securityNo) {
+        if (securityNo == null) {
+            return null;
+        }
+        Security security = entityManager.find(Security.class, securityNo, LockModeType.PESSIMISTIC_WRITE);
+        if (security == null) {
+            return null;
+        }
+        // find() only locks an instance this persistence context had already loaded. Read the row
+        // again under the lock so MariaDB REPEATABLE READ also returns the committed state.
+        entityManager.refresh(security, LockModeType.PESSIMISTIC_WRITE);
+        return security;
     }
 }

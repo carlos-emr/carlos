@@ -22,8 +22,15 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -33,8 +40,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -58,6 +67,9 @@ public class BillingServiceDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private BillingServiceDao dao;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
 
     private final DateFormat dfm = new SimpleDateFormat("yyyyMMdd");
 
@@ -885,6 +897,109 @@ public class BillingServiceDaoIntegrationTest extends CarlosTestBase {
 
         private Date day(String yyyymmdd) throws Exception {
             return new Date(dfm.parse(yyyymmdd).getTime());
+        }
+    }
+
+    /**
+     * Issue #5307: fee rows no longer carry the EAGER percentage-limit collection, whose
+     * {@code mappedBy} joined {@code billingperclimit.service_code} to the row's numeric id.
+     * These tests keep limit rows in the table for real codes, which that join could not
+     * read: H2 refused to compare the code with the id, and MariaDB matched nothing. The
+     * {@code Y53..X} codes appear in no seeded fee schedule, so the Flyway schema run sees
+     * only these rows.
+     */
+    @Nested
+    @DisplayName("fetch plan (issue #5307)")
+    class FetchPlan {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should read a list of fee rows in one statement")
+        void shouldReadListOfFeeRows_inOneStatement() throws Exception {
+            List<String> codes = new ArrayList<>();
+            for (int i = 0; i < 20; i++) {
+                BillingService row = createBillingServiceWithRegion("Y53" + (10 + i) + "X", "ON", "20200101");
+                dao.persist(row);
+                codes.add(row.getServiceCode());
+                persistLimit(row.getServiceCode(), "20190101", "1.00", "9.00");
+            }
+            entityManager.flush();
+            entityManager.clear();
+
+            List<BillingService> rows = countingStatements(() -> dao.findByServiceCodes(codes), 1);
+
+            assertThat(rows).hasSize(20).extracting(BillingService::getServiceCode).containsExactlyInAnyOrderElementsOf(codes);
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should read a fee row by id and by code when its code has percentage limits")
+        void shouldReadFeeRow_whenItsCodeHasPercentageLimits() throws Exception {
+            BillingService row = createBillingServiceWithRegion("Y5340X", "ON", "20200101");
+            row.setPercentage("0.50");
+            dao.persist(row);
+            persistLimit("Y5340X", "20190101", "1.00", "9.00");
+            entityManager.flush();
+            entityManager.clear();
+
+            BillingService byId = countingStatements(() -> dao.find(row.getId()), 1);
+            entityManager.clear();
+            BillingService byCode = dao.searchBillingCode("Y5340X", "ON", day("20210101"));
+
+            assertThat(byId.getServiceCode()).isEqualTo("Y5340X");
+            assertThat(byCode.getId()).isEqualTo(row.getId());
+            assertThat(byCode.getPercentage()).isEqualTo("0.50");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should serialize a detached fee row the way the BC edit-code response does")
+        void shouldSerializeDetachedFeeRow_likeTheBcEditCodeResponse() throws Exception {
+            BillingService row = createBillingServiceWithRegion("Y5341X", "BC", "20200101");
+            row.setValue("12.34");
+            dao.persist(row);
+            persistLimit("Y5341X", "20190101", "1.00", "9.00");
+            entityManager.flush();
+            entityManager.clear();
+            BillingService found = dao.find(row.getId());
+            entityManager.clear();
+
+            // BillingEditCode2Action serializes the row it loaded, outside any transaction.
+            JsonNode json = new ObjectMapper().valueToTree(found);
+
+            assertThat(json.get("value").asText()).isEqualTo("12.34");
+            assertThat(json.has("billingserviceDate")).isTrue();
+            assertThat(json.has("terminationDate")).isTrue();
+            assertThat(json.has("billingPercLimit")).isFalse();
+        }
+
+        private void persistLimit(String code, String effective, String min, String max) throws Exception {
+            BillingPercLimit limit = new BillingPercLimit();
+            limit.setService_code(code);
+            limit.setEffective_date(day(effective));
+            limit.setMin(min);
+            limit.setMax(max);
+            entityManager.persist(limit);
+        }
+
+        private Date day(String yyyymmdd) throws Exception {
+            return new Date(dfm.parse(yyyymmdd).getTime());
+        }
+    }
+
+    /** Runs the read with Hibernate statistics on and asserts how many JDBC statements it prepared. */
+    private <T> T countingStatements(Supplier<T> read, long expectedStatements) {
+        Statistics statistics = entityManager.getEntityManagerFactory().unwrap(SessionFactory.class).getStatistics();
+        boolean wasEnabled = statistics.isStatisticsEnabled();
+        statistics.setStatisticsEnabled(true);
+        statistics.clear();
+        try {
+            T result = read.get();
+            assertThat(statistics.getPrepareStatementCount()).as("JDBC statements prepared").isEqualTo(expectedStatements);
+            assertThat(statistics.getCollectionLoadCount()).as("collections loaded").isZero();
+            return result;
+        } finally {
+            statistics.setStatisticsEnabled(wasEnabled);
         }
     }
 }

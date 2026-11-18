@@ -12,10 +12,15 @@ import io.github.carlos_emr.carlos.commn.dao.ServiceRequestTokenDao;
 import io.github.carlos_emr.carlos.commn.model.ServiceAccessToken;
 import io.github.carlos_emr.carlos.commn.model.ServiceClient;
 import io.github.carlos_emr.carlos.commn.model.ServiceOAuthNonce;
+import io.github.carlos_emr.carlos.commn.model.ServiceRequestToken;
+import io.github.carlos_emr.carlos.webserv.oauth.AccessToken;
 import io.github.carlos_emr.carlos.webserv.oauth.Client;
+import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Permission;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestToken;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestTokenRegistration;
+
+import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -23,11 +28,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -380,6 +387,107 @@ class OscarOAuthDataProviderUnitTest {
         ArgumentCaptor<ServiceOAuthNonce> captor = ArgumentCaptor.forClass(ServiceOAuthNonce.class);
         verify(nonceDao).persist(captor.capture());
         assertThat(captor.getValue().getTokenId()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {-1, 0, 1, 59, 900, 28800, 86400})
+    @DisplayName("should issue the exact O19 client lifetime in memory and storage")
+    void shouldIssueTokenWithClientLifetime_whenClientConfiguredLifetime(int seconds) {
+        IssuedToken issued = issueAccessToken(seconds);
+        assertThat(issued.token().getLifetime()).isEqualTo((long) seconds);
+        assertThat(issued.persisted().getLifetime()).isEqualTo((long) seconds);
+    }
+
+    @Test
+    @DisplayName("should consume the request token before looking up the client")
+    void shouldConsumeRequestTokenBeforeClientLookup_whenIssuingAccessToken() {
+        IssuedToken issued = issueAccessToken(28800);
+        InOrder inOrder = inOrder(issued.requestTokenDao(), issued.clientDao());
+        inOrder.verify(issued.requestTokenDao()).deleteByTokenId(LIFETIME_TOKEN_KEY);
+        inOrder.verify(issued.clientDao()).findByKey(LIFETIME_CONSUMER_KEY);
+        // InOrder alone could match a second lookup and overlook an earlier one.
+        verify(issued.clientDao()).findByKey(LIFETIME_CONSUMER_KEY);
+        verifyNoMoreInteractions(issued.clientDao());
+    }
+
+    @Test
+    @DisplayName("should never read a client or mint a grant after losing request-token consumption")
+    void shouldRejectIssuance_whenRequestTokenWasConsumedConcurrently() {
+        ServiceRequestTokenDao requests = mock(ServiceRequestTokenDao.class);
+        ServiceClientDao clients = mock(ServiceClientDao.class);
+        ServiceAccessTokenDao tokens = mock(ServiceAccessTokenDao.class);
+        OscarOAuthDataProvider provider = new OscarOAuthDataProvider();
+        ReflectionTestUtils.setField(provider, "serviceRequestTokenDao", requests);
+        ReflectionTestUtils.setField(provider, "serviceClientDao", clients);
+        ReflectionTestUtils.setField(provider, "serviceAccessTokenDao", tokens);
+        when(requests.findByTokenId(LIFETIME_TOKEN_KEY)).thenReturn(new ServiceRequestToken());
+        when(requests.deleteByTokenId(LIFETIME_TOKEN_KEY)).thenReturn(0);
+        RequestToken request = new RequestToken(
+                new Client(LIFETIME_CONSUMER_KEY, "fixture-secret", "App", ""),
+                LIFETIME_TOKEN_KEY, "fixture-request-secret");
+        assertThatThrownBy(() -> provider.createAccessToken(request))
+                .isInstanceOf(OAuth1Exception.class).hasMessage("Invalid request token");
+        org.mockito.Mockito.verifyNoInteractions(clients, tokens);
+    }
+
+    @Test
+    @DisplayName("should reject a missing setting rather than silently issue a one-hour token")
+    void shouldRejectIssuance_whenLifetimeMissing() {
+        assertThatThrownBy(() -> issueAccessToken(null))
+                .isInstanceOf(OAuth1Exception.class).hasMessage("invalid_token_lifetime");
+    }
+
+    @Test
+    @DisplayName("should retain an imported non-expiring O19 token without renewing or deleting it")
+    void shouldPreserveImportedToken_whenLifetimeIsMinusOne() {
+        ServiceAccessTokenDao dao = mock(ServiceAccessTokenDao.class);
+        ServiceAccessToken token = accessToken("imported-token", "original-secret", "999998", 1550000000L, -1);
+        when(dao.findByTokenId("imported-token")).thenReturn(token);
+        OscarOAuthDataProvider provider = provider(dao);
+        assertThat(provider.getAccessTokenSecret("imported-token")).isEqualTo("original-secret");
+        assertThat(provider.getProviderNoByAccessToken("imported-token")).isEqualTo("999998");
+        assertThat(provider.findUnexpiredAccessToken("imported-token")).isSameAs(token);
+        assertThat(token.getIssued()).isEqualTo(1550000000L);
+        assertThat(token.getLifetime()).isEqualTo(-1L);
+        verify(dao, never()).remove(token);
+    }
+
+    private static final String LIFETIME_TOKEN_KEY = "FAKE-request-token";
+    private static final String LIFETIME_CONSUMER_KEY = "FAKE-consumer";
+
+    private record IssuedToken(AccessToken token, ServiceAccessToken persisted,
+                               ServiceRequestTokenDao requestTokenDao, ServiceClientDao clientDao) {
+    }
+
+    /** Runs createAccessToken for a client stored with {@code clientLifetime}, with all three DAOs mocked. */
+    private static IssuedToken issueAccessToken(Integer clientLifetime) {
+        ServiceRequestTokenDao requestTokenDao = mock(ServiceRequestTokenDao.class);
+        ServiceClientDao clientDao = mock(ServiceClientDao.class);
+        ServiceAccessTokenDao accessTokenDao = mock(ServiceAccessTokenDao.class);
+        OscarOAuthDataProvider provider = new OscarOAuthDataProvider();
+        ReflectionTestUtils.setField(provider, "serviceRequestTokenDao", requestTokenDao);
+        ReflectionTestUtils.setField(provider, "serviceClientDao", clientDao);
+        ReflectionTestUtils.setField(provider, "serviceAccessTokenDao", accessTokenDao);
+
+        ServiceRequestToken stored = new ServiceRequestToken();
+        stored.setProviderNo("999998");
+        when(requestTokenDao.findByTokenId(LIFETIME_TOKEN_KEY)).thenReturn(stored);
+        when(requestTokenDao.deleteByTokenId(LIFETIME_TOKEN_KEY)).thenReturn(1);
+
+        ServiceClient serviceClient = new ServiceClient();
+        serviceClient.setId(7);
+        serviceClient.setLifetime(clientLifetime);
+        when(clientDao.findByKey(LIFETIME_CONSUMER_KEY)).thenReturn(serviceClient);
+
+        Client client = new Client(LIFETIME_CONSUMER_KEY, "FAKE-secret", "App", "https://trusted.example");
+        RequestToken requestToken = new RequestToken(client, LIFETIME_TOKEN_KEY, "FAKE-token-secret");
+        requestToken.setScopes(List.of(new OAuth1Permission("read", "read")));
+
+        AccessToken token = provider.createAccessToken(requestToken);
+
+        ArgumentCaptor<ServiceAccessToken> persisted = ArgumentCaptor.forClass(ServiceAccessToken.class);
+        verify(accessTokenDao).persist(persisted.capture());
+        return new IssuedToken(token, persisted.getValue(), requestTokenDao, clientDao);
     }
 
     /** Runs consumeNonce and returns the nonceKeyHash it stored. */

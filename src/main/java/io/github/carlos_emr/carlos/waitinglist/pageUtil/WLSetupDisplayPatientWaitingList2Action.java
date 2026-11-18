@@ -32,7 +32,6 @@ package io.github.carlos_emr.carlos.waitinglist.pageUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -98,10 +97,13 @@ public final class WLSetupDisplayPatientWaitingList2Action extends ActionSupport
 
         String demoInfo = demo.getLastName() + ", " + demo.getFirstName() + " " + demo.getSex() + " " + demo.getAge();
         WLPatientWaitingListBeanHandler hd = new WLPatientWaitingListBeanHandler(demographicNo);
-        HttpSession session = request.getSession();
-        session.setAttribute("demoInfo", demoInfo); // nosemgrep: tainted-session-from-http-request -- composed from DAO-loaded Demographic fields (name, sex, age)
-        session.setAttribute("patientWaitingList", hd); // nosemgrep: tainted-session-from-http-request -- DAO-sourced bean handler built from validated demographicNo
-        session.setAttribute("demographicNo", demographicNo); // nosemgrep: tainted-session-from-http-request -- validated via Integer.parseInt and DAO existence check above
+        // Request attributes, which DisplayPatientWaitingList.jsp reads through ${...}. In the session
+        // they outlived the page as the last-opened patient's name, waiting list and number, and that
+        // demographicNo leaked into every other page that resolves ${demographicNo} from session
+        // scope (issue #4673).
+        request.setAttribute("demoInfo", demoInfo);
+        request.setAttribute("patientWaitingList", hd);
+        request.setAttribute("demographicNo", demographicNo);
 
         return "continue";
     }

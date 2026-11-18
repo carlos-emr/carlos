@@ -26,6 +26,7 @@
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
+    Modifications by CARLOS Contributors, 2026.
 
 --%>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -63,7 +64,7 @@
         <td id="topLinkCenterColumn">
 
             <core:if test="${ not empty param.patientName }">
-                <a href="javascript:void(0)" onClick="popupPage(700,1000,'${carlos:forJavaScriptAttribute(url)}'); return false;"
+                <a href="${carlos:forHtmlAttribute(url)}" onclick="popupPage(700,1000,this.href); return false;"
                    title="<fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">
                     ${carlos:forHtmlContent(param.patientName)}
                 </a>

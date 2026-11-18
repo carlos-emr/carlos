@@ -34,6 +34,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +45,7 @@ import jakarta.persistence.PersistenceContext;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -142,9 +144,16 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
      * Creates a Document entity.
      */
     private Document createDocument(String doctype, String creator, char status) {
+        return createDocument(doctype, "Test document", creator, status);
+    }
+
+    /**
+     * Creates a Document entity with the given description.
+     */
+    private Document createDocument(String doctype, String docdesc, String creator, char status) {
         Document doc = new Document();
         doc.setDoctype(doctype);
-        doc.setDocdesc("Test document");
+        doc.setDocdesc(docdesc);
         doc.setDocfilename("test.pdf");
         doc.setDoccreator(creator);
         doc.setResponsible(creator);
@@ -605,6 +614,128 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isEmpty();
+        }
+    }
+
+    /**
+     * The Inbox Hub's Acknowledged toggle lists what was acknowledged today, bounded by WHEN the
+     * routing row was acknowledged rather than by the document's own dates: a document scanned or
+     * observed long ago and acknowledged today must still be listed, and one acknowledged last year
+     * must not drag the provider's whole history into the list. Every query shape the toggle can
+     * combine with (patient, unmatched, name search) takes the bound.
+     */
+    @Nested
+    @DisplayName("populateDocumentResultsData (acknowledged-since bound)")
+    @Tag("read")
+    @Tag("filter")
+    class PopulateDocumentResultsDataAcknowledgedSince {
+
+        private final Date startOfToday = java.sql.Timestamp.valueOf("2026-10-15 00:00:00");
+
+        private int routeAcknowledgedDocument(int moduleId, String acknowledgedAt) {
+            Document doc = createDocument("lab", PROVIDER_NO, 'A');
+            createCtlDocument("demographic", moduleId, doc.getDocumentNo());
+            ProviderLabRoutingModel routing = createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "A");
+            routing.setTimestamp(java.sql.Timestamp.valueOf(acknowledgedAt));
+            entityManager.flush();
+            return doc.getDocumentNo();
+        }
+
+        /**
+         * Shapes: the provider's whole list of patient documents, and of unmatched ones (the
+         * separate-documents listing reads those in a second subquery); one patient; a name
+         * search; the unmatched view. The bound is inclusive: a document acknowledged exactly at
+         * the start of the day is listed, one acknowledged a second earlier is not.
+         */
+        @ParameterizedTest(name = "{0}, mixLabsAndDocs={1}")
+        @CsvSource({"provider,true", "provider,false", "providerUnmatched,true", "providerUnmatched,false",
+                "patient,true", "patient,false", "nameSearch,true", "nameSearch,false", "unmatched,true", "unmatched,false"})
+        @DisplayName("should list only documents acknowledged since the bound, whatever their own dates")
+        void shouldListOnlyDocumentsAcknowledgedSinceBound_inEveryInboxQueryShape(String shape, boolean mixLabsAndDocs) {
+            int moduleId = "unmatched".equals(shape) || "providerUnmatched".equals(shape) ? -1 : demoId;
+            // The documents' own observation and content dates are 2026-03-04: only the
+            // acknowledgement time tells them apart.
+            int acknowledgedThisMorning = routeAcknowledgedDocument(moduleId, "2026-10-15 09:12:00");
+            int acknowledgedAtMidnight = routeAcknowledgedDocument(moduleId, "2026-10-15 00:00:00");
+            int acknowledgedLastNight = routeAcknowledgedDocument(moduleId, "2026-10-14 23:59:59");
+            int acknowledgedLastYear = routeAcknowledgedDocument(moduleId, "2025-01-10 16:40:00");
+            String demographicNo = "patient".equals(shape) ? String.valueOf(demoId) : "unmatched".equals(shape) ? "0" : null;
+            String lastName = "nameSearch".equals(shape) ? "Patient" : "";
+
+            List<LabResultData> unbounded = inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, demographicNo, "", lastName, "", "A",
+                    false, null, null, mixLabsAndDocs, null, null, null, null);
+            List<LabResultData> bounded = inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, demographicNo, "", lastName, "", "A",
+                    false, null, null, mixLabsAndDocs, null, null, null, startOfToday);
+
+            assertThat(unbounded).as("every document is acknowledged, so an unbounded search lists them all")
+                    .extracting(result -> result.segmentID)
+                    .containsExactlyInAnyOrder(String.valueOf(acknowledgedThisMorning), String.valueOf(acknowledgedAtMidnight),
+                            String.valueOf(acknowledgedLastNight), String.valueOf(acknowledgedLastYear));
+            assertThat(bounded).extracting(result -> result.segmentID)
+                    .containsExactlyInAnyOrder(String.valueOf(acknowledgedThisMorning), String.valueOf(acknowledgedAtMidnight));
+        }
+    }
+
+    /**
+     * Every Inbox view shows a document's type in its Discipline column, as clinicians sort by it
+     * (#5685). The row carries the type as its discipline and the saved description
+     * ({@code document.docdesc}) as its description. Before, the column showed the type in six of
+     * the query shapes and the description in the other two, depending only on which view was
+     * open, and the discipline was the routing marker "DOC". A document with no type was worse:
+     * mapping the null type threw, and the catch-all ended the page there, dropping that row and
+     * every row after it.
+     */
+    @Nested
+    @DisplayName("populateDocumentResultsData document type and description")
+    @Tag("read")
+    class PopulateDocumentResultsDataDescription {
+
+        private int routeDocument(int moduleId, String doctype, String docdesc) {
+            Document doc = createDocument(doctype, docdesc, PROVIDER_NO, 'A');
+            createCtlDocument("demographic", moduleId, doc.getDocumentNo());
+            createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
+            entityManager.flush();
+            return doc.getDocumentNo();
+        }
+
+        /**
+         * The same ten shapes as the acknowledged-since bound: the provider's whole list of
+         * patient documents and of unmatched ones, one patient, a name search and the unmatched
+         * view, each with labs and documents mixed and separate. Together they reach every query
+         * the method builds. Empty and whitespace-only types and descriptions are returned as
+         * none and must not truncate the list. Nonblank text, including surrounding spaces and
+         * literal markup, must be returned unchanged.
+         */
+        @ParameterizedTest(name = "{0}, mixLabsAndDocs={1}")
+        @CsvSource({"provider,true", "provider,false", "providerUnmatched,true", "providerUnmatched,false",
+                "patient,true", "patient,false", "nameSearch,true", "nameSearch,false", "unmatched,true", "unmatched,false"})
+        @DisplayName("should list each document with its type as discipline and its saved description")
+        void shouldListDocumentTypeAndSavedDescription_inEveryInboxQueryShape(String shape, boolean mixLabsAndDocs) {
+            int moduleId = "unmatched".equals(shape) || "providerUnmatched".equals(shape) ? -1 : demoId;
+            int described = routeDocument(moduleId, "lab", "FAKE CT head report");
+            int untyped = routeDocument(moduleId, null, "FAKE referral letter");
+            int undescribed = routeDocument(moduleId, "consult", "");
+            int whitespaceDescription = routeDocument(moduleId, "consult", " \t ");
+            int literalDescription = routeDocument(moduleId, "consult", "  FAKE <report> & follow-up  ");
+            int blankType = routeDocument(moduleId, " \t ", "FAKE discharge note");
+            String demographicNo = "patient".equals(shape) ? String.valueOf(demoId) : "unmatched".equals(shape) ? "0" : null;
+            String lastName = "nameSearch".equals(shape) ? "Patient" : "";
+
+            List<LabResultData> result = inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, demographicNo, "", lastName, "", "N",
+                    false, null, null, mixLabsAndDocs, null, null, null, null);
+
+            assertThat(result).extracting(row -> row.segmentID, row -> row.discipline, row -> row.description)
+                    .containsExactlyInAnyOrder(
+                            tuple(String.valueOf(described), "lab", "FAKE CT head report"),
+                            tuple(String.valueOf(untyped), null, "FAKE referral letter"),
+                            tuple(String.valueOf(undescribed), "consult", null),
+                            tuple(String.valueOf(whitespaceDescription), "consult", null),
+                            tuple(String.valueOf(literalDescription), "consult", "  FAKE <report> & follow-up  "),
+                            tuple(String.valueOf(blankType), null, "FAKE discharge note"));
+            assertThat(result).allSatisfy(row -> assertThat(row.isDocument()).isTrue());
         }
     }
 

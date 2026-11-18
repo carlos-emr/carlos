@@ -39,6 +39,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.commn.dao.MsgDemoMapDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -73,7 +74,9 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  *   <li><b>Unlink Mode:</b> Removes association between selected messages and the patient</li>
  * </ul>
  * 
- * <p>Security: Requires "_msg" read privilege to access message functionality.</p>
+ * <p>Security: The shared list requires patient-specific messaging and demographic read
+ * privileges and access to that patient's record. Unlinking requires POST, messaging write
+ * privilege and local sender/recipient access to every selected message before any write.</p>
  * 
  * <p>Request parameters:</p>
  * <ul>
@@ -137,6 +140,7 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_msg)");
         }
 
+
         MiscUtils.getLogger().debug("this is displayDemographicMessages.Action");
 
         // Retrieve or create the message session bean
@@ -183,12 +187,35 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
             }
         }
 
+        if (!MsgAttachmentAccess.canReadChart(LoggedInInfo.getLoggedInInfoFromSession(request),
+                request.getParameter("demographic_no"))) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
+
         // Process message unlinking if requested
-        if (messageNo != null) {
-            MsgDemoMap msgDemoMap = new MsgDemoMap();
+        if (messageNo != null && messageNo.length > 0) {
+            if (!"POST".equals(request.getMethod())) {
+                response.setHeader("Allow", "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
+            if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_msg", "w", null)) {
+                throw new SecurityException("missing required sec object (_msg)");
+            }
+            // Validate the complete selection before changing any links.
+            for (String selectedMessage : messageNo) {
+                if (MsgAttachmentAccess.find(LoggedInInfo.getLoggedInInfoFromSession(request),
+                        io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(selectedMessage)) == null) {
+                    response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                    return NONE;
+                }
+            }
+            MsgDemoMapDao msgDemoMap = SpringUtils.getBean(MsgDemoMapDao.class);
             // Unlink each selected message from the demographic
             for (int i = 0; i < messageNo.length; i++) {
-                msgDemoMap.unlinkMsg(request.getParameter("demographic_no"), messageNo[i]);
+                msgDemoMap.remove(io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(messageNo[i]),
+                        io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(request.getParameter("demographic_no")));
             }
         }
 

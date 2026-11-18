@@ -44,35 +44,35 @@
 <%@page buffer="1024kb" %>
 <% response.setBufferSize(1024 * 1024); %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.Misc" %>
-<%@page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
+
+
 <%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="java.util.Enumeration" %>
-<%@page import="io.github.carlos_emr.carlos.encounter.pageUtil.NavBarDisplayDAO" %>
-<%@page import="java.util.Arrays,java.util.Properties,java.util.List,java.util.Set,java.util.ArrayList,java.util.Enumeration,java.util.HashSet,java.util.Iterator,java.text.SimpleDateFormat,java.util.Calendar,java.util.Date,java.text.ParseException" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty,io.github.carlos_emr.carlos.casemgmt.model.*,io.github.carlos_emr.carlos.casemgmt.service.* " %>
+
+<%@page import="java.util.List, java.util.ArrayList, java.util.Enumeration, java.util.Iterator, java.text.SimpleDateFormat, java.util.Calendar, java.util.Date, java.text.ParseException" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty, io.github.carlos_emr.carlos.casemgmt.model.*" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
-<%@page import="org.springframework.web.context.WebApplicationContext" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour" %>
+
+
+
 <%@page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="com.quatro.dao.security.*,io.github.carlos_emr.carlos.model.security.Secrole" %>
+
+
 <%@page import="io.github.carlos_emr.carlos.utility.EncounterUtil" %>
-<%@page import="org.apache.cxf.common.i18n.UncheckedException" %>
+
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO" %>
+
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LogSafe" %>
@@ -82,19 +82,20 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayNonNote" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.CheckBoxBean" %>
+
+
 <%@page import="io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.EmailLog" %>
 <%@page import="io.github.carlos_emr.carlos.managers.EmailManager" %>
 <%@page import="io.github.carlos_emr.carlos.managers.EmailComposeManager"%>
 <%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager"%>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Facility" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
@@ -119,7 +120,7 @@
     EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
 EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
 
-    String pId = (String) session.getAttribute("case_program_id");
+    String pId = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request);
     Program program = null;
     if (pId == null) {
         pId = "";
@@ -128,14 +129,22 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
         program = programDao.getProgram(Integer.valueOf(pId));
     }
 
-    String demographicNo = request.getParameter("demographicNo");
-    EctSessionBean bean;
-    if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
-        response.sendRedirect(request.getContextPath() + "/casemgmt/ViewError");
+    String chartPatientNo;
+    try {
+        chartPatientNo = EncounterPatientContext.requireDemographicNo(request);
+    } catch (IllegalArgumentException invalidPatient) {
+        response.sendError(400);
         return;
     }
+    String demographicNo = chartPatientNo;
+    EctSessionBean bean = EncounterPatientContext.entryOrLoggedIn(request, loggedInInfo, chartPatientNo);
+    // Encounter metadata belongs to the explicitly named chart.
 
-    String provNo = bean.providerNo;
+    // This chart's own entry provider: the patient's remembered entry, or the logged-in provider
+    // when this login has not entered the chart. The login-wide bean's belongs to whichever chart
+    // was entered last, so taking it only when it was this chart's still changed the same chart's
+    // edit warnings with the order its windows were opened in (issue #4673).
+    String provNo = EncounterPatientContext.entryProvider(request, loggedInInfo, chartPatientNo);
 
     String dateFormat = "dd-MMM-yyyy H:mm";
     String anotherDateFormat = "dd-MM-yyyy";
@@ -167,7 +176,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     Date dToday = new Date();
     String strToday = jsfmt.format(dToday);
 
-    String frmName = "caseManagementEntryForm" + demographicNo;
+    String frmName = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, demographicNo);
     CaseManagementEntryFormBean cform = (CaseManagementEntryFormBean) session.getAttribute(frmName);
 
     if (cform == null) {
@@ -423,10 +432,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 savedNoteId =<%=note.getNoteId()%>;
             </script>
             <div class='tool-button print-button'>
-                <img title="<fmt:message key="encounter.print.title"/>" id='print<%=globalNoteId%>'
-                     alt="<fmt:message key="encounter.togglePrintNote.title"/>"
-                     onclick="togglePrint(<%=globalNoteId%>, event)" style='float: right; margin-right: 5px;'
-                     src='<%=ctx %>/encounter/graphics/printer.png'/>
+                <%@ include file="/WEB-INF/jsp/casemgmt/notePrintControl.jspf" %>
             </div>
             <textarea tabindex="7" cols="84" rows="10"
                       class="txtArea boxsizingBorder <%= note.isSigned() ? "" : "unsigned-textarea"%>" wrap="soft"
@@ -472,11 +478,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 if (!note.isDocument() && !note.isCpp() && !note.isEformData() && !note.isEncounterForm() && !note.isInvoice() && !note.isEmailNote()) {
 
             %>
-            <img title="<fmt:message key="encounter.print.title"/>" id='print<%=globalNoteId%>'
-                 alt="<fmt:message key="encounter.togglePrintNote.title"/>"
-                 onclick="togglePrint('<%=globalNoteId%>'   , event)"
-                 style='float: right; margin-right: 5px; margin-top: 2px;'
-                 src='<%=ctx %>/encounter/graphics/printer.png'/>
+            <%@ include file="/WEB-INF/jsp/casemgmt/notePrintControl.jspf" %>
             <%
                 }
 
@@ -607,8 +609,10 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             %>
             <div class="view-links"
                  style="<%=(note.isDocument()||note.isCpp()||note.isEformData()||note.isEncounterForm()||note.isInvoice())?(bgColour):""%>">
+                <%-- url is a whole statement built from URI-encoded values: HTML-attribute encoding, not JavaScript-string encoding,
+                     which would escape its own quotes so the link never opened the form (#3941). --%>
                 <a class="links" title="<fmt:message key="encounter.view.eformView"/>" id="view<%=globalNoteId%>"
-                   href="javascript:void(0)" onclick="<carlos:encode value='<%= url %>' context="javaScriptAttribute"/>"><fmt:message key="encounter.view"/></a>
+                   href="javascript:void(0)" onclick="<carlos:encode value='<%= url %>' context="htmlAttribute"/>"><fmt:message key="encounter.view"/></a>
             </div>
             <%
             } else if (note.isEmailNote()) {
@@ -885,13 +889,6 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
         }
     }
 
-    String oscarMsg = bean.oscarMsg != null ? bean.oscarMsg : "";
-    boolean hasOscarMsg = renderMoreNotesScript && !oscarMsg.equals("");
-    if (hasOscarMsg) {
-        bean.reason = "";
-        bean.oscarMsg = "";
-    }
-
     String noteBody = null;
     if (renderMoreNotesScript && request.getParameter("noteBody") != null) {
         noteBody = request.getParameter("noteBody").replaceAll("<br>|<BR>", "\n");
@@ -940,7 +937,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             var params = "method=updateNoteLock&demographicNo=" + demographicNo;
             jQuery.ajax({
                 type: "POST",
-                url: "<%=ctx%>/CaseManagementEntry",
+                url: chartActionUrl("/CaseManagementEntry"),
                 data: params,
                 success: function () {
                     //force save when exiting chart in case we loaded edited note in other chart
@@ -955,27 +952,21 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
     jQuery(document).ready(function () {
         if ('<%=singleLineFormat%>' == 'true') {
-            var staleIds = new Array();
-
-            jQuery("img[id^='quitImg']").each(function () {
-                if (jQuery(this).attr('src').indexOf('/encounter/graphics/triangle_down.gif') != -1) {
-                    var iid = jQuery(this).attr('id');
-                    jQuery(this).trigger('click');
-                    staleIds.push(iid);
-                }
+            // The provider's single-line format: fold each shortened (stale) note onto one line with its
+            // date. These notes carry the Maximize image (name fullViewTrigger). Clicking it twice, to expand
+            // the note and fold it again, stopped working when fullViewById began adding a Minimize image of
+            // its own beside it: the second click hit the Maximize image and expanded the note again.
+            jQuery("img[name='fullViewTrigger'][id^='quitImg']").each(function () {
+                minStaleNoteView(this.id.substring('quitImg'.length));
             });
-
-            for (var i = 0; i < staleIds.length; i++) {
-                jQuery("#" + staleIds[i]).trigger('click');
-            }
         }
     });
 
     document.forms["caseManagementEntryForm"].noteId.value = "<%=savedId%>";
 
-    // Empty means absent or already consumed in this chart; only legacy layouts use the shared bean.
+    // The chart render owns its message; asynchronous fragments never borrow another window's bean.
     var encounterMessage = typeof pendingEncounterMessage === 'string'
-        ? pendingEncounterMessage : "<carlos:encode value='<%= oscarMsg %>' context="javaScriptBlock"/>";
+        ? pendingEncounterMessage : "";
     if (encounterMessage && document.getElementById(caseNote)) {
         document.getElementById(caseNote).value += "\n\n" + encounterMessage;
         if (typeof pendingEncounterMessage === 'string') pendingEncounterMessage = '';
@@ -1002,32 +993,21 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
     //flag for determining if we want to submit case management entry form with enter key pressed in auto completer text box
     var submitIssues = false;
+    noteIssuesChanged = false;
 
 <%
-    int MaxLen = 20;
-    int TruncLen = 17;
-    String ellipses = "...";
-    for (int j = 0; j < bean.templateNames.size(); j++) {
-        String encounterTmp = bean.templateNames.get(j);
-        encounterTmp = StringUtils.maxLenString(encounterTmp, MaxLen, TruncLen, ellipses);
+    // Template names are not patient data; a bean that never set up an encounter carries none.
+    List<String> templateNames = bean.templateNames != null ? bean.templateNames : List.of();
+    for (int j = 0; j < templateNames.size(); j++) {
+        String encounterTmp = templateNames.get(j);
         encounterTmp = SafeEncode.forJavaScript(encounterTmp);
 %>
-    autoCompleted["<%=encounterTmp%>"] = "ajaxInsertTemplate('<%=encounterTmp%>')";
+    autoCompleted["<%=encounterTmp%>"] = function () { ajaxInsertTemplate("<%=encounterTmp%>"); };
     autoCompList.push("<%=encounterTmp%>");
     itemColours["<%=encounterTmp%>"] = "99CCCC";
 <%
     }
 %>
-    //set default event for assigning issues
-    //we do this here so we can change event listener when changing diagnosis
-    var obj = {};
-    makeIssue = "makeIssue";
-    defaultDiv = "sig<%=savedId%>";
-    changeIssueFunc;  //set in changeDiagnosis function above
-    addIssueFunc = function(event) { updateIssues.call(obj, event, makeIssue, defaultDiv); };
-    if (document.getElementById('asgnIssues')) {
-        document.getElementById('asgnIssues').addEventListener('click', addIssueFunc);
-    }
     try {
          new Autocompleter.Local('enTemplate', 'enTemplate_list', autoCompList, {
              colours: itemColours,

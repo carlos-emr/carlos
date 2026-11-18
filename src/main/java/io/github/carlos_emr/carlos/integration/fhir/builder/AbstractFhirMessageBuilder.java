@@ -34,7 +34,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.logging.log4j.Logger;
 import org.hl7.fhir.dstu3.model.Attachment;
 
@@ -49,6 +48,7 @@ import io.github.carlos_emr.carlos.integration.fhir.model.Sender;
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.ActorType;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import ca.uhn.fhir.context.FhirContext;
+import io.github.carlos_emr.carlos.integration.fhir.utils.FhirJsonCompatibility;
 
 
 /**
@@ -303,7 +303,7 @@ public abstract class AbstractFhirMessageBuilder<T extends BaseResource> {
         if (resource == null) {
             return "";
         }
-        return getFhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(resource);
+        return FhirJsonCompatibility.encode(getFhirContext(), resource);
     }
 
     public void attachPDF(String pdf, String title) {
@@ -412,7 +412,7 @@ final class ReferenceKey {
 
     @Override
     public String toString() {
-        return ReflectionToStringBuilder.toString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 
 }

@@ -35,7 +35,7 @@
     String provider_no = request.getParameter("provider_no");
 %>
 <%@ page
-        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*"
+        import="java.util.*, io.github.carlos_emr.*, java.lang.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -120,7 +120,11 @@
 
     <script language="JavaScript">
         <!--
-        opener.location.reload();
+        // Redisplay the calendar (the only page that opens this popup) without posting: reloading it
+        // would resubmit the week setting and regenerate every rule-made day in the range (issue #4880).
+        if (opener && !opener.closed && typeof opener.showCalendarMonth === 'function') {
+            opener.showCalendarMonth();
+        }
         self.close();
         //-->
     </script>

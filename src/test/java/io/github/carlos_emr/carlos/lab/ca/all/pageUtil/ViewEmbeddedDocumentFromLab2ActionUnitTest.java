@@ -98,6 +98,7 @@ class ViewEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
         hl7TextMessageDao = mock(Hl7TextMessageDao.class);
         patientLabRoutingDao = mock(PatientLabRoutingDao.class);
         settingsService = mock(LabPdfPreviewSettingsService.class);
@@ -479,5 +480,19 @@ class ViewEmbeddedDocumentFromLab2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(400);
         org.mockito.Mockito.verify(patientLabRoutingDao, org.mockito.Mockito.never())
                 .findByLabNoAndLabType(anyInt(), anyString());
+    }
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void refusesCanonicalPatientLockEvenWhenEveryScopedReadPrivilegeIsGranted(String method) throws Exception {
+        request.setMethod(method);
+        request.setParameter("demographicNo", "999");
+        grantAll();
+        matchToPatient();
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, DEMOGRAPHIC_ID)).thenReturn(false);
+        assertThatThrownBy(() -> action().execute()).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(hl7TextMessageDao, settingsService);
+        logActionMock.verifyNoInteractions();
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getContentAsByteArray()).isEmpty();
     }
 }

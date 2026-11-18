@@ -45,8 +45,8 @@
 %>
 
 
-<%@ page import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="java.util.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
@@ -55,14 +55,14 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.SxmlMisc" %>
+
 <%@ page import="io.github.carlos_emr.carlos.demographic.util.DemographicXml" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -126,7 +126,10 @@
         String first_name = "", last_name = "", chart_no = "", address = "", city = "", province = "", postal = "", phone = "", phone2 = "", dob = "", sex = "", hin = "";
         String refDoc = "";
         String providername = "";
-        String demoNo = request.getParameter("demographic_no");
+        // JSPs compile below Java 16 (jspc), so no instanceof pattern variables here.
+        Object authorizedPatientReadNo = request.getAttribute("authorizedPatientReadNo");
+        String demoNo = authorizedPatientReadNo instanceof String
+            ? (String) authorizedPatientReadNo : request.getParameter("demographic_no");
 
         Demographic demo = demographicDao.getDemographic(demoNo);
         if (demo == null) {

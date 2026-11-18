@@ -48,7 +48,9 @@
  * ENTERED THE WAY A CLINICIAN ENTERS IT: login, then the schedule's Inbox
  * control. Never by navigating to the Inboxhub URL.
  *
- * READ-ONLY: it narrows and clears filters. It acknowledges nothing, files
+ * With INBOX_OWNED_FIXTURE=true the disposable suite creates and removes an owned
+ * patient, three native labs and a PDF using the shared ownership fixtures. The
+ * actual filter audit narrows and clears filters. It acknowledges nothing, files
  * nothing, forwards nothing, and opens no result.
  *
  * Defaults are for the local devcontainer:
@@ -281,8 +283,9 @@ function assertPartitions(whole, parts, family) {
     + 'value, so a clinician narrowing the list would never see these at all.');
 }
 
-async function checkTypeFilters(page, timeout) {
+async function checkTypeFilters(page, timeout, dataset) {
   const whole = await shownRows(page);
+  if (dataset) require('./lib/inbox-owned-dataset').assertOwnedRows(whole, dataset.new, 'New type-filter baseline');
   if (whole.length === 0) {
     throw new SkipCheck('the Inbox is empty on this dataset, so a filter partition cannot be checked');
   }
@@ -377,7 +380,7 @@ async function assertHrmCount(page, rows) {
  * @returns {Promise<object>} whole-row count and per-status count summaries
  * @throws {SkipCheck} when the selected dataset contains no results
  */
-async function checkStatusFilters(page, timeout) {
+async function checkStatusFilters(page, timeout, dataset) {
   // "All" first, so the whole set is measured under the same form submission
   // path as the parts -- not against the AJAX-loaded initial list.
   await revealStatusFilter(page, '#statusAll', timeout);
@@ -387,6 +390,7 @@ async function checkStatusFilters(page, timeout) {
   });
   await settle(page, timeout);
   const whole = await shownRows(page);
+  if (dataset) require('./lib/inbox-owned-dataset').assertOwnedRows(whole, dataset.all, 'All status-filter baseline');
   if (whole.length === 0) {
     throw new SkipCheck('no results at any review status on this dataset');
   }
@@ -396,27 +400,29 @@ async function checkStatusFilters(page, timeout) {
   for (const filter of STATUS_FILTERS) {
     const rows = await applyStatusFilter(page, filter, timeout);
     await assertHrmCount(page, rows);
+    if (dataset) require('./lib/inbox-owned-dataset').assertOwnedReviewStatus(rows, dataset, filter.value);
     parts.push({ title: filter.title, rows });
   }
   assertReviewStatusCoverage(whole, parts);
   return { whole: whole.length, parts: parts.map((part) => `${part.title}=${part.rows.length}`) };
 }
 
-async function main() {
-  const config = readConfig();
+async function main({session, dataset} = {}) {
+  const config = session?.config || readConfig();
   const timeout = Number(process.env.INBOX_TIMEOUT_MS || '45000');
 
-  const recorder = createRecorder();
-  const browser = await launchBrowser(config);
+  const recorder = session?.recorder || createRecorder();
+  const browser = session ? null : await launchBrowser(config);
   try {
-    const context = await newContext(browser, config);
-    const schedulePage = await login(context, config, recorder);
+    const context = session?.context || await newContext(browser, config);
+    const schedulePage = session?.schedule || await login(context, config, recorder);
     const inbox = await openInbox(context, schedulePage, recorder, timeout);
+    if (dataset) await require('./lib/inbox-owned-dataset').narrowToOwnedPatient(inbox, dataset, timeout, settle);
 
     const skipped = [];
     let types = null;
     try {
-      types = await checkTypeFilters(inbox, timeout);
+      types = await checkTypeFilters(inbox, timeout, dataset);
     } catch (error) {
       if (!(error instanceof SkipCheck)) {
         throw error;
@@ -426,7 +432,7 @@ async function main() {
 
     let statuses = null;
     try {
-      statuses = await checkStatusFilters(inbox, timeout);
+      statuses = await checkStatusFilters(inbox, timeout, dataset);
     } catch (error) {
       if (!(error instanceof SkipCheck)) {
         throw error;
@@ -452,12 +458,14 @@ async function main() {
     }
     return { types, statuses, skipped };
   } finally {
-    await browser.close().catch(() => {});
+    if (browser) await browser.close();
+    else await session.context.close();
   }
 }
 
 if (require.main === module) {
-  runCheck({ name: 'inboxhub-filters', run: main });
+  if (process.env.INBOX_OWNED_FIXTURE === 'true') require('./lib/inbox-owned-dataset').runOwnedInboxCheck('inboxhub-filters', 'filters', main);
+  else runCheck({ name: 'inboxhub-filters', run: main });
 }
 
 module.exports = {

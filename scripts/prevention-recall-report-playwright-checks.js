@@ -55,11 +55,14 @@
  * expected classification are specific to the Flu recall rule.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
   assert,
   assertNoPageErrors,
@@ -325,7 +328,7 @@ async function assertFixtureIsReportedDue(report) {
     + ` expected "${expectedState}" (saved query ${stamp})`);
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('prevention-recall-report',async({cancellation})=>{
   initMysqlDefaults();
   let browser = null;
   let context = null;
@@ -335,21 +338,28 @@ async function assertFixtureIsReportedDue(report) {
   try {
     seedFixture();
 
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
-    context = await browser.newContext({ ignoreHTTPSErrors: true });
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
+    context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+    cancellation?.throwIfCancelled();
 
     await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
 
     const reportIndex = await openReportIndexFromSchedule(context);
+    cancellation?.throwIfCancelled();
     pass('the schedule Report link opens the report index');
 
     const report = await openPreventionReport(context, reportIndex);
+    cancellation?.throwIfCancelled();
     pass('the report index Preventions link opens the prevention recall report');
 
     const { asOfValue } = await runReport(report);
+    cancellation?.throwIfCancelled();
     pass(`the recall report runs for ${reportType} as of ${asOfValue} and keeps the chosen type selected`);
 
     await assertFixtureIsReportedDue(report);
+    cancellation?.throwIfCancelled();
     pass(`the seeded fixture patient is reported "${expectedState}" for ${reportType}, so the recall query answers`);
 
     assertNoPageErrors(recorder);
@@ -379,4 +389,4 @@ async function assertFixtureIsReportedDue(report) {
       cleanupMysqlDefaults();
     }
   }
-})();
+});

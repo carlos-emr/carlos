@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -437,67 +435,6 @@ public interface RecommendedImmunoprophylaxisType extends XmlObject
          */
         public static RecommendedImmunoprophylaxisType parse(final Node node, final XmlOptions options) throws XmlException {
             return (RecommendedImmunoprophylaxisType)XmlBeans.getContextTypeLoader().parse(node, RecommendedImmunoprophylaxisType.type, options);
-        }
-
-        /**
-         * Parses XML from a deprecated XMLInputStream into a RecommendedImmunoprophylaxisType instance.
-         *
-         * @deprecated XMLInputStream is deprecated in XMLBeans. Use XMLStreamReader instead.
-         * @param xis XMLInputStream the XML input stream (deprecated)
-         * @return RecommendedImmunoprophylaxisType the parsed instance
-         * @throws XmlException if the XML is malformed or does not conform to the schema
-         * @throws XMLStreamException if there is an error reading from the stream
-         */
-        @Deprecated
-        public static RecommendedImmunoprophylaxisType parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (RecommendedImmunoprophylaxisType)XmlBeans.getContextTypeLoader().parse(xis, RecommendedImmunoprophylaxisType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Parses XML from a deprecated XMLInputStream with specified options.
-         *
-         * @deprecated XMLInputStream is deprecated in XMLBeans. Use XMLStreamReader instead.
-         * @param xis XMLInputStream the XML input stream (deprecated)
-         * @param options XmlOptions configuration options for parsing
-         * @return RecommendedImmunoprophylaxisType the parsed instance
-         * @throws XmlException if the XML is malformed or does not conform to the schema
-         * @throws XMLStreamException if there is an error reading from the stream
-         */
-        @Deprecated
-        public static RecommendedImmunoprophylaxisType parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (RecommendedImmunoprophylaxisType)XmlBeans.getContextTypeLoader().parse(xis, RecommendedImmunoprophylaxisType.type, options);
-        }
-
-        /**
-         * Creates a validating XMLInputStream from a deprecated XMLInputStream.
-         *
-         * <p>This method wraps the input stream with validation logic to ensure the XML
-         * conforms to the AR2005 schema during parsing.</p>
-         *
-         * @deprecated XMLInputStream is deprecated in XMLBeans. Use XMLStreamReader with validation instead.
-         * @param xis XMLInputStream the XML input stream to validate (deprecated)
-         * @return XMLInputStream a validating wrapper around the input stream
-         * @throws XmlException if the XML does not conform to the schema
-         * @throws XMLStreamException if there is an error reading from the stream
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, RecommendedImmunoprophylaxisType.type, (XmlOptions)null);
-        }
-
-        /**
-         * Creates a validating XMLInputStream with specified options.
-         *
-         * @deprecated XMLInputStream is deprecated in XMLBeans. Use XMLStreamReader with validation instead.
-         * @param xis XMLInputStream the XML input stream to validate (deprecated)
-         * @param options XmlOptions configuration options for validation
-         * @return XMLInputStream a validating wrapper around the input stream
-         * @throws XmlException if the XML does not conform to the schema
-         * @throws XMLStreamException if there is an error reading from the stream
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, RecommendedImmunoprophylaxisType.type, options);
         }
 
         /**

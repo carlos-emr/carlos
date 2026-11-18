@@ -177,8 +177,8 @@ class DemographicUpdate2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should return validationError when last name exceeds thirty characters")
-    void shouldReturnValidationError_whenLastNameExceedsThirtyCharacters() throws Exception {
+    @DisplayName("should return validationError when last name exceeds fifty characters")
+    void shouldReturnValidationError_whenLastNameExceedsFiftyCharacters() throws Exception {
         allowPrivilege("_demographic", "w");
         replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
         mockRequest.setMethod("POST");
@@ -196,12 +196,12 @@ class DemographicUpdate2ActionUnitTest extends CarlosWebTestBase {
         List<String> fieldLengthValidationErrors =
                 (List<String>) mockRequest.getAttribute("fieldLengthValidationErrors");
         assertThat(fieldLengthValidationErrors)
-                .contains("Last name exceeds maximum length of 30 characters.");
+                .contains("Last name exceeds maximum length of 50 characters.");
         verify(mockDemographicDao, never()).save(any(Demographic.class));
     }
 
     @ParameterizedTest
-    @CsvSource({"nameUsed,31", "pronouns,26", "gender,26"})
+    @CsvSource({"nameUsed,71", "pronouns,26", "gender,26"})
     @DisplayName("should refuse over-length identity fields before loading or changing the patient")
     void shouldRefuseOverlongIdentityFields_beforeChangingPatientData(String field, int length) throws Exception {
         allowPrivilege("_demographic", "w");

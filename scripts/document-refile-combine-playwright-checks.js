@@ -20,11 +20,13 @@
  * (document-refile-combine). Env: DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR), INCOMINGDOCUMENT_DIR,
  * plus the harness contract; needs pdfinfo/pdftotext.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
 const {
   requirePoppler, pdfFacts, sha, directory, ownedPdfDocuments, seedOwnedPdfDocuments,
   removeOwnedPdfDocuments, assertOwnedPdfDocumentsRemoved,
@@ -63,7 +65,7 @@ async function workflow(s) {
 
   let report;
   await s.step('Master Record > Documents lists both owned PDFs', async () => {
-    report = await s.popup(s.master, s.master.locator('a[onclick*="/documentManager/ViewDocumentReport"]').first(), 'edoc-report');
+    report = await s.popup(s.master, masterRecordLink(s.master, '/documentManager/ViewDocumentReport').first(), 'edoc-report');
     for (const doc of docs) {
       await report.locator(`#docNo${doc.id}`).waitFor({ state: 'attached' });
       h.assert(await report.locator(`a[title="${doc.label}"]`).count() === 1, 'An owned document is missing from the report');
@@ -159,7 +161,7 @@ async function workflow(s) {
   await s.step('DocumentRefile refuses GET and copies nothing', async () => {
     fs.unlinkSync(refiled);
     const query = new URLSearchParams({ refileDocumentNo: docA.id, queueId: '1' }).toString();
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, `/documentManager/DocumentRefile?${query}`), { maxRedirects: 0, failOnStatusCode: false });
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, `/documentManager/DocumentRefile?${query}`), { maxRedirects: 0, failOnStatusCode: false });
     h.assert(response.status() === 405, `GET DocumentRefile answered HTTP ${response.status()}, expected 405`);
     h.assert(!fs.existsSync(refiled), 'GET DocumentRefile copied the document');
   });

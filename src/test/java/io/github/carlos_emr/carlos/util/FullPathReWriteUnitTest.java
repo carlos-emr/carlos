@@ -277,7 +277,7 @@ class FullPathReWriteUnitTest {
     void shouldEncodeUrlForJavaScriptBlocks_whenRenderingTag() throws Exception {
         assertThat(FullPathReWrite.encodeForContext(
                 "/carlos/x?name=\"O'Brien\"&x=</script>", "javaScriptBlock"))
-                .isEqualTo("\\/carlos\\/x?name=\\\"O\\'Brien\\\"\\x26x=<\\/script>");
+                .isEqualTo("\\/carlos\\/x?name=\\\"O\\'Brien\\\"\\x26x=\\x3c\\/script\\x3e");
     }
 
     @Test

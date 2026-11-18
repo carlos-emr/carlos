@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -143,4 +144,62 @@ class DemographicConverterUnitTest {
         assertThat(filtered.getRosterEnrolledTo()).isEqualTo(PROVIDER_NO);
         assertThat(filtered.getDemographicNo()).isNull();
     }
+
+    @Test
+    @DisplayName("should store an empty pref_name when the transfer object has no alias")
+    void shouldStoreEmptyPrefName_whenTransferObjectHasNoAlias() {
+        DemographicTo1 t = new DemographicTo1();
+        t.setAlias(null);
+
+        Demographic d = converter.getAsDomainObject(null, t);
+
+        // pref_name is NOT NULL: a null here made REST create and update fail with HTTP 500.
+        assertThat(ReflectionTestUtils.getField(d, "prefName")).isEqualTo("");
+    }
+
+    @Test
+    @DisplayName("should copy the alias into pref_name when it fits the column")
+    void shouldCopyAliasIntoPrefName_whenItFitsTheColumn() {
+        DemographicTo1 t = new DemographicTo1();
+        t.setAlias("Sam");
+
+        Demographic d = converter.getAsDomainObject(null, t);
+
+        assertThat(ReflectionTestUtils.getField(d, "prefName")).isEqualTo("Sam");
+    }
+
+    @Test
+    @DisplayName("should cut a long alias to the pref_name column width")
+    void shouldCutLongAlias_toThePrefNameColumnWidth() {
+        DemographicTo1 t = new DemographicTo1();
+        t.setAlias("A".repeat(Demographic.PREF_NAME_MAX_LENGTH + 20));
+
+        Demographic d = converter.getAsDomainObject(null, t);
+
+        assertThat((String) ReflectionTestUtils.getField(d, "prefName"))
+            .hasSize(Demographic.PREF_NAME_MAX_LENGTH);
+    }
+    @Test
+    @DisplayName("should keep the health card number and omit the SIN in detail and list conversions")
+    void shouldKeepHealthCardAndOmitSin_inDetailAndListConversions() {
+        Demographic patient = demographicWithValidBirthDate();
+        patient.setSin("FAKE-SIN"); patient.setHin("FAKE-HIN");
+        var detail = converter.getAsTransferObject(null, patient);
+        assertThat(detail.getSin()).isNull();
+        assertThat(detail.getHin()).isEqualTo("FAKE-HIN");
+        // GET /demographics and every other list built from this converter: the HIN identifies the
+        // patient for existing clients and is part of the published list contract.
+        var list = converter.getAllAsTransferObjects(null, java.util.List.of(patient));
+        assertThat(list).singleElement().satisfies(value -> {
+            assertThat(value.getSin()).isNull(); assertThat(value.getHin()).isEqualTo("FAKE-HIN");
+            assertThat(value.getDemographicNo()).isEqualTo(patient.getDemographicNo());
+        });
+        var soap = io.github.carlos_emr.carlos.webserv.transfer_objects.DemographicTransfer.toTransfer(patient);
+        assertThat(soap.getSin()).isNull(); assertThat(soap.getHin()).isEqualTo("FAKE-HIN");
+        var soap2 = io.github.carlos_emr.carlos.webserv.transfer_objects.DemographicTransfer2.toTransfer(patient);
+        assertThat(soap2.getSin()).isNull(); assertThat(soap2.getHin()).isEqualTo("FAKE-HIN");
+        assertThat(patient.getSin()).isEqualTo("FAKE-SIN");
+        assertThat(patient.getHin()).isEqualTo("FAKE-HIN");
+    }
+
 }

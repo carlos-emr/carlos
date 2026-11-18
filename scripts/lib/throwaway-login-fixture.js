@@ -10,7 +10,8 @@
  * the test login's active role assignments, and removes every row it owns on
  * cleanup -- including the rows the application writes on the throwaway's
  * behalf (SecurityArchive on a password change, provider_facility on first
- * login, the audit `log` rows that carry its provider number or username).
+ * login, the audit `log` rows that carry its provider number or username, the
+ * add-appointment page locks held under its provider number).
  *
  * Usernames are alphanumeric only: Login2Action rejects anything else before
  * authentication (`[a-zA-Z0-9]{1,30}`), so the run marker's hex tail is used
@@ -22,12 +23,18 @@ const { randomInt } = require('node:crypto');
 const { assert, gotoApp, pathOnly, sqlString } = require('./playwright-harness');
 const { settleOperations } = require('../graceful-signal-cancellation');
 
-const PROVIDER_LINKED_TABLES = ['provider_facility', 'program_provider', 'providersite', 'property', 'secUserRole'];
+// Native profile saves also create a billing-centre row. Reserve that namespace
+// before allocation and remove its owned rows before deleting the provider.
+const PROVIDER_LINKED_TABLES = ['provider_facility', 'program_provider', 'providersite', 'property', 'secUserRole', 'providerbillcenter'];
 // Logging in creates a ProviderPreference row (keyed providerNo, not provider_no),
 // and the preferences popup can add its appointment-screen children. Leaving them
 // behind accumulated orphan preference rows for providers that no longer exist.
 const PROVIDER_PREFERENCE_TABLES = ['ProviderPreferenceAppointmentScreenEForm', 'ProviderPreferenceAppointmentScreenForm',
   'ProviderPreferenceAppointmentScreenQuickLink', 'ProviderPreference'];
+// The add-appointment screen records a page lock under the login's provider number
+// (PageMonitor, keyed providerNo). A lock still held when the run ended stayed behind
+// after the provider was deleted (5 orphan rows on relbc, 19 Oct).
+const PAGE_LOCK_TABLES = ['PageMonitor'];
 
 /**
  * English text of a bundle key, read from the source tree so a reworded
@@ -53,7 +60,7 @@ function bundleMessage(key, fallback) {
  * @param provider provider_no of the shared test login (lastUpdateUser, role source)
  * @param testUser user_name of the shared test login whose security row is copied
  */
-function throwawayLoginFixture({ sql, marker, provider, testUser }) {
+function throwawayLoginFixture({ sql, marker, provider, testUser, reserveSchedule=false }) {
   const hex = marker.replace(/^FAKE-PW/, '');
   assert(/^[0-9a-f]{16}$/.test(hex), 'The run marker is not in the FAKE-PW<hex> form this fixture relies on');
   const username = `FAKEPW${hex}`;
@@ -92,7 +99,8 @@ function throwawayLoginFixture({ sql, marker, provider, testUser }) {
           `(SELECT COUNT(*) FROM log WHERE provider_no=${c})`,
           `(SELECT COUNT(*) FROM SecurityArchive WHERE provider_no=${c})`,
           ...PROVIDER_LINKED_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE provider_no=${c})`),
-          ...PROVIDER_PREFERENCE_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE providerNo=${c})`),
+          ...(reserveSchedule?['rschedule','scheduledate'].map(table=>`(SELECT COUNT(*) FROM ${table} WHERE provider_no=${c})`):[]),
+          ...[...PROVIDER_PREFERENCE_TABLES, ...PAGE_LOCK_TABLES].map(table => `(SELECT COUNT(*) FROM ${table} WHERE providerNo=${c})`),
         ].join('+')}`);
         if (taken === '0') state.providerNo = candidate;
       }
@@ -145,7 +153,7 @@ function throwawayLoginFixture({ sql, marker, provider, testUser }) {
         `(SELECT COUNT(*) FROM log WHERE ${ownedLogPredicate()})`,
         `(SELECT COUNT(*) FROM SecurityArchive WHERE user_name=${user} OR provider_no=${providerNo})`,
         ...PROVIDER_LINKED_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE provider_no=${providerNo})`),
-        ...PROVIDER_PREFERENCE_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE providerNo=${providerNo})`),
+        ...[...PROVIDER_PREFERENCE_TABLES, ...PAGE_LOCK_TABLES].map(table => `(SELECT COUNT(*) FROM ${table} WHERE providerNo=${providerNo})`),
         `(SELECT COUNT(*) FROM security WHERE user_name=${user} OR provider_no=${providerNo})`,
         `(SELECT COUNT(*) FROM provider WHERE provider_no=${providerNo})`,
       ].join('+')}`);
@@ -162,7 +170,7 @@ function throwawayLoginFixture({ sql, marker, provider, testUser }) {
         `DELETE FROM log WHERE ${ownedLogPredicate()}`,
         `DELETE FROM SecurityArchive WHERE user_name=${user} OR provider_no=${providerNo}`,
         ...PROVIDER_LINKED_TABLES.map(table => `DELETE FROM ${table} WHERE provider_no=${providerNo}`),
-        ...PROVIDER_PREFERENCE_TABLES.map(table => `DELETE FROM ${table} WHERE providerNo=${providerNo}`),
+        ...[...PROVIDER_PREFERENCE_TABLES, ...PAGE_LOCK_TABLES].map(table => `DELETE FROM ${table} WHERE providerNo=${providerNo}`),
         `DELETE FROM security WHERE user_name=${user} AND provider_no=${providerNo}`,
         `DELETE FROM provider WHERE provider_no=${providerNo} AND last_name=${sqlString(marker)}`,
       ];

@@ -34,8 +34,8 @@
     @since 2026-07-07
 --%>
 
-<%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
@@ -48,14 +48,14 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@page import="java.util.Enumeration" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour" %>
-<%@page import="java.util.List, java.util.Random" %>
+<%@page import="java.util.Random" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
@@ -74,7 +74,7 @@
 
     CaseManagementNoteExt cme = new CaseManagementNoteExt();
 
-    String frmName = "caseManagementEntryForm" + request.getParameter("demographicNo");
+    String frmName = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, request.getParameter("demographicNo"));
     CaseManagementEntryFormBean cform = (CaseManagementEntryFormBean) session.getAttribute(frmName);
 
     String encTimeMandatoryValue = CarlosProperties.getInstance().getProperty("ENCOUNTER_TIME_MANDATORY", "false");
@@ -109,6 +109,7 @@
 
         <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-3.7.1.min.js"></script>
         <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script src="${carlos:forHtmlAttribute(ctx)}/js/formOpenGuard.js"></script>
         <script type="text/javascript">jQuery.noConflict();</script>
         <!-- Prototype.js/Scriptaculous removed — using prototype-compat.js shim + carlos-ajax.js (Phase 4d migration) -->
         <!-- jQuery.noConflict() frees $ for the Prototype shim; use jQuery() or jQuery.ajax() for jQuery calls -->
@@ -169,6 +170,9 @@
 
 
 <script type="text/javascript" src="${pageContext.request.contextPath}/js/validateTextInputs.js"></script>
+<script>
+window.carlosChartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>';
+</script>
 <!--js code for newCaseManagementView.jsp -->
 <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/js/newCaseManagementView.js.jsp"></script>
 
@@ -447,7 +451,16 @@
             closeWithoutSaveMsg = "<fmt:message key="encounter.closeWithoutSave.msg"/>";
             pickIssueMsg = "<fmt:message key="encounter.pickIssue.msg"/>";
             assignIssueMsg = "<fmt:message key="encounter.assign.title"/>";
-            updateIssueError = "<fmt:message key="encounter.updateIssueError.msg"/>";
+            <fmt:message key="encounter.updateIssueError.msg" var="updateIssueErrorText"/>
+            updateIssueError = "${carlos:forJavaScriptBlock(updateIssueErrorText)}";
+            <fmt:message key="encounter.issueSaveError.msg" var="issueSaveErrorText"/>
+            issueSaveError = "${carlos:forJavaScriptBlock(issueSaveErrorText)}";
+            <fmt:message key="encounter.cppSaveError.msg" var="cppSaveErrorText"/>
+            cppSaveError = "${carlos:forJavaScriptBlock(cppSaveErrorText)}";
+            <fmt:message key="encounter.chartLoadError.msg" var="chartLoadErrorText"/>
+            chartLoadError = "${carlos:forJavaScriptBlock(chartLoadErrorText)}";
+            <fmt:message key="encounter.issueSidebarRefreshError.msg" var="issueSidebarRefreshErrorText"/>
+            issueSidebarRefreshError = "${carlos:forJavaScriptBlock(issueSidebarRefreshErrorText)}";
             unsavedNoteMsg = "<fmt:message key="encounter.unsavedNote.msg"/>";
             printDateMsg = "<fmt:message key="encounter.printDate.msg"/>";
             printDateOrderMsg = "<fmt:message key="encounter.printDateOrder.msg"/>";

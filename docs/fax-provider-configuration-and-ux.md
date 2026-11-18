@@ -136,6 +136,15 @@ that is intentional, and pre-import error rows do not suppress the retry.
   (stopped without a recorded error — the benign startup state), and
   **Scheduler Stopped (Fatal Error)** (stopped with a recorded error).
 - Saving a configuration with an active account auto-starts the scheduler.
+- Inbound account-level poll failures (provider listing or client setup) retry after
+  1, 2, 4, 8, 16 and 32 minutes, then at most once per hour. Only the first
+  failure and recovery are logged at WARN. Other accounts and already-downloaded local imports
+  continue on their normal schedule. Individual document errors keep their existing handling.
+- **Configure Fax** displays failing inbound accounts, consecutive failed polls, the first
+  failure time and the next retry time. Refresh after a retry to see recovery. Correcting
+  credentials takes effect at the next scheduled retry. The state is local to this application
+  instance, resets on application restart, and is discarded for removed or disabled accounts
+  on the next poll; it is not a persistent outage history or an outbound fax status.
 
 ## Configuration Expectations
 When provider type is `SRFAX`:
@@ -159,3 +168,37 @@ When provider type is `MIDDLEWARE` (configured only outside the admin UI):
 - Clinician action: `src/main/java/io/github/carlos_emr/carlos/fax/action/Fax2Action.java`
 - Admin UI: `src/main/webapp/WEB-INF/jsp/admin/{configureFax.jsp,manageFaxes.jsp,faxStatusResults.jspf}`
 - Send dialog: `src/main/webapp/WEB-INF/jsp/fax/CoverPage.jsp`
+
+## Document streaming and limits
+
+SRFax and middleware downloads decode the JSON base64 field directly into a private
+spool file. `FaxJob.documentPath` is transient and excluded from JSON/XML; the
+importer consumes it, validates the PDF with file-backed partial reads, and moves
+it into quarantine before acknowledging the provider. Failed downloads and rejected
+PDFs remove their temporary files and leave the remote fax available for retry.
+The database `document` column remains compatible with existing metadata and older
+base64 backups; new transfers do not put payloads in it.
+
+Outbound requests stream base64 from the prepared document file, including SRFax's
+form escaping and the middleware XML envelope. Middleware responses discard any
+echoed document while reading the returned job metadata. Metadata is limited to
+1 MiB separately from the document. `fax.max_response_mb` continues to bound total
+response bytes (default 512 MiB), including chunked responses, as a disk/network
+safety limit; increasing it no longer requires a proportional document buffer.
+
+Provider calls discard their HTTP connection before closing response streams,
+including gzip decoder wrappers, so rejected or over-limit bodies are not drained
+outside those limits. Implicit HTTP-client retries are disabled; the fax workflow
+owns retry decisions. `FaxResponseAbortIntegrationTest` checks both providers with
+declared, chunked, compressed, malformed, and HTTP 503 replies whose final bytes
+remain withheld until the caller returns.
+
+`FaxStreamingMemoryIntegrationTest` runs both transports against a local synthetic
+provider in a separate JVM with `-Xmx48m -XX:+ExitOnOutOfMemoryError`. It transfers
+8 MiB and 256 MiB PDFs in both directions, validates/quarantines inbound files,
+checks SHA-256 digests, and prints sampled peak heap use. The middleware mock also
+echoes the whole outbound document in its XML reply. Run it with:
+
+```sh
+mvn -Dtest=FaxStreamingMemoryIntegrationTest test
+```

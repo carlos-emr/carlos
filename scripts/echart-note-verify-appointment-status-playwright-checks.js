@@ -23,7 +23,7 @@
  * the first letter>" (Sstarbill.gif, Vhere.gif) titled "<description>/Signed" or "<description>/Verified".
  * Notes carry the Encounter Date the clinician picked; the chart lists notes by it, oldest first. A date in
  * the future is stopped by the browser (alert "Observation date must be in the past" for a day after today)
- * and, if one still reaches the server, rolled back to the current time with encounter.futureDate.Msg.
+ * and, if one still reaches the server, refused before saving with a visible message and the draft retained.
  *
  * Asserted, in order, on an owned FAKE patient with two owned appointments on today's day sheet (To Do and
  * Here, the provider's own column, free slots inside the provider's hours):
@@ -48,14 +48,11 @@
  *  13. A future day picked in the calendar is stopped in the browser with the past-date message, posts
  *      no save and writes no note.
  *  14. A future Encounter Date that reaches the server (the browser's check is stepped around by rewriting the
- *      posted date in flight, because it only refuses days after today) is stored as the current time, not the
- *      future date.
+ *      posted date in flight, because it only refuses days after today) is refused before persistence and
+ *      the editor retains the draft.
  *  15. The encounter type picked in the chart's combo box is stored with the note (Save) and shown when the
  *      chart is reopened.
- *  16. LAST, pinned to finding 223: the clinician is told with encounter.futureDate.Msg ("Observation Date set
- *      in future, rolled back to current time") when Save rolls the date back. Today Save says nothing; the
- *      message only appears after Sign & Save has saved and signed the note. A script stops at its first failing
- *      step, so the pinned step is the last one.
+ *  16. The refusal shows the localized encounter-date validation message and leaves the draft available.
  *
  * ECHART_VERIFY_PIN selects a variant that pins a different finding (a script stops at its first failing step):
  *   - archive (entry echart-note-verify-appointment-status-archive) runs step 1 and step 4, then asserts that an
@@ -66,7 +63,7 @@
  *     through the Ontario billing UI (the day sheet's B link > OHIP form > Next > Save, with an owned billing
  *     physician and a synthetic HIN), asserts the claim was saved and the appointment is Billed (B), then pins
  *     finding 228: an appointmentArchive row keeps the status the bill save replaced (t). The bill save
- *     (BillingOnLookupService.updateApptStatus) archives nothing.
+ *     (BillingOnLookupService.updateApptStatus) archives the appointment before it sets Billed.
  *
  * Fixtures: the workflow's owned FAKE patient; two appointment rows (marker in the reason); the notes written
  * through the chart; in the billing variant also an owned billing physician (createBillingFixture), a synthetic
@@ -81,6 +78,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
+const {captureScheduleContext, assertScheduleContext} = require('./lib/native-schedule-context');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
@@ -100,7 +98,7 @@ const LEGACY_ICONS = { tS: 'lts.gif', tV: 'ltv.gif', HV: 'hv.gif' };
 
 /** The step labels the manifest's expectedFailure entries name; one place, so the script and the manifest agree. */
 const STEP = {
-  told: 'the clinician is told with encounter.futureDate.Msg when Save rolls a future Encounter Date back',
+  told: 'the clinician is told the future encounter date was refused and the draft is retained',
   archive: 'the appointment archive row Sign & Save writes holds the status the appointment had before, not the one it was given',
   billing: 'the appointment archive keeps the status the Ontario bill save replaced',
 };
@@ -117,6 +115,14 @@ function validatePin(value = PIN) {
   if (!['', 'archive', 'billing'].includes(value)) throw new Error(`ECHART_VERIFY_PIN must be unset, archive or billing, not ${value}`);
 }
 
+function assertArchivedOriginal(before, after, original, archived) {
+  h.assert(after.length === before.length + 1
+    && JSON.stringify(after.slice(0, -1)) === JSON.stringify(before),
+  'Signing changed historical archives or did not append exactly one');
+  h.assert(JSON.stringify(archived) === JSON.stringify(original),
+    'The new archive differs from the appointment status/audit fields that were replaced');
+}
+
 /** English bundle text for a key, read from the source tree (the same file the application's tests use). */
 function bundleMessage(key) {
   const bundle = path.join(__dirname, '..', 'src', 'main', 'resources', 'oscarResources_en.properties');
@@ -129,9 +135,9 @@ const escapeRegExp = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * The E link stores the appointment number in the session with a fire-and-forget fetch
- * (schedulePage.js.jsp storeApptNo, POST /provider/ViewStoreApptInSession) whose body nothing reads, and
- * Chromium reports that request as ERR_ABORTED when the day sheet is reloaded, which this check does after
- * every chart. That is the browser abandoning an unread response, not an application failure. This check does
+ * (schedulePage.js.jsp storeApptNo, POST /provider/ViewStoreApptInSession), and Chromium reports that
+ * request as ERR_ABORTED when the day sheet is reloaded before it completes, which this check does after
+ * every chart. That is the browser abandoning the request, not an application failure. This check does
  * not depend on the session copy of the appointment number (the E link's own URL carries appointmentNo=, which
  * is what the chart reads), so the aborted request is excused here, not asserted. Excuse exactly those entries
  * (fetch, ERR_ABORTED, that path) and nothing else.
@@ -150,17 +156,21 @@ async function workflow(s) {
   validatePin();
   const full = PIN === '';
   const { sql, patient, marker, provider, config, schedule } = s;
+  const scheduleContext = await captureScheduleContext(s);
   const q = h.sqlString;
   const signedLabel = bundleMessage('encounter.class.EctSaveEncounterAction.msgSigned');
   const byLabel = bundleMessage('encounter.class.EctSaveEncounterAction.msgSigBy');
   // Only the full flow judges these texts; the archive variant does not read them.
-  const verifiedLabel = full ? bundleMessage('encounter.class.EctSaveEncounterAction.msgVerAndSig') : null;
+  const verifiedLabel = full || PIN === 'archive' ? bundleMessage('encounter.class.EctSaveEncounterAction.msgVerAndSig') : null;
   const pastDateMessage = full ? bundleMessage('encounter.pastObservationDateError.msg') : null;
-  const futureDateMessage = full ? bundleMessage('encounter.futureDate.Msg') : null;
+  const futureDateMessage = full ? bundleMessage('encounter.observationDateInvalid.msg') : null;
 
   // ---- Fixtures --------------------------------------------------------------------------------
   const appointments = {};
+  let beforeSignArchives;
+  let beforeSignAppointment;
   s.cleanup(() => {
+    h.assert(s.context.browser().isConnected() === false, 'Appointment cleanup retained: browser close is unconfirmed');
     // The patient is owned by this run, so everything below is the run's, deleted by the patient key.
     const notes = `SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient}`;
     sql.execute(`DELETE FROM casemgmt_issue_notes WHERE note_id IN (${notes});
@@ -181,9 +191,10 @@ async function workflow(s) {
     'Owned chart notes, drafts, locks, appointments or archive rows were not removed');
   });
 
-  const [[today, startHour, endHour, everyMin]] = sql.rows(`SELECT CURDATE(), COALESCE(MAX(startHour),8),
+  const today = scheduleContext.date;
+  const [[startHour, endHour, everyMin]] = sql.rows(`SELECT COALESCE(MAX(startHour),8),
     COALESCE(MAX(endHour),18), COALESCE(MAX(everyMin),15) FROM ProviderPreference WHERE providerNo=${q(provider)}`);
-  h.assert(/^\d{4}-\d{2}-\d{2}$/.test(today), 'The database did not report today');
+  h.assert(/^\d{4}-\d{2}-\d{2}$/.test(today), 'The native day sheet did not report its date');
   const [year, month, day] = today.split('-').map(Number);
   const slotLength = Number(everyMin) * 60;
   /** The icon file the application draws for a status code: "<second letter><icon of the first letter>". */
@@ -201,12 +212,12 @@ async function workflow(s) {
     for (let candidate = fromHour; candidate < Number(endHour); candidate++) {
       const start = `${String(candidate).padStart(2, '0')}:00:00`;
       const end = sql.value(`SELECT ADDTIME(${q(start)}, SEC_TO_TIME(${slotLength}))`);
-      if (sql.value(`SELECT COUNT(*) FROM appointment WHERE provider_no=${q(provider)} AND appointment_date=CURDATE()
+      if (sql.value(`SELECT COUNT(*) FROM appointment WHERE provider_no=${q(provider)} AND appointment_date=${q(scheduleContext.date)}
         AND start_time<${q(end)} AND end_time>${q(start)}`) !== '0') continue;
       const id = sql.value(`INSERT INTO appointment (provider_no, appointment_date, start_time, end_time, name, demographic_no,
           notes, reason, location, resources, type, style, billing, status, createdatetime, updatedatetime, creator, lastupdateuser)
-        VALUES (${q(provider)}, CURDATE(), ${q(start)}, ${q(end)}, ${q(`${marker},Workflow`)}, ${patient},
-          '', ${q(`${marker} ${label}`)}, '', '', NULL, '', '', ${q(status)}, NOW(), NOW(), ${q(config.testUser)}, ${q(provider)});
+        VALUES (${q(provider)}, ${q(scheduleContext.date)}, ${q(start)}, ${q(end)}, ${q(`${marker},Workflow`)}, ${patient},
+          '', ${q(`${marker} ${label}`)}, ${q(scheduleContext.location)}, '', NULL, '', '', ${q(status)}, NOW(), NOW(), ${q(config.testUser)}, ${q(provider)});
         SELECT LAST_INSERT_ID()`);
       h.assert(/^[1-9]\d*$/.test(id), `The ${label} appointment fixture was not created`);
       return { id, candidate };
@@ -232,6 +243,7 @@ async function workflow(s) {
   const statusOf = id => sql.value(`SELECT status FROM appointment WHERE appointment_no=${id}`);
   /** The status each appointmentArchive row of an appointment holds, oldest first. */
   const archivedStatuses = id => sql.rows(`SELECT status FROM appointmentArchive WHERE appointment_no=${id} ORDER BY id`).map(([status]) => status);
+  const archiveFields = 'status,lastupdateuser,updatedatetime,provider_no,demographic_no';
   /** One digest of every column a note could change on the patient's appointments, plus their archive rows. */
   const appointmentsFingerprint = () => sql.value(`SELECT CONCAT(
     (SELECT COALESCE(MD5(GROUP_CONCAT(CONCAT_WS('|', appointment_no, status, provider_no, appointment_date, start_time,
@@ -271,6 +283,7 @@ async function workflow(s) {
     await schedule.reload({ waitUntil: 'domcontentloaded' });
     await schedule.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
     await schedule.locator('span.dateAppointment').waitFor({ timeout: TIMEOUT });
+    await assertScheduleContext(s, scheduleContext);
     excuseStoreAppointmentAborts(s.recorder);
   }
   const statusLink = id => schedule.locator(`a.apptStatus[onclick*="appointment_no=${id}&"]`);
@@ -381,8 +394,8 @@ async function workflow(s) {
   if (PIN === 'billing') {
     // Pinned to finding 228. The appointment edit, the status link and the chart's legacy encounter save archive the
     // appointment BEFORE changing its status; the Ontario bill save (BillingOnSave2Action >
-    // BillingClaimSubmissionService.updateApptStatus > BillingOnLookupService.updateApptStatus) sets Billed and
-    // merges with no archive row at all.
+    // BillingClaimSubmissionService.updateApptStatus > BillingOnLookupService.updateApptStatus) archives the
+    // appointment before it sets Billed (fixed for #4589).
     await s.step('an Ontario OHIP bill saved from the To Do appointment writes the claim and marks the appointment Billed (B)', async () => {
       await reloadDaySheet();
       const form = await g.openBillForm(s, appointments.todo);
@@ -436,6 +449,10 @@ async function workflow(s) {
     const chart = await openAppointmentChart(appointments.todo);
     const text = `${marker} signed from the to-do visit`;
     const before = appointmentsFingerprint();
+    if (PIN === 'archive') {
+      beforeSignArchives = sql.rows(`SELECT * FROM appointmentArchive WHERE appointment_no=${appointments.todo} ORDER BY id`);
+      [beforeSignAppointment] = sql.rows(`SELECT ${archiveFields} FROM appointment WHERE appointment_no=${appointments.todo}`);
+    }
     await noteField(chart).fill(text);
     await pressAndExit(chart, SIGN_SAVE, schedule);
     const note = await waitForNote(text, 'Sign & Save did not write the note');
@@ -450,16 +467,39 @@ async function workflow(s) {
   });
 
   if (PIN === 'archive') {
-    // Pinned to finding 224. AppointmentUpdateRecord2Action and AppointmentStatusTransitionService archive the
-    // appointment BEFORE changing it, so the archive row is the version being replaced; the chart's Sign path
-    // (CaseManagementManagerImpl.saveCaseManagementNote) sets the new status first and archives afterwards.
+    // Both chart signing routes must archive the old status after saving the note.
     await s.step('Sign & Save from the To Do appointment writes an appointmentArchive row for it', async () => {
       await expectValue(sql, `SELECT IF(COUNT(*) >= 1, 'yes', 'no') FROM appointmentArchive WHERE appointment_no=${appointments.todo}`, 'yes',
         'Sign & Save did not write an appointmentArchive row for the appointment (the pin below judges what that row holds)');
     });
     await s.step(STEP.archive, async () => {
-      const rows = archivedStatuses(appointments.todo);
-      h.assert(rows.includes('t'), `The appointment archive holds [${rows.join(', ')}] for an appointment that was t and became tS: the status it replaced is in no archive row`);
+      const archives = sql.rows(`SELECT * FROM appointmentArchive WHERE appointment_no=${appointments.todo} ORDER BY id`);
+      const [last] = sql.rows(`SELECT ${archiveFields} FROM appointmentArchive WHERE appointment_no=${appointments.todo} ORDER BY id DESC LIMIT 1`);
+      assertArchivedOriginal(beforeSignArchives, archives, beforeSignAppointment, last);
+      h.assert(last[0] === 't', 'The signing archive did not retain the old To Do status');
+    });
+    await s.step('Verify & Sign archives the signed status before changing the same appointment to verified', async () => {
+      const chart = await openAppointmentChart(appointments.todo);
+      const text = `${marker} archive verified from the to-do visit`;
+      const oldArchives = sql.rows(`SELECT * FROM appointmentArchive WHERE appointment_no=${appointments.todo} ORDER BY id`);
+      const [oldAppointment] = sql.rows(`SELECT ${archiveFields} FROM appointment WHERE appointment_no=${appointments.todo}`);
+      const otherAppointment = sql.rows(`SELECT * FROM appointment WHERE appointment_no=${appointments.here}`);
+      const otherArchives = sql.rows(`SELECT * FROM appointmentArchive WHERE appointment_no=${appointments.here} ORDER BY id`);
+      await noteField(chart).fill(text);
+      await pressAndExit(chart, VERIFY_SIGN, schedule);
+      const note = await waitForNote(text, 'Verify & Sign did not write the owned note');
+      h.assert(note.signed === '1' && note.signer === provider && note.appointment === appointments.todo,
+        'Verify & Sign wrote another patient/provider/appointment note');
+      h.assert(signatureShape(verifiedLabel).test(signatureLine(note.body)), 'The verified note lost its verification signature');
+      await expectValue(sql, `SELECT status FROM appointment WHERE appointment_no=${appointments.todo}`, 'tV',
+        'Verify & Sign did not transition the owned appointment');
+      const archives = sql.rows(`SELECT * FROM appointmentArchive WHERE appointment_no=${appointments.todo} ORDER BY id`);
+      const [last] = sql.rows(`SELECT ${archiveFields} FROM appointmentArchive WHERE appointment_no=${appointments.todo} ORDER BY id DESC LIMIT 1`);
+      assertArchivedOriginal(oldArchives, archives, oldAppointment, last);
+      h.assert(archivedStatuses(appointments.todo).at(-1) === 'tS', 'The verification archive did not retain the old signed status');
+      h.assert(JSON.stringify(sql.rows(`SELECT * FROM appointment WHERE appointment_no=${appointments.here}`)) === JSON.stringify(otherAppointment)
+        && JSON.stringify(sql.rows(`SELECT * FROM appointmentArchive WHERE appointment_no=${appointments.here} ORDER BY id`)) === JSON.stringify(otherArchives),
+      'Verifying one appointment changed another appointment or its archives');
     });
     return;
   }
@@ -601,11 +641,12 @@ async function workflow(s) {
     await leaveChart(chart);
   });
 
-  const rolledBackText = `${marker} date rolled back`;
+  const rolledBackText = `${marker} future date draft retained`;
   const toldAbout = { dialogs: [], page: '', response: '' };
-  await s.step('a future Encounter Date that reaches the server is stored as the current time, not the future date', async () => {
+  await s.step('a future Encounter Date that reaches the server is refused before persistence and the editor retains the draft', async () => {
     const chart = await s.chart();
     await noteField(chart).fill(rolledBackText);
+    const marks = { bad: s.recorder.badResponses.length, console: s.recorder.consoleIssues.length };
     // The browser refuses a day after today, so the posted date is rewritten in flight to tomorrow. The
     // same request is what the browser sends for a time later today (the calendar's default time is 12:00).
     const tomorrow = sql.value(`SELECT DATE_FORMAT(DATE_ADD(CURDATE(), INTERVAL 1 DAY), '%d-%b-%Y 09:00')`);
@@ -619,16 +660,31 @@ async function workflow(s) {
       }
     });
     toldAbout.dialogs = (await h.withExpectedDialogs(chart, async () => {
-      const response = await pressSave(chart);
+      const [response] = await Promise.all([
+        chart.waitForResponse(response => chartSaveRequest('save')(response.request()), { timeout: TIMEOUT }),
+        chart.locator(SAVE).first().click({ timeout: TIMEOUT }),
+      ]);
+      h.assert(response.status() === 400, `Future-date Save answered HTTP ${response.status()}, expected 400`);
       toldAbout.response = await response.text();
       await chart.waitForTimeout(2000);
     })).map(dialog => dialog.text);
     toldAbout.page = await chart.locator('body').innerText();
     await chart.unroute('**/CaseManagementEntry*');
-    const note = await waitForNote(rolledBackText, 'Save did not write the note whose date reached the server in the future');
-    h.assert(note.secondsAgo >= 0 && note.secondsAgo < 300,
-      `The note's observation_date is ${note.observed} (${note.secondsAgo}s before now), not the current time`);
-    await leaveChart(chart, note.id);
+    h.assert(noteWith(rolledBackText) === null, 'The refused future-date draft was persisted');
+    h.assert(await noteField(chart).inputValue() === rolledBackText, 'The editor lost the refused draft');
+    const refusals = s.recorder.badResponses.slice(marks.bad);
+    h.assert(refusals.length === 1 && refusals[0].status === 400
+      && new URL(refusals[0].url).pathname.endsWith('/CaseManagementEntry'),
+    'The future-date refusal was not the only bad response');
+    s.recorder.badResponses.splice(marks.bad, 1);
+    for (let i = s.recorder.consoleIssues.length - 1; i >= marks.console; i--) {
+      const entry = s.recorder.consoleIssues[i];
+      if (entry.type === 'error' && /status of 400\b/.test(entry.text) && entry.location
+          && new URL(entry.location.url).pathname.endsWith('/CaseManagementEntry')) {
+        s.recorder.consoleIssues.splice(i, 1);
+      }
+    }
+    await leaveChart(chart);
   });
 
   // ---- Encounter type --------------------------------------------------------------------------
@@ -665,10 +721,10 @@ async function workflow(s) {
   await s.step(STEP.told, async () => {
     const told = toldAbout.dialogs.some(text => text.includes(futureDateMessage))
       || toldAbout.page.includes(futureDateMessage) || toldAbout.response.includes(futureDateMessage);
-    h.assert(told, `Save rolled the date back without showing "${futureDateMessage}" (alerts: ${JSON.stringify(toldAbout.dialogs)}; `
+    h.assert(told, `Save refused the date without showing "${futureDateMessage}" (alerts: ${JSON.stringify(toldAbout.dialogs)}; `
       + 'neither the chart page nor the save response contains it)');
   });
 }
 
-module.exports = { workflow, STEP, validatePin };
+module.exports = { workflow, STEP, validatePin, assertArchivedOriginal };
 if (require.main === module) runWorkflow('echart-note-verify-appointment-status', workflow, { openPatient: true });

@@ -61,7 +61,7 @@ class PersonalEmailFooterMariaDbIntegrationTest {
         String url=System.getenv("EMAIL_TEST_DB_URL");
         assertThat(url).matches("jdbc:mysql://[^/]+/");
         String user=System.getenv("EMAIL_TEST_DB_USER"),password=System.getenv("EMAIL_TEST_DB_PASSWORD");
-        admin=DriverManager.getConnection(url,user,password);
+        admin=io.github.carlos_emr.carlos.test.base.MariaDbTestConnections.open(url,user,password);
         try(var stmt=admin.createStatement();
         var rows=stmt.executeQuery("SELECT VERSION()")){
             assertThat(rows.next()).isTrue();
@@ -72,7 +72,7 @@ class PersonalEmailFooterMariaDbIntegrationTest {
             created=true;
         }
         factory=new Configuration().addAnnotatedClass(Provider.class).addAnnotatedClass(UserProperty.class)
-                .setProperty("hibernate.connection.driver_class","com.mysql.cj.jdbc.Driver")
+                .setProperty("hibernate.connection.driver_class",io.github.carlos_emr.carlos.utility.MariaDbCompatibilityDriver.class.getName())
                 .setProperty("hibernate.connection.url",url+schema)
                 .setProperty("hibernate.connection.username",user).setProperty("hibernate.connection.password",password)
                 .setProperty("hibernate.dialect",io.github.carlos_emr.carlos.util.persistence.OscarMySQL5Dialect.class.getName())

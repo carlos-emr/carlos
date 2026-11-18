@@ -49,7 +49,7 @@ class MsgPdfAttachmentResolverUnitTest {
         protected Object[][] getContents() {
             return new Object[][]{
                     {"messenger.generatePreviewPDF.information", "Information"},
-                    {"messenger.generatePreviewPDF.encounter", "Encounter:"},
+                    {"messenger.generatePreviewPDF.historicalEncounter", "Historical encounter:"},
                     {"messenger.generatePreviewPDF.currentPrescriptions", "Current Prescriptions"}};
         }
     };
@@ -62,6 +62,8 @@ class MsgPdfAttachmentResolverUnitTest {
     void shouldResolveFixedRoutes_forEachItem() {
         EChart chart = new EChart();
         chart.setId(9);
+        chart.setDemographicNo(12);
+        chart.setEncounter("Historical note");
         chart.setTimestamp(new Date(0));
         when(eChartDao.getLatestChart(12)).thenReturn(chart);
 
@@ -99,6 +101,33 @@ class MsgPdfAttachmentResolverUnitTest {
         assertThat(resolver.resolve(Item.ENCOUNTER, 12, "", LABELS)).isEmpty();
         assertThat(resolver.resolve(Item.DEMOGRAPHIC, 12, "", LABELS)).isPresent();
         assertThat(resolver.resolve(Item.PRESCRIPTIONS, 12, "", LABELS)).isPresent();
+    }
+
+    @Test
+    @DisplayName("should suppress header-only historical PDFs")
+    void shouldOmitEncounter_whenHistoricalChartIsEmpty() {
+        EChart chart = new EChart();
+        chart.setId(9);
+        chart.setDemographicNo(12);
+        chart.setEncounter(" ");
+        when(eChartDao.getLatestChart(12)).thenReturn(chart);
+
+        assertThat(resolver.resolve(Item.ENCOUNTER, 12, "", LABELS)).isEmpty();
+        chart.setOngoingConcerns("Historical concern");
+        assertThat(resolver.resolve(Item.ENCOUNTER, 12, "", LABELS))
+                .get().extracting(Attachment::title).isEqualTo("Historical encounter:");
+    }
+
+    @Test
+    @DisplayName("should refuse a historical chart belonging to another patient")
+    void shouldOmitEncounter_whenChartBelongsToAnotherPatient() {
+        EChart chart = new EChart();
+        chart.setId(9);
+        chart.setDemographicNo(13);
+        chart.setEncounter("Historical note");
+        when(eChartDao.getLatestChart(12)).thenReturn(chart);
+
+        assertThat(resolver.resolve(Item.ENCOUNTER, 12, "", LABELS)).isEmpty();
     }
 
     @Test

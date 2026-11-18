@@ -37,8 +37,10 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.base.Ascii;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.parser.TokenQueue;
@@ -54,6 +56,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+import jakarta.servlet.http.HttpSession;
 import io.github.carlos_emr.carlos.eform.EFormLoader;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
@@ -80,19 +83,18 @@ public class EForm extends EFormBase {
     private HashMap<String, String> fieldValues = new HashMap<String, String>();
     private int needValueInForm = 0;
     private boolean setAP2nd = false;
+    /** Every submitted value by field name while {@link #setValues} runs; a multiple select reads it. */
+    private Map<String, List<String>> submittedSelectValues = Map.of();
     private static final String INPUT_TAG = "input";
     private static final String HIDDEN_INPUT_TYPE = "hidden";
     private static final String VALUE_ATTRIBUTE = "value";
     private static final String SCRIPT_TAG = "script";
     private static final String LEGACY_JQUERY_SOURCE = "jquery-1.12.0.min.js";
     private static final String LEGACY_JQUERY_DISPLAY_PATH = "/eform/jquery-1.12.0.min.js";
-    /** A whole opening &lt;script ...&gt; tag, for the SRI strip in the CDN alias. */
+    /** A whole opening tag, including any {@code >} characters inside quoted attribute values. */
     private static final Pattern ALIASED_SCRIPT_TAG =
-            Pattern.compile("<script\\b[^>]*>", Pattern.CASE_INSENSITIVE);
-    /** An {@code integrity=} or {@code crossorigin=} attribute, either quoting style. */
-    private static final Pattern SRI_ATTRIBUTE = Pattern.compile(
-            "\\s+(?:integrity|crossorigin)\\s*=\\s*(?:\"[^\"]*\"|'[^']*')",
-            Pattern.CASE_INSENSITIVE);
+            Pattern.compile("<script(?=[\\t\\n\\f\\r />])(?:[^\"'>]++|\"[^\"]*\"|'[^']*')*+>",
+                    Pattern.CASE_INSENSITIVE);
 
     /** jQuery build actually deployed under the webapp's library path. */
     private static final String DEPLOYED_LIBRARY_JQUERY_PATH = "/library/jquery/jquery-3.7.1.min.js";
@@ -102,6 +104,18 @@ public class EForm extends EFormBase {
      */
     private static final java.util.List<String> SUPERSEDED_LIBRARY_JQUERY_PATHS = java.util.List.of(
             "/library/jquery/jquery-3.6.4.min.js");
+
+    /**
+     * Webapp-relative PRE-3.x jQuery builds clinic forms pin that this CARLOS does not ship (OSCAR
+     * Galaxy: FIB-4 loads {@code ${oscar_javascript_path}jquery/jquery-2.2.4.min.js} as its only
+     * jQuery; the Simple Rich Text Letter loads {@code jquery-1.4.2.js}). They are aliased to the
+     * bundle that carries the compat shim, like every other pre-3.x alias, not to bare 3.7.1: code
+     * written for 1.x/2.x calls APIs 3.x removed. Exact versions only, matched with the context
+     * path, {@code ..} or no prefix, so an unknown build still 404s visibly.
+     */
+    private static final java.util.List<String> LEGACY_LIBRARY_JQUERY_PATHS = java.util.List.of(
+            "/library/jquery/jquery-2.2.4.min.js",
+            "/library/jquery/jquery-1.4.2.js");
 
     /**
      * Public CDN jQuery URLs observed in the shared-eForm corpus, aliased to the local bundle by
@@ -126,7 +140,17 @@ public class EForm extends EFormBase {
             "https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js",
             "http://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js",
             "https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js",
-            "http://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js");
+            "http://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js",
+            // 2020-2026 OSCAR Galaxy packages: Toronto Cardiac Care and NeuPath referrals (2.2.4,
+            // 3.6.4), Rich Text Letter 2020 V2 (1.12.4), Simple Rich Text Letter (cdnjs 3.3.1).
+            "https://code.jquery.com/jquery-1.12.4.min.js",
+            "http://code.jquery.com/jquery-1.12.4.min.js",
+            "https://code.jquery.com/jquery-2.2.4.min.js",
+            "http://code.jquery.com/jquery-2.2.4.min.js",
+            "https://code.jquery.com/jquery-3.6.4.min.js",
+            "http://code.jquery.com/jquery-3.6.4.min.js",
+            "https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js",
+            "http://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js");
     private static final String LOAD_SIG_CALL = "loadSig()";
     // The guard preserves an existing loadSig implementation and supplies a no-op when absent.
     private static final String LOAD_SIG_FALLBACK = "window.loadSig = window.loadSig || function loadSig() {};";
@@ -310,24 +334,45 @@ public class EForm extends EFormBase {
 
     // ------------------Saving the Form (inserting value= statements)---------------------
     public void setValues(ArrayList<String> names, ArrayList<String> values) {
+        setValues(names, values, Map.of());
+    }
+
+    /**
+     * Writes the submitted values into the form's controls.
+     *
+     * <p>{@code values} carries one value per name, which is all a text input, textarea, radio
+     * group or single select can hold. A {@code <select multiple>} submits one value per chosen
+     * option under the same name, so the caller may also pass every value it received in
+     * {@code submittedValues}; a name missing from that map falls back to its single value.</p>
+     *
+     * @param names submitted field names
+     * @param values the value of each name, in the same order
+     * @param submittedValues every submitted value by field name, for {@code <select multiple>}
+     */
+    public void setValues(ArrayList<String> names, ArrayList<String> values, Map<String, List<String>> submittedValues) {
         if (names.size() != values.size()) return;
-        StringBuilder html = new StringBuilder(this.formHtml);
-        int pointer = -1;
-        while ((pointer = getFieldIndex(html, pointer + 1)) >= 0) {
-            String fieldHeader = getFieldHeader(html, pointer);
-            String fieldName = EFormUtil.removeQuotes(EFormUtil.getAttribute("name", fieldHeader));
-            int i;
-            if ((i = names.indexOf(fieldName)) < 0) continue;
+        this.submittedSelectValues = submittedValues == null ? Map.of() : submittedValues;
+        try {
+            StringBuilder html = new StringBuilder(this.formHtml);
+            int pointer = -1;
+            while ((pointer = getFieldIndex(html, pointer + 1)) >= 0) {
+                String fieldHeader = getFieldHeader(html, pointer);
+                String fieldName = EFormUtil.removeQuotes(EFormUtil.getAttribute("name", fieldHeader));
+                int i;
+                if ((i = names.indexOf(fieldName)) < 0) continue;
 
-            String val = values.get(i);
-            pointer = nextSpot(html, pointer);
+                String val = values.get(i);
+                pointer = nextSpot(html, pointer);
 
-				/*
-				 * TODO: Remove the use of pointer completely from this method and update values using the org.jsoup.nodes.Document
-				 */
+                /*
+                 * TODO: Remove the use of pointer completely from this method and update values using the org.jsoup.nodes.Document
+                 */
                 html = putValue(val, getFieldType(fieldHeader), fieldName, pointer, html);
+            }
+            this.formHtml = html.toString();
+        } finally {
+            this.submittedSelectValues = Map.of();
         }
-        this.formHtml = html.toString();
     }
 
     // ------------------Saving the Form (inserting fdid$value= statements)---------------------
@@ -425,7 +470,17 @@ public class EForm extends EFormBase {
     }
 
     // --------------------------Setting oscarOPEN behaviours ----------------------------------------
-    public void setOscarOPEN(String requestURI) {
+    /**
+     * Gives each {@code oscarOPEN} button the {@code onclick} that opens its eForm
+     * ({@link EFormLoader#getOpenEform}).
+     *
+     * @param route      the page's public route, {@code <context>/eform/efmformadd_data} or
+     *                   {@code <context>/eform/efmshowform_data}. Not the request URI: the page is
+     *                   rendered by an internal JSP, whose URI the browser cannot open
+     * @param session    the session the buttons' links are issued in
+     * @param providerNo the signed-in provider
+     */
+    public void setOscarOPEN(String route, HttpSession session, String providerNo) {
         StringBuilder html = new StringBuilder(this.formHtml);
         EFormLoader.getInstance();
         String opener = EFormLoader.getOpener(); // default: opener: "oscarOPEN="
@@ -443,7 +498,7 @@ public class EForm extends EFormBase {
             // sets up the pointer where to write the value
             String fdid = EFormUtil.removeQuotes(EFormUtil.getAttribute(OPENER_VALUE, fieldHeader));
             EFormLoader.getInstance();
-            String onclick = EFormLoader.getOpenEform(requestURI, fdid, EFormUtil.removeQuotes(efmName), fieldName, this);
+            String onclick = EFormLoader.getOpenEform(route, fdid, EFormUtil.removeQuotes(efmName), fieldName, this, providerNo, session);
             int pointer = EFormUtil.getAttributePos("onclick", fieldHeader);
             String type = pointer < 0 ? "onclick" : "onclick_append";
             if (pointer < 0) {
@@ -549,6 +604,7 @@ public class EForm extends EFormBase {
                     .replace(attributeReference(legacy), attributeReference(assetUrl))
                     .replace(singleQuotedAttributeReference(legacy), singleQuotedAttributeReference(assetUrl));
         }
+        boolean aliasedToLocalBundle = !html.equals(rewritten);
         // A webapp-relative reference to a jQuery build this CARLOS no longer ships. 28 of 199
         // shared-corpus packages pin /library/jquery/jquery-3.6.4.min.js, which 404s and takes the
         // form's scripts down with it. This is CARLOS's own library path, not a third-party host,
@@ -558,45 +614,128 @@ public class EForm extends EFormBase {
         for (String supersededPath : SUPERSEDED_LIBRARY_JQUERY_PATHS) {
             rewritten = rewritten.replace(supersededPath, DEPLOYED_LIBRARY_JQUERY_PATH);
         }
-        boolean aliasedFromCdn = false;
+        // A pre-3.x build gets the compat-shim bundle, so the whole src value is replaced, with the
+        // prefixes a form reaches the library by: ${oscar_javascript_path} (already expanded to the
+        // context path above), a relative "..", or a root-context deployment's bare path.
+        for (String legacyPath : LEGACY_LIBRARY_JQUERY_PATHS) {
+            for (String prefix : new java.util.LinkedHashSet<>(java.util.List.of(contextPath, "..", ""))) {
+                String reference = prefix + legacyPath;
+                String before = rewritten;
+                rewritten = rewritten
+                        .replace(attributeReference(reference), attributeReference(assetUrl))
+                        .replace(singleQuotedAttributeReference(reference), singleQuotedAttributeReference(assetUrl));
+                aliasedToLocalBundle |= !before.equals(rewritten);
+            }
+        }
         for (String cdnUrl : CDN_JQUERY_URLS) {
             String before = rewritten;
             rewritten = rewritten
                     .replace(attributeReference(cdnUrl), attributeReference(assetUrl))
                     .replace(singleQuotedAttributeReference(cdnUrl), singleQuotedAttributeReference(assetUrl));
-            aliasedFromCdn |= !before.equals(rewritten);
+            aliasedToLocalBundle |= !before.equals(rewritten);
         }
-        return aliasedFromCdn ? stripSubresourceIntegrity(rewritten, assetUrl) : rewritten;
+        return aliasedToLocalBundle ? stripSubresourceIntegrity(rewritten, assetUrl) : rewritten;
     }
 
     /**
      * Drops {@code integrity}/{@code crossorigin} from script tags whose src we just re-pointed at
      * the local bundle.
      *
-     * <p>Corpus forms pin their CDN jQuery with Subresource Integrity, e.g.
-     * {@code integrity="sha256-gvQgAFz…" crossorigin="anonymous"}. That hash describes the CDN's
+     * <p>Corpus forms pin their CDN or legacy jQuery with Subresource Integrity, e.g.
+     * {@code integrity="sha256-gvQgAFz…" crossorigin="anonymous"}. That hash describes the original
      * bytes, so once the src points at our own bundle the browser finds no valid digest and
      * <em>refuses to execute the script at all</em> — leaving the form worse off than before the
      * alias. The integrity guarantee is not lost, only relocated: the replacement is a local file
      * we ship and serve ourselves, not something fetched over the network.</p>
      *
-     * <p>Scoped to tags carrying the alias URL so a form's own SRI on any other resource is left
-     * intact.</p>
+     * <p>Scoped to tags whose actual {@code src} equals the alias URL so a form's own SRI on any
+     * other resource is left intact, even if a data attribute mentions the local bundle.</p>
      */
     private static String stripSubresourceIntegrity(String html, String assetUrl) {
         Matcher scriptTag = ALIASED_SCRIPT_TAG.matcher(html);
         StringBuilder out = new StringBuilder();
         while (scriptTag.find()) {
             String tag = scriptTag.group();
-            if (!tag.contains(assetUrl)) {
+            if (!tag.contains(assetUrl) || !hasSrcAttribute(tag, assetUrl)) {
                 scriptTag.appendReplacement(out, Matcher.quoteReplacement(tag));
                 continue;
             }
-            String cleaned = SRI_ATTRIBUTE.matcher(tag).replaceAll("");
-            scriptTag.appendReplacement(out, Matcher.quoteReplacement(cleaned));
+            scriptTag.appendReplacement(out, Matcher.quoteReplacement(stripIntegrityAttributes(tag)));
         }
         scriptTag.appendTail(out);
         return out.toString();
+    }
+
+    /**
+     * Walks complete attributes once, retaining the original slices between removals. Every cursor
+     * advances monotonically, so large attribute values cannot trigger regex backtracking. HTML
+     * names use ASCII case folding: Unicode lookalikes are different attributes and must survive.
+     */
+    private static String stripIntegrityAttributes(String tag) {
+        StringBuilder cleaned = new StringBuilder(tag.length());
+        int copyFrom = 0;
+        int cursor = "<script".length();
+        while (cursor < tag.length() - 1) {
+            int attributeStart = cursor;
+            int nameStart = skipHtmlWhitespace(tag, cursor);
+            int nameEnd = nameStart;
+            while (nameEnd < tag.length() && !isHtmlWhitespace(tag.charAt(nameEnd))
+                    && "/=>\"'<".indexOf(tag.charAt(nameEnd)) < 0) {
+                nameEnd++;
+            }
+            if (nameEnd == nameStart) {
+                break;
+            }
+            String name = tag.substring(nameStart, nameEnd);
+            cursor = attributeEnd(tag, nameEnd);
+            if (Ascii.equalsIgnoreCase("integrity", name) || Ascii.equalsIgnoreCase("crossorigin", name)) {
+                cleaned.append(tag, copyFrom, attributeStart);
+                copyFrom = cursor;
+            }
+        }
+        return cleaned.append(tag, copyFrom, tag.length()).toString();
+    }
+
+    private static int attributeEnd(String tag, int nameEnd) {
+        int equals = skipHtmlWhitespace(tag, nameEnd);
+        if (equals >= tag.length() || tag.charAt(equals) != '=') {
+            return nameEnd;
+        }
+        int valueStart = skipHtmlWhitespace(tag, equals + 1);
+        if (valueStart >= tag.length()) {
+            return valueStart;
+        }
+        char quote = tag.charAt(valueStart);
+        if (quote == '\'' || quote == '"') {
+            int quoteEnd = tag.indexOf(quote, valueStart + 1);
+            return quoteEnd < 0 ? tag.length() : quoteEnd + 1;
+        }
+        int end = valueStart;
+        while (end < tag.length() && !isHtmlWhitespace(tag.charAt(end)) && tag.charAt(end) != '>') {
+            end++;
+        }
+        return end;
+    }
+
+    private static int skipHtmlWhitespace(String tag, int start) {
+        int end = start;
+        while (end < tag.length() && isHtmlWhitespace(tag.charAt(end))) {
+            end++;
+        }
+        return end;
+    }
+
+    private static boolean isHtmlWhitespace(char character) {
+        return " \t\n\f\r".indexOf(character) >= 0;
+    }
+
+    /**
+     * Reads only the opening tag's attributes, accepting HTML whitespace and either quote style.
+     * The parsed fragment is never serialized: viewer markup and document.write strings stay raw.
+     */
+    private static boolean hasSrcAttribute(String tag, String assetUrl) {
+        Element script = Jsoup.parseBodyFragment(tag).selectFirst(SCRIPT_TAG);
+        return script != null && assetUrl.equals(script.attr("src"));
     }
 
     /** {@code src="<url>"} — built via format so no value is concatenated between quote literals. */
@@ -930,6 +1069,21 @@ public class EForm extends EFormBase {
         return html;
     }
 
+    /**
+     * Whether a blank submission leaves a control's authored content alone because it carries the
+     * instance-id marker. A new form has no id yet, so the page shows the marker as an empty value
+     * and the browser posts the control blank; that is not a default the user cleared. Writing the
+     * blank over the marker would leave the saved copy with nothing for {@link #setFdid(String)}
+     * to fill in when it is reopened.
+     *
+     * @param authored String the control's value or text in the template
+     * @param submitted String the value the browser posted for the control
+     * @return boolean true when the template content must be kept
+     */
+    private boolean keepsFdidMarker(String authored, String submitted) {
+        return submitted.isBlank() && authored != null && authored.contains(fdidMarker);
+    }
+
     private StringBuilder putValueUsingDocument(String fieldName, String type, String value) {
         Element field = getDocument().selectFirst("[name=\"" + TokenQueue.escapeCssIdentifier(fieldName) + "\"]");
         if (field == null) return new StringBuilder(getFormHtml());
@@ -937,9 +1091,11 @@ public class EForm extends EFormBase {
             case "text":
             case HIDDEN_INPUT_TYPE:
             case "date":
+                if (keepsFdidMarker(field.attr(VALUE_ATTRIBUTE), value)) break;
                 field.attr(VALUE_ATTRIBUTE, value);
                 break;
             case "textarea":
+                if (keepsFdidMarker(field.wholeText(), value)) break;
                 field.text(value);
                 break;
             case "checkbox":
@@ -956,19 +1112,60 @@ public class EForm extends EFormBase {
                 }
                 break;
             case "select":
-                for (Element option : field.select("option")) {
-                    if (option.attr(VALUE_ATTRIBUTE).equals(value)) {
-                        option.attr("selected", "selected");
-                    } else {
-                        option.removeAttr("selected");
-                    }
-                }
+                List<String> submitted = submittedSelectValues.get(fieldName);
+                selectSubmittedOptions(field, submitted == null || submitted.isEmpty() ? List.of(value) : submitted);
                 break;
             default:
                 // Do nothing for unknown types
         }
 
 		return new StringBuilder(getFormHtml());
+    }
+
+    /**
+     * Marks the options a browser submitted these values for, and clears every other option.
+     *
+     * <p>Selection follows the HTML rules the browser applied when it built the submission. A
+     * single select submits one value and its first matching option is the selected one; a
+     * {@code multiple} select submits one value per selected option, so each submitted value
+     * claims one option, in document order. An option that is disabled is never submitted, so an
+     * enabled option with the same value is preferred to it. A value that matches no option
+     * selects nothing: the template default it replaces is still cleared.</p>
+     */
+    private static void selectSubmittedOptions(Element select, List<String> submittedValues) {
+        List<Element> options = select.select("option");
+        List<String> wanted = select.hasAttr("multiple") ? submittedValues : submittedValues.subList(0, 1);
+        Set<Element> chosen = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (String value : wanted) {
+            Element match = firstUnclaimedOption(options, value, chosen, true);
+            if (match == null) match = firstUnclaimedOption(options, value, chosen, false);
+            if (match != null) chosen.add(match);
+        }
+        for (Element option : options) {
+            if (chosen.contains(option)) {
+                option.attr("selected", "selected");
+            } else {
+                option.removeAttr("selected");
+            }
+        }
+    }
+
+    private static Element firstUnclaimedOption(List<Element> options, String value, Set<Element> claimed, boolean enabledOnly) {
+        for (Element option : options) {
+            if (claimed.contains(option) || (enabledOnly && option.hasAttr("disabled"))) continue;
+            if (submittedOptionValue(option).equals(value)) return option;
+        }
+        return null;
+    }
+
+    /**
+     * The value a browser submits for an option: its {@code value} attribute when it has one,
+     * otherwise its text with whitespace stripped and collapsed. jsoup reads a missing attribute
+     * as an empty string, which is why the attribute alone cannot be compared: every value-less
+     * option would then equal a blank submission.
+     */
+    private static String submittedOptionValue(Element option) {
+        return option.hasAttr(VALUE_ATTRIBUTE) ? option.attr(VALUE_ATTRIBUTE) : option.text();
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -1080,9 +1277,7 @@ public class EForm extends EFormBase {
                 if (values.size() != names.size()) {
                     output = "";
                 } else {
-                    for (int i = 0; i < names.size(); i++) {
-                        output = DatabaseAP.parserReplace(names.get(i), values.get(i), output);
-                    }
+                    output = DatabaseAP.renderOutput(output, names, values);
                 }
             }
         }

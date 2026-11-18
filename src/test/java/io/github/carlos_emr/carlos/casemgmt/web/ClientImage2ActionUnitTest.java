@@ -23,9 +23,11 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 import io.github.carlos_emr.carlos.casemgmt.model.ClientImage;
 import io.github.carlos_emr.carlos.casemgmt.service.ClientImageManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.persistence.PersistenceException;
 import java.io.File;
 import java.nio.file.Files;
 import java.util.List;
@@ -44,13 +46,18 @@ import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.dao.DataAccessResourceFailureException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -79,14 +86,15 @@ class ClientImage2ActionUnitTest extends CarlosUnitTestBase {
     private File tempUploadFile;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         MockitoAnnotations.openMocks(this);
 
         request = new MockHttpServletRequest();
         request.setMethod("POST");
         response = new MockHttpServletResponse();
         request.setParameter("method", "saveImage");
-        request.getSession().setAttribute("clientId", "123");
+        // Issue #4546: the Client Image Manager posts the patient it was opened for
+        request.setParameter("demographicNo", "123");
 
         registerMock(ClientImageManager.class, clientImageManager);
         registerMock(SecurityInfoManager.class, securityInfoManager);
@@ -101,6 +109,8 @@ class ClientImage2ActionUnitTest extends CarlosUnitTestBase {
 
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_demographic"), eq("w"), isNull()))
                 .thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", "123")).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);
 
         action = new ClientImage2Action();
     }
@@ -168,14 +178,51 @@ class ClientImage2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(savedImage.getImage_data()).isEqualTo(expectedBytes);
     }
 
-    @Test
-    @DisplayName("should return error when no client is selected")
-    void shouldReturnError_whenClientIdMissing() {
-        request.getSession().removeAttribute("clientId");
+    @ParameterizedTest
+    @ValueSource(strings = {"saveImage", "deleteImage"})
+    @DisplayName("should return error when the request names no patient, even with a session clientId")
+    void shouldReturnError_whenDemographicNoMissing(String method) {
+        request.removeParameter("demographicNo");
+        request.setParameter("method", method);
+        // A clientId left in the session by another photo manager must not stand in for the patient.
+        request.getSession().setAttribute("clientId", "123");
 
         String result = action.execute();
 
-        assertThat(result).isEqualTo("error");
+        assertThat(result).isEqualTo("photoError");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("success")).isNull();
+        assertThat(action.getActionErrors()).contains("No client selected.");
+        verifyNoInteractions(clientImageManager);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", " ", "abc", "12a", "-1", "0", "007x", "1.5", "2147483648", "99999999999"})
+    @DisplayName("should return error when the posted patient number is not a positive integer")
+    void shouldReturnError_whenDemographicNoInvalid(String value) {
+        request.setParameter("demographicNo", value);
+        request.setParameter("method", "deleteImage");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("photoError");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("success")).isNull();
+        assertThat(action.getActionErrors()).contains("No client selected.");
+        verifyNoInteractions(clientImageManager);
+    }
+
+    @Test
+    @DisplayName("should return error when the request names more than one patient")
+    void shouldReturnError_whenDemographicNoAmbiguous() {
+        request.setParameter("demographicNo", "123", "456");
+        request.setParameter("method", "deleteImage");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("photoError");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("success")).isNull();
         assertThat(action.getActionErrors()).contains("No client selected.");
         verifyNoInteractions(clientImageManager);
     }
@@ -194,7 +241,9 @@ class ClientImage2ActionUnitTest extends CarlosUnitTestBase {
 
         String result = action.execute();
 
-        assertThat(result).isEqualTo("error");
+        assertThat(result).isEqualTo("photoError");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("success")).isNull();
         assertThat(action.getActionErrors()).contains("Only GIF and JPG image types are allowed for the client photo.");
         verifyNoInteractions(clientImageManager);
     }
@@ -204,7 +253,9 @@ class ClientImage2ActionUnitTest extends CarlosUnitTestBase {
     void shouldReturnError_whenNoImageUploaded() {
         String result = action.execute();
 
-        assertThat(result).isEqualTo("error");
+        assertThat(result).isEqualTo("photoError");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("success")).isNull();
         assertThat(action.getActionErrors()).contains("Please select an image to upload.");
         verifyNoInteractions(clientImageManager);
     }
@@ -233,6 +284,207 @@ class ClientImage2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.execute()).isEqualTo("success");
         verify(clientImageManager).deleteClientImage(123);
         assertThat(request.getAttribute("success")).isEqualTo(true);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"saveImage", "deleteImage"})
+    @DisplayName("should return bad request from direct entry points without a patient")
+    void shouldReturnBadRequest_whenDirectEntryPointHasNoPatient(String method) {
+        request.removeParameter("demographicNo");
+
+        String result = "deleteImage".equals(method) ? action.deleteImage() : action.saveImage();
+
+        assertThat(result).isEqualTo("photoError");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(action.getActionErrors()).containsExactly("No client selected.");
+        assertThat(request.getAttribute("success")).isNull();
+        verifyNoInteractions(clientImageManager);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"execute", "deleteImage"})
+    @DisplayName("should retain server error status when photo deletion fails")
+    void shouldReturnServerError_whenImageDeletionFails(String entry) {
+        request.setParameter("method", "deleteImage");
+        doThrow(new DataAccessResourceFailureException("storage unavailable")).when(clientImageManager).deleteClientImage(123);
+
+        String result = "execute".equals(entry) ? action.execute() : action.deleteImage();
+
+        assertThat(result).isEqualTo("photoError");
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(action.getActionErrors()).containsExactly("Error deleting image.");
+        assertThat(request.getAttribute("success")).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"spring", "jpa"})
+    @DisplayName("should retain server error status when photo storage fails")
+    void shouldReturnServerError_whenImageStorageFails(String failure) throws Exception {
+        tempUploadFile = File.createTempFile("client-image", ".jpg");
+        Files.write(tempUploadFile.toPath(), new byte[]{1, 2, 3});
+        action.setClientImage(tempUploadFile);
+        action.setClientImageFileName("photo.jpg");
+        RuntimeException exception = "jpa".equals(failure)
+                ? new PersistenceException("storage unavailable") : new DataAccessResourceFailureException("storage unavailable");
+        doThrow(exception).when(clientImageManager).saveClientImage(any(ClientImage.class));
+
+        assertThat(action.execute()).isEqualTo("photoError");
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(action.getActionErrors()).containsExactly("Error saving image.");
+        assertThat(request.getAttribute("success")).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"outside", "missing"})
+    @DisplayName("should return bad request when the upload path is invalid")
+    void shouldReturnBadRequest_whenUploadPathInvalid(String path) throws Exception {
+        if ("missing".equals(path)) {
+            tempUploadFile = File.createTempFile("client-image", ".jpg");
+            Files.delete(tempUploadFile.toPath());
+            action.setClientImage(tempUploadFile);
+        } else {
+            action.setClientImage(new File("photo.jpg").getAbsoluteFile());
+        }
+        action.setClientImageFileName("photo.jpg");
+
+        assertThat(action.execute()).isEqualTo("photoError");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(action.getActionErrors()).containsExactly("Invalid image upload.");
+        assertThat(request.getAttribute("success")).isNull();
+        verifyNoInteractions(clientImageManager);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"framework", "request", "overridden"})
+    @DisplayName("should distinguish a framework temp-file failure from a request-bound path")
+    void shouldClassifyUploadFailure_byFileProvenance(String source) {
+        File outside = new File("photo.jpg").getAbsoluteFile();
+        if (!"request".equals(source)) {
+            UploadedFile uploaded = mock(UploadedFile.class);
+            when(uploaded.getAbsolutePath()).thenReturn(outside.getAbsolutePath());
+            when(uploaded.getOriginalName()).thenReturn("photo.jpg");
+            action.withUploadedFiles(List.of(uploaded));
+        }
+        if (!"framework".equals(source)) {
+            action.setClientImage(outside);
+            action.setClientImageFileName("photo.jpg");
+        }
+
+        assertThat(action.execute()).isEqualTo("photoError");
+        assertThat(response.getStatus()).isEqualTo("framework".equals(source) ? 500 : 400);
+        assertThat(action.getActionErrors()).containsExactly("framework".equals(source)
+                ? "Error saving image." : "Invalid image upload.");
+        assertThat(request.getAttribute("success")).isNull();
+        verifyNoInteractions(clientImageManager);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"saveImage", "deleteImage"})
+    @DisplayName("should propagate unexpected failures to the standard incident interceptor")
+    void shouldPropagateUnexpectedFailure_toIncidentHandling(String method) throws Exception {
+        request.setParameter("method", method);
+        NullPointerException failure = new NullPointerException("unexpected failure");
+        if ("saveImage".equals(method)) {
+            tempUploadFile = File.createTempFile("client-image", ".jpg");
+            Files.write(tempUploadFile.toPath(), new byte[]{1, 2, 3});
+            action.setClientImage(tempUploadFile);
+            action.setClientImageFileName("photo.jpg");
+            doThrow(failure).when(clientImageManager).saveClientImage(any(ClientImage.class));
+        } else {
+            doThrow(failure).when(clientImageManager).deleteClientImage(123);
+        }
+
+        assertThatThrownBy(() -> action.execute()).isSameAs(failure);
+        assertThat(action.getActionErrors()).isEmpty();
+        assertThat(request.getAttribute("success")).isNull();
+    }
+
+    @Test
+    @DisplayName("should propagate audit failures after a successful photo deletion")
+    void shouldPropagateAuditFailure_afterPhotoDeletion() {
+        request.setParameter("method", "deleteImage");
+        DataAccessResourceFailureException failure = new DataAccessResourceFailureException("audit unavailable");
+        logActionMock.when(() -> LogAction.addLogSynchronous(loggedInInfo,
+                "ClientImage2Action.deleteImage", "clientId=123")).thenThrow(failure);
+
+        assertThatThrownBy(() -> action.execute()).isSameAs(failure);
+        verify(clientImageManager).deleteClientImage(123);
+        assertThat(action.getActionErrors()).isEmpty();
+        assertThat(request.getAttribute("success")).isNull();
+    }
+
+    /**
+     * Issue #4546: with two patients' photo managers open, the one opened last used to own the
+     * session-wide {@code clientId}, so Clear Photo in the first manager cleared the second
+     * patient's photo. The posted patient number is the only target.
+     */
+    @Test
+    @DisplayName("should clear the posted patient photo when the session clientId names another patient")
+    void shouldDeletePostedPatientPhoto_whenSessionClientIdNamesAnotherPatient() {
+        request.getSession().setAttribute("clientId", "456");
+        request.setParameter("method", "deleteImage");
+
+        assertThat(action.deleteImage()).isEqualTo("success");
+
+        verify(clientImageManager).deleteClientImage(123);
+        verify(clientImageManager, never()).deleteClientImage(456);
+    }
+
+    @Test
+    @DisplayName("should save the upload for the posted patient when the session clientId names another patient")
+    void shouldSaveImageForPostedPatient_whenSessionClientIdNamesAnotherPatient() throws Exception {
+        request.getSession().setAttribute("clientId", "456");
+        tempUploadFile = File.createTempFile("client-image", ".jpg");
+        Files.write(tempUploadFile.toPath(), new byte[]{1, 2, 3});
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getAbsolutePath()).thenReturn(tempUploadFile.getAbsolutePath());
+        when(uploadedFile.getOriginalName()).thenReturn("patient-photo.jpg");
+        action.withUploadedFiles(List.of(uploadedFile));
+
+        assertThat(action.saveImage()).isEqualTo("success");
+
+        ArgumentCaptor<ClientImage> imageCaptor = ArgumentCaptor.forClass(ClientImage.class);
+        verify(clientImageManager).saveClientImage(imageCaptor.capture());
+        assertThat(imageCaptor.getValue().getDemographic_no()).isEqualTo(123);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"saveImage", "deleteImage"})
+    @DisplayName("should refuse a photo change when the role lacks write access to the posted patient")
+    void shouldRefusePhotoChange_whenPatientWriteDenied(String method) {
+        request.setParameter("method", method);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", "123")).thenReturn(false);
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_demographic)");
+        verifyNoInteractions(clientImageManager);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"saveImage", "deleteImage"})
+    @DisplayName("should refuse a photo change when the posted patient record is outside the user's access")
+    void shouldRefusePhotoChange_whenPatientRecordAccessDenied(String method) {
+        request.setParameter("method", method);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(false);
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("Unauthorized access to patient record");
+        verifyNoInteractions(clientImageManager);
+    }
+
+    @Test
+    @DisplayName("should refuse a photo change without demographic write before reading the patient")
+    void shouldRefusePhotoChange_whenDemographicWriteDenied() {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_demographic"), eq("w"), isNull()))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_demographic)");
+        verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(any(), anyInt());
+        verifyNoInteractions(clientImageManager);
     }
 
 }

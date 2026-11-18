@@ -272,7 +272,8 @@ test('shouldSnapshotBeforeTheBrowserStarts_andRestoreInFinally', () => {
   assert.ok(finallyBlock.startsWith('} finally {'), 'the browser-closing finally block moved; update this pin');
   assert.match(finallyBlock, /\.finish\(\)/, 'the restore runs in the finally block');
   assert.match(finallyBlock, /\.disarmSignals\(\)/);
-  assert.match(SCRIPT, /\.armSignals\(\)/);
+  assert.doesNotMatch(SCRIPT, /\.armSignals\(\)/, 'the cooperative entry point must own signals until accepted writes and browser shutdown settle');
+  assert.match(SCRIPT, /legacyHarness\.runLegacyCheck\('fax-configure'/);
 });
 
 test('shouldSkipTheSave_whenTheRowCannotBeRestored', () => {

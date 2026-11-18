@@ -22,6 +22,7 @@
  * Ontario, Canada
  
  * <p>
+ * Modifications by CARLOS Contributors, 2026.
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
@@ -29,6 +30,8 @@
 
 
 package io.github.carlos_emr.carlos.login;
+
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
@@ -42,11 +45,17 @@ import jakarta.servlet.ServletContextListener;
 import jakarta.servlet.ServletContext;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Objects;
+import java.util.Properties;
+import java.util.List;
 
 /**
  * This ContextListener is used to Initialize classes at startup - Initialize the DBConnection Pool.
@@ -65,6 +74,13 @@ public class Startup implements ServletContextListener {
 
 	private CarlosProperties p = CarlosProperties.getInstance();
 
+    /**
+     * Initializes configuration, persisted encryption state and application resources.
+     * Required configuration or key failures abort startup before encrypted data is used.
+     *
+     * @param sc ServletContextEvent the application context being initialized
+     * @throws RuntimeException if required startup configuration or initialization fails
+     */
     public void contextInitialized(ServletContextEvent sc) {
         logger.info("Starting OSCAR application ");
 
@@ -89,28 +105,53 @@ public class Startup implements ServletContextListener {
 
                 contextPath = url;
             } catch (Exception e) {
-                logger.error("Error", e);
+                logger.error("Error: {}", LogSafe.exceptionTrace(e));
             }
 
             String propName = contextPath + ".properties";
 
             char sep = System.getProperty("file.separator").toCharArray()[0];
             propFileName = System.getProperty("user.home") + sep + propName;
-            logger.info("looking up " + propFileName);
+            logger.info("Looking up application configuration");
 
-            try {
-                // This has been used to look in the users home directory that started tomcat
-                p.readFromFile(propFileName);
-                logger.info("loading properties from " + propFileName);
-            } catch (java.io.FileNotFoundException ex) {
-                logger.info(propFileName + " not found");
+            // Decide the /WEB-INF/ fallback from deployment-supplied config only: the singleton is
+            // pre-loaded with packaged /carlos.properties defaults, including db_username, so asking it
+            // always answers "configured" and the merge would never run.
+            DeploymentConfig deployment = readDeploymentProperties(propFileName);
+            Properties deploymentProperties = deployment.merged();
+
+            // Apply the same deployment snapshot used to decide fallback. User-home values win
+            // over the override file, and neither source is reopened during startup.
+            if (deployment.userHomeFound()) {
+                p.applyExternalConfiguration(deploymentProperties, propFileName);
+            } else {
+                p.putAll(deploymentProperties);
             }
-            if (p.isEmpty()) {
-                /* if the file not found in the user root, look in the WEB-INF directory */
+            if (deployment.userHomeFound()) {
+                logger.info("loading properties from {}", propFileName);
+            }
+
+            if (!hasDatabaseConfiguration(deploymentProperties)) {
+                String externalSource = p.getExternalConfigurationLocation();
+                // The deployment supplied no usable DB config, so /WEB-INF/ is still the source of truth.
                 try {
-                    logger.info("looking up  /WEB-INF/" + propName);
+                    logger.info("looking up  /WEB-INF/{}", propName);
+                    // Keep the deployment key: a /WEB-INF/ placeholder would otherwise overwrite the
+                    // real generated key and break decryption of data stored since first startup.
                     p.readFromFile("/WEB-INF/" + propName);
-                    logger.info("loading properties from /WEB-INF/" + propName);
+                    for (String key : deploymentProperties.stringPropertyNames()) {
+                        String value = deploymentProperties.getProperty(key);
+                        if (value.isBlank() && (List.of("db_username", "db_name", "db_uri", "db_driver").contains(key)
+                                || EncryptionUtils.SECRET_KEY_ENV_VAR.equals(key))) {
+                            continue;
+                        }
+                        p.setProperty(key, value);
+                    }
+                    // A key-only external file still owns persisted startup settings when the
+                    // database configuration comes from WEB-INF. Keep that provenance without
+                    // re-reading either configuration source or overwriting the fallback values.
+                    if (externalSource != null) p.applyExternalConfiguration(new Properties(), externalSource);
+                    logger.info("loading properties from /WEB-INF/{}", propName);
                 } catch (java.io.FileNotFoundException e) {
                     /*
                      * No configuration in either location means the app has no DB connection and,
@@ -137,12 +178,11 @@ public class Startup implements ServletContextListener {
                 sc.getServletContext().setAttribute("CaseMgmtUsers", listUsers);
 
                 logger.info("BILLING REGION : " + p.getProperty("billregion", "NOTSET"));
-                logger.info("DB PROPS: Username :" + p.getProperty("db_username", "NOTSET") + " db name: " + p.getProperty("db_name", "NOTSET"));
+                logger.info("Database configuration loaded");
                 p.setProperty("OSCAR_START_TIME", "" + System.currentTimeMillis());
 
             } catch (Exception e) {
-                String s = "Property file not found at:" + propFileName;
-                logger.error(s, e);
+                logger.error("Application properties could not be loaded: {}", LogSafe.exceptionTrace(e));
             }
 
 
@@ -175,10 +215,14 @@ public class Startup implements ServletContextListener {
 						+ "); refusing to start. Restore the correct encryption key, or remove it to have a new one generated.", e);
 			}
 
+            // Modern saves no longer mirror to eChart. A rollback binary must keep reading
+            // modern data, so require the same durable flag before startup can complete.
+            p.ensureModernChartRollbackSafety();
+
 			// CHECK FOR DEFAULT PROPERTIES
 			String baseDocumentDir = p.getProperty("BASE_DOCUMENT_DIR");
 			if (baseDocumentDir != null) {
-				logger.info("Found Base Document Dir: " + baseDocumentDir);
+				logger.info("Found base document directory");
 				checkAndSetProperty(baseDocumentDir, contextPath, "HOME_DIR", "/billing/download/");
 				checkAndSetProperty(baseDocumentDir, contextPath, "DOCUMENT_DIR", "/document/");
 				checkAndSetProperty(baseDocumentDir, contextPath, "DOCUMENT_CACHE_DIR", "/document_cache/");
@@ -201,8 +245,102 @@ public class Startup implements ServletContextListener {
             // way as every other startup failure, without a second "Unexpected error." copy.
             throw new RuntimeException(e);
         } catch (Exception e) {
-            logger.error("Unexpected error.", e);
+            logger.error("Unexpected error.: {}", LogSafe.exceptionTrace(e));
             throw (new RuntimeException(e));
+        }
+    }
+
+    // Ask this about deployment-supplied properties only, never the singleton: packaged defaults
+    // always carry a db_username. Package-private for testing.
+    static boolean hasDatabaseConfiguration(Properties props) {
+        return List.of("db_username", "db_name", "db_uri", "db_driver").stream()
+                .allMatch(key -> props.getProperty(key) != null && !props.getProperty(key).isBlank());
+    }
+
+    /**
+     * One parsed deployment snapshot, retaining whether the user-home file was found.
+     *
+     * @param merged        the override file merged with the user-home file, user-home winning on
+     *                      conflict; this is what answers "did the deployment supply real config?"
+     * @param userHome      the original user-home slice, before it is merged over the override
+     * @param userHomeFound whether the user-home file was present and loaded, which an empty
+     *                      {@code userHome} cannot distinguish from a present-but-empty file
+     */
+    record DeploymentConfig(Properties merged, Properties userHome, boolean userHomeFound) {
+    }
+
+    /**
+     * Loads deployment-supplied configuration, excluding the packaged classpath defaults that make the
+     * singleton useless for an "is this configured?" check. Both channels count: the
+     * {@code carlos_override_properties} file and the user-home file, loaded last so it wins on conflict.
+     *
+     * @param userHomePropFileName absolute path of the user-home properties file for this context
+     * @return deployment-supplied properties; {@code merged} is empty when neither file exists
+     */
+    DeploymentConfig readDeploymentProperties(String userHomePropFileName) {
+        Properties merged = new Properties();
+        merged.putAll(p.getDeploymentOverrideProperties());
+
+        // The override snapshot was parsed by CarlosProperties at construction. Read user-home
+        // once and merge it last so fallback detection and application use identical values.
+        Properties userHome = new Properties();
+        boolean userHomeFound = loadIfPresent(userHome, userHomePropFileName);
+        merged.putAll(userHome);
+
+        return new DeploymentConfig(merged, userHome, userHomeFound);
+    }
+
+    /**
+     * Opens a configuration file for reading. Exists as a seam because the distinction this class
+     * depends on - a file that is absent versus one that exists but cannot be opened - cannot be
+     * produced through filesystem permissions when the test suite runs as root, which it does both
+     * locally and in CI. Package-private so tests can substitute a failing opener.
+     *
+     * <p>Implementations must follow the {@link java.nio.file.Files#newInputStream} contract that
+     * {@link #loadIfPresent} depends on: {@link NoSuchFileException} means absent, and every other
+     * {@link IOException} - {@link java.nio.file.AccessDeniedException} above all - means present but
+     * unusable.
+     */
+    @FunctionalInterface
+    interface ConfigFileOpener {
+        InputStream open(Path file) throws IOException;
+    }
+
+    /** Replaced by tests; always {@link Files#newInputStream} in production. */
+    static ConfigFileOpener configFileOpener = Files::newInputStream;
+
+    /**
+     * Merges one configuration file into {@code target}. Absent is normal - either channel may be
+     * unused, and an empty result is what drives the {@code /WEB-INF/} fallback. Unreadable is fatal.
+     *
+     * @return {@code true} when the file was present and loaded, {@code false} when it is simply
+     *         absent or no path is configured
+     */
+    private static boolean loadIfPresent(Properties target, String configuredPath) {
+        if (configuredPath == null || configuredPath.isBlank()) {
+            return false;
+        }
+        File file = PathValidationUtils.resolveConfiguredFile(configuredPath, "carlos properties file");
+        try (InputStream input = configFileOpener.open(file.toPath())) {
+            target.load(input);
+            return true;
+        } catch (NoSuchFileException e) {
+            // The only benign outcome: nothing is deployed at this path.
+            logger.info("{} not found", configuredPath);
+            return false;
+        } catch (IOException e) {
+            // Everything else means the file is there but we cannot use it - wrong permissions, wrong
+            // Tomcat user, an untraversable parent directory, a directory in place of a file. Treating
+            // any of those as "absent" would leave existingKey null and let a /WEB-INF/ placeholder key
+            // overwrite the real generated one, silently breaking decryption of every record stored
+            // since first startup. So refuse to boot instead.
+            //
+            // This is why the read goes through java.nio rather than FileInputStream: FileInputStream
+            // reports absent and permission-denied with the same FileNotFoundException, and the
+            // File.exists() probe that used to tell them apart itself returns false when the parent
+            // directory cannot be traversed - the exact misconfiguration most in need of detection.
+            throw new IllegalStateException(
+                    "Configuration file exists but could not be read: " + configuredPath, e);
         }
     }
 
@@ -229,15 +367,17 @@ public class Startup implements ServletContextListener {
         }
 
         try {
-            String secretKey = EncryptionUtils.generateSecretKey();
-            p.saveProperty(propFileName, EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
+            String secretKey = p.getOrCreateEncryptionKey();
+            p.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
         } catch (IOException | NoSuchAlgorithmException e) {
             /*
              * A usable encryption key is mandatory: it protects stored PHI and provider
              * credentials. Fail fast rather than booting with no key, which would defer the
              * failure to the first credential save (an opaque runtime error for clinicians).
              */
-            throw new IllegalStateException("Unable to generate and persist a new encryption key at startup", e);
+            throw new IllegalStateException("Unable to generate and persist a new encryption key at startup ("
+                    + EncryptionUtils.SECRET_KEY_ENV_VAR + " at " + p.getExternalConfigurationLocation()
+                    + "). Check file access before restarting.", e);
         }
 
         if (mayOrphanData) {
@@ -357,14 +497,14 @@ public class Startup implements ServletContextListener {
         String propertyDir = p.getProperty(propName);
         if (propertyDir == null) {
             propertyDir = baseDir + "/" + context + endDir;
-            logger.debug("Setting property " + propName + " with value " + propertyDir);
+            logger.debug("Resolving configured application directory");
             p.setProperty(propName, propertyDir);
             // Create directory if it does not exist
             File propertyDirectory = PathValidationUtils.resolveConfiguredDirectory(propertyDir, propName);
             if (!propertyDirectory.exists()) {
-                logger.warn("Directory does not exist:  " + propertyDir + ". Creating.");
+                logger.warn("Directory does not exist; creating");
                 boolean success = propertyDirectory.mkdirs();
-                if (!success) logger.error("An error occured when creating " + propertyDir);
+                if (!success) logger.error("Application directory could not be created");
             }
         }
     }

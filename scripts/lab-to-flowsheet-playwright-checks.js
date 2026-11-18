@@ -22,14 +22,15 @@
  *
  * The labs, all CML 3767 HEMOGLOBIN A1C unless said:
  *   - an A1C WITHIN the flowsheet's target (dated 2026-06-15, observed at 12:15: the noon hour, which the handler's
- *     12-hour time pattern misreads, finding 259; only the date reaches the flowsheet, so no other step minds),
+ *     12-hour time pattern misread until #4631, finding 259; only the date reaches the flowsheet),
  *   - an A1C ABOVE it (2026-09-30), filed together with CML 2010 HEMOGLOBIN 137 g/L, a code measurementMap maps to
  *     LOINC 718-7 but which no FLOWSHEET row shares, so it is the unmapped code,
  *   - only in the entry that pins finding 257: an A1C reported as a FRACTION, 0.095 (dated 2026-08-15), the form
  *     the A1C measurement type's own range (Range:0.040-0.200) and diab-A1C.drl describe.
  * Two entries file one more lab AFTER step 9, so the steps that count labs, rows and typed measurements never see it:
  *   - the entry for finding 256: Create Lab files a CML 3180 Creatinine of 112.5 umol/L, a mapped code that is not
- *     the A1C (it is the flowsheet type SCR) and whose first five characters are digits and '.',
+ *     the A1C (it is the flowsheet type SCR) and whose first five characters are digits and '.', on one lab with
+ *     three more results of five characters or more (cholesterol 10.55, ALP 1,250, TSH <0.05),
  *   - the entry for finding 262: Inbox > HL7 Lab Upload files a CML A1C whose observation time has no seconds.
  * "Within" and "above" are judged against the target the flowsheet itself states ("Target <= 7.0%" on its A1C
  * row), read from the flowsheet before the labs are created, so no threshold is hard-coded: the values are
@@ -49,20 +50,23 @@
  *
  * ONE ENTRY PER DEFECT. A script stops at its first failing step, so one run cannot pin four defects. The
  * LAB_FLOWSHEET_PIN variable picks the entry (the manifest runs the script once per value):
- *   unset     The path above, then LAST and PINNED to finding 258: the flowsheet's A1C row links to the lab it
- *             came from. measurementsExt.lab_no is stored but no flowsheet, tracker or A1C history page reads it;
- *             the row only opens the Add Measurement form for the value.
- *   value     Pinned to finding 256, LAST (after step 9): a creatinine of 112.5 umol/L is filed as the SCR
- *             measurement with the value the lab sent. The shipped HL7_LAB_MEASUREMENT_FILTER has the alternative
- *             ^([+-\\?]{1,4}), and in a character class +-\? is a RANGE (0x2B-0x3F: the digits, '.', ...), so
- *             find() takes the first four characters of any such number: 112.5 becomes 112. The value is not the
- *             A1C fraction of the entry for 257, so a fix of 257 that normalises fractions on import cannot decide
- *             this pin, and a creatinine is mapped to a flowsheet type of its own, so the A1C steps never see it.
- *   time      Pinned to finding 259, right after step 4: a result observed at 12:15 is filed with that time of day.
- *             The handler parses the 24-hour observation time with the 12-hour pattern hh, which reads 12 as 0, so
- *             12:15 is stored as 00:15 (the date is right; the order of same-day results is not).
+ *   unset     The path above, then the flowsheet, A1C history and tracker links open the source lab reports
+ *             (finding 258, #4615). The original measurement controls remain available.
+ *   value     Finding 256, FIXED (#4613), LAST (after step 9): a creatinine of 112.5 umol/L is filed as the SCR
+ *             measurement with the value the lab sent, and so is every other result of five characters or more on
+ *             the same lab. The shipped HL7_LAB_MEASUREMENT_FILTER had the alternative ^([+-\\?]{1,4}), and in a
+ *             character class +-\? is a RANGE (0x2B-0x3F: the digits, '.', ...), so find() took the first four
+ *             characters of any such number: 112.5 became 112. The value is not the A1C fraction of the entry for
+ *             257, so a fix of 257 that normalises fractions on import cannot decide this step, and a creatinine is
+ *             mapped to a flowsheet type of its own, so the A1C steps never see it. On a packaged install the step
+ *             also proves the postinst rewrote the old stock line in /etc/carlos-emr/carlos.properties, the
+ *             override that wins over the WAR default (an upgraded install keeps the line it was first given).
+ *   time      Finding 259 (fixed by #4631), right after step 4: a result observed at 12:15 is filed with that time
+ *             of day. The handler parsed the 24-hour observation time with the 12-hour pattern hh, which reads 12 as
+ *             0, so 12:15 was stored as 00:15 (the date was right; the order of same-day results was not).
  *   fraction  Pinned to finding 257, right after step 8: the flowsheet flags an A1C reported as a fraction above
- *             the target. omdDiabetesFlowsheet.xml flags only a value above 7; its fraction rule is commented out.
+ *             the target. MeasurementDSHelper.getDataAsDouble() scales an A1C below 1 by 100 (finding 257, fixed), so the
+ *             flowsheet's single 'above 7' rule flags 0.095 as 9.5%.
  *   seconds   Pinned to finding 262, LAST (after step 9): a lab UPLOADED with an observation time that has no seconds
  *             (OBR-7 of 12 digits) is filed as observed at that time. CMLHandler.formatDateTime returns
  *             "yyyy-MM-dd HH:mm" for it, Hl7textResultsData parses with "yyyy-MM-dd hh:mm:ss", the parse throws and
@@ -79,7 +83,7 @@
  * every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row of the
  * patient, and asserts each by key. No clinic-wide state changes.
  *
- * Expected: every step passes except the pinned one of each entry (see the manifest).
+ * Expected: every step passes; the manifest records the remaining expected failures, if any.
  */
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -88,6 +92,7 @@ const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { createNativeQuickListPreferenceFixture } = require('./lib/quick-list-preference-fixture');
 const { submitCreateLab } = require('./lab-manual-entry-cumulative-playwright-checks');
 const { removeOwnedHl7Labs, removeArchiveFiles, archivesNamed, uploadFromInbox } = require('./lab-forwarding-rules-playwright-checks');
 
@@ -106,6 +111,7 @@ function validatePin(value = PIN) {
 /** The step labels the manifest's expectedFailure entries name; one place, so the script and the manifest agree. */
 const STEP = {
   value: 'a creatinine result of five characters is filed as a measurement with the value the lab sent',
+  valueMore: 'every other result of five characters or more on the lab is filed with the value the lab sent',
   fraction: 'the Diabetes Flowsheet flags an A1C reported as a fraction above its target',
   time: 'a result observed in the noon hour is filed as a measurement with the time of day the lab gave',
   seconds: 'a result uploaded with an observation time that has no seconds is filed as a measurement observed at that time',
@@ -117,8 +123,15 @@ const STEP = {
 const A1C = { code: '3767', name: 'HEMOGLOBIN A1C' };
 const UNMAPPED = { code: '2010', name: 'HEMOGLOBIN', value: '137', unit: 'g/L', low: '120', high: '160', flag: 'N' };
 // CML 3180 Creatinine maps to the FLOWSHEET type SCR (measurementType "in umol/L"), so it is a mapped value that is not
-// the A1C; 112.5 has five characters, all of them digits or '.', which the shipped result filter cuts to four (finding 256).
+// the A1C; 112.5 has five characters, all of them digits or '.', which the result filter cut to four (finding 256).
 const LONG = { code: '3180', name: 'Creatinine', value: '112.5', unit: 'umol/L', low: '45', high: '110', flag: 'A', type: 'SCR' };
+// The other shapes finding 256 cut, filed on the creatinine's lab: two decimals, a thousands separator and a leading
+// comparator (10.5, 1,25 and <0.0 before #4613). Only the value each is filed with is judged, not its flowsheet type.
+const LONG_MORE = [
+  { code: '3120', name: 'CHOLESTEROL', value: '10.55', unit: 'mmol/L', low: '0', high: '5.2', flag: 'A' },
+  { code: '3360', name: 'ALK PHOS', value: '1,250', unit: 'U/L', low: '40', high: '120', flag: 'A' },
+  { code: '4025', name: 'TSH', value: '<0.05', unit: 'mIU/L', low: '0.32', high: '5.04', flag: 'A' },
+];
 const DATES = { within: '2026-06-15', fraction: '2026-08-15', above: '2026-09-30', long: '2026-09-01' };
 // The observation time of the within-target lab: the noon hour, the one hour a 12-hour clock misreads (finding 259).
 const NOON = '12:15';
@@ -126,9 +139,15 @@ const NOON = '12:15';
 const UPLOAD_TIME = { date: '20260820', time: '0945' };
 const DIAB_TEMPLATE = 'diab2';
 
-/** The flowsheet's own A1C target ("Target <= 7.0%") as a number, or null. */
+/**
+ * The flowsheet's own A1C target ("Target <= 7.0%") as a number, or null. The page HTML-encodes the boxover tooltip
+ * payload before attribute-encoding it (SafeEncode.forTooltipText, #4418), so the raw page holds "Target &amp;lt;= 7.0%"
+ * and the DOM attribute "Target &lt;= 7.0%": either spelling of the comparator is read in one pass. The body may also
+ * open with the decision-support warning ("A1C has never been reviewed") before the target.
+ */
 function targetOf(guideline) {
-  const match = /Target\s*(?:<=?|<|≤)\s*(\d+(?:\.\d+)?)/.exec(String(guideline || '').replace(/&lt;/g, '<'));
+  // The page encodes the tooltip body twice (SafeEncode.forTooltipText, #4448), so the raw HTML holds `&amp;lt;`.
+  const match = /Target\s*(?:<=?|<|≤)\s*(\d+(?:\.\d+)?)/.exec(String(guideline || '').replace(/&(?:amp;)?lt;/g, '<'));
   return match ? Number(match[1]) : null;
 }
 
@@ -185,6 +204,8 @@ function cmlUploadHl7({ accession, last, test, observed }) {
 async function workflow(s) {
   validatePin();
   const { sql, patient, provider, context } = s;
+  // Diagnostic Registry code search records the provider's last-used quick list, even on a read.
+  createNativeQuickListPreferenceFixture(s);
   const needsFraction = PIN === 'fraction';
   const labs = {}; // key -> { accession, labNo, date, tests }
   const claimed = [];
@@ -348,7 +369,7 @@ async function workflow(s) {
     h.assert(JSON.stringify(typed) === JSON.stringify(['A1C']), `The patient has measurements of type ${JSON.stringify(typed)}; only A1C is expected`);
   });
 
-  // ---- Pin: finding 259 -------------------------------------------------------------------------------------------
+  // ---- Finding 259, fixed by #4631 --------------------------------------------------------------------------------
   if (PIN === 'time') {
     // The control is step 3: the measurement is filed with its type, lab number, unit and date, and carries the time the
     // lab gave (measurementsExt datetime) in the form the pin compares against.
@@ -440,13 +461,14 @@ async function workflow(s) {
   }
 
   // ---- 9. The Health Tracker ----------------------------------------------------------------------------------------
+  let tracker;
   await s.step('the Health Tracker lists the A1C results under their dates and nothing for the unmapped test', async () => {
     // The tracker ships empty; this patient's tracker tracks A1C (the row health-tracker seeds, here for A1C).
     const item = '<item measurement_type="A1C" display_name="A1C" guideline="" graphable="yes" value_name="A1C" />';
     sql.execute(`INSERT INTO flowsheet_customization
       (flowsheet, action, measurement, payload, provider_no, demographic_no, create_date, archived)
       VALUES ('tracker','add',NULL,${h.sqlString(item)},${h.sqlString(provider)},${h.sqlString(String(patient))},NOW(),0)`);
-    const tracker = await s.popup(chart, chart.locator('#measurementslist a[onclick*="ViewHealthTracker"]').first(), 'lab-flowsheet-tracker');
+    tracker = await s.popup(chart, chart.locator('#measurementslist a[onclick*="ViewHealthTracker"]').first(), 'lab-flowsheet-tracker');
     await tracker.waitForLoadState('networkidle').catch(() => {});
     h.assert(await tracker.locator('#wrap-A1C').count() === 1, 'The Health Tracker has no card for the A1C item');
     for (const lab of [labs.within, labs.above]) {
@@ -457,18 +479,26 @@ async function workflow(s) {
     }
     h.assert(await tracker.locator('.measurement-card').count() === 1, 'The Health Tracker shows a card besides the A1C one');
     h.assert(!/HEMOGLOBIN|\b137\b/i.test(await tracker.locator('#trackerForm').innerText()), 'The Health Tracker shows the unmapped hemoglobin');
-    await tracker.close();
   });
 
-  // ---- Pin: finding 256 (a lab of its own, after every step that counts labs and rows) ---------------------------
+  // ---- Finding 256, fixed (a lab of its own, after every step that counts labs and rows) --------------------------
   if (PIN === 'value') {
     let longRow;
+    let moreRows;
     await s.step('Inbox ▸ Create Lab files a creatinine of five characters as a measurement of its flowsheet type with its lab number, date and unit', async () => {
-      const lab = claim('long', DATES.long, [{ ...LONG, time: '09:00' }]);
+      const lab = claim('long', DATES.long, [{ ...LONG, time: '09:00' }, ...LONG_MORE.map((test) => ({ ...test, time: '09:00' }))]);
       await createLab(lab);
       const rows = measurementsOf(lab);
-      h.assert(rows.length === 1, `The creatinine lab filed ${rows.length} measurements, expected 1`);
-      longRow = rows[0];
+      h.assert(rows.length === 1 + LONG_MORE.length, `The creatinine lab filed ${rows.length} measurements, expected ${1 + LONG_MORE.length}`);
+      const byCode = new Map(rows.map((row) => [row.ext.identifier, row]));
+      longRow = byCode.get(LONG.code);
+      h.assert(longRow, `The creatinine lab filed no measurement for CML ${LONG.code}`);
+      moreRows = LONG_MORE.map((test) => {
+        const row = byCode.get(test.code);
+        h.assert(row && row.ext.lab_no === lab.labNo && row.ext.name === test.name && row.ext.unit === test.unit,
+          `The CML ${test.code} result is not a measurement carrying its lab number, name and unit: ${JSON.stringify(row && row.ext)}`);
+        return { test, row };
+      });
       h.assert(longRow.type === LONG.type, `The creatinine result is filed with type ${JSON.stringify(longRow.type)}, not ${LONG.type}`);
       h.assert(longRow.date === DATES.long, `The creatinine measurement is dated ${longRow.date}, not ${DATES.long}`);
       h.assert(longRow.ext.lab_no === lab.labNo && longRow.ext.identifier === LONG.code && longRow.ext.name === LONG.name && longRow.ext.unit === LONG.unit,
@@ -477,6 +507,11 @@ async function workflow(s) {
     // The control is the step above: the same measurement is filed with its type, date, lab number and unit.
     await s.step(STEP.value, async () => {
       h.assert(longRow.value === LONG.value, `The lab sent ${LONG.value} and the ${LONG.type} measurement holds ${JSON.stringify(longRow.value)}`);
+    });
+    await s.step(STEP.valueMore, async () => {
+      const wrong = moreRows.filter(({ test, row }) => row.value !== test.value)
+        .map(({ test, row }) => `CML ${test.code}: the lab sent ${test.value} and the measurement holds ${JSON.stringify(row.value)}`);
+      h.assert(wrong.length === 0, wrong.join('; '));
     });
   }
 
@@ -514,17 +549,68 @@ async function workflow(s) {
     });
   }
 
-  // ---- Pin: finding 258 -------------------------------------------------------------------------------------------
+  // ---- Source report navigation: finding 258 ---------------------------------------------------------------------
   if (PIN === '') {
-    // The controls are step 7 (the row exists under its date, with the value) and step 3 (the measurement carries lab_no).
+    async function openSourceLab(page, link, lab, label) {
+      h.assert(await link.count() === 1, `${label} must have one source lab link`);
+      const report = await s.popup(page, link, label);
+      await report.waitForLoadState('networkidle');
+      h.assert(new URL(report.url()).searchParams.get('segmentID') === String(lab.labNo),
+        `${label} opened the wrong report: ${report.url()}`);
+      const text = await report.locator('body').innerText();
+      h.assert(text.includes(lab.accession) && text.includes(A1C.name), `${label} did not display the source report`);
+      if (lab.key === 'above') {
+        const otherResult = report.getByRole('link', { name: UNMAPPED.name, exact: true });
+        h.assert(await otherResult.count() === 1, `${label} omitted the other result on the source report`);
+        h.assert((await otherResult.locator('xpath=ancestor::tr[1]').innerText()).includes(UNMAPPED.value),
+          `${label} did not show the other result's value`);
+      }
+      await report.close();
+    }
+
     await s.step(STEP.link, async () => {
-      const labNo = labs.above.labNo;
-      const html = rowHtml.above;
-      h.assert(linksToLab(html, labNo), `The A1C row of lab ${labNo} carries no link to the lab: it opens only ${
-        JSON.stringify((/fsPopup\(\d+,\d+,'([^'?]*)/.exec(html) || [])[1] || html.slice(0, 120))}`);
+      for (const lab of [labs.within, labs.above]) {
+        h.assert(linksToLab(rowHtml[lab.key], lab.labNo), `The A1C row of lab ${lab.labNo} carries no link to its report`);
+        await openSourceLab(flowsheet, a1cRow(lab).locator('a.source-lab'), lab, `flowsheet-source-${lab.key}`);
+        // Clicking the report must not also open the reading's add/edit form.
+        h.assert(!s.context.pages().some((page) => page.url().includes('/ViewAddMeasurementData')),
+          'The source link also opened the measurement form');
+      }
+      await h.screenshot(flowsheet, s.config.screenshotDir, 'lab-source-flowsheet');
+    });
+    await s.step('the A1C history links each lab-derived reading to its source report', async () => {
+      const history = await s.popup(chart, chart.locator('#measurementslist a[onclick*="SetupDisplayHistory?type=A1C"]').first(), 'lab-measurement-history');
+      for (const lab of [labs.within, labs.above]) {
+        const row = history.locator('#tblDiscs tbody tr').filter({ hasText: lab.date });
+        await openSourceLab(history, row.locator('a.source-lab'), lab, `history-source-${lab.key}`);
+      }
+      await h.screenshot(history, s.config.screenshotDir, 'lab-source-history');
+      await history.close();
+    });
+    await s.step('the Health Tracker source links open lab reports without opening the delete dialog', async () => {
+      for (const lab of [labs.within, labs.above]) {
+        const entry = tracker.locator('#wrap-A1C .history-entry').filter({
+          has: tracker.locator(`.history-value[data-observed="${lab.date}"]`),
+        });
+        const link = entry.locator('a.source-lab');
+        // Native Enter activation proves the report remains keyboard reachable beside the measurement button.
+        await link.focus();
+        const reportPromise = s.context.waitForEvent('page', { timeout: TIMEOUT });
+        await link.press('Enter');
+        const report = await reportPromise;
+        h.wireStrictPage(report, `tracker-source-${lab.key}`, s.recorder);
+        await report.waitForURL((url) => url.href !== 'about:blank', { timeout: TIMEOUT, waitUntil: 'domcontentloaded' });
+        await report.waitForLoadState('networkidle');
+        h.assert(new URL(report.url()).searchParams.get('segmentID') === String(lab.labNo), 'Tracker keyboard link opened the wrong lab');
+        h.assert((await report.locator('body').innerText()).includes(lab.accession), 'Tracker keyboard link did not render the source report');
+        await report.close();
+        h.assert(!await tracker.locator('#deleteModal').isVisible(), 'The source link also opened the delete dialog');
+      }
+      await h.screenshot(tracker, s.config.screenshotDir, 'lab-source-tracker');
     });
   }
+  await tracker.close();
 }
 
 if (require.main === module) runWorkflow('lab-to-flowsheet', workflow, { contextOptions: { locale: 'en-US' } });
-module.exports = { workflow, validatePin, STEP, targetOf, a1cItemTitle, linksToLab, cmlUploadHl7 };
+module.exports = { workflow, validatePin, STEP, LONG, LONG_MORE, targetOf, a1cItemTitle, linksToLab, cmlUploadHl7 };

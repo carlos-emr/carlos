@@ -72,6 +72,26 @@ class ErrorPageHttpStatusRegressionTest {
                 .doesNotContain("${exception");
     }
 
+    /**
+     * An action that knows why it refused a request may add one translated sentence (ErrorPageMessage).
+     * The page takes the key from request scope only and shows the bundle text encoded, never the key's
+     * value or anything else from the request.
+     */
+    @Test
+    @DisplayName("should show an action's translated error message from request scope, encoded")
+    void shouldRenderTranslatedErrorMessage_fromRequestScopeEncoded() throws Exception {
+        String jsp = Files.readString(ERROR_PAGE, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("${not empty requestScope.carlosErrorMessageKey}")
+                .contains("<fmt:message key=\"${requestScope.carlosErrorMessageKey}\" var=\"_carlosErrorMessage\"/>")
+                .containsPattern("\\$\\{\\s*carlos:forHtml\\s*\\(\\s*_carlosErrorMessage\\s*\\)\\s*}")
+                .doesNotContain("${carlosErrorMessageKey")
+                .doesNotContain("${param.");
+        // The key is only tested and looked up in the bundle, never printed.
+        assertThat(jsp.split("\\$\\{requestScope\\.carlosErrorMessageKey}", -1).length - 1).isEqualTo(1);
+    }
+
     private static Path resolveProjectPath(Path relativePath) {
         Path current = Path.of(System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir")))
                 .toAbsolutePath()

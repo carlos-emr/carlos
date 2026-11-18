@@ -51,6 +51,10 @@
  *      favourites with the posted list and an accepted GET with an empty one would delete them.
  *  10. The sender's favourites and the control items end exactly as they began.
  *
+ * After the recipient first sees the lab, re-forwarding also covers #3878: a removed (X) row
+ * is reused and visible in their Inbox again; A, F and N rows retain their review fields.
+ * A removed legacy duplicate alongside an A, F or N row stays removed and preserves Inbox visibility.
+ *
  * Fixtures: the owned FAKE- patient (runWorkflow; its NULL HIN set to the empty HIN the demographic form
  * stores, which the Inbox name search needs, after the labs are matched), a throwaway provider login that is
  * the recipient (lib/throwaway-login-fixture.js), three synthetic CML labs uploaded through the UI (each with
@@ -60,6 +64,7 @@
  * for each document's number, the throwaway login and its audit rows, and asserts them gone. The test login's own favourites are snapshotted and asserted unchanged.
  * The lab-upload archive is retained (and the run says so) when LAB_UPLOAD_DOCUMENT_STORE is unset.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -195,7 +200,7 @@ async function assertReplayRefused(s, label, sent, overrides, target) {
   for (const method of ['GET', 'HEAD']) {
     const before = s.sql.value(`SELECT COUNT(*) FROM ${target.table} WHERE ${target.where}`);
     h.assert(before === String(target.expected), `${label}: the rows the ${method} replay is aimed at were not in the expected state (${before})`);
-    const response = await s.context.request.fetch(url, { method, maxRedirects: 0, failOnStatusCode: false });
+    const response = await authenticatedProbe(s, url, { method, maxRedirects: 0, failOnStatusCode: false });
     const verdict = await h.assertRefused(s, { response, table: target.table, where: target.where, before, label: `${label} as ${method}` });
     console.log(`  probe ${NAME}: ${label} as ${method} -> ${verdict.evidence}; ${target.table} rows unchanged (${verdict.rows})`);
   }
@@ -403,6 +408,78 @@ async function workflow(s) {
       `The recipient's Inbox does not list exactly the forwarded lab (${JSON.stringify(await shownRows(recipientInbox))})`);
   });
 
+  // The removed state predates this forward. Seed it on our owned row, then use the real
+  // popup's Forward control: a successful HTTP response alone did not expose issue #3878.
+  const forwardPopupAgain = async () => {
+    const row = sender.locator(`tr[data-lab-type="HL7"][data-segment-id="${labPopup.labNo}"]`);
+    const popup = await clickOpensPopup(sender, row.locator('a[onclick*="reportWindow"]').first(),
+      { context: s.context, recorder, label: 'inbox-ff-forward-again', timeout: TIMEOUT });
+    try {
+      await popup.getByRole('button', { name: 'Forward', exact: true }).first().click();
+      const sent = await forwardTo(popup, popup, recipientNo, searchText);
+      h.assert(sent.status === 200, `Repeated ReportReassign answered HTTP ${sent.status}`);
+    } finally {
+      await popup.close().catch(() => {});
+    }
+  };
+  const recipientScope = `lab_type='HL7' AND lab_no=${labPopup.labNo} AND provider_no=${q(recipientNo)}`;
+
+  await s.step('forwarding a previously removed lab reuses the row and returns it to the recipient Inbox', async () => {
+    const originalId = sql.value(`SELECT id FROM providerLabRouting WHERE ${recipientScope}`);
+    const beforeMine = mine('HL7', labPopup.labNo);
+    const beforeOthers = others('HL7', labPopup.labNo);
+    sql.execute(`UPDATE providerLabRouting SET status='X', timestamp='2000-01-01 00:00:00' WHERE ${recipientScope}`);
+    await search(recipientInbox);
+    h.assert(!(await shownRows(recipientInbox)).includes(`HL7:${labPopup.labNo}`), 'Removed lab still appears in the recipient Inbox');
+    await forwardPopupAgain();
+    await expectValue(sql, `SELECT status FROM providerLabRouting WHERE ${recipientScope}`, 'N',
+      'Forwarding left the recipient routing removed');
+    h.assert(sql.value(`SELECT id FROM providerLabRouting WHERE ${recipientScope}`) === originalId,
+      'Forwarding replaced the removed row instead of reactivating it');
+    h.assert(mine('HL7', labPopup.labNo) === beforeMine, 'Reactivation changed the sender routing');
+    h.assert(others('HL7', labPopup.labNo) === beforeOthers, 'Reactivation changed another provider routing');
+    await search(recipientInbox);
+    h.assert((await shownRows(recipientInbox)).includes(`HL7:${labPopup.labNo}`),
+      'Re-forwarded lab is missing from the recipient Inbox');
+  });
+
+  await s.step('repeat forwarding preserves acknowledged, filed and new recipient rows', async () => {
+    for (const status of ['A', 'F', 'N']) {
+      sql.execute(`UPDATE providerLabRouting SET status=${q(status)}, comment='synthetic review',
+        timestamp='2000-01-01 00:00:00' WHERE ${recipientScope}`);
+      const before = theirs('HL7', labPopup.labNo);
+      await forwardPopupAgain();
+      h.assert(theirs('HL7', labPopup.labNo) === before, `Repeat forwarding changed the ${status} routing review fields`);
+    }
+  });
+
+  await s.step('removed legacy duplicates do not reopen an existing recipient review', async () => {
+    const originalId = sql.value(`SELECT id FROM providerLabRouting WHERE ${recipientScope}`);
+    const beforeMine = mine('HL7', labPopup.labNo);
+    const beforeOthers = others('HL7', labPopup.labNo);
+    sql.execute(`INSERT INTO providerLabRouting (provider_no, lab_no, lab_type, status, comment, timestamp)
+      VALUES (${q(recipientNo)}, ${labPopup.labNo}, 'HL7', 'X', 'synthetic removed duplicate', '2000-01-01 00:00:00')`);
+    try {
+      for (const status of ['A', 'F', 'N']) {
+        sql.execute(`UPDATE providerLabRouting SET status=${q(status)} WHERE ${recipientScope} AND id=${originalId}`);
+        const before = theirs('HL7', labPopup.labNo);
+        await search(recipientInbox);
+        const visibleBefore = (await shownRows(recipientInbox)).includes(`HL7:${labPopup.labNo}`);
+        h.assert(visibleBefore === (status === 'N'), `Unexpected Inbox visibility for ${status} plus removed duplicate`);
+        await forwardPopupAgain();
+        h.assert(theirs('HL7', labPopup.labNo) === before,
+          `Forwarding changed the ${status} routing or its removed duplicate`);
+        await search(recipientInbox);
+        h.assert((await shownRows(recipientInbox)).includes(`HL7:${labPopup.labNo}`) === visibleBefore,
+          `Forwarding changed Inbox visibility for ${status} plus removed duplicate`);
+      }
+      h.assert(mine('HL7', labPopup.labNo) === beforeMine, 'Duplicate routing changed the sender routing');
+      h.assert(others('HL7', labPopup.labNo) === beforeOthers, 'Duplicate routing changed another provider routing');
+    } finally {
+      sql.execute(`DELETE FROM providerLabRouting WHERE ${recipientScope} AND id<>${originalId}`);
+    }
+  });
+
   await s.step('preview card > Forward routes the second lab to the chosen provider as New and leaves every other row alone', async () => {
     const beforeMine = mine('HL7', labCard.labNo);
     const beforeOthers = others('HL7', labCard.labNo);
@@ -534,4 +611,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow(NAME, workflow, { openMaster: false });
-module.exports = { workflow };
+module.exports = { workflow, uploadLab, openInbox, openSidebar, setMode, search };

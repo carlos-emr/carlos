@@ -60,10 +60,17 @@
         if (formId == 0) {
             request.getRequestDispatcher("/WEB-INF/jsp/form/formbcar2007pg1.jsp?demographic_no=" + demoNo + "&formId=" + formId).include(request, response);
         } else {
-            FrmRecord rec = (new FrmRecordFactory()).factory("BCAR");
+            FrmRecord rec = (new FrmRecordFactory()).factory("BCAR2007");
             java.util.Properties props = rec.getFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo, formId);
 
-            request.getRequestDispatcher("/WEB-INF/jsp/form/formbcar2007" + props.getProperty("c_lastVisited", "pg1")
+            // The page the record was last saved from, as the form posts it back in c_lastVisited. Only this
+            // form's own pages are taken: an empty value made this page include itself until the stack
+            // overflowed, and the value is request data, so it must not name any other page under WEB-INF.
+            String lastVisited = props.getProperty("c_lastVisited", "");
+            if (!lastVisited.matches("pg[1-3]")) {
+                lastVisited = "pg1";
+            }
+            request.getRequestDispatcher("/WEB-INF/jsp/form/formbcar2007" + lastVisited
                     + ".jsp?demographic_no=" + demoNo + "&formId=" + formId + historyet).include(request, response);
         }
 

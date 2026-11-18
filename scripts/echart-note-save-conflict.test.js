@@ -17,6 +17,7 @@ function harness() {
   const form = {method: {}, ajax: {}, chain: {}, includeIssue: {}};
   const context = {
     lostNoteLock: false, noteLockLostError: 'note lock lost', savingNoteError: 'save failed', sessionExpiredError: 'session expired',
+    chartActionUrl: path => '/carlos'+path, destroyNoteIssueAutocomplete() {},
     caseNote: 'editor', caisiEnabled: false, ctx: '/carlos', fullChart: 'true',
     document: {forms: {caseManagementEntryForm: form}},
     $F: () => 'recoverable clinical text', $: id => fields[id],

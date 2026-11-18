@@ -20,12 +20,15 @@ function setup(queue, maxNcId = 0) {
     elements[`imgPrint${section}`] = {src: 'green'};
   }
   for (const id of ['11', '12']) elements[`print${id}`] = {id: `print${id}`, src: 'green'};
+  const buttonIcon = {src: 'green'};
+  elements.print12 = {id: 'print12', tagName: 'BUTTON', pressed: 'true',
+    querySelector: () => buttonIcon, setAttribute(name, value) { this.pressed = value; }};
   const context = vm.createContext({ctx: '/carlos', maxNcId,
     $: id => typeof id === 'string' ? elements[id] || null : id,
     $F: id => elements[id].value,
     Event: {stop() {}},
     document: {querySelectorAll: selector => {
-      assert.equal(selector, '#encMainDiv img[id^="print"]');
+      assert.equal(selector, '#encMainDiv img[id^="print"], #encMainDiv button[id^="print"]');
       return [elements.print11, elements.print12];
     }},
   });
@@ -39,7 +42,8 @@ test('Clear empties explicit queued IDs even when paging bookkeeping is exhauste
   context.clearAll({});
   assert.equal(elements.notes2print.value, '');
   assert.equal(elements.print11.src, '/carlos/encounter/graphics/printer.png');
-  assert.equal(elements.print12.src, '/carlos/encounter/graphics/printer.png');
+  assert.equal(elements.print12.querySelector('img').src, '/carlos/encounter/graphics/printer.png');
+  assert.equal(elements.print12.pressed, 'false');
 });
 test('Clear removes ALL_NOTES and resets every section, date and scope', () => {
   const {context, elements} = setup('ALL_NOTES');
@@ -133,4 +137,54 @@ test('Today formats the server day through both localized calendars', () => {
     ['printEndDate', '2026-01-03', false, 'Y-m-d']]);
   assert.equal(elements.printopDates.checked, true);
   assert.equal(printed, true);
+});
+
+for (const previousTarget of [null, 'existing-editor-target']) {
+  test(`printing uses a separate context and restores the form target ${previousTarget}`, () => {
+    const {context, elements} = setup('11');
+    elements.printopDates.checked = false;
+    elements.printopAll.checked = false;
+    let target = previousTarget;
+    const submissions = [];
+    const timers = [];
+    const form = {
+      method: {}, pStartDate: {}, pEndDate: {}, pType: {},
+      getAttribute: () => target,
+      setAttribute(name, value) { assert.equal(name, 'target'); target = value; },
+      removeAttribute(name) { assert.equal(name, 'target'); target = null; },
+      submit() { submissions.push({target, release: context.needToReleaseLock}); },
+    };
+    context.document.forms = {caseManagementEntryForm: form};
+    context.chartActionUrl = () => '/carlos/CaseManagementEntry';
+    context.needToReleaseLock = true;
+    context.setTimeout = callback => timers.push(callback);
+    vm.runInContext(functions('printNotes', 'printToday'), context);
+    for (let print = 0; print < 3; print++) {
+      assert.equal(context.printNotes(), false);
+      assert.equal(target, previousTarget);
+    }
+    for (const timer of timers) timer();
+    assert.deepEqual(submissions, Array(3).fill({target: '_blank', release: true}));
+    assert.equal(context.needToReleaseLock, true, 'Printing must retain normal navigation lock release');
+  });
+}
+
+test('a failed print submission restores the form without changing an existing lock-release suppression', () => {
+  const {context, elements} = setup('11');
+  elements.printopDates.checked = false;
+  elements.printopAll.checked = false;
+  let target = 'existing-editor-target';
+  context.document.forms = {caseManagementEntryForm: {
+    method: {}, pStartDate: {}, pEndDate: {}, pType: {},
+    getAttribute: () => target,
+    setAttribute(name, value) { target = value; },
+    removeAttribute() { target = null; },
+    submit() { throw new Error('Submission failed'); },
+  }};
+  context.chartActionUrl = () => '/carlos/CaseManagementEntry';
+  context.needToReleaseLock = false;
+  vm.runInContext(functions('printNotes', 'printToday'), context);
+  assert.throws(() => context.printNotes(), /Submission failed/);
+  assert.equal(target, 'existing-editor-target');
+  assert.equal(context.needToReleaseLock, false);
 });

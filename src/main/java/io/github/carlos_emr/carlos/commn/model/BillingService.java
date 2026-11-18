@@ -32,22 +32,28 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import java.io.Serializable;
 import java.util.Date;
-import java.util.List;
 
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 
-import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit;
-
+/**
+ * One dated row of the {@code billingservice} fee schedule: a service code's fee, percentage
+ * and flags from {@link #getBillingserviceDate()} until {@link #getTerminationDate()}.
+ *
+ * <p><b>Percentage limits are not mapped here (issue #5307).</b> This entity used to carry an
+ * EAGER {@code billingPercLimit} collection. Its {@code mappedBy = "service_code"} named a
+ * plain string column, so Hibernate joined {@code billingperclimit.service_code} to this
+ * row's numeric {@code billingservice_no}. The collection was never the code's limits, and
+ * every list of fee rows paid one extra {@code billingperclimit} query per row. Limits
+ * belong to a service code, not to one dated fee row, and
+ * {@code ServiceCodePersister} writes them through {@code BillingPercLimitDao}. Read them
+ * there too, by code and date, as {@code BillingOnClaimLoader} does.</p>
+ */
 @Entity
 @Table(name = "billingservice")
 public class BillingService extends AbstractModel<Integer> implements Serializable {
@@ -85,9 +91,6 @@ public class BillingService extends AbstractModel<Integer> implements Serializab
 
     private Boolean gstFlag;
     private Boolean sliFlag;
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER, mappedBy = "service_code")
-    @OrderBy("effective_date DESC")
-    private List<BillingPercLimit> billingPercLimit;
 
     @Override
     public Integer getId() {
@@ -247,32 +250,6 @@ public class BillingService extends AbstractModel<Integer> implements Serializab
      */
     public void setTerminationDate(Date terminationDate) {
         this.terminationDate = terminationDate;
-    }
-
-    /**
-     * @return the Billingperc
-     */
-    public BillingPercLimit getBillingPercLimit() {
-
-        if (billingPercLimit != null) {
-            Date d;
-            for (int idx = 0; idx < billingPercLimit.size(); ++idx) {
-                d = billingPercLimit.get(idx).getEffective_date();
-                if (d != null && d.compareTo(this.billingserviceDate) < 0 || d.compareTo(this.billingserviceDate) == 0) {
-                    return billingPercLimit.get(idx);
-                }
-            }
-        }
-
-        return null;
-
-    }
-
-    /**
-     * @param Billingperc the Billingperc to set
-     */
-    public void setBillingperc(List<BillingPercLimit> Billingperc) {
-        this.billingPercLimit = Billingperc;
     }
 
     /**

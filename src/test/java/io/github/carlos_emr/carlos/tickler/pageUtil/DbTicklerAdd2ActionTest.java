@@ -53,6 +53,11 @@ class DbTicklerAdd2ActionTest extends CarlosWebTestBase {
                 ticklerAttachmentService);
         mockRequest.setContextPath("/carlos");
         mockRequest.setMethod("POST");
+        var providerDao = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class);
+        var recipient = new io.github.carlos_emr.carlos.commn.model.Provider();
+        recipient.setStatus("1");
+        when(providerDao.getProvider("999997")).thenReturn(recipient);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class, providerDao);
     }
 
     @Test

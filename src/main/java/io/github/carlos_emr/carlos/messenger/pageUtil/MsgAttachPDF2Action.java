@@ -55,9 +55,11 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import io.github.carlos_emr.carlos.commn.dao.EChartDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.messenger.data.MsgMessageData;
 import io.github.carlos_emr.carlos.messenger.pageUtil.MsgPdfAttachmentResolver.Attachment;
 import io.github.carlos_emr.carlos.messenger.pageUtil.MsgPdfAttachmentResolver.Item;
 import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver;
@@ -70,8 +72,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Renders a patient's chart items to PDF for the Messenger attachment chooser
- * ({@code messenger/Doc2PDF}): either streams one item back as a preview, or stores every
- * ticked item on the compose session's {@link MsgSessionBean} for the message being written.
+ * ({@code messenger/Doc2PDF}): either streams one item back as a preview, or stages every
+ * ticked item for the compose window that opened the chooser ({@link MsgAttachmentStaging}).
  *
  * <p><b>The request names items, never HTML.</b> The chooser posts the patient
  * ({@code demographic_no}) and item keys ({@code item}, or {@code previewItem} with
@@ -88,6 +90,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * ({@link Item#securityObject()}). The per-item check runs here, before the include, because an
  * included gate action that refuses would render the error page into the capture and that page
  * would be stored as the "PDF".</p>
+ *
+ * <p><b>Which message.</b> The chooser posts the key of the compose window that opened it
+ * ({@code attachmentKey}), and the PDFs are staged under that key with the patient they were
+ * rendered for. They used to be stored on the login-wide {@link MsgSessionBean}, so with two
+ * compose windows open they went out with whichever message was sent next (issue #4673).</p>
  *
  * @since 2005
  * @see MsgPdfAttachmentResolver
@@ -110,6 +117,10 @@ public class MsgAttachPDF2Action extends ActionSupport {
     }
 
     private static final Logger logger = MiscUtils.getLogger();
+
+    /** Why the chart documents were refused: what a message holds is fixed by the column that stores it. */
+    static final String PDFS_TOO_LARGE = "The chosen chart documents are too large to send in one message."
+            + " Attach fewer of them to each message.";
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -239,15 +250,14 @@ public class MsgAttachPDF2Action extends ActionSupport {
 
     private String attach(LoggedInInfo loggedInInfo, int demographicNo, ResourceBundle labels)
             throws IOException {
-        MsgSessionBean bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
-        if (bean == null) {
-            // The chooser is opened from a compose window, which creates the bean; without one
+        if (!MsgAttachmentStaging.isKey(attachmentKey)) {
+            // The chooser is opened from a compose window and posts that window's key; without one
             // there is no message to attach to.
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "No message is being composed");
             return NONE;
         }
 
-        // Resolve and authorize every ticked item before touching the bean, so a refusal leaves
+        // Resolve and authorize every ticked item before staging anything, so a refusal leaves
         // the message's existing attachments as they were. Unknown keys are ignored, duplicates
         // collapse, and items render in the chooser's order.
         Set<Item> selected = EnumSet.noneOf(Item.class);
@@ -274,25 +284,37 @@ public class MsgAttachPDF2Action extends ActionSupport {
         for (Item item : selected) {
             Optional<Attachment> attachment = resolver.resolve(item, demographicNo, patientName, labels);
             if (attachment.isEmpty()) {
-                continue;
+                // A stale chooser must not silently remove an item the sender explicitly selected.
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Attachment item is unavailable");
+                return NONE;
             }
             String html = render(attachment.get(), demographicNo, loggedInInfo);
             String pdf = html == null ? null : pdfConverter.toBase64Pdf(request, response, html);
             rendered.add(new String[]{pdf, attachment.get().title()});
         }
 
-        // Attach replaces the message's chart-PDF set with exactly what is ticked now (ticking
+        // Attach replaces this message's chart-PDF set with exactly what is ticked now (ticking
         // nothing clears it). Only the PDFs: transferred chart items attached another way stay.
-        // The counter numbers each entry's FILE_ID (0, 1, ...), which the recipient's viewer uses
-        // to tell the stored PDFs apart; it is reset once the set is complete, as before.
-        bean.nullPDFAttachment();
+        // The records are built in the stored format by a scratch MsgSessionBean; its counter
+        // numbers each entry's FILE_ID (0, 1, ...), which the recipient's viewer uses to tell the
+        // stored PDFs apart.
+        MsgSessionBean records = new MsgSessionBean();
         for (String[] entry : rendered) {
             // A failed render is still recorded (status BAD, "(N/A)" title) so the sender sees it;
             // empty content, not null, or the stored <CONTENT> would read "null".
-            bean.setAppendPDFAttachment(entry[0] == null ? "" : entry[0], entry[1]);
-            bean.setCurrentAttachmentCount(bean.getCurrentAttachmentCount() + 1);
+            records.setAppendPDFAttachment(entry[0] == null ? "" : entry[0], entry[1]);
+            records.setCurrentAttachmentCount(records.getCurrentAttachmentCount() + 1);
         }
-        bean.setCurrentAttachmentCount(0);
+        String stored = records.getPDFAttachment();
+        if (!MsgMessageData.pdfAttachmentFits(stored)) {
+            // The column cuts a longer text off without a word and the last PDF would arrive in two. Nothing is
+            // staged, so what was attached before stays; only sizes are logged.
+            logger.warn("Refused chart PDFs of {} bytes: a message holds {}", stored.length(),
+                    MessageTbl.PDF_ATTACHMENT_MAX_BYTES);
+            response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, PDFS_TOO_LARGE);
+            return NONE;
+        }
+        MsgAttachmentStaging.stagePdfs(request.getSession(), attachmentKey, demographicNo, stored);
         return SUCCESS;
     }
 
@@ -431,6 +453,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
     }
 
     private String demographicNoParam;
+    private String attachmentKey;
     private String[] items;
     private String previewItem;
     private boolean isPreview = false;
@@ -443,6 +466,16 @@ public class MsgAttachPDF2Action extends ActionSupport {
     @StrutsParameter
     public void setDemographic_no(String demographicNo) {
         this.demographicNoParam = demographicNo;
+    }
+
+    public String getAttachmentKey() {
+        return attachmentKey;
+    }
+
+    /** @param attachmentKey the key of the compose window the PDFs are attached to */
+    @StrutsParameter
+    public void setAttachmentKey(String attachmentKey) {
+        this.attachmentKey = attachmentKey;
     }
 
     public String[] getItem() {

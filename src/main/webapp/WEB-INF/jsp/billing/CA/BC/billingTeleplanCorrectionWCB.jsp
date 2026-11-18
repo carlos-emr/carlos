@@ -32,7 +32,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -48,20 +48,20 @@
     }
 %>
 
-<%@page import="io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.*" %>
-<%@page import="java.util.*,java.io.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*,io.github.carlos_emr.carlos.billing.ca.bc.administration.*,java.sql.*" %>
+<%@page import="io.github.carlos_emr.*" %>
+<%@page import="java.util.*, java.sql.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicLocation" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.CA.model.BillingDetail" %>
+
 <%@ page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao" %>
-<%@ page import="io.github.carlos_emr.carlos.entities.Billingmaster" %>
+
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanC12" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanC12Dao" %>
@@ -202,7 +202,7 @@
                                                        onClick="popup(700,900,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>','
                                                            <fmt:message key="encounter.Index.popupPage2Window"/>');return false;"
                                                        title="<fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">Patient
-                    Information</a> <input type="hidden" name="id" id="id" value="<carlos:encode value='<%= StringUtils.noNull(form.getId()) %>' context="htmlAttribute"/>"/>
+                    Information</a>
                     <input type="hidden"
                            name="demographicNumber" id="demographicNumber"
                         value="<carlos:encode value='<%= StringUtils.noNull(form.getDemographicNumber()) %>' context="htmlAttribute"/>"/></td>
@@ -712,6 +712,7 @@
         <table width="100%">
         </table>
         <input type="hidden" name="billingNo" id="billingNo" value="<carlos:encode value='<%= StringUtils.noNull(form.getBillingNo()) %>' context="htmlAttribute"/>"/>
+        <%-- The page's only id field: Struts joins a repeated field ("41, 41"), which the save cannot read. --%>
         <input type="hidden" name="id" id="id" value="<carlos:encode value='<%= StringUtils.noNull(form.getId()) %>' context="htmlAttribute"/>"/>
         <table width="100%">
             <tr>

@@ -32,6 +32,7 @@ import org.apache.struts2.ActionSupport;
 
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -99,6 +100,11 @@ public class HRMDownloadFile2Action extends ActionSupport {
         if (ids.size() > 1) {
             throw new Exception("too many documents found for hash - " + hash);
         }
+
+        // The hash names one report. Decide for its patient before the report row or file is read:
+        // a provider locked out of the patient is refused the attachment as they are the chart.
+        HRMReportAccess.requireReport(securityInfoManager, SpringUtils.getBean(HRMDocumentToDemographicDao.class),
+                loggedInInfo, ids.get(0));
 
         HRMDocument hd = hrmDocumentDao.find(ids.get(0));
 

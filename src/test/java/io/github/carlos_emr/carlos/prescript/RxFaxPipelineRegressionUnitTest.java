@@ -38,10 +38,11 @@ import org.junit.jupiter.api.Test;
  *
  * <ul>
  *   <li>Routing — {@code /form/createcustomedpdf} is a plain servlet declared in
- *       {@code web.xml} ({@code FrmCustomedPDFServlet}); the Rx print and fax flows POST
- *       to it. Struts' global {@code struts.action.excludePattern} has to let it through,
+ *       {@code web.xml} ({@code FrmCustomedPDFServlet}); the Rx print flow POSTs to it.
+ *       Struts' global {@code struts.action.excludePattern} has to let it through,
  *       otherwise the Struts filter claims the request and answers 404 before the servlet
- *       runs — prescription faxing dies with "CARLOS Error: 404".</li>
+ *       runs — prescription printing dies with "CARLOS Error: 404". The fax flow POSTs to
+ *       the Struts action {@code /rx/faxPrescription} instead (issue #3108).</li>
  *   <li>Rx body newlines — {@code Preview2.jsp} posts the prescription text in the
  *       {@code rx} parameter, which the servlet splits on the platform line separator.
  *       Writing the {@code replaceAll} with a {@code "\\\n"} literal inline in a JSP tag
@@ -70,6 +71,8 @@ class RxFaxPipelineRegressionUnitTest {
             resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp/rx/Preview2.jsp"));
     private static final Path VIEW_SCRIPT2_JSP =
             resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp/rx/ViewScript2.jsp"));
+    private static final Path STRUTS_PRESCRIPTION_XML =
+            resolveProjectPath(Path.of("src/main/webapp/WEB-INF/classes/struts-prescription.xml"));
 
     private static final Pattern STRUTS_ACTION_EXCLUDE_PATTERN = Pattern.compile(
             "<constant name=\"struts\\.action\\.excludePattern\" value=\"([^\"]+)\"\\s*/>");
@@ -92,6 +95,17 @@ class RxFaxPipelineRegressionUnitTest {
         Pattern excludePattern = Pattern.compile(matcher.group(1));
         assertThat(excludePattern.matcher("/form/createcustomedpdf").matches()).isTrue();
         assertThat(excludePattern.matcher("/carlos/form/createcustomedpdf").matches()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should send the fax to the POST-only fax action and only printing to the PDF servlet")
+    void shouldRouteFax_toPostOnlyFaxAction() throws IOException {
+        String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
+        assertThat(viewScript2)
+                .contains("method === \"oscarRxFax\"\n                        ? \"<%= request.getContextPath() %>/rx/faxPrescription?\" + requestParams")
+                .contains(": \"<%= request.getContextPath() %>/form/createcustomedpdf?__method=\" + method");
+        assertThat(Files.readString(STRUTS_PRESCRIPTION_XML)).contains(
+                "<action name=\"rx/faxPrescription\" class=\"io.github.carlos_emr.carlos.prescript.pageUtil.RxFaxPrescription2Action\"/>");
     }
 
     @Test

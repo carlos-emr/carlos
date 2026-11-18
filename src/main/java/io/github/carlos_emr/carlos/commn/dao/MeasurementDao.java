@@ -81,7 +81,20 @@ import io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.SearchCriteria;
  * @see MeasurementDaoImpl
  * @see io.github.carlos_emr.carlos.managers.MeasurementManager
  */
-public interface MeasurementDao extends AbstractDao<Measurement> {
+public interface MeasurementDao extends AbstractDao<Measurement>, CdsExportPatientTableReadDao {
+
+    /**
+     * CDS export only: this patient's HL7 results filed as measurements (a {@code lab_no}
+     * extension) whose report is not routed to the patient as an HL7 lab, so the
+     * LaboratoryResults path cannot export them, counted by test name and observation date for
+     * the package ReadMe. Reads names, dates and identifiers only, never result values, and runs
+     * inside the caller's read-only capture transaction.
+     *
+     * @param patient demographic number of the chart being captured
+     * @return the readings by date, then test name; empty when there are none
+     */
+    java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedLaboratoryReadingDto>
+            findCdsExportUnlinkedLaboratoryReadings(int patient);
 
     /**
      * Corrects only the patient ownership of a managed, source-linked lab measurement.
@@ -302,7 +315,18 @@ public interface MeasurementDao extends AbstractDao<Measurement> {
      */
     public Map<String, List<String>> findDistinctMeasuringInstructionsByTypes(Collection<String> types);
 
-    public List<Integer> findByCreateDate(Date from, Date to);
+    /**
+     * Finds the distinct demographic ids with a measurement created in the half-open window
+     * {@code [from, toExclusive)}.
+     *
+     * <p>{@code createDate} is a timestamp, so a caller reporting through a whole calendar day passes
+     * midnight of the following day as {@code toExclusive}.</p>
+     *
+     * @param from inclusive lower bound
+     * @param toExclusive exclusive upper bound
+     * @return distinct demographic numbers
+     */
+    public List<Integer> findByCreateDate(Date from, Date toExclusive);
 
     /**
      * Finds all measurements of a specific type for a patient.

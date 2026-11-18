@@ -22,6 +22,8 @@
 --%>
 <!DOCTYPE html>
 <%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationList" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupAccessRestrictionDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
@@ -49,7 +51,7 @@
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="org.apache.commons.text.WordUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.managers.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
@@ -59,7 +61,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.NavPath" %>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
@@ -68,8 +70,9 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib tagdir="/WEB-INF/tags/appointment" prefix="appt" %>
 
 <%
     LoggedInInfo loggedInInfo1 = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -140,6 +143,8 @@
 %>
 <%
     LookupList reasonCodes = lookupListManager.findLookupListByName(loggedInInfo1, "reasonCode");
+    // Loaded once per page: each booked appointment's Location List chip is looked up in memory.
+    AppointmentLocationList appointmentLocations = SpringUtils.getBean(AppointmentLocationResolver.class).load();
     if (reasonCodes != null && reasonCodes.getItems() != null) {
         for (LookupListItem lli : reasonCodes.getItems()) {
             reasonCodesMap.put(lli.getId(), lli);
@@ -150,16 +155,6 @@
     pageContext.setAttribute("isPreventionWarningDisabled", providerPreventionManager.isDisabled());
 %>
 <%!
-    //multisite starts =====================
-    private boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
-    private List<Site> sites = new ArrayList<Site>();
-    private List<Site> curUserSites = new ArrayList<Site>();
-    private List<String> siteProviderNos = new ArrayList<String>();
-    private List<String> siteGroups = new ArrayList<String>();
-    private String selectedSite = null;
-    private HashMap<String, String> siteBgColor = new HashMap<String, String>();
-    private HashMap<String, String> CurrentSiteMap = new HashMap<String, String>();
-
    private void appendTooltipLine(StringBuilder tooltip, String labelHtml, String value) {
     if (value == null) return;
     String trimmedValue = value.trim(); 
@@ -172,25 +167,35 @@
   }
 %>
 <%
+    // Multisite state belongs to this request only. These are locals of the page's service method: a JSP
+    // declaration would make them fields of the one servlet instance that every login shares.
+    boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
+    List<Site> sites = new ArrayList<Site>();
+    List<Site> curUserSites = new ArrayList<Site>();
+    List<String> siteProviderNos = new ArrayList<String>();
+    List<String> siteGroups = new ArrayList<String>();
+    String selectedSite = null;
+    HashMap<String, String> siteBgColor = new HashMap<String, String>();
+    HashMap<String, String> CurrentSiteMap = new HashMap<String, String>();
     if (bMultisites) {
         sites = siteDao.getAllActiveSites();
-        selectedSite = (String) session.getAttribute("site_selected");
+        String siteManagerProviderNo = (String) session.getAttribute("user");
+        if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
+            curUserSites = siteDao.getActiveSitesByProviderNo(siteManagerProviderNo);
+        } else {
+            curUserSites = sites;
+        }
+        // The remembered clinic counts only while it is one this login is offered; anything else is All Clinics.
+        selectedSite = io.github.carlos_emr.carlos.commn.SiteChoice.offeredOrNull(
+                (String) session.getAttribute("site_selected"), curUserSites);
 
         if (selectedSite != null) {
             //get site providers list
             siteProviderNos = siteDao.getProviderNoBySiteLocation(selectedSite);
             siteGroups = siteDao.getGroupBySiteLocation(selectedSite);
-        }
-
-        if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
-            String siteManagerProviderNo = (String) session.getAttribute("user");
-            curUserSites = siteDao.getActiveSitesByProviderNo(siteManagerProviderNo);
-            if (selectedSite == null) {
-                siteProviderNos = siteDao.getProviderNoBySiteManagerProviderNo(siteManagerProviderNo);
-                siteGroups = siteDao.getGroupBySiteManagerProviderNo(siteManagerProviderNo);
-            }
-        } else {
-            curUserSites = sites;
+        } else if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
+            siteProviderNos = siteDao.getProviderNoBySiteManagerProviderNo(siteManagerProviderNo);
+            siteGroups = siteDao.getGroupBySiteManagerProviderNo(siteManagerProviderNo);
         }
 
         for (Site s : curUserSites) {
@@ -403,7 +408,7 @@
         java.util.ResourceBundle prop = ResourceBundle.getBundle("oscarResources", request.getLocale());
         formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), prop.getString("date.EEEyyyyMMdd"), request.getLocale());
     } catch (Exception e) {
-        MiscUtils.getLogger().error("appointmentprovideradminday: missing 'date.EEEyyyyMMdd' bundle key for locale {}; falling back to default format",
+        MiscUtils.getLogger().error("appointmentprovideradminday: missing or invalid 'date.EEEyyyyMMdd' date pattern for locale {}; falling back to default format",
                 request.getLocale(), e);
         // The fallback parse can itself throw ParseException (same parser, same input).
         // Use the literal strDate as a final fallback so the page still renders
@@ -1095,9 +1100,9 @@
 
 
                             <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                                <security:oscarSec roleName="<%=roleName$%>"
-                                                   objectName="_admin,_admin.userAdmin,_admin.schedule,_admin.billing,_admin.resource,_admin.reporting,_admin.backup,_admin.messenger,_admin.eform,_admin.encounter,_admin.misc,_admin.fax,_admin.flowsheet"
-                                                   rights="r">
+                                <%-- One oscarSec tag per object: see administration-menu-gate.jspf (issues #4238, #4623). --%>
+                                <%@ include file="/WEB-INF/jspf/administration-menu-gate.jspf" %>
+                                <c:if test="${canOpenAdministration}">
 
                                     <li id="admin2">
                                         <a href="javascript:void(0)" id="admin-panel"
@@ -1105,7 +1110,7 @@
                                        onclick="return openScheduleSection('<%=scheduleAdministrationUrlForJsAttribute%>', function(u){ newWindow(u,'admin'); }, event);"><fmt:message key="provider.mainMenu.administration"/></a>
                                     </li>
 
-                                </security:oscarSec>
+                                </c:if>
                             </caisi:isModuleLoad>
 
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_dashboardDisplay" rights="r">
@@ -1453,15 +1458,15 @@
                                         </script>
 
                                         <select id="site" name="site" onchange="changeSite(this)"
-                                                style="background-color: <%=( selectedSite == null || siteBgColor.get(selectedSite) == null ? "#FFFFFF" : siteBgColor.get(selectedSite))%>">
+                                                style="background-color: <carlos:encode value='<%= io.github.carlos_emr.carlos.commn.SiteChoice.cssColor(selectedSite == null ? null : siteBgColor.get(selectedSite), "#FFFFFF") %>' context="htmlAttribute"/>">
                                             <option value="none" style="background-color:white"><fmt:message key="provider.appointmentprovideradminmonth.formAllClinics"/></option>
                                             <%
                                                 for (int i = 0; i < curUserSites.size(); i++) {
                                             %>
-                                            <option value="<%=curUserSites.get(i).getName()%>"
-                                                    style="background-color:<%=curUserSites.get(i).getBgColor()%>"
+                                            <option value="<carlos:encode value='<%= curUserSites.get(i).getName() %>' context="htmlAttribute"/>"
+                                                    style="background-color:<carlos:encode value='<%= io.github.carlos_emr.carlos.commn.SiteChoice.cssColor(curUserSites.get(i).getBgColor(), "") %>' context="htmlAttribute"/>"
                                                     <%=(curUserSites.get(i).getName().equals(selectedSite)) ? " selected " : ""%> >
-                                                <%=curUserSites.get(i).getName()%>
+                                                <carlos:encode value='<%= curUserSites.get(i).getName() %>'/>
                                             </option>
                                             <%
                                                 }
@@ -1633,7 +1638,7 @@
                                     try {
                                         formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), wdProp.getString("date.EEEyyyyMMdd"), request.getLocale());
                                     } catch (Exception e) {
-                                        MiscUtils.getLogger().error("appointmentprovideradminday weekday loop: missing 'date.EEEyyyyMMdd' bundle key for locale {}; falling back to default format",
+                                        MiscUtils.getLogger().error("appointmentprovideradminday weekday loop: missing or invalid 'date.EEEyyyyMMdd' date pattern for locale {}; falling back to default format",
                                                 request.getLocale(), e);
                                         try {
                                             formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), "EEE, yyyy-MM-dd");
@@ -1956,6 +1961,8 @@
                                                               String name = ".";
                                                               if (demographic_no != 0) {
                                                                   demographic = demographicManager.getDemographic(loggedInInfo1, demographic_no);
+                                                              }
+                                                              if (demographic != null) {
                                                                   StringBuilder nameBuilder = new StringBuilder();
 																  nameBuilder.append(UtilMisc.toUpperLowerCase(demographic.getLastName()))
 																  .append(", ")
@@ -2092,8 +2099,11 @@
                                                         nowrap>
                                                         <!-- multisites : add colour-coded to the "location" value of that appointment. -->
                                                         <%if (bMultisites) {%>
-                                                        <span title="<%= sitename %>"
-                                                              style="background-color:<%=siteBgColor.get(sitename)%>;">&nbsp;</span>|
+                                                        <span title="<carlos:encode value='<%= sitename %>' context="htmlAttribute"/>"
+                                                              style="background-color:<carlos:encode value='<%= io.github.carlos_emr.carlos.commn.SiteChoice.cssColor(siteBgColor.get(sitename), "") %>' context="htmlAttribute"/>;">&nbsp;</span>|
+                                                        <%} else if (appointmentLocations.chipItemFor(appointment) != null) {%>
+                                                        <%-- The Location List chip (#3982): no chip in a site setup, which marks its own. --%>
+                                                        <appt:locationChip item="<%= appointmentLocations.chipItemFor(appointment) %>" label="<%= appointment.getLocation() %>"/>
                                                         <%} %>
 
                                                         <%
@@ -2350,14 +2360,14 @@
                                                                 if (status.indexOf('B') == -1) {
                                                             %>
                                                             &#124; <a href=#
-                                                                      onClick='popupPage(800,1200, "<%=request.getContextPath()%>/billing?billRegion=<%=URLEncoder.encode(prov, StandardCharsets.UTF_8)%>&billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8)%>&hotclick=<%=URLEncoder.encode("", StandardCharsets.UTF_8)%>&appointment_no=<%=appointment.getId()%>&demographic_name=<%=URLEncoder.encode(name, StandardCharsets.UTF_8)%>&status=<%=status%>&demographic_no=<%=demographic_no%>&providerview=<%=curProvider_no[nProvider]%>&user_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&apptProvider_no=<%=curProvider_no[nProvider]%>&xml_provider=<%=curProvider_no[nProvider]%>&appointment_date=<%=year+"-"+month+"-"+day%>&start_time=<%=start_time%>&bNewForm=1");return false;'
+                                                                      onClick='popupPage(800,1200, "<%=request.getContextPath()%>/billing?billRegion=<%=URLEncoder.encode(prov, StandardCharsets.UTF_8)%>&billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8)%>&hotclick=<%=URLEncoder.encode("", StandardCharsets.UTF_8)%>&appointment_no=<%=appointment.getId()%>&status=<%=status%>&demographic_no=<%=demographic_no%>&providerview=<%=curProvider_no[nProvider]%>&user_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&apptProvider_no=<%=curProvider_no[nProvider]%>&xml_provider=<%=curProvider_no[nProvider]%>&appointment_date=<%=year+"-"+month+"-"+day%>&start_time=<%=start_time%>&bNewForm=1");return false;'
                                                                       title="<fmt:message key="global.billingtag"/>"><fmt:message key="provider.appointmentProviderAdminDay.btnB"/></a>
                                                             <%
                                                             } else {
                                                                 if (caisiBillingPreferenceNotDelete != null && caisiBillingPreferenceNotDelete.equals("1")) {
                                                             %>
                                                             &#124; <a href=#
-                                                                      onClick='onUpdatebill("<%= request.getContextPath() %>/billing/CA/ON/BillingEditWithApptNo?billRegion=<%=URLEncoder.encode(prov, StandardCharsets.UTF_8)%>&billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8)%>&hotclick=<%=URLEncoder.encode("", StandardCharsets.UTF_8)%>&appointment_no=<%=appointment.getId()%>&demographic_name=<%=URLEncoder.encode(name, StandardCharsets.UTF_8)%>&status=<%=status%>&demographic_no=<%=demographic_no%>&providerview=<%=curProvider_no[nProvider]%>&user_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&apptProvider_no=<%=curProvider_no[nProvider]%>&appointment_date=<%=year+"-"+month+"-"+day%>&start_time=<%=iS+":"+iSm%>&bNewForm=1");return false;'
+                                                                      onClick='onUpdatebill("<%= request.getContextPath() %>/billing/CA/ON/BillingEditWithApptNo?billRegion=<%=URLEncoder.encode(prov, StandardCharsets.UTF_8)%>&billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8)%>&hotclick=<%=URLEncoder.encode("", StandardCharsets.UTF_8)%>&appointment_no=<%=appointment.getId()%>&status=<%=status%>&demographic_no=<%=demographic_no%>&providerview=<%=curProvider_no[nProvider]%>&user_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&apptProvider_no=<%=curProvider_no[nProvider]%>&appointment_date=<%=year+"-"+month+"-"+day%>&start_time=<%=iS+":"+iSm%>&bNewForm=1");return false;'
                                                                       title="<fmt:message key="global.billingtag"/>">=<fmt:message key="provider.appointmentProviderAdminDay.btnB"/></a>
                                                             <%
                                                             } else {

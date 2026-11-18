@@ -41,13 +41,19 @@ import java.util.Set;
 public enum PortalJob {
 
     /** Lists patients' picks of offered times and reports whether CARLOS booked them. */
-    BOOKING_SYNC("booking-sync", Set.of(PortalJob.PERMISSION_BOOKING_PROMPT_SYNC));
+    BOOKING_SYNC("booking-sync", Set.of(PortalJob.PERMISSION_BOOKING_PROMPT_SYNC)),
+
+    /** Publishes the clinic's complete document-signing public key inventory. */
+    KEY_PUBLISH("key-publish", Set.of(PortalJob.PERMISSION_CLINIC_KEYS_PUBLISH));
 
     /**
      * List patients' picks of offered times and report whether they were booked. Only a job holds
      * it: the portal refuses a staff assertion that carries it, on every route.
      */
     public static final String PERMISSION_BOOKING_PROMPT_SYNC = "portal.booking_prompt.sync";
+
+    /** Publish public signing keys; staff callers never hold this job-only permission. */
+    public static final String PERMISSION_CLINIC_KEYS_PUBLISH = "portal.mycarlos.clinic_keys.publish";
 
     private static final String PROPERTY_PREFIX = "patient_portal.job.";
 

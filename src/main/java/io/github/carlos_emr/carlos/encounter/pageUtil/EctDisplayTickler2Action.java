@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
@@ -49,7 +50,7 @@ public class EctDisplayTickler2Action extends EctDisplayAction {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = getLoggedInInfo(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", null)) {
             return true; //The link of tickler won't show up on new CME screen.
@@ -95,6 +96,9 @@ public class EctDisplayTickler2Action extends EctDisplayAction {
 
                 itemHeader = StringUtils.maxLenString(t.getMessage(), MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
                 item.setLinkTitle(priority + ": " + itemHeader + " " + DateUtils.formatDate(serviceDate, request.getLocale()));
+                // Titles contain application formatting and are printed as HTML by the navbar.
+                // Encode the stored message before adding the priority flag and bold wrapper.
+                itemHeader = SafeEncode.forHtmlContent(itemHeader);
                 if (priority.equals("HIGH")) {
                     flag = "<span style='color:red'>&#9873;</span> ";
                     itemHeader = "<b>" + itemHeader + "</b>";

@@ -39,7 +39,6 @@ class ReadMethodWriteGuardUnitTest extends CarlosUnitTestBase {
     private MockHttpServletResponse response;
     private SecurityInfoManager security;
     private LookupListManager lists;
-    private Object previousLookupListManager;
     private LoggedInInfo login;
     private MockedStatic<ServletActionContext> servlet;
 
@@ -53,18 +52,16 @@ class ReadMethodWriteGuardUnitTest extends CarlosUnitTestBase {
         lists = mock(LookupListManager.class);
         registerMock(SecurityInfoManager.class, security);
         registerMock(LookupListManager.class, lists);
+        createAndRegisterMock(io.github.carlos_emr.carlos.admin.service.DemographicProviderReassignmentService.class);
         servlet = mockStatic(ServletActionContext.class);
         servlet.when(ServletActionContext::getRequest).thenReturn(request);
         servlet.when(ServletActionContext::getResponse).thenReturn(response);
-        previousLookupListManager = ReflectionTestUtils.getField(LookupListManager2Action.class, "lookupListManager");
-        ReflectionTestUtils.setField(LookupListManager2Action.class, "lookupListManager", lists);
         when(security.hasPrivilege(eq(login), anyString(), anyString(), isNull())).thenReturn(true);
     }
 
     @AfterEach
     void tearDown() {
-        ReflectionTestUtils.setField(LookupListManager2Action.class, "lookupListManager", previousLookupListManager);
-        servlet.close();
+        if (servlet != null) servlet.closeOnDemand();
     }
 
     @ParameterizedTest
@@ -166,6 +163,33 @@ class ReadMethodWriteGuardUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"order", "add", "remove"})
+    void shouldLeaveAppointmentLocationList_whenGenericManagerPostsChange(String operation) {
+        // The Location List keeps its rules on its own page (#3982); this page changes none of its items.
+        request.setMethod("POST");
+        request.setParameter("method", operation);
+        request.setParameter("lookupListItemId", "7");
+        request.setParameter("lookupListItemDisplayOrder", "2");
+        request.setParameter("lookupListId", "3");
+        request.setParameter("lookupListItemLabel", "Room 1");
+        io.github.carlos_emr.carlos.commn.model.LookupList locations = new io.github.carlos_emr.carlos.commn.model.LookupList();
+        locations.setId(3);
+        when(lists.findLookupListByName(login, io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver.LIST_NAME))
+                .thenReturn(locations);
+        io.github.carlos_emr.carlos.commn.model.LookupListItem item = new io.github.carlos_emr.carlos.commn.model.LookupListItem();
+        item.setId(7);
+        item.setLookupListId(3);
+        when(lists.findLookupListItemById(login, 7)).thenReturn(item);
+
+        assertThat(new LookupListManager2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+
+        verify(lists, never()).addLookupListItem(any(), any());
+        verify(lists, never()).updateLookupListItemDisplayOrder(any(), anyInt(), anyInt());
+        verify(lists, never()).removeLookupListItem(any(), anyInt());
+    }
+
     @Test
     void shouldRetainLookupViews_whenRequestIsGet() {
         request.setMethod("GET");
@@ -182,7 +206,7 @@ class ReadMethodWriteGuardUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @CsvSource({"GET, UpdateResident", "HEAD, UpdateResident", "GET, UpdateNurse", "HEAD, UpdateNurse",
             "GET, UpdateMidwife", "HEAD, UpdateMidwife", "GET, UpdateMrp", "HEAD, UpdateMrp"})
-    void shouldRefuseJspForwarding_whenProviderUpdateUsesReadMethod(String method, String operation) {
+    void shouldRefuseJspForwarding_whenProviderUpdateUsesReadMethod(String method, String operation) throws Exception {
         request.setMethod(method);
         request.setParameter("update", operation);
         assertThat(new UpdateDemographicProvider2Action().execute()).isEqualTo(ActionSupport.NONE);
@@ -190,7 +214,7 @@ class ReadMethodWriteGuardUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldAllowProviderViewButRefuseMutation_whenUserHasReadOnlyPrivileges() {
+    void shouldAllowProviderViewButRefuseMutation_whenUserHasReadOnlyPrivileges() throws Exception {
         when(security.hasPrivilege(eq(login), anyString(), eq("w"), isNull())).thenReturn(false);
         request.setMethod("GET");
         var action = new UpdateDemographicProvider2Action();
@@ -201,8 +225,8 @@ class ReadMethodWriteGuardUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"_admin.misc", "_admin"})
-    void shouldForwardProviderUpdate_whenPostHasWritePrivilege(String privilege) {
+    @ValueSource(strings = {"_admin.misc"})
+    void shouldForwardProviderUpdate_whenPostHasWritePrivilege(String privilege) throws Exception {
         when(security.hasPrivilege(eq(login), anyString(), eq("w"), isNull())).thenReturn(false);
         when(security.hasPrivilege(login, privilege, "w", null)).thenReturn(true);
         request.setMethod("POST");

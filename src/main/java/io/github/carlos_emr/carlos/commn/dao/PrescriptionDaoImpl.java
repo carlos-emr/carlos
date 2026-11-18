@@ -22,13 +22,12 @@
  * Toronto, Ontario, Canada
  * <p>
  * Modifications made by Magenta Health in 2024.
- 
+ *
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
-
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.Date;
@@ -42,6 +41,66 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class PrescriptionDaoImpl extends AbstractDaoImpl<Prescription> implements PrescriptionDao {
 
+    @Override
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<
+                    io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column>
+            readCdsExportReceiptColumns() {
+        return CdsExportNativeMetadataReadSupport.read(
+                entityManager, CdsExportNativeMetadataReadSupport.Table.PRESCRIPTIONS);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto
+            readCdsExportSourceSchema() {
+        return CdsExportPatientTableReadSupport.schema(
+                entityManager, CdsExportPatientTableReadSupport.Plan.PRESCRIPTIONS);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportRows(int patient) {
+        return CdsExportPatientTableReadSupport.count(
+                entityManager, CdsExportPatientTableReadSupport.Plan.PRESCRIPTIONS, patient);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto>
+            findCdsExportRowsAfter(int patient, Long afterId, int limit) {
+        return CdsExportPatientTableReadSupport.page(
+                entityManager,
+                CdsExportPatientTableReadSupport.Plan.PRESCRIPTIONS,
+                patient,
+                afterId,
+                limit);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportValueChunk(
+            int patient, long rowId, String column, long offset, int length) {
+        return CdsExportPatientTableReadSupport.chunk(
+                entityManager,
+                CdsExportPatientTableReadSupport.Plan.PRESCRIPTIONS,
+                patient,
+                rowId,
+                column,
+                offset,
+                length);
+    }
+
     public PrescriptionDaoImpl() {
         super(Prescription.class);
     }
@@ -49,7 +108,8 @@ public class PrescriptionDaoImpl extends AbstractDaoImpl<Prescription> implement
     @Override
     public List<Prescription> findByDemographicId(Integer demographicId) {
 
-        String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where x.demographicId=?1";
+        String sqlCommand =
+                "select x from " + modelClass.getSimpleName() + " x where x.demographicId=?1";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, demographicId);
@@ -60,8 +120,12 @@ public class PrescriptionDaoImpl extends AbstractDaoImpl<Prescription> implement
     }
 
     @Override
-    public List<Prescription> findByDemographicIdUpdatedAfterDate(Integer demographicId, Date afterThisDate) {
-        String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where x.demographicId=?1 and x.lastUpdateDate>=?2";
+    public List<Prescription> findByDemographicIdUpdatedAfterDate(
+            Integer demographicId, Date afterThisDate) {
+        String sqlCommand =
+                "select x from "
+                        + modelClass.getSimpleName()
+                        + " x where x.demographicId=?1 and x.lastUpdateDate>=?2";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, demographicId);
@@ -73,8 +137,12 @@ public class PrescriptionDaoImpl extends AbstractDaoImpl<Prescription> implement
     }
 
     @Override
-    public List<Prescription> findByDemographicIdUpdatedAfterDateExclusive(Integer demographicId, Date afterThisDate) {
-        String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where x.demographicId=?1 and x.lastUpdateDate>?2";
+    public List<Prescription> findByDemographicIdUpdatedAfterDateExclusive(
+            Integer demographicId, Date afterThisDate) {
+        String sqlCommand =
+                "select x from "
+                        + modelClass.getSimpleName()
+                        + " x where x.demographicId=?1 and x.lastUpdateDate>?2";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, demographicId);
@@ -87,7 +155,10 @@ public class PrescriptionDaoImpl extends AbstractDaoImpl<Prescription> implement
 
     @Override
     public int updatePrescriptionsByScriptNo(Integer scriptNo, String comment) {
-        Query query = entityManager.createQuery("UPDATE Prescription p SET p.comments = ?1 WHERE p.id = ?2");
+        Query query =
+                entityManager.createQuery(
+                        "UPDATE Prescription p SET p.comments = ?1, p.rowVersion = p.rowVersion + 1"
+                                + " WHERE p.id = ?2");
         query.setParameter(1, comment);
         query.setParameter(2, scriptNo);
         return query.executeUpdate();
@@ -96,8 +167,11 @@ public class PrescriptionDaoImpl extends AbstractDaoImpl<Prescription> implement
     @Override
     public boolean hasExactComments(Integer scriptNo, String comment) {
         @SuppressWarnings("unchecked")
-        List<String> stored = entityManager.createQuery("SELECT p.comments FROM Prescription p WHERE p.id = ?1")
-                .setParameter(1, scriptNo).getResultList();
+        List<String> stored =
+                entityManager
+                        .createQuery("SELECT p.comments FROM Prescription p WHERE p.id = ?1")
+                        .setParameter(1, scriptNo)
+                        .getResultList();
         // Compare literal clinical text in Java, independent of case-insensitive database
         // collation or trailing-space equality. An absent row is never an idempotent success.
         return stored.size() == 1 && java.util.Objects.equals(stored.get(0), comment);
@@ -107,9 +181,12 @@ public class PrescriptionDaoImpl extends AbstractDaoImpl<Prescription> implement
      * @return results ordered by lastUpdateDate
      */
     @Override
-    public List<Prescription> findByUpdateDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
-        String sqlCommand = "select x from " + modelClass.getSimpleName()
-                + " x where x.lastUpdateDate>?1 order by x.lastUpdateDate";
+    public List<Prescription> findByUpdateDate(
+            Date updatedAfterThisDateExclusive, int itemsToReturn) {
+        String sqlCommand =
+                "select x from "
+                        + modelClass.getSimpleName()
+                        + " x where x.lastUpdateDate>?1 order by x.lastUpdateDate";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, updatedAfterThisDateExclusive);
@@ -124,9 +201,16 @@ public class PrescriptionDaoImpl extends AbstractDaoImpl<Prescription> implement
      * @return results ordered by lastUpdateDate asc
      */
     @Override
-    public List<Prescription> findByProviderDemographicLastUpdateDate(String providerNo, Integer demographicId,
-                                                                      Date updatedAfterThisDateExclusive, int itemsToReturn) {
-        String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where x.demographicId=?1 and x.providerNo=?2 and x.lastUpdateDate>?3 order by x.lastUpdateDate";
+    public List<Prescription> findByProviderDemographicLastUpdateDate(
+            String providerNo,
+            Integer demographicId,
+            Date updatedAfterThisDateExclusive,
+            int itemsToReturn) {
+        String sqlCommand =
+                "select x from "
+                        + modelClass.getSimpleName()
+                        + " x where x.demographicId=?1 and x.providerNo=?2 and x.lastUpdateDate>?3"
+                        + " order by x.lastUpdateDate";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, demographicId);
@@ -138,5 +222,4 @@ public class PrescriptionDaoImpl extends AbstractDaoImpl<Prescription> implement
         List<Prescription> results = query.getResultList();
         return (results);
     }
-
 }

@@ -42,3 +42,34 @@ test('restricted layouts without Add or Repeat controls still keep Paste hidden'
     assert.doesNotThrow(() => f.refresh(false));
     assert.equal(f.buttons.pasteButton.style.display, 'none');
 });
+
+const localeMatch = jsp.match(/^([ \t]*)function locale\(\) \{[\s\S]*?^\1\}/m);
+assert.ok(localeMatch, 'Expected location styling initializer in addappointment.jsp');
+const onloadMatch = jsp.match(/<body onLoad="([^"]+)"/);
+assert.ok(onloadMatch, 'Expected Add Appointment onload handler');
+function initializeLocation(location) {
+    const called = [];
+    const context = vm.createContext({ document: { forms: { ADDAPPT: { location } } },
+        setfocus: () => called.push('focus'), moveAppt: () => called.push('move'),
+        updateTime: () => called.push('time') });
+    vm.runInContext(localeMatch[0], context);
+    vm.runInContext(onloadMatch[1], context);
+    return called;
+}
+
+test('a provider without assigned active sites can initialize Add Appointment', () => {
+    const location = { nodeName: 'SELECT', selectedIndex: -1, options: [], style: { backgroundColor: 'white' } };
+    assert.deepEqual(initializeLocation(location), ['focus', 'move', 'time']);
+    assert.equal(location.style.backgroundColor, 'white');
+});
+test('Add Appointment colors the selected site rather than another site', () => {
+    const location = { nodeName: 'SELECT', selectedIndex: 1,
+        options: [{ style: { backgroundColor: 'red' } }, { style: { backgroundColor: 'blue' } }], style: {} };
+    initializeLocation(location);
+    assert.equal(location.style.backgroundColor, 'blue');
+});
+test('free-text appointment locations initialize without select options', () => {
+    const location = { nodeName: 'INPUT', style: { backgroundColor: 'white' } };
+    assert.doesNotThrow(() => initializeLocation(location));
+    assert.equal(location.style.backgroundColor, 'white');
+});

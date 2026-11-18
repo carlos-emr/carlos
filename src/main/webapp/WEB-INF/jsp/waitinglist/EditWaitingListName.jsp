@@ -28,6 +28,30 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose:
+        Waiting-list name editor: create, rename and delete the waiting lists of the
+        logged-in provider's schedule group.
+
+    Features:
+        Three forms (rename, create, delete) post to waitinglist/WLEditWaitingListNameAction
+        with actionChosen set to change, create or remove. The action requires POST and
+        _demographic write for any of them; showing this page needs _demographic read.
+        Lists come from WLWaitingListNameBeanHandler for the session's group, so only
+        that group's current lists can be renamed or deleted.
+        Shows the action's outcome message (a resource key) above the forms.
+        Opened from the waiting-list manager's "Create List" link
+        (Report > Waiting List).
+        List names go through the CARLOS encoder.
+
+    Parameters:
+        Form fields: actionChosen, selectedWL + wlChangedName (rename), wlNewName (create),
+        selectedWL2 (delete). Request attributes: message (outcome key) and WLId
+        (list to preselect).
+
+    @since 2026-04-15 at this WEB-INF path (#1674); the page predates CARLOS
+        (its header is dated 2007).
+--%>
 <!DOCTYPE html>
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -39,6 +63,7 @@
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBean" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <html>
     <head>
@@ -113,7 +138,7 @@
                                         String name = wLBean.getWaitingListName();
                                         String selected = id.compareTo((String) request.getAttribute("WLId") == null ? "0" : (String) request.getAttribute("WLId")) == 0 ? "SELECTED" : "";
                                 %>
-                                <option value="<%=id%>" <%=selected%>><%=name%>
+                                <option value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>" <%=selected%>><carlos:encode value='<%= name %>'/>
                                 </option>
                                 <%}%>
                             </select>
@@ -148,7 +173,7 @@
                                         String name = wLBean.getWaitingListName();
                                         String selected = id.compareTo((String) request.getAttribute("WLId") == null ? "0" : (String) request.getAttribute("WLId")) == 0 ? "SELECTED" : "";
                                 %>
-                                <option value="<%=id%>" <%=selected%>><%=name%>
+                                <option value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>" <%=selected%>><carlos:encode value='<%= name %>'/>
                                 </option>
                                 <%}%>
                             </select>

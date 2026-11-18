@@ -1,0 +1,13 @@
+/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const {nextIdentity}=require('./lib/populated-merge-fixture');
+const {assertExclusiveRows,moduleLedger,preflightConfig}=require('./demographic-merge-clinical-history-playwright-checks');
+function sqlFixture({invalid=0,maximum=910,refs=[['old_reference','note_id']]}={}){return {rows:()=>refs,value:query=>query.includes('COUNT(*)')?String(invalid):String(maximum)};}
+test('clinical identity reservation includes dangling reference maxima',()=>assert.equal(nextIdentity(sqlFixture(),'casemgmt_note','note_id','noteid'),911));
+for(const value of [-1,2147483600,Number.MAX_SAFE_INTEGER,NaN])test('clinical allocator refuses unsafe maximum '+value,()=>assert.throws(()=>nextIdentity(sqlFixture({maximum:value}),'casemgmt_note','note_id','noteid')));
+test('clinical allocator refuses unfamiliar legacy namespace',()=>assert.throws(()=>nextIdentity(sqlFixture({invalid:1}),'casemgmt_note','note_id','noteid'),/Unfamiliar/));
+test('clinical allocator refuses unsafe discovered SQL identifier',()=>assert.throws(()=>nextIdentity(sqlFixture({refs:[['unsafe;table','note_id']]}),'casemgmt_note','note_id','noteid'),/Unsafe/));
+test('clinical view oracle compares exact multiplicity without depending on display order',()=>{assertExclusiveRows(['2','1'],['1','2'],'test');for(const actual of [['1'],['1','1'],['1','2','3']])assert.throws(()=>assertExclusiveRows(actual,['1','2'],'test'));});
+test('every module failure survives later success and is fatal at final judgement',async()=>{const ledger=moduleLedger();await ledger.check('notes',()=>{throw Error('missing signed revision');});await ledger.check('allergies',()=>{});await ledger.check('documents',()=>{throw Error('foreign source');});assert.throws(()=>ledger.finish(),error=>error instanceof AggregateError&&error.errors.length===2&&/notes/.test(error.message)&&/documents/.test(error.message));});
+test('populated merge cannot enter a shared host without both disposable and exclusive settings',()=>{const old={host:process.env.CARLOS_DISPOSABLE_HOST,exclusive:process.env.EXCLUSIVE};try{for(const [host,exclusive] of [['true','0'],['false','1'],['1','1']]){process.env.CARLOS_DISPOSABLE_HOST=host;process.env.EXCLUSIVE=exclusive;assert.throws(preflightConfig);}process.env.CARLOS_DISPOSABLE_HOST='true';process.env.EXCLUSIVE='1';preflightConfig();}finally{for(const [key,value] of [['CARLOS_DISPOSABLE_HOST',old.host],['EXCLUSIVE',old.exclusive]])if(value===undefined)delete process.env[key];else process.env[key]=value;}});

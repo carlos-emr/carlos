@@ -31,7 +31,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.EFormDao" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -524,7 +524,7 @@
                             <select id="specType" name="specType" class="form-select">
                                 <option value="0" selected>&nbsp;</option>
                                 <c:forEach items="${ specialties }" var="specialtyType">
-                                    <option value="${ specialtyType.serviceId }" ${ specialtyType.serviceId eq specType ? 'selected' : '' }>
+                                    <option value="${ specialtyType.serviceId }" ${ specialtyType.serviceId.toString() eq specType ? 'selected' : '' }>
                                         ${carlos:forHtml(specialtyType.serviceDesc)}
                                     </option>
                                 </c:forEach>

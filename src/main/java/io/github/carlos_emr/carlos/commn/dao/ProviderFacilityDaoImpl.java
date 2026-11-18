@@ -46,6 +46,13 @@ public class ProviderFacilityDaoImpl extends AbstractDaoImpl<ProviderFacility> i
     }
 
     @Override
+    public long countByProviderAndFacility(String providerNo, int facilityId) {
+        return entityManager.createQuery("SELECT count(x) FROM ProviderFacility x "
+                + "WHERE x.id.providerNo=:provider AND x.id.facilityId=:facility", Long.class)
+                .setParameter("provider", providerNo).setParameter("facility", facilityId).getSingleResult();
+    }
+
+    @Override
     public List<ProviderFacility> findByProviderNoAndFacilityId(String providerNo, int facilityId) {
         Query q = entityManager.createQuery("SELECT x FROM ProviderFacility x WHERE x.id.providerNo=?1 AND x.id.facilityId=?2");
         q.setParameter(1, providerNo);

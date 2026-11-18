@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
 @Entity
 @Table(name = "wcb")
+@org.hibernate.annotations.DynamicUpdate
 public class Wcb extends AbstractModel<Integer> {
 
     @Id
@@ -61,9 +62,11 @@ public class Wcb extends AbstractModel<Integer> {
     private int providerNo;
 
     @Temporal(TemporalType.TIMESTAMP)
+    @org.hibernate.annotations.ColumnTransformer(read = "CASE WHEN CAST(formCreated AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE formCreated END")
     private Date formCreated;
 
     @Temporal(TemporalType.TIMESTAMP)
+    @org.hibernate.annotations.ColumnTransformer(read = "CASE WHEN CAST(formEdited AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE formEdited END")
     private Date formEdited;
 
     @Column(name = "w_reporttype")
@@ -86,6 +89,7 @@ public class Wcb extends AbstractModel<Integer> {
 
     @Temporal(TemporalType.DATE)
     @Column(name = "w_dob")
+    @org.hibernate.annotations.ColumnTransformer(read = "CASE WHEN CAST(w_dob AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE w_dob END")
     private Date dob;
 
     @Column(name = "w_address")
@@ -127,14 +131,16 @@ public class Wcb extends AbstractModel<Integer> {
     @Column(name = "w_rphysician")
     private String rPhysician;
 
+    // Nullable column (tinyint): an Integer, so a NULL row loads instead of failing the whole query (#4864).
     @Column(name = "w_duration")
-    private int duration;
+    private Integer duration;
 
     @Column(name = "w_problem")
     private String problem;
 
     @Temporal(TemporalType.DATE)
     @Column(name = "w_servicedate")
+    @org.hibernate.annotations.ColumnTransformer(read = "CASE WHEN CAST(w_servicedate AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE w_servicedate END")
     private Date serviceDate;
 
     @Column(name = "w_diagnosis")
@@ -157,6 +163,7 @@ public class Wcb extends AbstractModel<Integer> {
 
     @Temporal(TemporalType.DATE)
     @Column(name = "w_workdate")
+    @org.hibernate.annotations.ColumnTransformer(read = "CASE WHEN CAST(w_workdate AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE w_workdate END")
     private Date workDate;
 
     @Column(name = "w_clinicinfo")
@@ -185,6 +192,7 @@ public class Wcb extends AbstractModel<Integer> {
 
     @Temporal(TemporalType.DATE)
     @Column(name = "w_estimatedate")
+    @org.hibernate.annotations.ColumnTransformer(read = "CASE WHEN CAST(w_estimatedate AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE w_estimatedate END")
     private Date estimateDate;
 
     @Column(name = "w_tofollow")
@@ -198,6 +206,7 @@ public class Wcb extends AbstractModel<Integer> {
 
     @Temporal(TemporalType.DATE)
     @Column(name = "w_doi")
+    @org.hibernate.annotations.ColumnTransformer(read = "CASE WHEN CAST(w_doi AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE w_doi END")
     private Date doi;
 
     private String status;
@@ -211,7 +220,8 @@ public class Wcb extends AbstractModel<Integer> {
     @Column(name = "w_servicelocation")
     private String serviceLocation;
 
-    private int formNeeded;
+    // Nullable column (int(1)): an Integer, so a NULL row loads instead of failing the whole query (#4864).
+    private Integer formNeeded;
 
     public Integer getId() {
         return id;
@@ -421,8 +431,9 @@ public class Wcb extends AbstractModel<Integer> {
         this.rPhysician = rPhysician;
     }
 
+    /** @return the duration code, or 0 when the column is NULL (not chosen) */
     public int getDuration() {
-        return duration;
+        return duration == null ? 0 : duration;
     }
 
     public void setDuration(int duration) {
@@ -637,8 +648,9 @@ public class Wcb extends AbstractModel<Integer> {
         this.serviceLocation = serviceLocation;
     }
 
+    /** @return 1 when a WCB form is needed, 0 otherwise (including a NULL column) */
     public int getFormNeeded() {
-        return formNeeded;
+        return formNeeded == null ? 0 : formNeeded;
     }
 
     public void setFormNeeded(int formNeeded) {

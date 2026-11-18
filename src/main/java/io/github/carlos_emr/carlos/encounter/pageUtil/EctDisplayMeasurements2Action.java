@@ -62,21 +62,21 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = getLoggedInInfo(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", null)) {
             return true; //Messurement link won't show up on new CME screen.
         } else {
 
             String menuId = "3"; //div id for popup menu
-            String roleName$ = request.getSession().getAttribute("userrole") + "," + request.getSession().getAttribute("user");
+            String roleName$ = getRoleNames(request);
 
             //set text for lefthand module title
             Dao.setLeftHeading(getText("encounter.Index.measurements"));
 
             //set link for lefthand module title
             String winName = "measurements" + bean.demographicNo;
-            Dao.setLeftPopup(600, 1000, winName, request.getContextPath() + "/encounter/oscarMeasurements/SetupHistoryIndex");
+            Dao.setLeftPopup(600, 1000, winName, request.getContextPath() + "/encounter/oscarMeasurements/SetupHistoryIndex?demographicNo=" + bean.demographicNo);
 
             String url;
 
@@ -245,7 +245,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
             }
 
             //if there are none, we tell user
-            if (bean.measurementGroupNames.size() == 0) {
+            if (groups.isEmpty()) {
                 // Use addPopUpUrl("") so this no-op entry renders as an empty onclick (not popupPage(0,0,'',''))
                 Dao.addPopUpUrl("");
                 Dao.addPopUpText("None");
@@ -285,7 +285,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
                     //tmp += "<span class=\"measureCol3\">" + formattedDate + "</span><br style=\"clear:both\">";
                     item.setTitle(tmp);
                     item.setDate(date);
-                    item.setURL("popupPage(300,800,'" + hash + "','" + request.getContextPath() + "/encounter/oscarMeasurements/SetupDisplayHistory?type=" + type + "'); return false;");
+                    item.setURL("popupPage(300,800,'" + hash + "','" + request.getContextPath() + "/encounter/oscarMeasurements/SetupDisplayHistory?type=" + type + "&demographicNo=" + bean.demographicNo + "'); return false;");
                     Dao.addItem(item);
                 }
 

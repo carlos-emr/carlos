@@ -30,7 +30,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     response.setHeader("Cache-Control", "no-store");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -51,7 +51,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ page import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="java.lang.*, java.util.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="org.apache.commons.lang3.math.NumberUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
@@ -173,9 +173,11 @@
 	function updatePinComponentsAccess(checked) {
 		let pinCheckbox = document.getElementsByName('b_RemoteLockSet')
 		let pinConfCheckbox = document.getElementsByName('b_LocalLockSet')
+		let lockMarker = document.getElementsByName('lockFlagsEditable')
 		let pinInput = document.getElementsByName('pin')
 		let pinConfInput = document.getElementsByName('conPin')
 
+		lockMarker[0].disabled = checked;
 		pinCheckbox[0].disabled = checked;
 		pinConfCheckbox[0].disabled = checked;
 		pinInput[0].disabled = checked;
@@ -317,6 +319,10 @@
 
                 <tr>
                     <td align="right" nowrap>
+                        <%-- Posted only while the lock checkboxes are editable (see updatePinComponentsAccess):
+                             an unticked or disabled checkbox is not submitted, so the server needs this to
+                             tell "cleared" from "not editable". --%>
+                        <input type="hidden" name="lockFlagsEditable" value="1" <%=security.isUsingMfa() ? "disabled" : ""%>>
                         <label for="b_RemoteLockSet">
                             <fmt:message key="admin.securityrecord.formRemotePIN"/>:
                         </label>
@@ -409,6 +415,9 @@
                         <input type="hidden" name="securityEditVersion"
                                value="<carlos:encode value='<%= isDraft ? java.util.Objects.toString(request.getParameter(SecurityEditVersion.PARAMETER), "") : SecurityEditVersion.of(security) %>' context="htmlAttribute"/>">
                         <input type="hidden" name="security_no" value="<carlos:encode value='<%= String.valueOf(security.getSecurityNo()) %>' context="htmlAttribute"/>">
+                        <%-- The version of the login this form shows (SecurityEditVersion): a save from a form
+                             opened before another save changed the login is refused instead of undoing it. --%>
+                        <input type="hidden" name="<%= SecurityEditVersion.PARAMETER %>" value="<carlos:encode value='<%= SecurityEditVersion.of(security) %>' context="htmlAttribute"/>">
                         <input type="submit" name="subbutton"
                                value='<fmt:message key="admin.securityupdatesecurity.btnSubmit"/>'>
                         <% if (!isDraft) { %>

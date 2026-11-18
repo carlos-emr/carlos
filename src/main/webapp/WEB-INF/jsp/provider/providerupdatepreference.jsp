@@ -52,11 +52,11 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="java.sql.*, java.util.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -119,7 +119,17 @@
 
             String selected_site = (String) request.getParameter("site");
             if (selected_site != null) {
-                session.setAttribute("site_selected", (selected_site.equals("none") ? null : selected_site));
+                // Only a clinic this login's clinic selector offers may be remembered: every active site, or under
+                // site or team access privacy the login's own. Anything else, "none" included, is All Clinics.
+                String offeredSite = null;
+                if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) {
+                    offeredSite = io.github.carlos_emr.carlos.commn.SiteChoice.offeredOrNull(selected_site,
+                            io.github.carlos_emr.carlos.commn.SiteChoice.offeredSites(
+                                    SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.SiteDao.class),
+                                    loggedInInfo.getLoggedInProviderNo(),
+                                    io.github.carlos_emr.carlos.commn.SiteChoice.hasAccessPrivacy(securityInfoManager, loggedInInfo)));
+                }
+                session.setAttribute("site_selected", offeredSite);
             }
 
             boolean saveSuccess = false;
@@ -149,6 +159,8 @@
                 // Only proceed with saves if there were no validation errors
                 if (errorDetails == null) {
                     // Save all preferences atomically - if any fail, all fail
+                    io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod.validate(
+                            request.getParameter("consultation_time_period_warning"));
                     providerPreference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
                     ProviderPropertyAction.updateOrCreateProviderProperties(request);
 

@@ -41,6 +41,8 @@
 
   Request parameters:
   - demographic_no: Required patient demographic number (validated as integer)
+  - attachmentKey: the key of the compose window the chooser was opened from, posted back with
+    the ticked items so they are staged for that window's message only (issue #4673)
 
   The form posts item KEYS to messenger/Doc2PDF (item=demographic|encounter|prescriptions, or
   previewItem=<key> with isPreview=true) and the server renders each item itself
@@ -49,29 +51,28 @@
   store arbitrary markup as a chart PDF and was refused by the front-door WAF (#4133).
 
   Session dependencies:
-  - msgSessionBean: Message session state management
-  - EctSessionBean: Encounter session for patient context
+  - none for the attachments: they are staged per compose window (MsgAttachmentStaging)
+  (It no longer seeds the login-wide EctSessionBean: the encounter item's print loads its own
+  requested patient, issue #4673.)
 
   @since 2003
 --%>
 
-<%@ page import="java.util.*" %>
-<%@ page import="org.w3c.dom.*" %>
-<%@ page import="java.sql.*" %>
-<%@ page import="io.github.carlos_emr.*" %>
-<%@ page import="java.text.*" %>
+
+
+
+
+
 <%@ page import="java.lang.*" %>
-<%@ page import="java.net.*" %>
+
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.send.*" %>
-<%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
-<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
+
+
+
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachmentStaging" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.EChartDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.EChart" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
@@ -90,7 +91,7 @@
 <fmt:setLocale value="<%= io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="messenger.generatePreviewPDF.information" var="informationLabel"/>
-<fmt:message key="messenger.generatePreviewPDF.encounter" var="encounterLabel"/>
+<fmt:message key="messenger.generatePreviewPDF.historicalEncounter" var="encounterLabel"/>
 <fmt:message key="messenger.generatePreviewPDF.currentPrescriptions" var="currentPrescTitle"/>
 <fmt:message key="messenger.generatePreviewPDF.confirmClose" var="exitConfirmMsg"/>
 
@@ -128,19 +129,13 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
     // Same patient-level gate Doc2PDF applies (it also honours a per-patient _eChart$<id> "o"
-    // restriction): without it this page would show the patient's name, and seed the encounter
-    // session, for a patient every preview and attach would then refuse.
+    // restriction): without it this page would show the patient's name for a patient every
+    // preview and attach would then refuse.
     SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNoInt)) {
         response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");
         return;
     }
-
-    EctSessionBean bean = new EctSessionBean();
-    // Use validated integer-derived string to prevent raw request data in session (CWE-501)
-    bean.demographicNo = demographic_no;
-
-    request.getSession().setAttribute("EctSessionBean", bean);
 
     // Offer only the items Doc2PDF would let this user attach for this patient (module read,
     // globally and for the patient). The encounter lookup itself is skipped without _eChart
@@ -166,10 +161,15 @@
     pageContext.setAttribute("demoName", demoName);
     pageContext.setAttribute("canPrescriptions", canPrescriptions);
 
-    EChart ec = canEncounter ? eChartDao.getLatestChart(demographicNoInt) : null;
-    pageContext.setAttribute("hasEncounter", ec != null);
-    if (ec != null) {
-        pageContext.setAttribute("ecTimestamp", ec.getTimestamp().toString());
+    // Share availability and historical labeling with preview/attach; empty legacy rows are not PDFs.
+    java.util.Optional<MsgPdfAttachmentResolver.Attachment> encounter = canEncounter
+            ? new MsgPdfAttachmentResolver(eChartDao).resolve(MsgPdfAttachmentResolver.Item.ENCOUNTER,
+                    demographicNoInt, "", MsgPdfAttachmentResolver.labels(
+                            io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request)))
+            : java.util.Optional.empty();
+    pageContext.setAttribute("hasEncounter", encounter.isPresent());
+    if (encounter.isPresent()) {
+        pageContext.setAttribute("encounterTitle", encounter.get().title());
     }
 
 %>
@@ -297,16 +297,16 @@
                 <%-- Encounters section --%>
                 <tr class="table-secondary">
                     <th colspan="3">
-                        <fmt:message key="messenger.generatePreviewPDF.secEncounters"/>
+                        ${carlos:forHtml(encounterLabel)}
                     </th>
                 </tr>
                 <c:if test="${hasEncounter}">
                 <tr>
                     <td class="align-middle">
                         <input type="checkbox" name="item" value="encounter"
-                               aria-label="${carlos:forHtmlAttribute(encounterLabel)} ${carlos:forHtmlAttribute(ecTimestamp)}"/>
+                               aria-label="${carlos:forHtmlAttribute(encounterTitle)}"/>
                     </td>
-                    <td class="align-middle">${carlos:forHtml(ecTimestamp)}</td>
+                    <td class="align-middle">${carlos:forHtml(encounterTitle)}</td>
                     <td class="align-middle">
                         <button type="button"
                                 class="btn btn-outline-secondary btn-sm"
@@ -358,6 +358,10 @@
             </table>
 
             <input type="hidden" name="demographic_no" value="<%=SafeEncode.forHtmlAttribute(demographic_no)%>"/>
+            <%-- The compose window this chooser attaches to; a malformed value is dropped and Attach is refused. --%>
+            <% String attachmentKey = request.getParameter(MsgAttachmentStaging.KEY_PARAMETER); %>
+            <input type="hidden" name="attachmentKey"
+                   value="<%= MsgAttachmentStaging.isKey(attachmentKey) ? SafeEncode.forHtmlAttribute(attachmentKey) : "" %>"/>
             <input type="hidden" name="isPreview" value="false"/>
             <input type="hidden" name="previewItem" value=""/>
         </form>

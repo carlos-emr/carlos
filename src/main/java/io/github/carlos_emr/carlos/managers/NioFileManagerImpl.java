@@ -127,7 +127,7 @@ public class NioFileManagerImpl implements NioFileManager {
         
         // Additional validation after sanitization
         if (sanitizedFilename.isEmpty() || "invalid_filename".equals(sanitizedFilename)) {
-            log.error("Filename failed sanitization: {}", LogSafe.sanitize(filename));
+            log.error("Filename failed sanitization");
             return null;
         }
 
@@ -139,7 +139,7 @@ public class NioFileManagerImpl implements NioFileManager {
         
         // Validate the cache filename doesn't contain any path separators
         if (cacheFileName.contains("/") || cacheFileName.contains("\\") || cacheFileName.contains("..")) {
-            log.error("Invalid characters in cache filename: {}", LogSafe.sanitize(cacheFileName));
+            log.error("Invalid characters in cache filename");
             return null;
         }
         
@@ -151,13 +151,13 @@ public class NioFileManagerImpl implements NioFileManager {
         try {
             outfile = PathValidationUtils.validateExistingPath(outfile.toFile(), normalizedCacheDir.toFile()).toPath();
         } catch (SecurityException e) {
-            log.error("Path traversal attempt detected in hasCacheVersion2: {}", LogSafe.sanitize(filename));
+            log.error("Path traversal attempt detected in hasCacheVersion2");
             return null;
         }
         
         // Additional check: ensure the resolved path is not a directory
         if (Files.exists(outfile) && Files.isDirectory(outfile)) {
-            log.error("Resolved path is a directory, not a file: {}", LogSafe.sanitize(String.valueOf(outfile)));
+            log.error("Resolved path is a directory, not a file");
             return null;
         }
 
@@ -204,7 +204,7 @@ public class NioFileManagerImpl implements NioFileManager {
             try {
                 Files.createDirectory(cacheDir);
             } catch (IOException e) {
-                log.error("Error creating DocumentCache directory", e);
+                log.error("Error creating DocumentCache directory: {}", LogSafe.exceptionTrace(e));
             }
         }
         return cacheDir;
@@ -264,9 +264,9 @@ public class NioFileManagerImpl implements NioFileManager {
         Path cacheFilePath = hasCacheVersion2(loggedInInfo, scopedCacheName, pageNum);
 
         if (cacheFilePath != null) {
-            log.debug("Preview cache hit for page {} of {}", pageNum, LogSafe.sanitize(sanitizedFilename));
+            log.debug("Preview cache hit for page {}", pageNum);
         } else {
-            log.debug("Preview cache miss for page {} of {}; rendering", pageNum, LogSafe.sanitize(sanitizedFilename));
+            log.debug("Preview cache miss for page {}", pageNum);
         }
 
         /*
@@ -281,11 +281,11 @@ public class NioFileManagerImpl implements NioFileManager {
                 if (sourceDirectoryInAllowedTemp && !PathValidationUtils.isInApplicationTempDirectory(sourceFile.toFile())) {
                     // Security-relevant event: keep the sanitized filename so it can be correlated
                     // with the request that supplied it.
-                    log.error("Source file is outside allowed temp path: {}", LogSafe.sanitize(sanitizedFilename));
+                    log.error("Source file is outside allowed temp path");
                     return null;
                 }
             } catch (SecurityException e) {
-                log.error("Path traversal attempt in source file: {}", LogSafe.sanitize(sanitizedFilename), e);
+                log.error("Path traversal attempt in source file: {}", LogSafe.exceptionTrace(e));
                 return null;
             }
 
@@ -298,7 +298,7 @@ public class NioFileManagerImpl implements NioFileManager {
             try {
                 cacheFilePath = PathValidationUtils.validateExistingPath(cacheFilePath.toFile(), normalizedCacheDir.toFile()).toPath();
             } catch (SecurityException e) {
-                log.error("Path traversal attempt in cache file creation: {}", LogSafe.sanitize(filename));
+                log.error("Path traversal attempt in cache file creation");
                 return null;
             }
 
@@ -326,7 +326,7 @@ public class NioFileManagerImpl implements NioFileManager {
                 try {
                     // Check ImageIO.write success (returns false on failure)
                     if (!ImageIO.write(image_to_save, "png", partialFile.toFile())) {
-                        log.error("Failed to write PNG image to cache file: {}", LogSafe.sanitize(String.valueOf(cacheFilePath)));
+                        log.error("Failed to write PNG image to cache file");
                         return null;
                     }
                     // Serialize the promotion against a concurrent flush of the SAME source (keyed on the
@@ -342,7 +342,7 @@ public class NioFileManagerImpl implements NioFileManager {
 
                 image_to_save.flush();
             } catch (IOException e) {
-                log.error("Error rendering PDF page to cache", e);
+                log.error("Error rendering PDF page to cache: {}", LogSafe.exceptionTrace(e));
                 return null;  // Must return null on error
             }
         }
@@ -408,22 +408,22 @@ public class NioFileManagerImpl implements NioFileManager {
             try {
                 normalizedPath = PathValidationUtils.validateExistingPath(normalizedPath.toFile(), normalizedCacheDir.toFile()).toPath();
             } catch (SecurityException e) {
-                log.error("Attempt to delete file outside of cache directory: {}", LogSafe.sanitize(fileName));
+                log.error("Attempt to delete file outside of cache directory");
                 throw new SecurityException("Path traversal attempt detected");
             }
             
             // Additional check - ensure we're not deleting directories
             if (Files.isDirectory(normalizedPath)) {
-                log.error("Attempt to delete a directory instead of a file: {}", LogSafe.sanitize(fileName));
+                log.error("Attempt to delete a directory instead of a file");
                 return false;
             }
             
             return Files.deleteIfExists(normalizedPath);
         } catch (SecurityException e) {
-            log.error("Security violation while attempting to delete cache file: {}", LogSafe.sanitize(fileName), e);
+            log.error("Security violation while attempting to delete cache file: {}", LogSafe.exceptionTrace(e));
             throw e; // Re-throw security exceptions
         } catch (IOException e) {
-            log.error("Error while deleting temp cache image file {}", LogSafe.sanitize(fileName), e);
+            log.error("Error while deleting temp cache image file: {}", LogSafe.exceptionTrace(e));
         }
         return false;
     }
@@ -498,18 +498,16 @@ public class NioFileManagerImpl implements NioFileManager {
                         }
                     } catch (SecurityException | IOException e) {
                         failedRemovals++;
-                        log.error("Unable to remove preview cache page {}", LogSafe.sanitize(name), e);
+                        log.error("Unable to remove preview cache page: {}", LogSafe.exceptionTrace(e));
                     }
                 }
             } catch (IOException e) {
-                log.error("Error while clearing source-scoped preview cache", e);
+                log.error("Error while clearing source-scoped preview cache: {}", LogSafe.exceptionTrace(e));
                 throw e;
             }
         }
         if (removed > 0) {
-            log.debug("Cleared {} preview cache page image(s) for {} (provider={})", removed,
-                    LogSafe.sanitize(filename),
-                    LogSafe.sanitize(loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo()));
+            log.debug("Cleared {} preview cache page image(s)", removed);
         }
         // Every matching page was attempted above; failures were logged per entry. Throw AFTER the
         // best-effort pass so the caller cannot report "flushed" while PHI-bearing preview images
@@ -547,7 +545,7 @@ public class NioFileManagerImpl implements NioFileManager {
         
         // Additional validation - ensure the filename is not empty after sanitization
         if (baseName.trim().isEmpty()) {
-            log.warn("Filename became empty after sanitization: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            log.warn("Filename became empty after sanitization"); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return "invalid_filename";
         }
 
@@ -691,7 +689,7 @@ public class NioFileManagerImpl implements NioFileManager {
             return normalizedSourceDir;
         } catch (Exception e) {
             if (log.isErrorEnabled()) {
-                log.error("Invalid source directory path: {}", LogSafe.sanitize(sourceDirectory, 1024), e);
+                log.error("Invalid source directory path: {}", LogSafe.exceptionTrace(e));
             }
             return null;
         }
@@ -898,10 +896,10 @@ public class NioFileManagerImpl implements NioFileManager {
 
             return tempFile != null && Files.deleteIfExists(tempFile.toPath()); // codeql[java/path-injection] validateTempDeletionTarget returns only canonical regular files inside approved temp directories, or null for missing temp files.
         } catch (SecurityException e) {
-            log.error("Security violation while attempting to delete temp file", e);
+            log.error("Security violation while attempting to delete temp file: {}", LogSafe.exceptionTrace(e));
             throw e; // Re-throw security exceptions
         } catch (IOException e) {
-            log.error("Error while deleting temp cache image file", e);
+            log.error("Error while deleting temp cache image file: {}", LogSafe.exceptionTrace(e));
         }
         return false;
     }
@@ -943,7 +941,7 @@ public class NioFileManagerImpl implements NioFileManager {
         try {
             oscarDocument = PathValidationUtils.validateExistingPath(oscarDocument.toFile(), documentDir.toFile()).toPath();
         } catch (SecurityException e) {
-            log.error("Path traversal attempt in getOscarDocument: {}", LogSafe.sanitize(fileName));
+            log.error("Path traversal attempt in getOscarDocument");
             throw new SecurityException("Path traversal attempt detected");
         }
         

@@ -47,15 +47,15 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page
-        import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*" %>
+        import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, java.util.*" %>
 <%@ page
-        import="io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.workflow.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
+        import="io.github.carlos_emr.carlos.providers.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -206,8 +206,10 @@
 
 
     <script type="text/javascript">
+        // Copies the chosen reason into the posted "reason" field, then lets the save go ahead. It used to
+        // return an undefined name (a capitalised false), so every Save threw a ReferenceError (issue #4992).
         function process(formInject) {
-            for (i = 0; formInject.reason_check.length; i++) {
+            for (var i = 0; i < formInject.reason_check.length; i++) {
                 if (formInject.reason_check[i].checked) {
                     //alert(formInject.reason_check[i].value);
                     if (formInject.reason_check[i].value == '<fmt:message key="form.addRhInjection.reason.other"/>') {
@@ -218,8 +220,7 @@
                     break;
                 }
             }
-            //alert( formInject.reason.value );
-            return False;
+            return true;
         }
     </script>
 

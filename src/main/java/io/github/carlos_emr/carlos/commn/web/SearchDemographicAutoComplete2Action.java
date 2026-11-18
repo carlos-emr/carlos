@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicCust;
+import io.github.carlos_emr.carlos.demographic.PatientReadAccess;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO;
 import io.github.carlos_emr.carlos.utility.AppointmentUtil;
@@ -131,6 +132,12 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             stati = Arrays.asList(pstatus.split(","));
         }
 
+        // The global _demographic r check above does not honour a patient-specific record lock
+        // (_demographic$<id> / _eChart$<id>). Resolve the locked set before searching, so
+        // missing privilege metadata fails closed before any patient row is read.
+        Set<Integer> deniedPatients = PatientReadAccess.deniedPatientsFromRequest(request, securityInfoManager,
+                loggedInInfo, "_demographic", SecurityInfoManager.READ);
+
         List<Demographic> list = null;
 
         if (searchStr.length() == 8 && searchStr.matches("([0-9]*)")) {
@@ -163,6 +170,19 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             if (list.size() == 100) {
                 MiscUtils.getLogger().warn("More results exists than returned");
             }
+        }
+
+        // Drop locked patients, keeping the DAO's order, before any per-patient lookup (custom
+        // alert, providers, next appointment) or JSON field is built. A page can therefore hold
+        // fewer rows than the DAO limit; the limit itself is unchanged.
+        if (!deniedPatients.isEmpty()) {
+            List<Demographic> readable = new ArrayList<>(list.size());
+            for (Demographic demo : list) {
+                if (demo.getDemographicNo() == null || !deniedPatients.contains(demo.getDemographicNo())) {
+                    readable.add(demo);
+                }
+            }
+            list = readable;
         }
 
 

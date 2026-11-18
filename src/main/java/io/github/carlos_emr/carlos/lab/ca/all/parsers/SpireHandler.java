@@ -727,11 +727,11 @@ public class SpireHandler implements MessageHandler {
     }
 
     public String getFirstName() {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getGivenName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getGivenName().getValue()));
     }
 
     public String getLastName() {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getFamilyName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getFamilyName().getValue()));
     }
 
     public String getDOB() {

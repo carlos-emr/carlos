@@ -20,4 +20,5 @@
 	<handler name="TRUENORTH"	className="io.github.carlos_emr.carlos.lab.ca.all.parsers.TRUENORTHHandler"/>
     <handler name="MEDITECH"   className="io.github.carlos_emr.carlos.lab.ca.all.parsers.MEDITECHHandler" /> 
     <handler name="FHIR_COMMUNICATION_REQUEST" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.FHIRCommunicationRequestHandler"/>
+    <handler name="CARLOS-CDS" className="io.github.carlos_emr.carlos.lab.ca.all.parsers.CdsLaboratoryMessageParser"/>
 </message-configuration>

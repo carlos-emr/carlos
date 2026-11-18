@@ -28,9 +28,9 @@
 --%>
 <% long startTime = System.currentTimeMillis(); %>
 <%@ page
-        import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*,java.net.*" %>
+        import="java.util.*, io.github.carlos_emr.carlos.prevention.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
 <%@ page
-        import="org.jdom2.Element,io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.*,org.jdom2.output.Format,org.jdom2.output.XMLOutputter,io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.*,java.io.*" %>
+        import="org.jdom2.Element, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.*, org.jdom2.output.Format, org.jdom2.output.XMLOutputter, io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.*" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="org.springframework.web.context.WebApplicationContext" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization" %>
@@ -39,21 +39,22 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.service.FlowSheetCustomizationService" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%!
     /**
@@ -89,8 +90,10 @@
             if (!action.equals(cust.getAction())) continue;
             if (!measurement.equals(cust.getMeasurement())) continue;
 
-            boolean isClinicLevel = "".equals(cust.getProviderNo()) && "0".equals(cust.getDemographicNo());
-            boolean isProviderLevel = currentProvider.equals(cust.getProviderNo()) && "0".equals(cust.getDemographicNo());
+            FlowSheetCustomizationService.ScopeLevel customizationScope = SpringUtils.getBean(FlowSheetCustomizationService.class).getScopeLevel(cust);
+            boolean isClinicLevel = FlowSheetCustomizationService.ScopeLevel.CLINIC == customizationScope;
+            boolean isProviderLevel = currentProvider.equals(cust.getProviderNo())
+                    && FlowSheetCustomizationService.ScopeLevel.PROVIDER == customizationScope;
 
             // Patient scope: inherit from clinic or provider
             if (demographic != null && !demographic.isEmpty()) {
@@ -129,12 +132,13 @@
                 isCurrentScopeMatch = demographic.equals(cust.getDemographicNo());
             } else if ("clinic".equals(scope)) {
                 // Clinic scope: providerNo="" AND demographicNo="0"
-                isCurrentScopeMatch = "".equals(cust.getProviderNo()) &&
-                                      "0".equals(cust.getDemographicNo());
+                isCurrentScopeMatch = FlowSheetCustomizationService.ScopeLevel.CLINIC
+                        == SpringUtils.getBean(FlowSheetCustomizationService.class).getScopeLevel(cust);
             } else {
                 // Provider scope: providerNo=currentProvider AND demographicNo="0"
-                isCurrentScopeMatch = currentProvider.equals(cust.getProviderNo()) &&
-                                      "0".equals(cust.getDemographicNo());
+                isCurrentScopeMatch = currentProvider.equals(cust.getProviderNo())
+                        && FlowSheetCustomizationService.ScopeLevel.PROVIDER
+                        == SpringUtils.getBean(FlowSheetCustomizationService.class).getScopeLevel(cust);
             }
 
             if (isCurrentScopeMatch) {
@@ -145,16 +149,12 @@
     }
 
     /**
-     * Determines the scope level name for a customization.
+     * Determines the scope level name for a customization. Delegates to
+     * {@link FlowSheetCustomizationService} so the page and the cascade checks share one
+     * null-safe definition of clinic/provider/patient scope.
      */
     private String getScopeLevelName(FlowSheetCustomization cust) {
-        if ("".equals(cust.getProviderNo()) && "0".equals(cust.getDemographicNo())) {
-            return "clinic";
-        } else if (!"0".equals(cust.getDemographicNo())) {
-            return "patient";
-        } else {
-            return "provider";
-        }
+        return SpringUtils.getBean(FlowSheetCustomizationService.class).getScopeLevelName(cust);
     }
 
     /**
@@ -212,6 +212,11 @@
 
     String flowsheet = temp;
     MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
+    // Reject missing/deleted templates before rendering or applying any saved customizations.
+    if (templateConfig.getFlowSheet(flowsheet) == null) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_NOT_FOUND);
+        return;
+    }
     // Resolve from the saved template: customization POSTs do not carry its display name.
     String displayNameValue = templateConfig.getDisplayName(flowsheet);
     if (displayNameValue == null) displayNameValue = "";
@@ -668,9 +673,9 @@ Flowsheet: <span style="font-weight:normal"><carlos:encode value='<%= displayNam
                                     </td>
                                     <td>
 
-                                        <%if (cust.getProviderNo().isEmpty()) { %>
+                                        <%if ("clinic".equals(custLevel)) { %>
                                         All patients
-                                        <%} else if (cust.getDemographicNo().equals("0")) { %>
+                                        <%} else if ("provider".equals(custLevel)) { %>
                                         Your patients
                                         <%} else { %>
                                         <a href="<%=request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= cust.getDemographicNo() %>' context="uriComponent"/>"
@@ -823,7 +828,7 @@ Flowsheet: <span style="font-weight:normal"><carlos:encode value='<%= displayNam
 
     <!-- flowsheet xml output -->
     <textarea style="display:none;" cols="200" rows="200">
-            <%=outp.outputString(va)%>
+            <carlos:encode value='<%= outp.outputString(va) %>' context="html"/>
         </textarea><!-- flowsheet xml output END-->
 </div>
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>

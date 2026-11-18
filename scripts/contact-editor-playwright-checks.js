@@ -10,6 +10,7 @@
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 async function workflow(s) {
   const { sql, marker, patient } = s;
@@ -40,7 +41,7 @@ async function workflow(s) {
   }
 
   await s.step('Contacts manager opens Add/Edit Contact and Save creates one directory record without script errors', async () => {
-    const manager = await s.popup(s.master, s.master.locator('[onclick*="Contact?method=manage"]').first(), 'contacts');
+    const manager = await s.popup(s.master, masterRecordLink(s.master, 'Contact?method=manage').first(), 'contacts');
     await manager.locator('a[onclick="addContact();"]').click();
     await manager.locator('[name="contact_1.type"]').selectOption('2');
     contact = await s.popup(manager, manager.locator('a[onclick*="doPersonalSearch"]').first(), 'contact-search');

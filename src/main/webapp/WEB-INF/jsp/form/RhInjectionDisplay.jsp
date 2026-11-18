@@ -48,40 +48,64 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page
-        import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*,java.util.*, io.github.carlos_emr.carlos.providers.data.*, io.github.carlos_emr.carlos.prevention.*" %>
+        import="io.github.carlos_emr.carlos.util.*, java.util.*, io.github.carlos_emr.carlos.providers.data.*, io.github.carlos_emr.carlos.prevention.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
+    // The panel of a saved RH form: the injections recorded against its workflow. The ViewForm2Action gate checks
+    // _form read for demographicNo, so only preventions of that patient are listed; a workflow id names a row of
+    // the shared workflow table and is not, on its own, proof of whose chart this is. Every stored value is
+    // encoded: the panel stayed empty until #4992, so its raw output was never reached.
     String id = request.getParameter("id");
     String date = request.getParameter("date");
-
-    if (id != null) {
-        ArrayList<Map<String, Object>> alist = PreventionData.getPreventionDataFromExt("workflowId", id);
-
+    String demographicNo = request.getParameter("demographicNo");
+    if (id != null && demographicNo != null) {
+        // A failed read is stated in the panel. An empty panel would read as "no injection was
+        // recorded for this form".
+        ArrayList<Map<String, Object>> alist;
+        try {
+            alist = PreventionData.getPreventionDataFromExt("workflowId", id);
+        } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException unavailable) {
+            alist = new ArrayList<Map<String, Object>>();
+            PreventionData.logUnreadable("RH injection panel", demographicNo);
+%>
+<div class="prevention-unreadable" role="alert"
+     style="color:#842029; background:#f8d7da; border:1px solid #f5c2c7; padding:6px 10px; margin:4px;"><fmt:message key="prevention.unreadable.injections"/></div>
+<%
+        }
+        int shown = 0;
         for (int k = 0; k < alist.size(); k++) {
             Map<String, Object> hdata = alist.get(k);
-            Map<String, String> hextended = PreventionData.getPreventionKeyValues("" + hdata.get("id"));
+            if (!demographicNo.trim().equals(String.valueOf(hdata.get("demographicNo")))) {
+                continue;
+            }
+            shown++;
+            String preventionId = String.valueOf(hdata.get("id"));
+            Map<String, String> hextended = PreventionData.getPreventionKeyValues(preventionId);
             String refused = (String) hdata.get("refused");
+            Date injectionDate = (Date) hdata.get("prevention_date_asDate");
+            Date dueDate = UtilDateUtilities.StringToDate(date);
+            String weeks = injectionDate != null && dueDate != null
+                    ? String.valueOf(UtilDateUtilities.calculateGestationAge(injectionDate, dueDate)) : "Unknown";
 %>
 <fieldset>
-    <legend><fmt:message key="form.rhInjectionDisplay.legendTitle"/> <%=k + 1%> &nbsp;
-        &nbsp; &nbsp; <fmt:message key="form.rhInjectionDisplay.date"/> <%=hdata.get("preventionDate")%> &nbsp; &nbsp;
+    <legend><fmt:message key="form.rhInjectionDisplay.legendTitle"/> <%= shown %> &nbsp;
+        &nbsp; &nbsp; <fmt:message key="form.rhInjectionDisplay.date"/> <%= SafeEncode.forHtmlContent((String) hdata.get("preventionDate")) %> &nbsp; &nbsp;
         &nbsp;
-        <fmt:message key="form.rhInjectionDisplay.weeks"/> <%=UtilDateUtilities.calculateGestationAge((Date) hdata.get("prevention_date_asDate"), UtilDateUtilities.StringToDate(date))%>
+        <fmt:message key="form.rhInjectionDisplay.weeks"/> <%= SafeEncode.forHtmlContent(weeks) %>
     </legend>
-    <%if (refused.equals("1")) { %> <fmt:message key="form.rhInjectionDisplay.refused"/> <a
-        onclick="deleteInjection('<%=hdata.get("id")%>')"
-        href="javascript: function myFunction() {return false; }"
-        style="color: blue;"><fmt:message key="form.rhInjectionDisplay.delete"/></a> <%} else {%> <fmt:message key="form.rhInjectionDisplay.given"/>
-    <fmt:message key="form.rhInjectionDisplay.by"/> <%=ProviderData.getProviderName((String) hdata.get("provider_no"))%>
-    <fmt:message key="form.rhInjectionDisplay.location"/> <%=hextended.get("location")  %> <fmt:message key="form.rhInjectionDisplay.lotNumber"/> <%=hextended.get("lot")  %>
-    <fmt:message key="form.rhInjectionDisplay.productNumber"/> <%=hextended.get("product")  %> <fmt:message key="form.rhInjectionDisplay.dosage"/> <%=hextended.get("dosage")  %>
-    <a onclick="deleteInjection('<%=hdata.get("id")%>')"
-       href="javascript: function myFunction() {return false; }"
-       style="color: blue;"><fmt:message key="form.rhInjectionDisplay.delete"/></a> </br>
-    <fmt:message key="form.rhInjectionDisplay.reason"/> <%=hextended.get("reason")  %> <%}%>
+    <%if ("1".equals(refused)) { %> <fmt:message key="form.rhInjectionDisplay.refused"/> <button
+        type="button" class="rh-injection-delete"
+        onclick="deleteInjection('<%= SafeEncode.forJavaScriptAttribute(preventionId) %>', '<%= SafeEncode.forJavaScriptAttribute((String) hdata.get("preventionDate")) %>')"><fmt:message key="form.rhInjectionDisplay.delete"/></button> <%} else {%> <fmt:message key="form.rhInjectionDisplay.given"/>
+    <fmt:message key="form.rhInjectionDisplay.by"/> <%= SafeEncode.forHtmlContent(ProviderData.getProviderName((String) hdata.get("provider_no"))) %>
+    <fmt:message key="form.rhInjectionDisplay.location"/> <%= SafeEncode.forHtmlContent(hextended.get("location")) %> <fmt:message key="form.rhInjectionDisplay.lotNumber"/> <%= SafeEncode.forHtmlContent(hextended.get("lot")) %>
+    <fmt:message key="form.rhInjectionDisplay.productNumber"/> <%= SafeEncode.forHtmlContent(hextended.get("product")) %> <fmt:message key="form.rhInjectionDisplay.dosage"/> <%= SafeEncode.forHtmlContent(hextended.get("dosage")) %>
+    <button type="button" class="rh-injection-delete"
+       onclick="deleteInjection('<%= SafeEncode.forJavaScriptAttribute(preventionId) %>', '<%= SafeEncode.forJavaScriptAttribute((String) hdata.get("preventionDate")) %>')"><fmt:message key="form.rhInjectionDisplay.delete"/></button> <br>
+    <fmt:message key="form.rhInjectionDisplay.reason"/> <%= SafeEncode.forHtmlContent(hextended.get("reason")) %> <%}%>
 </fieldset>
 <% }
 }%>

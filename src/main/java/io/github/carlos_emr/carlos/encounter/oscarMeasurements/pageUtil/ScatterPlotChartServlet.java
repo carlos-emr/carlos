@@ -29,8 +29,9 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
-import java.awt.Color;
 import java.io.IOException;
+import io.github.carlos_emr.carlos.eform.util.BrowserChartRenderer;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementChart.Series;
 import java.util.Date;
 import java.util.List;
 
@@ -39,14 +40,6 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.jfree.chart.ChartFactory;
-import org.jfree.chart.ChartUtils;
-import org.jfree.chart.JFreeChart;
-import org.jfree.chart.plot.PlotOrientation;
-import org.jfree.chart.plot.XYPlot;
-import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
-import org.jfree.data.xy.XYSeries;
-import org.jfree.data.xy.XYSeriesCollection;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
@@ -56,86 +49,118 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.commn.model.Validations;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
-import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+
 
 /**
  * Renders scatter plot and line chart images (JPEG) for clinical measurements
  * such as blood pressure and vitals in the encounter view.
  *
- * <p>Migrated from abandoned jCharts 0.7.5 library to JFreeChart.
+ * <p>Chart.js renders through the confined browser service; callers still receive JPEG images.
  */
 public class ScatterPlotChartServlet extends HttpServlet {
+
+    private static final long serialVersionUID = 1L;
 
     protected int width = 550;
     protected int height = 360;
 
+    // Existing callers use this public servlet entry point; narrowing it would change the API.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IAOM_DO_NOT_INCREASE_METHOD_ACCESSIBILITY",
+            justification = "Retains the existing public servlet service API")
     @Override
     public void service(HttpServletRequest request, HttpServletResponse httpServletResponse) throws ServletException, IOException {
         String type = request.getParameter("type");
         String mInstrc = request.getParameter("mInstrc");
-        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-        String demographicNo = null;
-
-        if (request.getParameter("demographicNo") != null) {
-            demographicNo = request.getParameter("demographicNo");
+        String demographicNo;
+        try {
+            demographicNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+            return;
+        }
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            httpServletResponse.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
         }
 
-        if (demographicNo == null && bean != null) {
-            demographicNo = bean.getDemographicNo();
+        Integer demographicNoInt;
+        try {
+            demographicNoInt = Integer.valueOf(demographicNo);
+            if (demographicNoInt <= 0) {
+                httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return;
+            }
+        } catch (NumberFormatException e) {
+            httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+
+        // Authorization and DAO lookups must name the same patient, including for
+        // inputs such as 00123. Patient-specific overrides take precedence over
+        // general privileges; explicit chart restrictions are checked separately.
+        demographicNo = demographicNoInt.toString();
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", demographicNo)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNoInt)) {
+            httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
         }
 
         try {
-            JFreeChart chart;
+            MeasurementChart chart;
             if ("BP".equals(type)) {
                 chart = createBloodPressureChart(demographicNo, type, mInstrc);
             } else {
                 chart = createScatterPlotChart(demographicNo, type, mInstrc);
             }
 
-            if (chart != null) {
+            if (chart == null) {
+                httpServletResponse.setStatus(HttpServletResponse.SC_NO_CONTENT);
+            } else {
+                java.io.ByteArrayOutputStream image = new java.io.ByteArrayOutputStream();
+                BrowserChartRenderer.write(request.getServletContext(), image, chart, width, height, "jpeg");
                 httpServletResponse.setContentType("image/jpeg");
-                ChartUtils.writeChartAsJPEG(httpServletResponse.getOutputStream(), 1.0f, chart, width, height);
+                image.writeTo(httpServletResponse.getOutputStream());
             }
         } catch (Exception t) {
-            MiscUtils.getLogger().error("Error", t);
+            MiscUtils.getLogger().warn("Scatter graph unavailable: reason={}, exception={}",
+                    io.github.carlos_emr.carlos.eform.util.ChartRenderFailure.code(t), t.getClass().getName());
+            if (!httpServletResponse.isCommitted()) {
+                httpServletResponse.resetBuffer();
+                int status = io.github.carlos_emr.carlos.eform.util.ChartRenderFailure.status(t);
+                if (status == 503) httpServletResponse.setHeader("Retry-After", "5");
+                httpServletResponse.sendError(status, "Graph unavailable; retry or contact your administrator.");
+            }
         }
     }
 
-    private JFreeChart createScatterPlotChart(String demo, String type, String mInstrc) {
+    private MeasurementChart createScatterPlotChart(String demo, String type, String mInstrc) {
         long[][] results = generateResult(demo, type, mInstrc);
-        if (results == null) {
+        if (results == null || results[0].length == 0) {
             return null;
         }
 
         String chartTitle = type + "-" + mInstrc;
-        XYSeries series = new XYSeries(chartTitle);
+        Series series = new Series(chartTitle);
 
         long baseDay = results[0][0];
         for (int x = 0; x < results[0].length; x++) {
             series.add(results[0][x] - baseDay, results[1][x]);
         }
 
-        XYSeriesCollection dataset = new XYSeriesCollection(series);
-        JFreeChart chart = ChartFactory.createScatterPlot(
-                chartTitle,
+        return MeasurementChart.scatter(chartTitle,
                 "Day (note: only the last data on the same observation date is plotted)",
-                "Test Results",
-                dataset,
-                PlotOrientation.VERTICAL,
-                true, false, false
-        );
-
-        XYPlot plot = chart.getXYPlot();
-        XYLineAndShapeRenderer renderer = new XYLineAndShapeRenderer(false, true);
-        renderer.setSeriesPaint(0, Color.RED);
-        plot.setRenderer(renderer);
-
-        return chart;
+                "Test Results", List.of(series), false);
     }
 
-    private JFreeChart createBloodPressureChart(String demo, String type, String mInstrc) {
+    private MeasurementChart createBloodPressureChart(String demo, String type, String mInstrc) {
         long[][] results = generateResult(demo, type, mInstrc);
         if (results == null) {
             return null;
@@ -144,8 +169,8 @@ public class ScatterPlotChartServlet extends HttpServlet {
         String chartTitle = type + "-" + mInstrc;
         int halfLen = results[1].length / 2;
 
-        XYSeries systolicSeries = new XYSeries("Systolic");
-        XYSeries diastolicSeries = new XYSeries("Diastolic");
+        Series systolicSeries = new Series("Systolic");
+        Series diastolicSeries = new Series("Diastolic");
 
         for (int x = 0; x < halfLen; x++) {
             int testNum = x + 1;
@@ -153,26 +178,9 @@ public class ScatterPlotChartServlet extends HttpServlet {
             diastolicSeries.add(testNum, results[1][x + halfLen]);
         }
 
-        XYSeriesCollection dataset = new XYSeriesCollection();
-        dataset.addSeries(systolicSeries);
-        dataset.addSeries(diastolicSeries);
-
-        JFreeChart chart = ChartFactory.createXYLineChart(
-                chartTitle,
+        return MeasurementChart.scatter(chartTitle,
                 "Tests (note: only the last data on the same observation date is plotted)",
-                "Hgmm",
-                dataset,
-                PlotOrientation.VERTICAL,
-                true, false, false
-        );
-
-        XYPlot plot = chart.getXYPlot();
-        XYLineAndShapeRenderer renderer = new XYLineAndShapeRenderer(true, true);
-        renderer.setSeriesPaint(0, Color.RED);
-        renderer.setSeriesPaint(1, Color.BLUE);
-        plot.setRenderer(renderer);
-
-        return chart;
+                "Hgmm", List.of(systolicSeries, diastolicSeries), true);
     }
 
     private long[][] generateResult(String demo, String type, String mInstrc) {
@@ -190,7 +198,6 @@ public class ScatterPlotChartServlet extends HttpServlet {
                     java.util.Date dateObserved = m.getDateObserved();
                     points[0][i] = dateObserved.getTime() / 1000 / 60 / 60 / 24;
                     points[1][i] = ConversionUtils.fromLongString(m.getDataField());
-                    MiscUtils.getLogger().debug("Date: " + points[0][i] + " Value: " + points[1][i]);
                 }
             }
         } else if ("BP".equals(type)) {
@@ -201,19 +208,16 @@ public class ScatterPlotChartServlet extends HttpServlet {
                 Measurement mm = dao.findByDemographicNoTypeAndDate(ConversionUtils.fromIntString(demo), type, measurements.get(i));
                 if (mm != null) {
                     String bloodPressure = mm.getDataField();
-                    MiscUtils.getLogger().debug("bloodPressure: " + bloodPressure);
                     int slashIndex = bloodPressure.indexOf("/");
                     if (slashIndex >= 0) {
                         String systolic = bloodPressure.substring(0, slashIndex);
                         java.util.Date dateObserved = mm.getDateObserved();
                         points[0][i] = dateObserved.getTime() / 1000 / 60 / 60 / 24;
                         points[1][i] = Long.parseLong(systolic);
-                        MiscUtils.getLogger().debug("systolic: " + i + " " + systolic);
 
                         String diastolic = bloodPressure.substring(slashIndex + 1);
                         points[0][i + nbPatient] = dateObserved.getTime() / 1000 / 60 / 60 / 24;
                         points[1][i + nbPatient] = Long.parseLong(diastolic);
-                        MiscUtils.getLogger().debug("diastolic: " + points[1][i + nbPatient]);
                     }
                 }
             }

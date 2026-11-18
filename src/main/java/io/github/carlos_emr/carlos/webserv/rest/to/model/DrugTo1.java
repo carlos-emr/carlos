@@ -35,6 +35,8 @@ import jakarta.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlRootElement(name = "drug")
 public class DrugTo1 implements Serializable {
@@ -42,6 +44,11 @@ public class DrugTo1 implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private Integer drugId;
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    private Long rowVersion;
+    public Long getRowVersion() { return rowVersion; }
+    public void setRowVersion(Long rowVersion) { this.rowVersion = rowVersion; }
+
 
     private String brandName;
 
@@ -94,6 +101,7 @@ public class DrugTo1 implements Serializable {
 
     private String archivedReason;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date archivedDate;
 
     private Float strength;

@@ -37,7 +37,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
@@ -54,7 +53,7 @@ public class EctDisplayLabAction2 extends EctDisplayAction {
     private static final String cmd = "labs";
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = getLoggedInInfo(request);
 
         logger.debug("EctDisplayLabAction2");
         OscarLogDao oscarLogDao = (OscarLogDao) SpringUtils.getBean(OscarLogDao.class);
@@ -157,7 +156,7 @@ public class EctDisplayLabAction2 extends EctDisplayAction {
                     url = request.getContextPath() + "/lab/CA/BC/ViewLabDisplay?demographicId=" + bean.demographicNo + "&segmentID=" + result.segmentID + "&providerNo=" + bean.providerNo + "&multiID=" + result.multiLabId;
                 }
                 String labRead = "";
-                if (!oscarLogDao.hasRead(((String) request.getSession().getAttribute("user")), "lab", result.segmentID)) {
+                if (!oscarLogDao.hasRead(getProviderNo(request), "lab", result.segmentID)) {
                     labRead = "*";
                 }
 
@@ -189,24 +188,7 @@ public class EctDisplayLabAction2 extends EctDisplayAction {
     }
 
     private ArrayList<LabResultData> getLatestLabVersions(ArrayList<LabResultData> labs) {
-        List<String> allLabIds = new ArrayList<>();
-        ArrayList<LabResultData> latestLabVersions = new ArrayList<>();
-        for (LabResultData lab : labs) {
-            if (allLabIds.contains(lab.getSegmentID())) {
-                continue;
-            }
-
-            String[] allLabVersionIdsOfLab = Hl7textResultsData.getMatchingLabs(lab.getSegmentID()).split(",");
-            allLabIds.addAll(Arrays.asList(allLabVersionIdsOfLab));
-
-            for (LabResultData labResultData : labs) {
-                if (allLabVersionIdsOfLab[allLabVersionIdsOfLab.length - 1].equals(labResultData.getSegmentID())) {
-                    latestLabVersions.add(labResultData);
-                    break;
-                }
-            }
-        }
-        return latestLabVersions;
+        return CommonLabResultData.latestVisibleVersions(labs);
     }
 
     public Date getServiceDate(LoggedInInfo loggedInInfo, LabResultData labData) {
@@ -284,7 +266,8 @@ public class EctDisplayLabAction2 extends EctDisplayAction {
         }
 
         public MessageHandler getLocalHandler(String segmentId) {
-            return Factory.getHandler(segmentId);
+            // Numeric report IDs overlap between source tables. Only HL7 IDs belong to this factory.
+            return LabResultData.HL7TEXT.equals(labData.labType) ? Factory.getHandler(segmentId) : null;
         }
     }
 

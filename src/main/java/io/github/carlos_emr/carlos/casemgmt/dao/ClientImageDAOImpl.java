@@ -34,7 +34,6 @@ package io.github.carlos_emr.carlos.casemgmt.dao;
 import java.util.Date;
 import java.util.List;
 
-import org.apache.commons.lang3.time.DateUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.model.ClientImage;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -57,7 +56,7 @@ public class ClientImageDAOImpl extends AbstractJpaDao implements ClientImageDAO
      * large (relatively speaking). The Integer key is the demographic_no.
      */
     private static final QueueCache<Integer, ClientImage> dataCache = new QueueCache<Integer, ClientImage>(4, 40,
-            DateUtils.MILLIS_PER_HOUR, null);
+            java.time.Duration.ofHours(1).toMillis(), null);
 
     @Override
     public void saveClientImage(ClientImage clientImage) {

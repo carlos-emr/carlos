@@ -123,6 +123,13 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class ManageDocument2Action extends ActionSupport {
     private static final String ALLOW_METHOD_HEADER = "Allow";
     private static final String POST_REQUIRED_MESSAGE = "POST required";
+
+    /** Suggestions the description typeahead returns. */
+    private static final int DESCRIPTION_SUGGESTIONS = 20;
+    /** Candidate documents read per description page (the DAO's maximum). */
+    private static final int DESCRIPTION_PAGE_SIZE = 100;
+    /** Pages a single typeahead request may authorize before answering with what it found. */
+    static final int DESCRIPTION_SCAN_PAGES = 10;
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -204,19 +211,18 @@ public class ManageDocument2Action extends ActionSupport {
             try {
                 return handler.handle(this);
             } catch (SecurityException e) {
-                log.warn("Authorization denied in {}(): {}",
-                        LogSafe.sanitize(method), LogSafe.sanitize(e.getMessage()));
+                log.warn("Authorization denied in {}(): method={}: {}", LogSafe.sanitize(method), LogSafe.exceptionTrace(e));
                 if (response.isCommitted()) {
                     return NONE;
                 }
                 try {
                     response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 } catch (IOException ioe) {
-                    log.error("Unable to send authorization failure for {}():", LogSafe.sanitize(method), ioe);
+                    log.error("Unable to send authorization failure for {}(): {}", LogSafe.sanitize(method), LogSafe.exceptionTrace(ioe));
                 }
                 return NONE;
             } catch (Exception e) {
-                log.error("Error in {}():", LogSafe.sanitize(method), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.error("Error in {}(): {}", LogSafe.sanitize(method), LogSafe.exceptionTrace(e)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
                 if (response.isCommitted()) {
                     return NONE;
                 }
@@ -256,13 +262,12 @@ public class ManageDocument2Action extends ActionSupport {
         try {
             handler.handle();
         } catch (SecurityException e) {
-            log.warn("Authorization denied in direct response handler {}(): {}",
-                    LogSafe.sanitize(method), LogSafe.sanitize(e.getMessage()));
+            log.warn("Authorization denied in direct response handler {}(): method={}: {}", LogSafe.sanitize(method), LogSafe.exceptionTrace(e));
             if (!response.isCommitted()) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
             }
         } catch (Exception e) {
-            log.error("Error in direct response handler {}():", LogSafe.sanitize(method), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Error in direct response handler {}(): {}", LogSafe.sanitize(method), LogSafe.exceptionTrace(e)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             if (!response.isCommitted()) {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             }
@@ -311,6 +316,13 @@ public class ManageDocument2Action extends ActionSupport {
         IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(securityInfoManager, info, documentId);
         // Archive eDocs are legal records of outbound email; refuse before any audit or write.
         assertNotOutboundEmailArchiveDocument(documentId);
+        // Stored trimmed, as every other description writer (EDoc) stores it. document.docdesc
+        // holds Document.DESCRIPTION_MAX_LENGTH characters and the packaged database cuts a longer
+        // description off without an error, so the whole save is refused before the transaction:
+        // no routing, audit row, metadata or patient link is written.
+        String typedDescription = request.getParameter("documentDescription");
+        String description = typedDescription == null ? null : typedDescription.trim();
+        if (!Document.descriptionFits(description)) throw new DescriptionTooLongException();
         String sourceId = documentId;
         String requestedPatient = destination;
         return metadataTransaction(() -> {
@@ -331,7 +343,7 @@ public class ManageDocument2Action extends ActionSupport {
                     throw new IllegalStateException("Unassigned provider cleanup was not confirmed");
                 }
             }
-            document.setDocdesc(request.getParameter("documentDescription"));
+            document.setDocdesc(description);
             document.setDoctype(request.getParameter("docType"));
             Date observation = UtilDateUtilities.StringToDate(request.getParameter("observationDate"));
             if (observation != null) document.setObservationdate(observation);
@@ -399,6 +411,16 @@ public class ManageDocument2Action extends ActionSupport {
 
     private record MetadataUpdate(String documentId, String patient) { }
 
+    /**
+     * A typed description longer than {@code document.docdesc}. Thrown before the metadata
+     * transaction starts, so the refusal is never an accepted write; answered with 400 and the
+     * localized {@code dms.error.descriptionTooLong} text the viewer and inbox pages show.
+     */
+    private static final class DescriptionTooLongException extends IllegalArgumentException {
+        private static final long serialVersionUID = 1L;
+        DescriptionTooLongException() { super("Document description is longer than its column"); }
+    }
+
     private static final class MetadataWriteFailure extends RuntimeException {
         private static final long serialVersionUID = 1L;
         private final boolean accepted;
@@ -432,12 +454,17 @@ public class ManageDocument2Action extends ActionSupport {
         int status = accepted ? 500 : cause instanceof SecurityException ? 403 : cause instanceof IllegalArgumentException ? 400 : 500;
         ObjectNode data = objectMapper.createObjectNode().put("success", false).put("accepted", accepted).put("retryable", false)
                 .put("error", accepted ? "Document outcome is unconfirmed; do not submit again" : "Document update was refused");
+        if (cause instanceof DescriptionTooLongException) {
+            // The one refusal the user can correct in the form: say so in their language.
+            data.put("descriptionTooLong", true).put("error", ResourceBundle.getBundle("oscarResources", request.getLocale())
+                    .getString("dms.error.descriptionTooLong"));
+        }
         if (IncomingDocumentCapacityResponse.positiveId(documentId)) data.put("document", Integer.parseInt(documentId));
         try {
             response.setStatus(status); response.setContentType("application/json;charset=UTF-8");
             response.getOutputStream().write(data.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException writeFailure) {
-            log.error("Could not report document update outcome", writeFailure);
+            log.error("Could not report document update outcome: {}", LogSafe.exceptionTrace(writeFailure));
         }
     }
 
@@ -548,7 +575,7 @@ public class ManageDocument2Action extends ActionSupport {
                 response.setHeader(ALLOW_METHOD_HEADER, "POST");
                 response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, POST_REQUIRED_MESSAGE);
             } catch (IOException e) {
-                log.error("Unable to send invalid refile method response", e);
+                log.error("Unable to send invalid refile method response: {}", LogSafe.exceptionTrace(e));
             }
             return NONE;
         }
@@ -559,7 +586,7 @@ public class ManageDocument2Action extends ActionSupport {
             try {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid documentId or queueId");
             } catch (IOException e) {
-                log.error("Unable to send invalid refile request response", e);
+                log.error("Unable to send invalid refile request response: {}", LogSafe.exceptionTrace(e));
             }
             return NONE;
         }
@@ -577,7 +604,7 @@ public class ManageDocument2Action extends ActionSupport {
             try {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND, "document or queue not found");
             } catch (IOException e) {
-                log.error("Unable to send missing refile target response", e);
+                log.error("Unable to send missing refile target response: {}", LogSafe.exceptionTrace(e));
             }
             return NONE;
         }
@@ -599,7 +626,7 @@ public class ManageDocument2Action extends ActionSupport {
                     response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                             "Unable to refile document");
                 } catch (IOException ioe) {
-                    log.error("Unable to send refile failure response", ioe);
+                    log.error("Unable to send refile failure response: {}", LogSafe.exceptionTrace(ioe));
                 }
             }
         }
@@ -867,7 +894,7 @@ public class ManageDocument2Action extends ActionSupport {
         try {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         } catch (IOException e) {
-            log.error("Could not send the page-render failure status", e);
+            log.error("Could not send the page-render failure status: {}", LogSafe.exceptionTrace(e));
         }
     }
 
@@ -877,7 +904,7 @@ public class ManageDocument2Action extends ActionSupport {
         try {
             response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE, busy.getMessage());
         } catch (IOException e) {
-            log.error("Could not send the page-render busy status", e);
+            log.error("Could not send the page-render busy status: {}", LogSafe.exceptionTrace(e));
         }
     }
 
@@ -947,22 +974,21 @@ public class ManageDocument2Action extends ActionSupport {
             try (PDDocument pdf = Loader.loadPDF(pdfPath.toFile(), IOUtils.createTempFileOnlyStreamCache())) {
                 // Validate page number is within bounds
                 if (pageNum == null) {
-                    log.error("Page number is null for document {}", LogSafe.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                    log.error("Page number is null for document"); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
                     return EMPTY_IMAGE;
                 }
 
                 int pageIndex = pageNum - 1;
                 int totalPages = pdf.getNumberOfPages();
                 if (pageIndex < 0 || pageIndex >= totalPages) {
-                    log.error("Invalid page number {} for document {} with {} pages", pageNum, LogSafe.sanitize(d.getDocfilename()), totalPages); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                    log.error("Invalid page number {} for document with {} pages", pageNum, totalPages); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
                     return EMPTY_IMAGE;
                 }
 
                 org.apache.pdfbox.pdmodel.common.PDRectangle mediaBox =
                         pdf.getPage(pageIndex).getCropBox();
                 if (!isRenderWithinPixelLimit(mediaBox, dpi)) {
-                    log.error("Refusing to render page {} of document {}: pixel dimensions exceed the limit",
-                            LogSafe.sanitizeObject(pageNum), LogSafe.sanitize(d.getDocfilename()));
+                    log.error("Refusing to render page {} of document: pixel dimensions exceed the limit", pageNum);
                     return EMPTY_IMAGE;
                 }
 
@@ -988,7 +1014,7 @@ public class ManageDocument2Action extends ActionSupport {
         } catch (BoundedPdfTask.BusyException busy) {
             throw busy;
         } catch (Exception e) {
-            log.error("Error decoding pdf file {}", LogSafe.sanitize(d.getDocfilename()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Error decoding pdf file: {}", LogSafe.exceptionTrace(e)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             return EMPTY_IMAGE;
         }
     }
@@ -1031,7 +1057,7 @@ public class ManageDocument2Action extends ActionSupport {
             return;
         }
 
-        log.debug("Document Name :{}", LogSafe.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        log.debug("Rendering selected document"); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
 
         int dpi = resolveRequestedDpi();
         File outfile = hasCacheVersion2(d, pageNum, dpi);
@@ -1100,18 +1126,18 @@ public class ManageDocument2Action extends ActionSupport {
             try {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND, "Document not found");
             } catch (IOException e) {
-                log.error("Error sending error response", e);
+                log.error("Error sending error response: {}", LogSafe.exceptionTrace(e));
             }
             return;
         }
 
-        log.debug("Document Name :{}", LogSafe.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        log.debug("Rendering selected document"); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
         //if the file is not a pdf, use display function
         if (!(d.getContenttype().equals("application/pdf") || d.getDocfilename().endsWith(".pdf"))) {
             try {
                 display();
             } catch (Exception e) {
-                log.error("Error while displaying document ", e);
+                log.error("Error while displaying document: {}", LogSafe.exceptionTrace(e));
             }
             return;
         }
@@ -1189,8 +1215,6 @@ public class ManageDocument2Action extends ActionSupport {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void display() throws Exception {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
         }
@@ -1198,7 +1222,6 @@ public class ManageDocument2Action extends ActionSupport {
         String doc_no = request.getParameter("doc_no");
         requireDocumentPatientAccess(request, doc_no);
         log.debug("Document No :{}", LogSafe.sanitize(doc_no)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-        String demoNo = request.getParameter("demoNo");
 
         String docxml = null;
         String contentType = null;
@@ -1218,7 +1241,7 @@ public class ManageDocument2Action extends ActionSupport {
             return;
         }
 
-        log.debug("Document Name :{}", LogSafe.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        log.debug("Rendering selected document"); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
 
         docxml = d.getDocxml();
         contentType = d.getContenttype();
@@ -1231,8 +1254,7 @@ public class ManageDocument2Action extends ActionSupport {
         } else {
             if (docxml == null || docxml.trim().equals("")) {
                 // No stored HTML fallback is available, so fail before any response bytes are written.
-                log.warn("Local document file is missing for eDoc. documentId={}, fileName={}",
-                        LogSafe.sanitizeObject(d.getId()), LogSafe.sanitizeObject(file.getFileName()));
+                log.warn("Local document file is missing for eDoc: documentId={}", LogSafe.sanitizeObject(d.getId()));
                 throw new IllegalStateException("Local document file is missing");
             }
         }
@@ -1254,8 +1276,10 @@ public class ManageDocument2Action extends ActionSupport {
             contentType = "application/octet-stream";
         }
 
-        String data = "doc_no=" + doc_no;
-        LogAction.addLog(loggedInInfo, LogConst.READ, "Document", null, demoNo, data);
+        // The view is already audited above as read/document, keyed by the document id and filed
+        // under the patient its stored link names. A second row was written here as read/"Document"
+        // with no contentId and the request's demoNo (usually absent): one view counted twice, under
+        // two spellings of the content type, the second not findable from the patient.
 
         // Preserve the inline filename for both uploaded HTML and binary document display paths.
         response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(filename) + "\"");
@@ -1365,7 +1389,7 @@ public class ManageDocument2Action extends ActionSupport {
             EDoc curDoc = EDocUtil.getDoc(doc_no);
             ResourceBundle props = ResourceBundle.getBundle("oscarResources", locale);
             out.println("<br>" + props.getString("dms.documentBrowser.DocumentUpdated") + ": " + Encode.forHtml(Objects.toString(curDoc.getDateTimeStamp(), "")));
-            out.println("<br>" + props.getString("dms.documentBrowser.ContentUpdated") + ": " + Encode.forHtml(Objects.toString(curDoc.getContentDateTime(), "")));
+            out.println("<br>" + props.getString("dms.documentBrowser.ContentUpdated") + ": " + Encode.forHtml(curDoc.getContentDateTimeDisplay()));
             out.println("<br>" + props.getString("dms.documentBrowser.ObservationDate") + ": " + Encode.forHtml(Objects.toString(curDoc.getObservationDate(), "")));
             out.println("<br>" + props.getString("dms.documentBrowser.Type") + ": " + Encode.forHtml(Objects.toString(curDoc.getType(), "")));
             out.println("<br>" + props.getString("dms.documentBrowser.Class") + ": " + Encode.forHtml(Objects.toString(curDoc.getDocClass(), "")));
@@ -1444,6 +1468,14 @@ public class ManageDocument2Action extends ActionSupport {
         if (!IncomingDocUtil.isAllowedIncomingDocFolder(pdfDir)) {
             log.warn("Invalid incoming document directory parameters rejected");
             throw new SecurityException("Invalid directory parameters");
+        }
+
+        // document.docdesc holds Document.DESCRIPTION_MAX_LENGTH characters and the packaged
+        // database cuts a longer description off without an error. Measured as EDoc stores it
+        // (trimmed) and refused before the queued file is read, moved or filed.
+        if (documentDescription != null && !Document.descriptionFits(documentDescription.trim())) {
+            IncomingDocumentCapacityResponse.filingDescriptionTooLong(request, response);
+            return NONE;
         }
 
         String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
@@ -1645,7 +1677,7 @@ public class ManageDocument2Action extends ActionSupport {
         try {
             PathValidationUtils.validatePathComponent(fileName, "incoming document filename");
         } catch (SecurityException e) {
-            log.warn("Incoming document filename contains path components: {}", LogSafe.sanitize(fileName, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            log.warn("Incoming document filename contains path components"); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             throw new SecurityException("Invalid filename", e);
         }
     }
@@ -1669,7 +1701,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         File directory = new File(directoryPath).getCanonicalFile();
         if (!directory.isDirectory()) {
-            log.error("{} is not an approved document directory", LogSafe.sanitize(propertyName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            log.error("Rejected unapproved document directory"); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             throw new IllegalStateException(propertyName + " is not a directory");
         }
 
@@ -1704,7 +1736,7 @@ public class ManageDocument2Action extends ActionSupport {
         } catch (FileAlreadyExistsException e) {
             throw e;
         } catch (IOException e) {
-            log.error("Failed to move incoming document into document store", e);
+            log.error("Failed to move incoming document into document store: {}", LogSafe.exceptionTrace(e));
             return false;
         }
     }
@@ -1722,7 +1754,7 @@ public class ManageDocument2Action extends ActionSupport {
             }
         }
         for (String proNo : flagproviders) {
-            providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(docNo), LabResultData.DOCUMENT);
+            providerInboxRoutingDAO.addToProviderInboxStrict(proNo, Integer.parseInt(docNo), LabResultData.DOCUMENT);
         }
     }
 
@@ -1823,7 +1855,7 @@ public class ManageDocument2Action extends ActionSupport {
             response.setContentType("application/pdf");
             response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(sanitizedPdfName + UtilDateUtilities.getToday("yyyy-MM-dd.hh.mm.ss") + ".pdf") + "\"");
             try (InputStream input = Files.newInputStream(extracted.path())) {
-                org.apache.commons.io.IOUtils.copy(input, response.getOutputStream());
+                input.transferTo(response.getOutputStream());
             }
         } catch (BoundedPdfTask.BusyException busy) {
             sendIncomingPreviewBusy(busy);
@@ -1983,7 +2015,7 @@ public class ManageDocument2Action extends ActionSupport {
             File validatedFile = PathValidationUtils.validateExistingPath(file, baseDir);
             bfis = new BufferedInputStream(new FileInputStream(validatedFile));
 
-            org.apache.commons.io.IOUtils.copy(bfis, outs);
+            bfis.transferTo(outs);
             outs.flush();
 
         } catch (Exception e) {
@@ -2091,7 +2123,7 @@ public class ManageDocument2Action extends ActionSupport {
                 response.setHeader("Content-Disposition", "inline;filename=\"" + sanitizeHeaderValue(sanitizedPdfName) + "\"");
                 outs = response.getOutputStream();
                 bfis = new BufferedInputStream(new FileInputStream(imageFile));
-                org.apache.commons.io.IOUtils.copy(bfis, outs);
+                bfis.transferTo(outs);
                 outs.flush();
                 return;
             }
@@ -2109,11 +2141,11 @@ public class ManageDocument2Action extends ActionSupport {
                 response.setHeader("Content-Disposition", "inline;filename=\"" + sanitizeHeaderValue(sanitizedPdfName) + "\"");
                 outs = response.getOutputStream();
                 bfis = new BufferedInputStream(new FileInputStream(outfile));
-                org.apache.commons.io.IOUtils.copy(bfis, outs);
+                bfis.transferTo(outs);
                 outs.flush();
 
             } else {
-                log.info("Unable to retrieve content for {}/{}/{}", LogSafe.sanitize(queueId), LogSafe.sanitize(pdfDir), LogSafe.sanitize(pdfName)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.info("Unable to retrieve queued document content"); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
                 if (!response.isCommitted()) {
                     response.sendError(HttpServletResponse.SC_NOT_FOUND,
                         "This document page is not available.");
@@ -2300,9 +2332,9 @@ public class ManageDocument2Action extends ActionSupport {
     private HttpServletResponse setResponse(HttpServletResponse response, byte[] pdfBytes) {
         try (ServletOutputStream outs = response.getOutputStream();
              ByteArrayInputStream fileInputStream = new ByteArrayInputStream(pdfBytes)) {
-            org.apache.commons.io.IOUtils.copy(fileInputStream, outs);
+            fileInputStream.transferTo(outs);
         } catch (Exception e) {
-            log.error("Error retrieving PDF document", e);
+            log.error("Error retrieving PDF document: {}", LogSafe.exceptionTrace(e));
         }
         return response;
     }
@@ -2318,9 +2350,9 @@ public class ManageDocument2Action extends ActionSupport {
         try (ServletOutputStream outs = response.getOutputStream();
              FileInputStream fileInputStream = new FileInputStream(output)
         ) {
-            org.apache.commons.io.IOUtils.copy(fileInputStream, outs);
+            fileInputStream.transferTo(outs);
         } catch (Exception e) {
-            log.error("Error retrieving document: {}", LogSafe.sanitize(output.getPath()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Error retrieving document: {}", LogSafe.exceptionTrace(e)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
         }
         return response;
     }
@@ -2369,8 +2401,9 @@ public class ManageDocument2Action extends ActionSupport {
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public void searchDocumentDescriptions() throws IOException {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
-            throw new SecurityException("missing required security object (_edoc)");
+        LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (info == null || !securityInfoManager.hasPrivilege(info, "_edoc", "w", null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
         }
 
         String keyword = request.getParameter("term");
@@ -2381,7 +2414,38 @@ public class ManageDocument2Action extends ActionSupport {
             keyword = "%" + keyword.trim() + "%";
         }
 
-        List<String> descriptions = documentDao.findDocumentDescriptions(keyword);
+        if (!securityInfoManager.hasPrivilege(info, "_edoc", "r", (String) null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
+        }
+        // Every suggestion must come from a document this user may read, so candidates are
+        // authorized one by one, newest first. A typeahead answers each keystroke, so the scan
+        // is bounded: a description already offered is not authorized again, and after
+        // DESCRIPTION_SCAN_PAGES pages the suggestions found so far are returned.
+        LinkedHashSet<String> visibleDescriptions = new LinkedHashSet<>();
+        Integer beforeDocumentNo = null;
+        for (int page = 0; page < DESCRIPTION_SCAN_PAGES && visibleDescriptions.size() < DESCRIPTION_SUGGESTIONS; page++) {
+            List<Document> candidates = documentDao.findDocumentDescriptionCandidates(keyword, beforeDocumentNo,
+                    DESCRIPTION_PAGE_SIZE);
+            if (candidates == null || candidates.isEmpty()) break;
+            for (Document candidate : candidates) {
+                if (candidate == null || candidate.getDocumentNo() == null || candidate.getDocumentNo() <= 0
+                        || (beforeDocumentNo != null && candidate.getDocumentNo() >= beforeDocumentNo)) {
+                    throw new IllegalStateException("Invalid document description page order");
+                }
+                beforeDocumentNo = candidate.getDocumentNo();
+                String description = candidate.getDocdesc();
+                if (description == null || description.isEmpty() || visibleDescriptions.contains(description)) {
+                    continue;
+                }
+                if (io.github.carlos_emr.carlos.documentManager.DocumentListAccess.mayReadDocument(
+                        info, securityInfoManager, candidate.getDocumentNo())) {
+                    visibleDescriptions.add(description);
+                    if (visibleDescriptions.size() == DESCRIPTION_SUGGESTIONS) break;
+                }
+            }
+            if (candidates.size() < DESCRIPTION_PAGE_SIZE) break;
+        }
+        List<String> descriptions = new ArrayList<>(visibleDescriptions);
 
         LogAction.addLogSynchronous(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_DOCUMENT, "document_description_lookup", request.getRemoteAddr());
 

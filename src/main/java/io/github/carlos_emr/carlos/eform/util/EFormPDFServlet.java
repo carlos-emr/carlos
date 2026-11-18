@@ -63,6 +63,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -211,8 +212,20 @@ public class EFormPDFServlet extends HttpServlet {
 
         } catch (jakarta.servlet.ServletException | java.io.IOException e) {
             throw e;
+        } catch (FileValidationException _) {
+            // A missing or rejected __template value is a bad request, not a server fault; the value
+            // itself is not logged or echoed. The sendError IOException is handled here so it never
+            // escapes doPost() (Sonar S1989), as in FrmPDFServlet.
+            log.warn("Rejected an invalid eForm PDF template name");
+            if (!res.isCommitted()) {
+                try {
+                    res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid PDF template.");
+                } catch (IOException ioe) {
+                    log.warn("Unable to send 400 for an invalid eForm PDF template: {}", LogSafe.exceptionTrace(ioe));
+                }
+            }
         } catch (Exception e) {
-            log.error("Error generating eForm PDF", e);
+            log.error("Error generating eForm PDF: {}", LogSafe.exceptionTrace(e));
             if (!res.isCommitted()) {
                 res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "An internal error occurred. Please try again or contact your system administrator.");
@@ -263,7 +276,34 @@ public class EFormPDFServlet extends HttpServlet {
             writer = PdfWriterFactory.newInstance(document, baosPDF, FontSettings.HELVETICA_6PT);
 
             String title = req.getParameter("__title" + suffix) != null ? req.getParameter("__title" + suffix) : "Unknown";
-            String template = req.getParameter("__template" + suffix) != null ? req.getParameter("__template" + suffix) + ".pdf" : "";
+            // __template names a PDF in the eForm image directory, which PdfReader opens below. It is
+            // request data, so it must be exactly one file-name component: "../" or an absolute path
+            // would otherwise let any eForm reader overlay arbitrary server PDFs, such as other
+            // patients' documents (#5316). Same rule as FrmPDFServlet. This servlet cannot render
+            // without a template (a missing one used to end in a 500), so a blank value is refused
+            // the same way as an unsafe one.
+            String templateParam = req.getParameter("__template" + suffix);
+            if (templateParam == null || templateParam.isBlank()) {
+                throw new FileValidationException("Missing PDF template.");
+            }
+            String template = PathValidationUtils.validatePathComponent(templateParam.trim(), "__template") + ".pdf";
+            // Resolve and contain the template inside the image directory now, before the PDF
+            // document is opened: a refusal raised after that is masked by the document's own
+            // "no pages" error on close. The directory is configuration, so a problem with it stays
+            // a server error; only the template itself can be a bad request.
+            File imageDirectory = PathValidationUtils.resolveConfiguredDirectory(
+                    CarlosProperties.getInstance().getEformImageDirectory(), "EFORM_IMAGES_DIR");
+            File templateFile;
+            try {
+                templateFile = PathValidationUtils.validatePath(template, imageDirectory);
+            } catch (FileValidationException rejected) {
+                throw rejected;
+            } catch (SecurityException outside) {
+                // A single-component name can still resolve outside the directory through a
+                // symbolic link planted in it; that is a refused template too, not a server fault.
+                throw new FileValidationException("PDF template is outside the eForm image directory.", outside);
+            }
+            String propFilename = templateFile.getPath();
 
             int numPages = 1;
             String pages = req.getParameter("__numPages" + suffix);
@@ -292,14 +332,12 @@ public class EFormPDFServlet extends HttpServlet {
             saveMeasurementValues(measurements, props, req, numPages, xMeasurementValues, yMeasurementValues);
             addDocumentProps(document, title, props);
 
-            // create a reader for a certain document
-            String propFilename = CarlosProperties.getInstance().getEformImageDirectory() + "/" + template;
 
             try {
                 reader = new PdfReader(propFilename);
-                log.debug("Found template at {}", LogSafe.sanitize(propFilename));
+                log.debug("Found form template");
             } catch (Exception dex) {
-                log.warn("Cannot find template at: {}", LogSafe.sanitize(propFilename));
+                log.warn("Cannot find template");
                 throw new IOException("Cannot load PDF template.", dex);
             }
 
@@ -389,29 +427,34 @@ public class EFormPDFServlet extends HttpServlet {
         
         // Final safety check - ensure no path traversal characters remain
         if (cfgFilename.contains("..") || cfgFilename.contains("/") || cfgFilename.contains("\\")) {
-            log.warn("Potential path traversal attempt blocked: {}", LogSafe.sanitize(cfgFilename));
+            log.warn("Potential path traversal attempt blocked");
             return ret;
         }
         
         // Validate filename format - should only be alphanumeric with dots, dashes, underscores
         if (!cfgFilename.matches("^[a-zA-Z0-9._-]+$")) {
-            log.warn("Invalid filename format: {}", LogSafe.sanitize(cfgFilename));
+            log.warn("Invalid filename format");
             return ret;
         }
         
-        String propFilename = CarlosProperties.getInstance().getEformImageDirectory() + "/" + cfgFilename;
         InputStream is = null;
 
         try {
-            log.debug("1Looking for the prop file! {}", LogSafe.sanitize(propFilename));
-            is = new FileInputStream(propFilename); //getServletContext().getResourceAsStream(propFilename);
+            // The checks above already reduce the name to one component; validatePath also binds the
+            // opened file to the image directory, and a rejection lands in the catch below exactly
+            // like a missing file (empty layout), as before.
+            File propFile = PathValidationUtils.validatePath(cfgFilename,
+                    PathValidationUtils.resolveConfiguredDirectory(
+                            CarlosProperties.getInstance().getEformImageDirectory(), "EFORM_IMAGES_DIR"));
+            log.debug("1Looking for the prop file!");
+            is = new FileInputStream(propFile);
             if (is != null) {
-                log.debug("2Found the prop file! {}", LogSafe.sanitize(cfgFilename));
+                log.debug("2Found the prop file!");
                 ret.load(is);
                 is.close();
             }
         } catch (Exception e) {
-            log.warn("Can't find the prop file: {}", LogSafe.sanitize(cfgFilename));
+            log.warn("Can't find the prop file");
         } finally {
             if (is != null) try {
                 is.close();
@@ -529,7 +572,7 @@ public class EFormPDFServlet extends HttpServlet {
                 try {
                     props = pp.get().process(props);
                 } catch (Exception e) {
-                    log.warn("Post-processor {} failed during execution - form rendered without post-processing", LogSafe.sanitize(postProcessorName), e);
+                    log.warn("Post-processor {} failed during execution - form rendered without post-processing {}", LogSafe.sanitize(postProcessorName), LogSafe.exceptionTrace(e));
                 }
             } else {
                 log.warn("Post-processor '{}' is not on the allowlist and will not be applied", LogSafe.sanitize(postProcessorName));
@@ -706,7 +749,7 @@ public class EFormPDFServlet extends HttpServlet {
                         Element.ALIGN_LEFT : (cfgVal[0].trim().equals("right") ? Element.ALIGN_RIGHT :
                         Element.ALIGN_CENTER)));
 
-                ct.setText(new Phrase(12, propValue, font));
+                ct.setText(PdfFonts.phrase(12, propValue, font));
                 ct.go();
                 continue;
             }
@@ -731,25 +774,22 @@ public class EFormPDFServlet extends HttpServlet {
                 cb.lineTo(Float.parseFloat(cfgVal[2].trim()), Float.parseFloat(cfgVal[3].trim()));
                 cb.stroke();
 
-            } else if (temp.toString().startsWith("__")) {
-                cb.beginText();
-                cb.setFontAndSize(bf, Integer.parseInt(cfgVal[5].trim()));
-                cb.showTextAligned((cfgVal[0].trim().equals("left") ? PdfContentByte.ALIGN_LEFT
-                        : (cfgVal[0].trim().equals("right") ? PdfContentByte.ALIGN_RIGHT
-                        : PdfContentByte.ALIGN_CENTER)), (cfgVal.length >= 7 ? (cfgVal[6]
-                        .trim()) : propValue), Integer
-                        .parseInt(cfgVal[1].trim()), (height - Integer.parseInt(cfgVal[2].trim())), 0);
-                cb.endText();
-            } else { // write prop text
-                cb.beginText();
-                cb.setFontAndSize(bf, Integer.parseInt(cfgVal[5].trim()));
-                cb.showTextAligned((cfgVal[0].trim().equals("left") ? PdfContentByte.ALIGN_LEFT
-                        : (cfgVal[0].trim().equals("right") ? PdfContentByte.ALIGN_RIGHT
-                        : PdfContentByte.ALIGN_CENTER)), (cfgVal.length >= 7 ? ((propValue.equals("") ? "" : cfgVal[6].trim()))
-                        : propValue), Integer.parseInt(cfgVal[1]
-                        .trim()), (height - Integer.parseInt(cfgVal[2].trim())), 0);
-
-                cb.endText();
+            } else {
+                // Static "__" text, or a field value. Values can be in any script: PdfFonts draws
+                // characters the configured face lacks in the bundled fallback faces (#5046).
+                // A seventh column is fixed text: always printed for "__" lines, and for a field (a
+                // checkbox's "X") only when the field has a value.
+                String text = propValue;
+                if (cfgVal.length >= 7) {
+                    text = temp.toString().startsWith("__") || !propValue.isEmpty() ? cfgVal[6].trim() : "";
+                }
+                int alignment = switch (cfgVal[0].trim()) {
+                    case "left" -> PdfContentByte.ALIGN_LEFT;
+                    case "right" -> PdfContentByte.ALIGN_RIGHT;
+                    default -> PdfContentByte.ALIGN_CENTER;
+                };
+                PdfFonts.showTextAligned(cb, alignment, text, new Font(bf, Float.parseFloat(cfgVal[5].trim())),
+                        Float.parseFloat(cfgVal[1].trim()), height - Float.parseFloat(cfgVal[2].trim()), 0);
             }
         }
     }

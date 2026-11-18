@@ -4,18 +4,20 @@ const test = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { chartActionUrlSource } = require('./lib/chart-action-url-source');
 const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/newCaseManagementView.js.jsp'), 'utf8');
-function setup(tab) {
+function setup(tab, chartContext = '') {
   const calls = [];
   const measurements = [];
   const context = vm.createContext({
-    ctx: '/carlos', demographicNo: '123', openEncounterInTab: tab,
+    ctx: '/carlos', chartContext, demographicNo: '123', openEncounterInTab: tab,
     openWindows: {}, updateDivTimer: 1, self: {}, Event: {stop() {}},
     window: {open(...args) { calls.push(args); return {focus() {}}; }},
     registerMeasurementWindow(window) { measurements.push(window); },
     encodeURIComponent,
   });
-  for (const name of ['popupPage', 'showHistory']) {
+  vm.runInContext(chartActionUrlSource(source), context);
+  for (const name of ['popupPage', 'showHistory', 'showIssueHistory']) {
     const match = source.match(new RegExp('    function ' + name + '\\([^]*?\\n    }'));
     assert(match, name);
     vm.runInContext(match[0], context);
@@ -41,13 +43,27 @@ test('measurement pages remain registered opener windows under the tab preferenc
     assert.equal(measurements[0].opener, context.self);
   }
 });
-test('note history keeps the explicit patient and encoded note ID in both modes', () => {
+test('note history keeps its chart context, explicit patient and encoded note ID in both modes', () => {
+  const chartContext = 'patient123.program2.signature +&?#';
   for (const tab of [true, false]) {
-    const {context, calls} = setup(tab);
+    const {context, calls} = setup(tab, chartContext);
     context.showHistory('45&demographicNo=999', {});
     const url = new URL(calls[0][0], 'https://example.invalid');
     assert.equal(url.searchParams.get('demographicNo'), '123');
     assert.equal(url.searchParams.get('noteId'), '45&demographicNo=999');
+    assert.deepEqual(url.searchParams.getAll('chartContext'), [chartContext]);
+    assert.equal(calls[0][1] === '_blank', tab);
+  }
+});
+test('issue history keeps its chart context in both modes', () => {
+  const chartContext = 'patient123.program2.signature';
+  for (const tab of [true, false]) {
+    const {context, calls} = setup(tab, chartContext);
+    context.showIssueHistory('123', '456,789');
+    const url = new URL(calls[0][0], 'https://example.invalid');
+    assert.deepEqual([...url.searchParams], [
+      ['chartContext', chartContext], ['method', 'issuehistory'], ['demographicNo', '123'], ['issueIds', '456,789'],
+    ]);
     assert.equal(calls[0][1] === '_blank', tab);
   }
 });
