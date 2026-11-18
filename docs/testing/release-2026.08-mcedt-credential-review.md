@@ -20,13 +20,14 @@ only static errors. The page now shows an explicit failure alert, and the action
 emits a fixed credential-free warning. The Struts constructor resolves its
 dependency and delegates to a package-private injection constructor.
 
-All 29 selected Java 25 cases pass: six unit controls and 23 real H2 transaction
-cases. The same 23 transaction cases pass on a disposable MariaDB 11.8.8 server
+All 34 selected Java 25 cases pass: eight unit controls and 26 real H2 transaction
+cases. The same 26 transaction cases pass on a disposable MariaDB 11.8.8 server
 with 32 KiB pages. Each case owns a UUID database; cleanup never deletes a
 credential from a shared fixture or application database. Lock assertions first
 observe the competing operation in the database, then check it remains pending
 until the writer commits. Both first-save serialization and a concurrent legacy
-writer are covered.
+writer are covered. A held credential transaction also permits an unrelated
+preference update to commit before its credential locks are released.
 
 The first physical runs exposed a real MariaDB `HY000/1020` failure after the
 legacy writer committed. An ordinary encrypted-value SELECT had opened a
@@ -39,16 +40,28 @@ is rejected by its constraint. All test databases and the owned server are
 retired. All 10,755 original installed application files and configuration are
 independently retaken exact.
 
-- Final H2/unit JUnit SHA-256: `a5cebe208ca5e826c02cef8db4ddab2f4e742cce4079723aa61bec5cc0ab83cb`.
-- Final MariaDB JUnit SHA-256: `b3791ee2989be46a54fb996f02fdb779afd7baf70dd9e4709e427f60082a58eb`.
+- Final H2/unit JUnit SHA-256: `6bdc0873d667fa62fb1592606f807cb06ed90cc5c0c024711874e9c3a5655106`.
+- Final MariaDB JUnit SHA-256: `550dc3b0894da582ecf904b64ac3cc90c5c54220face78f2fe0fc01a1e85c30b`.
 - Actual migration SHA-256: `2d4f0eec60513259fd8e54a38354abd8fd14575eeed1b3b18ec2f41ce5264b95`.
-- Fresh source-bound coverage evidence SHA-256: `43b5b1e96e775e41c805eb7c78fb6f48daaaa74a4ca4aa1eac68ef849d0fb6ca`.
+- Fresh source-bound coverage evidence SHA-256: `3e028a7aca10e02c6742d370616d8a15062dbde9fa4fd41aa402e136718ed3f8`.
 
 The new credential service and changed action lines have 100% line, instruction
-and branch coverage. Delegate floors remain 66.67% / 64.29% / 100%; its existing
-malformed-keystore-URL diagnostic is still uncovered. The retired service's
+and branch coverage. Delegate floors rise to 90% / 91.2% / 100%; its existing malformed-keystore-URL
+diagnostic and the required-JDK-algorithm-unavailable diagnostic remain uncovered. The retired service's
 historical evidence is preserved; its floor is replaced by complete evidence
 for the renamed service.
+
+The public client factory checks the committed credential before reusing a cached
+client. Its private cache retains only a SHA-256 credential fingerprint alongside
+the client; it does not log or expose the fingerprint. Real H2 and MariaDB tests
+prove that both this service's committed rotation and a committed update from
+another instance replace the cached client and its WS-Security password. A rolled
+back rotation preserves the existing client, and unchanged credentials reuse it.
+Explicit refresh still rebuilds clients for certificate/configuration changes.
+Reinstating the former cache-once lookup behavior makes all three rotation
+regressions fail; its report is retained (SHA-256
+`fd6cb500c7c20ba51b2dfe5f44fd54ab9ed1ad9f13087c63be1fb92218f9c8c3`).
+No Ministry calls are made by these client-construction tests.
 
 The earlier three-workflow installed component proof in the original document
 belongs to the pre-review property-based format. It does not qualify this revised
