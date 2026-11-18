@@ -13,7 +13,11 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Stores the clinic's MCEDT credential with the existing application encryption key. */
+/**
+ * Stores the clinic's MCEDT credential with the existing application encryption key.
+ *
+ * @since 2026-11-17
+ */
 @Service
 @Transactional
 public class McedtCredentials {
@@ -27,7 +31,12 @@ public class McedtCredentials {
                 .getResultList();
     }
 
-    /** Encrypt before mutating a row; a failed key or write never reports success. */
+    /**
+     * Encrypts before mutating a row; a failed key or write never reports success.
+     *
+     * @param password replacement plaintext credential, accepted under the existing null/blank contract
+     * @throws IllegalStateException when encryption or persistence fails, without a credential-bearing cause
+     */
     public void savePassword(String password) {
         try {
             String encrypted = EncryptionUtils.encrypt(password);
@@ -53,6 +62,10 @@ public class McedtCredentials {
      * Migrate legacy plaintext rows on first use, in the same locked transaction.
      * A concurrent password change cannot be overwritten by a stale migration.
      * The configured fallback retains the existing missing/blank-row behavior.
+     *
+     * @param fallback configured credential used when the stored password is missing or blank
+     * @return decrypted stored password, or the configured fallback
+     * @throws IllegalStateException when encryption, decryption or persistence fails, without a credential-bearing cause
      */
     public String getPassword(String fallback) {
         try {
