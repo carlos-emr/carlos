@@ -44,7 +44,6 @@ import javax.crypto.spec.SecretKeySpec;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
-import io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils;
 import io.github.carlos_emr.carlos.managers.MfaManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.managers.UserSessionManager;
@@ -301,7 +300,6 @@ public final class Login2Action extends ActionSupport {
      *   <li>"provider" - Standard provider interface</li>
      *   <li>"caisiPMM" - CAISI program management module interface</li>
      *   <li>"programLocation" - Program location selection interface</li>
-     *   <li>"patientIntake" - Patient intake role interface</li>
      *   <li>"mfaHandler" - MFA validation/registration interface</li>
      *   <li>"error" - Authentication cannot continue safely and a login failure page should render</li>
      *   <li>NONE - Processing complete (redirect already sent)</li>
@@ -1283,10 +1281,6 @@ public final class Login2Action extends ActionSupport {
         String oauthBindingResult = bindOauthTokenForAuthenticatedSession(provider, ajaxResponse, where, providerNo, ip);
         if (oauthBindingResult != null) {
             return oauthBindingResult;
-        }
-
-        if (UserRoleUtils.hasRole(request, "Patient Intake")) {
-            return "patientIntake";
         }
 
         if ("provider".equals(where)) {

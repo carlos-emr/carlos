@@ -46,14 +46,23 @@ concatenation, collection/string formatting, and JSP/scriptlet/EL uses.
   Removed the related NotesService request JSON/note-body dumps and RxWebService
   drug-list dump and RxDsMessageTo1 constructor's interaction-map dump. HRM logs
   only the result count.
-- Explicit affected-object `toString()` callers were diagnostics/audit text,
-  including `CheckBoxBean`, prescription auditing and FHIR retrieval auditing.
-  No affected reflective representation was found being parsed, compared, used
-  as a map key, persisted as functional application data, or rendered as clinical
-  content. REST/SOAP and dashboard/form exports use getters, serializers and
-  dedicated formatting methods. `FormTransportContainer` captures HTML through
-  its separate response wrapper's `toString()`, which is unchanged. Numeric/date,
-  SQL-builder, JSON and XML formatting calls are unchanged.
+- Persisted audit text is an operational record, so the demographic-extension,
+  consent-type, appointment and disease-registry write paths use explicit identifiers
+  rather than diagnostic `toString()` output. Extension events retain the saved row id
+  and sanitized field key, never the field value; new extensions are audited after
+  saving. Consent-type creation records the assigned id after persistence succeeds.
+  Appointment creation records appointment, demographic and provider identifiers;
+  disease-registry creation records the entry id and sanitized coding-system name,
+  without the diagnosis code. Historical rows that lost these fields are unchanged.
+- Prescription events already retain their content/demographic columns, and FHIR
+  retrieval events retain explicit lookup identifiers or persisted demographic ids;
+  removing their reflective clinical details remains intentional. This change does
+  not restore those field dumps. No affected representation is parsed, compared,
+  used as a map key or rendered as clinical content. REST/SOAP and dashboard/form
+  exports use getters, serializers and dedicated formatting methods.
+  `FormTransportContainer` captures HTML through its separate response wrapper's
+  `toString()`, which is unchanged. Numeric/date, SQL-builder, JSON and XML formatting
+  calls are unchanged.
 
 This audit concerns object diagnostics. It does not claim that every existing
 explicit clinical-field log or audit event in the application has been remediated;

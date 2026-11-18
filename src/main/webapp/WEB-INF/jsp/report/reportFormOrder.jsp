@@ -40,7 +40,12 @@
     if (request.getParameter("submit") != null && request.getParameter("submit").equals(submitMoveHere)) {
         String itemId = request.getParameter("nameSelected") != null ? request.getParameter("nameSelected") : "";
         String newPos = request.getParameter("position") != null ? request.getParameter("position") : "";
-        tableObj.updateRecordOrder(SAVE_AS, reportId, itemId, newPos);
+        String targetId = request.getParameter("target");
+        if (targetId == null || targetId.isEmpty()) {
+            tableObj.updateRecordOrder(SAVE_AS, reportId, itemId, newPos);
+        } else {
+            tableObj.updateRecordOrder(SAVE_AS, reportId, itemId, newPos, targetId);
+        }
     }
 // get display data
 
@@ -67,8 +72,9 @@
                 //document.forms[0].service_code.focus();
             }
 
-            function onButMove(pos) {
+            function onButMove(pos, target) {
                 document.forms[0].position.value = pos;
+                document.forms[0].target.value = target;
             }
 
             function checkscript() {
@@ -140,10 +146,11 @@
                                                                  onClick="onCheckbox(this, <%=i%>);"/></td>
                             <td width="30%" nowrap><span title="<%=fieldName%>"><%=fieldCaption%></span></td>
                             <td align="center"><input type="submit" name="submit"
-                                                      value="<fmt:message key='report.reportFormOrder.button.moveHere'/>" onClick="onButMove(<carlos:encode value='<%= fieldPosition %>' context="javaScript"/>)"/></td>
+                                                      value="<fmt:message key='report.reportFormOrder.button.moveHere'/>" onClick="onButMove(<carlos:encode value='<%= fieldPosition %>' context="javaScript"/>, <carlos:encode value='<%= fieldId %>' context="javaScript"/>)"/></td>
                         </tr>
                         <% } %>
                         <input type="hidden" name="position"/>
+                        <input type="hidden" name="target"/>
                         <input type="hidden" name="id" value="<carlos:encode value='<%= reportId %>' context="htmlAttribute"/>"/>
                         <input type="hidden" name="save" value="<carlos:encode value='<%= SAVE_AS %>' context="htmlAttribute"/>">
                         <input type="hidden" name="tableName" value="<carlos:encode value='<%= tableName %>' context="htmlAttribute"/>"/>

@@ -37,7 +37,7 @@ async function listPharmacies(s, params) {
   // OscarSearchResponse names the list "content"; JAXB-driven writers may use its XML name.
   const rows = [json.content, json.Item, json.item].find(Array.isArray);
   h.assert(rows, 'The pharmacy list response carried no row array');
-  return { status, ids: rows.map(row => Number(row.id)) };
+  return { status, ids: rows.map(row => Number(row.id)), rows };
 }
 
 function assertAscending(ids, label) {
@@ -61,7 +61,7 @@ async function workflow(s) {
   for (let i = 0; i < FIXTURE_ROWS; i++) {
     const name = `${marker} pharmacy ${String.fromCharCode(90 - i)}`;
     // uid is NOT NULL with no default: strict sql_mode refuses a row that omits it.
-    sql.execute(`INSERT INTO pharmacyInfo(uid,name,city,province,status) VALUES(0,?,'Fixture City','ON','1')`, [name]);
+    sql.execute(`INSERT INTO pharmacyInfo(uid,name,city,province,status) VALUES(0,?,'Fixture City','ON',?)`, [name, i === 0 ? '0' : '1']);
     // Each bound statement runs in its own client session, so the id is read back by its unique name.
     const id = sql.value('SELECT recordID FROM pharmacyInfo WHERE recordID>? AND name=?', [high, name]);
     h.assert(/^[1-9]\d*$/.test(id) && Number(id) > high, 'A pharmacy fixture was not created');
@@ -108,6 +108,20 @@ async function workflow(s) {
     const again = await listPharmacies(s, { offset: pageSize, limit: pageSize });
     h.assert(JSON.stringify(again.ids) === JSON.stringify(all.slice(pageSize, 2 * pageSize)),
       'Re-reading the second page returned different rows');
+  });
+
+  await s.step('inactive pharmacies remain listed with their explicit status', async () => {
+    for (const expected of [{ id: fixtureIds[0], status: '0' }, { id: fixtureIds[1], status: '1' }]) {
+      const offset = all.indexOf(expected.id);
+      h.assert(offset >= 0, 'The owned pharmacy is absent from the directory');
+      const page = await listPharmacies(s, { offset, limit: 1 });
+      h.assert(page.status === 200 && page.rows.length === 1 && Number(page.rows[0].id) === expected.id,
+        'The all-status directory omitted an owned pharmacy');
+      h.assert(String(page.rows[0].status) === expected.status, 'The directory did not preserve the pharmacy status');
+      console.log('PHARMACY_DIRECTORY_CONTRACT ' + JSON.stringify({ http: page.status,
+        expectedStatus: expected.status, actualStatus: String(page.rows[0].status), exactOwnedId: true }));
+    }
+    assertDirectoryUnchanged();
   });
 
   await s.step('an offset past the end is empty', async () => {

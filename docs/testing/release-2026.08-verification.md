@@ -33,6 +33,12 @@ workstreams and a rationale. Unowned production paths block scope acceptance;
 `--inventory-only` generates review material without claiming coverage. Test-only
 packaging paths remain in the inventory with `production: false`.
 
+The ownership inventory also treats scripts invoked by `debian/rules`, the
+OSCAR 19 manifest generator, and the DEB build and release publication workflows
+as production inputs. Changes to these files require the same concrete bindings
+as runtime source changes. Adapter tests reconcile the scripts named in
+`debian/rules`; adding a build script without classifying it fails that check.
+
 Main-only migration inventory depends on the selected main and release refs.
 The committed plan has no `mainOnlyMigrationDispositions`: the earlier tooling
 baseline yields zero main-only migrations, while the beta7 comparison exposes
@@ -78,6 +84,9 @@ and the branch version/SCM metadata.
   known failures, unexpected passes, incomplete selections, cleanup failures
   and missing/changed deployment identity. Province matching handles `ON` and
   `on` consistently. Ordinary diagnostic mode retains its classifications.
+  Qualification summaries retain the names of failed runner residue, deployment
+  identity and navigation-fixture checks. Their diagnostic messages stay in the
+  retained `browser.xml`; incomplete or duplicate selections still fail closed.
 * Node and Python adapters use engine events/results rather than parsing stdout
   as evidence. They retain skips, TODOs, expected failures, unexpected successes,
   cancellation, subtest failures and both primary/cleanup errors. Node identities
