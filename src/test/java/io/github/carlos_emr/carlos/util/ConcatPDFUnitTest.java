@@ -22,6 +22,7 @@
 
 package io.github.carlos_emr.carlos.util;
 
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -45,6 +46,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mockStatic;
 
 /**
  * Unit tests for {@link ConcatPDF} — the PDF merge utility rewritten from
@@ -211,6 +215,24 @@ class ConcatPDFUnitTest {
             ConcatPDF.concatRequired(List.of(source), out);
 
             assertThat(countPages(out.toByteArray())).isEqualTo(2);
+        }
+
+        @Test
+        void shouldRemoveStagedFiles_whenARequiredSourceCannotBeRead() throws Exception {
+            InputStream valid = new ByteArrayInputStream(createPdf(1, "Valid chart section"));
+            InputStream corrupt = new ByteArrayInputStream(new byte[]{0});
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            try (var paths = mockStatic(PathValidationUtils.class)) {
+                paths.when(() -> PathValidationUtils.createSecureTempFile(anyString(), anyString()))
+                        .thenAnswer(call -> Files.createTempFile(tempDir, call.getArgument(0), call.getArgument(1)).toFile());
+
+                assertThatThrownBy(() -> ConcatPDF.concatRequired(List.of(valid, corrupt), out))
+                        .isInstanceOf(IllegalStateException.class);
+            }
+            assertThat(out.size()).isZero();
+            try (var files = Files.list(tempDir)) {
+                assertThat(files).isEmpty();
+            }
         }
     }
 
