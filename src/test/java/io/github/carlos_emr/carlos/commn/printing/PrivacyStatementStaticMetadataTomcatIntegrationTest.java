@@ -31,6 +31,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Isolated;
 
@@ -59,6 +61,8 @@ class PrivacyStatementStaticMetadataTomcatIntegrationTest {
         Path webapp = Files.createDirectories(directory.resolve("webapp"));
         Files.write(webapp.resolve("fixture.html"), HTML);
         Files.write(webapp.resolve("captured.html"), HTML);
+        Files.writeString(webapp.resolve("large.html"), "<html><body>" + "x".repeat(2 * 1024 * 1024) + "</body></html>");
+        Files.copy(webapp.resolve("large.html"), webapp.resolve("large-captured.html"));
         Files.write(webapp.resolve("excluded.html"), HTML);
         Files.write(webapp.resolve("fixture.txt"), HTML);
         Files.write(webapp.resolve("preprinted.html"), PREPRINTED);
@@ -96,6 +100,11 @@ class PrivacyStatementStaticMetadataTomcatIntegrationTest {
             chain.doFilter(request, response);
         }, "/captured.html");
         addFilter(context, "capture", new ResponseSanitizationFilter(), "/captured.html");
+        addFilter(context, "large-capture", new ResponseSanitizationFilter(), "/large-captured.html");
+        addFilter(context, "cache-control", (request, response, chain) -> {
+            ((HttpServletResponse) response).setHeader("Cache-Control", "public, max-age=600");
+            chain.doFilter(request, response);
+        });
         addFilter(context, "defaults", new ResponseDefaultsFilter());
         addFilter(context, "logout", new LogoutBroadcastFilter(), "/captured.html");
         addFilter(context, "already-printed", (request, response, chain) -> {
@@ -152,6 +161,38 @@ class PrivacyStatementStaticMetadataTomcatIntegrationTest {
             if (headers.length > 0) request.headers(headers);
             return client.send(request.build(), HttpResponse.BodyHandlers.ofByteArray());
         }
+    }
+
+    @ParameterizedTest @ValueSource(strings={"large.html", "large-captured.html"})
+    void shouldSuppressBareMetadataBeforeCommit_whenStaticHtmlExceedsTheAppendBuffer(String file) throws Exception {
+        var response = request(file, "GET");
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(new String(response.body(), StandardCharsets.UTF_8))
+                .contains("x".repeat(2 * 1024 * 1024), STATEMENT);
+        for (String name : new String[]{"ETag", "Last-Modified", "Accept-Ranges"}) {
+            assertThat(response.headers().firstValue(name)).as(file + " " + name).isEmpty();
+        }
+    }
+
+    @Test void shouldRestoreFileMetadataAndPreserveExactBytes_whenDefaultServletAnswersARange() throws Exception {
+        var response = request("fixture.html", "GET", "Range", "bytes=0-9");
+        assertThat(response.statusCode()).isEqualTo(206);
+        assertThat(response.body()).isEqualTo(java.util.Arrays.copyOf(HTML, 10));
+        assertThat(response.headers().firstValueAsLong("Content-Length")).hasValue(10);
+        assertThat(response.headers().firstValue("Content-Range")).hasValue("bytes 0-9/" + HTML.length);
+        assertThat(response.headers().firstValue("ETag")).isPresent();
+        assertThat(response.headers().firstValue("Last-Modified")).isPresent();
+        assertThat(response.headers().firstValue("Accept-Ranges")).hasValue("bytes");
+    }
+
+    @ParameterizedTest @ValueSource(strings={"XMLHttpRequest", ""})
+    void shouldDeclareRequestHeaderVariant_whenStaticHtmlCanBeCached(String requestedWith) throws Exception {
+        var response = requestedWith.isEmpty() ? request("fixture.html", "GET")
+                : request("fixture.html", "GET", "X-Requested-With", requestedWith);
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.headers().allValues("Vary").stream().flatMap(value -> java.util.Arrays.stream(value.split(",")))
+                .map(String::trim)).contains("X-Requested-With");
+        assertThat(response.headers().firstValue("Cache-Control")).hasValue("public, max-age=600");
     }
 
     @Test

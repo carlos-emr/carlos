@@ -14,8 +14,8 @@ async function workflow(s) {
   h.assert(body && body[1].length > 100, 'The installed static HTML fixture has no usable original body');
   const originalBody = Buffer.from(body[1]);
   const url = h.appUrl(s.config.baseUrl, '/gpl.htm');
-  async function fetch(method, headers = {}) {
-    const response = await s.context.request.fetch(url, {
+  async function fetch(method, headers = {}, target = url) {
+    const response = await s.context.request.fetch(target, {
       method, headers: {'Accept-Encoding': 'identity', ...headers}, maxRedirects: 0,
     });
     try {
@@ -44,6 +44,44 @@ async function workflow(s) {
     decorated(response);
     noBareValidators(response);
     fullLength = response.bytes.length;
+  });
+  await s.step('a two-mebibyte owned static page has no bare-file metadata after its body commits', async () => {
+    const name = 'privacy-large-' + s.marker.replace(/[^A-Za-z0-9_-]/g, '_') + '.html';
+    const owned = path.join(path.dirname(fixture), name);
+    let created = false;
+    s.cleanup(() => {
+      if (created) { fs.unlinkSync(owned); h.assert(!fs.existsSync(owned), 'The owned large-page fixture remained'); }
+    });
+    const payload = '<!doctype html><html><body>FAKE-owned-large-page-' + 'x'.repeat(2 * 1024 * 1024) + '</body></html>';
+    fs.writeFileSync(owned, payload, {flag: 'wx', mode: 0o644});
+    created = true;
+    const response = await fetch('GET', {}, h.appUrl(s.config.baseUrl, '/' + name));
+    h.assert(response.status === 200 && response.bytes.includes(Buffer.from(payload)), 'The large static response lost owned content');
+    h.assert(response.bytes.includes(Buffer.from('carlos-print-decoration')), 'The large response omitted the privacy notice');
+    noBareValidators(response);
+  });
+  await s.step('browser fetches keep AJAX and ordinary cache variants separate at the same URL', async () => {
+    const page = await s.context.newPage();
+    try {
+      h.wireStrictPage(page, 'privacy-cache-variants', s.recorder);
+      await page.goto(url);
+      const variants = await page.evaluate(async target => {
+        const results = [];
+        for (const ajax of [true, false, true, false]) {
+          const response = await fetch(target, {headers: ajax ? {'X-Requested-With': 'XMLHttpRequest'} : {}});
+          results.push({status: response.status, vary: response.headers.get('Vary'), text: await response.text(), ajax});
+        }
+        return results;
+      }, url);
+      for (const variant of variants) {
+        h.assert(variant.status === 200, 'A browser cache variant failed');
+        h.assert((variant.vary || '').split(',').some(token => token.trim().toLowerCase() === 'x-requested-with' || token.trim() === '*'),
+          'The response omitted the AJAX cache variant');
+        h.assert(variant.text.includes('carlos-print-decoration') !== variant.ajax,
+          'The browser reused the wrong privacy-notice representation');
+        h.assert(variant.text.includes(body[1]), 'A browser cache variant lost the installed page content');
+      }
+    } finally { await page.close(); }
   });
   await s.step('HEAD sends no body and omits or matches the decorated GET length', async () => {
     const response = await fetch('HEAD');

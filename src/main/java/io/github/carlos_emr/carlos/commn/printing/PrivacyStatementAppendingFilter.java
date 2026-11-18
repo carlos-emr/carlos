@@ -33,6 +33,11 @@ import java.io.PrintWriter;
 import java.io.Writer;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.HashSet;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -162,16 +167,18 @@ public class PrivacyStatementAppendingFilter implements Filter {
             isConfidentialityNotePrinted = isConfidentialtyNotePrinted(httpRequest);
             String statement = isConfidentialityNotePrinted ? "" : getPrivacyStatement();
             HttpServletRequest downstreamRequest = httpRequest;
-            boolean decoratedStaticHtml = !statement.isEmpty() && !RequestNegotiation.isAjax(httpRequest)
+            boolean staticHtmlVariant = !statement.isEmpty()
                     && ("GET".equals(httpRequest.getMethod()) || "HEAD".equals(httpRequest.getMethod()))
                     && hasHtmlResourceType(httpRequest);
+            boolean decoratedStaticHtml = staticHtmlVariant && !RequestNegotiation.isAjax(httpRequest);
             if (decoratedStaticHtml) {
                 // A static file's validators omit the configured print statement. Prevent
                 // DefaultServlet from returning 304 for that different representation.
                 downstreamRequest = new PrintStatementRequest(httpRequest);
             }
 
-            DelegatingServletResponse delegatingServletResponse = new DelegatingServletResponse(httpResponse);
+            DelegatingServletResponse delegatingServletResponse = new DelegatingServletResponse(staticHtmlVariant
+                    ? new StaticHtmlMetadataResponse(httpResponse, decoratedStaticHtml) : httpResponse);
             chain.doFilter(downstreamRequest, delegatingServletResponse);
 
             if (decoratedStaticHtml && delegatingServletResponse.getStatus() == HttpServletResponse.SC_NOT_MODIFIED) {
@@ -179,6 +186,12 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 // must not advertise the undecorated file's validators or length.
                 delegatingServletResponse.discardDeferredContentLength();
                 discardBareFileMetadata(delegatingServletResponse);
+                delegatingServletResponse.completeWithoutStatement();
+                return;
+            }
+
+            // A partial response must retain the bytes and length described by Content-Range.
+            if (delegatingServletResponse.getStatus() == HttpServletResponse.SC_PARTIAL_CONTENT) {
                 delegatingServletResponse.completeWithoutStatement();
                 return;
             }
@@ -251,6 +264,98 @@ public class PrivacyStatementAppendingFilter implements Filter {
         response.setHeader("ETag", null);
         response.setHeader("Last-Modified", null);
         response.setHeader("Accept-Ranges", null);
+    }
+
+    /** Applies static representation metadata before any body write can commit the response. */
+    private static final class StaticHtmlMetadataResponse extends HttpServletResponseWrapper {
+        private static final String REQUEST_VARIANT = "X-Requested-With";
+        private static final List<String> FILE_METADATA = List.of("ETag", "Last-Modified", "Accept-Ranges");
+        private final Map<String, List<Runnable>> metadata = new LinkedHashMap<>();
+        private final boolean decorated;
+        private boolean suppressing;
+
+        private StaticHtmlMetadataResponse(HttpServletResponse response, boolean decorated) {
+            super(response);
+            this.decorated = decorated;
+            for (String name : FILE_METADATA) {
+                for (String value : response.getHeaders(name)) {
+                    metadata.computeIfAbsent(metadataKey(name), ignored -> new ArrayList<>())
+                            .add(() -> super.addHeader(name, value));
+                }
+            }
+            updatePolicy();
+            ensureRequestVariant();
+        }
+
+        private static String metadataKey(String name) {
+            return name == null ? "" : name.toLowerCase(Locale.ROOT);
+        }
+
+        private static boolean isFileMetadata(String name) {
+            return switch (metadataKey(name)) {
+                case "etag", "last-modified", "accept-ranges" -> true;
+                default -> false;
+            };
+        }
+
+        private void updatePolicy() {
+            boolean suppress = decorated && (getStatus() == SC_OK || getStatus() == SC_NOT_MODIFIED)
+                    && (getContentType() == null || RequestNegotiation.isHtmlContentType(getContentType()));
+            if (suppress == suppressing) return;
+            suppressing = suppress;
+            for (String name : FILE_METADATA) super.setHeader(name, null);
+            if (!suppressing) metadata.values().forEach(operations -> operations.forEach(Runnable::run));
+        }
+
+        private void record(String name, boolean replace, Runnable operation) {
+            var operations = metadata.computeIfAbsent(metadataKey(name), ignored -> new ArrayList<>());
+            if (replace) operations.clear();
+            operations.add(operation);
+            if (!suppressing) operation.run();
+        }
+
+        private void ensureRequestVariant() {
+            for (String value : super.getHeaders("Vary")) {
+                for (String token : value.split(",")) {
+                    if ("*".equals(token.trim()) || REQUEST_VARIANT.equalsIgnoreCase(token.trim())) return;
+                }
+            }
+            super.addHeader("Vary", REQUEST_VARIANT);
+        }
+
+        @Override public void setHeader(String name, String value) {
+            if (isFileMetadata(name)) record(name, true, () -> super.setHeader(name, value));
+            else { super.setHeader(name, value); updatePolicy(); if ("vary".equals(metadataKey(name))) ensureRequestVariant(); }
+        }
+        @Override public void addHeader(String name, String value) {
+            if (isFileMetadata(name)) record(name, false, () -> super.addHeader(name, value));
+            else { super.addHeader(name, value); updatePolicy(); if ("vary".equals(metadataKey(name))) ensureRequestVariant(); }
+        }
+        @Override public void setDateHeader(String name, long value) {
+            if (isFileMetadata(name)) record(name, true, () -> super.setDateHeader(name, value));
+            else super.setDateHeader(name, value);
+        }
+        @Override public void addDateHeader(String name, long value) {
+            if (isFileMetadata(name)) record(name, false, () -> super.addDateHeader(name, value));
+            else super.addDateHeader(name, value);
+        }
+        @Override public void setIntHeader(String name, int value) {
+            if (isFileMetadata(name)) record(name, true, () -> super.setIntHeader(name, value));
+            else super.setIntHeader(name, value);
+        }
+        @Override public void addIntHeader(String name, int value) {
+            if (isFileMetadata(name)) record(name, false, () -> super.addIntHeader(name, value));
+            else super.addIntHeader(name, value);
+        }
+        @Override public void setStatus(int status) { super.setStatus(status); updatePolicy(); }
+        @Override public void setContentType(String type) { super.setContentType(type); updatePolicy(); }
+        @Override public void reset() {
+            super.reset();
+            metadata.clear();
+            suppressing = false;
+            updatePolicy();
+            ensureRequestVariant();
+        }
     }
 
     /** Keeps every other request property, including Range/If-Range and authentication, unchanged. */
