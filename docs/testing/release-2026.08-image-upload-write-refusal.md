@@ -22,6 +22,17 @@ and select a group that account can assign. Check that the file's mode and ACLs
 still grant the intended access before retrying. The failed upload retains the
 original image and its metadata.
 
+The ownership diagnostic was verified as UID 1000 against a mode-0660 image
+owned by another UID in the same group. The previous action returned the
+generic retry message. The current action identifies the ownership problem
+while retaining the original bytes, inode, owner, group and mode, and cleans
+up staging. All 153 selected Java checks and the separate filesystem check
+passed. JaCoCo covers all 91 changed executable lines, 514 changed
+instructions and 54 changed branches in the upload action.
+
+- Ownership diagnostic before JUnit SHA-256: `2124b2b9627820259fdf430fd60854a2abac653bc496d828248db7a90df7a76d`.
+- Ownership diagnostic after JUnit SHA-256: `960cc809606aba102d10e57468786aabf898b687c59a02c98cff0331b23b3019`.
+
 The new deterministic refusal case fails before the fix (`success` instead of
 `error`); all 152 related Java controls pass afterward, with no skipped cases.
 The changed upload code retains 100% line, instruction and branch coverage.
