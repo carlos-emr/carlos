@@ -216,9 +216,9 @@ public class PrivacyStatementAppendingFilter implements Filter {
             }
             if (!delegatingServletResponse.isResponseWriterObtained()
                     && !delegatingServletResponse.isResponseOutputStreamObtained()) {
-                if ("HEAD".equals(httpRequest.getMethod())
+                if (decoratedStaticHtml && "HEAD".equals(httpRequest.getMethod())
                         && delegatingServletResponse.getStatus() == HttpServletResponse.SC_OK) {
-                    // GET appends the statement; the file's length cannot describe it.
+                    // A static HEAD's bare length omits the statement appended on GET.
                     delegatingServletResponse.discardDeferredContentLength();
                     discardBareFileMetadata(delegatingServletResponse);
                     return;
