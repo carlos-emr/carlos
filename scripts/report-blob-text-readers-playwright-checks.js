@@ -13,6 +13,14 @@ const h = require('./lib/playwright-harness');
 const {runWorkflow} = require('./lib/workflow-session');
 
 const webapp = () => process.env.CARLOS_INSTALLED_WEBAPP_DIR || '/usr/share/carlos-emr/webapp/carlos';
+const databaseIdentity = "SELECT CONCAT_WS(':', HEX(DATABASE()), HEX(@@hostname), @@port, @@server_id, HEX(@@datadir))";
+
+function runProbe(args, env) {
+  const classpath = [path.join(webapp(), 'WEB-INF/classes'), path.join(webapp(), 'WEB-INF/lib/*')].join(':');
+  return spawnSync('java', ['--source', '25', '-cp', classpath,
+    path.join(__dirname, 'fixtures/carlostest5922/ReportBlobReaderProbe.java'), ...args],
+  {stdio: 'inherit', timeout:60000, killSignal:'SIGKILL', env: {...process.env, ...env}});
+}
 
 async function preflight({config}) {
   if (process.env.CARLOS_DISPOSABLE_HOST !== 'true' || process.env.EXCLUSIVE !== '1') {
@@ -36,6 +44,13 @@ async function preflight({config}) {
 
 async function workflow(s) {
   const {sql, marker} = s;
+  const identity = sql.value(databaseIdentity);
+  h.assert(typeof identity === 'string' && /^[0-9A-F]+:[0-9A-F]+:\d+:\d+:[0-9A-F]+$/.test(identity),
+    'Could not identify the report BLOB fixture database');
+  const targetEnv = {PROBE_BLOB_DB_ID: identity};
+  const target = runProbe(['--verify-target'], targetEnv);
+  h.assert(!target.error && target.status === 0,
+    'Report BLOB probe setup refused the fixture database before insertion');
   const html = '<html><body>FAKE unpublished BLOB reader fixture</body></html>';
   const owned = [marker, marker, marker, html];
   const present = () => sql.rows('SELECT fid FROM eform WHERE form_name=? AND subject=? AND form_creator=? AND form_html=?', owned);
@@ -54,11 +69,9 @@ async function workflow(s) {
     const id = sql.insertId('INSERT INTO eform (form_name,subject,form_creator,status,form_html,showLatestFormOnly,patient_independent,errorLog) VALUES (?,?,?,0,?,0,0,?)',
       [marker, marker, marker, html, 'FAKE-report-\u03a9']);
     h.assert(/^[1-9]\d*$/.test(id), 'The BLOB fixture has no valid generated identifier');
-    const result = spawnSync('java', ['--source', '25', '-cp',
-      `${path.join(webapp(), 'WEB-INF/classes')}:${path.join(webapp(), 'WEB-INF/lib/*')}`,
-      path.join(__dirname, 'fixtures/carlostest5922/ReportBlobReaderProbe.java')],
-    {stdio: 'inherit', timeout:60000, killSignal:'SIGKILL', env: {...process.env, PROBE_BLOB_FORM_ID: id, PROBE_BLOB_FORM_MARKER: marker}});
+    const result = runProbe([], {...targetEnv, PROBE_BLOB_FORM_ID: id, PROBE_BLOB_FORM_MARKER: marker});
     if (result.error) throw result.error;
+    h.assert(result.status !== 2, 'Report BLOB probe setup lost the fixture database after insertion');
     h.assert(result.status === 0, 'An installed binary report reader failed the JDBC decoding probe');
   });
 }
