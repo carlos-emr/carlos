@@ -19466,6 +19466,25 @@
       "notes": "#5928: installed Client Search bounds data and HTML to 10 rows, retains note identity and criteria drafts through repeated POST paging with fresh CSRF, applies global sorting and native Soundex paging; BC tray bounds each page to 50 rows and preserves both unsaved fee codes."
     },
     {
+      "name": "admin-facility-disable",
+      "script": "scripts/admin-facility-disable-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "mutates": [
+        "Facility"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "profile": "caisi-admin",
+      "fixtures": "One marker-owned enabled Facility copies configuration columns only, without memberships, programs or clinical data. Shared authz fixture cleanup checks ownership and removes the captured row even if Disable fails. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5929: native CAISI Facility list verifies every Disable link has its row form, including the first row; Cancel preserves the owned facility, a token-less POST is refused, GET/HEAD save and delete are rejected before mutation, and confirmed native POST persists disabled=1 and removes only the owned row from the active list. Requires a disposable exclusive host (EXCLUSIVE=1); the caisi-admin profile restarts the application before and after the check so FacilityDAO cache entries cannot retain the removed fixture."
+    },
+    {
       "name": "log-provider-order",
       "script": "scripts/log-provider-order-playwright-checks.js",
       "tiers": [
