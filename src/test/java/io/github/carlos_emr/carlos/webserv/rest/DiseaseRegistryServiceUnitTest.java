@@ -214,6 +214,21 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldIdentifyThePersistedCodingSystem_withoutRecordingTheDiagnosisCode() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), any())).thenReturn(true);
+        IssueTo1 issue = new IssueTo1();
+        issue.setType("icd9");
+        issue.setCode("PRIVATE_DIAGNOSIS_CODE");
+        org.mockito.Mockito.doAnswer(call -> { ((Dxresearch) call.getArgument(0)).setDxresearchNo(81); return null; })
+                .when(mockDxresearchDao).persist(any(Dxresearch.class));
+        service.addToDiseaseRegistry(123, issue);
+        var data = org.mockito.ArgumentCaptor.forClass(String.class);
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(any(LoggedInInfo.class),
+                eq("Dxresearch.add"), eq("dxresearch"), eq("81"), eq("123"), data.capture()));
+        assertThat(data.getValue()).contains("dxresearchId=81", "codingSystem=icd9").doesNotContain("PRIVATE_DIAGNOSIS_CODE");
+    }
+
+    @Test
     @DisplayName("should not persist duplicate entry when an active entry already exists")
     @Tag("create")
     void shouldNotPersistDuplicate_whenActiveEntryAlreadyExists() {

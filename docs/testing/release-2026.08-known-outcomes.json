@@ -20,12 +20,6 @@
       "disposition": "required installed retake; blocks release readiness"
     },
     {
-      "check": "prevention-dose-route-amendment",
-      "finding": 322,
-      "step": "a dose saved with no unit reopens with that dose and survives an unchanged save",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
       "check": "authz-read-admin-objects",
       "finding": 342,
       "step": "administration pages are refused without their menu object and served with it (lists every route that is not)",
@@ -215,6 +209,12 @@
       "finding": 347,
       "step": "Enable MFA on the security record sets usingMfa and stores no secret yet",
       "disposition": "Source fix for #5885: guard PIN validation with the same legacy-PIN setting that renders the controls. The existing complete MFA lifecycle remains an active regression in the no-pin profile. Strict installed PASS on rebuilt Ubuntu 26.04 packages (Chromium154.0.8025.0): default PIN48.4s and no-PIN50.1s, zero residue/unexpected restarts, exact configuration and credential preservation. A final integrated release retake is still required."
+    },
+    {
+      "check": "prevention-dose-route-amendment",
+      "finding": 322,
+      "step": "a dose saved with no unit reopens with that dose and survives an unchanged save",
+      "disposition": "Fixed in PR #6220 for #5431. Retained as an active regression; strict installed PASS on Ubuntu 26.04, Ontario, complete 2026.09.0~snapshot30 packages, nginx HTTPS and shipped Chromium 154.0.8025.0 (2026-11-16, 111.8 seconds). Exact form/database roundtrips include unitless and legacy values, trailing spaces, nonnumeric doses, Unicode and markup; zero residue, restarts or server-log errors. A final release-build retake remains required."
     }
   ]
 }

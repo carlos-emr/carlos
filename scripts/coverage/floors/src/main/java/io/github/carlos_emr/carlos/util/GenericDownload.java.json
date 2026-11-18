@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/util/GenericDownload.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "0a9292b820bc4e078c477066bb3ebd246d11edda"
+  },
+  "evidenceSha256": "34a728c6e291c4d2795937d69d744981875ef0f539fa437fc4218920ea54d9bf"
+}
