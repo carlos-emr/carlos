@@ -1,5 +1,18 @@
 # CARLOS 2026.08 release notes
 
+## Audit identifiers after model diagnostic redaction
+
+Demographic-extension, consent-type, appointment and disease-registry creation audit
+rows now identify their affected records explicitly. Newly saved extensions and
+consent types are logged after persistence assigns their ids; a failed consent-type
+save emits no creation event. Extension events retain the sanitized field key,
+appointments retain patient/provider identifiers, and diagnoses retain the coding
+system and entry id. Extension values, appointment text and diagnosis codes are not
+added to audit data. Existing historical audit rows are unchanged.
+
+These events no longer depend on entity `toString()` formatting. The model diagnostic
+redactions remain in place. See [the audit contract](security-object-diagnostics.md).
+
 ## Measurement charts, CML revisions and CDM forms
 
 Single-point and constant-value measurement charts now draw useful markers and axes.
@@ -448,7 +461,16 @@ It also covers object diagnostics/equality, audit text and JavaScript encoding.
 
 ### HTTP responses, permissions and validation
 
-- REST list pagination rejects negative offsets with HTTP 400.
+- REST demographic and pharmacy lists reject negative offsets or limits, and
+  limits above 500 patients or 5000 pharmacies, with HTTP 400. Clients that used
+  `limit=-1` or `offset=-1` must send a supported page size and a nonnegative
+  offset instead. See the [REST list contract](api-collections-index.md#rest-list-pagination-and-demographic-validation).
+- REST demographic creation and update reject over-length values in fields
+  checked by `Demographic.validateFieldLengths()` with HTTP 400 and a `text/plain`
+  body naming the fields and limits. Checked fields include names, pronouns,
+  gender, title, addresses and contact details. JSON/XML clients
+  must handle this plain-text error response; submitted patient values are not
+  included.
 - Email-resolution requests distinguish invalid input (400), missing records
   (404) and conflicting identity (409). Manage Emails requires `_email` READ
   for viewing and WRITE for mutations; update custom role assignments.
