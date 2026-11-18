@@ -84,6 +84,7 @@ public class ConcatPDF {
     /**
      * Concatenates the given PDF inputs (file paths or InputStreams) into {@code outputStream}.
      * Inputs that cannot be opened/read are skipped rather than aborting the whole merge.
+     * Failures preparing a merge-owned staging file abort before the destination is written.
      * (This was an example known as PdfCopy.java)
      *
      * @return the number of inputs that were skipped; {@code 0} means every input was included
@@ -111,15 +112,12 @@ public class ConcatPDF {
 
         try {
             for (Object input : fileOrInputStreamPdfList) {
-                try {
-                    File staged = PathValidationUtils.createSecureTempFile("pdf-merge-source-", ".pdf");
-                    stagedSources.add(staged);
-                    stageSource(input, staged);
+                File staged = PathValidationUtils.createSecureTempFile("pdf-merge-source-", ".pdf");
+                stagedSources.add(staged);
+                if (stageSource(input, staged)) {
                     pdfMerger.addSource(staged);
-                } catch (IOException | SecurityException e) {
+                } else {
                     skippedFiles++;
-                    MiscUtils.getLogger().error("PDF input could not be added to merge ({})",
-                            e.getClass().getSimpleName());
                 }
             }
 
@@ -146,29 +144,59 @@ public class ConcatPDF {
     }
 
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "file inputs use the existing trusted-path validation")
-    private static void stageSource(Object input, File staged) throws IOException {
+    private static boolean stageSource(Object input, File staged) throws IOException {
         if (input instanceof InputStream stream) {
             File source = PathValidationUtils.createSecureTempFile("pdf-merge-input-", ".pdf");
             try {
-                try (OutputStream spool = Files.newOutputStream(source.toPath())) {
-                    stream.transferTo(spool);
-                }
-                normalizeSource(source, staged);
+                return spoolSource(stream, source.toPath()) && normalizeSource(source, staged);
             } finally {
                 deleteStagedSource(source.toPath());
             }
-        } else {
-            normalizeSource(PathValidationUtils.resolveTrustedPath(new File((String) input)), staged);
+        }
+        File source;
+        try {
+            source = PathValidationUtils.resolveTrustedPath(new File((String) input));
+        } catch (SecurityException refused) {
+            return skipUnreadableSource(refused);
+        }
+        return normalizeSource(source, staged);
+    }
+
+    private static boolean spoolSource(InputStream stream, Path source) throws IOException {
+        byte[] buffer = new byte[8192];
+        try (OutputStream spool = Files.newOutputStream(source)) {
+            while (true) {
+                int read;
+                try {
+                    read = stream.read(buffer);
+                } catch (IOException | SecurityException unreadable) {
+                    return skipUnreadableSource(unreadable);
+                }
+                if (read < 0) return true;
+                spool.write(buffer, 0, read);
+            }
         }
     }
 
-    private static void normalizeSource(File source, File staged) throws IOException {
-        try (PDDocument document = Loader.loadPDF(source, IOUtils.createTempFileOnlyStreamCache())) {
+    private static boolean normalizeSource(File source, File staged) throws IOException {
+        PDDocument document;
+        try {
+            document = Loader.loadPDF(source, IOUtils.createTempFileOnlyStreamCache());
+        } catch (IOException | SecurityException unreadable) {
+            return skipUnreadableSource(unreadable);
+        }
+        try (document) {
             if (document.isEncrypted()) {
                 document.setAllSecurityToBeRemoved(true);
             }
             document.save(staged);
         }
+        return true;
+    }
+
+    private static boolean skipUnreadableSource(Exception unreadable) {
+        MiscUtils.getLogger().error("PDF input could not be added to merge ({})", unreadable.getClass().getSimpleName());
+        return false;
     }
 
     private static void deleteStagedSource(Path staged) {

@@ -40,6 +40,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -48,6 +49,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mockStatic;
 
 /**
@@ -122,6 +124,62 @@ class ConcatPDFUnitTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ConcatPDF.concatRequired(List.of(first, second), out);
         assertThat(countPages(out.toByteArray())).isEqualTo(5);
+    }
+
+    @Test
+    void shouldWriteNothing_whenTheMergerCannotSaveItsNormalizedSource() throws Exception {
+        String good = savePdfFile(createPdf(1, "Valid source"), "source.pdf");
+        Path unwritable = Files.createDirectory(tempDir.resolve("not-a-file"));
+        var out = new ByteArrayOutputStream();
+        try (var paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
+            paths.when(() -> PathValidationUtils.createSecureTempFile("pdf-merge-source-", ".pdf"))
+                    .thenReturn(unwritable.toFile());
+            assertThatThrownBy(() -> ConcatPDF.concat(List.of(good), out))
+                    .isInstanceOf(RuntimeException.class);
+            assertThat(out.size()).isZero();
+        }
+        assertThat(unwritable).doesNotExist();
+    }
+
+    @Test
+    void shouldSkipOnlyTheInput_whenACallerOwnedStreamCannotBeRead() throws Exception {
+        var unreadable = new InputStream() {
+            @Override
+            public int read() throws IOException {
+                throw new IOException("FAKE source read failed");
+            }
+        };
+        String good = savePdfFile(createPdf(1, "Valid source"), "valid.pdf");
+        var out = new ByteArrayOutputStream();
+        assertThat(ConcatPDF.concat(List.of(unreadable, good), out)).isEqualTo(1);
+        assertThat(countPages(out.toByteArray())).isEqualTo(1);
+    }
+
+    @Test
+    void shouldAbortAndCleanUp_whenWritingAnInputSpoolFails() throws Exception {
+        var input = new ByteArrayInputStream(createPdf(1, "Valid stream"));
+        Path spool = Files.createTempFile(tempDir, "spool-", ".pdf");
+        var failingOutput = new OutputStream() {
+            @Override
+            public void write(int value) throws IOException {
+                throw new IOException("FAKE spool write failed");
+            }
+
+            @Override
+            public void close() throws IOException {
+                throw new IOException("FAKE spool close failed");
+            }
+        };
+        var out = new ByteArrayOutputStream();
+        try (var paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
+             var files = mockStatic(Files.class, CALLS_REAL_METHODS)) {
+            paths.when(() -> PathValidationUtils.createSecureTempFile("pdf-merge-input-", ".pdf"))
+                    .thenReturn(spool.toFile());
+            files.when(() -> Files.newOutputStream(spool)).thenReturn(failingOutput);
+            assertThatThrownBy(() -> ConcatPDF.concat(List.of(input), out)).isInstanceOf(RuntimeException.class);
+            assertThat(out.size()).isZero();
+        }
+        assertThat(spool).doesNotExist();
     }
 
     @Nested
