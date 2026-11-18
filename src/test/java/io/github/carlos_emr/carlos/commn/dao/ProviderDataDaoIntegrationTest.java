@@ -270,21 +270,28 @@ public class ProviderDataDaoIntegrationTest extends CarlosTestBase {
             hibernateTemplate.flush();
 
             entityManager.createNativeQuery(
-                    "MERGE INTO site (site_id, name, short_name, bg_color, status) "
-                            + "KEY(site_id) VALUES (510001, 'Provider Data Site', 'PDS', '#FFFFFF', 1)")
+                    "INSERT INTO site (site_id, name, short_name, bg_color, status) "
+                            + "VALUES (510001, 'Provider Data Site', 'PDS', '#FFFFFF', 1) "
+                            + "ON DUPLICATE KEY UPDATE name=VALUES(name), short_name=VALUES(short_name), "
+                            + "bg_color=VALUES(bg_color), status=VALUES(status)")
                     .executeUpdate();
             entityManager.createNativeQuery(
-                    "MERGE INTO site (site_id, name, short_name, bg_color, status) "
-                            + "KEY(site_id) VALUES (510002, 'Other Provider Data Site', 'OPD', '#FFFFFF', 1)")
+                    "INSERT INTO site (site_id, name, short_name, bg_color, status) "
+                            + "VALUES (510002, 'Other Provider Data Site', 'OPD', '#FFFFFF', 1) "
+                            + "ON DUPLICATE KEY UPDATE name=VALUES(name), short_name=VALUES(short_name), "
+                            + "bg_color=VALUES(bg_color), status=VALUES(status)")
                     .executeUpdate();
             entityManager.createNativeQuery(
-                    "MERGE INTO providersite (provider_no, site_id) KEY(provider_no, site_id) VALUES ('510001', 510001)")
+                    "INSERT INTO providersite (provider_no, site_id) VALUES ('510001', 510001) "
+                            + "ON DUPLICATE KEY UPDATE site_id=VALUES(site_id)")
                     .executeUpdate();
             entityManager.createNativeQuery(
-                    "MERGE INTO providersite (provider_no, site_id) KEY(provider_no, site_id) VALUES ('510002', 510001)")
+                    "INSERT INTO providersite (provider_no, site_id) VALUES ('510002', 510001) "
+                            + "ON DUPLICATE KEY UPDATE site_id=VALUES(site_id)")
                     .executeUpdate();
             entityManager.createNativeQuery(
-                    "MERGE INTO providersite (provider_no, site_id) KEY(provider_no, site_id) VALUES ('510003', 510002)")
+                    "INSERT INTO providersite (provider_no, site_id) VALUES ('510003', 510002) "
+                            + "ON DUPLICATE KEY UPDATE site_id=VALUES(site_id)")
                     .executeUpdate();
             entityManager.flush();
 

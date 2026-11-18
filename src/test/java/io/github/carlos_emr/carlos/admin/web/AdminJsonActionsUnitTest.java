@@ -174,6 +174,28 @@ class AdminJsonActionsUnitTest extends CarlosUnitTestBase {
         assertThat(json.get("id").asInt()).isEqualTo(42);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"-1,-1", "0,0", "1,1", "59,59", "86400,86400", "'',0", "invalid,0"})
+    @DisplayName("should retain the O19 lifetime input choices without caps or a new default")
+    void shouldPreserveO19LifetimeInput_whenAddingClient(String input, int stored) throws Exception {
+        request.setMethod("POST");
+        request.addParameter("method", "add");
+        request.addParameter("name", "O19 client");
+        request.addParameter("uri", "https://integration.example/callback");
+        request.addParameter("lifetime", input);
+        when(methodSecurity.hasAdminWrite()).thenReturn(true);
+        org.mockito.ArgumentCaptor<ServiceClient> capture = org.mockito.ArgumentCaptor.forClass(ServiceClient.class);
+        org.mockito.Mockito.doAnswer(call -> {
+            ServiceClient saved = call.getArgument(0);
+            org.springframework.test.util.ReflectionTestUtils.setField(saved, "id", 71);
+            return null;
+        }).when(serviceClientDao).persist(any(ServiceClient.class));
+        new ClientManage2Action().execute();
+        verify(serviceClientDao).persist(capture.capture());
+        assertThat(capture.getValue().getLifetime()).isEqualTo(stored);
+        assertThat(MAPPER.readTree(response.getContentAsString()).get("success").asBoolean()).isTrue();
+    }
+
     @Test
     @DisplayName("should reject GET for client add mutation")
     void shouldRejectGet_forClientAddMutation() throws Exception {

@@ -92,8 +92,10 @@ public class BillingmasterDaoIntegrationTest extends CarlosTestBase {
     @BeforeEach
     void createDateDialectAdapter() throws Exception {
         try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
-            statement.execute("CREATE ALIAS IF NOT EXISTS TO_DAYS FOR "
-                    + "'io.github.carlos_emr.carlos.billing.CA.BC.dao.BillingmasterDaoIntegrationTest.toDays'");
+            if ("H2".equals(connection.getMetaData().getDatabaseProductName())) {
+                statement.execute("CREATE ALIAS IF NOT EXISTS TO_DAYS FOR "
+                        + "'io.github.carlos_emr.carlos.billing.CA.BC.dao.BillingmasterDaoIntegrationTest.toDays'");
+            }
         }
     }
 
@@ -103,7 +105,9 @@ public class BillingmasterDaoIntegrationTest extends CarlosTestBase {
         try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
             if (fixtureMasterId != null) statement.executeUpdate("DELETE FROM billingmaster WHERE billingmaster_no=" + fixtureMasterId);
             if (fixtureBillingId != null) statement.executeUpdate("DELETE FROM billing WHERE billing_no=" + fixtureBillingId);
-            statement.execute("DROP ALIAS IF EXISTS TO_DAYS");
+            if ("H2".equals(connection.getMetaData().getDatabaseProductName())) {
+                statement.execute("DROP ALIAS IF EXISTS TO_DAYS");
+            }
         }
     }
 

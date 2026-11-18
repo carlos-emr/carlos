@@ -1550,7 +1550,7 @@ class PathValidationUtilsUnitTest {
                         .isInstanceOf(SecurityException.class);
 
                 assertThat(logs.messages())
-                        .contains("test file is not a file: " + PathValidationUtils.logReference(directory.getCanonicalPath()))
+                        .contains("path is not a file: " + PathValidationUtils.logReference(directory.getCanonicalPath()))
                         .allSatisfy(message -> assertThat(message).doesNotContain("FAKE-PATIENT-NAME"));
                 assertThat(logs.events()).extracting(LogEvent::getLevel).containsExactly(Level.WARN);
             }
@@ -1566,7 +1566,7 @@ class PathValidationUtilsUnitTest {
                         .isInstanceOf(SecurityException.class);
 
                 assertThat(logs.messages())
-                        .contains("test dir is not a directory: " + PathValidationUtils.logReference(file.getCanonicalPath()))
+                        .contains("path is not a directory: " + PathValidationUtils.logReference(file.getCanonicalPath()))
                         .allSatisfy(message -> assertThat(message)
                                 .doesNotContain("FAKE-PATIENT-NAME")
                                 .doesNotContain(tempDir.toRealPath().toString()));
@@ -1589,13 +1589,13 @@ class PathValidationUtilsUnitTest {
                         .hasCauseInstanceOf(IOException.class);
 
                 assertThat(logs.messages())
-                        .contains("Error validating test dir (IOException)")
+                        .contains("Error validating path (IOException)")
                         .allSatisfy(message -> assertThat(message).doesNotContain("FAKE-PATIENT-NAME"));
                 assertThat(logs.events()).extracting(LogEvent::getThrown).containsOnlyNulls();
                 assertThat(logs.events()).extracting(LogEvent::getLevel).containsExactly(Level.ERROR, Level.DEBUG);
                 assertThat(logs.events().get(1).getMessage().getFormattedMessage())
                         .startsWith("Path validation failure trace:")
-                        .contains("java.io.IOException", "at ", "PathValidationUtils.java:")
+                        .contains("java.io.IOException", "at ", "PathValidationUtils.validateConfiguredDirectory:")
                         .doesNotContain(tempDir.toString());
             }
         }
@@ -1620,11 +1620,11 @@ class PathValidationUtilsUnitTest {
 
                 assertThat(logs.events()).extracting(LogEvent::getLevel).containsExactly(Level.ERROR, Level.DEBUG);
                 assertThat(logs.events()).extracting(LogEvent::getThrown).containsOnlyNulls();
-                assertThat(logs.messages().get(0)).isEqualTo("Error resolving test file (IOException)");
+                assertThat(logs.messages().get(0)).isEqualTo("Error resolving path (IOException)");
                 assertThat(logs.messages().get(1))
                         .startsWith("Path validation failure trace:")
                         .contains("java.io.IOException", "Caused by: java.io.FileNotFoundException",
-                                "Suppressed: java.io.IOException", "at ", "PathValidationUtilsUnitTest.java:");
+                                "Suppressed: java.io.IOException", "at ", "PathValidationUtilsUnitTest$LogContentTests.");
                 assertThat(logs.messages()).allSatisfy(message -> assertThat(message)
                         .doesNotContain(fakePath, tempDir.toString(), "FAKE-PATIENT-NAME",
                                 "FAKE-FAILURE-MESSAGE", "FAKE-CAUSE-MESSAGE", "FAKE-SUPPRESSED-MESSAGE"));

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+// Modifications by CARLOS Contributors, 2026.
 // Coverage plan §2.5 encounter forms. User path: Schedule ▸ Search ▸ Master Record ▸ E-Chart ▸
 // Forms menu ▸ <form> ▸ fill ▸ Save (form/formname, or the form's own route) ▸ reopen from the
 // E-Chart's saved-forms entry (form/forwardshortcutname?formId=latest) ▸ Print where the form
@@ -664,6 +665,12 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
       const link = fresh.locator(`#leftNavBar a[onclick*="formname=${entry.name}&"], #rightNavBar a[onclick*="formname=${entry.name}&"]`).first();
       if (foldSavedForms) h.assert(!await link.isVisible(),
         'The folded-navigation fixture did not put the saved form beyond the first page');
+      if (foldSavedForms) {
+        await revealSavedForm(fresh, link);
+        await fresh.locator('#forms img[src$="/collapse.gif"]:visible').first().click();
+        h.assert(await link.count() > 0 && !await link.isVisible(),
+          'The cached-list fixture did not retain a hidden saved-form anchor');
+      }
       page = await claims.reaching(() => openSavedEntry(fresh, entry));
       const params = new URL(page.url()).searchParams;
       // VT uses the setup route and explicit hidden patient/record fields after its internal forward.
@@ -708,20 +715,6 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
           'VT reopened an older record after Save & Exit');
         await assertShown(page, form, entry.text, 'VT reopened after Save & Exit');
       }
-      if (!foldSavedForms) return;
-      // A previously loaded and collapsed saved-form list must expand and reopen the same record.
-      await page.close();
-      await fresh.locator('#forms img[src$="/collapse.gif"]:visible').first().click();
-      const cached = fresh.locator(`#forms a[onclick*="formname=${entry.name}&"]`).first();
-      h.assert(await cached.count() > 0 && !await cached.isVisible(),
-        'The cached-list fixture did not retain a hidden saved-form anchor');
-      await revealSavedForm(fresh, cached);
-      page = await ui.clickOpensPopup(fresh, cached, { context: s.context, recorder: s.recorder,
-        label: `reopen-${form.key}`, timeout: 20000, position: { x: 8, y: 9 } });
-      const again = new URL(page.url()).searchParams;
-      h.assert(again.get('demographic_no') === patient && again.get('formId') === entry.id,
-        'Expanding the cached list opened a different patient or saved record');
-      await assertShown(page, form, entry.text, 'The reopened form from the cached list');
     }, ['save', 'chain'], [`reopen-${form.key}`]);
     entry.reopened = page;
   }

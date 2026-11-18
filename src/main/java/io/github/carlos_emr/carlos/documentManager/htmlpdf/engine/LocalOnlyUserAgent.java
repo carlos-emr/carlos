@@ -1,0 +1,554 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.documentManager.htmlpdf.engine;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.logging.log4j.Logger;
+import org.openpdf.text.BadElementException;
+import org.openpdf.text.Image;
+import org.xhtmlrenderer.extend.FSImage;
+import org.xhtmlrenderer.extend.FontResolver;
+import org.xhtmlrenderer.pdf.ITextFSImage;
+import org.xhtmlrenderer.pdf.ITextOutputDevice;
+import org.xhtmlrenderer.pdf.ITextRenderer;
+import org.xhtmlrenderer.pdf.ITextUserAgent;
+import org.xhtmlrenderer.pdf.SvgImage;
+import org.xhtmlrenderer.resource.ImageResource;
+import org.xhtmlrenderer.simple.extend.XhtmlCssOnlyNamespaceHandler;
+import org.xhtmlrenderer.util.Configuration;
+
+import javax.imageio.ImageIO;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.UnaryOperator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * SSRF-safe {@link ITextUserAgent} for Flying Saucer: it fetches nothing over the network, reads
+ * local files only from directories named by the caller, and refuses images that would be costly
+ * or are in a format nobody has vetted.
+ *
+ * <p>Flying Saucer's default user agent opens unrestricted HTTP connections for every resource an
+ * HTML document references ({@code <img src>}, {@code <link href>}, CSS {@code @import},
+ * {@code url()} and so on), which is server-side request forgery if the HTML is user-controlled
+ * (for example {@code http://169.254.169.254/} for cloud metadata) and local file disclosure if it
+ * can name {@code file:///etc/passwd}. This subclass closes both:</p>
+ *
+ * <ol>
+ *   <li>{@link #resolveAndOpenStream(String)} lets through only {@code data:} URIs, {@code file:}
+ *       URIs and local paths; every other scheme ({@code http:}, {@code https:}, {@code ftp:},
+ *       {@code jar:}, protocol-relative {@code //}) returns {@code null}.</li>
+ *   <li>{@link #openStream(String)} opens a {@code file:} URI only when its canonical path lies
+ *       inside one of the <b>allowed directories the caller passed in</b>. Nothing is implied:
+ *       not the base URL's directory, not the JVM working directory, not the temp directory. Which
+ *       directories are readable is the caller's explicit decision, so it cannot depend on where
+ *       the server happens to be started.</li>
+ *   <li>Exactly one other resource is readable: Flying Saucer's own default stylesheet, matched by
+ *       its exact URI ({@link #DEFAULT_STYLESHEET_URI}). Without it every page prints its
+ *       {@code <title>} and CSS text and loses block and table layout.</li>
+ *   <li>{@link #getImageResource(String)} is a safety net for images that reach the renderer
+ *       without having been prepared first (CSS backgrounds, and anything the pipeline missed).</li>
+ * </ol>
+ *
+ * <p><b>Logging.</b> The documents are patients' records, so a blocked request is logged with its
+ * scheme and, for the network schemes, its host, and never with a path or a query. Exception
+ * messages are not logged, only their class names.</p>
+ *
+ * <p><b>Images.</b> A file over {@link #MAX_FILE_BYTES}, a header declaring more than
+ * {@link ImageDecoding#MAX_SOURCE_PIXELS}, a PDF, and any format {@link ImageDecoding} does not read
+ * (WebP, HEIC) come back as an empty {@link ImageResource}, which Flying Saucer draws as nothing.
+ * A JPEG loads as it is (OpenPDF embeds the bytes without decoding them). Another image above
+ * {@link ImageDecoding#MAX_DECODED_PIXELS} is decoded subsampled to fit and keeps its printed size.
+ * The agent cannot tell a CSS background from an {@code <img>}, so this cap is the same absolute
+ * cap the image planning applies, not a lower one: a lower cap would quietly shrink images the
+ * planning has already approved. SVG is passed to Flying Saucer as it is, but for its size, which is
+ * taken in pixels like a raster image's (see {@link #getImageResource}); the planning cleans the
+ * SVG files it places in {@code <img>}. Local SVG streams, including stylesheet backgrounds, also pass
+ * through the service-supplied sanitizer before Flying Saucer reads them. This enforces reference and
+ * nested-image bounds independently of Batik's resource policy. SVG streams are limited to 16 MB and
+ * refused if no sanitizer was supplied. {@code HtmlPdfSsrfUnitTest} pins the end-to-end policy. The bitmap that
+ * Flying Saucer makes of an SVG it cannot draw as vectors is made once and bounded by the renderer's
+ * {@link BoundedOutputDevice}.</p>
+ *
+ * <p>Usage: create renderers with {@link #createRestrictedRenderer(List, FontResolver)} instead of
+ * {@code new ITextRenderer()}.</p>
+ *
+ * @see ITextUserAgent
+ * @since 2026-03-04
+ */
+public final class LocalOnlyUserAgent extends ITextUserAgent {
+
+    private static final Logger logger = MiscUtils.getLogger();
+
+    /** Dots per point of {@link ITextRenderer}'s no-argument constructor. */
+    private static final float DEFAULT_DOTS_PER_POINT = 26.666666f;
+
+    /** Dots per pixel of {@link ITextRenderer}'s no-argument constructor. */
+    private static final int DEFAULT_DOTS_PER_PIXEL = 20;
+
+    /**
+     * The largest image file the agent reads at all. It is above the largest image the pipeline
+     * writes itself (a 25-megapixel PNG of noise is under 100 MB) and below what would be a
+     * denial of service by file size (spec §Images).
+     */
+    static final long MAX_FILE_BYTES = 128L << 20;
+
+    /** SVGs are parsed into a DOM, so they have the same smaller bound as the image planner. */
+    static final int MAX_SVG_BYTES = 16 << 20;
+
+    /**
+     * The URI Flying Saucer loads its built-in stylesheet from, found the way Flying Saucer finds it
+     * (its configured path, resolved with the class loader of its namespace handler), or
+     * {@code null} if it cannot be found. It is a {@code jar:} URI, which is otherwise blocked, and
+     * which the agent opens only on an exact match: any other entry of the same jar stays blocked.
+     */
+    static final String DEFAULT_STYLESHEET_URI = locateDefaultStylesheet();
+
+    /** Control characters, replaced before a host name is logged (log forging). */
+    private static final Pattern CONTROL_CHARS = Pattern.compile("[\\x00-\\x1f\\x7f]");
+
+    /** A URI scheme at the start of a string. */
+    private static final Pattern SCHEME = Pattern.compile("^([A-Za-z][A-Za-z0-9+.-]{0,15}):");
+
+    private static final Set<String> NETWORK_SCHEMES = Set.of("http", "https", "ftp");
+
+    private final int dotsPerPixel;
+
+    /** The directories {@code file:} URIs may point into: nothing else is implied. */
+    private final List<Path> allowedDirectories;
+
+    /** Supplied by the service tier; without a sanitizer SVG resources fail closed. */
+    private UnaryOperator<byte[]> svgCleaner = bytes -> null;
+
+    private int leftOutImages;
+
+    /** Only image loads are sanitized; an ordinary CSS stream may contain literal SVG markup. */
+    private final Set<Path> svgImageFiles = new HashSet<>();
+
+    /**
+     * The pictures reduced to fit, by the URI they were asked for. Flying Saucer caches what it loads itself, but
+     * not what this agent decides: a background that fills a page is asked for once by every element that paints
+     * it, and each ask would decode the picture again (up to 25 megapixels) and embed it as another image.
+     */
+    private final Map<String, ITextFSImage> reducedImages = new HashMap<>();
+
+    /**
+     * Creates an agent that reads local files only from the given directories.
+     *
+     * @param outputDevice the PDF output device
+     * @param dotsPerPixel the dots-per-pixel ratio for resource scaling
+     * @param allowedDirectories the directories {@code file:} URIs may point into: absolute paths,
+     *        checked by canonical path (symbolic links and {@code ..} resolved) on every open
+     * @throws NullPointerException if an argument is {@code null}
+     */
+    public LocalOnlyUserAgent(ITextOutputDevice outputDevice, int dotsPerPixel, List<Path> allowedDirectories) {
+        super(outputDevice, dotsPerPixel);
+        this.dotsPerPixel = dotsPerPixel;
+        this.allowedDirectories = List.copyOf(Objects.requireNonNull(allowedDirectories, "allowedDirectories"));
+    }
+
+    /**
+     * Installs the service tier's SVG sanitizer before layout. The callback returns cleaned bytes, or
+     * {@code null} to refuse the SVG; it never opens resources. This keeps document rules out of the engine.
+     *
+     * @param cleaner the sanitizer for local SVG streams, including stylesheet backgrounds
+     */
+    public void setSvgCleaner(UnaryOperator<byte[]> cleaner) {
+        svgCleaner = Objects.requireNonNull(cleaner, "cleaner");
+    }
+
+    /** {@return the number of image loads that were refused or failed} */
+    public int leftOutImages() {
+        return leftOutImages;
+    }
+
+    // ---- streams ----------------------------------------------------------------------------
+
+    /**
+     * Resolves and opens a stream for a URI, refusing every external scheme.
+     *
+     * <p>Allowed: {@code data:} URIs (inline content, no request), {@code file:} URIs and local
+     * paths (absolute, relative, dot-relative), which {@link #openStream(String)} then holds to
+     * the allowed directories, and the built-in stylesheet ({@link #DEFAULT_STYLESHEET_URI}).
+     * Refused: {@code http:}, {@code https:}, {@code ftp:}, {@code jar:} (a {@code jar:https://}
+     * URL makes an outbound request), protocol-relative {@code //}, and any other scheme.</p>
+     *
+     * @param uri the resource URI
+     * @return the stream, or {@code null} if the URI is refused or cannot be opened
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
+    @Override
+    protected InputStream resolveAndOpenStream(String uri) {
+        if (uri == null) {
+            return null;
+        }
+        if (isDefaultStylesheet(uri)) {
+            return super.resolveAndOpenStream(uri);
+        }
+
+        String lower = uri.toLowerCase(Locale.ROOT);
+
+        // data: URIs hold their content inline; no request is made.
+        if (lower.startsWith("data:")) {
+            return super.resolveAndOpenStream(uri);
+        }
+
+        // A protocol-relative URL (//evil.com) would inherit the scheme of the base URL.
+        if (uri.startsWith("//")) {
+            logger.warn("Blocked external resource fetch during PDF rendering ({})", describeForLog(uri));
+            return null;
+        }
+
+        // file: URIs, absolute paths, relative paths and dot-relative paths. A single letter before
+        // the colon is a drive letter, not a scheme.
+        if (lower.startsWith("file:") || uri.startsWith("/") || uri.startsWith(".")) {
+            return super.resolveAndOpenStream(uri);
+        }
+        int colonIdx = uri.indexOf(':');
+        if (colonIdx < 0 || colonIdx == 1) {
+            return super.resolveAndOpenStream(uri);
+        }
+
+        logger.warn("Blocked external resource fetch during PDF rendering ({})", describeForLog(uri));
+        return null;
+    }
+
+    /**
+     * Opens a resolved URI, holding {@code file:} URIs to the allowed directories and refusing
+     * every other scheme again (defence in depth: this is the method that really opens the stream).
+     *
+     * @param uri the resolved URI
+     * @return the stream, or {@code null} if the URI is refused
+     * @throws IOException if opening the stream fails
+     */
+    @Override
+    protected InputStream openStream(String uri) throws IOException {
+        if (uri != null) {
+            if (isDefaultStylesheet(uri)) {
+                return super.openStream(uri);
+            }
+            String lower = uri.toLowerCase(Locale.ROOT);
+            if (lower.contains(":") && !lower.startsWith("file:") && !lower.startsWith("data:")) {
+                logger.warn("Blocked non-local URI in openStream during PDF rendering ({})", describeForLog(uri));
+                return null;
+            }
+            if (lower.startsWith("file:") && !isAllowedLocalPath(uri)) {
+                logger.warn("Blocked file access outside the allowed directories during PDF rendering ({})",
+                        describeForLog(uri));
+                return null;
+            }
+            if (lower.startsWith("file:")) {
+                try {
+                    Path file = Path.of(new URI(uri));
+                    if (svgImageFiles.contains(file)) {
+                        try (InputStream stream = Files.newInputStream(file)) {
+                            byte[] bytes = stream.readNBytes(MAX_SVG_BYTES + 1);
+                            if (bytes.length > MAX_SVG_BYTES) {
+                                return null;
+                            }
+                            byte[] cleaned = svgCleaner.apply(bytes);
+                            return cleaned == null ? null : new ByteArrayInputStream(cleaned);
+                        }
+                    }
+                } catch (URISyntaxException | RuntimeException e) {
+                    // Invalid local resources fail closed without disclosing their URI or content.
+                    return null;
+                }
+            }
+        }
+        return super.openStream(uri);
+    }
+
+    /**
+     * Rejects non-{@code file:} base URLs: with an {@code http:} base, a relative path that
+     * {@link #resolveAndOpenStream(String)} lets through would resolve to an HTTP URL. Flying
+     * Saucer also sets the base to the built-in stylesheet's {@code jar:} URI while it loads it;
+     * that call is ignored without a warning and the document's base stays as it was.
+     *
+     * @param url the base URL ({@code file:} or {@code null})
+     */
+    @Override
+    public void setBaseURL(String url) {
+        if (url != null && isDefaultStylesheet(url)) {
+            return;
+        }
+        if (url != null && !url.toLowerCase(Locale.ROOT).startsWith("file:")) {
+            logger.warn("Rejected a non-file base URL to prevent SSRF via relative URI resolution ({})",
+                    describeForLog(url));
+            return;
+        }
+        super.setBaseURL(url);
+    }
+
+    private static boolean isDefaultStylesheet(String uri) {
+        return DEFAULT_STYLESHEET_URI != null && DEFAULT_STYLESHEET_URI.equals(uri);
+    }
+
+    // ---- containment ------------------------------------------------------------------------
+
+    private boolean isAllowedLocalPath(String uri) {
+        try {
+            return isInAllowedDirectory(Path.of(new URI(uri)));
+        } catch (URISyntaxException | RuntimeException e) {
+            logger.warn("Could not parse a file URI for the containment check; the resource is blocked ({})",
+                    e.getClass().getSimpleName());
+            return false;
+        }
+    }
+
+    /** Delegates to {@link AllowedDirectories}: canonical paths, fails closed, never logs a path. */
+    private boolean isInAllowedDirectory(Path target) {
+        return AllowedDirectories.contains(allowedDirectories, target);
+    }
+
+    // ---- images -----------------------------------------------------------------------------
+
+    /**
+     * Loads an image for the renderer, after the checks described in the class summary.
+     *
+     * @param uriStr the image URI as written in the document ({@code data:}, absolute or relative)
+     * @return the image, or an {@link ImageResource} without an image (drawn as nothing) when the
+     *         image is refused or cannot be loaded; never {@code null} and never throws
+     */
+    @Override
+    public ImageResource getImageResource(String uriStr) {
+        if (uriStr == null) {
+            return new ImageResource(null, null);
+        }
+        try {
+            ImageResource decided = uriStr.toLowerCase(Locale.ROOT).startsWith("data:")
+                    ? vetImageBytes(uriStr, decodeDataUri(uriStr), null)
+                    : vetImageFile(uriStr);
+            // Flying Saucer recognises only a lower-case data: scheme; URI schemes are case-insensitive.
+            String loadUri = DataUris.isDataUri(uriStr) ? "data:" + uriStr.substring(5) : uriStr;
+            ImageResource resource = inOutputUnits(decided != null ? decided : super.getImageResource(loadUri));
+            if (resource.getImage() == null) {
+                leftOutImages++;
+            }
+            return resource;
+        } catch (IOException | RuntimeException e) {
+            leftOutImages++;
+            logger.warn("An image could not be loaded and is left out of the PDF ({})", e.getClass().getSimpleName());
+            return new ImageResource(uriStr, null);
+        }
+    }
+
+    /**
+     * Gives an SVG the size Flying Saucer gives a raster image. It scales a raster image from pixels to
+     * device dots, 20 to the pixel, and takes an SVG's size as dots: an SVG that its page gives no size
+     * would print at a twentieth of its width and height, and a repeating background of it would be
+     * tiled four hundred times as often. Raster images and SVGs the page sizes are not touched by this.
+     */
+    private ImageResource inOutputUnits(ImageResource resource) {
+        if (resource.getImage() instanceof SvgImage svg) {
+            return new ImageResource(resource.getImageUri(),
+                    svg.scale(dotsFor(svg.getWidth()), dotsFor(svg.getHeight())));
+        }
+        return resource;
+    }
+
+    private int dotsFor(int pixels) {
+        return (int) Math.min(Integer.MAX_VALUE, (long) pixels * dotsPerPixel);
+    }
+
+    /** Returns the verdict for a local image file, or {@code null} to let Flying Saucer load it. */
+    private ImageResource vetImageFile(String uriStr) throws IOException {
+        String resolved = resolveURI(uriStr);
+        if (resolved == null || !resolved.toLowerCase(Locale.ROOT).startsWith("file:")) {
+            // Not a local file: the stream methods refuse it.
+            return null;
+        }
+        Path file;
+        try {
+            file = Path.of(new URI(resolved));
+        } catch (URISyntaxException | RuntimeException e) {
+            return new ImageResource(uriStr, null);
+        }
+        if (!isInAllowedDirectory(file)) {
+            logger.warn("Blocked image access outside the allowed directories during PDF rendering (scheme: file)");
+            return new ImageResource(uriStr, null);
+        }
+        if (!Files.isRegularFile(file) || Files.size(file) > MAX_FILE_BYTES) {
+            // Missing, a directory, or too large to read at all.
+            return new ImageResource(uriStr, null);
+        }
+        return vetImageBytes(uriStr, null, file);
+    }
+
+    /**
+     * Decides what to do with an image that is either held in memory ({@code data}) or a file
+     * ({@code file}); returns the verdict, or {@code null} to let Flying Saucer load it as it is.
+     */
+    private ImageResource vetImageBytes(String uriStr, byte[] data, Path file) throws IOException {
+        if (data == null && file == null) {
+            return new ImageResource(uriStr, null);
+        }
+        Optional<ImageHeader> header = data != null ? ImageDecoding.readHeader(data) : ImageDecoding.readHeader(file);
+        if (header.isEmpty()) {
+            // Not a vetted raster format. SVG is Flying Saucer's to draw; a PDF (which it would
+            // render as an image), WebP, HEIC and everything else is refused.
+            if (file != null && looksLikeSvg(file)) {
+                svgImageFiles.add(file);
+                return null;
+            }
+            return new ImageResource(uriStr, null);
+        }
+        ImageHeader h = header.get();
+        if (h.pixels() > ImageDecoding.MAX_SOURCE_PIXELS) {
+            logger.warn("Refused an image whose header declares more than {} pixels", ImageDecoding.MAX_SOURCE_PIXELS);
+            return new ImageResource(uriStr, null);
+        }
+        if (h.isJpeg() || h.pixels() <= ImageDecoding.MAX_DECODED_PIXELS) {
+            return null;
+        }
+        ITextFSImage known = reducedImages.get(uriStr);
+        if (known != null) {
+            return new ImageResource(uriStr, (FSImage) known.clone());
+        }
+        // Larger than anything the pipeline decodes: read every n-th pixel and keep the printed size.
+        int subsampling = ImageDecoding.subsamplingToFit(h, ImageDecoding.MAX_DECODED_PIXELS);
+        BufferedImage reduced = data != null
+                ? ImageDecoding.readSubsampled(data, subsampling)
+                : ImageDecoding.readSubsampled(file, subsampling);
+        try {
+            Image image = Image.getInstance(toPng(reduced));
+            image.scaleAbsolute((float) h.width() * dotsPerPixel, (float) h.height() * dotsPerPixel);
+            ITextFSImage fsImage = new ITextFSImage(image);
+            reducedImages.put(uriStr, fsImage);
+            // A copy that shares the picture, as Flying Saucer hands out what it caches: it is embedded once.
+            return new ImageResource(uriStr, (FSImage) fsImage.clone());
+        } catch (BadElementException e) {
+            throw new IOException("the reduced image cannot be embedded", e);
+        }
+    }
+
+    /** Decodes the payload of a {@code data:} URI, or returns {@code null} if it is not a usable base64 image. */
+    private static byte[] decodeDataUri(String uri) {
+        return DataUris.decodeBase64(uri, MAX_FILE_BYTES).orElse(null);
+    }
+
+    private static boolean looksLikeSvg(Path file) {
+        try (InputStream in = Files.newInputStream(file)) {
+            String head = new String(in.readNBytes(1024), StandardCharsets.ISO_8859_1).toLowerCase(Locale.ROOT);
+            return !head.startsWith("%pdf-") && head.contains("<svg");
+        } catch (IOException | RuntimeException e) {
+            return false;
+        }
+    }
+
+    private static byte[] toPng(BufferedImage image) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        if (!ImageIO.write(image, "png", out)) {
+            // ImageIO has no PNG writer for some raster types (CMYK); redraw as RGB.
+            BufferedImage rgb = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g = rgb.createGraphics();
+            try {
+                g.drawImage(image, 0, 0, null);
+            } finally {
+                g.dispose();
+            }
+            out.reset();
+            if (!ImageIO.write(rgb, "png", out)) {
+                throw new IOException("the reduced image cannot be encoded");
+            }
+        }
+        return out.toByteArray();
+    }
+
+    // ---- factories --------------------------------------------------------------------------
+
+    /**
+     * Creates an {@link ITextRenderer} whose user agent reads local files only from the given
+     * directories and uses the given font resolver.
+     *
+     * <p>The sizes match {@code ITextRenderer}'s no-argument constructor: 26.666666 dots per point
+     * and 20 dots per pixel.</p>
+     *
+     * @param allowedDirectories the directories {@code file:} URIs may point into
+     * @param fontResolver the font resolver; the pipeline's resolver maps every family to a bundled font
+     * @return a renderer that makes no network request and reads no file outside the directories
+     */
+    public static ITextRenderer createRestrictedRenderer(List<Path> allowedDirectories, FontResolver fontResolver) {
+        ITextOutputDevice outputDevice = new BoundedOutputDevice(DEFAULT_DOTS_PER_POINT);
+        LocalOnlyUserAgent userAgent = new LocalOnlyUserAgent(outputDevice, DEFAULT_DOTS_PER_PIXEL, allowedDirectories);
+        return new ITextRenderer(DEFAULT_DOTS_PER_POINT, DEFAULT_DOTS_PER_PIXEL, outputDevice, userAgent, fontResolver);
+    }
+
+    // ---- helpers ----------------------------------------------------------------------------
+
+    private static String locateDefaultStylesheet() {
+        try {
+            String path = Configuration.valueFor("xr.css.user-agent-default-css") + "XhtmlNamespaceHandler.css";
+            URL url = XhtmlCssOnlyNamespaceHandler.class.getResource(path);
+            return url == null ? null : url.toExternalForm();
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Describes a refused URI for the log without revealing what it pointed at: the scheme, and for
+     * the network schemes the host. Never a path, a query or a user name.
+     */
+    static String describeForLog(String uri) {
+        if (uri == null) {
+            return "scheme: none";
+        }
+        if (uri.startsWith("//")) {
+            return "scheme: //";
+        }
+        Matcher matcher = SCHEME.matcher(uri);
+        if (!matcher.find()) {
+            return "scheme: none";
+        }
+        String scheme = matcher.group(1).toLowerCase(Locale.ROOT);
+        if (NETWORK_SCHEMES.contains(scheme)) {
+            try {
+                String host = new URI(uri).getHost();
+                if (host != null) {
+                    String safeHost = CONTROL_CHARS.matcher(host).replaceAll("_");
+                    return "scheme: " + scheme + ", host: " + (safeHost.length() > 253 ? safeHost.substring(0, 253) : safeHost);
+                }
+            } catch (URISyntaxException e) {
+                // fall through: the scheme alone is enough
+            }
+        }
+        return "scheme: " + scheme;
+    }
+}

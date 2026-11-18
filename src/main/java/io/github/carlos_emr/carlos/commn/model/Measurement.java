@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: preserve imported care values and source authorship.
  */
 
 
@@ -104,18 +105,25 @@ public class Measurement extends AbstractModel<Integer> implements Serializable 
     private String providerNo;
 
     /**
-     * The longest value {@code measurements.dataField} holds ({@code varchar(255)}). The packaged install runs MariaDB
+     * The ordinary native-entry limit, retained for existing native writers. The packaged install runs MariaDB
      * with {@code sql_mode=""} and sets {@code jdbcCompliantTruncation=false} in its JDBC URL, so a longer value is cut
      * to fit without an error; writers that must not file a cut value check this first.
      */
     public static final int DATA_FIELD_MAX_LENGTH = 255;
+
+    /**
+     * The longest comment {@code measurements.comments} holds, in characters. The packaged database
+     * cuts a longer comment to this length without an error (see {@link #DATA_FIELD_MAX_LENGTH}); a
+     * writer that later compares the stored row with its source must cut the comment itself first.
+     */
+    public static final int COMMENTS_MAX_LENGTH = 255;
 
     /** 
      * The actual measurement value or data.
      * Format depends on measurement type - may be numeric ("120/80"), 
      * textual ("Normal"), or structured data.
      */
-    @Column(name = "dataField", nullable = false, length = DATA_FIELD_MAX_LENGTH)
+    @Column(name = "dataField", nullable = false, columnDefinition = "MEDIUMTEXT")
     private String dataField = "";
 
     /** 
@@ -174,6 +182,15 @@ public class Measurement extends AbstractModel<Integer> implements Serializable 
      * 
      * @return Integer the unique measurement ID, null if not yet persisted
      */
+    // Retain the pre-snapshot entity serialization identity after adding compatibility constructors.
+    private static final long serialVersionUID = 2859566890374252474L;
+
+    /** Required by JPA and existing Java callers. */
+    public Measurement() { }
+
+    /** Builds an identified detached compatibility view; does not persist or attach it. */
+    public Measurement(Integer id) { this.id = id; }
+
     @Override
     public Integer getId() {
         return id;
@@ -233,6 +250,16 @@ public class Measurement extends AbstractModel<Integer> implements Serializable 
      */
     public void setProviderNo(String providerNo) {
         this.providerNo = StringUtils.trimToNull(providerNo);
+    }
+
+    /** Empty legacy-compatible reference means the imported source did not identify a local author. */
+    public void setImportedSourceProviderNo(String providerNo) {
+        if (providerNo != null && !providerNo.isEmpty() && (providerNo.isBlank()
+                || providerNo.codePointCount(0, providerNo.length()) > 6
+                || providerNo.chars().anyMatch(c -> c < 32 || c == 127))) {
+            throw new IllegalArgumentException("Invalid imported measurement source-provider reference");
+        }
+        this.providerNo = providerNo == null ? "" : providerNo;
     }
 
     /**

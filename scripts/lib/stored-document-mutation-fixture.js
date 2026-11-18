@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+// Modifications by CARLOS Contributors, 2026.
 'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
@@ -216,6 +217,8 @@ function createStoredDocumentFixture(session, program, recovery, options = {}) {
     return proof;
   }
   async function cleanup() {
+    // Allocation/ownership checks can fail before any journal, file or row exists.
+    if (!journal && !initialised && !uncertain) { cleaned = true; return; }
     h.assert(!uncertain && !transportUncertain && initialised && closed, `Stored mutation/setup or browser drain is unconfirmed; preserve fixture journal ${journal}`);
     owner(); equal(otherDocuments(), baseline, 'Other stored document rows changed during the check');
     const guards = new Map();

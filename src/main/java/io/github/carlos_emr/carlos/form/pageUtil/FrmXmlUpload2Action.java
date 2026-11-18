@@ -184,28 +184,15 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
      * @return {@code null} after all entries were processed, or {@link #ERROR} on failure
      */
     private String importLegacyArchive(ZipFile zf) throws IOException {
-        Enumeration<? extends ZipEntry> entries = zf.entries();
-        boolean processedEntry = false;
-        while (entries.hasMoreElements()) {
-            ZipEntry entry = entries.nextElement();
-            if (entry.isDirectory()) {
-                continue;
-            }
-            try (InputStream zis = zf.getInputStream(entry)) {
-                JDBCUtil.toDataBase(zis, entry.getName());
-                processedEntry = true;
-            } catch (JDBCUtil.XmlImportException e) {
-                // Earlier entries may already be committed by the legacy JDBC importer.
-                // Do not report success or expose archive contents/database details.
-                Throwable cause = e.getCause() == null ? e : e.getCause();
-                LOGGER.error("Legacy form import failed (causeType={}, earlierEntriesImported={})",
-                        cause.getClass().getName(), processedEntry);
-                addActionError(ResourceBundle.getBundle("oscarResources", request.getLocale())
-                        .getString(processedEntry ? "form.xmlUpload.legacyPartialFailure" : "form.xmlUpload.legacyFailure"));
-                return forwardActionErrors();
-            }
+        int processed;
+        try {
+            processed = SpringUtils.getBean(io.github.carlos_emr.carlos.form.service.FormXmlImportService.class).importArchive(zf);
+        } catch (JDBCUtil.XmlImportException | RuntimeException e) {
+            LOGGER.error("Legacy form archive rolled back (causeType={})", e.getClass().getName());
+            addActionError(ResourceBundle.getBundle("oscarResources", request.getLocale()).getString("form.xmlUpload.legacyFailure"));
+            return forwardActionErrors();
         }
-        if (!processedEntry) {
+        if (processed == 0) {
             addActionError(ResourceBundle.getBundle("oscarResources", request.getLocale())
                     .getString("form.xmlUpload.legacyEmpty"));
             return forwardActionErrors();

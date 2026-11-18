@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.ArrayList;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
@@ -39,6 +40,70 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class EFormValueDaoImpl extends AbstractDaoImpl<EFormValue> implements EFormValueDao {
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<ClinicalDataRow> findDatabaseApValues(io.github.carlos_emr.carlos.report.data.ParameterizedSql sql) {
+        return findDatabaseApValues(sql, null);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<ClinicalDataRow> findDatabaseApValues(io.github.carlos_emr.carlos.report.data.ParameterizedSql sql,
+            List<String> requestedColumns) {
+        io.github.carlos_emr.carlos.eform.EFormSqlSafety.validateLegacySqlSafety(sql.getSql());
+        // AP templates expose JDBC text (including physical timestamp scale), not Java temporal objects.
+        // Hibernate owns the connection and transaction; only detached scalar rows leave this DAO.
+        return entityManager.unwrap(org.hibernate.Session.class).doReturningWork(connection -> {
+            try (var statement = prepareValidatedApSelect(connection, sql)) {
+                for (int i = 0; i < sql.getParams().size(); i++) statement.setObject(i + 1, sql.getParams().get(i));
+                try (var rows = statement.executeQuery()) {
+                    var result = new java.util.ArrayList<ClinicalDataRow>();
+                    var columns = resolveApColumns(rows, requestedColumns);
+                    while (rows.next()) {
+                        java.util.Map<String, String> values = new java.util.LinkedHashMap<>();
+                        for (var column : columns.entrySet()) {
+                            values.put(column.getKey(), rows.getString(column.getValue()));
+                        }
+                        result.add(new ClinicalDataRow(values));
+                    }
+                    return result;
+                }
+            }
+        });
+    }
+
+    private static java.util.Map<String, Integer> resolveApColumns(java.sql.ResultSet rows,
+            List<String> requestedColumns) throws java.sql.SQLException {
+        java.util.Map<String, Integer> columns = new java.util.LinkedHashMap<>();
+        if (requestedColumns == null) {
+            var metadata = rows.getMetaData();
+            for (int i = 1; i <= metadata.getColumnCount(); i++) {
+                columns.putIfAbsent(metadata.getColumnLabel(i), i);
+            }
+        } else {
+            for (String name : requestedColumns) {
+                try {
+                    // Driver lookup also supports qualified labels such as d.last_name. Metadata
+                    // labels alone lose the table aliases needed to distinguish joined columns.
+                    columns.put(name, rows.findColumn(name));
+                } catch (java.sql.SQLException missingColumn) {
+                    // An absent key preserves the facade's strict failure/legacy placeholder policy.
+                    // Actual row and value reads stay outside this catch and must fail the query.
+                }
+            }
+        }
+        return columns;
+    }
+
+    // The AP policy validates the read before this private statement factory.
+    // All request values remain bound JDBC parameters.
+    @SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
+            justification = "Private AP SELECT preparation follows EFormSqlSafety.validateLegacySqlSafety; request values are bound separately")
+    private static java.sql.PreparedStatement prepareValidatedApSelect(java.sql.Connection connection,
+            io.github.carlos_emr.carlos.report.data.ParameterizedSql sql) throws java.sql.SQLException {
+        return connection.prepareStatement(sql.getSql());
+    }
 
     public EFormValueDaoImpl() {
         super(EFormValue.class);

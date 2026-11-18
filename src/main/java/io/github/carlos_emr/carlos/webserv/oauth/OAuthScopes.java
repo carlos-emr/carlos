@@ -94,6 +94,7 @@ public final class OAuthScopes {
      * the {@code /initiate} vocabulary de-duplicates them.
      */
     private static final Map<String, String> DOMAIN_BY_PATH_ROOT = Map.ofEntries(
+        Map.entry("soaptokens", "soaptoken"),
         Map.entry("allergies", "allergy"),
         Map.entry("app", "app"),
         Map.entry("billing", "billing"),
@@ -219,6 +220,7 @@ public final class OAuthScopes {
      * </ul>
      */
     private static final List<EndpointRule> ALWAYS_BLOCKED = List.of(
+        new EndpointRule("soaptokens", seg(), true, ANY_METHOD),
         new EndpointRule("jobs", seg(), true, ANY_METHOD),
         new EndpointRule("persona", seg("rights"), false, ANY_METHOD),
         new EndpointRule("persona", seg("hasright"), false, ANY_METHOD),

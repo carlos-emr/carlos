@@ -150,11 +150,10 @@ set.
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is `common/V1.0.81`
-(also the highest shared one), so the next free version for ANY location is `V1.0.82`; open draft
-pull requests numbered `V1.0.60` and `V1.0.61` must renumber above it (see `../README.md`).
-Consult every active branch inventory before assigning a version. Never edit a published migration
-or silently enable out-of-order application during promotion.
+next free number accounts for province deltas too. The current high-water mark and next unallocated
+version are recorded in [the migration inventory](../README.md); the merge order is checked against
+`scripts/flyway-merge-order.txt`. Consult every active branch inventory before assigning a
+version. Never edit a published migration or silently enable out-of-order application during promotion.
 
 Messenger membership coordination (PR #3986, issue #3964) adds
 `common/V1.0.36__serialize_messenger_membership_changes.sql`. Apply/merge these forward migrations
@@ -218,3 +217,13 @@ These versions follow the current develop and release/2026.08 migration ranges.
   `location`: CARLOS keeps it `varchar(255)` (V1.0.8). Every statement is idempotent
   (`ADD COLUMN IF NOT EXISTS`, `INSERT ... WHERE NOT EXISTS`), so a re-run changes nothing. See
   `docs/appointment-settings.md`.
+## V1.0.59.8 — Messenger chart PDFs: `messagetbl.pdfattachment` as `MEDIUMBLOB`
+
+The Messenger keeps the text of the chart PDFs it attaches (each as base64) in `messagetbl.pdfattachment`,
+which was a `BLOB`: 65,535 bytes, and with `sql_mode` not strict (as on a packaged install) MariaDB cut a longer
+text off without a word. A chart PDF with its fonts embedded is about 40 KB, 55 KB as base64, so the second PDF of
+a message was stored in two. The column becomes a `MEDIUMBLOB` (16,777,215 bytes), lossless for every stored message
+and rerunnable (`MODIFY` to the type the column already has changes nothing). InnoDB copies the table once, so on a
+large `messagetbl` the upgrade takes as long as that copy; stop the application nodes first, as for any column change.
+`MessageTbl.PDF_ATTACHMENT_MAX_BYTES` is raised to the new size in the same change, and the application still refuses
+a message whose PDFs do not fit instead of storing them cut. Apply before deploying the application.

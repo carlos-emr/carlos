@@ -92,30 +92,32 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 
 <%@ page import="org.w3c.dom.*" %>
-<%@ page import="io.github.carlos_emr.carlos.messenger.util.Msgxml" %>
+
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MessagingManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Groups" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.data.MsgProviderData" %>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+
 
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MessengerSubmissionGuard" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachmentStaging" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.FormSubmissionGuard" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MessengerGroupManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.MessageTbl" %>
 <%@ page import="java.util.Map" %>
 <%@ page import="java.util.List" %>
-<%@ page import="java.util.ResourceBundle" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -298,6 +300,7 @@
 <%-- Extract i18n alert messages into page-scope variables so they can be safely encoded for JavaScript --%>
 <fmt:message key="messenger.CreateMessage.msgEmptyMessage" var="msg_EmptyMessage"/>
 <fmt:message key="messenger.CreateMessage.msgNoProvider" var="msg_NoProvider"/>
+<fmt:message key="messenger.CreateMessage.msgSubjectTooLong" var="msg_SubjectTooLong"/>
 <fmt:message key="messenger.CreateMessage.archiveFailed" var="msg_ArchiveFailed"/>
 <fmt:message key="messenger.CreateMessage.archiveError" var="msg_ArchiveError"/>
 <fmt:message key="messenger.CreateMessage.archiveTimeout" var="msg_ArchiveTimeout"/>
@@ -309,6 +312,10 @@
 // (e.g. "n'a", "L'archivage") are safely escaped by forJavaScript()
 var msgEmptyMessage     = '${carlos:forJavaScript(msg_EmptyMessage)}';
 var msgNoProvider       = '${carlos:forJavaScript(msg_NoProvider)}';
+var msgSubjectTooLong   = '${carlos:forJavaScript(msg_SubjectTooLong)}';
+// messagetbl.thesubject counts Unicode code points (utf8mb4), as Array.from does; MsgCreateMessage2Action
+// refuses a longer subject too, and that is the check that holds.
+var subjectMaxLength    = <%= MessageTbl.SUBJECT_MAX_LENGTH %>;
 var msgArchiveFailed    = '${carlos:forJavaScript(msg_ArchiveFailed)}';
 var msgArchiveError     = '${carlos:forJavaScript(msg_ArchiveError)}';
 var msgArchiveTimeout   = '${carlos:forJavaScript(msg_ArchiveTimeout)}';
@@ -363,6 +370,13 @@ function validateFields() {
     var val = validateCheckBoxes(document.forms[0]);
     if (val === "0") {
         showAlert(msgNoProvider, 'warning');
+        return false;
+    }
+    // Refused here, before Send and Archive archives the original, rather than cut by the database.
+    var subjectBox = document.getElementById('subject');
+    if (subjectBox && Array.from(subjectBox.value.replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, '')).length > subjectMaxLength) {
+        showAlert(msgSubjectTooLong, 'warning');
+        subjectBox.focus();
         return false;
     }
     return true;
@@ -463,6 +477,8 @@ function validateFields() {
 
         document.getElementsByName("message")[0].setAttribute("style", "display:none;");
         if (typeof editor !== 'undefined') {
+            // A refused send restores a draft, so do not add the blank line used
+            // before a fresh reply's quote: it would become part of the retry.
             editor.setMarkdown((submissionerror ? "" : "<br>") + document.getElementsByName("message")[0].value);
             editor.moveCursorToStart();
         }
@@ -540,6 +556,11 @@ function validateFields() {
                     <input type="hidden" name="scheduleNav" value="1">
                     <% } %>
                     <input type="hidden" name="attachmentKey" value="<%= SafeEncode.forHtmlAttribute(attachmentKey) %>">
+                    <%-- One send per rendering of this form (new message, reply, reply all, forward, or a refused
+                         send shown again): a double click, a re-click during a slow send or a reload of the
+                         confirmation page repeats this token and MsgCreateMessage2Action sends nothing more. --%>
+                    <input type="hidden" name="<%= FormSubmissionGuard.PARAMETER %>"
+                           value="<%= SafeEncode.forHtmlAttribute(FormSubmissionGuard.issue(session, FormSubmissionGuard.Scope.MESSENGER_SEND, null)) %>">
                     <input type="hidden" name="archiveMessageId" value="${carlos:forHtmlAttribute(archiveMessageId)}">
 				<table class="card card-body bg-body-tertiary" style="width:100%">
 						<tr class="subheader">
@@ -631,6 +652,10 @@ function validateFields() {
                     <div class="row"><div class="col-auto">
 					<label for="subject" class="form-label"><fmt:message key="messenger.CreateMessage.formSubject" /> :</label>
                     </div><div class="col">
+					<%-- No maxlength: a browser clips a paste to maxlength in UTF-16 units (an emoji is two
+					     units, one character) before any check runs, which could drop the end of a subject
+					     without a word. validateFields and MsgCreateMessage2Action refuse one longer than
+					     MessageTbl.SUBJECT_MAX_LENGTH characters. --%>
 					<input type="text" name="subject" id="subject" class="form-control w-75" value="${carlos:forHtmlAttribute(messageSubject)}"> </div>
                     <div id="messagediv"></div></div>
 					<textarea name="message" rows="15" style="min-width: 100%">${carlos:forHtml(messageBody)}</textarea>

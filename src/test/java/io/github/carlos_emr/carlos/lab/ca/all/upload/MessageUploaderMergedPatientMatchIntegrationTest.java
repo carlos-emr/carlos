@@ -34,11 +34,9 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -144,22 +142,19 @@ class MessageUploaderMergedPatientMatchIntegrationTest extends CarlosTestBase {
                 "");
     }
 
-    /**
-     * Routes one synthetic lab for the HIN and returns the demographic numbers that routing created.
-     *
-     * <p>Only the routes this call adds are returned. Integration tests share one H2 database per
-     * Surefire fork, and another test can leave committed HL7 routes behind; reading every HL7 route
-     * made these assertions depend on which tests happened to run first in the fork.
-     */
+    /** Routes one synthetic lab for the HIN and returns the demographic numbers it was routed to. */
     private List<Integer> routedDemographics(String hin, int fileId) throws Exception {
-        Set<Integer> existing = new HashSet<>(em.createQuery("select r.id from PatientLabRouting r", Integer.class)
-                .getResultList());
-        MessageUploader.routeReport(AuthUtils.initLoginContext(), "synthetic", null, lab(hin, "ACC" + fileId), fileId);
+        RouteReportResults stored = new RouteReportResults();
+        MessageUploader.routeReport(AuthUtils.initLoginContext(), "synthetic", null, lab(hin, "ACC" + fileId), fileId, stored);
         em.flush();
-        List<PatientLabRouting> routes = em.createQuery("select r from PatientLabRouting r where r.labType = 'HL7'",
-                PatientLabRouting.class).getResultList();
-        return routes.stream().filter(route -> !existing.contains(route.getId()))
-                .map(PatientLabRouting::getDemographicNo).toList();
+        // A positive lab number keeps the "stays unrouted" cases from passing on an empty lookup.
+        assertThat(stored.segmentId).isPositive();
+        // Only this upload's routings: other tests in the same surefire fork can leave committed HL7
+        // routings in the shared H2 database, and those are not routes of this message.
+        List<PatientLabRouting> routes = em.createQuery(
+                "select r from PatientLabRouting r where r.labType = 'HL7' and r.labNo = :lab", PatientLabRouting.class)
+                .setParameter("lab", stored.segmentId).getResultList();
+        return routes.stream().map(PatientLabRouting::getDemographicNo).toList();
     }
 
     @Test

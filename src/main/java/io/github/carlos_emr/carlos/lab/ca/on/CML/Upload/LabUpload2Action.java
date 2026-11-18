@@ -25,12 +25,12 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 
 package io.github.carlos_emr.carlos.lab.ca.on.CML.Upload;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 
 import org.apache.struts2.ActionSupport;
@@ -39,7 +39,6 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -109,7 +108,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                     // Validates source file is from an allowed temp location
                     importFile = PathValidationUtils.validateUpload(importFile);
                 } catch (SecurityException e) {
-                    _logger.error("Invalid upload source: {}", LogSafe.sanitize(importFile.getPath()));
+                    _logger.error("Invalid upload source");
                     outcome = OUTCOME_ACCESS_DENIED;
                     request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
                     return SUCCESS;
@@ -201,11 +200,10 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         saveParsedLab(abc);
     }
 
-    // The parser only reads patients and providers through this connection; every row it writes
-    // goes through its DAOs, which join the surrounding transaction.
+    // All parser lookups and writes join the surrounding transaction through managed DAOs.
     private static void saveParsedLab(ABCDParser abc) {
-        try (Connection connection = LegacyJdbcQuery.getConnection()) {
-            abc.save(connection);
+        try {
+            abc.save();
         } catch (SQLException e) {
             throw new IllegalStateException("CML lab save failed", e);
         }

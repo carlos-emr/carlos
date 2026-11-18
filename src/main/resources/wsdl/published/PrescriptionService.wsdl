@@ -1,0 +1,237 @@
+<?xml version='1.0' encoding='UTF-8'?><wsdl:definitions xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:tns="http://ws.oscarehr.org/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:ns1="http://schemas.xmlsoap.org/soap/http" name="PrescriptionWsService" targetNamespace="http://ws.oscarehr.org/">
+  <wsdl:types>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:ns0="http://ws.oscarehr.org/" targetNamespace="http://ws.oscarehr.org/">
+  <xsd:complexType name="getPrescription">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getPrescriptionResponse">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="ns0:prescriptionTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getPrescriptionUpdatedAfterDate">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:dateTime"/>
+      <xsd:element name="arg1" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getPrescriptionUpdatedAfterDateResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:prescriptionTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getPrescriptionsByDemographicIdAfter">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="lastUpdate" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="demographicId" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getPrescriptionsByDemographicIdAfterResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:prescriptionTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getPrescriptionsByProgramProviderDemographicDate">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="arg1" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="arg2" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="arg3" type="xsd:dateTime"/>
+      <xsd:element name="arg4" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getPrescriptionsByProgramProviderDemographicDateResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:prescriptionTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="drugTransfer">
+    <xsd:sequence>
+      <xsd:element name="archived" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="archivedDate" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="archivedReason" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="atc" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="brandName" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="comment" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="createDate" type="xsd:dateTime"/>
+      <xsd:element name="customInstructions" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="customName" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="customNote" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="demographicId" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="dispenseInterval" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="dosage" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="drugForm" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="durUnit" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="duration" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="eTreatmentType" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="endDate" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="freqCode" type="xsd:string"/>
+      <xsd:element name="gcnSeqNo" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="genericName" type="xsd:string"/>
+      <xsd:element name="hideFromCpp" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="hideFromDrugProfile" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="id" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="lastRefillDate" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="lastUpdateDate" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="longTerm" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="method" type="xsd:string"/>
+      <xsd:element name="noSubs" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="nonAuthoritative" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="outsideProviderName" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="outsideProviderOhip" type="xsd:string"/>
+      <xsd:element name="pastMed" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="patientCompliance" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="pickupDateTime" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="position" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="priorRxProtocol" type="xsd:string"/>
+      <xsd:element name="prn" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="protocol" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="providerNo" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="quantity" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="refillDuration" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="refillQuantity" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="regionalIdentifier" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="repeat" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="route" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="rxDate" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="rxStatus" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="scriptNo" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="special" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="special_instruction" type="xsd:string"/>
+      <xsd:element name="startDateUnknown" type="xsd:boolean"/>
+      <xsd:element name="takeMax" type="xsd:float"/>
+      <xsd:element name="takeMin" type="xsd:float"/>
+      <xsd:element minOccurs="0" name="unit" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="unitName" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="writtenDate" type="xsd:dateTime"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="prescriptionTransfer">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="comments" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="datePrescribed" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="datePrinted" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="datesReprinted" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="demographicId" type="xsd:int"/>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="drugs" nillable="true" type="ns0:drugTransfer"/>
+      <xsd:element minOccurs="0" name="id" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="lastUpdateDate" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="providerNo" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="textView" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:element name="getPrescription" type="ns0:getPrescription"/>
+  <xsd:element name="getPrescriptionResponse" type="ns0:getPrescriptionResponse"/>
+  <xsd:element name="getPrescriptionUpdatedAfterDate" type="ns0:getPrescriptionUpdatedAfterDate"/>
+  <xsd:element name="getPrescriptionUpdatedAfterDateResponse" type="ns0:getPrescriptionUpdatedAfterDateResponse"/>
+  <xsd:element name="getPrescriptionsByDemographicIdAfter" type="ns0:getPrescriptionsByDemographicIdAfter"/>
+  <xsd:element name="getPrescriptionsByDemographicIdAfterResponse" type="ns0:getPrescriptionsByDemographicIdAfterResponse"/>
+  <xsd:element name="getPrescriptionsByProgramProviderDemographicDate" type="ns0:getPrescriptionsByProgramProviderDemographicDate"/>
+  <xsd:element name="getPrescriptionsByProgramProviderDemographicDateResponse" type="ns0:getPrescriptionsByProgramProviderDemographicDateResponse"/>
+</xsd:schema>
+  </wsdl:types>
+  <wsdl:message name="getPrescriptionsByProgramProviderDemographicDateResponse">
+    <wsdl:part element="tns:getPrescriptionsByProgramProviderDemographicDateResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getPrescriptionResponse">
+    <wsdl:part element="tns:getPrescriptionResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getPrescriptionsByDemographicIdAfter">
+    <wsdl:part element="tns:getPrescriptionsByDemographicIdAfter" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getPrescriptionUpdatedAfterDateResponse">
+    <wsdl:part element="tns:getPrescriptionUpdatedAfterDateResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getPrescriptionsByProgramProviderDemographicDate">
+    <wsdl:part element="tns:getPrescriptionsByProgramProviderDemographicDate" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getPrescription">
+    <wsdl:part element="tns:getPrescription" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getPrescriptionUpdatedAfterDate">
+    <wsdl:part element="tns:getPrescriptionUpdatedAfterDate" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getPrescriptionsByDemographicIdAfterResponse">
+    <wsdl:part element="tns:getPrescriptionsByDemographicIdAfterResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:portType name="PrescriptionWs">
+    <wsdl:operation name="getPrescriptionsByProgramProviderDemographicDate">
+      <wsdl:input message="tns:getPrescriptionsByProgramProviderDemographicDate" name="getPrescriptionsByProgramProviderDemographicDate">
+    </wsdl:input>
+      <wsdl:output message="tns:getPrescriptionsByProgramProviderDemographicDateResponse" name="getPrescriptionsByProgramProviderDemographicDateResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getPrescription">
+      <wsdl:input message="tns:getPrescription" name="getPrescription">
+    </wsdl:input>
+      <wsdl:output message="tns:getPrescriptionResponse" name="getPrescriptionResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getPrescriptionUpdatedAfterDate">
+      <wsdl:input message="tns:getPrescriptionUpdatedAfterDate" name="getPrescriptionUpdatedAfterDate">
+    </wsdl:input>
+      <wsdl:output message="tns:getPrescriptionUpdatedAfterDateResponse" name="getPrescriptionUpdatedAfterDateResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getPrescriptionsByDemographicIdAfter">
+      <wsdl:input message="tns:getPrescriptionsByDemographicIdAfter" name="getPrescriptionsByDemographicIdAfter">
+    </wsdl:input>
+      <wsdl:output message="tns:getPrescriptionsByDemographicIdAfterResponse" name="getPrescriptionsByDemographicIdAfterResponse">
+    </wsdl:output>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="PrescriptionWsServiceSoapBinding" type="tns:PrescriptionWs">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="getPrescriptionsByProgramProviderDemographicDate">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getPrescriptionsByProgramProviderDemographicDate">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getPrescriptionsByProgramProviderDemographicDateResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getPrescription">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getPrescription">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getPrescriptionResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getPrescriptionUpdatedAfterDate">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getPrescriptionUpdatedAfterDate">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getPrescriptionUpdatedAfterDateResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getPrescriptionsByDemographicIdAfter">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getPrescriptionsByDemographicIdAfter">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getPrescriptionsByDemographicIdAfterResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="PrescriptionWsService">
+    <wsdl:port binding="tns:PrescriptionWsServiceSoapBinding" name="PrescriptionWsPort">
+      <soap:address location="http://127.0.0.1:18080/carlos/ws/PrescriptionService"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

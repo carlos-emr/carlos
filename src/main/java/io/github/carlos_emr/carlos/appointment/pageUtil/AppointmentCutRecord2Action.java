@@ -38,12 +38,14 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.carlos.appt.ApptUtil;
+import io.github.carlos_emr.carlos.appt.ApptData;
 import io.github.carlos_emr.carlos.appt.AppointmentClipboardValidationException;
 import io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException;
-import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
-import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.managers.AppointmentUpdateException;
+import io.github.carlos_emr.carlos.managers.ScheduleManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.ErrorPageMessage;
@@ -61,8 +63,12 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public final class AppointmentCutRecord2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private final OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
-    private final AppointmentArchiveDao appointmentArchiveDao = SpringUtils.getBean(AppointmentArchiveDao.class);
+    private final ScheduleManager scheduleManager;
+
+    /** Struts creates this action through its no-argument constructor. */
+    public AppointmentCutRecord2Action() {
+        this.scheduleManager = SpringUtils.getBean(ScheduleManager.class);
+    }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -87,21 +93,36 @@ public final class AppointmentCutRecord2Action extends ActionSupport {
             return NONE;
         }
 
-        Appointment appt;
+        Integer apptNo;
         try {
-            appt = appointmentDao.find(Integer.parseInt(apptNoParam));
+            apptNo = Integer.valueOf(apptNoParam);
         } catch (NumberFormatException e) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid appointment_no");
             return NONE;
         }
-        if (appt == null) {
+
+        // Lock, compare the version the edit form was rendered from, archive and remove in one
+        // transaction. A form opened before another user changed the appointment is refused
+        // (HTTP 409) instead of removing the newer appointment unseen; a post without a version
+        // keeps the unconditional removal this route always had.
+        Appointment appt;
+        ApptData[] clipboard = new ApptData[1];
+        try {
+            appt = scheduleManager.removeAppointment(loggedInInfo, apptNo,
+                    AppointmentEditConflict.submittedVersion(request),
+                    source -> clipboard[0] = ApptUtil.prepareAppointmentClipboard(request, source));
+        } catch (AppointmentUpdateException refused) {
+            if (refused.getReason() == AppointmentUpdateException.Reason.STALE_VERSION) {
+                return AppointmentEditConflict.refuse(request, response);
+            }
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "Appointment not found");
             return NONE;
-        }
-
-        // Copy appointment into session AFTER validation to avoid corrupting session state on bad input
-        try {
-            ApptUtil.copyAppointmentIntoSession(request);
+        } catch (jakarta.ws.rs.ForbiddenException denied) {
+            // The manager also enforces a patient-specific denial of the appointment's patient.
+            throw new SecurityException("missing required sec object (_appointment)");
+        } catch (jakarta.ws.rs.BadRequestException invalid) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid appointment_no");
+            return NONE;
         } catch (AppointmentClipboardValidationException _) {
             ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_CONFLICT,
                     AppointmentClipboardValidationException.MESSAGE_KEY);
@@ -118,13 +139,15 @@ public final class AppointmentCutRecord2Action extends ActionSupport {
             return NONE;
         }
 
-        if (appt.getLastUpdateUser() == null || appt.getLastUpdateUser().isEmpty()) {
-            appt.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
-        }
-        appointmentArchiveDao.archiveAppointment(appt);
+        // The removal has committed. Publishing the already-validated clipboard needs no source
+        // lookup, and a validation or commit failure leaves the previous clipboard intact.
+        ApptUtil.setAppointmentIntoSession(request, clipboard[0]);
 
-        LogAction.addLogSynchronous(loggedInInfo, "Appointment.cut", "id=" + appt.getId());
-        appointmentDao.remove(appt.getId());
+        // The action name and "id=N" data are the receipt the cut-recovery flow is checked by; the
+        // row also names the appointment, its patient and the client address. It is written in this
+        // thread once the appointment is really gone, so a refused (stale) cut leaves no removal row.
+        LogAction.addLogSynchronous(loggedInInfo, "Appointment.cut", LogConst.CON_APPT, String.valueOf(appt.getId()),
+                appt.getDemographicNo() > 0 ? String.valueOf(appt.getDemographicNo()) : null, "id=" + appt.getId());
 
         request.setAttribute("success", true);
         return SUCCESS;

@@ -55,6 +55,10 @@
  * every owned template, document, follow-up and PDF can be removed and verified after the run.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
+const { authenticatedProbe } = require('./lib/authenticated-probe');
+const { validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
@@ -84,28 +88,12 @@ function isLocalHost(rawHost) {
   return LOCAL_HOSTS.has(host) || isPrivateIpv4(host);
 }
 
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not embed a username or password');
-  }
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  const host = parsed.hostname.toLowerCase();
-  if (!isLocalHost(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
-}
-
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
-const mysqlHost = process.env.MYSQL_HOST || 'db';
+const mysqlHost = require('./lib/playwright-harness').validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
@@ -403,7 +391,7 @@ async function checkEnvelopePdf(context, demographicNo) {
 
 async function checkMutatorsRejectGet(context) {
   for (const route of ['/report/ManageLetters', '/report/GenerateLetters']) {
-    const response = await context.request.get(appUrl(route), { maxRedirects: 0 });
+    const response = await authenticatedProbe({context, config: {baseUrl}}, appUrl(route), { maxRedirects: 0 });
     expect(response.status() === 405, `GET ${route} rejected with 405`, { status: response.status() });
   }
 }
@@ -575,7 +563,8 @@ async function cleanup(demographicNo) {
   if (sql(`SELECT COUNT(*) FROM measurements WHERE comments='${reportName}' AND type='FLUF' AND demographicNo=${Number(demographicNo)}`) !== '0') throw new Error('Owned follow-up remains');
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('patient-letters-envelopes',async context=>{
+  await (async({cancellation})=>{
   const launchOptions = { headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
@@ -586,21 +575,30 @@ async function cleanup(demographicNo) {
   execFileSync('pdftotext', ['-v'], {stdio:'ignore'});
   sql('SELECT 1');
   const demographicNo = resolveDemographicNo();
-  const browser = await chromium.launch(launchOptions);
+  const browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   let context;
   await withPreservedCleanup(async () => {
     context = await browser.newContext({
       ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
       viewport: { width: 1280, height: 900 },
     });
+    cancellation?.throwIfCancelled();
     await login(context);
+    cancellation?.throwIfCancelled();
     await checkEnvelopesWithoutSelection(context);
+    cancellation?.throwIfCancelled();
     await checkEnvelopePdf(context, demographicNo);
+    cancellation?.throwIfCancelled();
     await checkUnicodeEnvelope(context);
+    cancellation?.throwIfCancelled();
     await checkMutatorsRejectGet(context);
+    cancellation?.throwIfCancelled();
     await checkInvalidUpload(context);
+    cancellation?.throwIfCancelled();
     await uploadTemplate(context);
+    cancellation?.throwIfCancelled();
     await checkGenerateLetters(context, demographicNo);
+    cancellation?.throwIfCancelled();
 
     console.log(JSON.stringify({ visited, dialogs, findings }, null, 2));
     if (findings.length) {
@@ -612,7 +610,7 @@ async function cleanup(demographicNo) {
     () => { if (mysqlDefaults) fs.rmSync(mysqlDefaults.dir, { recursive: true, force: true }); },
     () => browser.close(),
   ]);
-})().catch((error) => {
+})(context).catch((error) => {
   try {
     if (mysqlDefaults) fs.rmSync(mysqlDefaults.dir, {recursive:true, force:true});
   } catch (cleanupError) {
@@ -620,5 +618,6 @@ async function cleanup(demographicNo) {
   }
   console.error('FAIL patient letters/envelopes Playwright check');
   console.error(error.stack || error.message);
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

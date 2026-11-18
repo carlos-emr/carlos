@@ -14,12 +14,15 @@
 function createGracefulSignalCancellation({ signalProcess = process, graceMs = 180000 } = {}) {
   let interruption;
   let deadline;
+  let observed;
+  const interrupted = new Promise(resolve => { observed = resolve; });
   const handlers = new Map();
   for (const [signal, exitCode] of [['SIGINT', 130], ['SIGTERM', 143]]) {
     const handler = () => {
       if (interruption) return;
       interruption = new Error(`Interrupted by ${signal}`);
       interruption.exitCode = exitCode;
+      observed();
       signalProcess.exitCode = exitCode;
       console.error(`${signal}: waiting for the current operation, then cleaning up test fixtures`);
       deadline = setTimeout(() => {
@@ -36,6 +39,7 @@ function createGracefulSignalCancellation({ signalProcess = process, graceMs = 1
   }
   return {
     throwIfCancelled,
+    waitForCancellation: () => interrupted,
     // Never race the operation against a signal: a submitted write must settle
     // before its caller enters finally and starts removing its fixture.
     async run(operation) {

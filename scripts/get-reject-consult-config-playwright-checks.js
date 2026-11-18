@@ -44,6 +44,7 @@
  * asserted unchanged by MD5 (lib/consult-config-state.js). Cleanup removes every owned row by key and asserts it, so
  * this check must run with EXCLUSIVE=1.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const claims = require('./lib/form-claims');
@@ -364,7 +365,7 @@ async function workflow(s, { select = validatePin() } = {}) {
         const response = await claims.asPrecondition(async () => {
           const params = replayParams(captured[action.key].params, a.overrides(tag));
           const url = new URL(`${captured[action.key].path}?${params}`, s.config.baseUrl.origin).toString();
-          return s.context.request.fetch(url, { method, maxRedirects: 0, failOnStatusCode: false });
+          return authenticatedProbe(s, url, { method });
         }, `${action.title}: sending the ${method} replay`);
         console.log(`  probe ${NAME}: ${action.title} ${method} -> HTTP ${response.status()}`);
         answeredByApplication(action, `the ${method} replay`, response);
@@ -426,7 +427,8 @@ async function workflow(s, { select = validatePin() } = {}) {
   /** The login is refused the page that hosts the action's form: the policy the action is held to. */
   async function pageRefuses(action, who) {
     claims.precondition(hosts[action.key], 'the page flow recorded no page for the form');
-    const response = await who.context.request.fetch(hosts[action.key], { maxRedirects: 0, failOnStatusCode: false });
+    const response = await authenticatedProbe({context: who.context, config: s.config}, hosts[action.key],
+      {allowSecurityErrorRedirect: true});
     claims.precondition(response.status() === 302 && /securityError/.test(response.headers().location || ''),
       `the page that hosts the ${action.title} form answered HTTP ${response.status()} to the doctor login, not a redirect to /securityError`);
   }

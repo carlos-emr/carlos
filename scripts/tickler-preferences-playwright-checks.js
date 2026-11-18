@@ -22,6 +22,7 @@
  * Env: the common contract (lib/playwright-harness.js readConfig()). The regression always
  * follows the actual Preferences link so a direct-route fallback cannot hide a navigation bug.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
@@ -193,7 +194,7 @@ async function workflow(s) {
 
   await s.step('a GET against setTicklerPreferences is refused and does not change the stored preference', async () => {
     const before = `${preferenceRows()}:${storedPreference()}`;
-    const rejected = await s.context.request.get(h.appUrl(s.config.baseUrl,
+    const rejected = await authenticatedProbe(s, h.appUrl(s.config.baseUrl,
       `/setTicklerPreferences?method=saveTicklerTaskAssignee&taskAssigneeMRP.value=provider&taskAssigneeSelection.value=${encodeURIComponent(otherNo)}`),
     { maxRedirects: 0 });
     h.assert(rejected.status() === 405, `A GET preference save answered HTTP ${rejected.status()} instead of 405`);

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+// Modifications by CARLOS Contributors, 2026.
 /*
  * Audit trail of a REFUSED attempt to open a locked patient (wave 7 sweep `audit-log`).
  *
- * User path (as a throwaway doctor login that an administrator locked out of the owned patient, |o| on
- * _demographic$N and _eChart$N): Schedule > Search > the patient's name > the result row's Master Demographic
- * File link. The application refuses (HTTP 403, no patient data on the page).
+ * User path: sign in as a throwaway doctor locked out of the owned patient,
+ * then request the Master Record URL observed by the full-privilege login.
+ * Search visibility is independent of this refused-open audit check.
  *
  * Asserts: the doctor is refused by CARLOS itself (the Master Record window's own response is an application 403 or its
  * securityError/noRights redirect, not a WAF page, server error or login bounce) and the page shows nothing of the patient; the full-privilege test login still
@@ -20,7 +21,6 @@
  * gone, and the audit rows scoped to the patient.
  */
 const h = require('./lib/playwright-harness');
-const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 const { authzReadFixture, cleanupAll } = require('./lib/authz-read-fixture');
 const { signIn, refusedByApp } = require('./lib/authz-read-probe');
@@ -40,13 +40,10 @@ async function workflow(s) {
     doctor = await signIn(s, login);
   });
 
-  await s.step('Search then the Master Demographic File link refuses the locked doctor and shows nothing of the patient', async () => {
-    const schedule = doctor.page;
-    const search = await ui.clickOpensPopupOrNavigates(schedule, schedule.locator('#search a').first(), { context: doctor.context, label: 'locked-search', timeout: 30000 });
-    await search.page.locator('#keyword, input[name="keyword"]').first().fill(marker);
-    await ui.clickAndAwaitReload(search.page, search.page.locator("input[type='submit']").first(), { timeout: 30000, label: 'the patient search' });
-    const link = search.page.locator(`a[title="Master Demographic File"][onclick*="demographic_no=${patient}"]`).first();
-    h.assert(await link.count() === 1, 'The locked patient is not offered in the doctor\'s search results');
+  await s.step('the Master Record URL refuses the locked doctor and shows nothing of the patient', async () => {
+    // Search may correctly hide a locked patient. Use the full login's actual
+    // Master Record URL to exercise refusal independently of search disclosure.
+    const page = await doctor.context.newPage();
     await probe.settle(1500);
     attemptedAfter = probe.mark();
     // Every document navigation of the doctor's context from here on: the popup's own response is the proof the
@@ -55,9 +52,9 @@ async function workflow(s) {
     const navigations = [];
     const onResponse = response => { if (response.request().isNavigationRequest()) navigations.push(response); };
     doctor.context.on('response', onResponse);
-    const outcome = await ui.clickDownloadsOrOpens(search.page, link, { context: doctor.context, label: 'locked-master', timeout: 30000 });
-    h.assert(outcome.kind === 'popup', 'The Master Record link produced no window');
-    const page = outcome.page;
+    const target = new URL(s.master.url());
+    target.searchParams.delete('CSRF-TOKEN'); // Never reuse another login's token.
+    await page.goto(target.toString(), { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForLoadState('load').catch(() => {});
     doctor.context.off('response', onResponse);
     const text = await page.locator('body').innerText().catch(() => '');

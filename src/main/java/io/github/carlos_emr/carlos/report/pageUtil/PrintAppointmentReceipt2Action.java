@@ -39,7 +39,6 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.ResourceBundle;
 
-import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -80,7 +79,8 @@ public class PrintAppointmentReceipt2Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input")
-    public String execute() {
+    @Override
+    public String execute() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
             throw new SecurityException("missing required sec object (_report)");
@@ -167,53 +167,28 @@ public class PrintAppointmentReceipt2Action extends ActionSupport {
         parameters.put("report.appointmentReceipt.With", oscarResources.getString("report.appointmentReceipt.With"));
         parameters.put("report.appointmentReceipt.Printed", oscarResources.getString("report.appointmentReceipt.Printed"));
 
-        ServletOutputStream sos = null;
-        InputStream ins = null;
-
-        logger.error("user home: " + System.getProperty("user.home"));
-
-        try {
-            ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(System.getProperty("user.home") + "/AppointmentReceipt.xml")));
-        } catch (FileNotFoundException | SecurityException ex1) {
-            // SecurityException covers a non-canonicalizable user.home path; like a missing file it
-            // falls back to the bundled default receipt template below rather than escaping uncaught.
-            logger.debug("AppointmentReceipt.xml not found in user's home directory. Using default instead");
-        }
-
-        if (ins == null) {
-            try {
-
-                ins = getClass().getResourceAsStream("/oscar/oscarDemographic/AppointmentReceipt.xml");
-                logger.debug("loading from : /oscar/oscarDemographic/AppointmentReceipt.xml " + ins);
-            } catch (Exception ex1) {
-                MiscUtils.getLogger().error("Error", ex1);
+        String pdfJavascript = exportPdfJavascript;
+        io.github.carlos_emr.carlos.report.export.PdfDownload.inline(response, "receipt_.pdf", output -> {
+            try (InputStream input = openReceiptTemplate()) {
+                new OscarDocumentCreator().fillDocumentStream(parameters, output, "pdf", input, null, pdfJavascript);
             }
-        }
-
-        try {
-            sos = response.getOutputStream();
-        } catch (IOException ex) {
-            MiscUtils.getLogger().error("Error", ex);
-        }
-
-        response.setHeader("Content-disposition", getHeader(response).toString());
-        OscarDocumentCreator osc = new OscarDocumentCreator();
-        try {
-            osc.fillDocumentStream(parameters, sos, "pdf", ins, null, exportPdfJavascript);
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        } finally {
-            try {
-                if (ins != null) {
-                    ins.close();
-                }
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
-            }
-        }
+        });
         // This action streams the PDF directly and its Struts mapping has no success result.
         // Returning SUCCESS makes Struts render the global error page over the PDF as "0".
         return NONE;
+    }
+
+    /** The override directory is the trusted JVM user.home setting; no request path enters this lookup. */
+    private InputStream openReceiptTemplate() throws IOException {
+        try {
+            return new FileInputStream(PathValidationUtils.resolveTrustedPath(
+                    new File(System.getProperty("user.home"), "AppointmentReceipt.xml")));
+        } catch (FileNotFoundException | SecurityException _) {
+            logger.debug("AppointmentReceipt.xml unavailable; using bundled receipt template");
+            InputStream input = getClass().getResourceAsStream("/oscar/oscarDemographic/AppointmentReceipt.xml");
+            if (input == null) throw new IOException("Receipt template is unavailable");
+            return input;
+        }
     }
 
     private StringBuilder getHeader(HttpServletResponse response) {

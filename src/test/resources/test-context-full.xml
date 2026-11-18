@@ -543,7 +543,16 @@
     -->
     <context:component-scan base-package="io.github.carlos_emr.carlos" use-default-filters="false">
         <context:include-filter type="annotation" expression="org.springframework.stereotype.Repository"/>
+        <!-- Physical advisory-lock coordination requires the production data source and MariaDB native tier. -->
+        <context:exclude-filter type="assignable" expression="io.github.carlos_emr.carlos.commn.dao.CdsImportCoordinatorDao"/>
     </context:component-scan>
+
+    <!--
+        The HTML-to-PDF module (HtmlPdfRenderService and the beans it is built from). It needs no other
+        bean and does no I/O when it is created, so scanning its whole package is safe; the production
+        context finds it through its broad scan.
+    -->
+    <context:component-scan base-package="io.github.carlos_emr.carlos.documentManager.htmlpdf"/>
 
     <!-- ===================================================================== -->
     <!-- Non-@Repository DAOs (require manual bean definitions)                -->
@@ -619,6 +628,8 @@
     <!-- Provider Linking Rules (issue #3971). HRMModifyDocument2Action and PatientMatch2Action
          resolve these from SpringUtils in their no-arg constructors. -->
     <bean id="providerLinkingRulesService" class="io.github.carlos_emr.carlos.lab.service.ProviderLinkingRulesService" autowire="constructor" />
+    <bean id="reportConfigurationService" class="io.github.carlos_emr.carlos.commn.service.ReportConfigurationService" autowire="constructor" />
+
     <bean id="hrmProviderRoutingService" class="io.github.carlos_emr.carlos.hospitalReportManager.service.HrmProviderRoutingService" autowire="constructor" />
     <bean id="mrpRoutingService" class="io.github.carlos_emr.carlos.lab.service.MrpRoutingService" autowire="constructor" />
     <!-- Measurement group creation (issue #3335): a real tx proxy so

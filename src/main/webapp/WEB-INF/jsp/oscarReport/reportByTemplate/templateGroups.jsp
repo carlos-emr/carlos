@@ -25,13 +25,13 @@
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
 --%>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <!DOCTYPE html>
 <html>
@@ -270,7 +270,7 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" id="templateToGroup-btn" class="btn btn-primary">
-                        Add Selected Template(s) to ${carlos:forHtml(templatesInGroup[0].groupName)}
+                        Add Selected Template(s) to ${carlos:forHtmlContent(templatesInGroup[0].groupName)}
                     </button>
                 </div>
             </div>
@@ -301,8 +301,12 @@
             value = value.trim();
             var id = this.getAttribute("id");
             var inputCheck = checkRow(value);
+            // The column holds 255 characters (code points), which is not what maxlength counts (UTF-16
+            // units), so the limit is checked here and the server enforces the same count.
+            var tooLong = Array.from(value).length > 255;
+            this.classList.toggle("is-invalid", tooLong);
 
-            if (value != "" && inputCheck == "") {
+            if (value != "" && inputCheck == "" && !tooLong) {
                 document.querySelectorAll('.groupAdd').forEach(function (el) { el.removeAttribute("disabled"); });
                 document.querySelectorAll('.groupAdd').forEach(function (el) { el.classList.add("btn-success"); });
                 document.querySelectorAll('.textExists').forEach(function (el) { el.style.display = 'none'; });
@@ -317,11 +321,20 @@
             }
         }
 
+        // The database compares group names case- and accent-insensitively (utf8mb4_general_ci), so the
+        // page folds both the same way to warn about duplicates before the server refuses them. Lower
+        // case, not upper case: toUpperCase() expands "ß" to "SS", which would block a name such as
+        // "Strassé" next to "Straße" that the database treats as a different group. This is feedback
+        // only; the server-side duplicate check in RBTGroupManager stays authoritative.
+        function foldName(text) {
+            return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        }
+
         function checkRow(textInput) {
             var result = "";
             $('#groupListTbl tbody').find('tr').each(function () {
 
-                if ($("td:eq(0)", $(this)).attr("title") && $("td:eq(0)", $(this)).attr("title").trim().toUpperCase() === textInput.toUpperCase()) {
+                if ($("td:eq(0)", $(this)).attr("title") && foldName($("td:eq(0)", $(this)).attr("title").trim()) === foldName(textInput)) {
                     result = "exists";
                     return false;
                 }

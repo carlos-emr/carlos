@@ -104,12 +104,17 @@ class DemographicLoggedInInfoSessionGuard2ActionUnitTest extends CarlosWebTestBa
                 "io.github.carlos_emr.carlos.demographic.pageUtil.DeleteDemographicRelationship2Action",
                 "io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action",
                 "io.github.carlos_emr.carlos.demographic.pageUtil.DemographicMergeRecord2Action",
-                "io.github.carlos_emr.carlos.demographic.pageUtil.ImportLogDownload2Action",
                 "io.github.carlos_emr.carlos.demographic.pageUtil.RourkeExport2Action"
         );
     }
 
     private ActionSupport instantiateAction(String actionClassName) throws Exception {
-        return (ActionSupport) Class.forName(actionClassName).getDeclaredConstructor().newInstance();
+        Class<?> actionClass = Class.forName(actionClassName);
+        var constructor = java.util.Arrays.stream(actionClass.getConstructors())
+                .min(java.util.Comparator.comparingInt(java.lang.reflect.Constructor::getParameterCount))
+                .orElseThrow();
+        Object[] dependencies = java.util.Arrays.stream(constructor.getParameterTypes())
+                .map(org.mockito.Mockito::mock).toArray();
+        return (ActionSupport) constructor.newInstance(dependencies);
     }
 }

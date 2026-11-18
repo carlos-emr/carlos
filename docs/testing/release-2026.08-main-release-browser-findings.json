@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "observerSourceCommit": "f962bce1636483606a806f339814bfedcd51843b",
+  "mainSourceCommit": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "releaseProductionBase": "710fb1ac7c3fa75528359e71e8fac0d590b9e36f",
+  "qualification": "Unreviewed baseline observations. These are not candidate expected-failure pins or approved compatibility dispositions. Keep required HTTP/client compatibility acceptance blocking.",
+  "observations": [
+    {
+      "check": "echart",
+      "mainResult": "FAIL",
+      "candidateCleanSmokeResult": "PASS",
+      "observation": "Encounter Save did not queue behind the pending CPP request in the published main binary."
+    },
+    {
+      "check": "error-sanitization",
+      "mainResult": "FAIL",
+      "candidateCleanSmokeResult": "PASS",
+      "observation": "The invalid satellite-clinic-address probe expected HTTP 400 but main returned HTTP 500. Candidate clean smoke passes the controlled-refusal contract. The failed main run stopped at this first assertion; it does not prove the later privacy cases."
+    },
+    {
+      "check": "mutator-get-rejection-live",
+      "mainResult": "FAIL",
+      "candidateCleanSmokeResult": "PASS",
+      "observation": "The existing eform/editForm route returned HTTP 200 to GET and HEAD on main; candidate clean smoke passes the HTTP 405 contract. Source comparison confirms a release-side POST-only guard before form processing. These status probes alone do not prove a committed mutation or exploit. Review affected clients and the intentional security restriction explicitly."
+    },
+    {
+      "check": "tickler-crud",
+      "mainResult": "FAIL",
+      "candidateCleanSmokeResult": "PASS",
+      "observation": "The baseline tickler workflow timed out waiting for a response after 30 seconds. The retained summary does not identify the operation or distinguish application behavior from a client expectation. Keep classification unresolved until a phase-specific reproduction exists."
+    }
+  ]
+}

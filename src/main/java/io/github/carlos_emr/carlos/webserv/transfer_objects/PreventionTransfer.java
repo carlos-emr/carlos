@@ -33,13 +33,14 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.commn.model.PreventionExt;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.prevention.PreventionDateService;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO;
 
+/** Date-only SOAP carrier. Conversion requires proven full-date precision for every record. */
 public final class PreventionTransfer {
 
     private Integer Id;
@@ -65,6 +66,8 @@ public final class PreventionTransfer {
         this.demographicId = demographicId;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getCreationDate() {
         return (creationDate);
     }
@@ -89,6 +92,8 @@ public final class PreventionTransfer {
         this.providerNo = providerNo;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getPreventionDate() {
         return (preventionDate);
     }
@@ -129,6 +134,8 @@ public final class PreventionTransfer {
         this.never = never;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getNextDate() {
         return (nextDate);
     }
@@ -145,6 +152,8 @@ public final class PreventionTransfer {
         this.creatorProviderNo = creatorProviderNo;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getLastUpdateDate() {
         return (lastUpdateDate);
     }
@@ -164,8 +173,10 @@ public final class PreventionTransfer {
     /**
      * both preventionsExts are required, null is not allowed, pass in empty list for no ext's
      */
-    public static PreventionTransfer toTransfer(Prevention prevention, List<PreventionExt> preventionExts) {
+    public static PreventionTransfer toTransfer(Prevention prevention, List<PreventionExt> preventionExts,
+            PreventionDateDTO date) {
         if (prevention == null) return (null);
+        if (prevention.isCdsImported()) date.requireExact();
 
         PreventionTransfer preventionTransfer = new PreventionTransfer();
 
@@ -187,13 +198,14 @@ public final class PreventionTransfer {
         return (preventionTransfer);
     }
 
-    public static PreventionTransfer[] getTransfers(LoggedInInfo loggedInInfo, List<Prevention> preventions) {
+    public static PreventionTransfer[] getTransfers(LoggedInInfo loggedInInfo, List<Prevention> preventions,
+            PreventionManager preventionManager, PreventionDateService dateService) {
         ArrayList<PreventionTransfer> results = new ArrayList<PreventionTransfer>();
-        PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
 
         for (Prevention prevention : preventions) {
             List<PreventionExt> preventionExts = preventionManager.getPreventionExtByPrevention(loggedInInfo, prevention.getId());
-            PreventionTransfer preventionTransfer = PreventionTransfer.toTransfer(prevention, preventionExts);
+            PreventionTransfer preventionTransfer = PreventionTransfer.toTransfer(prevention, preventionExts,
+                    dateService.getDate(prevention));
             results.add(preventionTransfer);
         }
 
@@ -202,6 +214,6 @@ public final class PreventionTransfer {
 
     @Override
     public String toString() {
-        return (ReflectionToStringBuilder.toString(this));
+        return getClass().getSimpleName() + "[protected]";
     }
 }

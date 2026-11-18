@@ -29,8 +29,8 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
+
+
 
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -163,14 +163,14 @@
             });
 
             function showHideBox(layerName, iState) { // 1 visible, 0 hidden
-                if (document.layers)	   //NN4+
+                if (document.layers)       //NN4+
                 {
                     document.layers[layerName].visibility = iState ? "show" : "hide";
-                } else if (document.getElementById)	  //gecko(NN6) + IE 5+
+                } else if (document.getElementById)   //gecko(NN6) + IE 5+
                 {
                     var obj = document.getElementById(layerName);
                     obj.style.visibility = iState ? "visible" : "hidden";
-                } else if (document.all)	// IE 4
+                } else if (document.all)    // IE 4
                 {
                     document.all[layerName].style.visibility = iState ? "visible" : "hidden";
                 }
@@ -192,7 +192,7 @@
 
                 if (document.layers) {   //NN4+
                     document.layers[layerName].visibility = iState ? "show" : "hide";
-                } else if (document.getElementById) {	  //gecko(NN6) + IE 5+
+                } else if (document.getElementById) {     //gecko(NN6) + IE 5+
                     var obj = document.getElementById(layerName);
                     obj.style.visibility = iState ? "visible" : "hidden";
                 } else if (document.all) {// IE 4
@@ -227,12 +227,12 @@
 
                 if (document.layers) {   //NN4+
                     document.layers[layerName].visibility = iState ? "show" : "hide";
-                } else if (document.getElementById) {	  //gecko(NN6) + IE 5+
+                } else if (document.getElementById) {     //gecko(NN6) + IE 5+
                     var obj = document.getElementById(layerName);
                     obj.style.top = e.screenY + (401 - e.screenY + 26 * fieldName);
                     obj.style.left = "30px";
                     obj.style.visibility = iState ? "visible" : "hidden";
-                } else if (document.all)	// IE 4
+                } else if (document.all)    // IE 4
                 {
                     document.all[layerName].style.visibility = iState ? "visible" : "hidden";
                 }
@@ -1879,7 +1879,7 @@
                 <td valign="bottom" width="30%">
                     <div style="display:block; float:left; ">
 
-                        <span class="small9">1st US	<br/> (dd/mm/yyyy)</span>
+                        <span class="small9">1st US <br/> (dd/mm/yyyy)</span>
 
                         <br/>
                         <input type="text"

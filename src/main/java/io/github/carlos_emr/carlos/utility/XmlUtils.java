@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Reader;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -50,8 +51,9 @@ import javax.xml.parsers.SAXParserFactory;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.sax.SAXSource;
 
-import org.apache.commons.codec.binary.Base64;
+import java.util.Base64;
 import org.apache.logging.log4j.Logger;
+import org.jdom2.JDOMException;
 import org.jdom2.input.SAXBuilder;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -95,42 +97,29 @@ public final class XmlUtils {
      * <p>Disables DOCTYPE declarations and external entity resolution to prevent XXE attacks.
      * Use this factory method instead of {@code new SAXBuilder()} throughout the codebase.
      *
-     * <p>The critical {@code disallow-doctype-decl} feature is required — an
-     * {@link IllegalStateException} is thrown if it cannot be applied so that callers
-     * never receive an unprotected parser. The remaining defense-in-depth features are
-     * applied on a best-effort basis; a warning is logged if any of them cannot be set.
+     * <p>All security features are required. JDOM defers feature application until it
+     * creates a parsing engine, so a fixed empty document is parsed here to verify the
+     * configuration and cache the engine before returning the builder. Each subsequent
+     * engine uses the same restrictions.
+     * A provider that cannot apply them causes an {@link IllegalStateException}.
      *
      * @return SAXBuilder configured with XXE protections
-     * @throws IllegalStateException if the critical disallow-doctype-decl protection cannot be enabled
+     * @throws IllegalStateException if a parsing engine with the required protections cannot be created
      */
     public static SAXBuilder createSecureSAXBuilder() {
         SAXBuilder parser = new SAXBuilder();
-        // Critical protection — fail closed if it cannot be applied
+        parser.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        parser.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        parser.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        parser.setExpandEntities(false);
         try {
-            parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        } catch (Exception ex) {
-            throw new IllegalStateException("Failed to enable required XXE protection (disallow-doctype-decl)", ex);
-        }
-        // Defense-in-depth features — warn individually if unavailable
-        try {
-            parser.setFeature("http://xml.org/sax/features/external-general-entities", false);
-        } catch (Exception ex) {
-            logger.warn("Could not disable external-general-entities on SAXBuilder", ex);
-        }
-        try {
-            parser.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-        } catch (Exception ex) {
-            logger.warn("Could not disable external-parameter-entities on SAXBuilder", ex);
-        }
-        try {
-            parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-        } catch (Exception ex) {
-            logger.warn("Could not disable load-external-dtd on SAXBuilder", ex);
-        }
-        try {
-            parser.setExpandEntities(false);
-        } catch (Exception ex) {
-            logger.warn("Could not disable entity expansion on SAXBuilder", ex);
+            // buildEngine() alone does not cache its result. A fixed, trusted document
+            // validates the protections and lets JDOM reuse the engine for caller input.
+            parser.build(new StringReader("<root/>"));
+        } catch (JDOMException | IOException ex) {
+            throw new IllegalStateException("Failed to configure secure JDOM XML parsing", ex);
         }
         return parser;
     }
@@ -150,7 +139,7 @@ public final class XmlUtils {
      * @throws ParserConfigurationException if the critical disallow-doctype-decl protection cannot be enabled
      */
     public static DocumentBuilderFactory createSecureDocumentBuilderFactory() throws ParserConfigurationException {
-        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newDefaultInstance();
         // Critical protection — fail closed if it cannot be applied
         dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         // Defense-in-depth features — warn individually if unavailable
@@ -217,7 +206,7 @@ public final class XmlUtils {
      * @throws SAXException if the critical disallow-doctype-decl protection cannot be enabled
      */
     public static SAXParserFactory createSecureSAXParserFactory() throws ParserConfigurationException, SAXException {
-        SAXParserFactory spf = SAXParserFactory.newInstance();
+        SAXParserFactory spf = SAXParserFactory.newDefaultInstance();
         // Critical protection — fail closed if it cannot be applied
         spf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         // Defense-in-depth features — warn individually if unavailable
@@ -261,7 +250,11 @@ public final class XmlUtils {
      * @throws SAXException if the required security features or external-access properties cannot be set
      */
     public static javax.xml.validation.SchemaFactory createSecureSchemaFactory(String schemaLanguage) throws SAXException {
-        javax.xml.validation.SchemaFactory sf = createSchemaFactoryInstance(schemaLanguage);
+        // Keep provider selection beside the mandatory hardening: no unsecured factory escapes.
+        // The JDK default recognizes these properties even when legacy Xerces is on the classpath.
+        javax.xml.validation.SchemaFactory sf = XMLConstants.W3C_XML_SCHEMA_NS_URI.equals(schemaLanguage)
+                ? javax.xml.validation.SchemaFactory.newDefaultInstance()
+                : javax.xml.validation.SchemaFactory.newInstance(schemaLanguage);
         try {
             sf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
         } catch (SAXException ex) {
@@ -278,22 +271,6 @@ public final class XmlUtils {
             throw new SAXException("Failed to restrict external schema access on SchemaFactory", ex);
         }
         return sf;
-    }
-
-    /**
-     * Selects the JDK W3C XML Schema factory so required JAXP external-access
-     * security properties are recognized even when an older classpath Xerces
-     * provider is present. Non-W3C schema languages still use the standard JAXP
-     * provider lookup because the JDK default factory only supports W3C XML Schema.
-     *
-     * @param schemaLanguage the schema language URI
-     * @return SchemaFactory instance for the requested schema language
-     */
-    private static javax.xml.validation.SchemaFactory createSchemaFactoryInstance(String schemaLanguage) {
-        if (XMLConstants.W3C_XML_SCHEMA_NS_URI.equals(schemaLanguage)) {
-            return javax.xml.validation.SchemaFactory.newDefaultInstance();
-        }
-        return javax.xml.validation.SchemaFactory.newInstance(schemaLanguage);
     }
 
     /**
@@ -570,7 +547,8 @@ public final class XmlUtils {
     }
 
     public static Document toDocument(String s) throws IOException, SAXException, ParserConfigurationException {
-        return toDocument(s.getBytes("UTF-8"));
+        if (s == null) throw new SAXException("XML document text is required");
+        return toDocument(s.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     public static Document toDocument(byte[] x) throws IOException, SAXException, ParserConfigurationException {
@@ -594,7 +572,7 @@ public final class XmlUtils {
     }
 
     public static void appendChildToRoot(Document doc, String childName, byte[] childContents) {
-        appendChild(doc, doc.getFirstChild(), childName, new String(Base64.encodeBase64(childContents)));
+        appendChild(doc, doc.getFirstChild(), childName, new String(Base64.getEncoder().encode(childContents)));
     }
 
     public static void appendChildToRoot(Document doc, String childName, String childContents) {

@@ -210,7 +210,7 @@ public class BillingOnFormViewModelAssembler {
         // Coalesce request-param strings to empty rather than null. The JSP
         // and downstream JS string-builders call URLEncoder.encode(...) and
         // concat into href URLs, both of which NPE on null inputs.
-        String demoName = nullToEmpty(request.getParameter("demographic_name"));
+        String demoName = "";
         String demoNo = nullToEmpty(request.getParameter("demographic_no"));
         String apptProviderNo = nullToEmpty(request.getParameter("apptProvider_no"));
         b.demoName(demoName);
@@ -249,6 +249,8 @@ public class BillingOnFormViewModelAssembler {
         BillingOnFormDemographicLoader.LoadedDemographic loaded =
                 demographicLoader.load(b, loggedInInfo, demoNo);
         Demographic demo = loaded.demo();
+        demoName = demo == null ? "" : nullToEmpty(demo.getLastName()) + ", " + nullToEmpty(demo.getFirstName());
+        b.demoName(demoName);
         String rosterStatus = loaded.rosterStatus();
 
         // Patient Dx + add/match codes for the dx-add UI panel.

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import org.owasp.encoder.Encode;
 
 import java.io.IOException;
@@ -264,6 +265,33 @@ public final class IncomingDocumentCapacityResponse {
         response.setHeader("Cache-Control", "no-store");
         unaccepted(request, response, false, ResourceBundle.getBundle("oscarResources", request.getLocale())
                 .getString("dms.incomingDocs.parseFailed"));
+    }
+
+    /**
+     * The typed description is longer than {@code document.docdesc}, which the packaged database would
+     * cut without an error. Called before the queued file is read, moved or filed, so nothing was
+     * accepted. The JSON contract keeps the page's input editable and shows the localized message;
+     * a native submission gets the message and a link back to the queued document, never a form
+     * that would post the same over-long text again.
+     */
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "Localized message and validated read-only URL are OWASP encoded")
+    public static void filingDescriptionTooLong(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        ResourceBundle messages = ResourceBundle.getBundle("oscarResources", request.getLocale());
+        String message = messages.getString("dms.error.descriptionTooLong");
+        response.setStatus(HttpServletResponse.SC_UNPROCESSABLE_CONTENT);
+        response.setHeader("Cache-Control", "no-store");
+        if (usesContract(request)) {
+            response.setContentType("application/json;charset=UTF-8");
+            JSON.writeValue(response.getWriter(), Map.of("success", false, "accepted", false, "retryable", false,
+                    "descriptionTooLong", true, "error", message));
+            return;
+        }
+        String back = readOnlyUrl(request, request.getParameter("queueId"), request.getParameter("pdfDir"),
+                request.getParameter("pdfNo"), "1");
+        response.setContentType("text/html;charset=UTF-8");
+        response.getWriter().write("<!DOCTYPE html><html><body><p role=\"alert\">" + SafeEncode.forHtml(message) // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep, java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- writes only fixed oscarResources messages and the readOnlyUrl link (positive-integer ids, allow-listed queue, server context path), each encoded with SafeEncode (null-safe OWASP Encode), which Semgrep does not model
+                + "</p><a href=\"" + SafeEncode.forHtmlAttribute(back) + "\">"
+                + SafeEncode.forHtml(messages.getString("global.btnContinue")) + "</a></body></html>");
     }
 
     /** Another session removed the source before this request acquired its lease. */

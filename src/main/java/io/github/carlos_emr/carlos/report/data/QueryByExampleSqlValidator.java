@@ -18,6 +18,7 @@
  *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.report.data;
 
@@ -87,10 +88,32 @@ public final class QueryByExampleSqlValidator {
             "sms_config",
             "sms_provider_rate_limit",
             "sms_transaction",
+            "cds_export_attempt",
+            "cds_export_event",
+            "cds_export_held_patient",
+            "cds_export_run",
+            "cds_import_admission",
+            "cds_import_checkpoint",
+            "cds_import_dependency",
+            "cds_import_diagnostic",
+            "cds_import_event",
+            "cds_import_field",
+            "cds_import_file",
+            "cds_import_file_reference",
+            "cds_import_identity",
+            "cds_import_lineage",
+            "cds_import_patient",
+            "cds_import_preparation",
+            "cds_import_review",
+            "cds_import_run",
+            "cds_import_unit",
+            "cds_import_upload",
+            "cds_laboratory_result",
             "emailconfig",
             "emaillog",
             "fax_config",
             "oceansetting",
+            "o19_imported_signature_owner",
             "oscarcommlocations",
             "oscarjob",
             "oscarkeys",
@@ -99,6 +122,7 @@ public final class QueryByExampleSqlValidator {
             "property",
             "publickeys",
             "report_date",
+            "rx_submission_receipt",
             "security",
             "securityarchive",
             "securitytoken",
@@ -135,6 +159,11 @@ public final class QueryByExampleSqlValidator {
             "ntile", "percent_rank", "rank", "row_number");
 
     private QueryByExampleSqlValidator() {
+    }
+
+    /** Shared recognition of side-effect-free built-ins; does not change reporting SQL policy. */
+    public static boolean isKnownReadOnlyBuiltin(String name) {
+        return name != null && ALLOWED_FUNCTIONS.contains(name.toLowerCase(Locale.ROOT));
     }
 
     /**

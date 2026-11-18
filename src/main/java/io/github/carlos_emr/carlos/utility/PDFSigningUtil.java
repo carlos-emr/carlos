@@ -36,6 +36,7 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Function;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.pdfbox.Loader;
@@ -155,6 +156,22 @@ public final class PDFSigningUtil {
      */
     public static Path signPDF(Path pdfPath, PDFSigningConfig config, String ownerPassword, DocumentManifest manifest)
             throws IOException {
+        return signPDFWithManifestJson(pdfPath, config, ownerPassword, manifest == null ? null : manifest::toCanonicalJson,
+                PREFERRED_SIGNATURE_SIZE);
+    }
+
+    /**
+     * Signs as {@link #signPDF(Path, PDFSigningConfig, String, DocumentManifest)} does, embedding
+     * whatever bytes {@code manifestJson} returns for the signing key's ID. Package-private so the
+     * myCarlos test fixtures can embed a deliberately wrong manifest (a stray claim, a duplicate
+     * member, another clinic's key ID) in exactly the place a real one goes.
+     *
+     * @param manifestJson the manifest bytes for a given {@code kid}, or {@code null} for none
+     * @param signatureSize the bytes reserved for the CMS signature; the fixtures use a smaller
+     *        slot than production so their files stay small
+     */
+    static Path signPDFWithManifestJson(Path pdfPath, PDFSigningConfig config, String ownerPassword,
+            Function<String, byte[]> manifestJson, int signatureSize) throws IOException {
         if (pdfPath == null) {
             throw new IOException("PDF path is required for signing");
         }
@@ -166,18 +183,18 @@ public final class PDFSigningUtil {
 
         SigningMaterial signingMaterial = loadSigningMaterial(config);
         // The exact bytes embedded below, and what the signed manifest-digest attribute names.
-        byte[] manifestJson = manifest == null
-                ? null : manifest.toCanonicalJson(keyId(signingMaterial.signingCertificate()));
+        byte[] manifestBytes = manifestJson == null
+                ? null : manifestJson.apply(keyId(signingMaterial.signingCertificate()));
         Path signedPDFPath = PathValidationUtils.createSecureTempFile(
                 PathValidationUtils.validateGeneratedFileName("signedPDF_" + System.currentTimeMillis()), ".pdf").toPath();
 
-        CmsDetachedSignature cms = new CmsDetachedSignature(signingMaterial, manifestDigest(manifestJson));
+        CmsDetachedSignature cms = new CmsDetachedSignature(signingMaterial, manifestDigest(manifestBytes));
         int[] byteRange;
         boolean encrypted;
         try (PDDocument document = loadPDF(pdfPath, ownerPassword);
              SignatureOptions signatureOptions = new SignatureOptions();
              OutputStream output = Files.newOutputStream(signedPDFPath)) {
-            signatureOptions.setPreferredSignatureSize(PREFERRED_SIGNATURE_SIZE);
+            signatureOptions.setPreferredSignatureSize(signatureSize);
 
             PDSignature signature = new PDSignature();
             signature.setFilter(PDSignature.FILTER_ADOBE_PPKLITE);
@@ -192,8 +209,8 @@ public final class PDFSigningUtil {
             }
             signature.setSignDate(GregorianCalendar.from(ZonedDateTime.now(ZoneId.systemDefault())));
 
-            if (manifestJson != null) {
-                embedManifest(document, manifestJson);
+            if (manifestBytes != null) {
+                embedManifest(document, manifestBytes);
             }
             document.addSignature(signature, cms, signatureOptions);
             document.saveIncremental(output);
@@ -254,6 +271,22 @@ public final class PDFSigningUtil {
                 channel.write(padding, firstPadding + padding.position());
             }
         }
+    }
+
+    /**
+     * The configured signing key's ID, as myCarlos pins it and the audit log records it.
+     *
+     * @param config signing configuration; must be enabled and complete
+     * @return {@code b64url(SHA-256(SubjectPublicKeyInfo DER))} of the signing certificate's key
+     * @throws IOException when the keystore cannot be loaded or validated
+     * @throws IllegalStateException when signing is not enabled, or is enabled but incomplete
+     */
+    public static String signingKeyId(PDFSigningConfig config) throws IOException {
+        if (config == null || !config.isEnabled()) {
+            throw new IllegalStateException("PDF signing is not enabled");
+        }
+        ensureBouncyCastleProvider();
+        return keyId(currentSigningCertificate(config));
     }
 
     /** SHA-256 of the manifest bytes for the signed attribute, or {@code null} without a manifest. */

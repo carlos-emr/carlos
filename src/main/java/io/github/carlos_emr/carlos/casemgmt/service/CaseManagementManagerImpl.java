@@ -1134,8 +1134,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         Demographic dg = demographicDao.getClientByDemographicNo(Integer.valueOf(demoNo));
         if (dg == null)
             return "";
-        else
-            return dg.getFirstName() + " " + dg.getLastName();
+        // A missing part is left out rather than printed as "null" on the chart print header.
+        return (StringUtils.defaultString(dg.getFirstName()) + " " + StringUtils.defaultString(dg.getLastName())).trim();
     }
 
     @Override
@@ -1144,7 +1144,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         Demographic demo = demographicDao.getClientByDemographicNo(Integer.valueOf(demoNo));
         if (demo != null) {
-            gender = demo.getSex();
+            gender = StringUtils.defaultString(demo.getSex());
         }
 
         return gender;
@@ -1166,7 +1166,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     public String getDemoPhn(String demoNo) {
         Demographic dg = demographicDao.getClientByDemographicNo(Integer.valueOf(demoNo));
         if (dg == null) return "";
-        else return dg.getHin();
+        // A patient without a health number prints an empty value, never "null".
+        return StringUtils.defaultString(dg.getHin());
     }
 
     @Override
@@ -1933,6 +1934,13 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         for (CaseManagementNoteExt carrier : submitted) {
             List<CaseManagementNoteExt> matches = byKey.computeIfAbsent(carrier.getKeyVal(), key -> new ArrayList<>());
             if (matches.isEmpty()) {
+                // A BLANK FIELD ADDS NOTHING (#5365). The chart editor posts every extension input,
+                // including the ones the box hides and the ones the clinician left empty, so a new
+                // Medical History item arrived with "Age at Onset", "Relationship" and the rest as
+                // empty strings, and each became an empty-valued row. Only a key this revision
+                // already holds can be cleared by a blank (the branch below); there is nothing to
+                // clear on a key it does not hold.
+                if (carriesNoValue(carrier)) continue;
                 CaseManagementNoteExt extension = new CaseManagementNoteExt();
                 extension.setNoteId(revision.getId());
                 extension.setKeyVal(carrier.getKeyVal());
@@ -1949,8 +1957,19 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
     }
 
+    /**
+     * A submitted extension with neither a date nor any non-whitespace text. Dates always carry
+     * their date value (the precision marker alone, such as the empty string for a full date, is
+     * not "no value"), so only an empty text field qualifies.
+     */
+    private static boolean carriesNoValue(CaseManagementNoteExt carrier) {
+        return carrier.getDateValue() == null && StringUtils.isBlank(carrier.getValue());
+    }
+
     private void copySubmittedExtensionValue(CaseManagementNoteExt source, CaseManagementNoteExt target) {
-        target.setValue(source.getValue());
+        // A blank clears a held key to the empty string: whitespace-only text is no value here
+        // either, or a field cleared with spaces would keep them and the editor would prefill them.
+        target.setValue(carriesNoValue(source) ? "" : source.getValue());
         target.setDateValue(source.getDateValue() == null ? null : new Date(source.getDateValue().getTime()));
     }
 
@@ -2887,8 +2906,9 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         } else {
             logAction = LogConst.UPDATE;
         }
+        // The row describes the saved revision (NoteAuditData); the note text stays in the chart.
         LogAction.addLog(user, logAction, LogConst.CON_CME_NOTE, "" + Long.valueOf(note.getId()).intValue(), remoteAddr,
-                note.getDemographic_no(), note.getAuditString());
+                note.getDemographic_no(), io.github.carlos_emr.carlos.casemgmt.common.NoteAuditData.describe(note));
 
         return note;
     }
