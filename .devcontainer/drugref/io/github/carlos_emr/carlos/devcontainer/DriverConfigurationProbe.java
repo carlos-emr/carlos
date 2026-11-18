@@ -21,8 +21,8 @@ class DriverConfigurationProbe {
      * The shell caller extracts the image WAR and supplies {@code WEB-INF/classes:WEB-INF/lib/*}
      * as the Java classpath; datasource implementations and JDBC drivers must come from that WAR.
      *
-     * @param args position 0 is the mounted DrugRef properties-file path; position 1 is
-     *             the extracted WAR's Spring datasource XML path
+     * @param args {@code String[]} with the mounted DrugRef properties-file path at position 0
+     *             and the extracted WAR's Spring datasource XML path at position 1
      * @throws Exception if input reading, secure XML configuration/parsing, reflective datasource
      *                   or driver loading/binding, driver URL checking, or datasource closing fails
      * @throws IllegalStateException if the XML has missing/duplicate datasource settings,
