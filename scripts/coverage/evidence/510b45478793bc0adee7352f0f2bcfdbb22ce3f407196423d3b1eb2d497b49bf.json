@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "e1acf98925dec34f71752e503c06eddcc3a630ce",
+  "comparisonSha256": "feb1f4bd4f5d60bc2e94305439eeef803b98b58fe8a96e1f46d169723928754a",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgAttachPDF2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "ebd72e4ef93a96f152b3bf5f4af8eee66ffef435"
+    }
+  },
+  "baselineCommit": "8e2fd7fd715940bc677a61894c4aa56790e919ab",
+  "baselineSourceTree": "e1acf98925dec34f71752e503c06eddcc3a630ce",
+  "baselineReportSha256": "4405695bd615ac8601c702f90f74f4082cca513f934cf1724e726959cc566620",
+  "baselineLane": "PR #6161 focused JDK 25 chart print and Messenger tests",
+  "baselineTestCounts": {
+    "tests": 112,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "c8fb78a3fec7fc2f529c96957357cd24ee3e84914f8c62cebe81ed3f16630010",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintAssemblyUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintSizeLimitUnitTest",
+    "io.github.carlos_emr.carlos.messenger.data.MsgMessageDataUnitTest",
+    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachPDF2ActionUnitTest",
+    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgEncounterPdfComposerUnitTest",
+    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBeanPdfTitleUnitTest",
+    "io.github.carlos_emr.carlos.util.ConcatPDFUnitTest"
+  ]
+}
