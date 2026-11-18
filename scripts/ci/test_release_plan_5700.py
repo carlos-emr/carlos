@@ -85,12 +85,15 @@ class RequiredExecutionsTest(unittest.TestCase):
         self.assertEqual(len(parameterized), 23)
         self.assertEqual(checks['java-native-generated']['requiredFamilies']['JdbcConnectorMariaDbIntegrationTest'], 47)
         for case in parameterized:
-            self.assertEqual([row['name'] for row in case['destinations']],
-                             [case['name'] + '[1]', case['name'] + '[2]'])
+            name = case['name']
+            with self.subTest(case=name):
+                self.assertEqual(case.get('container', ''), '')
+                self.assertEqual([(row.get('container', ''), row['name']) for row in case['destinations']],
+                                 [('', name + '[1]'), ('', name + '[2]')])
         # A plain @Test runs once natively under its own name, so it routes without destinations.
         plain = [case for case in source['cases'] if case not in parameterized]
-        self.assertEqual([case['name'] for case in plain],
-                         ['shouldConnectAndApplyConnectorJYesNo_forLegacyBooleanOptions'])
+        self.assertEqual([(case.get('container', ''), case['name']) for case in plain],
+                         [('', 'shouldConnectAndApplyConnectorJYesNo_forLegacyBooleanOptions')])
         self.assertTrue(all('destinations' not in case for case in plain))
         self.assertIn('JdbcConnectorMariaDbIntegrationTest', ' '.join(checks['java-native-generated']['command']))
 

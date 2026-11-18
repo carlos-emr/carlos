@@ -42,6 +42,9 @@ REQUIRED_CASES = {
         "shouldAllowAssignedPatientWrite_withoutReadPermission",
     },
     "JdbcConnectorMariaDbIntegrationTest": {
+        "shouldConnectAndApplyConnectorJYesNo_forLegacyBooleanOptions",
+        "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)[1]",
+        "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)[2]",
         "shouldCheckFloatRange_inBothPreparedProtocols(boolean)[1]",
         "shouldCheckFloatRange_inBothPreparedProtocols(boolean)[2]",
         "shouldPreserveZeroFilledTextAndUnsignedTinyIntegers_inBothPreparedProtocols(boolean)[1]",
