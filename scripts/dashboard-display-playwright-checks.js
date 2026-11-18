@@ -33,7 +33,7 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
 
 const TIMEOUT = 20000;
-const GRANTS = [['_dashboardDisplay', 'x'], ['_dashboardDrilldown', 'x'], ['_dashboardManager', 'r'], ['_dashboardChgUser', 'r']];
+const GRANTS = [['_dashboardDisplay', 'x'], ['_dashboardDrilldown', 'x'], ['_dashboardManager', 'w'], ['_dashboardChgUser', 'r']];
 const DX_CODE = '250';
 
 /** Bootstrap focuses the dialog after its transition; type only after that native event. */
@@ -85,6 +85,7 @@ function templateXml(marker) {
     <drillDownActions>
       <action id="tickler" name="Assign Tickler" />
       <action id="dxUpdate" name="Add To Disease Registry" value="${DX_CODE}" />
+      <action id="demoExcl" name="Exclude Patients" />
     </drillDownActions>
     <query>SELECT d.* ${scope} ORDER BY d.demographic_no</query>
   </drillDownQuery>
@@ -97,6 +98,10 @@ async function workflow(s) {
   const M = h.sqlString(marker);
   const fixture = throwawayLoginFixture({ sql, marker, provider: s.provider, testUser: s.config.testUser });
   s.cleanup(() => fixture.cleanup());
+  // Keep the fixture's exact sixteen-hex marker grammar while giving window B a distinct owner.
+  const otherMarker = marker.slice(0, -1) + (parseInt(marker.slice(-1), 16) ^ 1).toString(16);
+  const otherFixture = throwawayLoginFixture({ sql, marker: otherMarker, provider: s.provider, testUser: s.config.testUser });
+  s.cleanup(() => otherFixture.cleanup());
   const patients = [];
   let dashboardId;
   let indicatorId;
@@ -157,6 +162,15 @@ async function workflow(s) {
     h.assert(/^[1-9]\d*$/.test(id), 'A synthetic dashboard patient was not created');
     patients.push(id);
   }
+  otherFixture.create();
+  const otherPatients = [];
+  for (const [first, status] of [['Window B active', 'AC'], ['Window B inactive', 'IN']]) {
+    const id = sql.value(`INSERT INTO demographic (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,
+      patient_status,provider_no,hc_type,province,roster_status,lastUpdateDate)
+      VALUES (${M},${h.sqlString(first)},'1980','01','02','F',${h.sqlString(status)},${h.sqlString(otherFixture.providerNo)},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(id), 'A second-window synthetic patient was not created');
+    patients.push(id); otherPatients.push(id);
+  }
   dashboardId = sql.value(`INSERT INTO dashboard (name,description,creator,edited,active,locked)
     VALUES (${M},'Synthetic dashboard',${P},NOW(),1,0); SELECT LAST_INSERT_ID()`);
   indicatorId = sql.value(`INSERT INTO indicatorTemplate (dashboardId,name,category,subCategory,framework,frameworkVersion,
@@ -165,6 +179,24 @@ async function workflow(s) {
       ${h.sqlString(marker + ' Owned patients')},'CARLOS EMR','2026-01-01','Synthetic','Synthetic',
       ${h.sqlString(templateXml(marker))},1,0,0); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(dashboardId) && /^[1-9]\d*$/.test(indicatorId), 'The dashboard fixture was not created');
+  const clinicIndicators = ['all', '%'].map(alias => {
+    const name = `${marker} Clinic ${alias}`;
+    // Even the clinic-wide default is restricted to this run's five owned IDs.
+    const template = templateXml(marker)
+      .replaceAll('value="loggedInProvider"', `value="${alias}"`)
+      .replaceAll("WHERE d.provider_no = '${provider}'",
+        "WHERE d.provider_no LIKE '${provider}' AND d.demographic_no IN (" + patients.join(',') + ')')
+      .replaceAll(`${marker} Patient status`, name)
+      .replace('</heading>', `<metricLabel>${marker} Shared ${alias}</metricLabel></heading>`
+        + `<sharedMetricSetName>${marker} Shared ${alias}</sharedMetricSetName>`);
+    const id = sql.value(`INSERT INTO indicatorTemplate (dashboardId,name,category,subCategory,framework,frameworkVersion,
+        definition,notes,template,active,locked,shared)
+      VALUES (${dashboardId},${h.sqlString(name)},${h.sqlString(marker + ' Category')},
+        ${h.sqlString(marker + ' Owned patients')},'CARLOS EMR','2026-01-01','Synthetic','Synthetic',
+        ${h.sqlString(template)},1,0,${alias === 'all' ? 1 : 0}); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(id), 'A clinic-default indicator was not created');
+    return {id, alias};
+  });
 
   const ctx = await h.newContext(s.context.browser(), s.config);
   ctx.setDefaultTimeout(TIMEOUT);
@@ -217,13 +249,13 @@ async function workflow(s) {
     h.assert((await page.locator('.dashboardHeading h2').innerText()).trim() === marker, 'The dashboard window shows another dashboard');
     return page;
   }
-  async function drillDown(page) {
-    await page.locator(`#indicatorId_${indicatorId} .indicatorPanelContainer`).waitFor();
-    await page.locator(`#indicatorId_${indicatorId} .dropdown-toggle`).click();
+  async function drillDown(page, targetId = indicatorId) {
+    await page.locator(`#indicatorId_${targetId} .indicatorPanelContainer`).waitFor();
+    await page.locator(`#indicatorId_${targetId} .dropdown-toggle`).click();
     const [response] = await Promise.all([
       page.waitForResponse(r => /\/web\/dashboard\/display\/DrilldownDisplay$/.test(new URL(r.url()).pathname)
         && r.request().method() === 'POST' && r.request().resourceType() === 'document'),
-      page.locator(`#getDrilldown_${indicatorId}`).click(),
+      page.locator(`#getDrilldown_${targetId}`).click(),
     ]);
     await page.waitForLoadState('load');
     return response;
@@ -246,6 +278,124 @@ async function workflow(s) {
     h.assert(JSON.stringify(plots) === JSON.stringify([[['Active', Number(active)], ['Not active', Number(inactive)]]]),
       'Indicator counts differ from the owned-scope SQL counts');
     h.assert(await dashboard.locator(`#graphCanvas_${indicatorId}`).evaluate(c => c.width > 0 && c.height > 0), 'The indicator chart was not drawn');
+  });
+
+  await s.step('all and wildcard template defaults survive native drilldown and CSV until a provider is explicitly chosen', async () => {
+    for (const {id, alias} of clinicIndicators) {
+      const page = await openDashboard('dashboard-clinic-default-' + alias);
+      try {
+        await page.locator(`#graphPlots_${id}`).waitFor({ state: 'attached' });
+        h.assert(await page.locator('#dashboardProviderNo').inputValue() === '', 'A heading became an explicit provider override');
+        h.assert(await page.locator(`#graphPlots_${id}`).inputValue() === JSON.stringify([[['Active', 3], ['Not active', 2]]]),
+          'A clinic-wide template default was narrowed to the logged-in provider');
+        h.assert((await drillDown(page, id)).status() === 200, 'Clinic-default drilldown was refused');
+        h.assert(await page.locator('#dashboardProviderNo').inputValue() === '', 'Drilldown replaced the template default');
+        const shown = await page.locator('#drilldownTable input.patientChecked').evaluateAll(inputs => inputs.map(input => input.id).sort());
+        h.assert(JSON.stringify(shown) === JSON.stringify([...patients].sort()), 'Clinic-default drilldown lost owned patients');
+        const outcome = await ui.clickDownloadsOrOpens(page, page.locator(`#exportResults_${id}`),
+          { context: ctx, recorder, label: 'dashboard-clinic-export-' + alias, timeout: TIMEOUT });
+        h.assert(outcome.kind === 'download', 'Clinic-default CSV did not download');
+        const expected = sql.rows(`SELECT demographic_no,last_name,patient_status FROM demographic
+          WHERE demographic_no IN (${patients.join(',')}) ORDER BY demographic_no`);
+        h.assert(fs.readFileSync(await outcome.download.path(), 'utf8') ===
+          ['Patient Id,Last Name,Status', ...expected.map(row => row.join(','))].join('\n') + '\n',
+          'Clinic-default CSV narrowed the template scope');
+        await ui.clickAndAwaitReload(page, page.locator('.backtoDashboardBtn'),
+          { label: 'return to clinic-default dashboard', timeout: TIMEOUT });
+        await page.locator('#providerNo').selectOption(otherFixture.providerNo);
+        await ui.clickAndAwaitReload(page, page.locator('input[type="submit"][value="Change Dashboard Provider"]'),
+          { label: 'explicitly override clinic-default provider', timeout: TIMEOUT });
+        await page.locator(`#graphPlots_${id}`).waitFor({ state: 'attached' });
+        h.assert(await page.locator('#dashboardProviderNo').inputValue() === otherFixture.providerNo, 'The explicit selection was lost');
+        h.assert(await page.locator(`#graphPlots_${id}`).inputValue() === JSON.stringify([[['Active', 1], ['Not active', 1]]]),
+          'The explicit provider selection did not override the clinic-wide default');
+      } finally { await page.close(); }
+    }
+  });
+
+  await s.step('two windows of one login keep their provider-specific lists, exports and exclusions after switching the second window', async () => {
+    const other = await openDashboard('dashboard-window-b');
+    const shownRows = async page => page.locator('#drilldownTable tbody tr').evaluateAll(rows => rows.map(row =>
+      [row.querySelector('input.patientChecked').id, row.cells[3].textContent.trim(), row.cells[4].textContent.trim()]));
+    async function verifyExport(page, expectedRows, label) {
+      const outcome = await ui.clickDownloadsOrOpens(page, page.locator(`#exportResults_${indicatorId}`),
+        { context: ctx, recorder, label, timeout: TIMEOUT });
+      h.assert(outcome.kind === 'download', 'The window export did not download a file');
+      const expected = ['Patient Id,Last Name,Status', ...expectedRows.map(row => row.join(','))].join('\n') + '\n';
+      h.assert(fs.readFileSync(await outcome.download.path(), 'utf8') === expected, 'A window exported another provider scope');
+    }
+    try {
+      await other.locator('#providerNo').selectOption(otherFixture.providerNo);
+      await ui.clickAndAwaitReload(other, other.locator('input[type="submit"][value="Change Dashboard Provider"]'),
+        { label: 'select second dashboard provider', timeout: TIMEOUT });
+      await other.locator(`#graphPlots_${indicatorId}`).waitFor({ state: 'attached' });
+      h.assert((await other.locator(`#graphPlots_${indicatorId}`).inputValue()) !== plotted,
+        'The second window did not render its distinct owned provider counts');
+      h.assert((await drillDown(dashboard)).status() === 200, 'The first window drilldown was refused');
+      h.assert(JSON.stringify((await shownRows(dashboard)).sort()) === JSON.stringify(ownedRows().sort()),
+        'Changing the second window mixed its patients into the first window');
+      await verifyExport(dashboard, ownedRows(), 'dashboard-window-a-export');
+      h.assert((await drillDown(other)).status() === 200, 'The second window drilldown was refused');
+      const expectedOther = sql.rows(`SELECT demographic_no,last_name,patient_status FROM demographic
+        WHERE demographic_no IN (${otherPatients.join(',')}) ORDER BY demographic_no`);
+      h.assert(JSON.stringify((await shownRows(other)).sort()) === JSON.stringify([...expectedOther].sort()),
+        'The second window did not retain its own patient list');
+      await verifyExport(other, expectedOther, 'dashboard-window-b-export');
+      await other.locator(`input.patientChecked[id="${otherPatients[0]}"]`).check();
+      await other.locator('#actionMenuLink').click();
+      await other.locator('#excludePatientsChecked').click();
+      await other.locator('#modalConfirmPatientExclusion').waitFor({ state: 'visible' });
+      const excluded = other.waitForResponse(response => /\/web\/dashboard\/display\/BulkPatientAction$/.test(new URL(response.url()).pathname)
+        && response.request().method() === 'POST');
+      await other.locator('#confirmPatientExclusion').click();
+      h.assert((await excluded).status() === 200, 'The second window exclusion was refused');
+      const identifier = `${marker} Patient status|${marker} Category|${marker} Owned patients`;
+      const exclusion = `SELECT COUNT(*) FROM demographicExt WHERE demographic_no=${otherPatients[0]}
+        AND key_val='excludeIndicator' AND value=${h.sqlString(identifier)}`;
+      h.assert(sql.value(exclusion + ` AND provider_no=${h.sqlString(otherFixture.providerNo)}`) === '1',
+        'The second window exclusion did not retain its selected provider');
+      h.assert(sql.value(exclusion + ` AND provider_no=${P}`) === '0',
+        'The second window exclusion was filed under the first window provider');
+    } finally { await other.close(); }
+    await ui.clickAndAwaitReload(dashboard, dashboard.locator('.backtoDashboardBtn'),
+      { label: 'return first window to its dashboard', timeout: TIMEOUT });
+    await dashboard.locator(`#graphPlots_${indicatorId}`).waitFor({ state: 'attached' });
+    h.assert(await dashboard.locator(`#graphPlots_${indicatorId}`).inputValue() === plotted,
+      'Returning to the first dashboard inherited another window provider');
+  });
+
+  await s.step('shared whole metrics and slices retain their displayed provider in the native export form and return navigation', async () => {
+    const expectedRows = sql.rows(`SELECT demographic_no,last_name,patient_status FROM demographic
+      WHERE demographic_no IN (${otherPatients.join(',')}) ORDER BY demographic_no`);
+    for (const {id, alias} of clinicIndicators) {
+      const page = await openDashboard('dashboard-shared-' + alias);
+      try {
+        // This is the supported callback/bookmark from the external shared dashboard. All
+        // metric templates, providers and patients belong to this run; the external service
+        // is not contacted. Export and Dashboard use the page's real controls afterwards.
+        const params = new URLSearchParams({method: 'getDrilldownBySharedMetricSetName',
+          sharedMetricSetName: `${marker} Shared ${alias}`, providerNo: otherFixture.providerNo});
+        if (alias === '%') params.set('sharedMetricSetLable', `${marker} Shared ${alias}`);
+        const response = await page.goto(h.appUrl(s.config.baseUrl,
+          '/web/dashboard/display/DrilldownDisplay?' + params), {waitUntil: 'domcontentloaded'});
+        h.assert(response.status() === 200, 'The owned shared drilldown was refused');
+        await h.assertNotErrorPage(page, 'owned shared drilldown');
+        h.assert(await page.locator('#dashboardProviderNo').inputValue() === otherFixture.providerNo,
+          'The shared drilldown did not retain its validated provider');
+        const shown = await page.locator('#drilldownTable input.patientChecked').evaluateAll(inputs => inputs.map(input => input.id).sort());
+        h.assert(JSON.stringify(shown) === JSON.stringify([...otherPatients].sort()), 'The shared drilldown lists another provider scope');
+        const outcome = await ui.clickDownloadsOrOpens(page, page.locator(`#exportResults_${id}`),
+          {context: ctx, recorder, label: 'dashboard-shared-export-' + alias, timeout: TIMEOUT});
+        h.assert(outcome.kind === 'download', 'The shared export did not download a file');
+        const expected = ['Patient Id,Last Name,Status', ...expectedRows.map(row => row.join(','))].join('\n') + '\n';
+        h.assert(fs.readFileSync(await outcome.download.path(), 'utf8') === expected,
+          'The shared export fell back to the template default instead of the displayed provider');
+        await ui.clickAndAwaitReload(page, page.locator('.backtoDashboardBtn'),
+          {label: 'return from the shared drilldown', timeout: TIMEOUT});
+        h.assert(await page.locator('#dashboardProviderNo').inputValue() === otherFixture.providerNo,
+          'Returning from the shared drilldown lost the selected provider');
+      } finally {await page.close();}
+    }
   });
 
   await s.step('Indicator Info shows the stored definition', async () => {
