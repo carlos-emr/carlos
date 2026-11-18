@@ -31,6 +31,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.mock.web.MockServletContext;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -1009,6 +1010,50 @@ class PrivacyStatementAppendingFilterUnitTest {
                 http.addHeader("ETag", "FAKE-after");
                 assertThat(response.getHeader("ETag")).isEqualTo("FAKE-after");
             });
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldKeepVaryAndUnrelatedHeaders_whenStaticHtmlUsesTypedHeaderCalls(boolean ajax) throws Exception {
+        try (var notice = configuredStatement("FAKE header fixture notice")) {
+            var context = new MockServletContext();
+            var request = new MockHttpServletRequest(context, "GET", "/fixture.html");
+            if (ajax) {
+                request.addHeader("X-Requested-With", "XMLHttpRequest");
+            }
+            var response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                http.reset();
+                assertThat(http.getHeaders("Vary")).containsExactly("X-Requested-With");
+                http.setHeader("Vary", "Accept-Language, *");
+                assertThat(http.getHeaders("Vary")).containsExactly("Accept-Language, *");
+                http.setHeader("Vary", "Accept-Language");
+                http.addHeader("Vary", "Accept-Encoding");
+                http.setIntHeader("X-Fixture-Count", 1);
+                http.addIntHeader("X-Fixture-Count", 2);
+                http.setDateHeader("Expires", 0);
+                http.addDateHeader("Expires", 2000);
+                http.setIntHeader("Accept-Ranges", 1);
+                http.addIntHeader("Accept-Ranges", 2);
+                http.setDateHeader("Last-Modified", 0);
+                http.addDateHeader("Last-Modified", 2000);
+                http.addHeader("ETag", "FAKE-version");
+                http.setHeader("Content-Length", null);
+                http.addHeader("Content-Length", null);
+                http.setHeader("Content-Length", "bad length");
+                http.setContentType("text/html");
+                http.getWriter().write("FAKE body");
+            });
+            assertThat(response.getHeaders("Vary")).containsExactlyInAnyOrder(
+                    "Accept-Language", "Accept-Encoding", "X-Requested-With");
+            assertThat(response.getHeaders("X-Fixture-Count")).containsExactly("1", "2");
+            assertThat(response.getHeaders("Expires")).hasSize(2);
+            assertThat(response.getContentAsString()).contains("FAKE body");
+            for (String header : new String[]{"Accept-Ranges", "Last-Modified", "ETag"}) {
+                assertThat(response.getHeaders(header).isEmpty()).as(header).isEqualTo(!ajax);
+            }
         }
     }
 

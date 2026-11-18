@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -31,10 +32,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -44,6 +45,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PrivacyStatementStaticMetadataTomcatIntegrationTest {
     private static final String STATEMENT = "FAKE-print-statement-5936";
     private static final byte[] HTML = "<html><body>FAKE-original-page-5936</body></html>".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] LARGE_HTML = ("<html><body>" + "x".repeat(2 << 20) + "</body></html>")
+            .getBytes(StandardCharsets.UTF_8);
     private static final byte[] PREPRINTED = ("<html><body>" + STATEMENT + "</body></html>").getBytes(StandardCharsets.UTF_8);
     @TempDir Path directory;
     private Tomcat tomcat;
@@ -61,8 +64,8 @@ class PrivacyStatementStaticMetadataTomcatIntegrationTest {
         Path webapp = Files.createDirectories(directory.resolve("webapp"));
         Files.write(webapp.resolve("fixture.html"), HTML);
         Files.write(webapp.resolve("captured.html"), HTML);
-        Files.writeString(webapp.resolve("large.html"), "<html><body>" + "x".repeat(2 * 1024 * 1024) + "</body></html>");
-        Files.copy(webapp.resolve("large.html"), webapp.resolve("large-captured.html"));
+        Files.write(webapp.resolve("large.html"), LARGE_HTML);
+        Files.write(webapp.resolve("large-captured.html"), LARGE_HTML);
         Files.write(webapp.resolve("excluded.html"), HTML);
         Files.write(webapp.resolve("fixture.txt"), HTML);
         Files.write(webapp.resolve("preprinted.html"), PREPRINTED);
@@ -98,15 +101,14 @@ class PrivacyStatementStaticMetadataTomcatIntegrationTest {
         addFilter(context, "authenticated-capture", (request, response, chain) -> {
             ((HttpServletRequest) request).getSession().setAttribute("user", "FAKE-5936");
             chain.doFilter(request, response);
-        }, "/captured.html");
-        addFilter(context, "capture", new ResponseSanitizationFilter(), "/captured.html");
-        addFilter(context, "large-capture", new ResponseSanitizationFilter(), "/large-captured.html");
+        }, "/captured.html", "/large-captured.html");
+        addFilter(context, "capture", new ResponseSanitizationFilter(), "/captured.html", "/large-captured.html");
         addFilter(context, "cache-control", (request, response, chain) -> {
             ((HttpServletResponse) response).setHeader("Cache-Control", "public, max-age=600");
             chain.doFilter(request, response);
         });
         addFilter(context, "defaults", new ResponseDefaultsFilter());
-        addFilter(context, "logout", new LogoutBroadcastFilter(), "/captured.html");
+        addFilter(context, "logout", new LogoutBroadcastFilter(), "/captured.html", "/large-captured.html");
         addFilter(context, "already-printed", (request, response, chain) -> {
             request.setAttribute(PrivacyStatementAppendingFilter.ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED, Boolean.TRUE);
             chain.doFilter(request, response);
@@ -120,6 +122,11 @@ class PrivacyStatementStaticMetadataTomcatIntegrationTest {
                     Collections.list(http.getHeaders("If-None-Match")), Collections.list(http.getHeaders("If-Modified-Since")),
                     Collections.list(http.getHeaderNames()), http.getHeader("X-FAKE-5936"),
                     Collections.list(http.getHeaders("X-FAKE-5936")), http.getDateHeader("Date")));
+            if ("/fixture.html".equals(http.getServletPath())) {
+                HttpServletResponse headers = (HttpServletResponse) response;
+                headers.setHeader("Vary", "Accept-Encoding");
+                headers.addHeader("Vary", "Accept-Language");
+            }
             chain.doFilter(request, response);
         });
         tomcat.start();
@@ -130,14 +137,16 @@ class PrivacyStatementStaticMetadataTomcatIntegrationTest {
         return addFilter(context, name, filter, "/*");
     }
 
-    private static FilterDef addFilter(Context context, String name, Filter filter, String pattern) {
+    private static FilterDef addFilter(Context context, String name, Filter filter, String... patterns) {
         FilterDef definition = new FilterDef();
         definition.setFilterName(name);
         definition.setFilter(filter);
         context.addFilterDef(definition);
         FilterMap mapping = new FilterMap();
         mapping.setFilterName(name);
-        mapping.addURLPattern(pattern);
+        for (String pattern : patterns) {
+            mapping.addURLPattern(pattern);
+        }
         context.addFilterMap(mapping);
         return definition;
     }
@@ -160,17 +169,6 @@ class PrivacyStatementStaticMetadataTomcatIntegrationTest {
                     .method(method, HttpRequest.BodyPublishers.noBody());
             if (headers.length > 0) request.headers(headers);
             return client.send(request.build(), HttpResponse.BodyHandlers.ofByteArray());
-        }
-    }
-
-    @ParameterizedTest @ValueSource(strings={"large.html", "large-captured.html"})
-    void shouldSuppressBareMetadataBeforeCommit_whenStaticHtmlExceedsTheAppendBuffer(String file) throws Exception {
-        var response = request(file, "GET");
-        assertThat(response.statusCode()).isEqualTo(200);
-        assertThat(new String(response.body(), StandardCharsets.UTF_8))
-                .contains("x".repeat(2 * 1024 * 1024), STATEMENT);
-        for (String name : new String[]{"ETag", "Last-Modified", "Accept-Ranges"}) {
-            assertThat(response.headers().firstValue(name)).as(file + " " + name).isEmpty();
         }
     }
 
@@ -227,6 +225,32 @@ class PrivacyStatementStaticMetadataTomcatIntegrationTest {
             for (String header : new String[]{"ETag", "Last-Modified", "Accept-Ranges"}) {
                 assertThat(response.headers().firstValue(header)).as(method + " " + header).isEmpty();
             }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"large.html", "large-captured.html"})
+    void shouldSuppressBareFileValidators_beforeAResponseLargerThanTheBufferCommits(String file) throws Exception {
+        var response = request(file, "GET");
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body().length).isGreaterThan(LARGE_HTML.length);
+        assertThat(new String(response.body(), StandardCharsets.UTF_8)).contains("x".repeat(2 << 20), STATEMENT);
+        for (String header : List.of("ETag", "Last-Modified", "Accept-Ranges")) {
+            assertThat(response.headers().firstValue(header)).as(file + " " + header).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldVaryBothRepresentations_whenAjaxAndNormalRequestsShareAUrl() throws Exception {
+        var ajax = request("fixture.html", "GET", "X-Requested-With", "XMLHttpRequest");
+        var decorated = request("fixture.html", "GET");
+        assertThat(ajax.body()).isEqualTo(HTML);
+        assertThat(new String(decorated.body(), StandardCharsets.UTF_8)).contains(STATEMENT);
+        for (var response : List.of(ajax, decorated)) {
+            assertThat(response.statusCode()).isEqualTo(200);
+            var fields = response.headers().allValues("Vary").stream()
+                    .flatMap(value -> Arrays.stream(value.split(","))).map(String::trim).toList();
+            assertThat(fields).contains("Accept-Encoding", "Accept-Language", "X-Requested-With");
         }
     }
 
