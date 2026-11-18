@@ -106,6 +106,8 @@ const DENIED = {
     'oscarResearch/oscarDxResearch/ViewDxResearchCustomization',
     'oscarResearch/oscarDxResearch/ViewDxResearchNewQuickList',
     'oscarResearch/oscarDxResearch/ViewQuickCodeList',
+    'oscarResearch/oscarDxResearch/dxResearchCodeSearch',
+    'oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems',
     'oscarWorkflow/WorkFlowList',
     'prevention/PreventionReport',
     'prevention/ViewPreventionIndex',

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/report/reportByTemplate/actions/GenerateOutFiles2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "507ecfac5c89dc91e9df7f46fa9a0bd56ceb07ca"
+  },
+  "evidenceSha256": "e8529063e7a6d041ab241e942c82d137c1288c5aa9d3d2f919df8166d5ebb674"
+}

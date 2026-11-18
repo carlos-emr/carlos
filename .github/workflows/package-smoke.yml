@@ -162,12 +162,27 @@ jobs:
       - name: Install complete packages and reset the initial account
         run: bash scripts/deb-docker-validation.sh up
       - name: Exercise installed HTTPS and database contracts
+        id: installed_browser
         run: |
           bash scripts/deb-docker-validation.sh suite \
             --only application-health --only drug-search --only schedule-links \
             --only eform-visual-widgets --only audit-log-chart-read \
             --only lab-version-ingestion --only lab-qualified-results \
             --only report-cdm --only cdm-measurement-report
+      - name: Capture server errors after an installed browser failure
+        if: failure() && steps.installed_browser.outcome == 'failure'
+        run: |
+          mkdir -p "$LOG_DIR"
+          set +e
+          bash scripts/deb-docker-validation.sh audit > "$LOG_DIR/server-error-audit.log" 2>&1
+          audit_exit=$?
+          set -e
+          printf '{"exit":%s}\n' "$audit_exit" > "$LOG_DIR/server-error-audit-exit.json"
+          # Unknown application errors are diagnostic evidence for the failed
+          # browser job. An operational failure of the collector also fails.
+          if [ "$audit_exit" -gt 1 ]; then
+            exit "$audit_exit"
+          fi
       - name: Retain install and browser diagnostics
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
