@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "c3a24eb9234489aba2a64c673fc31b43b1411b9f",
+  "comparisonSha256": "0bc41605781daf1489caed0887559de0d659d1e881f331c660d0be622df3cffc",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementEntry2Action.java": {
+      "lines": 16.33986928104575,
+      "instructions": 16.52281134401973,
+      "branches": 15.0,
+      "sourceBlob": "bded48e79d5e52664fd4cabfc733818d6c9b5797"
+    }
+  },
+  "baselineCommit": "31b6877a434cea6ad0299ee3f6f2a075caa072c9",
+  "baselineSourceTree": "c3a24eb9234489aba2a64c673fc31b43b1411b9f",
+  "baselineReportSha256": "4b6aa4ac8dcb2d6b56d07859167eb7bbd37b4af7c6031aa6bd2e3de1061cba46",
+  "baselineLane": "Focused chart autosave, manual save and note lock regression tests",
+  "baselineTestCounts": {
+    "tests": 198,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 6
+  },
+  "baselineTestReportsSha256": "db1cf6d97c9c9659bd9bdf94320cadbcedef8e2e8ed2eda51620e871f1681c09",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

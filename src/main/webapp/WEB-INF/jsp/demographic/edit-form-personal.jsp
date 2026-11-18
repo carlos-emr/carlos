@@ -652,7 +652,7 @@
                                                         <td align="left"><input type="text" name="postal"
                                                                                 size="30" <%=getDisabled("postal")%>
                                                                                 data-original-province="<carlos:encode value='<%= StringUtils.trimToEmpty(province) %>' context="htmlAttribute"/>"
-                                                                                value="<%=StringUtils.trimToEmpty(demographic.getPostal())%>"
+                                                                                value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPostal()) %>' context="htmlAttribute"/>"
                                                                                 onBlur="upCaseCtrl(this)"
                                                                                 onChange="isPostalCode()"></td>
                                                     </tr>
@@ -926,7 +926,7 @@
                                                             : </b></td>
                                                         <td align="left"><input type="text" name="residentialPostal"
                                                                                 size="30" <%=getDisabled("residentialPostal")%>
-                                                                                value="<%=StringUtils.trimToEmpty(demographic.getResidentialPostal())%>"
+                                                                                value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getResidentialPostal()) %>' context="htmlAttribute"/>"
                                                                                 onBlur="upCaseCtrl(this)"
                                                                                 onChange="isPostalCode2()"></td>
                                                     </tr>
@@ -939,15 +939,15 @@
                                                             <input type="text" name="phone"
                                                                    onblur="formatPhoneNum(this);" <%=getDisabled("phone")%>
                                                                    style="display: inline; width: auto;"
-                                                                   value="<%=StringUtils.trimToEmpty(StringUtils.trimToEmpty(demographic.getPhone()))%>">
+                                                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(StringUtils.trimToEmpty(demographic.getPhone())) %>' context="htmlAttribute"/>">
                                                             <label for="hPhoneExt"><fmt:message key="demographic.demographiceditdemographic.msgExt"/>:</label>
                                                             <input type="text" style="width:50% !important;"
                                                                    name="hPhoneExt"
                                                                    id="hPhoneExt" <%=getDisabled("hPhoneExt")%>
-                                                                   value="<%=StringUtils.trimToEmpty(StringUtils.trimToEmpty(demoExt.get("hPhoneExt")))%>"
+                                                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(StringUtils.trimToEmpty(demoExt.get("hPhoneExt"))) %>' context="htmlAttribute"/>"
                                                                    size="4"/>
                                                             <input type="hidden" name="hPhoneExtOrig"
-                                                                   value="<%=StringUtils.trimToEmpty(StringUtils.trimToEmpty(demoExt.get("hPhoneExt")))%>"/>
+                                                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(StringUtils.trimToEmpty(demoExt.get("hPhoneExt"))) %>' context="htmlAttribute"/>"/>
                                                         </td>
                                                         <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formPhoneW"/>:</b>
                                                         </td>
@@ -955,15 +955,15 @@
                                                                                 name="phone2" <%=getDisabled("phone2")%>
                                                                                 onblur="formatPhoneNum(this);"
                                                                                 style="display: inline; width: auto;"
-                                                                                value="<%=StringUtils.trimToEmpty(demographic.getPhone2())%>">
+                                                                                value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPhone2()) %>' context="htmlAttribute"/>">
                                                             <label for="wPhoneExt"><fmt:message key="demographic.demographiceditdemographic.msgExt"/>:</label>
                                                             <input type="text" style="width:50% !important;"
                                                                    name="wPhoneExt"
                                                                    id="wPhoneExt" <%=getDisabled("wPhoneExt")%>
-                                                                   value="<%=StringUtils.trimToEmpty(StringUtils.trimToEmpty(demoExt.get("wPhoneExt")))%>"
+                                                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(StringUtils.trimToEmpty(demoExt.get("wPhoneExt"))) %>' context="htmlAttribute"/>"
                                                                    size="4"/> <input type="hidden"
                                                                                      name="wPhoneExtOrig"
-                                                                                     value="<%=StringUtils.trimToEmpty(StringUtils.trimToEmpty(demoExt.get("wPhoneExt")))%>"/>
+                                                                                     value="<carlos:encode value='<%= StringUtils.trimToEmpty(StringUtils.trimToEmpty(demoExt.get("wPhoneExt"))) %>' context="htmlAttribute"/>"/>
                                                         </td>
                                                     </tr>
                                                     <tr valign="top">
@@ -973,9 +973,9 @@
                                                             <input type="text" name="demo_cell"
                                                                    onblur="formatPhoneNum(this);"
                                                                    style="display: inline; width: auto;" <%=getDisabled("demo_cell")%>
-                                                                   value="<%=StringUtils.trimToEmpty(demoExt.get("demo_cell"))%>">
+                                                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get("demo_cell")) %>' context="htmlAttribute"/>">
                                                             <input type="hidden" name="demo_cellOrig"
-                                                                   value="<%=StringUtils.trimToEmpty(demoExt.get("demo_cell"))%>"/>
+                                                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get("demo_cell")) %>' context="htmlAttribute"/>"/>
                                                         </td>
                                                         <td align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formPhoneComment"/>: </b>
                                                         </td>
@@ -1100,12 +1100,12 @@
                                                         </td>
                                                         <td align="left" nowrap><input type="text" name="hin"
                                                                                        id="hinBox" <%=getDisabled("hin")%>
-                                                                                       value="<%=StringUtils.trimToEmpty(demographic.getHin())%>"
+                                                                                       value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getHin()) %>' context="htmlAttribute"/>"
                                                                                        size="17">
                                                             <fmt:message key="demographic.demographiceditdemographic.formVer"/><input
                                                                     type="text" name="ver"
                                                                     style="width:20% !important;" <%=getDisabled("ver")%>
-                                                                    value="<%=StringUtils.trimToEmpty(demographic.getVer())%>"
+                                                                    value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getVer()) %>' context="htmlAttribute"/>"
                                                                     onBlur="upCaseCtrl(this)" id="verBox">
                                                             <%if ("online".equals(oscarProps.getProperty("hcv.type", "simple"))) { %>
                                                             <input type="button" value="Validate"
@@ -1439,16 +1439,16 @@
                                                         <td align="right"><b>SIN:</b></td>
                                                         <td align="left"><input type="text" name="sin"
                                                                                 size="30" <%=getDisabled("sin")%>
-                                                                                value="<%=(demographic.getSin()==null||demographic.getSin().equals("null"))?"":demographic.getSin()%>">
+                                                                                value="<carlos:encode value='<%= (demographic.getSin()==null||demographic.getSin().equals("null"))?"":demographic.getSin() %>' context="htmlAttribute"/>">
                                                         </td>
                                                         <td align="right" nowrap><b> <fmt:message key="demographic.demographiceditdemographic.cytolNum"/>:</b>
                                                         </td>
                                                         <td><input type="text"
                                                                    name="cytolNum" <%=getDisabled("cytolNum")%>
                                                                    style="display: inline; width: auto;"
-                                                                   value="<%=StringUtils.trimToEmpty(demoExt.get("cytolNum"))%>">
+                                                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get("cytolNum")) %>' context="htmlAttribute"/>">
                                                             <input type="hidden" name="cytolNumOrig"
-                                                                   value="<%=StringUtils.trimToEmpty(demoExt.get("cytolNum"))%>"/>
+                                                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get("cytolNum")) %>' context="htmlAttribute"/>"/>
                                                         </td>
                                                     </tr>
                                                         <%-- TOGGLE FIRST NATIONS MODULE --%>
