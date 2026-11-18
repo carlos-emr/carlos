@@ -18141,13 +18141,9 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "notes": "Task 36: repeat the complete real TOTP enrolment/challenge/reset/disable lifecycle with legacy PIN disabled.",
+      "notes": "Repeat the complete real TOTP enrolment/challenge/reset/disable lifecycle with legacy PIN disabled; security editor submission must not read absent PIN controls (#5885).",
       "fixtures": "Throwaway login (never the shared account) enrolled, challenged, reset and un-enrolled through Administration ▸ Security Records; TOTP computed from the enrolment QR by scripts/lib/mfa-otp.js; every owned row removed.",
-      "profile": "no-pin",
-      "expectedFailure": {
-        "finding": 347,
-        "step": "Enable MFA on the security record sets usingMfa and stores no secret yet"
-      }
+      "profile": "no-pin"
     },
     {
       "name": "account-lockout-address",

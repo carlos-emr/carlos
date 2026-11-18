@@ -140,6 +140,7 @@
                     setfocus('date_ExpireDate');
                     return false;
                 }
+                <% if (MfaManager.isOscarLegacyPinEnabled()) { %>
                 if (document.forms[0].b_RemoteLockSet.checked || document.forms[0].b_LocalLockSet.checked) {
                     if (document.forms[0].pin.value == "") {
                         alert('<fmt:message key="admin.securityrecord.formPIN"/> <fmt:message key="admin.securityrecord.msgIsRequired"/>');
@@ -156,6 +157,7 @@
                     setfocus('conPin');
                     return false;
                 }
+                <% } %>
                 return true;
             }
 
