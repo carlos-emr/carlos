@@ -178,3 +178,28 @@ MariaDB error 1020 after a legacy writer commits (one of 31 cases; JUnit
 `70fd8abae44b4d6d908d2d7c252ba1a5ea98a6579e98ae70e2f2e53fe544ee58`).
 The final guarded cleanup passes all 31. Its merged source-bound coverage evidence
 SHA-256 is `f56e7ba0300bd281435e5ba9d649a7b9f5fed5737fb05aca5486cd8eb86f6617`.
+
+## Credential audit and concurrent cache publication
+
+Fresh Ontario and BC Flyway runs on MariaDB 11.8.8 confirmed the audited seed,
+and replay preserved the existing ciphertext, actor and timestamp. Only
+`lastUpdateUser` and `lastUpdateDate` were added to the physical definitions.
+The source catalogue retains the operational classification for this table.
+The verified migration SHA-256 is
+`96dd5081cfd99e4953276b2f801b08a372672c4fa4d7ea96c79e154996aa7c31`.
+
+The focused Java 25 run passed 45 H2 and unit cases. A separate run passed all
+31 physical transaction cases on MariaDB plus the same 14 unit cases.
+Lock tests use InnoDB's wait records to match the exact writer and contender.
+The cache tests exercise an older credential observation overtaken by a newer
+publication, for both lookup and explicit refresh. The action tests verify
+credential-free failure logging and preserve the committed outcome when a
+concurrent logout ends the session.
+
+The credential integration JUnit hashes are
+`c4510d66c5a70657502b3bbb812b89772d85e277eb7999a9fdc3c6440cf3f926` for H2 and
+`cbe556f2659e1152da6928171cdb0371b03eac83bdbc1615dc428e52d0cb08b4` for MariaDB.
+The mailbox workflow requires `EXCLUSIVE=1` before setup, verifies both
+credential locations and restores the audit fields with the encrypted row.
+Rebuilt package and installed browser qualification for this revision remain
+pending.
