@@ -232,6 +232,16 @@ class MariaDbCompatibilityDriverNumberUnitTest {
         });
     }
 
+    @Test
+    void shouldPreserveTheDriverException_whenTheColumnTypeNameUsesNativeMetadata() throws Exception {
+        ResultSet nativeRows = scriptedRows(-1L, Types.BIT, Types.BIT);
+        IllegalStateException failure = new IllegalStateException("Synthetic native metadata failure");
+        when(nativeRows.getMetaData().getColumnTypeName(DOUBLE)).thenThrow(failure);
+
+        withNativeRows(nativeRows, rows ->
+                assertThatThrownBy(() -> rows.getMetaData().getColumnTypeName(DOUBLE)).isSameAs(failure));
+    }
+
     /** Opens the compatibility driver over a scripted MariaDB connection and hands its wrapped result set over. */
     private static void withRows(RowsCheck check) throws Exception {
         withRows(-1L, check);
@@ -246,7 +256,10 @@ class MariaDbCompatibilityDriverNumberUnitTest {
     }
 
     private static void withRows(Long tinyFlag, int tinySqlType, int flagSqlType, RowsCheck check) throws Exception {
-        ResultSet nativeRows = scriptedRows(tinyFlag, tinySqlType, flagSqlType);
+        withNativeRows(scriptedRows(tinyFlag, tinySqlType, flagSqlType), check);
+    }
+
+    private static void withNativeRows(ResultSet nativeRows, RowsCheck check) throws Exception {
         org.mariadb.jdbc.Statement nativeStatement = mock(org.mariadb.jdbc.Statement.class);
         when(nativeStatement.executeQuery(anyString())).thenReturn(nativeRows);
         org.mariadb.jdbc.Connection physical = mock(org.mariadb.jdbc.Connection.class, Answers.RETURNS_DEEP_STUBS);

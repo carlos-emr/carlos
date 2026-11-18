@@ -62,6 +62,9 @@ public final class MariaDbCompatibilityDriver implements Driver {
     private static final String TRUE_OPTION = "true";
     private static final String GET_OBJECT = "getObject";
     private static final String GET_BIG_DECIMAL = "getBigDecimal";
+    private static final String GET_COLUMN_CLASS_NAME = "getColumnClassName";
+    private static final String GET_COLUMN_TYPE = "getColumnType";
+    private static final String GET_COLUMN_TYPE_NAME = "getColumnTypeName";
     private static final String UNWRAP = "unwrap";
     private static final String INVALID_CONVERSION_STATE = "S1009";
     private static final String INVALID_NUMERIC_STATE = "22018";
@@ -438,37 +441,44 @@ public final class MariaDbCompatibilityDriver implements Driver {
 
         /** Returns the metadata aliases and Java class names exposed by the previous driver. */
         private Object metadataOperation(ResultSetMetaData metadata, String name, Object[] args) throws SQLException {
-            if (policy.aliases() && name.equals("getColumnName")) return metadata.getColumnLabel((Integer) args[0]);
-            if (policy.aliases() && name.equals("getTableName")) return tableAlias(metadata, (Integer) args[0]);
-            switch (name) {
+            return switch (name) {
+                case "getColumnName" -> policy.aliases() ? metadata.getColumnLabel((Integer) args[0]) : NO_CONVERSION;
+                case "getTableName" -> policy.aliases() ? tableAlias(metadata, (Integer) args[0]) : NO_CONVERSION;
                 case "isSigned" -> {
                     int column = (Integer) args[0];
-                    if (isTinyIntFlag(metadata, column, metadata.getColumnType(column))) return false;
+                    yield isTinyIntFlag(metadata, column, metadata.getColumnType(column)) ? false : NO_CONVERSION;
                 }
-                case "getColumnClassName", "getColumnType", "getColumnTypeName" -> {
-                    int column = (Integer) args[0];
-                    if (isUnsignedTinyIntFlag(metadata, column, metadata.getColumnType(column))) {
-                        if (name.equals("getColumnClassName")) return Integer.class.getName();
-                        if (name.equals("getColumnTypeName")) return "TINYINT UNSIGNED";
-                        return Types.TINYINT;
-                    }
-                }
-                default -> { }
+                case GET_COLUMN_CLASS_NAME, GET_COLUMN_TYPE, GET_COLUMN_TYPE_NAME ->
+                        columnTypeMetadata(metadata, name, (Integer) args[0]);
+                default -> NO_CONVERSION;
+            };
+        }
+
+        private Object columnTypeMetadata(ResultSetMetaData metadata, String name, int column) throws SQLException {
+            if (isUnsignedTinyIntFlag(metadata, column, metadata.getColumnType(column))) {
+                return switch (name) {
+                    case GET_COLUMN_CLASS_NAME -> Integer.class.getName();
+                    case GET_COLUMN_TYPE_NAME -> "TINYINT UNSIGNED";
+                    default -> Types.TINYINT;
+                };
             }
-            if (!policy.datetimeAsTimestamp() && name.equals("getColumnClassName")
-                    && MariaDbJdbcCompatibility.asciiEquals("DATETIME", metadata.getColumnTypeName((Integer) args[0]))) {
+            return switch (name) {
+                case GET_COLUMN_CLASS_NAME -> columnClassName(metadata, column);
+                case GET_COLUMN_TYPE -> {
+                    int sqlType = legacyColumnType(metadata, column);
+                    yield sqlType != metadata.getColumnType(column) ? sqlType : NO_CONVERSION;
+                }
+                default -> NO_CONVERSION;
+            };
+        }
+
+        private Object columnClassName(ResultSetMetaData metadata, int column) throws SQLException {
+            if (!policy.datetimeAsTimestamp()
+                    && MariaDbJdbcCompatibility.asciiEquals("DATETIME", metadata.getColumnTypeName(column))) {
                 return LocalDateTime.class.getName();
             }
-            if (name.equals("getColumnClassName") && legacyColumnType(metadata, (Integer) args[0]) == Types.BIT) {
-                // Connector/J named Boolean for every BIT width, although only BIT(1) values are Boolean objects.
-                return Boolean.class.getName();
-            }
-            if (name.equals("getColumnType")) {
-                int column = (Integer) args[0];
-                int sqlType = legacyColumnType(metadata, column);
-                if (sqlType != metadata.getColumnType(column)) return sqlType;
-            }
-            return NO_CONVERSION;
+            // Connector/J named Boolean for every BIT width, although only BIT(1) values are Boolean objects.
+            return legacyColumnType(metadata, column) == Types.BIT ? Boolean.class.getName() : NO_CONVERSION;
         }
 
         /** Invokes JDBC directly and preserves its original checked or runtime failure. */

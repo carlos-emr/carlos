@@ -734,30 +734,34 @@ class JdbcConnectorMariaDbIntegrationTest {
             for (boolean transformed : new boolean[]{false, true}) {
                 String options = "tinyInt1isBit=true&transformedBitIsBoolean=" + transformed
                         + "&useServerPrepStmts=" + prepared;
-                try (var source = source(legacy, options); var connection = source.getConnection();
-                     var query = connection.prepareStatement("SELECT padded, ordinary, tiny FROM numeric_flags "
-                             + "WHERE id >= ? ORDER BY id")) {
-                    query.setInt(1, 1);
-                    try (var rows = query.executeQuery()) {
-                        var metadata = rows.getMetaData();
-                        assertThat(metadata.getColumnClassName(3)).isEqualTo(Integer.class.getName());
-                        assertThat(metadata.getColumnType(3)).isEqualTo(java.sql.Types.TINYINT);
-                        assertThat(metadata.getColumnTypeName(3)).isEqualTo("TINYINT UNSIGNED");
-                        for (Integer tiny : new Integer[]{2, 255, null}) {
-                            assertThat(rows.next()).isTrue();
-                            String padded = tiny == null ? null : "00001.25";
-                            assertThat(rows.getString("padded")).isEqualTo(padded);
-                            assertThat(rows.wasNull()).isEqualTo(tiny == null);
-                            assertThat(rows.getObject(1, String.class)).isEqualTo(padded);
-                            assertThat(rows.getString("ordinary")).isEqualTo(tiny == null ? null : "1.25");
-                            assertThat(rows.getObject(3)).isEqualTo(tiny);
-                            assertThat(rows.wasNull()).isEqualTo(tiny == null);
-                            assertThat(rows.getObject("tiny")).isEqualTo(tiny);
-                            assertThat(rows.getObject(3, Map.of())).isEqualTo(tiny);
-                        }
-                        assertThat(rows.next()).isFalse();
-                    }
+                assertZeroFillAndUnsignedTinyIntRows(legacy, options);
+            }
+        }
+    }
+
+    private void assertZeroFillAndUnsignedTinyIntRows(boolean legacy, String options) throws SQLException {
+        try (var source = source(legacy, options); var connection = source.getConnection();
+             var query = connection.prepareStatement("SELECT padded, ordinary, tiny FROM numeric_flags "
+                     + "WHERE id >= ? ORDER BY id")) {
+            query.setInt(1, 1);
+            try (var rows = query.executeQuery()) {
+                var metadata = rows.getMetaData();
+                assertThat(metadata.getColumnClassName(3)).isEqualTo(Integer.class.getName());
+                assertThat(metadata.getColumnType(3)).isEqualTo(java.sql.Types.TINYINT);
+                assertThat(metadata.getColumnTypeName(3)).isEqualTo("TINYINT UNSIGNED");
+                for (Integer tiny : new Integer[]{2, 255, null}) {
+                    assertThat(rows.next()).isTrue();
+                    String padded = tiny == null ? null : "00001.25";
+                    assertThat(rows.getString("padded")).isEqualTo(padded);
+                    assertThat(rows.wasNull()).isEqualTo(tiny == null);
+                    assertThat(rows.getObject(1, String.class)).isEqualTo(padded);
+                    assertThat(rows.getString("ordinary")).isEqualTo(tiny == null ? null : "1.25");
+                    assertThat(rows.getObject(3)).isEqualTo(tiny);
+                    assertThat(rows.wasNull()).isEqualTo(tiny == null);
+                    assertThat(rows.getObject("tiny")).isEqualTo(tiny);
+                    assertThat(rows.getObject(3, Map.of())).isEqualTo(tiny);
                 }
+                assertThat(rows.next()).isFalse();
             }
         }
     }
@@ -782,26 +786,30 @@ class JdbcConnectorMariaDbIntegrationTest {
         for (boolean prepared : new boolean[]{false, true}) {
             for (boolean strict : new boolean[]{false, true}) {
                 String options = "useServerPrepStmts=" + prepared + "&jdbcCompliantTruncation=" + strict;
-                try (var source = source(legacy, options); var connection = source.getConnection();
-                     var query = connection.prepareStatement("SELECT amount FROM float_probe WHERE id >= ? ORDER BY id")) {
-                    query.setInt(1, 0);
-                    try (var rows = query.executeQuery()) {
-                        for (Double value : values) {
-                            assertThat(rows.next()).isTrue();
-                            if (strict && value != null && Math.abs(value) > boundary) {
-                                assertThatThrownBy(() -> rows.getFloat(1)).isInstanceOfSatisfying(
-                                        java.sql.SQLDataException.class, error -> assertThat(error.getSQLState()).isEqualTo("22003"));
-                                assertThatThrownBy(() -> rows.getObject("amount", Float.class)).isInstanceOfSatisfying(
-                                        java.sql.SQLDataException.class, error -> assertThat(error.getSQLState()).isEqualTo("22003"));
-                            } else {
-                                assertThat(rows.getFloat(1)).isEqualTo(value == null ? 0.0f : value.floatValue());
-                                assertThat(rows.wasNull()).isEqualTo(value == null);
-                                assertThat(rows.getObject("amount", Float.class)).isEqualTo(value == null ? null : value.floatValue());
-                            }
-                        }
-                        assertThat(rows.next()).isFalse();
+                assertFloatRangeRows(legacy, options, strict, values, boundary);
+            }
+        }
+    }
+
+    private void assertFloatRangeRows(boolean legacy, String options, boolean strict, Double[] values, double boundary) throws SQLException {
+        try (var source = source(legacy, options); var connection = source.getConnection();
+             var query = connection.prepareStatement("SELECT amount FROM float_probe WHERE id >= ? ORDER BY id")) {
+            query.setInt(1, 0);
+            try (var rows = query.executeQuery()) {
+                for (Double value : values) {
+                    assertThat(rows.next()).isTrue();
+                    if (strict && value != null && Math.abs(value) > boundary) {
+                        assertThatThrownBy(() -> rows.getFloat(1)).isInstanceOfSatisfying(
+                                java.sql.SQLDataException.class, error -> assertThat(error.getSQLState()).isEqualTo("22003"));
+                        assertThatThrownBy(() -> rows.getObject("amount", Float.class)).isInstanceOfSatisfying(
+                                java.sql.SQLDataException.class, error -> assertThat(error.getSQLState()).isEqualTo("22003"));
+                    } else {
+                        assertThat(rows.getFloat(1)).isEqualTo(value == null ? 0.0f : value.floatValue());
+                        assertThat(rows.wasNull()).isEqualTo(value == null);
+                        assertThat(rows.getObject("amount", Float.class)).isEqualTo(value == null ? null : value.floatValue());
                     }
                 }
+                assertThat(rows.next()).isFalse();
             }
         }
     }
@@ -816,23 +824,27 @@ class JdbcConnectorMariaDbIntegrationTest {
                 for (boolean prepared : new boolean[]{false, true}) {
                     String options = "tinyInt1isBit=" + tinyBit + "&transformedBitIsBoolean=" + transformed
                             + "&useServerPrepStmts=" + prepared;
-                    try (var source = source(legacy, options); var connection = source.getConnection();
-                         var query = connection.prepareStatement("SELECT t1 FROM number_probe WHERE id >= ? ORDER BY id");
-                         var bits = connection.prepareStatement("SELECT b1 FROM number_probe WHERE id <= ? ORDER BY id")) {
-                        query.setInt(1, 1);
-                        try (var rows = query.executeQuery()) {
-                            assertThat(rows.getMetaData().isSigned(1))
-                                    .as("signed TINYINT(1) metadata with %s", options)
-                                    .isEqualTo(!tinyBit);
-                            if (tinyBit) assertConnectorJTinyIntTruthValues(rows);
-                            else assertConnectorJTinyIntIntegerValues(rows);
-                        }
-                        bits.setInt(1, 3);
-                        try (var rows = bits.executeQuery()) {
-                            assertConnectorJRealBitOneValues(rows);
-                        }
-                    }
+                    assertConnectorJTinyIntMetadataMode(legacy, tinyBit, options);
                 }
+            }
+        }
+    }
+
+    private void assertConnectorJTinyIntMetadataMode(boolean legacy, boolean tinyBit, String options) throws SQLException {
+        try (var source = source(legacy, options); var connection = source.getConnection();
+             var query = connection.prepareStatement("SELECT t1 FROM number_probe WHERE id >= ? ORDER BY id");
+             var bits = connection.prepareStatement("SELECT b1 FROM number_probe WHERE id <= ? ORDER BY id")) {
+            query.setInt(1, 1);
+            try (var rows = query.executeQuery()) {
+                assertThat(rows.getMetaData().isSigned(1))
+                        .as("signed TINYINT(1) metadata with %s", options)
+                        .isEqualTo(!tinyBit);
+                if (tinyBit) assertConnectorJTinyIntTruthValues(rows);
+                else assertConnectorJTinyIntIntegerValues(rows);
+            }
+            bits.setInt(1, 3);
+            try (var rows = bits.executeQuery()) {
+                assertConnectorJRealBitOneValues(rows);
             }
         }
     }
@@ -916,7 +928,7 @@ class JdbcConnectorMariaDbIntegrationTest {
     }
 
     private static void assertConnectorJPrimitiveNumberObjects(ResultSet rows) throws SQLException {
-        assertThat(rows.getObject("b8", boolean.class)).isEqualTo(true);
+        assertThat(rows.getObject("b8", boolean.class)).isTrue();
         assertThat(rows.getObject("b8", byte.class)).isEqualTo((byte) 5);
         assertThat(rows.getObject("b8", short.class)).isEqualTo((short) 5);
         assertThat(rows.getObject("b8", int.class)).isEqualTo(5);
