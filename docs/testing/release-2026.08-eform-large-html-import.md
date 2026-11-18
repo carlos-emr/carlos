@@ -91,3 +91,18 @@ The test transaction rolls back its owned rows. JUnit SHA-256:
 `afb6d52d725b8aa594d2abec15810e1303ac6ba835434f045bbb718956a466e3`.
 These source controls do not replace the pending rebuilt-package/browser retake
 for the latest transactional changes.
+
+
+Missing-HTML integrity follow-up: an actual DAO import of an archive naming a
+missing HTML entry previously returned successfully, committed a blank form,
+and published its orphan image. The four-case pre-repair run has one failure
+(JUnit SHA-256 `f0ab44472f2fcd6aafea8094d2dbf87bb7cf4c6282b0ee8f75f04501bffff99e`).
+The importer now rejects that archive before any asset publication or registration.
+All 91 public-source controls pass with zero failures/errors/skips (JUnit SHA-256
+`ce023d6ddcaf7e98b08899c8fa6c1f2b9252215d359693a01bb61b75845da068`).
+The fresh changed-line floors rise to 99.5495% lines, 99.7126% instructions and
+96.6102% branches; source-bound evidence SHA-256 `eb8b78a1953ca613aee5efebd1ee2d79f30f8484e4064ac552a27e6b53bdbb71`.
+The combined import/publication implementation independently passes all 148
+controls and retains its stronger 100% line/instruction and 97.4576% branch
+coverage. These are selected-source results; rebuilt DEB/native qualification
+for the latest revision remains pending.
