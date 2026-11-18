@@ -97,6 +97,8 @@ async function workflow(s) {
   const M = h.sqlString(marker);
   const fixture = throwawayLoginFixture({ sql, marker, provider: s.provider, testUser: s.config.testUser });
   s.cleanup(() => fixture.cleanup());
+  const otherFixture = throwawayLoginFixture({ sql, marker: marker + '_window_B', provider: s.provider, testUser: s.config.testUser });
+  s.cleanup(() => otherFixture.cleanup());
   const patients = [];
   let dashboardId;
   let indicatorId;
@@ -156,6 +158,15 @@ async function workflow(s) {
       VALUES (${M},${h.sqlString(first)},'1980','01','02','F',${h.sqlString(status)},${P},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(id), 'A synthetic dashboard patient was not created');
     patients.push(id);
+  }
+  otherFixture.create();
+  const otherPatients = [];
+  for (const [first, status] of [['Window B active', 'AC'], ['Window B inactive', 'IN']]) {
+    const id = sql.value(`INSERT INTO demographic (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,
+      patient_status,provider_no,hc_type,province,roster_status,lastUpdateDate)
+      VALUES (${M},${h.sqlString(first)},'1980','01','02','F',${h.sqlString(status)},${h.sqlString(otherFixture.providerNo)},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(id), 'A second-window synthetic patient was not created');
+    patients.push(id); otherPatients.push(id);
   }
   dashboardId = sql.value(`INSERT INTO dashboard (name,description,creator,edited,active,locked)
     VALUES (${M},'Synthetic dashboard',${P},NOW(),1,0); SELECT LAST_INSERT_ID()`);
@@ -246,6 +257,42 @@ async function workflow(s) {
     h.assert(JSON.stringify(plots) === JSON.stringify([[['Active', Number(active)], ['Not active', Number(inactive)]]]),
       'Indicator counts differ from the owned-scope SQL counts');
     h.assert(await dashboard.locator(`#graphCanvas_${indicatorId}`).evaluate(c => c.width > 0 && c.height > 0), 'The indicator chart was not drawn');
+  });
+
+  await s.step('two windows of one login keep their provider-specific lists and exports after switching the second window', async () => {
+    const other = await openDashboard('dashboard-window-b');
+    const shownRows = async page => page.locator('#drilldownTable tbody tr').evaluateAll(rows => rows.map(row =>
+      [row.querySelector('input.patientChecked').id, row.cells[3].textContent.trim(), row.cells[4].textContent.trim()]));
+    async function verifyExport(page, expectedRows, label) {
+      const outcome = await ui.clickDownloadsOrOpens(page, page.locator(`#exportResults_${indicatorId}`),
+        { context: ctx, recorder, label, timeout: TIMEOUT });
+      h.assert(outcome.kind === 'download', 'The window export did not download a file');
+      const expected = ['Patient Id,Last Name,Status', ...expectedRows.map(row => row.join(','))].join('\n') + '\n';
+      h.assert(fs.readFileSync(await outcome.download.path(), 'utf8') === expected, 'A window exported another provider scope');
+    }
+    try {
+      await other.locator('#providerNo').selectOption(otherFixture.providerNo);
+      await ui.clickAndAwaitReload(other, other.locator('input[type="submit"][value="Change Dashboard Provider"]'),
+        { label: 'select second dashboard provider', timeout: TIMEOUT });
+      await other.locator(`#graphPlots_${indicatorId}`).waitFor({ state: 'attached' });
+      h.assert((await other.locator(`#graphPlots_${indicatorId}`).inputValue()) !== plotted,
+        'The second window did not render its distinct owned provider counts');
+      h.assert((await drillDown(dashboard)).status() === 200, 'The first window drilldown was refused');
+      h.assert(JSON.stringify((await shownRows(dashboard)).sort()) === JSON.stringify(ownedRows().sort()),
+        'Changing the second window mixed its patients into the first window');
+      await verifyExport(dashboard, ownedRows(), 'dashboard-window-a-export');
+      h.assert((await drillDown(other)).status() === 200, 'The second window drilldown was refused');
+      const expectedOther = sql.rows(`SELECT demographic_no,last_name,patient_status FROM demographic
+        WHERE demographic_no IN (${otherPatients.join(',')}) ORDER BY demographic_no`);
+      h.assert(JSON.stringify((await shownRows(other)).sort()) === JSON.stringify([...expectedOther].sort()),
+        'The second window did not retain its own patient list');
+      await verifyExport(other, expectedOther, 'dashboard-window-b-export');
+    } finally { await other.close(); }
+    await ui.clickAndAwaitReload(dashboard, dashboard.locator('.backtoDashboardBtn'),
+      { label: 'return first window to its dashboard', timeout: TIMEOUT });
+    await dashboard.locator(`#graphPlots_${indicatorId}`).waitFor({ state: 'attached' });
+    h.assert(await dashboard.locator(`#graphPlots_${indicatorId}`).inputValue() === plotted,
+      'Returning to the first dashboard inherited another window provider');
   });
 
   await s.step('Indicator Info shows the stored definition', async () => {

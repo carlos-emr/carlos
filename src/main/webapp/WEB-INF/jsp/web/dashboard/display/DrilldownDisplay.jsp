@@ -65,10 +65,12 @@
     <script type="text/javascript" src="${ pageContext.request.contextPath }/library/flatpickr/flatpickr.min.js"></script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/dompurify/purify.min.js"></script>
+    <script src="${ pageContext.request.contextPath }/web/dashboard/display/dashboard-provider-context.js"></script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/web/dashboard/display/drilldownDisplayController.js"></script>
 </head>
 <body>
+<input type="hidden" id="dashboardProviderNo" value="${carlos:forHtmlAttribute(preferredProvider.providerNo)}">
 
 <div class="container">
 
@@ -89,6 +91,7 @@
             <form action="${ pageContext.request.contextPath }/web/dashboard/display/ExportResults" method="POST"
                   class="inlineForm">
                 <input type="hidden" name="indicatorId" value="${ drilldown.id }">
+                <input type="hidden" name="dashboardProviderNo" value="${carlos:forHtmlAttribute(preferredProvider.providerNo)}">
                 <button class="btn btn-secondary exportResults" type="submit" id="exportResults_${ drilldown.id }">
                     <span class="fa-solid fa-download text-center" aria-hidden="true"></span>
                     Export

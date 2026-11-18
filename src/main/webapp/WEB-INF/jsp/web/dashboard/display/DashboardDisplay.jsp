@@ -64,11 +64,13 @@
             src="${ pageContext.request.contextPath }/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/chartjs/chart.umd.min.js"></script>
+    <script src="${ pageContext.request.contextPath }/web/dashboard/display/dashboard-provider-context.js"></script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/web/dashboard/display/dashboardDisplayController.js"></script>
 </head>
 
 <body>
+<input type="hidden" id="dashboardProviderNo" value="${carlos:forHtmlAttribute(preferredProvider.providerNo)}">
 
 <div class="container">
     <div class="row" id="dashboardPanel">
