@@ -16,6 +16,18 @@ function preflight({sql}) {
     throw new h.SkipCheck('Refusing to replace configuration while a fax account is active');
   }
 }
+
+async function requireOwnedAccount(frame, id, faxUser, accountName) {
+  const form = frame.locator('#configFrm');
+  await form.waitFor();
+  const matches = await form.evaluate((element, expected) =>
+    element.elements.namedItem('id')?.value === expected.id
+      && element.elements.namedItem('faxUser')?.value === expected.faxUser
+      && element.elements.namedItem('accountName')?.value === expected.accountName,
+  {id, faxUser, accountName});
+  h.assert(matches, 'The installed fax form did not load the owned account from the fixture database');
+}
+
 async function workflow(s) {
   const {sql, marker, schedule, config} = s;
   const own = {faxUser: '123456', accountName: marker};
@@ -34,7 +46,8 @@ async function workflow(s) {
   const link = schedule.locator('a.xlink[rel$="/admin/ViewConfigureFax"]');
   await link.click();
   const frame = schedule.frameLocator('#myFrame');
-  await frame.locator('#configFrm').waitFor();
+  // The rendered row proves the application sees the same unique fixture as the SQL guard.
+  await requireOwnedAccount(frame, id, own.faxUser, marker);
   await frame.locator('#faxPasswd').fill('FAKE-5783-password');
 
   async function save(name) {
@@ -62,6 +75,7 @@ async function workflow(s) {
   await s.step('reopening and saving the masked password retains its encrypted stored bytes', async () => {
     const credential = sql.value('SELECT HEX(faxPasswd) FROM fax_config WHERE id=?', [id]);
     await link.click();
+    await requireOwnedAccount(frame, id, own.faxUser, marker + ' saved');
     h.assert(await frame.locator('#faxPasswd').inputValue() === '**********', 'Stored fax password was not masked');
     await save(marker + ' saved again');
     h.assert(sql.value('SELECT HEX(faxPasswd) FROM fax_config WHERE id=?', [id]) === credential, 'Masked fax credential was rewritten');
