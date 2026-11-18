@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/managers/ScheduleManagerImpl.java",
   "kind": "floor",
   "floor": {
-    "lines": 98.93617021276596,
-    "instructions": 99.42857142857143,
+    "lines": 100.0,
+    "instructions": 100.0,
     "branches": 100.0,
-    "sourceBlob": "7d7b00d888088a87f16ec9a3b1677e3ffb066114"
+    "sourceBlob": "3c4625d614c20fd00317cc591607ad6d1a054d7b"
   },
-  "evidenceSha256": "1f25134baffe4a6c144b17e411963f95da5d1e99750cf8b5dab0067674d0190b"
+  "evidenceSha256": "23db5597e3c927904eacaf70e8ece985862c55a88475b891b1e0e21220cff8fd"
 }
