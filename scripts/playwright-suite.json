@@ -19503,6 +19503,23 @@
       ],
       "fixtures": "Owns the runWorkflow patient and one marker-named REST-created patient and admission; removes exact owned custom-field/archive/admission rows and verifies cleanup. Disposable exclusive host only. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#5999: six converted field lengths refuse REST create/update before side effects; exact schema limits and supplementary Unicode boundary values persist without truncation."
+    },
+    {
+      "name": "report-daysheet-selection",
+      "script": "scripts/report-daysheet-selection-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "MYSQL_PASSWORD"
+      ],
+      "notes": "#5956: a preview stays read-only; acknowledgment excludes newly booked and subsequently edited appointments; replay cannot acquire later appointments or duplicate archives.",
+      "fixtures": "Owns one patient, one reader-role/login/provider and site memberships, and three marker-reason appointments. Removes only their exact archives, appointments and fixture identities. Disposable exclusive host only."
     }
   ]
 }

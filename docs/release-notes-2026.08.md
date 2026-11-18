@@ -1,5 +1,16 @@
 # CARLOS 2026.08 release notes
 
+## New-appointment day-sheet acknowledgment
+
+Opening or printing the new-appointments day sheet is read-only. Appointment
+writers must use **Acknowledge new appointments** to mark the displayed rows as
+Daysheet Printed. The form now carries the displayed appointment IDs and versions.
+Appointments booked or edited after preview are left unchanged, with a skipped
+count in the result; preview again before acknowledging them. Repeating the same
+submission does not acquire newly booked appointments or create duplicate archives.
+Incomplete, malformed or oversized selections are refused before any update.
+
+
 ## Audit identifiers after model diagnostic redaction
 
 Demographic-extension, consent-type, appointment and disease-registry creation audit
