@@ -152,7 +152,7 @@
 			<select name="provider.providerNo" id="program-staff-provider">
 				<option value="">Select a provider</option>
 				<c:forEach var="candidate" items="${availableProviders}">
-					<option value="${carlos:forHtmlAttribute(candidate.providerNo)}" <c:if test="${candidate.providerNo == provider.providerNo}">selected</c:if>>${carlos:forHtmlContent(candidate.formattedName)}</option>
+					<option value="${carlos:forHtmlAttribute(candidate.providerNo)}" <c:if test="${candidate.providerNo == requestScope.staffProvider.providerNo}">selected</c:if>>${carlos:forHtmlContent(candidate.formattedName)}</option>
 				</c:forEach>
 			</select>
 		</td>
@@ -162,7 +162,7 @@
 		<td>
 			<select name="provider.roleId" id="program-staff-role">
 				<c:forEach var="role" items="${roles}">
-					<option value="${carlos:forHtmlAttribute(role.id)}" <c:if test="${role.id == provider.roleId}">selected</c:if>>${carlos:forHtmlContent(role.name)}</option>
+					<option value="${carlos:forHtmlAttribute(role.id)}" <c:if test="${role.id == requestScope.staffProvider.roleId}">selected</c:if>>${carlos:forHtmlContent(role.name)}</option>
 				</c:forEach>
 			</select>
 		</td>

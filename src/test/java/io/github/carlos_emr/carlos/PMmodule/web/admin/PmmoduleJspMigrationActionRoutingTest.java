@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.PMmodule.service.ClientRestrictionManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ClientManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramQueueManager;
+import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.PMmodule.service.VacancyTemplateManager;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
@@ -245,7 +246,7 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldLoadProviderChoices_whenOpeningTheStaffTab() throws Exception {
+    void shouldExposeStaffSelectionAndChoices_whenOpeningTheStaffTab() throws Exception {
         Program program = new Program();
         program.setId(17);
         when(programManager.getProgram("17")).thenReturn(program);
@@ -255,9 +256,19 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
         addRequestParameter("id", "17");
         addRequestParameter("view.tab", "Staff");
 
-        assertThat(executeAction(newProgramManagerAction())).isEqualTo("edit");
+        Provider signedInProvider = new Provider("902");
+        getMockRequest().getSession().setAttribute("provider", signedInProvider);
+        ProgramProvider staffProvider = new ProgramProvider();
+        staffProvider.setProviderNo("123");
+        staffProvider.setRoleId(33L);
+        ProgramManager2Action action = newProgramManagerAction();
+        action.setProvider(staffProvider);
+
+        assertThat(executeAction(action)).isEqualTo("edit");
 
         assertThat(getMockRequest().getAttribute("availableProviders")).isEqualTo(providers);
+        assertThat(getMockRequest().getAttribute("staffProvider")).isSameAs(staffProvider);
+        assertThat(getMockRequest().getSession().getAttribute("provider")).isSameAs(signedInProvider);
     }
 
     @Test

@@ -2,7 +2,9 @@
 package io.github.carlos_emr.carlos.PMmodule.web.admin;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
+import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.commn.dao.SecObjPrivilegeDao;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
@@ -133,6 +135,8 @@ class ProgramFormControlsIntegrationTest {
 
         Element staff = render("ProgramManager?view.tab=Staff", "programManagerForm");
         assertThat(staff.selectFirst("select[name='provider.providerNo'] option[value='123']").text()).isEqualTo(FIXTURE_NAME);
+        assertThat(staff.select("select[name='provider.providerNo'] option[selected]"))
+                .extracting(Element::val).containsExactly("123");
         assertThat(staff.select("select[name='provider.roleId'] option[selected]"))
                 .extracting(Element::val).containsExactly("33");
 
@@ -191,7 +195,12 @@ class ProgramFormControlsIntegrationTest {
             request.setAttribute("roles", List.of(Map.of("id", 33, "name", "FAKE Role")));
             request.setAttribute("team", Map.of("id", 21, "name", "FAKE Existing Team"));
             request.setAttribute("client_status", Map.of("id", 22, "name", "FAKE Existing Status"));
-            request.setAttribute("provider", Map.of("id", 23, "providerNo", "123", "roleId", 33));
+            request.getSession().setAttribute("provider", new Provider("902"));
+            ProgramProvider staffProvider = new ProgramProvider();
+            staffProvider.setId(23L);
+            staffProvider.setProviderNo("123");
+            staffProvider.setRoleId(33L);
+            request.setAttribute("staffProvider", staffProvider);
             request.setAttribute("availableProviders", List.of(Map.of("providerNo", "123", "formattedName", FIXTURE_NAME)));
             request.setAttribute("do_reject", true);
             String page = request.getServletPath().endsWith("View") ? "ProgramManagerView" : "ProgramManagerForm";

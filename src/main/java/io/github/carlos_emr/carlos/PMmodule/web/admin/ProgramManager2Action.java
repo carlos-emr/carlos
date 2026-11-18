@@ -1346,6 +1346,7 @@ public class ProgramManager2Action extends ActionSupport {
             request.setAttribute("providers", programManager.getProgramProviders(programId));
             if ("Staff".equals(request.getParameter("view.tab"))) {
                 request.setAttribute("availableProviders", providerManager.getActiveProviders());
+                request.setAttribute("staffProvider", getProvider());
             }
             request.setAttribute("functional_users", programManager.getFunctionalUsers(programId));
 
