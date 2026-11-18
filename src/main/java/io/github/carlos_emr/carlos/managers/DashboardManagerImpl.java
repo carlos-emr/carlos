@@ -27,11 +27,11 @@ package io.github.carlos_emr.carlos.managers;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
+import org.apache.struts2.ActionContext;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.crypto.encrypt.BytesEncryptor;
 import org.springframework.security.crypto.encrypt.Encryptors;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
@@ -81,7 +81,8 @@ public class DashboardManagerImpl implements DashboardManager {
     @Autowired
     ClinicDAO clinicDAO;
 
-    private Map<String, String> requestedProviderNumMap = new HashMap<String, String>();
+    private static final String REQUESTED_PROVIDER_ATTRIBUTE =
+            DashboardManagerImpl.class.getName() + ".requestedProviderNo.";
 
     private Logger logger = MiscUtils.getLogger();
 
@@ -590,7 +591,11 @@ public class DashboardManagerImpl implements DashboardManager {
 
     @Override
     public String exportDrilldownQueryResultsToCSV(LoggedInInfo loggedInInfo, String providerNo, int indicatorId) {
+        return exportDrilldownQueryResultsToCSV(loggedInInfo, providerNo, indicatorId, "null");
+    }
 
+    @Override
+    public String exportDrilldownQueryResultsToCSV(LoggedInInfo loggedInInfo, String providerNo, int indicatorId, String metricLabel) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardDrilldown", SecurityInfoManager.READ, null)) {
             LogAction.addLog(loggedInInfo, "DashboardManager.exportDrilldownQueryResultsToCSV", null, null, null,
                     "User missing _dashboardDrilldown role with read access");
@@ -598,13 +603,17 @@ public class DashboardManagerImpl implements DashboardManager {
         }
 
         IndicatorTemplateXML templateXML = getIndicatorTemplateXML(loggedInInfo, indicatorId);
+        if (templateXML == null || (!"null".equals(metricLabel)
+                && (metricLabel == null || !metricLabel.equals(templateXML.getMetricLabel())))) {
+            return null;
+        }
         if (providerNo != null) {
             templateXML.setProviderNo(providerNo);
         }
 
         ExportQueryHandler exportQueryHandler = SpringUtils.getBean(ExportQueryHandler.class);
         exportQueryHandler.setLoggedInInfo(loggedInInfo);
-        exportQueryHandler.setParameters(templateXML.getDrilldownParameters("null"));
+        exportQueryHandler.setParameters(templateXML.getDrilldownParameters(metricLabel));
         exportQueryHandler.setColumns(templateXML.getDrilldownExportColumns());
         exportQueryHandler.setRanges(templateXML.getDrilldownRanges());
         exportQueryHandler.setQuery(templateXML.getDrilldownQuery());
@@ -798,20 +807,39 @@ public class DashboardManagerImpl implements DashboardManager {
         return url + "?" + "encodedParams=" + b64 + "&version=1.1";
     }
 
+    /** Selects a provider only for this request; subsequent window requests carry their own parameter. */
     @Override
     public void setRequestedProviderNo(LoggedInInfo loggedInInfo, String providerNo) {
-        String loggedInInfoStr = loggedInInfo.getLoggedInProviderNo();
-        if (loggedInInfoStr != null && !loggedInInfoStr.isEmpty())
-            this.requestedProviderNumMap.put(loggedInInfoStr, providerNo);
+        HttpServletRequest request = dashboardRequest();
+        if (request != null && loggedInInfo != null && loggedInInfo.getLoggedInProviderNo() != null
+                && !loggedInInfo.getLoggedInProviderNo().isEmpty()) {
+            request.setAttribute(REQUESTED_PROVIDER_ATTRIBUTE + loggedInInfo.getLoggedInProviderNo(),
+                    providerNo == null ? "" : providerNo);
+        }
     }
 
+    /** Resolves this window's provider without retaining any login-wide mutable selection. */
     @Override
     public String getRequestedProviderNo(LoggedInInfo loggedInInfo) {
-        if (loggedInInfo != null) {
-            return this.requestedProviderNumMap.get(loggedInInfo.getLoggedInProviderNo());
-        } else {
+        HttpServletRequest request = dashboardRequest();
+        if (request == null || loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null
+                || loggedInInfo.getLoggedInProviderNo().isEmpty()) {
             return null;
         }
+        String actor = loggedInInfo.getLoggedInProviderNo();
+        Object scoped = request.getAttribute(REQUESTED_PROVIDER_ATTRIBUTE + actor);
+        String provider = scoped instanceof String value ? value : request.getParameter("dashboardProviderNo");
+        if (provider == null || provider.isBlank()) return null;
+        if (!actor.equals(provider)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardChgUser", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_dashboardChgUser)");
+        }
+        return provider;
+    }
+
+    private static HttpServletRequest dashboardRequest() {
+        ActionContext context = ActionContext.getContext();
+        return context == null ? null : context.getServletRequest();
     }
 
 }
