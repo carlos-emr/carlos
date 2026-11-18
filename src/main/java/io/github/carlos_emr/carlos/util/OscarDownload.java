@@ -94,16 +94,33 @@ public class OscarDownload extends GenericDownload {
             if (backupfilepath != null
                     && !backupfilepath.isEmpty()
                     && ((String) session.getAttribute("user")) != null) {
-                // nosemgrep: semgrep.carlos.httpservlet-path-traversal -- Directory comes from an authenticated server-side session under one of three allowlisted keys; client filenames are strictly validated and contained separately below.
-                File downloadDir = new File(backupfilepath).getCanonicalFile();
+
+                File downloadDir;
+                try {
+                    downloadDir = new File(backupfilepath).getCanonicalFile(); // nosemgrep: semgrep.carlos.httpservlet-path-traversal -- Directory comes from an authenticated server-side session under one of three allowlisted keys; client filenames are strictly validated and contained separately below.
+                } catch (IOException unavailable) {
+                    res.sendError(HttpServletResponse.SC_NOT_FOUND, "Download file not found.");
+                    return;
+                }
                 if (!downloadDir.isDirectory()) {
+                    if (!downloadDir.exists()) {
+                        DownloadStorageWarnings.reportIfUnavailable(downloadDir);
+                        res.sendError(HttpServletResponse.SC_NOT_FOUND, "Download file not found.");
+                        return;
+                    }
                     log.warn("OscarDownload rejected non-directory path from {}", LogSafe.sanitize(req.getRemoteAddr()));
                     res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download directory.");
                     return;
                 }
                 String billingHome = CarlosProperties.getInstance().getProperty("HOME_DIR");
-                boolean billingDirectory = billingHome != null && !billingHome.isBlank()
-                        && downloadDir.equals(new File(billingHome).getCanonicalFile());
+                boolean billingDirectory;
+                try {
+                    billingDirectory = billingHome != null && !billingHome.isBlank()
+                            && downloadDir.equals(new File(billingHome).getCanonicalFile());
+                } catch (IOException unavailable) {
+                    res.sendError(HttpServletResponse.SC_NOT_FOUND, "Download file not found.");
+                    return;
+                }
                 if ("ohipdownload".equals(homepath) || billingDirectory) {
                     if (!filename.equals(rawFilename)) {
                         requireBillingFile(rawFilename, PathValidationUtils.validatePath(rawFilename, downloadDir).toPath());

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/email/admin/ManageEmails2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 92.85714285714286,
+    "sourceBlob": "a6f1a9b51f0ef5a08776583a7d771fb0e52337f1"
+  },
+  "evidenceSha256": "a9b68493e053d3ab2672832f13849edb6d6aa3da6049605f5d572b49414cb518"
+}

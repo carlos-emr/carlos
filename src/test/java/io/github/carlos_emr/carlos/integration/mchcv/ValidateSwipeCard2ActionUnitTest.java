@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 
@@ -48,6 +49,7 @@ class ValidateSwipeCard2ActionUnitTest extends CarlosUnitTestBase {
         factory = mockStatic(HCValidationFactory.class);
         factory.when(HCValidationFactory::getHCValidator).thenReturn(validator);
         when(security.hasPrivilege(user, "_demographic", "r", null)).thenReturn(true);
+        when(request.getMethod()).thenReturn("POST");
         action = new ValidateSwipeCard2Action();
     }
 
@@ -73,8 +75,34 @@ class ValidateSwipeCard2ActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(validator);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"})
+    void shouldRefuseValidation_whenRequestMethodIsNotPost(String method) throws Exception {
+        when(request.getMethod()).thenReturn(method);
+        action.setMagneticStripe(TRACK);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        verify(response).setHeader("Allow", "POST");
+        verify(response).sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        verify(request, never()).setAttribute(anyString(), any());
+        factory.verifyNoInteractions();
+        verifyNoInteractions(validator);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"magneticStripe=FAKE", "%6dagneticStripe=FAKE", "unused=x&magneticStripe=FAKE", "magneticStripe", "malformed%xx=x"})
+    void shouldRefuseUrlCarriedTracks_beforeValidation(String query) throws Exception {
+        when(request.getQueryString()).thenReturn(query);
+        action.setMagneticStripe(TRACK);
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        verify(response).sendError(HttpServletResponse.SC_BAD_REQUEST);
+        factory.verifyNoInteractions();
+        verifyNoInteractions(validator);
+    }
+
     @Test
     void validTrackPreservesParsedCardAndValidatorResult() throws Exception {
+        when(request.getQueryString()).thenReturn("method=execute&CSRF_TOKEN=FAKE");
         HCValidationResult result = new HCValidationResult();
         result.setResponseCode("51");
         when(validator.validate("9267294685", "DK")).thenReturn(result);

@@ -124,8 +124,8 @@ public class AttachmentResolverSpi extends ResourceResolverSpi {
 	private String getResourceId(ResourceResolverContext context) {
 		String resourceId = context.uriToResolve;
 		try {
-			// A cid URI is not form data: a literal '+' is part of the Content-ID.
-			resourceId = URLDecoder.decode(resourceId.replace("+", "%2B"), "UTF-8");
+			// Match AttachmentUtil.cleanContentId, which CXF applies to MIME Content-ID headers.
+			resourceId = URLDecoder.decode(resourceId, "UTF-8");
 		} catch (UnsupportedEncodingException e1) {
 			throw new RuntimeException("Unable to decode", e1);
 		}

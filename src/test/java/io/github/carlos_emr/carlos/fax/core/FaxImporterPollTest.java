@@ -409,6 +409,69 @@ class FaxImporterPollTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldReportTheInitialOutageAtError_withoutLoggingEveryScheduledPoll() throws Exception {
+        FaxConfig config = createFaxConfig(1, true, true);
+        when(faxConfigDao.findAll(null, null)).thenReturn(List.of(config));
+        when(faxProviderClientFactory.getClient(config)).thenReturn(faxProviderClient);
+        when(faxProviderClient.listInboundFaxes(config)).thenThrow(
+                new FaxProviderException("PRIVATE_PROVIDER_RESPONSE", new java.io.IOException("PRIVATE_CAUSE"), 503));
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxImporter.class)) {
+            faxImporter.poll();
+            faxImporter.poll();
+            verify(faxProviderClient).listInboundFaxes(config);
+            assertThat(logs.events().stream().filter(event -> event.getLevel() == org.apache.logging.log4j.Level.ERROR))
+                    .singleElement().satisfies(event -> assertThat(event.getMessage().getFormattedMessage())
+                            .contains("Inbound fax polling failed", "HTTP 503"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+        }
+    }
+
+    @Test
+    void shouldReportHourlyOutages_withConsecutiveCountsAndOneInitialError() throws Exception {
+        FaxConfig config = createFaxConfig(1, true, true);
+        when(faxConfigDao.findAll(null, null)).thenReturn(List.of(config));
+        when(faxProviderClientFactory.getClient(config)).thenReturn(faxProviderClient);
+        when(faxProviderClient.listInboundFaxes(config)).thenThrow(new FaxProviderException("PRIVATE_PROVIDER_RESPONSE"));
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxImporter.class)) {
+            for (int attempt = 1; attempt <= 9; attempt++) {
+                faxImporter.poll();
+                now.set(faxImporter.getPollingFailures().get(1).nextRetry());
+            }
+            verify(faxProviderClient, times(9)).listInboundFaxes(config);
+            assertThat(logs.events().stream().filter(event -> event.getLevel() == org.apache.logging.log4j.Level.ERROR))
+                    .hasSize(1);
+            var hourly = logs.events().stream().filter(event -> event.getLevel() == org.apache.logging.log4j.Level.WARN)
+                    .map(event -> event.getMessage().getFormattedMessage()).toList();
+            assertThat(hourly).hasSize(2);
+            assertThat(hourly.get(0)).contains("8 consecutive", "one hour");
+            assertThat(hourly.get(1)).contains("9 consecutive", "one hour");
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+        }
+    }
+
+    @Test
+    void shouldContinueOtherAccounts_whenFailureStateWasDiscardedDuringPoll() throws Exception {
+        FaxConfig stale = createFaxConfig(1, true, true);
+        FaxConfig healthy = createFaxConfig(2, true, true);
+        when(faxConfigDao.findAll(null, null)).thenReturn(List.of(stale, healthy));
+        var backoff = mock(FaxPollBackoff.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(faxImporter, "pollBackoff", backoff);
+        when(backoff.isDue(any())).thenReturn(true);
+        when(backoff.snapshot()).thenReturn(java.util.Map.of());
+        when(faxProviderClientFactory.getClient(stale)).thenThrow(new IllegalStateException("PRIVATE_STALE_FAILURE"));
+        when(faxProviderClientFactory.getClient(healthy)).thenReturn(faxProviderClient);
+        when(faxProviderClient.listInboundFaxes(healthy)).thenReturn(List.of());
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxImporter.class)) {
+            faxImporter.poll();
+            verify(faxProviderClient).listInboundFaxes(healthy);
+            assertThat(logs.messages()).noneMatch(message -> message.contains("Inbound fax polling"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_");
+        }
+    }
+
     // -- helper methods --
 
     /**

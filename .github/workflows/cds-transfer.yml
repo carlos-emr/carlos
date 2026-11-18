@@ -3,44 +3,11 @@ name: CDS coordinated import and export
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
     branches: [main, develop, experimental, 'release/*', 'staging/*', 'hotfix/*']
-    paths:
-      - 'src/main/java/**'
-      - 'src/main/resources/**'
-      - 'src/test/java/**'
-      - 'src/test/resources/**'
-      - 'database/mysql/migration/**'
-      - 'scripts/ci/*cds*'
-      - 'scripts/ci/CdsReleaseUpgradeProof.java'
-      - 'debian/assets/flyway-runner/**'
-      - 'debian/build-flyway-runner.sh'
-      - 'scripts/schema-contract.py'
-      - 'scripts/verify-cds-export-source-catalogue.py'
-      - 'pom.xml'
-      - '.github/actions/dev-container/**'
-      - '.github/workflows/cds-transfer.yml'
-      - 'scripts/ci/**'
-      - 'database/mysql/schema-contract/**'
   push:
     # A release head must still export after independently green pull requests merge.
     branches: [main, 'release/**']
-    paths:
-      - 'src/main/java/**'
-      - 'src/main/resources/**'
-      - 'src/test/java/**'
-      - 'src/test/resources/**'
-      - 'database/mysql/migration/**'
-      - 'scripts/ci/*cds*'
-      - 'scripts/ci/CdsReleaseUpgradeProof.java'
-      - 'debian/assets/flyway-runner/**'
-      - 'debian/build-flyway-runner.sh'
-      - 'scripts/schema-contract.py'
-      - 'scripts/verify-cds-export-source-catalogue.py'
-      - 'pom.xml'
-      - '.github/actions/dev-container/**'
-      - '.github/workflows/cds-transfer.yml'
-      - 'scripts/ci/**'
-      - 'database/mysql/schema-contract/**'
   workflow_dispatch:
 
 concurrency:
@@ -52,7 +19,12 @@ permissions:
   packages: read
 
 jobs:
+  changes:
+    uses: ./.github/workflows/cds-change-detection.yml
+
   coordinated-contracts:
+    needs: changes
+    if: needs.changes.outputs.run-tests == 'true'
     name: CDS transfer / ${{ matrix.shard }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -99,6 +71,8 @@ jobs:
           retention-days: 7
 
   compatibility-contracts:
+    needs: changes
+    if: needs.changes.outputs.run-tests == 'true'
     name: CDS compatibility / ${{ matrix.profile }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40

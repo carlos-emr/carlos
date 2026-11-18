@@ -142,9 +142,11 @@ class DemographicBirthDayTimezoneUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldReturnNull_whenBirthDateComponentsAreMissing() {
         assertThat(new Demographic().getBirthDay()).isNull();
+        assertThat(new Demographic().getFormattedDob()).isEmpty();
         Demographic partial = demographic("1980-06-15");
         partial.setMonthOfBirth(null);
         assertThat(partial.getBirthDay()).isNull();
+        assertThat(partial.getFormattedDob()).isEmpty();
     }
 
     @Test
