@@ -43,6 +43,13 @@ metadata. Keep it when checking or cleaning staging residue: removing it can
 split waiting processes across different lock inodes. Successful-import tests
 require this exact file and no leftover extraction directories. Refused ZIPs
 must preserve the preexisting staging snapshot without creating this metadata.
+Shared deployments give `extractFolder` the configured writer group and setgid,
+or configure a default ACL granting the writer accounts access. On upgrade, the
+marker owner or deployment administrator adds write access for those writers
+to the existing inode before resuming shared publication. When the marker
+already belongs to the writer group, `chmod g+w` grants this access in place.
+An owner acquiring the lease also repairs a missing group-write bit for the
+configured staging group.
 The ownership and lock unit suites exercise both consumer races, a separate JVM,
 and refused lock operations. These checks do not extend the historical installed
 qualification above to the newer production source.
