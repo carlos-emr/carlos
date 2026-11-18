@@ -101,7 +101,7 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
             // Coordinate with ZIP imports before opening a potentially provisional link.
             try (var _ = EFormImagePublicationLock.acquire(imageFolder)) {
                 File destinationFile = PathValidationUtils.validateUpload(image, imageFileName, imageFolder);
-                try (InputStream fis = Files.newInputStream(image.toPath());
+                try (InputStream fis = PathValidationUtils.openValidatedUploadInputStream(image);
                      OutputStream fos = Files.newOutputStream(destinationFile.toPath())) {
                     byte[] buffer = new byte[4096];
                     int bytesRead;
