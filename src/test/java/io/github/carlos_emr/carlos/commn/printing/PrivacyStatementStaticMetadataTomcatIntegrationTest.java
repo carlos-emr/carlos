@@ -5,6 +5,9 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.ResponseDefaultsFilter;
 import jakarta.servlet.Filter;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -37,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PrivacyStatementStaticMetadataTomcatIntegrationTest {
     private static final String STATEMENT = "FAKE-print-statement-5936";
     private static final byte[] HTML = "<html><body>FAKE-original-page-5936</body></html>".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] PREPRINTED = ("<html><body>" + STATEMENT + "</body></html>").getBytes(StandardCharsets.UTF_8);
     @TempDir Path directory;
     private Tomcat tomcat;
     private URI base;
@@ -54,6 +58,7 @@ class PrivacyStatementStaticMetadataTomcatIntegrationTest {
         Files.write(webapp.resolve("fixture.html"), HTML);
         Files.write(webapp.resolve("excluded.html"), HTML);
         Files.write(webapp.resolve("fixture.txt"), HTML);
+        Files.write(webapp.resolve("preprinted.html"), PREPRINTED);
         tomcat = new Tomcat();
         tomcat.setBaseDir(directory.resolve("tomcat").toString());
         tomcat.setPort(0);
@@ -66,7 +71,28 @@ class PrivacyStatementStaticMetadataTomcatIntegrationTest {
         context.addMimeMapping("txt", "text/plain");
         Tomcat.addServlet(context, "default", new DefaultServlet()).setLoadOnStartup(1);
         context.addServletMappingDecoded("/", "default");
+        Tomcat.addServlet(context, "protocol-controls", new HttpServlet() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
+                response.setContentType("text/html;charset=UTF-8");
+                response.getWriter().write(new String(HTML, StandardCharsets.UTF_8));
+            }
+
+            @Override
+            protected void doHead(HttpServletRequest request, HttpServletResponse response) {
+                response.setContentType("text/html;charset=UTF-8");
+                response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+            }
+        });
+        context.addServletMappingDecoded("/post.html", "protocol-controls");
+        context.addServletMappingDecoded("/no-content.html", "protocol-controls");
         addFilter(context, "defaults", new ResponseDefaultsFilter());
+        addFilter(context, "already-printed", (request, response, chain) -> {
+            request.setAttribute(PrivacyStatementAppendingFilter.ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED, Boolean.TRUE);
+            chain.doFilter(request, response);
+        }, "/preprinted.html");
         FilterDef privacy = addFilter(context, "privacy", new PrivacyStatementAppendingFilter());
         privacy.addInitParameter("exclusions", "/excluded.html");
         addFilter(context, "header-observer", (request, response, chain) -> {
@@ -83,13 +109,17 @@ class PrivacyStatementStaticMetadataTomcatIntegrationTest {
     }
 
     private static FilterDef addFilter(Context context, String name, Filter filter) {
+        return addFilter(context, name, filter, "/*");
+    }
+
+    private static FilterDef addFilter(Context context, String name, Filter filter, String pattern) {
         FilterDef definition = new FilterDef();
         definition.setFilterName(name);
         definition.setFilter(filter);
         context.addFilterDef(definition);
         FilterMap mapping = new FilterMap();
         mapping.setFilterName(name);
-        mapping.addURLPattern("/*");
+        mapping.addURLPattern(pattern);
         context.addFilterMap(mapping);
         return definition;
     }
@@ -210,6 +240,35 @@ class PrivacyStatementStaticMetadataTomcatIntegrationTest {
             assertThat(observedHeaders.get().tags()).containsExactly("*");
             assertThat(observedHeaders.get().names()).anyMatch("If-None-Match"::equalsIgnoreCase);
         }
+    }
+
+    @Test
+    void shouldPreserveMutationPreconditions_whenAnHtmlPostResponseIsDecorated() throws Exception {
+        String tag = "\"FAKE-post-precondition\"";
+        var response = request("post.html", "POST", "If-None-Match", tag);
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(new String(response.body(), StandardCharsets.UTF_8)).contains("FAKE-original-page-5936", STATEMENT);
+        assertThat(observedHeaders.get().tag()).isEqualTo(tag);
+        assertThat(observedHeaders.get().tags()).containsExactly(tag);
+    }
+
+    @Test
+    void shouldKeepNoContentHeadEmpty_whenNoBodyChannelIsOpened() throws Exception {
+        var response = request("no-content.html", "HEAD");
+        assertThat(response.statusCode()).isEqualTo(204);
+        assertThat(response.body()).isEmpty();
+        assertThat(response.headers().firstValue("Content-Length")).isEmpty();
+    }
+
+    @Test
+    void shouldRetainCompleteBodyMetadataAndCaching_whenTheNoticeWasAlreadyPrinted() throws Exception {
+        var response = request("preprinted.html", "GET");
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).isEqualTo(PREPRINTED);
+        assertThat(response.headers().firstValueAsLong("Content-Length")).hasValue(PREPRINTED.length);
+        String tag = response.headers().firstValue("ETag").orElseThrow();
+        assertThat(request("preprinted.html", "GET", "If-None-Match", tag).statusCode()).isEqualTo(304);
+        assertThat(observedHeaders.get().tag()).isEqualTo(tag);
     }
 
     private void assertUndecoratedFile(String file, String... headers) throws Exception {
