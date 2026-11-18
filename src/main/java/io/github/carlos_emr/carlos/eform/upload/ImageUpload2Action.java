@@ -117,11 +117,18 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
             try (var _ = EFormImagePublicationLock.acquire(imageFolder)) {
                 File destinationFile = PathValidationUtils.validateUpload(image, imageFileName, imageFolder);
                 var destination = destinationFile.toPath();
+                boolean linux = "Linux".equals(System.getProperty("os.name"));
                 // Atomic rename checks the directory, so retain the former target-write refusal.
                 // Do this under the shared publication lease, before allocating/copying staging.
-                if (Files.exists(destination) && !Files.isWritable(destination)) {
-                    throw new java.nio.file.AccessDeniedException(destination.toString(), null,
-                            "Existing image is not writable");
+                if (Files.exists(destination)) {
+                    if (!Files.isWritable(destination)) {
+                        throw new java.nio.file.AccessDeniedException(destination.toString(), null,
+                                "Existing image is not writable");
+                    }
+                    if (linux && !Files.isReadable(destination)) {
+                        addActionError("Replacing this image requires read and write access to preserve its permissions and attributes.");
+                        return ERROR;
+                    }
                 }
                 FileStore store = Files.getFileStore(imageFolder.toPath());
                 boolean posix = store.supportsFileAttributeView(PosixFileAttributeView.class);
@@ -142,7 +149,7 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
                         }
                         fos.flush();
                     }
-                    preserveReplacementMetadata(destination, staged, store, posix);
+                    preserveReplacementMetadata(destination, staged, store, posix, linux);
                     Files.move(staged, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
                     cleanup.published = true;
                 }
@@ -168,12 +175,6 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
             addActionError("Upload failed: an error occurred while saving the image. Please try again or contact support.");
             return ERROR;
         }
-    }
-
-    private static void preserveReplacementMetadata(Path existing, Path staged, FileStore store, boolean posix)
-            throws IOException {
-        preserveReplacementMetadata(existing, staged, store, posix,
-                "Linux".equals(System.getProperty("os.name")));
     }
 
     private static void preserveReplacementMetadata(Path existing, Path staged, FileStore store, boolean posix,

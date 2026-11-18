@@ -6,6 +6,12 @@ returns the established upload error before staging or replacement, preserving
 the original bytes and permissions. Missing destinations and writable image
 replacement retain their existing success behavior.
 
+On Linux, replacing an existing eForm image also requires effective read
+access. The metadata copier opens the destination image for reading to retain
+its ACLs and extended attributes. Shared image storage must grant the upload
+process both read and write access to images it replaces. A write-only image
+returns a specific upload error before staging.
+
 The new deterministic refusal case fails before the fix (`success` instead of
 `error`); all 152 related Java controls pass afterward, with no skipped cases.
 The changed upload code retains 100% line, instruction and branch coverage.
