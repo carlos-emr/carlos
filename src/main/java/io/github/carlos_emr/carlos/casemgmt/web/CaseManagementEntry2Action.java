@@ -1836,6 +1836,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         CasemgmtNoteLock selectedLock = fullFormNoteLock(demo, note);
         if (selectedLock == null) return -1L;
+        List<CheckBoxBean> checklist = sessionFrm.getIssueCheckList();
+        List<CheckBoxBean> checkedlist = checklist == null ? null : new ArrayList<>(checklist);
+        if (note.getId() != null && !matchesRenderedIssueChecklist(checkedlist)) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            return -1L;
+        }
         String noteTxt = this.getCaseNote_note();
         noteTxt = StringUtils.trimToNull(noteTxt);
         if (noteTxt == null || noteTxt.equals("")) return -1L;
@@ -1917,7 +1923,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // this goes into the database casemgmt_issue table
         List<CaseManagementIssue> issuelist = new ArrayList<CaseManagementIssue>();
 
-        List<CheckBoxBean> checkedlist = sessionFrm.getIssueCheckList();
         // this is for debugging, please keep it for future development
         // System.out.println("Checkedlist from sessionFrm: " + Arrays.toString(checkedlist));
         // this gets attached to the CaseManagementNote object
@@ -2058,6 +2063,26 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         caseManagementIssue.setCertain("certain".equals(issueDisplay.certain));
         caseManagementIssue.setMajor("major".equals(issueDisplay.major));
         caseManagementIssue.setResolved("resolved".equals(issueDisplay.resolved));
+    }
+
+    /** Validates the order behind the positional checkbox names before applying an existing note's form. */
+    private boolean matchesRenderedIssueChecklist(List<CheckBoxBean> checklist) {
+        String[] rendered = request.getParameterValues("renderedIssueIdentity");
+        if (rendered == null) {
+            // Older callers can still save without positional selections. A positional
+            // selection alone gives no information about which issue the user saw.
+            return request.getParameterMap().keySet().stream()
+                    .noneMatch(name -> name.startsWith("issueCheckList[") && name.endsWith("].checked"));
+        }
+
+        int size = checklist == null ? 0 : checklist.size();
+        if (rendered.length != size + 1 || !"".equals(rendered[0])) return false;
+        for (int index = 0; index < size; index++) {
+            CaseManagementIssue issue = checklist.get(index).getIssue();
+            String identity = Objects.toString(issue.getId(), "") + ":" + Objects.toString(issue.getIssue_id(), "");
+            if (!identity.equals(rendered[index + 1])) return false;
+        }
+        return true;
     }
 
     private String prepareCheckedIssues(HttpServletRequest request, String demo, List<CaseManagementIssue> issuelist,

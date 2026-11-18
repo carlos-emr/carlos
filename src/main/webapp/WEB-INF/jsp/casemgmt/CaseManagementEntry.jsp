@@ -321,6 +321,11 @@
         </c:if>
         <input type="hidden" name="addIssue" value="null"/>
         <input type="hidden" name="deleteId" value="0"/>
+        <input type="hidden" name="renderedIssueIdentity" value=""/>
+        <c:forEach var="renderedIssue" items="${caseManagementEntryForm.issueCheckList}">
+            <input type="hidden" name="renderedIssueIdentity"
+                   value="${carlos:forHtmlAttribute(renderedIssue.issue.id)}:${carlos:forHtmlAttribute(renderedIssue.issue.issue_id)}"/>
+        </c:forEach>
 
         <b><fmt:message key="casemanagementEntry.clientname"/>
             <I>

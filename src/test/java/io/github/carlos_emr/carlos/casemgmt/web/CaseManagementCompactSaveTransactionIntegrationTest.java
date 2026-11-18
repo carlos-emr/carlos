@@ -864,6 +864,31 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
     }
 
     @Test
+    void shouldRefuseIssueDeletion_whenTheRenderedChecklistOrderIsStale() throws Exception {
+        CheckBoxBean selected = prepareIssueDeletion();
+        CaseManagementIssue otherIssue = new CaseManagementIssue();
+        otherIssue.setId(caseIssueId + 1);
+        otherIssue.setIssue_id(selected.getIssue().getIssue_id() + 1);
+        otherIssue.setDemographic_no(1);
+        CheckBoxBean other = new CheckBoxBean();
+        other.setIssue(otherIssue);
+        List<CheckBoxBean> current = new ArrayList<>(List.of(other, selected));
+        form.setIssueCheckList(current);
+        request.setParameter("renderedIssueIdentity", "", renderedIdentity(selected), renderedIdentity(other));
+        Snapshot before = snapshot();
+
+        action.issueDelete();
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(snapshot()).isEqualTo(before);
+        assertThat(form.getIssueCheckList()).isSameAs(current).containsExactly(other, selected);
+        assertThat(form.getCaseNote()).isSameAs(original);
+        assertThat(request.getAttribute("unsavedNoteText")).isEqualTo(submittedText);
+        verify(target, never()).deleteIssueById(any());
+        verify(locks, never()).merge(any());
+    }
+
+    @Test
     void shouldRollBackIssueDeletionAndItsNote_whenStorageFailsAfterTheDelete() throws Exception {
         CheckBoxBean checkbox = prepareIssueDeletion();
         Snapshot before = snapshot();
@@ -1886,7 +1911,13 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         display.setResolved("resolved");
         form.setIssueCheckList(new ArrayList<>(List.of(checkbox)));
         request.setParameter("issueCheckList[0].checked", "on");
+        request.setParameter("renderedIssueIdentity", "", renderedIdentity(checkbox));
         return checkbox;
+    }
+
+    private static String renderedIdentity(CheckBoxBean checkbox) {
+        CaseManagementIssue issue = checkbox.getIssue();
+        return java.util.Objects.toString(issue.getId(), "") + ":" + issue.getIssue_id();
     }
 
     private void prepareFullSave(String rawNote) {

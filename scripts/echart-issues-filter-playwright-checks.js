@@ -88,8 +88,8 @@ async function workflow(s) {
     if (producerIssue) sql.execute(`DELETE FROM issue WHERE issue_id=${producerIssue}`);
     if (producerTemplate) sql.execute(`DELETE FROM encountertemplate WHERE encountertemplate_name=${q(producerTemplate)}`);
     for (const { id, code } of ownedCatalog) {
-      sql.execute(`DELETE FROM issue WHERE issue_id=${id} AND code=${q(code)}`);
-      h.assert(sql.value(`SELECT COUNT(*) FROM issue WHERE issue_id=${id}`) === '0', 'An owned catalog issue survived cleanup');
+      sql.execute('DELETE FROM issue WHERE issue_id=? AND code=?', [id, code]);
+      h.assert(sql.value('SELECT COUNT(*) FROM issue WHERE issue_id=?', [id]) === '0', 'An owned catalog issue survived cleanup');
     }
   });
 
@@ -324,10 +324,10 @@ async function workflow(s) {
       for (const [suffix, sortOrder, major] of [['A', -30, 0], ['B', -20, 1], ['C', -10, 0]]) {
         const code = `${marker.slice(-16)}${suffix}`;
         const id = h.insertId(sql, `INSERT INTO issue (code,description,role,update_date,type,sortOrderId)
-          VALUES (${q(code)},${q(`${marker} issue ${suffix}`)},${q(issueRole)},NOW(),'custom',${sortOrder})`, 'queued catalog issue');
+          VALUES (?,?,?,NOW(),'custom',?)`, 'queued catalog issue', [code, `${marker} issue ${suffix}`, issueRole, sortOrder]);
         ownedCatalog.push({ id, code });
         ids.push(h.insertId(sql, `INSERT INTO casemgmt_issue (demographic_no,issue_id,acute,certain,major,resolved,program_id,type,update_date)
-          VALUES (${patient},${id},0,0,${major},0,${program},${q(issueRole)},NOW())`, 'queued patient issue'));
+          VALUES (?,?,0,0,?,0,?,?,NOW())`, 'queued patient issue', [patient, id, major, program, issueRole]));
       }
     });
 
@@ -344,7 +344,7 @@ async function workflow(s) {
 
       // Sort the owned catalog issue behind the other two, while the chart
       // continues to display the original checklist until its CPP refresh arrives.
-      sql.execute(`UPDATE issue SET sortOrderId=-5 WHERE issue_id=${ownedCatalog[0].id} AND code=${q(ownedCatalog[0].code)}`);
+      sql.execute('UPDATE issue SET sortOrderId=-5 WHERE issue_id=? AND code=?', [ownedCatalog[0].id, ownedCatalog[0].code]);
       const cppText = `${marker} CPP item while editing issues`;
       await chart.locator(CPP_PLUS).first().click();
       await chart.locator('#noteEditTxt').fill(cppText);
@@ -376,7 +376,7 @@ async function workflow(s) {
         await chart.unroute('**/CaseManagementEntry*', delay);
       }
 
-      const flags = id => sql.rows(`SELECT acute,certain,major,resolved FROM casemgmt_issue WHERE id=${id} AND demographic_no=${patient}`);
+      const flags = id => sql.rows('SELECT acute,certain,major,resolved FROM casemgmt_issue WHERE id=? AND demographic_no=?', [id, patient]);
       h.assert(flags(first).flat().join(',') === '1,0,0,0', 'The first issue did not retain its acute and final not-major choices');
       h.assert(flags(second).flat().join(',') === '0,0,1,1', 'The second issue did not become resolved with its existing major flag');
       h.assert(flags(deleted).length === 0, 'The third issue was not deleted');

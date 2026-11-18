@@ -278,6 +278,11 @@
 
 
 <div id="noteIssues" data-saved-note-id="${carlos:forHtmlAttribute(ajaxsave)}">
+    <input type="hidden" name="renderedIssueIdentity" value=""/>
+    <c:forEach var="renderedIssue" items="${caseManagementEntryForm.issueCheckList}">
+        <input type="hidden" name="renderedIssueIdentity"
+               value="${carlos:forHtmlAttribute(renderedIssue.issue.id)}:${carlos:forHtmlAttribute(renderedIssue.issue.issue_id)}"/>
+    </c:forEach>
     <c:if test="${empty ajaxsave or preserveEditor}">
         <div class="add-issues">
             <label for="issueAutocomplete"><fmt:message key="encounter.Index.assnIssue"/></label>
