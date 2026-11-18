@@ -50,14 +50,23 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.file.FileStore;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.AclFileAttributeView;
+import java.nio.file.attribute.FileOwnerAttributeView;
 import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFileAttributes;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.nio.file.attribute.UserDefinedFileAttributeView;
 import java.util.List;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
+import java.util.concurrent.TimeUnit;
 
 public class ImageUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -114,7 +123,8 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
                     throw new java.nio.file.AccessDeniedException(destination.toString(), null,
                             "Existing image is not writable");
                 }
-                boolean posix = Files.getFileStore(imageFolder.toPath()).supportsFileAttributeView(PosixFileAttributeView.class);
+                FileStore store = Files.getFileStore(imageFolder.toPath());
+                boolean posix = store.supportsFileAttributeView(PosixFileAttributeView.class);
                 // A private directory makes the staged file inaccessible from its creation.
                 // Normal file creation inside it retains the process umask for a new image.
                 var stagingDirectory = posix
@@ -132,9 +142,7 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
                         }
                         fos.flush();
                     }
-                    if (posix && Files.exists(destination)) {
-                        Files.setPosixFilePermissions(staged, Files.getPosixFilePermissions(destination));
-                    }
+                    preserveReplacementMetadata(destination, staged, store, posix);
                     Files.move(staged, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
                     cleanup.published = true;
                 }
@@ -159,6 +167,77 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
             MiscUtils.getLogger().error("Image upload failed for file: {}", imageFileName, e);
             addActionError("Upload failed: an error occurred while saving the image. Please try again or contact support.");
             return ERROR;
+        }
+    }
+
+    private static void preserveReplacementMetadata(Path existing, Path staged, FileStore store, boolean posix)
+            throws IOException {
+        if (Files.notExists(existing, LinkOption.NOFOLLOW_LINKS)) return;
+        if (!Files.isRegularFile(existing, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Existing eForm image must be a regular file");
+        }
+        if ("Linux".equals(System.getProperty("os.name"))) {
+            // GNU cp can copy named POSIX ACLs, which the Linux NIO provider does not expose.
+            // Explicit preservation options cause copy failures to fail the upload.
+            copyLinuxMetadata(existing, staged);
+            if (!Files.isRegularFile(staged, LinkOption.NOFOLLOW_LINKS)) {
+                throw new IOException("eForm image metadata staging must retain a regular file");
+            }
+            if (posix) {
+                var original = Files.readAttributes(existing, PosixFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+                var replacement = Files.readAttributes(staged, PosixFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+                // GNU cp may skip ownership changes that the current user cannot make.
+                if (!original.owner().equals(replacement.owner()) || !original.group().equals(replacement.group())
+                        || !original.permissions().equals(replacement.permissions())) {
+                    throw new IOException("Unable to retain existing eForm image ownership and permissions");
+                }
+            }
+            return;
+        }
+        if (store.supportsFileAttributeView(UserDefinedFileAttributeView.class)) {
+            var source = Files.getFileAttributeView(existing, UserDefinedFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+            var target = Files.getFileAttributeView(staged, UserDefinedFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+            for (String name : source.list()) {
+                int size = source.size(name);
+                var value = ByteBuffer.allocate(size);
+                if (source.read(name, value) != size || target.write(name, value.flip()) != size) {
+                    throw new IOException("Unable to retain an existing eForm image attribute");
+                }
+            }
+        }
+        if (posix) {
+            var original = Files.readAttributes(existing, PosixFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+            var replacement = Files.getFileAttributeView(staged, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+            replacement.setPermissions(original.permissions());
+            if (!original.group().equals(replacement.readAttributes().group())) replacement.setGroup(original.group());
+        }
+        if (store.supportsFileAttributeView(AclFileAttributeView.class)) {
+            var source = Files.getFileAttributeView(existing, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+            var target = Files.getFileAttributeView(staged, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+            target.setAcl(source.getAcl());
+        }
+        if (store.supportsFileAttributeView(FileOwnerAttributeView.class)) {
+            var owner = Files.getOwner(existing, LinkOption.NOFOLLOW_LINKS);
+            if (!owner.equals(Files.getOwner(staged, LinkOption.NOFOLLOW_LINKS))) Files.setOwner(staged, owner);
+        }
+    }
+
+    private static void copyLinuxMetadata(Path existing, Path staged) throws IOException {
+        // Both paths are contained in the image directory, and the staged path is private.
+        Process copy = new ProcessBuilder("/usr/bin/cp", "--attributes-only", "--preserve=mode,ownership,xattr",
+                "--no-dereference", "--", existing.toAbsolutePath().toString(), staged.toAbsolutePath().toString())
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .redirectError(ProcessBuilder.Redirect.DISCARD)
+                .start();
+        try {
+            if (!copy.waitFor(30, TimeUnit.SECONDS) || copy.exitValue() != 0) {
+                throw new IOException("Unable to retain existing eForm image access metadata");
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while retaining existing eForm image access metadata", interrupted);
+        } finally {
+            if (copy.isAlive()) copy.destroyForcibly();
         }
     }
 
