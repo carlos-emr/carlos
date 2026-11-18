@@ -90,7 +90,7 @@
     "scripts/cds-metadata-domain-proof.test.js": "5ba3d7f5f44ed9cd19c51c68e70e65daf11c2db8f2fe598152221879bafe40a8",
     "scripts/cds-metadata-transport.test.js": "3fb33aa494436a0aa2b97bff34ea6ac1c2997029a82c47d87e3280f72bf7ac53",
     "scripts/cds-retained-recovery.test.js": "90409b8c88cbc0c6cbeaeeb28913d494d0cc552719bfdb974af081269d7c2b16",
-    "scripts/chart-informed-consent.test.js": "856dd40ac84538ffdcf35ae1e719e413a753fc0c5a030ed5d0c2d56236064014",
+    "scripts/chart-informed-consent.test.js": "6341fbc0ca1ba0849ad2186b3fcf655ce68ef9082f0f65ef949685722c16acf4",
     "scripts/chart-lock-cleanup.test.js": "0418d21f7bc91205367b11ce5a0b56654128eb65359d3b509418644dcdf2528c",
     "scripts/chart-modern-conflict-checks.test.js": "fb181fa58f7066740a11b5bcdbeaf8c0be7feaba190551062131603b44088aec",
     "scripts/chart-print-download.test.js": "e1f29ea2cc16f334669f4071cec6d18de2a719bc186973098c10d7e6d0abf55f",
