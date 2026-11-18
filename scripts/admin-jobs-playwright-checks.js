@@ -70,18 +70,25 @@ async function workflow(s) {
     return response;
   }
 
-  async function refuseSaveAsSignIn(frame, dialogId, endpoint, retained) {
+  async function refuseSaveAsSignIn(frame, dialogId, endpoint, expectedSavedValue, retained) {
     const pattern = `**/ws/rs/jobs/${endpoint}`;
     const handler = route => route.fulfill({status: 200, contentType: 'text/html', body: '<html><body>FAKE sign-in response</body></html>'});
+    const save = dialogButton(frame, dialogId, dialogId === 'new-job' ? 'Save Job' : 'Save');
     await s.context.route(pattern, handler);
     try {
-      await clickAwaiting(isRest(endpoint), dialogButton(frame, dialogId, dialogId === 'new-job' ? 'Save Job' : 'Save'));
+      await clickAwaiting(isRest(endpoint), save);
       await frame.waitForFunction(() => window.jQuery && jQuery.active === 0, null, {timeout: TIMEOUT});
       h.assert(await frame.locator(`#${dialogId}`).isVisible(), 'An unconfirmed save closed the dialog');
       h.assert((await frame.locator(`#${dialogId} .save-error`).innerText()).trim().length > 0,
         'An unconfirmed save has no visible error');
+      h.assert(await save.isDisabled(), 'An unconfirmed save allowed a retry before checking stored values');
       await retained();
     } finally { await s.context.unroute(pattern, handler); }
+    await clickAwaiting(isRest(`job/${jobId}`, 'GET'), dialogButton(frame, dialogId, 'Check saved values'));
+    const savedValues = frame.locator(`#${dialogId} .saved-job-values`);
+    await savedValues.waitFor({state: 'visible', timeout: TIMEOUT});
+    h.assert((await savedValues.innerText()).includes(expectedSavedValue) && await save.isEnabled(),
+      'The dialog did not display the saved values before allowing a retry');
   }
 
   // ---- Job Type Management -------------------------------------------------
@@ -176,7 +183,7 @@ async function workflow(s) {
     await jobs.locator('#minute').selectOption(['15', '45']);
     await jobs.locator('#hour_chooser_choose').check();
     await jobs.locator('#hour').selectOption('3');
-    await refuseSaveAsSignIn(jobs, 'scheduleDialog', 'saveCrontabExpression', async () => {
+    await refuseSaveAsSignIn(jobs, 'scheduleDialog', 'saveCrontabExpression', 'N/A', async () => {
       h.assert(JSON.stringify(await jobs.locator('#minute').evaluate(select => Array.from(select.selectedOptions, option => option.value))) === JSON.stringify(['15', '45']),
         'The schedule minute selection was lost after refusal');
       h.assert(await jobs.locator('#hour').inputValue() === '3', 'The schedule hour was lost after refusal');
@@ -200,7 +207,7 @@ async function workflow(s) {
       && await jobs.locator('#jobProvider').inputValue() === provider && !(await jobs.locator('#jobEnabled').isChecked()),
     'The job editor did not reload the stored values');
     await jobs.locator('#jobDescription').fill(`${marker} edited disabled fixture`);
-    await refuseSaveAsSignIn(jobs, 'new-job', 'saveJob', async () => {
+    await refuseSaveAsSignIn(jobs, 'new-job', 'saveJob', `${marker} disabled fixture`, async () => {
       h.assert(await jobs.locator('#jobDescription').inputValue() === `${marker} edited disabled fixture`,
         'The edited description was lost after refusal');
       h.assert(sql.value('SELECT description FROM OscarJob WHERE id=?', [jobId]) === `${marker} disabled fixture`,

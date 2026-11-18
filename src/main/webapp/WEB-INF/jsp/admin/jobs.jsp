@@ -136,7 +136,7 @@
             }
 
             function showJobReadback(dialog, state, id, schedule) {
-                const readback = {id: id};
+                const readback = Symbol();
                 state.readback = readback;
                 const button = dialog.find('.check-saved-job');
                 const output = dialog.find('.saved-job-values');
