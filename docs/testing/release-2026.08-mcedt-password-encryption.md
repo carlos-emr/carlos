@@ -29,7 +29,7 @@ requests. These are H2 and unit controls, not an authentication run against the
 provincial claims service.
 
 26-case JUnit SHA-256:
-`a3914582796882b495691ad22b0c90f0f353c520bdd6ee0b56da807fe989d0dc`.
+`9e96a75c31991d9b3067f97b70922f255a046d6a2cf70e5b70fd2568a824e005`.
 Source-bound changed-line coverage is 100/100/100 percent for the new credential
 service and changed action lines. Delegate coverage rises from 0/0/100 to
 66.67/64.29/100 percent; the remaining missed line is the existing malformed
@@ -38,5 +38,19 @@ keystore-URL diagnostic. The selected evidence preserves every retained floor.
 Both native mailbox variants now check the encryption marker and inequality to
 the synthetic input, without reading any stored credential. The clinic's own
 rows remain parked and are restored with the existing digest proof. Native
-component qualification is pending; the expected-failure entry and finding
-status are retained until that verification completes.
+component qualification passed on Ubuntu 26.04 with the full mailbox, focused
+plaintext-storage and static-HTML metadata workflows (three cases, no skips).
+JUnit SHA-256: `bb659a9c83b1bf1a285fab5b8aec8c4b5a5d9eb2f53460ed652538e07245d8b6`.
+The raw log audit retained exit 1: four recognized events and exactly three
+owned invalid-delete refusals, with zero unexplained events after scoped
+disposition. All 10,755 original application files, properties and execution
+inputs were restored. This temporary six-class component deployment is not a
+rebuilt-DEB qualification or Ministry authentication. The plaintext expected
+failure is removed and finding 189 is marked fixed; combined-DEB qualification
+remains pending.
+
+The final JavaDoc-bound source rerun also passes all 26 cases. Fresh evidence
+SHA-256: `a9427b2fec3faf3ab7c1fb99b32dfc8c65633fd16f215b9e1e6a71d89d79ce20`.
+All 8,111 complete Node cases pass on Node 22.23.5, across 570 files, with zero
+failures, skips, TODOs, cancellations or changed test sources. The tracked case
+inventory is generated from that execution.

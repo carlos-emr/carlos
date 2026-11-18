@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "1e4d0887857216d7e2c032211492534b9ca45a19",
+  "comparisonSha256": "3ddf091b308aa127ec39160096b6b15a6ea9c520a0cdfeb5cb0ace1cd23147d2",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/McedtCredentials.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0ae1db4a1e0849c3b869557940bd2bb21c9e80d8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/DelegateFactory.java": {
+      "lines": 66.66666666666667,
+      "instructions": 64.28571428571429,
+      "branches": 100.0,
+      "sourceBlob": "bdf8601e2b37efecc47af563982f2b1f0e022a13"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/mailbox/User2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "75a7b66ebef25ef967fc969ad8c8c02305aa74ab"
+    }
+  },
+  "baselineCommit": "723bae2ea8cd835d4fe4eb4e67c6d0717f9aff75",
+  "baselineSourceTree": "1e4d0887857216d7e2c032211492534b9ca45a19",
+  "baselineReportSha256": "3308d5d0f23052ddd3476d38dd3338ca2908db57c3af0fb64517c54209f709d0",
+  "baselineLane": "Fresh exact JDK25 selected-source classes and existing/regression controls. All26 unique actual JUnit cases pass with zero failures/errors/skips. Component inputs and exact JUnit hashes retained; selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 26,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "fb5e5849dc046a2f509d9c184851f5ef39c75520d36da1bfd28e6f64d9cbb4d3",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}

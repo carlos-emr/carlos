@@ -51,7 +51,7 @@ class McedtCredentialsIntegrationTest extends CarlosTestBase {
     private String value(int id) { return tx.execute(status -> em.find(UserProperty.class,id).getValue()); }
 
     @Test
-    void committedCreateAndReplacementStayEncrypted() throws Exception {
+    void shouldCommitEncryptedCredential_whenCreatedAndReplaced() throws Exception {
         credentials.savePassword("FAKE-first");
         int id=tx.execute(status -> em.createQuery("SELECT p.id FROM UserProperty p WHERE p.name=:name",Integer.class).setParameter("name",NAME).getSingleResult());
         assertNotEquals("FAKE-first",value(id));assertEquals("FAKE-first",EncryptionUtils.decrypt(value(id)));
@@ -60,7 +60,7 @@ class McedtCredentialsIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void plaintextAndDuplicateMigrationCommitsWithoutChangingTheCredential() throws Exception {
+    void shouldCommitDuplicateMigration_withoutChangingCredential() throws Exception {
         int first=seed("FAKE-legacy-first"),second=seed("FAKE-legacy-second");
         assertEquals("FAKE-legacy-first",credentials.getPassword("fallback"));
         assertTrue(EncryptionUtils.isEncrypted(value(first)));assertTrue(EncryptionUtils.isEncrypted(value(second)));
@@ -68,14 +68,14 @@ class McedtCredentialsIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void unchangedCiphertextAndMissingPropertyPreserveCompatibility() throws Exception {
+    void shouldPreserveCompatibility_withEncryptedOrMissingProperty() throws Exception {
         assertEquals("FAKE-fallback",credentials.getPassword("FAKE-fallback"));
         String cipher=EncryptionUtils.encrypt("FAKE-cipher");int id=seed(cipher);
         assertEquals("FAKE-cipher",credentials.getPassword("fallback"));assertEquals(cipher,value(id));
     }
 
     @Test
-    void invalidKeyLeavesTheExistingRowUnchanged() throws Exception {
+    void shouldKeepExistingRow_whenKeyIsInvalid() throws Exception {
         int id=seed("FAKE-legacy");keyField.set(null,null);
         assertThrows(IllegalStateException.class,()->credentials.savePassword("FAKE-replacement"));
         assertThrows(IllegalStateException.class,()->credentials.getPassword("fallback"));
@@ -83,14 +83,14 @@ class McedtCredentialsIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void decryptFailureRollsBackOtherRowsMigratedInTheSameTransaction() {
+    void shouldRollBackMigration_whenAnotherRowCannotBeDecrypted() {
         int first=seed("{ENC}invalid!"),second=seed("FAKE-still-legacy");
         assertThrows(IllegalStateException.class,()->credentials.getPassword("fallback"));
         assertEquals("{ENC}invalid!",value(first));assertEquals("FAKE-still-legacy",value(second));
     }
 
     @Test
-    void migrationWaitsForAConcurrentWriterAndCannotRestoreAStalePassword() throws Exception {
+    void shouldWaitForConcurrentWriter_withoutRestoringStalePassword() throws Exception {
         int id=seed("FAKE-old");
         CountDownLatch locked=new CountDownLatch(1),release=new CountDownLatch(1),started=new CountDownLatch(1);
         ExecutorService pool=Executors.newFixedThreadPool(2);

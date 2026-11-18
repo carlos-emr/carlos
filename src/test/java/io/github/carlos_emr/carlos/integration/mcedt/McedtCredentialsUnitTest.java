@@ -73,7 +73,7 @@ class McedtCredentialsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void newPasswordIsReversiblyEncrypted() throws Exception {
+    void shouldEncryptPassword_whenCreatingCredential() throws Exception {
         credentials.savePassword(PASSWORD);
         assertEquals(1, rows.size());
         assertNotEquals(PASSWORD, rows.get(0).getValue());
@@ -83,7 +83,7 @@ class McedtCredentialsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void replacementKeepsTheRowAndUsesFreshCiphertext() throws Exception {
+    void shouldKeepRowAndRefreshCiphertext_whenReplacingCredential() throws Exception {
         UserProperty original = row("legacy");
         credentials.savePassword(PASSWORD);
         String first = original.getValue();
@@ -95,7 +95,7 @@ class McedtCredentialsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void legacyRowsMigrateAndStillSupplyTheSamePassword() throws Exception {
+    void shouldMigrateLegacyRows_withoutChangingCredential() throws Exception {
         UserProperty first = row(PASSWORD), duplicate = row("FAKE-second-credential");
         assertEquals(PASSWORD, credentials.getPassword("fallback"));
         assertTrue(EncryptionUtils.isEncrypted(first.getValue()));
@@ -104,22 +104,22 @@ class McedtCredentialsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void encryptedPasswordIsNotEncryptedAgain() throws Exception {
+    void shouldKeepCiphertext_whenAlreadyEncrypted() throws Exception {
         String encrypted = EncryptionUtils.encrypt(PASSWORD); row(encrypted);
         assertEquals(PASSWORD, credentials.getPassword("fallback"));
         assertEquals(encrypted, rows.get(0).getValue());
     }
 
     @Test
-    void absentPropertyUsesConfiguredFallback() { assertEquals("FAKE-configured", credentials.getPassword("FAKE-configured")); }
+    void shouldUseConfiguredFallback_whenPropertyIsMissing() { assertEquals("FAKE-configured", credentials.getPassword("FAKE-configured")); }
 
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {" ", "\t"})
-    void blankLegacyPropertyPreservesFallback(String value) { row(value); assertEquals("FAKE-configured", credentials.getPassword("FAKE-configured")); }
+    void shouldPreserveConfiguredFallback_withBlankLegacyProperty(String value) { row(value); assertEquals("FAKE-configured", credentials.getPassword("FAKE-configured")); }
 
     @Test
-    void missingKeyCannotOverwriteAnExistingPassword() throws Exception {
+    void shouldKeepExistingPassword_whenEncryptionKeyIsMissing() throws Exception {
         UserProperty original = row("FAKE-existing"); keyField.set(null, null);
         IllegalStateException failure = assertThrows(IllegalStateException.class, () -> credentials.savePassword(PASSWORD));
         assertNull(failure.getCause()); assertFalse(failure.toString().contains(PASSWORD));
@@ -127,7 +127,7 @@ class McedtCredentialsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void missingKeyCannotSilentlySendLegacyPlaintext() throws Exception {
+    void shouldRefuseLegacyPassword_whenEncryptionKeyIsMissing() throws Exception {
         row(PASSWORD); keyField.set(null, null);
         IllegalStateException failure = assertThrows(IllegalStateException.class, () -> credentials.getPassword("fallback"));
         assertNull(failure.getCause()); assertFalse(failure.toString().contains(PASSWORD));
@@ -136,21 +136,21 @@ class McedtCredentialsUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"{ENC}not-base64!", "{ENC}AA=="})
-    void corruptedCiphertextNeverFallsBackOrBecomesATransportPassword(String value) {
+    void shouldRefuseCorruptedCiphertext_withoutUsingFallback(String value) {
         row(value);
         IllegalStateException failure = assertThrows(IllegalStateException.class, () -> credentials.getPassword("fallback"));
         assertNull(failure.getCause()); assertFalse(failure.toString().contains(value));
     }
 
     @Test
-    void persistenceFailureHasNoCredentialBearingCause() {
+    void shouldHideCredentialCause_whenPersistenceFails() {
         doThrow(new IllegalStateException(PASSWORD)).when(em).flush();
         IllegalStateException failure = assertThrows(IllegalStateException.class, () -> credentials.savePassword(PASSWORD));
         assertNull(failure.getCause()); assertFalse(failure.toString().contains(PASSWORD));
     }
 
     @Test
-    void changePasswordActionStoresCiphertextAndReportsSuccess() throws Exception {
+    void shouldStoreCiphertextAndReportSuccess_whenPasswordActionRuns() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
@@ -164,7 +164,7 @@ class McedtCredentialsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void changePasswordActionReportsFailureWhenEncryptionIsUnavailable() throws Exception {
+    void shouldReportActionFailure_whenEncryptionIsUnavailable() throws Exception {
         UserProperty existing = row("FAKE-existing"); keyField.set(null, null);
         MockHttpServletRequest request = new MockHttpServletRequest();
         try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
@@ -177,7 +177,7 @@ class McedtCredentialsUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void delegateReceivesOnlyTheDecryptedCredential(boolean legacy) throws Exception {
+    void shouldSupplyDecryptedCredential_toDelegate(boolean legacy) throws Exception {
         row(legacy ? PASSWORD : EncryptionUtils.encrypt(PASSWORD));
         CarlosProperties props = mock(CarlosProperties.class);
         when(props.getProperty("mcedt.service.pass")).thenReturn("FAKE-fallback");
