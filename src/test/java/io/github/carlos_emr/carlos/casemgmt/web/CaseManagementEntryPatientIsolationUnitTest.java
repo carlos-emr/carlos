@@ -60,7 +60,7 @@ class CaseManagementEntryPatientIsolationUnitTest extends CarlosUnitTestBase {
         when(demographics.getDemographic(login, "303")).thenReturn(null);
 
         assertThat(billing()).containsEntry("demographic_no", "303")
-                .containsEntry("demographic_name", ",").containsEntry("appointment_no", "0")
+                .doesNotContainKey("demographic_name").containsEntry("appointment_no", "0")
                 .containsEntry("user_no", "999998");
         assertThat(URI.create((String) request.getAttribute("billing_url")))
                 .hasScheme("https").hasHost("clinic.example").hasPath("/billing");
@@ -75,7 +75,7 @@ class CaseManagementEntryPatientIsolationUnitTest extends CarlosUnitTestBase {
         when(demographics.getDemographic(login, "303")).thenReturn(patient);
 
         assertThat(billing()).containsEntry("demographic_no", "303")
-                .containsEntry("demographic_name", "Clark,Carol").containsEntry("appointment_no", "0")
+                .doesNotContainKey("demographic_name").containsEntry("appointment_no", "0")
                 .containsEntry("user_no", "999998");
         assertOtherChartUnchanged();
     }

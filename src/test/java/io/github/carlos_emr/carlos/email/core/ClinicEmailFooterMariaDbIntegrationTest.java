@@ -26,7 +26,6 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAOImpl;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -77,7 +76,7 @@ class ClinicEmailFooterMariaDbIntegrationTest {
         assertThat(url).matches("jdbc:mysql://[^/]+/");
         String user = System.getenv("EMAIL_TEST_DB_USER");
         String password = System.getenv("EMAIL_TEST_DB_PASSWORD");
-        admin = DriverManager.getConnection(url, user, password);
+        admin = io.github.carlos_emr.carlos.test.base.MariaDbTestConnections.open(url, user, password);
         try (var statement = admin.createStatement(); var rows = statement.executeQuery("SELECT VERSION()")) {
             assertThat(rows.next()).isTrue();
             assertThat(rows.getString(1)).containsIgnoringCase("MariaDB");
@@ -87,7 +86,7 @@ class ClinicEmailFooterMariaDbIntegrationTest {
             created = true;
         }
         factory = new Configuration().addAnnotatedClass(Clinic.class).addAnnotatedClass(UserProperty.class)
-                .setProperty("hibernate.connection.driver_class", "com.mysql.cj.jdbc.Driver")
+                .setProperty("hibernate.connection.driver_class", io.github.carlos_emr.carlos.utility.MariaDbCompatibilityDriver.class.getName())
                 .setProperty("hibernate.connection.url", url + schema)
                 .setProperty("hibernate.connection.username", user)
                 .setProperty("hibernate.connection.password", password)

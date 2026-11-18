@@ -45,7 +45,7 @@ function row(form, index, caseIssueId, { acute = false, readOnly = false } = {})
   const link = action => control({ tagName: 'A', attributes: { 'data-issue-action': action, 'data-case-issue-id': String(caseIssueId) } });
   return {
     caseIssueId: String(caseIssueId),
-    checkbox: control({ tagName: 'INPUT', type: 'checkbox', name: `issueCheckList[${index}].checked`, checked: true,
+    checkbox: control({ tagName: 'INPUT', type: 'checkbox', name: 'selectedCaseIssueId', value: String(caseIssueId), checked: true,
       attributes: { 'data-issue-id': String(caseIssueId) } }),
     acuteTrue: radio('true'), acuteFalse: radio('false'), deleteLink: link('delete'), changeLink: link('change'),
   };
@@ -53,7 +53,7 @@ function row(form, index, caseIssueId, { acute = false, readOnly = false } = {})
 
 function harness() {
   const requests = []; const reloads = []; const alerts = []; const removed = [];
-  const form = { method: { value: 'save' }, ajax: { value: 'false' }, elements: [] };
+  const form = { method: { value: 'save' }, ajax: { value: 'false' }, change_diagnosis_id: { value: '' }, elements: [] };
   let rows = [];
   const container = { id: 'sig31' };
   const noteIssues = {
@@ -64,8 +64,7 @@ function harness() {
     },
   };
   form.querySelectorAll = selector => {
-    assert.equal(selector, 'input[type="checkbox"][data-issue-id]');
-    return rows.map(r => r.checkbox);
+    return selector === 'input[type="checkbox"][data-issue-id]' ? rows.map(r => r.checkbox) : [];
   };
   // Render (or re-render, as the updater does) the checklist in the given order.
   function render(issues) {
@@ -73,12 +72,14 @@ function harness() {
     form.elements = rows.flatMap(r => [r.checkbox, r.acuteTrue, r.acuteFalse]);
     return rows;
   }
-  const fields = { noteIssues, issueAutocomplete: { value: '', disabled: false }, asgnIssues: { disabled: false } };
+  const fields = { noteIssues, unresolvedIssues: {}, issueAutocomplete: { value: '', disabled: false, focus() {} },
+    asgnIssues: control({ disabled: false, attributes: {} }) };
   const context = {
     ctx: '/carlos', chartContext: '', demographicNo: '101', caseNote: 'caseNote_note01', savingNoteError: 'save failed',
-    document: { forms: { caseManagementEntryForm: form } },
+    document: { forms: { caseManagementEntryForm: form }, getElementById: id => fields[id] },
+    origObservationDate: '', noteIssuesChanged: false, changeIssueMsg: 'Change',
     // Prototype's Form.serialize: enabled controls only, checked radios and checkboxes only.
-    Form: { serialize: frm => new URLSearchParams([['method', frm.method.value], ['ajax', String(frm.ajax.value)],
+    Form: { serialize: frm => new URLSearchParams([['method', frm.method.value], ['ajax', String(frm.ajax.value)], ['issueSelectionById', 'true'],
       ...frm.elements.filter(el => !el.disabled && el.checked).map(el => [el.name, el.value])]).toString() },
     CarlosAjax: { updater: (target, url, options) => { requests.push({ target, url, options, body: new URLSearchParams(options.postBody) }); } },
     loadDiv: (id, url, delay, done) => reloads.push(done),
@@ -87,6 +88,7 @@ function harness() {
   };
   vm.createContext(context);
   vm.runInContext(chartActionUrlSource(source), context);
+  vm.runInContext(block('    function changeDiagnosis(', '    var closeWithoutSaveMsg;'), context);
   vm.runInContext(block('    var ajaxRequest;', '    function submitIssue('), context);
   context.updateIssueError = 'issue update failed';
   context.noteSavingMessage = 'saving note';
@@ -101,7 +103,7 @@ function harness() {
     if (ok && request.options.onSuccess) request.options.onSuccess({ status });
     if (ok && rendered) render(rendered);
     if (!ok) request.options.onFailure({ status });
-    request.options.onComplete({ status });
+    request.options.onComplete({ status, updateSucceeded: ok });
     if (ok) reloads.shift()(true);
   }
   // A click on a radio is a change of its checked state followed by its onchange handler.
@@ -185,15 +187,15 @@ test('a fragment installed mid-update stays disabled until the Unresolved Issues
   request.answered = true;
   request.options.onSuccess({ status: 200 });
   const [fresh] = h.render([{ id: 5, acute: true }]);
-  request.options.onComplete({ status: 200 });
+  request.options.onComplete({ status: 200, updateSucceeded: true });
   assert.equal(fresh.acuteFalse.disabled, true, 'new rows render enabled; the busy state must cover them');
   assert.equal(h.click(fresh.acuteFalse), 'disabled');
   // The Unresolved Issues reload has not answered yet, so the update is still in flight.
   assert.equal(h.context.issueUpdatesPending, 1);
 });
 
-test('a refused or failed change puts the radio back on the stored state', () => {
-  for (const status of [409, 400, 403, 500]) {
+test('a confirmed refusal puts the radio back on the rendered state', () => {
+  for (const status of [409, 400, 403]) {
     const h = harness();
     const [issue] = h.render([{ id: 9, acute: true }]);
     h.click(issue.acuteFalse);
@@ -207,12 +209,43 @@ test('a refused or failed change puts the radio back on the stored state', () =>
   }
 });
 
+test('an ambiguous response reloads the stored flags before the radio group is enabled', () => {
+  const h = harness();
+  const [issue] = h.render([{ id: 9 }]);
+  h.click(issue.acuteTrue);
+  h.respond(0);
+  assert.equal(issue.acuteTrue.checked, false);
+  assert.equal(issue.acuteFalse.checked, false);
+  assert.equal(issue.acuteTrue.disabled, true);
+  assert.equal(h.requests[1].body.get('method'), 'edit');
+  h.respond(200, [{ id: 9, acute: true }]);
+  assert.equal(h.rows()[0].acuteTrue.checked, true);
+  assert.equal(h.rows()[0].acuteTrue.disabled, false);
+});
+
+test('Change cannot select a diagnosis target during a refresh or a note-switch save', () => {
+  const h = harness();
+  h.render([{ id: 9 }, { id: 10 }]);
+  h.context.ajaxUpdateIssues('edit', 'sig31', true);
+  assert.equal(h.context.changeDiagnosis('9'), false);
+  assert.equal(h.form.change_diagnosis_id.value, '');
+  h.respond(200);
+  h.context.noteSwitchSavePending = true;
+  assert.equal(h.context.changeDiagnosis('10'), false);
+  assert.equal(h.form.change_diagnosis_id.value, '');
+  h.context.noteSwitchSavePending = false;
+  h.context.changeDiagnosis('10');
+  assert.equal(h.form.change_diagnosis_id.value, '10');
+  assert.equal(h.fields.asgnIssues.getAttribute('data-issue-method'), 'ajaxChangeDiagnosis');
+});
+
 test('Delete sends the clicked patient issue and refuses a repeat while the first is pending', () => {
   const h = harness();
   const [first, second] = h.render([{ id: 30 }, { id: 31 }]);
   assert.equal(h.context.deleteNoteIssue(first.deleteLink, 'noteIssueDetails30'), false);
   assert.equal(h.context.deleteNoteIssue(second.deleteLink, 'noteIssueDetails31'), false);
   assert.equal(h.mutations().length, 1, 'a second delete is refused while the first is pending, not queued');
+  assert.deepEqual(h.mutations()[0].body.getAll('selectedCaseIssueId'), ['30', '31']);
   h.respond(200, [{ id: 31 }]);
   // The remaining issue now sits at position 0; its own id still names it.
   h.context.deleteNoteIssue(h.rows()[0].deleteLink, 'noteIssueDetails31');

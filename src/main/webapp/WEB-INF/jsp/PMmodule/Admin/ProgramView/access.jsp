@@ -31,20 +31,30 @@
 	</tr>
 </table>
 </div>
-<display:table class="simple" cellspacing="2" cellpadding="3"
-	id="access" name="accesses" export="false" pagesize="0"
-	requestURI="/PMmodule/ProgramManagerView">
-	<display:setProperty name="paging.banner.placement" value="bottom" />
-	<display:setProperty name="basic.msg.empty_list"
-		value="No access currently defined for this program." />
-	<display:column property="accessType.name" sortable="true" title="Name" />
-	<display:column property="accessType.type" sortable="true" title="Type" />
-	<display:column property="allRoles" sortable="true" title="All Roles" />
-	<display:column sortable="true" title="Role(s)">
+<c:if test="${not empty accesses}">
+<table class="carlos-table-spaced simple" id="access" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
+
+
+    <th scope="col"><span data-table-sort>Name</span></th>
+    <th scope="col"><span data-table-sort>Type</span></th>
+    <th scope="col"><span data-table-sort>All Roles</span></th>
+    <th scope="col"><span data-table-sort>Role(s)</span></th>
+</tr></thead>
+<tbody><c:forEach var="access" items="${accesses}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(access.accessType.name))}" data-sort-type="${carlos:tableSortType(access.accessType.name)}">${carlos:forHtml(access.accessType.name)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(access.accessType.type))}" data-sort-type="${carlos:tableSortType(access.accessType.type)}">${carlos:forHtml(access.accessType.type)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(access.allRoles))}" data-sort-type="${carlos:tableSortType(access.allRoles)}">${carlos:forHtml(access.allRoles)}</td>
+    <td>
 		<ul>
 			<c:forEach var="role" items="${access.roles}">
 				<li>${carlos:forHtml(role.name)}</li>
 			</c:forEach>
 		</ul>
-	</display:column>
-</display:table>
+    </td>
+</tr></c:forEach></tbody>
+</table>
+</c:if>
+<c:if test="${empty accesses}">No access currently defined for this program.</c:if>

@@ -35,6 +35,25 @@ import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 @Entity
 public class HRMDocument extends AbstractModel<Integer> {
 
+    /**
+     * The most characters the {@code description} column holds: a utf8mb4 {@code VARCHAR(255)},
+     * which counts Unicode code points (an emoji is one character, two Java chars). MariaDB cuts a
+     * longer description off without a word when {@code sql_mode} is not strict, which it is not on
+     * a packaged install, so the report viewer's Set Description refuses a longer one. Change it
+     * only with the column.
+     */
+    public static final int DESCRIPTION_MAX_LENGTH = 255;
+
+    /**
+     * Whether a description, exactly as it is stored, fits the {@code description} column.
+     *
+     * @param description the description as stored, or {@code null}
+     * @return {@code true} for {@code null} or at most {@link #DESCRIPTION_MAX_LENGTH} code points
+     */
+    public static boolean descriptionFits(String description) {
+        return description == null || description.codePointCount(0, description.length()) <= DESCRIPTION_MAX_LENGTH;
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;

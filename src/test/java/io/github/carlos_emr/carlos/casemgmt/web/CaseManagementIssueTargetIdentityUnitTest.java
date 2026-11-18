@@ -2,13 +2,18 @@
 package io.github.carlos_emr.carlos.casemgmt.web;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
+import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.model.security.Secrole;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.AfterEach;
@@ -25,12 +30,12 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 /**
@@ -50,6 +55,7 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private CaseManagementManager manager;
+    private CaseManagementIssueDAO issues;
     private CaseManagementEntryFormBean form;
     private CaseManagementNote note;
     private MockedStatic<CarlosProperties> config;
@@ -75,6 +81,19 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
         injectDependency(action, "securityInfoManager", permissions);
         manager = mock(CaseManagementManager.class);
         action.caseManagementMgr = manager;
+        issues = mock(CaseManagementIssueDAO.class);
+        injectDependency(action, "caseManagementIssueDao", issues);
+        when(manager.updateExistingIssue(anyLong(), any())).thenAnswer(invocation ->
+                invocation.<Function<CaseManagementIssue, ?>>getArgument(1)
+                        .apply(issues.findById(invocation.getArgument(0))));
+        ProgramProviderDAO memberships = createAndRegisterMock(ProgramProviderDAO.class);
+        ProgramAccessDAO access = createAndRegisterMock(ProgramAccessDAO.class);
+        Secrole role = new Secrole();
+        role.setRoleName("doctor");
+        ProgramProvider membership = new ProgramProvider();
+        membership.setRole(role);
+        when(memberships.getProgramProviderByProviderProgramId("999998", 0L)).thenReturn(List.of(membership));
+        when(access.getAccessListByProgramId(0L)).thenReturn(List.of());
         doReturn("").when(action).getDemoName(anyString());
         doReturn("").when(action).getDemoAge(anyString());
         doReturn("").when(action).getDemoDOB(anyString());
@@ -97,16 +116,19 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
     }
 
     private CheckBoxBean issue(long id) {
-        CaseManagementIssue issue = new CaseManagementIssue();
+        CaseManagementIssue issue = spy(new CaseManagementIssue());
         issue.setId(id);
         issue.setDemographic_no(101);
         Issue catalog = new Issue();
         catalog.setId(9000L + id);
         catalog.setDescription("FAKE issue " + id);
         catalog.setType("icd9");
+        catalog.setRole("doctor");
         issue.setIssue(catalog);
         issue.setIssue_id(catalog.getId());
         issue.setType(catalog.getType());
+        doReturn(true).when(issue).isWriteAccess("999998", 0);
+        when(issues.findById(id)).thenReturn(issue);
         CheckBoxBean entry = new CheckBoxBean();
         entry.setIssue(issue);
         entry.getIssueDisplay().setDescription(catalog.getDescription());
@@ -142,7 +164,7 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
         assertThat(first.getIssue().isAcute()).isTrue();
         assertThat(first.getIssueDisplay().getAcute()).isEqualTo("acute");
         assertThat(second.getIssue().isAcute()).isFalse();
-        verify(manager).saveAndUpdateCaseIssues(argThat(saved -> saved.size() == 1 && saved.get(0) == first.getIssue()));
+        verify(manager).updateExistingIssue(eq(41L), any());
     }
 
     @Test
@@ -241,29 +263,18 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"certain", "major"})
-    void shouldRefuseWriteOnlyAttributes_forAnIssueTheEditorShowsReadOnly(String field) throws Exception {
+    @ValueSource(strings = {"acute", "certain", "major", "resolved"})
+    void shouldRefuseEveryAttribute_whenCurrentIssueIsReadOnly(String field) {
         CheckBoxBean entry = issue(41);
-        entry.getIssueDisplay().setWriteAccess(false);
+        doReturn(false).when(entry.getIssue()).isWriteAccess("999998", 0);
         click("41", field, "true");
 
-        assertThat(action.issueChange()).isEqualTo("none");
+        assertThatThrownBy(action::issueChange).isInstanceOf(SecurityException.class);
 
-        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(entry.getIssue().isAcute()).isFalse();
         assertThat(entry.getIssue().isCertain()).isFalse();
         assertThat(entry.getIssue().isMajor()).isFalse();
-        verifyNoInteractions(manager);
-    }
-
-    @Test
-    void shouldKeepAcuteAndResolvedAvailable_forAReadOnlyIssueAsTheEditorOffersThem() throws Exception {
-        CheckBoxBean entry = issue(41);
-        entry.getIssueDisplay().setWriteAccess(false);
-        click("41", "resolved", "true");
-
-        assertThat(action.issueChange()).isEqualTo("issueList_ajax");
-
-        assertThat(entry.getIssue().isResolved()).isTrue();
+        assertThat(entry.getIssue().isResolved()).isFalse();
     }
 
     @Test
@@ -352,6 +363,7 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
         reorder(second, first);
         Issue replacement = new Issue();
         replacement.setId(777L);
+        replacement.setRole("doctor");
         replacement.setCode("FAKE777");
         replacement.setType("icd10");
         replacement.setDescription("FAKE replacement diagnosis");
@@ -368,7 +380,7 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
         assertThat(first.getIssueDisplay().getCode()).isEqualTo("FAKE777");
         assertThat(first.getIssueDisplay().getCodeType()).isEqualTo("icd10");
         assertThat(second.getIssue().getIssue_id()).isEqualTo(9042L);
-        verify(manager).saveCaseIssue(first.getIssue());
+        verify(manager).updateExistingIssue(eq(41L), any());
     }
 
     @Test
@@ -396,7 +408,7 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(entry.getIssue().getIssue_id()).isEqualTo(9041L);
-        verify(manager, never()).saveCaseIssue(any());
+        verify(manager, never()).updateExistingIssue(anyLong(), any());
     }
 
     /** The legacy IssueSearch page posts the chosen replacement as a checked new-issue row. */
@@ -417,6 +429,7 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
         reorder(second, first);
         Issue replacement = new Issue();
         replacement.setId(777L);
+        replacement.setRole("doctor");
         replacement.setCode("FAKE777");
         replacement.setType("icd10");
         replacement.setDescription("FAKE replacement diagnosis");
@@ -432,7 +445,7 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
         assertThat(first.getIssueDisplay().getCode()).isEqualTo("FAKE777");
         assertThat(first.getIssueDisplay().getCodeType()).isEqualTo("icd10");
         assertThat(second.getIssue().getIssue_id()).isEqualTo(9042L);
-        verify(manager).saveCaseIssue(first.getIssue());
+        verify(manager).updateExistingIssue(eq(41L), any());
     }
 
     @ParameterizedTest
@@ -442,6 +455,7 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
         entry.setIssueDisplay(null);
         Issue replacement = new Issue();
         replacement.setId(777L);
+        replacement.setRole("doctor");
         replacement.setType("icd10");
         when(manager.getIssue("777")).thenReturn(replacement);
         request.setParameter("change_diagnosis_id", "41");
@@ -453,7 +467,7 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
 
         assertThat(entry.getIssue().getType()).isEqualTo("icd10");
         assertThat(entry.getIssueDisplay()).isNull();
-        verify(manager).saveCaseIssue(entry.getIssue());
+        verify(manager).updateExistingIssue(eq(41L), any());
     }
 
     @Test
@@ -466,7 +480,7 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(entry.getIssue().getIssue_id()).isEqualTo(9041L);
-        verify(manager, never()).saveCaseIssue(any());
+        verify(manager, never()).updateExistingIssue(anyLong(), any());
         verify(manager, never()).changeIssueInCPP(any(), any(), any());
     }
 

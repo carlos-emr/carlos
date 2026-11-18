@@ -1,5 +1,6 @@
 /**
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * Modifications by CARLOS Contributors, 2026.
  *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -106,6 +107,31 @@ test('acknowledgement fixtures supply three distinct New labs without modifying 
   const updates=m.statements.filter(q=>q.startsWith('UPDATE'));
   assert.equal(updates.length,3); assert.ok(updates.every(q=>/provider_no='999998'/.test(q) && /lab_no=600[012]/.test(q)));
   await m.cleanup(); fs.rmSync(path.dirname(result.journal),{recursive:true});
+}));
+
+test('admission setup failure cleans its registered rows when document setup never began', async () => disposable(async () => {
+  const m = model();
+  m.dependencies.prepareProgram = s => {
+    s.cleanup(() => m.events.push('admission cleaned'));
+    throw new Error('admission setup interrupted');
+  };
+  m.dependencies.createDocument = () => assert.fail('Document setup must not run');
+  await assert.rejects(prepareInboxDataset(m.session, 'filters', m.dependencies), /admission setup interrupted/);
+  await m.cleanup();
+  assert.ok(m.events.includes('admission cleaned'));
+  assert.deepEqual(m.removed, ['6000', '6001', '6002']);
+}));
+
+test('registered but failed document cleanup retains the admission', async () => disposable(async () => {
+  const m = model();
+  m.dependencies.createDocument = s => {
+    s.cleanup(() => { throw new Error('document cleanup uncertain'); });
+    throw new Error('document setup interrupted');
+  };
+  await assert.rejects(prepareInboxDataset(m.session, 'filters', m.dependencies), /document setup interrupted/);
+  await assert.rejects(m.callbacks[2](), /document cleanup uncertain/);
+  assert.throws(() => m.callbacks[1](), /document cleanup is incomplete/);
+  assert.ok(!m.events.includes('admission cleaned'));
 }));
 
 test('lost native acknowledgement recovers only absent-before accession-owned rows', async () => disposable(async () => {

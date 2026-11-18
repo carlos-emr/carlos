@@ -143,10 +143,10 @@ Ontario, Canada
 <fmt:message key="Appointment.formNotes" var="appointmentTextNotes"/>
 <fmt:message key="Appointment.formResources" var="appointmentTextResources"/>
 
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib tagdir="/WEB-INF/tags/appointment" prefix="appt" %>
 
@@ -1234,23 +1234,23 @@ Ontario, Canada
                     <%-- Left column: Date, Time, Duration, Patient, Reason, Location, Creator --%>
                     <div class="col-md-6">
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formDate"/>&nbsp;<span style="color:brown;">(<%=dateString1%>)</span>:</label>
+                            <label class="col-sm-4 col-form-label" for="appointment_date"><fmt:message key="Appointment.formDate"/>&nbsp;<span style="color:brown;">(<%=dateString1%>)</span>:</label>
                             <div class="col-sm-8">
-                                <input type="date" class="form-control form-control-sm" name="appointment_date"
+                                <input type="date" class="form-control form-control-sm" name="appointment_date" id="appointment_date"
                                        value="<%=dateString2%>"
                                        onChange="checkDateTypeIn(this);checkPageLock()">
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formStartTime"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="start_time"><fmt:message key="Appointment.formStartTime"/>:</label>
                             <div class="col-sm-8">
-                                <input type="time" name="start_time" class="form-control form-control-sm"
+                                <input type="time" name="start_time" id="start_time" class="form-control form-control-sm"
                                        value='<carlos:encode value='<%= request.getParameter("start_time") == null ? "" : request.getParameter("start_time") %>' context="htmlAttribute"/>'<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                                        onChange="checkTimeTypeIn(this);checkPageLock();updateTime()">
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formDuration"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="duration"><fmt:message key="Appointment.formDuration"/>:</label>
                             <div class="col-sm-8">
                                 <input type="number" name="duration" id="duration" class="form-control form-control-sm"
                                        value="<carlos:encode value='<%= duration %>' context="htmlAttribute"/>" onChange="checkPageLock()" onblur="calculateEndTime();">
@@ -1317,7 +1317,7 @@ Ontario, Canada
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label" for="reasonCode"><fmt:message key="Appointment.formReason"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="reasonCode" id="apptReasonLabel"><fmt:message key="Appointment.formReason"/>:</label>
                             <div class="col-sm-8">
                                 <select name="reasonCode" id="reasonCode" class="form-select form-select-sm">
                                     <c:choose>
@@ -1484,9 +1484,9 @@ Ontario, Canada
                             <label class="col-sm-4 col-form-label" for="notes"><fmt:message key="Appointment.formNotes"/>:</label>
                             <div class="col-sm-8">
                                 <fmt:message key="Appointment.formNotes" var="formNotesMsg"/>
-                                <textarea id="notes" class="form-control form-control-sm" name="notes" data-code-point-maxlength="255" rows="2" style="resize:none;"
+                                <textarea id="notes" class="form-control form-control-sm" name="notes" rows="2" style="resize:none;"
                                           placeholder="${carlos:forHtmlAttribute(formNotesMsg)}"
-                                          maxlength="510"><%=bFirstDisp ? "" : SafeEncode.forHtmlContent(StringUtils.defaultString(request.getParameter("notes")))%></textarea>
+                                          maxlength="65536" data-max-codepoints="32768"><%=bFirstDisp ? "" : SafeEncode.forHtmlContent(StringUtils.defaultString(request.getParameter("notes")))%></textarea>
                             </div>
                         </div>
                         <div class="mb-2 row">
@@ -1497,7 +1497,7 @@ Ontario, Canada
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formDateTime"/>:</label>
+                            <span class="col-sm-4 col-form-label"><fmt:message key="Appointment.formDateTime"/>:</span>
                             <div class="col-sm-8">
                                 <%
                                     GregorianCalendar now = new GregorianCalendar();
@@ -1534,10 +1534,10 @@ Ontario, Canada
                         <% String emailReminder = pros.getProperty("emailApptReminder");
                             if ((emailReminder != null) && emailReminder.equalsIgnoreCase("yes")) { %>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formEmailReminder"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="emailPt"><fmt:message key="Appointment.formEmailReminder"/>:</label>
                             <div class="col-sm-8">
                                 <div class="form-check mt-1">
-                                    <input type="checkbox" class="form-check-input" name="emailPt" value="email reminder">
+                                    <input type="checkbox" class="form-check-input" name="emailPt" id="emailPt" value="email reminder">
                                 </div>
                             </div>
                         </div>

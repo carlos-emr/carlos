@@ -855,9 +855,8 @@ fetch(url, {
 
 **All AJAX-targeted actions read parameters via `request.getParameter()`** — none parse the request body directly (no `getInputStream()` or `getReader()` usage). This means the `Content-Type: application/x-www-form-urlencoded` requirement is absolute. Switching to `application/json` bodies would silently break ALL parameter reads.
 
-**5 actions return `text/javascript` content type** (legacy pattern — actual content is JSON):
+**4 actions return `text/javascript` content type** (legacy pattern — actual content is JSON):
 - `DocumentPreview2Action.generateResponse()`
-- `ImportDemographicDataAction42Action.generateResponse()`
 - `ConsultationAttachDocs2Action.generateResponse()`
 - `ConsultationClinicalData2Action` (4 response paths)
 - `EctConsultationFormRequest2Action.generateResponse()`

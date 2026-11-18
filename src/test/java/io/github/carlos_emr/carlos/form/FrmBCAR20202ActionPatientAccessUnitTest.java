@@ -31,6 +31,8 @@ import io.github.carlos_emr.carlos.commn.dao.forms.FormBCAR2020Dao;
 import io.github.carlos_emr.carlos.commn.dao.forms.FormBCAR2020DataDao;
 import io.github.carlos_emr.carlos.commn.dao.forms.FormBCAR2020TextDao;
 import io.github.carlos_emr.carlos.form.model.FormBCAR2020;
+import io.github.carlos_emr.carlos.form.model.FormBCAR2020Data;
+import io.github.carlos_emr.carlos.form.model.FormBCAR2020Text;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -98,6 +100,8 @@ class FrmBCAR20202ActionPatientAccessUnitTest extends CarlosUnitTestBase {
         registerMock(FormBCAR2020Dao.class, formDao);
         registerMock(FormBCAR2020DataDao.class, dataDao);
         registerMock(FormBCAR2020TextDao.class, textDao);
+        registerMock(BCAR2020FormSaveService.class,
+                new BCAR2020FormSaveService(formDao, dataDao, textDao, securityInfoManager));
         registerMock(PrintResourceLogDao.class, printLogDao);
         // FrmBCAR2020Record's constructor (through FrmRecordFactory) looks these up.
         registerMock(DemographicManager.class, mock(DemographicManager.class));
@@ -150,6 +154,49 @@ class FrmBCAR20202ActionPatientAccessUnitTest extends CarlosUnitTestBase {
         assertThat(new FrmBCAR20202Action().save()).isEqualTo("none");
 
         verify(formDao).persist(any(FormBCAR2020.class));
+    }
+
+    @Test
+    void shouldUpdateOnlyTheSubmittedPage_whenFieldNamesAreSharedAcrossPages() throws Exception {
+        grant("_form", "w", true);
+        grant("_demographic", "w", true);
+        when(request.getParameter("formId")).thenReturn(String.valueOf(OWN_FORM));
+        when(request.getParameter("pageNo")).thenReturn("1");
+        when(request.getParameterMap()).thenReturn(Map.of(
+                "t_shared", new String[]{"changed"}, "mt_shared", new String[]{"changed prose"}));
+        when(request.getParameter("t_shared")).thenReturn("changed");
+        when(request.getParameter("mt_shared")).thenReturn("changed prose");
+        List<FormBCAR2020Data> previousData = List.of(
+                new FormBCAR2020Data(OWN_FORM, "111111", 1, "t_shared", "page one"),
+                new FormBCAR2020Data(OWN_FORM, "111111", 2, "t_shared", "page two"));
+        List<FormBCAR2020Text> previousText = List.of(
+                new FormBCAR2020Text(OWN_FORM, "111111", 1, "mt_shared", "prose one"),
+                new FormBCAR2020Text(OWN_FORM, "111111", 2, "mt_shared", "prose two"));
+        when(dataDao.findFields(OWN_FORM)).thenReturn(previousData);
+        when(textDao.findFields(OWN_FORM)).thenReturn(previousText);
+        doAnswer(call -> {
+            List<FormBCAR2020Data> rows = call.getArgument(0);
+            assertThat(rows).filteredOn(row -> row.getPageNo() == 1).singleElement()
+                    .satisfies(row -> assertThat(row.getValue()).isEqualTo("changed"));
+            assertThat(rows).filteredOn(row -> row.getPageNo() == 2).singleElement()
+                    .satisfies(row -> assertThat(row.getValue()).isEqualTo("page two"));
+            return null;
+        }).when(dataDao).batchPersistAtomically(any(), eq(50));
+        doAnswer(call -> {
+            List<FormBCAR2020Text> rows = call.getArgument(0);
+            assertThat(rows).filteredOn(row -> row.getPageNo() == 1).singleElement()
+                    .satisfies(row -> assertThat(row.getValue()).isEqualTo("changed prose"));
+            assertThat(rows).filteredOn(row -> row.getPageNo() == 2).singleElement()
+                    .satisfies(row -> assertThat(row.getValue()).isEqualTo("prose two"));
+            return null;
+        }).when(textDao).batchPersistAtomically(any(), eq(50));
+
+        new FrmBCAR20202Action().save();
+
+        assertThat(previousData).extracting(FormBCAR2020Data::getValue).containsExactly("page one", "page two");
+        assertThat(previousText).extracting(FormBCAR2020Text::getValue).containsExactly("prose one", "prose two");
+        verify(dataDao).batchPersistAtomically(any(), eq(50));
+        verify(textDao).batchPersistAtomically(any(), eq(50));
     }
 
     @Test

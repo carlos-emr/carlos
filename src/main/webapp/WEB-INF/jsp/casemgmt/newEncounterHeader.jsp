@@ -71,13 +71,13 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+
 <%@ page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferenceResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferences" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.display.EchartHeaderViewModel" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.display.EchartHeaderViewModelAssembler" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%@ page import="java.util.Locale" %>
 
@@ -276,7 +276,7 @@ function fallbackCopy(text) {
       </span>
       <% if (CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
       <span class="echart-header-item echart-header-link">
-        <a href="javascript:void(0);" onClick="popupPage(600,175,'Calculators','${carlos:forJavaScriptAttribute(ctx)}/common/omdDiseaseList?sex=${carlos:forUriComponent(popupPatientSex)}&age=${carlos:forUriComponent(popupPatientAge)}'); return false;"><fmt:message key="encounter.Header.OntMD"/></a>
+        <button type="button" id="chartOmdButton" onClick="popupPage(600,175,'Calculators','${carlos:forJavaScriptAttribute(ctx)}/common/omdDiseaseList?sex=${carlos:forUriComponent(popupPatientSex)}&amp;age=${carlos:forUriComponent(popupPatientAge)}'); return false;"><fmt:message key="encounter.Header.OntMD"/></button>
       </span>
       <%}%>
       <span class="echart-header-item echart-header-link"><%=getEChartLinks() %></span>

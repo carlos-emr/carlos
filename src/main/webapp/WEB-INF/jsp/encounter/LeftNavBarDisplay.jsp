@@ -68,16 +68,16 @@
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page
         import="io.github.carlos_emr.carlos.encounter.pageUtil.NavBarDisplayDAO, io.github.carlos_emr.carlos.util.*, java.util.ArrayList, java.util.Date, java.util.Calendar, java.io.IOException" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.daos.security.SecobjprivilegeDao" %>
-<%@ page import="io.github.carlos_emr.carlos.model.security.Secobjprivilege" %>
+
+
+
 <%@ page import="java.util.List, java.util.regex.Pattern, java.util.regex.Matcher" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
        scope="request"/>
@@ -236,7 +236,7 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
 <%      } %>
     </div>
 </div>
-<ul id="<%=htmlNavbarName%>list">
+<ul id="<%=htmlNavbarName%>list" data-filed-in-folders="<%= dao.isFiledInFolders() %>">
     <%
         //now we display the actual items of the module
         String manageItems = "";
@@ -292,11 +292,13 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
         StringBuilder jscode = new StringBuilder();
 
         if (dao.isFiledInFolders()) {
-            // One collapsible folder per distinct Item#getFolder() (the Documents panel's
-            // "File Documents in Folders by Document Type" eChart preference). Every row is
-            // rendered, collapsed inside its folder, so the date buckets and the 6-row cut-off
-            // below do not apply; the visible row count is the number of folders.
             numDisplayed = displayFolders(dao, jscode, displayThreshold, reloadURL.toString(), request, out);
+        } else if ("docs".equals(navbarName)) {
+            // Preserve the action's single newest-first list, including undated documents last.
+            ArrayList<NavBarDisplayDAO.Item> documents = new ArrayList<>();
+            for (int idx = 0; idx < numItems; idx++) documents.add(dao.getItem(idx));
+            numDisplayed = display(documents, numToDisplay, 0, manageItems, xpanded, numItems, jscode,
+                    displayThreshold, reloadURL.toString(), dao.getDivId(), request, out);
         } else {
             numDisplayed = display(noDates, numToDisplay, numDisplayed, manageItems, xpanded, numItems, jscode, displayThreshold, reloadURL.toString(), dao.getDivId(), request, out);
 

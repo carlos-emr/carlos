@@ -62,7 +62,7 @@ const config = {
   testPin: process.env.TEST_PIN || '2026',
   screenshotDir: process.env.DEMOGRAPHIC_ADD_SCREENSHOT_DIR || '/tmp',
 };
-const mysqlHost = process.env.MYSQL_HOST || '127.0.0.1';
+const mysqlHost = require('./lib/playwright-harness').validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
@@ -112,6 +112,8 @@ function cleanupSyntheticPatient() {
     sql(`DELETE FROM admission WHERE client_id=${leftover}`);
     sql(`DELETE FROM demographicArchive WHERE demographic_no=${leftover}`);
     sql(`DELETE FROM demographiccust WHERE demographic_no=${leftover}`);
+    sql(`DELETE FROM demographicExtArchive WHERE demographic_no=${leftover}`);
+    sql(`DELETE FROM demographicExt WHERE demographic_no=${leftover}`);
     sql(`DELETE FROM demographic WHERE demographic_no=${leftover} AND last_name='${fixtureLastName}'`);
     assert(sql(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${leftover}`) === '0',
       'Owned new-patient fixture was not removed');
@@ -127,7 +129,9 @@ const signalHandlers = installCleanupSignalHandlers(() => {
   }
 });
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('demographic-add', async () => {
+  await (async () => {
   const recorder = createRecorder();
   const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), ...NO_PLAYWRIGHT_SIGNAL_HANDLING });
   initMysqlDefaults();
@@ -235,3 +239,4 @@ const signalHandlers = installCleanupSignalHandlers(() => {
     signalHandlers.dispose();
   }
 })();
+}, {existingSignalHandlers:true});

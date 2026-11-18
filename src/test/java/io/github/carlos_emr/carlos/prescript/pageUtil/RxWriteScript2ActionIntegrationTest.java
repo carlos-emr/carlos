@@ -81,6 +81,9 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
 
     @BeforeEach
     void setUp() {
+        var receipts = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.class);
+        when(receipts.start(any(), anyInt(), any(), any(), any())).thenReturn(true);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.class, receipts);
         replaceSpringUtilsBean(DrugDao.class, mockDrugDao);
         replaceSpringUtilsBean(RxManager.class, mockRxManager);
         // Patient-level Rx access (the shared Rx write check, #3908) is granted unless a test denies it.
@@ -580,6 +583,117 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         verify(mockDrugDao, never()).merge(any(Drug.class));
     }
 
+    private Drug drugRow(int id, int demographicNo, boolean archived, String reason) {
+        Drug drug = new Drug();
+        drug.setId(id);
+        drug.setDemographicId(demographicNo);
+        drug.setArchived(archived);
+        drug.setArchivedReason(reason);
+        return drug;
+    }
+
+    @Test
+    @DisplayName("should keep the archive reason when the re-Rx source was discontinued in another window (#5987)")
+    void shouldKeepArchiveReason_whenReRxSourceAlreadyArchived() {
+        int demographicNo = 1001;
+        int discontinuedId = 3003;
+        int activeId = 4004;
+
+        RxSessionBean bean = new RxSessionBean();
+        bean.setDemographicNo(demographicNo);
+        bean.getReRxDrugIdList().add(String.valueOf(discontinuedId));
+        bean.getReRxDrugIdList().add(String.valueOf(activeId));
+        when(mockDrugDao.find(discontinuedId)).thenReturn(drugRow(discontinuedId, demographicNo, true, "discontinued"));
+        when(mockDrugDao.find(activeId)).thenReturn(drugRow(activeId, demographicNo, false, null));
+        when(mockRxManager.archiveDrug(any(), eq(activeId), eq(demographicNo), eq(Drug.REPRESCRIBED)))
+                .thenReturn(true);
+
+        boolean complete;
+        try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
+            complete = action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(discontinuedId, activeId),
+                    "127.0.0.1", "audit");
+
+            commitAuditTransaction(logAction);
+            // No archive was performed for the settled row, so none is audited for it.
+            verifyNotAudited(logAction, discontinuedId);
+            verifyAudited(logAction, activeId);
+        }
+
+        // Already settled is not a failure, and it must not stop the other source being archived.
+        assertThat(complete).isTrue();
+        verify(mockRxManager, never()).archiveDrug(any(), eq(discontinuedId), anyInt(), any(String.class));
+        verify(mockRxManager).archiveDrug(any(), eq(activeId), eq(demographicNo), eq(Drug.REPRESCRIBED));
+        verify(mockDrugDao, never()).merge(any(Drug.class));
+    }
+
+    @Test
+    @DisplayName("should still archive an active re-Rx source with the represcribed reason")
+    void shouldArchiveReRxSource_whenSourceStillActive() {
+        int demographicNo = 1001;
+        int sourceId = 3003;
+        RxSessionBean bean = new RxSessionBean();
+        bean.setDemographicNo(demographicNo);
+        bean.getReRxDrugIdList().add(String.valueOf(sourceId));
+        when(mockDrugDao.find(sourceId)).thenReturn(drugRow(sourceId, demographicNo, false, null));
+        when(mockRxManager.archiveDrug(any(), eq(sourceId), eq(demographicNo), eq(Drug.REPRESCRIBED)))
+                .thenReturn(true);
+
+        try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
+            assertThat(action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(sourceId), "127.0.0.1", "audit"))
+                    .isTrue();
+            commitAuditTransaction(logAction);
+            verifyAudited(logAction, sourceId);
+        }
+        verify(mockRxManager).archiveDrug(any(), eq(sourceId), eq(demographicNo), eq(Drug.REPRESCRIBED));
+    }
+
+    @Test
+    @DisplayName("should leave an archived row of another patient to archiveDrug's refusal")
+    void shouldReportRefusal_whenArchivedSourceBelongsToAnotherPatient() {
+        int demographicNo = 1001;
+        int foreignId = 4004;
+        RxSessionBean bean = new RxSessionBean();
+        bean.setDemographicNo(demographicNo);
+        bean.getReRxDrugIdList().add(String.valueOf(foreignId));
+        // Archived, but owned by patient 2002: not this patient's settled row, so the manager decides.
+        when(mockDrugDao.find(foreignId)).thenReturn(drugRow(foreignId, 2002, true, "discontinued"));
+        when(mockRxManager.archiveDrug(any(), eq(foreignId), eq(demographicNo), eq(Drug.REPRESCRIBED)))
+                .thenReturn(false);
+
+        try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
+            assertThat(action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(foreignId), "127.0.0.1", "audit"))
+                    .isFalse();
+            commitAuditTransaction(logAction);
+            verifyNotAudited(logAction, foreignId);
+        }
+        verify(mockRxManager).archiveDrug(any(), eq(foreignId), eq(demographicNo), eq(Drug.REPRESCRIBED));
+    }
+
+    @Test
+    @DisplayName("should report failure and keep going when the re-Rx source lookup throws")
+    void shouldContinueArchival_whenSourceLookupThrows() {
+        int demographicNo = 1001;
+        int brokenId = 3003;
+        int activeId = 4004;
+        RxSessionBean bean = new RxSessionBean();
+        bean.setDemographicNo(demographicNo);
+        bean.getReRxDrugIdList().add(String.valueOf(brokenId));
+        bean.getReRxDrugIdList().add(String.valueOf(activeId));
+        when(mockDrugDao.find(brokenId)).thenThrow(new RuntimeException("lookup failed"));
+        when(mockDrugDao.find(activeId)).thenReturn(drugRow(activeId, demographicNo, false, null));
+        when(mockRxManager.archiveDrug(any(), eq(activeId), eq(demographicNo), eq(Drug.REPRESCRIBED)))
+                .thenReturn(true);
+
+        try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
+            assertThat(action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(brokenId, activeId),
+                    "127.0.0.1", "audit")).isFalse();
+            commitAuditTransaction(logAction);
+            verifyNotAudited(logAction, brokenId);
+            verifyAudited(logAction, activeId);
+        }
+        verify(mockRxManager, never()).archiveDrug(any(), eq(brokenId), anyInt(), any(String.class));
+    }
+
     @Test
     @DisplayName("should archive staged drugs when all belong to current demographic")
     void shouldArchiveStagedDrugs_whenAllBelongToCurrentDemographic() {
@@ -873,7 +987,8 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
                      org.mockito.Mockito.mockConstruction(io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.class,
                              (mock, context) -> when(mock.saveScript(any(), any())).thenReturn("77"))) {
             scriptId = action.persistStash(mockLoggedInInfo, bean);
-            commitAuditTransaction(logAction);
+            // Every stash save now commits its own REQUIRES_NEW transaction before returning.
+            // Its audit must already be queued, independently of the enclosing test transaction.
             verifyAudited(logAction, 3003);
         }
 
@@ -921,31 +1036,27 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should not emit a successful archival audit when its transaction rolls back")
-    void shouldNotAuditArchival_whenTransactionRollsBack() {
+    @DisplayName("should issue authoritative archival audits inside the clinical transaction")
+    void shouldIssueAuditInsideTransaction_whenArchiving() {
         RxSessionBean bean = new RxSessionBean();
         bean.setDemographicNo(1001);
         bean.getReRxDrugIdList().add("3003");
         when(mockRxManager.archiveDrug(any(), eq(3003), eq(1001), eq(Drug.REPRESCRIBED))).thenReturn(true);
-
         try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
             assertThat(action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(3003), "127.0.0.1", "audit")).isTrue();
-            logAction.verifyNoInteractions();
-
+            verifyAudited(logAction, 3003);
             TestTransaction.flagForRollback();
             TestTransaction.end();
-
-            logAction.verifyNoInteractions();
+            // Physical rollback of strict audit rows is exercised by RxSaveReceiptCommitIntegrationTest.
         }
         verify(mockRxManager).archiveDrug(any(), eq(3003), eq(1001), eq(Drug.REPRESCRIBED));
     }
 
     /**
      * These tests replace drug persistence/archival with mocks, so committing writes no fixture rows.
-     * Keep the audit mock open through the real commit, and prove it was not called beforehand.
+     * Keep the audit mock open through the real commit; authoritative audit calls now join that transaction.
      */
     private void commitAuditTransaction(MockedStatic<LogAction> logAction) {
-        logAction.verifyNoInteractions();
         TestTransaction.flagForCommit();
         TestTransaction.end();
     }
@@ -955,17 +1066,17 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
      * discontinued by the system.
      */
     private void verifyAudited(MockedStatic<LogAction> logAction, int drugId) {
-        logAction.verify(() -> LogAction.addLog(any(), eq(LogConst.REPRESCRIBE), any(),
+        logAction.verify(() -> LogAction.addLogStrict(any(), eq(LogConst.REPRESCRIBE), any(),
                 eq("drugid=" + drugId), any(), any(), any()));
-        logAction.verify(() -> LogAction.addLog(any(), eq(LogConst.DISCONTINUE), any(),
+        logAction.verify(() -> LogAction.addLogStrict(any(), eq(LogConst.DISCONTINUE), any(),
                 eq("drugid=" + drugId), any(), any(), any()));
     }
 
     /** Asserts a drug that was not archived left no audit trail of either kind. */
     private void verifyNotAudited(MockedStatic<LogAction> logAction, int drugId) {
-        logAction.verify(() -> LogAction.addLog(any(), eq(LogConst.REPRESCRIBE), any(),
+        logAction.verify(() -> LogAction.addLogStrict(any(), eq(LogConst.REPRESCRIBE), any(),
                 eq("drugid=" + drugId), any(), any(), any()), never());
-        logAction.verify(() -> LogAction.addLog(any(), eq(LogConst.DISCONTINUE), any(),
+        logAction.verify(() -> LogAction.addLogStrict(any(), eq(LogConst.DISCONTINUE), any(),
                 eq("drugid=" + drugId), any(), any(), any()), never());
     }
 

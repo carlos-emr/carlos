@@ -22,9 +22,9 @@
     stays 200 -- see the note below the directives for why a 4xx here becomes a
     500.
 --%><%@ page contentType="text/html;charset=UTF-8" %>
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
+
 <fmt:setBundle basename="oscarResources"/>
 <%--
     Deliberately NOT response.setStatus(400).

@@ -39,7 +39,7 @@ public class EctDisplayHRM2Action extends EctDisplayAction {
     private OscarLogDao oscarLogDao = (OscarLogDao) SpringUtils.getBean(OscarLogDao.class);
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = getLoggedInInfo(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null)) {
             return true; //Prevention link won't show up on new CME screen.
@@ -80,7 +80,7 @@ public class EctDisplayHRM2Action extends EctDisplayAction {
                     date = null;
                 }
 
-                String user = (String) request.getSession().getAttribute("user");
+                String user = getProviderNo(request);
                 item.setDate(date);
                 hash = Math.abs(winName.hashCode());
 

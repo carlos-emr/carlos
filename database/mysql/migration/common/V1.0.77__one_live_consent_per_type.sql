@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS `Consent_migration_audit` (
     `prior_optout` TINYINT(1) NULL,
     `prior_deleted` TINYINT(1) NULL,
     `recorded_at` DATETIME NOT NULL,
+    `lastUpdateUser` VARCHAR(100) NOT NULL DEFAULT 'system',
+    `lastUpdateDate` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`consent_id`, `migration`, `reason`)
 ) COMMENT 'Values Consent rows held before a schema migration changed them';
 

@@ -638,15 +638,10 @@ class JspEncodingRegressionTest {
                     .doesNotContainPattern("title\\s*=\\s*\"<%=\\s*favorites\\[j\\]\\.getFavoriteName\\(\\)\\s*%>\"")
                     .doesNotContainPattern("(?<!value=')<%=\\s*favorites\\[j\\]\\.getFavoriteName\\(\\)");
             if (sidebar.equals("rx/SideLinksEditFavorites2.jsp")) {
-                // The editable sidebar uses SafeEncode rather than the equivalent tag.
-                // Require both the encoded assignments and their actual output sinks.
                 assertThat(sidebarJsp)
-                        .containsPattern(SAFE_ENCODE_IMPORT_PATTERN)
-                        .contains("String favoriteName = StringUtils.noNull(favorites[j].getFavoriteName());")
-                        .contains("String favoriteTitle = SafeEncode.forHtmlAttribute(favoriteName);")
-                        .contains("title=\"<%= favoriteTitle %>\"")
-                        .contains("<%= SafeEncode.forHtmlContent(favoriteDisplayName) %>")
-                        .doesNotContain("<%= favoriteDisplayName %>");
+                        .contains("title=\"<carlos:encode value='<%= favorite.name() %>' context=\"htmlAttribute\"/>\"")
+                        .contains("<carlos:encode value='<%= favorite.name() != null && favorite.name().length() > 13 ? favorite.name().substring(0, 10) + \"...\" : favorite.name() %>'/>")
+                        .doesNotContain("<%= favorite.name() %></button>");
             } else {
                 assertThat(sidebarJsp)
                         .containsPattern(carlosEncodePattern("favorites\\[j\\]\\.getFavoriteName\\(\\)", "htmlAttribute"))
@@ -779,10 +774,11 @@ class JspEncodingRegressionTest {
 
         assertThat(displayRxRecordJsp)
                 .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
-                .containsPattern(carlosEncodePattern(
-                        "providerDao\\.getProviderName\\(drug\\.getProviderNo\\(\\)\\)", "html"))
-                .containsPattern(carlosEncodePattern("drug\\.getDosageDisplay\\(\\)", "html"))
-                .containsPattern(carlosEncodePattern("StringUtils\\.trimToEmpty\\(drug\\.getComment\\(\\)\\)", "html"))
+                .contains("SafeEncode.forHtmlContent(drug.getCdsCurrentness() == null")
+                .contains("? providerDao.getProviderName(drug.getProviderNo())")
+                .contains(": drug.getOutsideProviderName() == null ? \"Unknown source prescriber\" : drug.getOutsideProviderName()) %>")
+                .containsPattern(safeEncodePattern("drug\\.getDosageDisplay\\(\\)", "forHtmlContent"))
+                .containsPattern(safeEncodePattern("drug\\.getComment\\(\\)", "forHtmlContent"))
                 .contains("${carlos:forHtml(pharmacy.name)}")
                 .contains("${carlos:forHtml(ProblemCode)}")
                 .doesNotContain("${ pharmacy.name }")
@@ -790,7 +786,7 @@ class JspEncodingRegressionTest {
                 // Date, Integer, Boolean and boolean getters converted for the String-typed setter.
                 .contains("String.valueOf(drug.getEndDate())")
                 .contains("String.valueOf(drug.getRepeat())")
-                .contains("String.valueOf(drug.isNoSubs())")
+                .contains("Boolean.toString(drug.isNoSubs())")
                 .contains("drug.getRefillDuration() != null ? String.valueOf(drug.getRefillDuration()) : \"\"")
                 .contains("drug.getRefillQuantity() != null ? String.valueOf(drug.getRefillQuantity()) : \"\"")
                 .contains("drug.getShortTerm() != null ? String.valueOf(drug.getShortTerm()) : \"\"");

@@ -40,7 +40,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.commons.lang3.time.DateFormatUtils;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
@@ -94,7 +94,7 @@ public class EctViewRequest2Action extends ActionSupport {
         if (date1 == null || date2 == null) {
             thisForm.setAppointmentDate("");
         } else {
-            thisForm.setAppointmentDate(DateFormatUtils.ISO_DATE_FORMAT.format(date1));
+            thisForm.setAppointmentDate(ConversionUtils.toDateString(date1));
             cal.setTime(date2);
 
             int hour = cal.get(Calendar.HOUR_OF_DAY);
@@ -136,7 +136,7 @@ public class EctViewRequest2Action extends ActionSupport {
         thisForm.setClinicalInformation(consult.getClinicalInfo());
         thisForm.setCurrentMedications(consult.getCurrentMeds());
         Date date = consult.getReferralDate();
-        thisForm.setReferalDate(date == null ? "" : DateFormatUtils.ISO_DATE_FORMAT.format(date));
+        thisForm.setReferalDate(date == null ? "" : ConversionUtils.toDateString(date));
         thisForm.setSendTo(consult.getSendTo());
         thisForm.setService(consult.getServiceId() == null ? "" : consult.getServiceId().toString());
         thisForm.setStatus(consult.getStatus());
@@ -152,7 +152,7 @@ public class EctViewRequest2Action extends ActionSupport {
 
         date = consult.getFollowUpDate();
         if (date != null) {
-            thisForm.setFollowUpDate(DateFormatUtils.ISO_DATE_FORMAT.format(date));
+            thisForm.setFollowUpDate(ConversionUtils.toDateString(date));
         } else {
             thisForm.setFollowUpDate("");
         }

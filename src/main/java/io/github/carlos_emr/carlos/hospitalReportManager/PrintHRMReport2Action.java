@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
@@ -97,6 +98,16 @@ public class PrintHRMReport2Action extends ActionSupport {
                 return NONE;
             }
 
+            // Decide for every requested report before a header is set or a file is made: one
+            // report filed to a patient this provider is locked out of refuses the whole request,
+            // so the answer is the 403 page and never a partial packet.
+            for (Integer hrmId : hrmIds) {
+                if (!HRMReportAccess.mayReadReport(securityInfoManager, hrmDocumentToDemographicDao, loggedInInfo, hrmId)) {
+                    logger.warn("Refused HRM PDF request: a requested report is filed to a patient the provider may not read");
+                    throw HRMReportAccess.denied();
+                }
+            }
+
             response.setContentType("application/pdf");  //octet-stream
             response.setHeader("Content-Disposition", "attachment; filename=\"HRMReport_"
                     + System.currentTimeMillis() + ".pdf\"");
@@ -130,7 +141,7 @@ public class PrintHRMReport2Action extends ActionSupport {
 
         } catch (SecurityException e) {
             throw e;
-        } catch (IOException | RuntimeException e) {
+        } catch (IOException | PDFGenerationException | RuntimeException e) {
             if (response.isCommitted()) {
                 // Once PDF bytes are committed, a follow-up error page would corrupt the stream;
                 // log the partial-response condition and let the direct-response action end.

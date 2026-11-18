@@ -43,12 +43,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mockStatic;
 
 /**
- * Executes the report index's shipped query definitions through the real legacy JDBC
- * boundary. The isolated database checks selection and binding together, rather than
- * accepting a mock that would also accept missing or misordered placeholders.
+ * Executes report-index selections through the real typed native DAOs.
+ * The isolated database checks selection and binding together, including provider
+ * scope and admission of SQL structure.
  *
  * @since 2026-10-25
  */
@@ -56,10 +57,20 @@ import static org.mockito.Mockito.mockStatic;
 @Tag("database")
 @Tag("query")
 class AppointmentMainBeanReportIntegrationTest {
-    private final AppointmentMainBean bean = new AppointmentMainBean();
+    private io.github.carlos_emr.carlos.test.base.NativeDaoTestDatabase nativeDatabase;
+    private io.github.carlos_emr.carlos.commn.dao.ProviderDataDao providers;
+    private io.github.carlos_emr.carlos.commn.dao.MyGroupDao groups;
     private Connection keeper;
     private MockedStatic<SpringUtils> spring;
     private JdbcTemplate jdbc;
+
+    @Test
+    void shouldRejectUnsafeDaySheetSort_beforePreparingNativeSql() {
+        var appointments = nativeDatabase.dao(io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDaoImpl.class);
+        assertThatThrownBy(() -> appointments.findDaySheet("2026-01-01", "2026-01-02", "09:00", "18:00",
+                null, false, "start_time; DELETE FROM appointment"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 
     @BeforeEach
     void createOwnedDatabase() throws Exception {
@@ -83,36 +94,15 @@ class AppointmentMainBeanReportIntegrationTest {
         jdbc.update("INSERT INTO waitingListName VALUES (1,'groupA','N'),(2,'groupA','Y'),(3,'groupB','N')");
         jdbc.update("INSERT INTO waitingListName VALUES (4,?,'N')", "groupA' OR '1'='1");
 
-        // Keep the production query definitions authoritative; no copies of their SQL
-        // or placeholder counts live in this fixture.
-        List<String[]> queries = new ArrayList<>();
-        for (String line : Files.readAllLines(Path.of("src/main/webapp/WEB-INF/jsp/report/reportMainBeanConn.jspf"))) {
-            String definition = line.strip();
-            if (!definition.startsWith("{\"")) continue;
-            int keyEnd = definition.indexOf('"', 2);
-            int sqlStart = definition.indexOf('"', keyEnd + 1) + 1;
-            int sqlEnd = definition.indexOf('"', sqlStart);
-            queries.add(new String[]{definition.substring(2, keyEnd), definition.substring(sqlStart, sqlEnd)});
-        }
-        assertThat(queries).extracting(definition -> definition[0]).contains(
-                "search_provider", "site_search_provider", "team_search_provider",
-                "search_group", "site_search_group", "search_waiting_list");
-        bean.doConfigure(queries.toArray(String[][]::new));
-        spring = mockStatic(SpringUtils.class);
-        spring.when(() -> SpringUtils.getBean(DataSource.class)).thenReturn(source);
+        nativeDatabase = new io.github.carlos_emr.carlos.test.base.NativeDaoTestDatabase(source);
+        providers = nativeDatabase.dao(io.github.carlos_emr.carlos.commn.dao.ProviderDataDaoImpl.class);
+        groups = nativeDatabase.dao(io.github.carlos_emr.carlos.commn.dao.MyGroupDaoImpl.class);
     }
 
     @AfterEach
     void closeOwnedDatabase() throws SQLException {
-        try {
-            LegacyJdbcQuery.releaseThreadResources();
-        } finally {
-            try {
-                if (spring != null) spring.close();
-            } finally {
-                if (keeper != null) keeper.close();
-            }
-        }
+        if (nativeDatabase != null) nativeDatabase.close();
+        if (keeper != null) keeper.close();
     }
 
     @Test
@@ -155,21 +145,18 @@ class AppointmentMainBeanReportIntegrationTest {
     }
 
     @Test
-    void shouldMatchOnlyTheExactActiveWaitingList_whenGroupContainsSqlSyntax() throws Exception {
-        assertThat(values("search_waiting_list", new String[]{"groupA"}, "ID")).containsExactly("1");
-        assertThat(values("search_waiting_list", new String[]{"groupA' OR '1'='1"}, "ID")).containsExactly("4");
-    }
-
-    @Test
     void shouldReturnNoSiteRows_whenTheBoundProviderIsNull() throws Exception {
         assertThat(values("site_search_provider", new String[]{null}, "provider_no")).isEmpty();
     }
 
     private List<String> values(String operation, String[] parameters, String column) throws Exception {
-        List<String> values = new ArrayList<>();
-        try (ResultSet rows = bean.queryResults(parameters, operation)) {
-            while (rows.next()) values.add(rows.getString(column));
+        if (operation.endsWith("group")) {
+            return groups.findReportGroups(parameters.length == 0 ? null : parameters[0], operation.startsWith("site_"));
         }
-        return values;
+        var scope = operation.startsWith("site_") ? io.github.carlos_emr.carlos.commn.dao.ProviderDataDao.ReportScope.SITE
+                : operation.startsWith("team_") ? io.github.carlos_emr.carlos.commn.dao.ProviderDataDao.ReportScope.TEAM
+                : io.github.carlos_emr.carlos.commn.dao.ProviderDataDao.ReportScope.ALL;
+        return providers.findReportChoices(parameters.length == 0 ? null : parameters[0], scope).stream()
+                .map(io.github.carlos_emr.carlos.commn.dao.ProviderDataDao.ReportChoice::providerNo).toList();
     }
 }

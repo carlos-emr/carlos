@@ -129,6 +129,66 @@ class EctMeasurements2ActionUnitTest extends CarlosUnitTestBase {
                 .contains("\"demographicNo\":\"123\"");
     }
 
+    /** One valid reading posted the way the Vitals group posts it. */
+    private void postReading(int index, String type, String value, String comment) {
+        request.setParameter("inputValue-" + index, value);
+        request.setParameter("inputType-" + index, type);
+        request.setParameter("inputTypeDisplayName-" + index, type);
+        request.setParameter("inputMInstrc-" + index, "NA");
+        request.setParameter("comments-" + index, comment);
+        request.setParameter("date-" + index, "2026-03-04");
+    }
+
+    @Test
+    @DisplayName("should audit each stored reading against the patient without its value or comment")
+    void shouldAuditEachStoredReadingAgainstThePatient_whenReadingsAreEntered() throws Exception {
+        io.github.carlos_emr.carlos.commn.dao.MeasurementDao measurements =
+                mock(io.github.carlos_emr.carlos.commn.dao.MeasurementDao.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.MeasurementDao.class, measurements);
+        java.util.concurrent.atomic.AtomicInteger nextId = new java.util.concurrent.atomic.AtomicInteger(700);
+        org.mockito.Mockito.doAnswer(call -> {
+            io.github.carlos_emr.carlos.commn.model.Measurement stored = call.getArgument(0);
+            org.springframework.test.util.ReflectionTestUtils.setField(stored, "id", nextId.incrementAndGet());
+            return null;
+        }).when(measurements).persist(any(io.github.carlos_emr.carlos.commn.model.Measurement.class));
+        request.getSession().setAttribute("user", "999998");
+        request.setRemoteAddr("192.0.2.7");
+        request.setParameter("demographicNo", "123");
+        request.setParameter("numType", "3");
+        request.setParameter("ajax", "true");
+        request.setParameter("skipCreateNote", "true");
+        postReading(0, "BP", "128/82", "FAKE-COMMENT after exertion");
+        postReading(1, "HR", "", "");
+        postReading(2, "TEMP", "37.1", "");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        // One row per reading stored (the empty HR box stores nothing), named by its id.
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog("999998",
+                io.github.carlos_emr.carlos.log.LogConst.ADD, io.github.carlos_emr.carlos.log.LogConst.CON_MEASUREMENT,
+                "701", "192.0.2.7", "123"));
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog("999998",
+                io.github.carlos_emr.carlos.log.LogConst.ADD, io.github.carlos_emr.carlos.log.LogConst.CON_MEASUREMENT,
+                "702", "192.0.2.7", "123"));
+        // Only that six-argument form: it has no data column for the value or the comment to land in.
+        logActionMock.verifyNoMoreInteractions();
+    }
+
+    @Test
+    @DisplayName("should not audit a reading when validation refuses the submission")
+    void shouldNotAudit_whenTheSubmissionIsInvalid() throws Exception {
+        request.setParameter("demographicNo", "123");
+        request.setParameter("numType", "1");
+        request.setParameter("ajax", "true");
+        postReading(0, "TEST", "1", "");
+        request.setParameter("date-0", "invalid-date");
+
+        action.execute();
+
+        logActionMock.verifyNoInteractions();
+    }
+
     private static final class TestableEctMeasurements2Action extends EctMeasurements2Action {
 
         @Override

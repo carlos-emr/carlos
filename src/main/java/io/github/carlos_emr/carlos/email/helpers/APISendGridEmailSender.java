@@ -21,7 +21,7 @@ import java.util.Objects;
 
 import javax.net.ssl.SSLContext;
 
-import org.apache.commons.codec.binary.Base64;
+import java.util.Base64;
 import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
@@ -381,7 +381,7 @@ public class APISendGridEmailSender implements OutboundEmailTransport {
                     throw new EmailSendingException("SendGrid attachments exceed the archive size limit.");
                 }
                 remainingBytes -= attachmentBytes.length;
-                jsonAttachment.put("content", Base64.encodeBase64String(attachmentBytes));
+                jsonAttachment.put("content", Base64.getEncoder().encodeToString(attachmentBytes));
                 jsonAttachment.put("filename", emailAttachment.getFileName());
                 String contentType = attachmentFileTypes.getContentType(emailAttachment.getFileName());
                 jsonAttachment.put("type", contentType);
@@ -399,7 +399,7 @@ public class APISendGridEmailSender implements OutboundEmailTransport {
                 throw new EmailSendingException("SendGrid attachments exceed the archive size limit.");
             }
             ObjectNode logo = objectMapper.createObjectNode();
-            logo.put("content", Base64.encodeBase64String(inlineImage.bytes()));
+            logo.put("content", Base64.getEncoder().encodeToString(inlineImage.bytes()));
             logo.put("filename", inlineImage.fileName());
             logo.put("type", inlineImage.contentType());
             logo.put("disposition", "inline");

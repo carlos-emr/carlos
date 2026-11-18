@@ -29,7 +29,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
-import java.sql.ResultSet;
 import java.util.Date;
 
 import org.apache.struts2.ServletActionContext;
@@ -40,6 +39,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.dao.DataAccessResourceFailureException;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
 
@@ -47,7 +48,8 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.commn.dao.BillingBCDao;
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -71,9 +73,9 @@ class ViewWCB2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockHttpServletRequest request;
     private MockedStatic<ServletActionContext> servlet;
-    private MockedStatic<LegacyJdbcQuery> jdbc;
     private DemographicManager demographics;
     private BillingmasterDAO billingmasterDao;
+    private ProviderDao providerDao;
 
     @BeforeEach
     void wire() throws Exception {
@@ -94,18 +96,15 @@ class ViewWCB2ActionUnitTest extends CarlosUnitTestBase {
         createAndRegisterMock(DiagnosticCodeDao.class);
         createAndRegisterMock(BillingBCDao.class);
 
-        // The billing provider's practitioner and payee numbers come from a plain JDBC lookup.
-        ResultSet provider = mock(ResultSet.class);
-        when(provider.next()).thenReturn(true);
-        when(provider.getString("ohip_no")).thenReturn("91234");
-        when(provider.getString("billing_no")).thenReturn("81234");
-        jdbc = mockStatic(LegacyJdbcQuery.class);
-        jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(anyString(), eq(PROVIDER))).thenReturn(provider);
+        Provider provider = new Provider();
+        provider.setOhipNo("91234");
+        provider.setBillingNo("81234");
+        providerDao = createAndRegisterMock(ProviderDao.class);
+        when(providerDao.getProvider(PROVIDER)).thenReturn(provider);
     }
 
     @AfterEach
     void close() {
-        jdbc.close();
         servlet.close();
     }
 
@@ -168,6 +167,22 @@ class ViewWCB2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(form.getW_postal()).isEmpty();
         assertThat(form.getW_lname()).isEqualTo("FAKE-PW-test");
+    }
+
+    @Test
+    void shouldStillRenderPatientDetails_whenProviderLookupFails() {
+        patient("V6B 1A1");
+        when(providerDao.getProvider(PROVIDER)).thenThrow(
+                new DataAccessResourceFailureException("synthetic sensitive query detail"));
+        try (LogCapture logs = LogCapture.forLogger(ViewWCB2Action.class)) {
+            WCBForm form = open("0");
+            assertThat(form.getW_lname()).isEqualTo("FAKE-PW-test");
+            assertThat(form.getProviderNo()).isEqualTo(PROVIDER);
+            assertThat(form.getW_pracno()).isNullOrEmpty();
+            assertThat(form.getW_payeeno()).isNullOrEmpty();
+            assertThat(logs.messages()).containsExactly("Unable to retrieve WCB provider billing details");
+            assertThat(logs.events()).allSatisfy(event -> assertThat(event.getThrown()).isNull());
+        }
     }
 
     @Test

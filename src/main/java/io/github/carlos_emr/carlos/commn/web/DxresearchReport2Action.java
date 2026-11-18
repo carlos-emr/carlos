@@ -29,9 +29,11 @@
 package io.github.carlos_emr.carlos.commn.web;
 
 import java.io.IOException;
-import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import io.github.carlos_emr.carlos.report.export.DxResearchExcel;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -39,7 +41,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -53,7 +54,6 @@ import io.github.carlos_emr.carlos.managers.CodingSystemManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarDocumentCreator;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxCodeSearchBean;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListBeanHandler;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListItemsHandler;
@@ -75,13 +75,13 @@ public class DxresearchReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    private static final String LIST_VIEW = "listview";
     private final static String SUCCESS = "success";
     private final static String EDIT_DESC = "editdesc";
     /** The {@code method} value that writes a code description; POST only. */
     static final String EDIT_DESC_METHOD = "editDesc";
     private DxresearchDAO dxresearchdao = SpringUtils.getBean(DxresearchDAO.class);
     private MyGroupDao mygroupdao = SpringUtils.getBean(MyGroupDao.class);
-    private static final String REPORTS_PATH = "org/oscarehr/common/web/DxResearchReport.jrxml";
 
     /**
      * Allowlist of valid values for the {@code radiovaluestatus} session attribute.
@@ -217,7 +217,7 @@ public class DxresearchReport2Action extends ActionSupport {
      *
      * @return the handler's result; {@code success} renders {@code oscarReportDxReg.jsp}
      */
-    private String dispatch(String method) {
+    private String dispatch(String method) throws IOException {
         if ("patientRegistedAll".equals(method)) {
             return patientRegistedAll();
         } else if ("patientExcelReport".equals(method)) {
@@ -240,7 +240,7 @@ public class DxresearchReport2Action extends ActionSupport {
             return getQuickListName();
         }
 
-        request.getSession().setAttribute("listview", new DxRegistedPTInfo()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- new empty DxRegistedPTInfo object, no user input
+        request.getSession().setAttribute(LIST_VIEW, new ArrayList<DxRegistedPTInfo>()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- new empty result list; the page iterates it with <c:forEach>, which rejects a lone bean (former displaytag placeholder DxRegistedPTInfo object, no user input
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
         request.getSession().setAttribute("codingSystem", codingSys); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- new coding system reference object, no user input
         // Whitelist-validate the existing session value before writing it back (CWE-501).
@@ -265,7 +265,7 @@ public class DxresearchReport2Action extends ActionSupport {
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedAll(codeSearch, providerNoList);
-        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- provider_no validated by getValidatedProviderNoList(); patientInfo is DAO query result
+        request.getSession().setAttribute(LIST_VIEW, patientInfo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- provider_no validated by getValidatedProviderNoList(); patientInfo is DAO query result
         if (patientInfo == null || patientInfo.size() == 0) {
             request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- hardcoded integer
         } else
@@ -274,38 +274,56 @@ public class DxresearchReport2Action extends ActionSupport {
         return SUCCESS;
     }
 
-    public String patientExcelReport() {
-        String providerNo = getValidatedProviderNo();
-        if (providerNo == null) {
-            return ERROR;
+    /**
+     * Downloads the session's Dx Research patient list as a completed XLSX file.
+     * Invalid provider/session parameters return HTTP 400; generation failures return HTTP 500
+     * before an attachment is sent. The action's entry point retains the report privilege check.
+     *
+     * @return String {@link #NONE}, because the response is written directly or an HTTP error is sent
+     * @throws IOException if the servlet container cannot send an error response
+     */
+    public String patientExcelReport() throws IOException {
+        if (getValidatedProviderNo() == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
-
-        ServletOutputStream outputStream = getServletOstream(response);
-
-        List<DxRegistedPTInfo> patients = null;
-
-        if (request.getSession().getAttribute("listview").getClass().getCanonicalName().contains("ArrayList")) {
-            patients = (List<DxRegistedPTInfo>) request.getSession().getAttribute("listview");
-        } else if (request.getSession().getAttribute("listview").getClass().getCanonicalName().contains("DxRegistedPTInfo")) {
-            patients = new ArrayList<DxRegistedPTInfo>();
-            DxRegistedPTInfo info = (DxRegistedPTInfo) request.getSession().getAttribute("listview");
-            patients.add(info);
+        Path file = null;
+        try {
+            Object value = request.getSession().getAttribute(LIST_VIEW);
+            List<DxRegistedPTInfo> patients;
+            if (value instanceof List<?> list) {
+                patients = new ArrayList<>();
+                for (Object patient : list) patients.add((DxRegistedPTInfo) patient);
+            } else if (value instanceof DxRegistedPTInfo patient) {
+                patients = List.of(patient);
+            } else {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+            file = io.github.carlos_emr.carlos.utility.PathValidationUtils
+                    .createSecureTempFile("carlos-dx-export-", ".xlsx").toPath();
+            try (OutputStream output = Files.newOutputStream(file)) {
+                DxResearchExcel.write(output, patients);
+            }
+            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            response.setHeader("Content-disposition", "attachment; filename=dxResearchReport.xlsx");
+            response.setContentLengthLong(Files.size(file));
+            Files.copy(file, response.getOutputStream());
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Dx Research Excel export failed ({})", e.getClass().getName());
+            if (!response.isCommitted()) {
+                response.reset();
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
+        } finally {
+            if (file != null) {
+                try {
+                    Files.deleteIfExists(file);
+                } catch (IOException cleanupError) {
+                    MiscUtils.getLogger().warn("Could not remove temporary export file");
+                }
+            }
         }
-
-        String mode = (String) request.getSession().getAttribute("radiovaluestatus");
-
-        OscarDocumentCreator osc = new OscarDocumentCreator();
-        HashMap<String, String> reportParams = new HashMap<String, String>();
-        reportParams.put("providers", providerNo);
-        reportParams.put("mode", mode);
-
-        InputStream reportInstream = this.getClass().getClassLoader().getResourceAsStream(REPORTS_PATH);
-
-        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        response.setHeader("Content-disposition", "attachment; filename=dxResearchReport.xlsx");
-
-        osc.fillDocumentStream(reportParams, outputStream, OscarDocumentCreator.EXCEL, reportInstream, patients);
-
         return NONE;
     }
 
@@ -318,23 +336,13 @@ public class DxresearchReport2Action extends ActionSupport {
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedDistincted(codeSearch, providerNoList);
-        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- provider_no validated; values are DAO results
+        request.getSession().setAttribute(LIST_VIEW, patientInfo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- provider_no validated; values are DAO results
         if (patientInfo == null || patientInfo.size() == 0) {
             request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- hardcoded integer
         } else
             request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- integer derived from list size
         request.getSession().setAttribute("radiovaluestatus", "patientRegistedDistincted"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- hardcoded string literal
         return SUCCESS;
-    }
-
-    protected ServletOutputStream getServletOstream(HttpServletResponse response) {
-        ServletOutputStream outputStream = null;
-        try {
-            outputStream = response.getOutputStream();
-        } catch (IOException ex) {
-            MiscUtils.getLogger().warn("Warning", ex);
-        }
-        return outputStream;
     }
 
     public String patientRegistedDeleted() {
@@ -346,7 +354,7 @@ public class DxresearchReport2Action extends ActionSupport {
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedDeleted(codeSearch, providerNoList);
-        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- provider_no validated; values are DAO results
+        request.getSession().setAttribute(LIST_VIEW, patientInfo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- provider_no validated; values are DAO results
         if (patientInfo == null || patientInfo.size() == 0) {
             request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- hardcoded integer
         } else
@@ -364,7 +372,7 @@ public class DxresearchReport2Action extends ActionSupport {
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedActive(codeSearch, providerNoList);
-        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- provider_no validated; values are DAO results
+        request.getSession().setAttribute(LIST_VIEW, patientInfo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- provider_no validated; values are DAO results
         if (patientInfo == null || patientInfo.size() == 0) {
             request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- hardcoded integer
         } else
@@ -382,7 +390,7 @@ public class DxresearchReport2Action extends ActionSupport {
 
         List codeSearch = (List) request.getSession().getAttribute("codeSearch");
         List patientInfo = dxresearchdao.patientRegistedResolve(codeSearch, providerNoList);
-        request.getSession().setAttribute("listview", patientInfo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- provider_no validated; values are DAO results
+        request.getSession().setAttribute(LIST_VIEW, patientInfo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- provider_no validated; values are DAO results
         if (patientInfo == null || patientInfo.size() == 0) {
             request.getSession().setAttribute("Counter", 0); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- hardcoded integer
         } else

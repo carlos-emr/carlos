@@ -28,14 +28,13 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
-const crypto = require('node:crypto');
 const { readNativeClinicianCredentials, validateNativeImportedCredentials, proveNativeClinicianLogin, redactNativeAuthError } = require('./lib/o19-native-auth');
 const clinician = { userName: 'SyntheticClinician', pin: '1234' };
 const credentials = { user: clinician.userName, password: 'Public-Synthetic-Legacy!', pin: clinician.pin };
-// Builds the OSCAR 19 signed-decimal SHA-1 representation the helper verifies, for a public synthetic fixture.
-// codeql[js/insufficient-password-hash] -- reproduces the imported legacy format under test; nothing is stored.
-function legacy(password) { return Array.from(crypto.createHash('sha1').update(password).digest(), x => String(x < 128 ? x : x - 256)).join(''); } // nosemgrep: javascript.node-stdlib.cryptography.crypto-weak-algorithm.crypto-weak-algorithm -- legacy format fixture
-function initial(change = {}) { return { userName: clinician.userName, password: legacy(credentials.password), forcePasswordReset: '1', ...change }; }
+// Fixed public OSCAR 19 signed-decimal SHA-1 vector. Keeping the carried value
+// independent of the helper also verifies its legacy-format conversion.
+const legacyPasswordFixture = '-919-10510411573-8311-106-8664-4367779-237-121-113-88';
+function initial(change = {}) { return { userName: clinician.userName, password: legacyPasswordFixture, forcePasswordReset: '1', ...change }; }
 const adminRow = { forcePasswordReset: '1' };
 function fixture(t, contents = JSON.stringify(credentials)) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-o19-native-auth-'));
@@ -94,15 +93,17 @@ test('failed reset, fresh login or old-password refusal cannot yield native proo
 function loadDriver(native) {
   const queries = [], logs = [];
   const filename = path.join(__dirname, 'o19-migrated-smoke-playwright-checks.js');
-  let code = fs.readFileSync(filename, 'utf8'); const marker = '(async () => {';
-  code = code.slice(0, code.indexOf(marker));
+  let code = fs.readFileSync(filename, 'utf8'); const marker = '\nlegacyHarness.runLegacyCheck(';
+  const cut = code.indexOf(marker);
+  assert.ok(cut > 0, 'The driver entry-point anchor moved');
+  code = code.slice(0, cut);
   code += '\nmodule.exports = { restoreSecurityRows, restorePoints };';
   const sandbox = { module: { exports: {} }, URL, URLSearchParams,
     console: { log: (...v) => logs.push(v.join(' ')), error: () => {} },
     process: { env: native ? { O19_NATIVE_CLINICIAN_CREDENTIALS: '/private/native.json' } : {}, on: () => {}, getuid: () => process.getuid() },
     require: name => {
       if (name === 'playwright') return { chromium: {} };
-      if (name === './lib/playwright-harness') return { shouldIgnoreHttpsErrors: () => true, EXIT_SKIP: 2 };
+      if (name === './lib/playwright-harness') return { ...require('./lib/playwright-harness'), shouldIgnoreHttpsErrors: () => true, EXIT_SKIP: 2 };
       if (name === './lib/o19-native-auth') return require('./lib/o19-native-auth');
       if (name === './lib/deb-login-navigation') return {};
       if (name === 'child_process') return { execFileSync: (cmd, args, options) => { queries.push(args.at(-1)); return ''; } };
@@ -132,13 +133,14 @@ test('native file or require-native mode refuses absent genuine P4 credentials b
   for (const native of [{ O19_REQUIRE_NATIVE_AUTH: 'true' }, { O19_NATIVE_CLINICIAN_CREDENTIALS: fixture(t) }]) {
     const exits = [], queries = [], browserCalls = [];
     const filename = path.join(__dirname, 'o19-migrated-smoke-playwright-checks.js');
-    const code = fs.readFileSync(filename, 'utf8').replace('(async () => {', 'module.exports.mainPromise = (async () => {');
+    const code = fs.readFileSync(filename, 'utf8').replace('legacyHarness.runLegacyCheck(', 'module.exports.mainPromise = legacyHarness.runLegacyCheck(');
     const sandbox = { module: { exports: {} }, URL, URLSearchParams,
       console: { log: () => {}, error: () => {} },
       process: { env: { ...native, O19_ADMIN_CREDENTIALS: fixture(t) + '.missing' }, on: () => {}, getuid: () => process.getuid(), exit: code => exits.push(code) },
       require: name => {
+        if(name==='./lib/legacy-check')return {...require('./lib/legacy-check'),runLegacyCheck:(_name,operation)=>operation({})};
         if (name === 'playwright') return { chromium: { launch: () => { browserCalls.push(1); throw new Error('Browser must not launch'); } } };
-        if (name === './lib/playwright-harness') return { shouldIgnoreHttpsErrors: () => true, EXIT_SKIP: 2 };
+        if (name === './lib/playwright-harness') return { ...require('./lib/playwright-harness'), shouldIgnoreHttpsErrors: () => true, EXIT_SKIP: 2 };
         if (name === './lib/o19-native-auth') return require('./lib/o19-native-auth');
         if (name === './lib/deb-login-navigation') return {};
         if (name === 'child_process') return { execFileSync: () => { queries.push(1); throw new Error('SQL must not execute'); } };
@@ -146,7 +148,7 @@ test('native file or require-native mode refuses absent genuine P4 credentials b
       } };
     vm.runInNewContext(code, sandbox, { filename });
     await sandbox.module.exports.mainPromise;
-    assert.deepEqual(exits, [1]); assert.deepEqual(queries, []); assert.deepEqual(browserCalls, []);
+    assert.deepEqual(exits, []); assert.equal(sandbox.process.exitCode,1); assert.deepEqual(queries, []); assert.deepEqual(browserCalls, []);
     assert.notEqual(sandbox.process.exitCode, 2);
   }
 });

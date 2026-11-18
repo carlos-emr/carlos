@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * Modifications by CARLOS Contributors, 2026.
  *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -16,19 +17,23 @@ const test = require('node:test');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const {documentReferenceColumns, planDocumentFixtureId, assertSplitFixtureId} = require('./lib/document-fixture-allocation');
+const {PROVIDER_LINKING_RULES_LOCK, documentReferenceColumns, planDocumentFixtureId, assertSplitFixtureId} = require('./lib/document-fixture-allocation');
 const {createStoredDocumentFixture} = require('./lib/stored-document-mutation-fixture');
 
 function database({inventory = [['document', 'document_no', '0']], values = {}, next = '22', overrideMaximum} = {}) {
   const queries = [];
-  const scopeValues = (table, column, where) => values[`${table}.${column}:${where}`] || values[`${table}.${column}`] || [];
+  const scopeValues = (table, column, where) => {
+    const rows = values[`${table}.${column}:${where}`] || values[`${table}.${column}`] || [];
+    return /CAST\(lab_no AS CHAR\) <> '-2147483648'/.test(where)
+      ? rows.filter(value => value !== PROVIDER_LINKING_RULES_LOCK) : rows;
+  };
   const sql = {
     rows(query) {queries.push(query); assert(query.includes('information_schema.COLUMNS c')); return structuredClone(inventory);},
     value(query) {
       queries.push(query);
       if (query.startsWith('SELECT AUTO_INCREMENT')) return next;
       if (query.includes('NOT REGEXP')) {
-        const [, table, where, column] = /FROM `([^`]+)` WHERE \(([^)]+)\) AND `([^`]+)` IS NOT NULL/.exec(query);
+        const [, table, where, column] = /FROM `([^`]+)` WHERE \((.+)\) AND `([^`]+)` IS NOT NULL/.exec(query);
         return String(scopeValues(table, column, where).filter(value => value !== null && !/^\d+$/.test(value)).length);
       }
       // The model distinguishes numeric MAX(CAST(...)) from incorrect lexical MAX(...).
@@ -73,10 +78,34 @@ test('declared unusual-column foreign keys and duplicate metadata rows remain in
 
 for (const [table, column, where] of [
   ['providerLabRouting', 'lab_no', "lab_type='DOC'"], ['patientLabRouting', 'lab_no', "lab_type='DOC'"],
-  ['providerLabRoutingLock', 'lab_no', '1'], ['casemgmt_note_link', 'table_id', 'table_name=5'],
+  ['providerLabRoutingLock', 'lab_no', `BINARY CAST(lab_no AS CHAR) <> '${PROVIDER_LINKING_RULES_LOCK}'`], ['casemgmt_note_link', 'table_id', 'table_name=5'],
 ]) test(`semantic ${table} references reserve their real document scope`, () => {
   const {sql} = database({values: {[`${table}.${column}:${where}`]: ['6000']}});
   assert.equal(planDocumentFixtureId(sql).sourceId, '6001');
+});
+
+test('the exact global provider-linking sentinel does not reserve an unsigned document identity', () => {
+  const values = {'providerLabRoutingLock.lab_no': [PROVIDER_LINKING_RULES_LOCK, '6000']};
+  const before = structuredClone(values);
+  assert.equal(planDocumentFixtureId(database({values}).sql).sourceId, '6001');
+  assert.equal(planDocumentFixtureId(database({values: {'providerLabRoutingLock.lab_no': [PROVIDER_LINKING_RULES_LOCK]}}).sql).sourceId, '22');
+  assert.deepEqual(values, before, 'Allocation must not delete or change the global lock');
+  const dao = fs.readFileSync(path.join(__dirname, '../src/main/java/io/github/carlos_emr/carlos/commn/dao/ProviderLabRoutingDao.java'), 'utf8');
+  assert.match(dao, /PROVIDER_LINKING_RULES_LOCK\s*=\s*Integer\.MIN_VALUE\s*;/,
+    'Review the harness sentinel exception if the application constant changes');
+  assert.equal(PROVIDER_LINKING_RULES_LOCK, String(-(2 ** 31)));
+});
+
+for (const invalid of ['-1', '-2147483647', '-2147483648-other', '-02147483648', '-2147483648 ', ' -2147483648', '2.5', '']) {
+  test(`the global-lock exception still refuses unfamiliar lock value ${JSON.stringify(invalid)}`, () => {
+    assert.throws(() => planDocumentFixtureId(database({values: {'providerLabRoutingLock.lab_no': [PROVIDER_LINKING_RULES_LOCK, invalid]}}).sql),
+      /Unfamiliar document reference value/);
+  });
+}
+
+test('the global-lock exception never excuses a negative identity in another document reference', () => {
+  assert.throws(() => planDocumentFixtureId(database({values: {'document.document_no': [PROVIDER_LINKING_RULES_LOCK]}}).sql),
+    /Unfamiliar document reference value/);
 });
 
 test('textual numeric identities use numeric maximum rather than lexical9 before100', () => {
@@ -130,7 +159,17 @@ test('schema read errors propagate without a fallback allocator', () => {
   assert.throws(() => documentReferenceColumns({rows() {throw error;}}), error);
 });
 
-test('exhausted allocation refuses the real fixture before creating a document file or INSERT', () => {
+test('remote resource log keys do not allocate local document IDs; declared FKs still count', () => {
+  const inventory = [['RemoteDataLog', 'documentId', '0'], ['document', 'document_no', '0']];
+  const {sql} = database({inventory, values: {'RemoteDataLog.documentId': ['server:message:1234']}});
+  assert.equal(planDocumentFixtureId(sql).sourceId, '22');
+  assert.equal(planDocumentFixtureId(database({inventory: [['RemoteDataLog', 'documentId', '1']],
+    values: {'RemoteDataLog.documentId': ['6000']}}).sql).sourceId, '6001');
+  assert.throws(() => planDocumentFixtureId(database({inventory: [['other', 'documentId', '0']],
+    values: {'other.documentId': ['server:message:1234']}}).sql), /other.documentId/);
+});
+
+test('exhausted allocation refuses the real fixture before creating a document file or INSERT', async () => {
   const store = fs.mkdtempSync(path.join(os.tmpdir(), 'document-allocation-refusal-'));
   const saved = Object.fromEntries(['DOCUMENT_DIR', 'RX_FAX_DOCUMENT_DIR'].map(key => [key, process.env[key]]));
   process.env.DOCUMENT_DIR = store; delete process.env.RX_FAX_DOCUMENT_DIR;
@@ -146,6 +185,7 @@ test('exhausted allocation refuses the real fixture before creating a document f
     assert.throws(() => createStoredDocumentFixture({sql: modeled.sql, patient: '123', provider: '999998',
       marker: 'FAKE-PW1234567890abcdef', cleanup(callback) {callbacks.push(callback);}}, '10'), /No safe document identity range/);
     assert.equal(callbacks.length, 1, 'Durable cleanup registration still precedes setup');
+    await callbacks[0](); // No writes means no journal/browser-drain recovery is needed.
     assert.deepEqual(fs.readdirSync(store), []);
   } finally {
     for (const [key, value] of Object.entries(saved)) {if (value === undefined) delete process.env[key]; else process.env[key] = value;}

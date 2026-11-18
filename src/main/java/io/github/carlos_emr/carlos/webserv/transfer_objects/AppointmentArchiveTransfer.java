@@ -89,6 +89,9 @@ public final class AppointmentArchiveTransfer {
         this.providerNo = providerNo;
     }
 
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapter.class)
     public Calendar getAppointmentStartDateTime() {
         return (appointmentStartDateTime);
     }
@@ -97,6 +100,9 @@ public final class AppointmentArchiveTransfer {
         this.appointmentStartDateTime = appointmentStartDateTime;
     }
 
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapter.class)
     public Calendar getAppointmentEndDateTime() {
         return (appointmentEndDateTime);
     }
@@ -155,11 +161,15 @@ public final class AppointmentArchiveTransfer {
 
     /**
      * Gets the Location List item the appointment was booked with; {@link #getLocation()} holds
-     * that item's label as it was at booking. Read-only for SOAP clients.
+     * that item's label as it was at booking. The location label is the published SOAP contract; the lookup id is Java/JSON metadata.
      *
      * @return Integer the LookupListItem id, or null when no item was chosen
      * @since 2026-11-04
      */
+    // Existing strict SOAP clients validate against schemas without this lookup metadata.
+    // Keep the booking-time label in location and retain the lookup id for Java/JSON callers.
+    @jakarta.xml.bind.annotation.XmlTransient
+    @com.fasterxml.jackson.annotation.JsonIgnore(false)
     public Integer getLocationCode() {
         return locationCode;
     }
@@ -214,6 +224,9 @@ public final class AppointmentArchiveTransfer {
         this.status = status;
     }
 
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapter.class)
     public Calendar getCreateDateTime() {
         return (createDateTime);
     }
@@ -222,6 +235,9 @@ public final class AppointmentArchiveTransfer {
         this.createDateTime = createDateTime;
     }
 
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapter.class)
     public Calendar getUpdateDateTime() {
         return (updateDateTime);
     }

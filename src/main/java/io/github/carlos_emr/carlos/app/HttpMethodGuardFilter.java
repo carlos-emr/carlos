@@ -108,6 +108,7 @@ public class HttpMethodGuardFilter implements Filter {
      * mapped to non-matching URL action names.</p>
      */
     private static final Set<String> MUTATOR_ACTION_NAMES = Set.of(
+            "editform",               // HtmlEdit2Action saves eForm templates; its view is efmformmanageredit.
             "billingaddcode",         // BillingAddCode2Action (starts with "billing", not "add")
             // reprocessBill (BC) is dual-purpose too: GET opens Bill Status or a bill's adjust page,
             // which is how every menu, list and Edit link reaches them. BillingReProcessBill2Action
@@ -178,6 +179,7 @@ public class HttpMethodGuardFilter implements Filter {
      * bare GET (opening the page, filtering a list) still passes.</p>
      */
     public static final Map<String, Set<String>> MUTATION_INTENT_PARAMS_BY_ROUTE = Map.of(
+            "/rx/favoriteGroups", Set.of("command"),
             // providerPrivilege.jsp: submit=Add|Delete writes a privilege row, buttonUpdate merges one.
             "/admin/ProviderPrivilege", Set.of("submit", "buttonUpdate"),
             // providerRole.jsp: submit (a localized Add or Delete), buttonUpdate and
@@ -193,7 +195,10 @@ public class HttpMethodGuardFilter implements Filter {
             // Appointment Settings > Locations: every change names its dispatch; the page opens without one
             // (#3982). The Statuses tab is not listed: its menu link and old bookmarks open it with
             // dispatch=view|modify, so AppointmentStatus2Action refuses GET for its writes by value.
-            "/appointment/apptLocationSetting", Set.of("dispatch")
+            "/appointment/apptLocationSetting", Set.of("dispatch"),
+            // Key Pair Creation: a request naming a service (name) stores a key pair; Create New Key
+            // opens the page without one (#6055).
+            "/admin/ViewKeygenCreateKey", Set.of("name")
     );
 
     /** {@link #MUTATION_INTENT_PARAMS_BY_ROUTE} with every path and name lowercased, for lookup. */

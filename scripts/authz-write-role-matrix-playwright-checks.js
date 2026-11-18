@@ -26,7 +26,7 @@
  *      role has no Search and its day sheet offers no M or E link, so the Master Record is opened at
  *      its address (a read the role holds) and the chart from its E-Chart link. The chart's Bill
  *      button sits in the note toolbar, which is not rendered at all for a role without note rights
- *      (ChartNotes.jsp:106-109), so this role cannot show whether Bill is hidden; the chart-bill mode
+ *      (ChartNotes.jsp:110-113), so this role cannot show whether Bill is hidden; the chart-bill mode
  *      below judges it;
  *   4. for tickler add, Rx Save, allergy add, demographic update, provider update, chart note save
  *      and the Ontario bill save: the full login's UI write lands; the replay with the restricted
@@ -138,12 +138,16 @@ async function navbarSettled(chart) {
 
 /**
  * The chart's notes panel (ChartNotes.jsp, loaded after the page) has answered: either its note
- * toolbar is on the page (the Save button, #saveImg) or it rendered the securityError refusal
- * (ChartNotes.jsp:106-109 for a role without `_casemgmt.notes`). Read before the toolbar is
- * judged, so a panel that is still loading is never taken for an absent toolbar.
+ * toolbar is on the page (the Save button, #saveImg) or the panel was refused for a role without
+ * `_casemgmt.notes`. A refusal shows in one of two ways. The chart loader keeps the existing
+ * content and adds a `data-carlos-load-error` alert under #notCPP (newCaseManagementView.js.jsp,
+ * showChartLoadError, since #6103); an older loader wrote the securityError page into the panel.
+ * Read before the toolbar is judged, so a panel that is still loading is never taken for an
+ * absent toolbar.
  */
 async function notesPanelSettled(chart) {
   await chart.waitForFunction(() => !!document.querySelector('#saveImg')
+    || !!document.querySelector('#notCPP [data-carlos-load-error]')
     || /Security Exception/i.test(document.body ? document.body.innerText : ''), undefined, { timeout: TIMEOUT });
 }
 
@@ -275,9 +279,9 @@ async function issueChange(s, { restricted, restrictedToken, fullToken, name, ca
     reseed();
     const response = await R.sendReplay(s.context, replay(fullToken));
     h.assert(!h.isWafPage(response.status(), await response.text().catch(() => '')), 'The full login\'s replay was refused by the WAF front door, so it proves nothing about the request');
-    // The full login's editor still holds the issue as resolved (its own click above), and an
-    // issue change saves that editor's copy of the issue with the one attribute set.
-    await R.expectCount(sql, 'casemgmt_issue', `id=${issueRow} AND resolved=1 AND major=1`, 1,
+    // The editor still shows Resolved, but the reseed changed that stored flag back to false.
+    // A Major-only request must preserve that newer state.
+    await R.expectCount(sql, 'casemgmt_issue', `id=${issueRow} AND resolved=0 AND major=1`, 1,
       `The same issueChange sent by the full login (HTTP ${response.status()}) did not write, so the replay is not a request the application accepts`);
     reseed();
   });
@@ -431,7 +435,7 @@ async function workflow(s, { mode, only, name } = selection()) {
       + `${settled.failed.length ? `; navbar modules that failed for this role: ${settled.failed.join(', ')}` : ''}`);
     if (offers.toolbar === 0) {
       console.log(`  NOTE ${name}: Bill not judged here: the chart renders no note toolbar for a role without note rights `
-        + '(ChartNotes.jsp:106-109); authz-write-chart-bill judges it with read-only note rights');
+        + '(ChartNotes.jsp:110-113); authz-write-chart-bill judges it with read-only note rights');
     }
   });
 

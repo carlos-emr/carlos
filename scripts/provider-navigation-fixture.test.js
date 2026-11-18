@@ -22,11 +22,11 @@ for (const [label, before, after] of [
   ['duplicate identity', [], [row(3, 'cpp_single_line', 'no'), row(3, 'cpp_single_line', 'no')]],
 ]) test(`refuses all cleanup after ${label}`, () => assert.throws(() => validate(before, after), /refusing cleanup|Duplicate/));
 
-function fixtureSql(name = 'schedule-links') {
+function fixtureSql(name = 'schedule-links', property = [row(3, 'cpp_single_line', null)]) {
   const schemas = {property: columns, ProviderPreference: ['providerNo', 'myGroupNo', 'lastUpdated'],
     ProviderPreferenceAppointmentScreenForm: ['providerNo', 'appointmentScreenForm'],
     ProviderPreferenceAppointmentScreenEForm: ['providerNo', 'appointmentScreenEForm', 'eFormName']};
-  const baseline = {property: [row(3, 'cpp_single_line', null)],
+  const baseline = {property,
     ProviderPreference: [['999998', 'original', '2026-01-02 03:04:05'].map(hex)],
     ProviderPreferenceAppointmentScreenForm: [['999998', 'existing form'].map(hex)],
     ProviderPreferenceAppointmentScreenEForm: [['999998', 17, "O'Neil"].map(hex)]};
@@ -44,7 +44,10 @@ function fixtureSql(name = 'schedule-links') {
     execute(query) { writes.push(query); current = structuredClone(baseline); },
   };
   const fixture = providerNavigationFixture(sql, 'fixture', name);
-  return {fixture, writes, reads, tamper() { current.ProviderPreference[0][0] = hex('77'); },
+  return {fixture, writes, reads, queueDefault(value = '1') { current.property = [row(8, 'incoming_document_default_queue', value)]; },
+    entryMode() { current.property = [row(8, 'incoming_document_entry_mode', 'Normal')]; },
+    viewMode(value = 'Pdf') { current.property = [row(8, 'view_document_as', value)]; },
+    tamper() { current.ProviderPreference[0][0] = hex('77'); },
     addForm() { current.ProviderPreferenceAppointmentScreenForm.push(['999998', 'unexpected form'].map(hex)); }, change(group = '123456') {
     current.property = [row(3, 'cpp_single_line', 'no'), row(6, 'incoming_document_default_queue', '1')];
     current.ProviderPreference[0][1] = hex(group);
@@ -102,6 +105,71 @@ test('Inboxhub-only checks preserve only the queue property and do not inspect p
   assert.ok(f.reads.every(query => !query.includes('ProviderPreference')));
   assert.match(f.reads.find(query => query.startsWith('SELECT JSON_ARRAY')), /name IN \('incoming_document_default_queue'\)/);
 });
+
+for (const name of ['inboxhub-filters', 'inbox-document-dates', 'xss-poison-documents-inbox',
+  'inbox-file-forward', 'inbox-acknowledge-per-provider', 'document-viewer-review-actions', 'document-format-matrix']) {
+  test(`${name} removes only the owned queue preference initialized by its first Inbox visit`, () => {
+    const f = fixtureSql(name, []);
+    f.queueDefault(); f.fixture.cleanup();
+    assert.equal(f.writes.length, 1);
+    assert.match(f.writes[0], /DELETE FROM property[^;]*id=UNHEX\('38'\)/);
+    assert.match(f.writes[0], /WHERE BINARY `provider_no`=BINARY '999998' AND name IN \('incoming_document_default_queue'\)/);
+    assert.ok(f.reads.every(query => !query.includes('ProviderPreference')));
+    f.fixture.cleanup();
+    assert.equal(f.writes.length, 1, 'cleanup must remain idempotent');
+  });
+  test(`${name} restores a preexisting NULL queue preference without deleting its identity`, () => {
+    const f = fixtureSql(name, [row(8, 'incoming_document_default_queue', null)]);
+    f.queueDefault(); f.fixture.cleanup();
+    assert.match(f.writes[0], /UPDATE property SET value=NULL[^;]*id=UNHEX\('38'\)/);
+    assert.doesNotMatch(f.writes[0], /DELETE FROM property/);
+  });
+  test(`${name} refuses cleanup of an unexpected queue change`, () => {
+    const f = fixtureSql(name, []);
+    f.queueDefault('2');
+    assert.throws(() => f.fixture.cleanup(), /Unexpected navigation property change/);
+    assert.equal(f.writes.length, 0);
+  });
+}
+
+test('the MRP filing check removes a first-read Normal entry mode without touching other preferences', () => {
+  const f = fixtureSql('incoming-docs-delete-pdf-mrp', []);
+  f.entryMode(); f.fixture.cleanup();
+  assert.equal(f.writes.length, 1);
+  assert.match(f.writes[0], /name IN \('incoming_document_default_queue','incoming_document_entry_mode','view_document_as'\)/);
+  assert.match(f.writes[0], /DELETE FROM property[^;]*id=UNHEX\('38'\)/);
+  assert.ok(f.reads.every(query => !query.includes('ProviderPreference')));
+});
+
+test('the MRP filing check restores a NULL entry mode in place after the native default is saved', () => {
+  const f = fixtureSql('incoming-docs-delete-pdf-mrp', [row(8, 'incoming_document_entry_mode', null)]);
+  f.entryMode(); f.fixture.cleanup();
+  assert.equal(f.writes.length, 1);
+  assert.match(f.writes[0], /UPDATE property SET value=NULL[^;]*id=UNHEX\('38'\)/);
+  assert.doesNotMatch(f.writes[0], /DELETE FROM property/);
+});
+
+for (const name of ['incoming-docs-delete-pdf-mrp', 'incoming-docs-quick-pick-filing']) {
+  test(`${name} removes an initially absent PDF view preference`, () => {
+    const f = fixtureSql(name, []);
+    f.viewMode(); f.fixture.cleanup();
+    assert.equal(f.writes.length, 1);
+    assert.match(f.writes[0], /DELETE FROM property[^;]*id=UNHEX\('38'\)/);
+    assert.ok(f.reads.every(query => !query.includes('ProviderPreference')));
+  });
+  test(`${name} restores a NULL PDF view preference in place`, () => {
+    const f = fixtureSql(name, [row(8, 'view_document_as', null)]);
+    f.viewMode(); f.fixture.cleanup();
+    assert.match(f.writes[0], /UPDATE property SET value=NULL[^;]*id=UNHEX\('38'\)/);
+    assert.doesNotMatch(f.writes[0], /DELETE FROM property/);
+  });
+  test(`${name} refuses cleanup of an unexpected view preference change`, () => {
+    const f = fixtureSql(name, []);
+    f.viewMode('Image');
+    assert.throws(() => f.fixture.cleanup(), /Unexpected navigation property change/);
+    assert.equal(f.writes.length, 0);
+  });
+}
 
 test('refuses unrelated preference changes and preference identity replacement', () => {
   for (const [name, value] of [['defaultDxCode', 'changed'], ['providerNo', '77'], ['startHour', '12'], ['printQrCodeOnPrescriptions', '1']]) {

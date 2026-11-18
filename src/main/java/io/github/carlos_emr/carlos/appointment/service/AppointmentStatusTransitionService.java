@@ -10,7 +10,10 @@ import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.event.EventService;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.providers.gate.ProviderAddStatusValidator;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
@@ -62,6 +65,27 @@ public class AppointmentStatusTransitionService {
             String submittedCurrentStatus,
             String requestedStatus,
             String updatedBy) {
+        return transition(appointmentNo, submittedProviderNo, submittedCurrentStatus, requestedStatus,
+                updatedBy, null);
+    }
+
+    /**
+     * As {@link #transition(int, String, String, String, String)}, and audits the committed
+     * change as {@code update}/{@code appointment} for the appointment and its patient. With an
+     * {@code actor} the audit row also carries the client address and the security id; the row
+     * names the new status and never the appointment's reason or notes.
+     *
+     * @param actor the signed-in user the request came from, or {@code null} when none is at hand
+     * @since 2026-11-12
+     */
+    @Transactional
+    public TransitionResult transition(
+            int appointmentNo,
+            String submittedProviderNo,
+            String submittedCurrentStatus,
+            String requestedStatus,
+            String updatedBy,
+            LoggedInInfo actor) {
         Appointment appointment = appointmentDao.findForUpdate(appointmentNo);
         if (appointment == null) {
             throw failure(
@@ -99,15 +123,42 @@ public class AppointmentStatusTransitionService {
         appointment.setLastUpdateUser(updatedBy);
         appointmentDao.merge(appointment);
 
-        publishAfterCommit(appointmentNo, authoritativeProviderNo, requestedStatus);
+        int demographicNo = appointment.getDemographicNo();
+        publishAfterCommit(appointmentNo, authoritativeProviderNo, requestedStatus,
+                () -> audit(actor, updatedBy, appointmentNo, demographicNo, requestedStatus));
         return new TransitionResult(authoritativeProviderNo, requestedStatus);
+    }
+
+    /**
+     * Queues the audit row of a committed status change. Best effort, like the event: the status is
+     * already stored, so neither an audit failure nor a missing actor may undo or fail the request.
+     */
+    private static void audit(LoggedInInfo actor, String updatedBy, int appointmentNo, int demographicNo,
+                              String appointmentStatus) {
+        String patient = demographicNo > 0 ? String.valueOf(demographicNo) : null;
+        String data = "status=" + appointmentStatus;
+        try {
+            if (actor != null) {
+                LogAction.addLog(actor, LogConst.UPDATE, LogConst.CON_APPT, String.valueOf(appointmentNo), patient, data);
+            } else {
+                LogAction.addLog(updatedBy, LogConst.UPDATE, LogConst.CON_APPT, String.valueOf(appointmentNo), null,
+                        patient, data);
+            }
+        } catch (RuntimeException e) {
+            LOGGER.error("Unable to queue the audit row of a committed appointment status change ({})",
+                    e.getClass().getSimpleName());
+        }
     }
 
     private void publishAfterCommit(
             int appointmentNo,
             String providerNo,
-            String appointmentStatus) {
+            String appointmentStatus,
+            Runnable audit) {
         Runnable publish = () -> {
+            // After the commit, never before: a rolled-back transition leaves no audit row
+            // claiming a change, and the row is written outside the finished transaction.
+            audit.run();
             try {
                 eventService.appointmentStatusChanged(
                         this,

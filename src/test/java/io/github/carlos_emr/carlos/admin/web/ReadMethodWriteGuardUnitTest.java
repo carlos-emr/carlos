@@ -39,7 +39,6 @@ class ReadMethodWriteGuardUnitTest extends CarlosUnitTestBase {
     private MockHttpServletResponse response;
     private SecurityInfoManager security;
     private LookupListManager lists;
-    private Object previousLookupListManager;
     private LoggedInInfo login;
     private MockedStatic<ServletActionContext> servlet;
 
@@ -57,15 +56,12 @@ class ReadMethodWriteGuardUnitTest extends CarlosUnitTestBase {
         servlet = mockStatic(ServletActionContext.class);
         servlet.when(ServletActionContext::getRequest).thenReturn(request);
         servlet.when(ServletActionContext::getResponse).thenReturn(response);
-        previousLookupListManager = ReflectionTestUtils.getField(LookupListManager2Action.class, "lookupListManager");
-        ReflectionTestUtils.setField(LookupListManager2Action.class, "lookupListManager", lists);
         when(security.hasPrivilege(eq(login), anyString(), anyString(), isNull())).thenReturn(true);
     }
 
     @AfterEach
     void tearDown() {
-        ReflectionTestUtils.setField(LookupListManager2Action.class, "lookupListManager", previousLookupListManager);
-        servlet.close();
+        if (servlet != null) servlet.closeOnDemand();
     }
 
     @ParameterizedTest
