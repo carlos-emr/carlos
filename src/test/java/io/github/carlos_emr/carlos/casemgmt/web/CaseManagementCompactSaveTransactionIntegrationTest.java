@@ -864,6 +864,23 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
     }
 
     @Test
+    void shouldRefuseFullSave_whenAnOlderFormOmitsTheIssueLayoutAndCheckboxes() throws Exception {
+        CheckBoxBean selected = prepareFullIssueSave(true, false);
+        request.removeParameter("renderedIssueIdentity");
+        request.removeParameter("issueCheckList[0].checked");
+        Snapshot before = snapshot();
+
+        assertThat(action.save()).isEqualTo("windowCloseError");
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(snapshot()).isEqualTo(before);
+        assertThat(form.getIssueCheckList()).containsExactly(selected);
+        assertThat(form.getCaseNote()).isSameAs(original);
+        assertThat(request.getAttribute("unsavedNoteText")).isEqualTo(submittedText);
+        verify(locks, never()).merge(any());
+    }
+
+    @Test
     void shouldRefuseIssueDeletion_whenTheRenderedChecklistOrderIsStale() throws Exception {
         CheckBoxBean selected = prepareIssueDeletion();
         CaseManagementIssue otherIssue = new CaseManagementIssue();

@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.model.security.Secrole;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.logging.log4j.Logger;
@@ -2069,9 +2070,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private boolean matchesRenderedIssueChecklist(List<CheckBoxBean> checklist) {
         String[] rendered = request.getParameterValues("renderedIssueIdentity");
         if (rendered == null) {
-            // Older callers can still save without positional selections. A positional
-            // selection alone gives no information about which issue the user saw.
-            return request.getParameterMap().keySet().stream()
+            // A missing checkbox can clear a link, so a nonempty checklist always needs its identities.
+            return CollectionUtils.isEmpty(checklist) && request.getParameterMap().keySet().stream()
                     .noneMatch(name -> name.startsWith("issueCheckList[") && name.endsWith("].checked"));
         }
 
