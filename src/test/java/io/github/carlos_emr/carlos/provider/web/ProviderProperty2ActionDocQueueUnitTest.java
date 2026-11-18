@@ -116,6 +116,7 @@ class ProviderProperty2ActionDocQueueUnitTest extends CarlosUnitTestBase {
     void preservesSelectionOfAnExistingQueue(boolean hasPreviousDefault) {
         request.setParameter("chooseMode", "existing");
         when(properties.lockProviderPreferences("owner")).thenReturn(true);
+        when(queues.lockExistingQueue(7)).thenReturn(true);
         UserProperty choice = new UserProperty();
         choice.setValue("7");
         action.setExistingDefaultDocQueueProperty(choice);
@@ -130,12 +131,13 @@ class ProviderProperty2ActionDocQueueUnitTest extends CarlosUnitTestBase {
 
         action.saveDefaultDocQueue();
 
-        var writes = inOrder(properties);
+        var writes = inOrder(properties, queues);
         writes.verify(properties).lockProviderPreferences("owner");
+        writes.verify(queues).lockExistingQueue(7);
         writes.verify(properties).getAllProperties(UserProperty.DOC_DEFAULT_QUEUE, java.util.List.of("owner"));
         writes.verify(properties).saveProp(argThat(prop -> "7".equals(prop.getValue())));
         assertThat(request.getAttribute("status")).isEqualTo("success");
-        verifyNoInteractions(queues);
+        verifyNoMoreInteractions(queues);
     }
 
     @Test

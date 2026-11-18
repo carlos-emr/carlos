@@ -50,6 +50,9 @@ public interface QueueDao extends AbstractDao<Queue> {
 
     boolean addNewQueue(String qn);
 
+    /** Keeps an existing queue available until its caller commits the preference update. */
+    boolean lockExistingQueue(int id);
+
     /**
      * Inserts and flushes a queue, returning the ID assigned to that specific row.
      *

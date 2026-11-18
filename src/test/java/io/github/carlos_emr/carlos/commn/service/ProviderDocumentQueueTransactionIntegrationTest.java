@@ -126,13 +126,15 @@ class ProviderDocumentQueueTransactionIntegrationTest extends CarlosTestBase {
             return first.getId();
         });
         var service = service(security, properties);
+        String existingQueueId = selectsExisting
+                ? transactions.execute(status -> queues.addNewQueueAndGetId(name + "-existing")).toString() : null;
         UserProperty saved = selectsExisting
-                ? service.selectDefaultQueue(owner, "1")
+                ? service.selectDefaultQueue(owner, existingQueueId)
                 : service.createDefaultQueue(owner, name);
 
         assertThat(saved.getId()).isEqualTo(oldestId);
         if (selectsExisting) {
-            assertThat(saved.getValue()).isEqualTo("1");
+            assertThat(saved.getValue()).isEqualTo(existingQueueId);
         }
         transactions.executeWithoutResult(status -> assertThat(
                 properties.getAllProperties(UserProperty.DOC_DEFAULT_QUEUE, java.util.List.of(owner)))
@@ -140,6 +142,34 @@ class ProviderDocumentQueueTransactionIntegrationTest extends CarlosTestBase {
                     assertThat(row.getId()).isEqualTo(oldestId);
                     assertThat(row.getValue()).isEqualTo(saved.getValue());
                 }));
+    }
+
+    @Test
+    void shouldPreserveWorkingDefault_whenTheSelectedQueueIsMissing() {
+        var service = service(security, properties);
+        var original = service.createDefaultQueue(owner, name);
+
+        assertThatThrownBy(() -> service.selectDefaultQueue(owner, Integer.toString(Integer.MAX_VALUE)))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        transactions.executeWithoutResult(status -> assertThat(
+                properties.getAllProperties(UserProperty.DOC_DEFAULT_QUEUE, java.util.List.of(owner)))
+                .singleElement().satisfies(row -> {
+                    assertThat(row.getId()).isEqualTo(original.getId());
+                    assertThat(row.getValue()).isEqualTo(original.getValue());
+                }));
+    }
+
+    @Test
+    void shouldAcceptTheNoneSelection_withoutAnExistingQueue() {
+        var service = service(security, properties);
+        var original = service.createDefaultQueue(owner, name);
+
+        var saved = service.selectDefaultQueue(owner, "-1");
+        assertThat(saved.getValue()).isEqualTo("-1");
+        assertThat(saved.getId()).isEqualTo(original.getId());
+        transactions.executeWithoutResult(status -> assertThat(
+                properties.getProp(owner, UserProperty.DOC_DEFAULT_QUEUE).getValue()).isEqualTo("-1"));
     }
 
     @ParameterizedTest

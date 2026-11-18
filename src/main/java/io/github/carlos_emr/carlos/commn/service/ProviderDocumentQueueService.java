@@ -68,13 +68,17 @@ public class ProviderDocumentQueueService {
 
     /**
      * @param providerNo provider from the authenticated session
-     * @param queueId existing queue preference selected by the provider
+     * @param queueId existing queue selected by the provider, or {@code -1} for None
      * @return the saved default-queue preference
-     * @throws IllegalArgumentException when the provider does not exist
+     * @throws IllegalArgumentException when the provider or selected queue does not exist
      */
     public UserProperty selectDefaultQueue(String providerNo, String queueId) {
         lockPreferenceOwner(providerNo);
-        return saveDefaultPreference(providerNo, queueId);
+        int selected = Integer.parseInt(queueId);
+        if (selected != -1 && !queues.lockExistingQueue(selected)) {
+            throw new IllegalArgumentException("The selected document queue no longer exists");
+        }
+        return saveDefaultPreference(providerNo, Integer.toString(selected));
     }
 
     private void lockPreferenceOwner(String providerNo) {
