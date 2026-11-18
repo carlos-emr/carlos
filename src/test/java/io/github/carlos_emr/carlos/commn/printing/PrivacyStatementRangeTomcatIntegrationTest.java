@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -65,7 +65,9 @@ class PrivacyStatementRangeTomcatIntegrationTest {
             @Override
             protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
                 byte[] bytes = "large".equals(request.getParameter("size")) ? LARGE_PARTIAL : SMALL_PARTIAL;
-                response.setContentLengthLong(bytes.length);
+                if (request.getParameter("omitLength") == null) {
+                    response.setContentLengthLong(bytes.length);
+                }
                 response.setContentType("text/html;charset=UTF-8");
                 response.setStatus(HttpServletResponse.SC_PARTIAL_CONTENT);
                 response.setHeader("Content-Range", "bytes 0-" + (bytes.length - 1) + "/" + (bytes.length + 200));
@@ -128,19 +130,25 @@ class PrivacyStatementRangeTomcatIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void shouldKeepDeclaredLengthAndBytes_whenAnOrdinaryServletReturnsPartialHtml(boolean large) throws Exception {
+    @CsvSource({"false,true", "true,true", "false,false"})
+    void shouldKeepLengthAndBytes_whenAnOrdinaryServletReturnsPartialHtml(boolean large, boolean declareLength)
+            throws Exception {
         var properties = CarlosProperties.getInstance();
         Object original = properties.setProperty("confidentiality_statement.v1", "FAKE-5782-NOTICE");
         try (HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build()) {
             byte[] expected = large ? LARGE_PARTIAL : SMALL_PARTIAL;
             int length = expected.length;
-            String resource = large ? "partial.html?size=large" : "partial.html";
+            String resource = "partial.html?size=" + (large ? "large" : "small");
+            if (!declareLength) {
+                resource += "&omitLength=true";
+            }
             var response = client.send(request(uri.resolve(resource))
                     .header("Range", "bytes=0-" + (length - 1)).GET().build(),
                     HttpResponse.BodyHandlers.ofByteArray());
             assertThat(response.statusCode()).isEqualTo(HttpServletResponse.SC_PARTIAL_CONTENT);
-            assertThat(response.headers().firstValueAsLong("Content-Length")).hasValue(length);
+            if (declareLength) {
+                assertThat(response.headers().firstValueAsLong("Content-Length")).hasValue(length);
+            }
             assertThat(response.headers().firstValue("Content-Range"))
                     .contains("bytes 0-" + (length - 1) + "/" + (length + 200));
             assertThat(response.body()).isEqualTo(expected);
