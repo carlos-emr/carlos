@@ -3,6 +3,8 @@ package io.github.carlos_emr.carlos.commn.printing;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.ResponseDefaultsFilter;
+import io.github.carlos_emr.carlos.utility.ResponseSanitizationFilter;
+import io.github.carlos_emr.carlos.app.LogoutBroadcastFilter;
 import jakarta.servlet.Filter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServlet;
@@ -56,6 +58,7 @@ class PrivacyStatementStaticMetadataTomcatIntegrationTest {
         originalStatement = CarlosProperties.getInstance().setProperty("confidentiality_statement.v1", STATEMENT);
         Path webapp = Files.createDirectories(directory.resolve("webapp"));
         Files.write(webapp.resolve("fixture.html"), HTML);
+        Files.write(webapp.resolve("captured.html"), HTML);
         Files.write(webapp.resolve("excluded.html"), HTML);
         Files.write(webapp.resolve("fixture.txt"), HTML);
         Files.write(webapp.resolve("preprinted.html"), PREPRINTED);
@@ -88,7 +91,13 @@ class PrivacyStatementStaticMetadataTomcatIntegrationTest {
         });
         context.addServletMappingDecoded("/post.html", "protocol-controls");
         context.addServletMappingDecoded("/no-content.html", "protocol-controls");
+        addFilter(context, "authenticated-capture", (request, response, chain) -> {
+            ((HttpServletRequest) request).getSession().setAttribute("user", "FAKE-5936");
+            chain.doFilter(request, response);
+        }, "/captured.html");
+        addFilter(context, "capture", new ResponseSanitizationFilter(), "/captured.html");
         addFilter(context, "defaults", new ResponseDefaultsFilter());
+        addFilter(context, "logout", new LogoutBroadcastFilter(), "/captured.html");
         addFilter(context, "already-printed", (request, response, chain) -> {
             request.setAttribute(PrivacyStatementAppendingFilter.ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED, Boolean.TRUE);
             chain.doFilter(request, response);
@@ -143,6 +152,18 @@ class PrivacyStatementStaticMetadataTomcatIntegrationTest {
             if (headers.length > 0) request.headers(headers);
             return client.send(request.build(), HttpResponse.BodyHandlers.ofByteArray());
         }
+    }
+
+    @Test
+    void shouldNotCountOnlyLogoutScript_whenCapturedAuthenticatedStaticHeadHasNoBody() throws Exception {
+        var get = request("captured.html", "GET");
+        assertThat(new String(get.body(), StandardCharsets.UTF_8)).contains("FAKE-original-page-5936", STATEMENT);
+        var head = request("captured.html", "HEAD");
+        assertThat(head.statusCode()).isEqualTo(200);
+        assertThat(head.body()).isEmpty();
+        var length = head.headers().firstValueAsLong("Content-Length");
+        assertThat(length.isEmpty() || length.getAsLong() == get.body().length)
+                .as("HEAD must not advertise only the logout decoration: %s versus GET %s", length, get.body().length).isTrue();
     }
 
     @Test
