@@ -33,7 +33,7 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
 
 const TIMEOUT = 20000;
-const GRANTS = [['_dashboardDisplay', 'x'], ['_dashboardDrilldown', 'x'], ['_dashboardManager', 'r'], ['_dashboardChgUser', 'r']];
+const GRANTS = [['_dashboardDisplay', 'x'], ['_dashboardDrilldown', 'x'], ['_dashboardManager', 'w'], ['_dashboardChgUser', 'r']];
 const DX_CODE = '250';
 
 /** Bootstrap focuses the dialog after its transition; type only after that native event. */
@@ -98,7 +98,9 @@ async function workflow(s) {
   const M = h.sqlString(marker);
   const fixture = throwawayLoginFixture({ sql, marker, provider: s.provider, testUser: s.config.testUser });
   s.cleanup(() => fixture.cleanup());
-  const otherFixture = throwawayLoginFixture({ sql, marker: marker + '_window_B', provider: s.provider, testUser: s.config.testUser });
+  // Keep the fixture's exact sixteen-hex marker grammar while giving window B a distinct owner.
+  const otherMarker = marker.slice(0, -1) + (parseInt(marker.slice(-1), 16) ^ 1).toString(16);
+  const otherFixture = throwawayLoginFixture({ sql, marker: otherMarker, provider: s.provider, testUser: s.config.testUser });
   s.cleanup(() => otherFixture.cleanup());
   const patients = [];
   let dashboardId;
@@ -184,12 +186,14 @@ async function workflow(s) {
       .replaceAll('value="loggedInProvider"', `value="${alias}"`)
       .replaceAll("WHERE d.provider_no = '${provider}'",
         "WHERE d.provider_no LIKE '${provider}' AND d.demographic_no IN (" + patients.join(',') + ')')
-      .replaceAll(`${marker} Patient status`, name);
+      .replaceAll(`${marker} Patient status`, name)
+      .replace('</heading>', `<metricLabel>${marker} Shared ${alias}</metricLabel></heading>`
+        + `<sharedMetricSetName>${marker} Shared ${alias}</sharedMetricSetName>`);
     const id = sql.value(`INSERT INTO indicatorTemplate (dashboardId,name,category,subCategory,framework,frameworkVersion,
         definition,notes,template,active,locked,shared)
       VALUES (${dashboardId},${h.sqlString(name)},${h.sqlString(marker + ' Category')},
         ${h.sqlString(marker + ' Owned patients')},'CARLOS EMR','2026-01-01','Synthetic','Synthetic',
-        ${h.sqlString(template)},1,0,0); SELECT LAST_INSERT_ID()`);
+        ${h.sqlString(template)},1,0,${alias === 'all' ? 1 : 0}); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(id), 'A clinic-default indicator was not created');
     return {id, alias};
   });
@@ -358,6 +362,40 @@ async function workflow(s) {
     await dashboard.locator(`#graphPlots_${indicatorId}`).waitFor({ state: 'attached' });
     h.assert(await dashboard.locator(`#graphPlots_${indicatorId}`).inputValue() === plotted,
       'Returning to the first dashboard inherited another window provider');
+  });
+
+  await s.step('shared whole metrics and slices retain their displayed provider in the native export form and return navigation', async () => {
+    const expectedRows = sql.rows(`SELECT demographic_no,last_name,patient_status FROM demographic
+      WHERE demographic_no IN (${otherPatients.join(',')}) ORDER BY demographic_no`);
+    for (const {id, alias} of clinicIndicators) {
+      const page = await openDashboard('dashboard-shared-' + alias);
+      try {
+        // This is the supported callback/bookmark from the external shared dashboard. All
+        // metric templates, providers and patients belong to this run; the external service
+        // is not contacted. Export and Dashboard use the page's real controls afterwards.
+        const params = new URLSearchParams({method: 'getDrilldownBySharedMetricSetName',
+          sharedMetricSetName: `${marker} Shared ${alias}`, providerNo: otherFixture.providerNo});
+        if (alias === '%') params.set('sharedMetricSetLable', `${marker} Shared ${alias}`);
+        const response = await page.goto(h.appUrl(s.config.baseUrl,
+          '/web/dashboard/display/DrilldownDisplay?' + params), {waitUntil: 'domcontentloaded'});
+        h.assert(response.status() === 200, 'The owned shared drilldown was refused');
+        await h.assertNotErrorPage(page, 'owned shared drilldown');
+        h.assert(await page.locator('#dashboardProviderNo').inputValue() === otherFixture.providerNo,
+          'The shared drilldown did not retain its validated provider');
+        const shown = await page.locator('#drilldownTable input.patientChecked').evaluateAll(inputs => inputs.map(input => input.id).sort());
+        h.assert(JSON.stringify(shown) === JSON.stringify([...otherPatients].sort()), 'The shared drilldown lists another provider scope');
+        const outcome = await ui.clickDownloadsOrOpens(page, page.locator(`#exportResults_${id}`),
+          {context: ctx, recorder, label: 'dashboard-shared-export-' + alias, timeout: TIMEOUT});
+        h.assert(outcome.kind === 'download', 'The shared export did not download a file');
+        const expected = ['Patient Id,Last Name,Status', ...expectedRows.map(row => row.join(','))].join('\n') + '\n';
+        h.assert(fs.readFileSync(await outcome.download.path(), 'utf8') === expected,
+          'The shared export fell back to the template default instead of the displayed provider');
+        await ui.clickAndAwaitReload(page, page.locator('.backtoDashboardBtn'),
+          {label: 'return from the shared drilldown', timeout: TIMEOUT});
+        h.assert(await page.locator('#dashboardProviderNo').inputValue() === otherFixture.providerNo,
+          'Returning from the shared drilldown lost the selected provider');
+      } finally {await page.close();}
+    }
   });
 
   await s.step('Indicator Info shows the stored definition', async () => {

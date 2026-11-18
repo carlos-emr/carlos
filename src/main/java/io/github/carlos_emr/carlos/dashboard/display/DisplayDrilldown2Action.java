@@ -128,7 +128,8 @@ public class DisplayDrilldown2Action extends ActionSupport {
 
         String metricSetName = request.getParameter("sharedMetricSetName");
 
-        String providerNo = request.getParameter("providerNo");
+        dashboardManager.setRequestedProviderNo(loggedInInfo, request.getParameter("providerNo"));
+        String providerNo = dashboardManager.getRequestedProviderNo(loggedInInfo);
 
         String metricLabel = request.getParameter("sharedMetricSetLable");
         if (StringUtils.isBlank(metricLabel)) {
@@ -136,7 +137,7 @@ public class DisplayDrilldown2Action extends ActionSupport {
         }
 
         ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
-        if (!providerDao.providerExists(providerNo)) {
+        if (providerNo == null || !providerDao.providerExists(providerNo)) {
             return "error";
         }
 
@@ -170,6 +171,8 @@ public class DisplayDrilldown2Action extends ActionSupport {
             return "error";
         }
 
+        request.setAttribute("dashboardProviderNo", providerNo);
+        request.setAttribute("preferredProvider", providerManager.getProvider(loggedInInfo, providerNo));
         request.setAttribute("drilldown", drilldown);
         return SUCCESS;
     }

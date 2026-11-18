@@ -41,3 +41,21 @@ and first-window navigation. Its existing bulk
 and authorization controls remain selected. New rebuilt-DEB/browser qualification
 is pending the next combined batch; the JVM/client proofs above do not claim
 that browser execution has already occurred.
+
+### Shared-metric display and export follow-up
+
+The shared whole-metric and slice actions now validate their `providerNo` through
+request-local provider selection and carry it into the displayed form, provider
+heading, Export and Dashboard navigation. A caller cannot switch providers without
+`_dashboardChgUser`; selecting their own provider remains supported. The regression
+executes the actual shared action and subsequent Export action with the form model:
+eight of 12 cases fail before repair, including all/% template defaults broadening
+the export. All 53 selected dashboard controls pass after repair; changed-line,
+instruction and branch coverage remain 100%. The new JUnit SHA-256 is
+`54a68c674596ddecf39b2acebff0ab2fc9230f23d7085400e30dffa2a390b4e2`.
+
+The native workflow adds owned shared callbacks followed by real Export and
+Dashboard controls. Its second login now uses the fixture's required exact
+16-hex marker. The first installed retake failed that marker guard, and concurrent
+ENOSPC invalidated three other workflows; that run is retained as incomplete.
+This shared-action repair requires the next rebuilt DEB/native qualification.
