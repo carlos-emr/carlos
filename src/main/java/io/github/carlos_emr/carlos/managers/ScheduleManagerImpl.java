@@ -285,13 +285,16 @@ public class ScheduleManagerImpl implements ScheduleManager {
 
     private static void auditUpdate(LoggedInInfo loggedInInfo, Appointment appointment, String newStatus,
             AppointmentUpdateAction auditAction) {
-        String data = auditAction == AppointmentUpdateAction.UPDATE
-                ? APPOINTMENT_ID_AUDIT_PREFIX + appointment.getId() + (newStatus == null ? "" : "; status=" + newStatus)
-                : "id=" + appointment.getId();
-        LogAction.addLogSynchronous(loggedInInfo, auditAction.auditName(), LogConst.CON_APPT,
-                String.valueOf(appointment.getId()),
-                appointment.getDemographicNo() > 0 ? String.valueOf(appointment.getDemographicNo()) : null,
-                data);
+        String appointmentId = String.valueOf(appointment.getId());
+        String patientId = appointment.getDemographicNo() > 0 ? String.valueOf(appointment.getDemographicNo()) : null;
+        if (auditAction == AppointmentUpdateAction.UPDATE) {
+            String data = APPOINTMENT_ID_AUDIT_PREFIX + appointmentId + (newStatus == null ? "" : "; status=" + newStatus);
+            LogAction.addLogSynchronous(loggedInInfo, auditAction.auditName(), LogConst.CON_APPT,
+                    appointmentId, patientId, data);
+        } else {
+            LogAction.addLogStrict(loggedInInfo, auditAction.auditName(), LogConst.CON_APPT,
+                    appointmentId, patientId, "id=" + appointmentId);
+        }
     }
 
     /**

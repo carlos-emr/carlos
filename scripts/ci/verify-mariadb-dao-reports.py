@@ -39,6 +39,7 @@ REQUIRED_CASES = {
     "AppointmentUpdateDaoIntegrationTest": {
         "shouldRefuseStoredPatient_beforeArchivalOrMutation",
         "shouldRollbackArchiveAndEdit_whenReplacementPatientIsDenied",
+        "shouldRollbackFieldEditAndArchive_whenAuditFails",
         "shouldAllowAssignedPatientWrite_withoutReadPermission",
     },
     "ProgramAdmissionAuditMariaDbIntegrationTest": {
