@@ -231,6 +231,60 @@ class MsgEncounterPdfComposerUnitTest {
     }
 
     @Test
+    @DisplayName("should keep single-byte writes up to the cap and refuse the one past it")
+    void shouldRefuseASingleByte_whenItWouldPassTheCap() {
+        MsgEncounterPdfComposer.CappedPdfBuffer buffer = new MsgEncounterPdfComposer.CappedPdfBuffer(2);
+        buffer.write('%');
+        buffer.write('P');
+
+        assertThatThrownBy(() -> buffer.write('D')).isInstanceOf(MsgEncounterPdfComposer.CapReached.class);
+        assertThat(buffer.toByteArray()).containsExactly('%', 'P');
+        assertThat(buffer.exceeded()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should hold whole-array writes to the same cap as every other write")
+    void shouldRefuseAWholeArray_whenItWouldPassTheCap() {
+        MsgEncounterPdfComposer.CappedPdfBuffer buffer = new MsgEncounterPdfComposer.CappedPdfBuffer(4);
+        buffer.writeBytes(new byte[]{1, 2, 3});
+
+        assertThatThrownBy(() -> buffer.writeBytes(new byte[]{4, 5}))
+                .isInstanceOf(MsgEncounterPdfComposer.CapReached.class);
+        assertThat(buffer.toByteArray()).containsExactly(1, 2, 3);
+        assertThat(buffer.exceeded()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should copy out what it holds while the cap has not been reached")
+    void shouldCopyTheBuffer_whenTheCapWasNotReached() throws Exception {
+        MsgEncounterPdfComposer.CappedPdfBuffer buffer = new MsgEncounterPdfComposer.CappedPdfBuffer(PDF.length);
+        buffer.write(PDF, 0, PDF.length);
+        java.io.ByteArrayOutputStream copy = new java.io.ByteArrayOutputStream();
+
+        buffer.writeTo(copy);
+
+        assertThat(copy.toByteArray()).isEqualTo(PDF);
+    }
+
+    @Test
+    @DisplayName("should copy out nothing, and name its cap, once a write passed the cap")
+    void shouldRefuseToCopyTheBuffer_onceTheCapWasReached() {
+        MsgEncounterPdfComposer.CappedPdfBuffer buffer = new MsgEncounterPdfComposer.CappedPdfBuffer(5);
+        buffer.write(new byte[]{1, 2, 3}, 0, 3);
+        try {
+            buffer.write(new byte[]{4, 5, 6}, 0, 3);
+        } catch (RuntimeException capReached) {
+            // a print that swallows the refusal still cannot copy out a cut-short PDF
+        }
+        java.io.ByteArrayOutputStream copy = new java.io.ByteArrayOutputStream();
+
+        assertThatThrownBy(() -> buffer.writeTo(copy))
+                .isInstanceOfSatisfying(MsgEncounterPdfComposer.PrintTooLargeException.class,
+                        tooLarge -> assertThat(tooLarge.maxBytes()).isEqualTo(5L));
+        assertThat(copy.size()).isZero();
+    }
+
+    @Test
     @DisplayName("should hand back an empty PDF when the print wrote nothing")
     void shouldHandBackNothing_forAPrintThatWroteNothing() throws Exception {
         printed = new byte[0];

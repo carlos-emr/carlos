@@ -222,7 +222,8 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
                 throw encounterFailure;
             }
             // As the composer does: a print longer than the cap is stopped and refused, never returned.
-            if (encounterPdf.length > maxBytes) {
+            // A null print is handed back as it is, so the action itself meets "printed nothing".
+            if (encounterPdf != null && encounterPdf.length > maxBytes) {
                 throw new MsgEncounterPdfComposer.PrintTooLargeException(maxBytes);
             }
             return encounterPdf;
