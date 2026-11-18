@@ -5,6 +5,8 @@ import io.github.carlos_emr.carlos.test.base.IsolatedJpaTestDatabase;
 import io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
@@ -12,6 +14,7 @@ import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.apache.commons.dbcp2.BasicDataSource;
@@ -113,31 +116,50 @@ class ReportConnectionLeaseIntegrationTest {
         return pool;
     }
 
-    private void awaitExecuting(long session, Future<?> query) throws Exception {
+    private void awaitExecuting(ScheduledExecutorService executor, long session, Future<?> query) throws Exception {
         String probe = mariaDb
                 ? "SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE ID=? AND STATE='User sleep'"
                 : "SELECT COUNT(*) FROM INFORMATION_SCHEMA.SESSIONS WHERE SESSION_ID=? AND EXECUTING_STATEMENT LIKE '%QUALIFICATION_SLEEP%'";
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
         try (var observer = direct.getConnection(); var statement = observer.prepareStatement(probe)) {
             statement.setLong(1, session);
-            do {
-                try (var rows = statement.executeQuery()) {
-                    rows.next();
-                    if (rows.getInt(1) == 1) {
-                        return;
-                    }
+            long remaining = deadline - System.nanoTime();
+            while (remaining > 0) {
+                var poll = executor.schedule(() -> sessionIsExecuting(statement), 10, TimeUnit.MILLISECONDS);
+                if (poll.get(remaining, TimeUnit.NANOSECONDS)) {
+                    return;
                 }
                 assertFalse(query.isDone(), "The query ended before actual execution was observed");
-                Thread.sleep(10);
-            } while (System.nanoTime() < deadline);
+                remaining = deadline - System.nanoTime();
+            }
         }
         fail("The actual long-running query was not observed");
     }
 
+    private static boolean sessionIsExecuting(PreparedStatement statement) throws SQLException {
+        try (var rows = statement.executeQuery()) {
+            return rows.next() && rows.getInt(1) == 1;
+        }
+    }
+
+    private static int borrowAndCountActive(BasicDataSource pool) throws SQLException {
+        try (var pressure = pool.getConnection()) {
+            assertFalse(pressure.isClosed());
+            return pool.getNumActive();
+        }
+    }
+
+    private static void executeLeaseProbe(Connection connection) throws SQLException {
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("SELECT 1")) {
+            assertTrue(rows.next());
+        }
+    }
+
     @Test
     void shouldRetainActiveReportConnection_untilItsQueryDeadline() throws Exception {
-        try (var executor = Executors.newSingleThreadExecutor(); var pool = pool(Map.of());
+        try (var executor = Executors.newScheduledThreadPool(2); var pool = pool(Map.of());
                 var report = pool.getConnection(); var held = pool.getConnection()) {
+            assertFalse(held.isClosed(), "The other active loan creates near-capacity pressure");
             long session;
             try (var statement = report.createStatement();
                     var row = statement.executeQuery(mariaDb ? "SELECT CONNECTION_ID()" : "SELECT SESSION_ID()")) {
@@ -154,13 +176,13 @@ class ReportConnectionLeaseIntegrationTest {
                     }
                 }
             });
-            awaitExecuting(session, query);
-            Thread.sleep(16000);
-            boolean reclaimed;
-            try (var pressure = pool.getConnection()) {
-                assertFalse(pressure.isClosed());
-                reclaimed = pool.getNumActive() != 3;
-            }
+            awaitExecuting(executor, session, query);
+            // Apply pressure after the former 15-second expiry and while the report is executing.
+            var pressure = executor.schedule(() -> {
+                assertFalse(query.isDone(), "Near-capacity pressure must occur during the report query");
+                return borrowAndCountActive(pool);
+            }, 16, TimeUnit.SECONDS);
+            boolean reclaimed = pressure.get(20, TimeUnit.SECONDS) != 3;
             Throwable failure = null;
             Boolean row = null;
             try {
@@ -185,23 +207,20 @@ class ReportConnectionLeaseIntegrationTest {
 
     @Test
     void shouldRetireIdleAbandonedLeases_withExplicitShortTimeoutOverride() throws Exception {
-        try (var pool = pool(Map.of("db_remove_abandoned_timeout", "1"));
+        try (var executor = Executors.newSingleThreadScheduledExecutor();
+                var pool = pool(Map.of("db_remove_abandoned_timeout", "1"));
                 var idle = pool.getConnection(); var held = pool.getConnection()) {
             assertEquals(3, pool.getMaxTotal());
             assertEquals(2, pool.getNumActive());
             assertEquals(0, pool.getNumIdle());
-            Thread.sleep(2100);
-            try (var pressure = pool.getConnection()) {
-                assertFalse(pressure.isClosed());
-                assertEquals(1, pool.getNumActive(), "Both old leases must be retired before this new borrow");
-                // H2's JDBC abort is a no-op; actual MariaDB must also close the physical handle.
-                if (mariaDb) {
-                    assertThrows(SQLException.class, () -> {
-                        try (var statement = idle.createStatement()) {
-                            statement.executeQuery("SELECT 1");
-                        }
-                    }, "The retired physical lease should no longer execute queries");
-                }
+            assertFalse(held.isClosed(), "The other loan must be active before the timeout");
+            long delay = pool.getRemoveAbandonedTimeoutDuration().plusSeconds(1).toMillis();
+            var pressure = executor.schedule(() -> borrowAndCountActive(pool), delay, TimeUnit.MILLISECONDS);
+            assertEquals(1, pressure.get(6, TimeUnit.SECONDS), "Both old leases must be retired before this new borrow");
+            // H2's JDBC abort is a no-op; actual MariaDB must also close the physical handle.
+            if (mariaDb) {
+                assertThrows(SQLException.class, () -> executeLeaseProbe(idle),
+                        "The retired physical lease should no longer execute queries");
             }
         }
     }
