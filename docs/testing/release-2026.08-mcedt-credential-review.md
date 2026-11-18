@@ -68,7 +68,7 @@ belongs to the pre-review property-based format. It does not qualify this revise
 format. The revised native checks now preserve the encrypted record in a
 server-side owned backup, verify both password changes without reading a
 credential, exercise the visible storage-failure alert and restore exact state.
-Their rebuilt-DEB qualification is still pending. No Ministry transport or
+Their rebuilt-DEB qualification is recorded below. No Ministry transport or
 authentication is exercised.
 
 Upgrade while application instances are stopped, as the packaged service upgrade
@@ -99,4 +99,31 @@ updated resources ahead of the unchanged production classes; JUnit SHA-256:
 The initial reference-startup attempt failed before migration because its socket
 readiness probe observed the temporary initialization server; the corrected
 retake waits for the actual TCP listener. Both owned reference schemas/server
-are retired. A fresh WAR/DEB qualification is required for these resources.
+are retired. The rebuilt snapshot below qualifies those resource definitions.
+
+The storage code, JSP and revised workflows are qualified in rebuilt Ubuntu
+26.04 DEBs at private snapshot `e37f4d2b6f7de741691ebb0452804a198cc517c6`. All
+10,757 installed application files match the DEB manifest. All 1,845 installed
+JVM executions pass without production overrides, including 26 H2 and 26 physical
+MariaDB credential cases; all 36 native workflows pass across five profiles on
+locked Chromium 154.0.8025.0. Both MCEDT variants verify encrypted replacement,
+no password echo, visible storage-failure feedback and exact credential restoration.
+
+The retained strict audit exit 1 contains 19 recognized events and seven exactly
+bound intentional faults, leaving zero unexplained events. Three are the MCEDT
+invalid-delete probes; two additional fixed WARN messages belong to the passing
+visible storage-failure steps. No global ignore rule is added. Properties are
+byte-restored, health passes, and all installed file hashes are retaken afterward.
+This qualifies that immutable snapshot and does not claim Ministry authentication.
+
+The later schema-adoption revision (`97103bdf6a`) makes table/index creation and
+singleton seeding idempotent without replacing an existing encrypted value. Both
+ON and BC chains are freshly migrated and validated again on MariaDB 11.8.8/32K;
+the generated contracts exactly match this revision and every physical definition
+is unchanged. Repeating the exact migration twice preserves an owned opaque test
+value, one singleton row and one name index. Its SQL SHA-256 is
+`cdb00ab07687698e9a6d323d799058a5dfd447eda4486f19f381b6f35039ef37` and its Flyway
+checksum is `-1910160356`. The earlier qualified package used the prior unmerged
+migration checksum; this revised SQL/resource revision needs the next DEB batch.
+The owned reference schemas/server are retired. No application database repair
+or live-clinic repair is claimed by this reference proof.
