@@ -8,7 +8,7 @@ The corrected shared harness is used on both sides; its original cleanup
 assertion assumed an unmerged publication-lock implementation and was corrected
 to the actual release's empty-staging contract before qualification.
 
-The importer now allows 50 MiB for retained HTML, matching upload capacity.
+The importer now allows 50 MiB per retained HTML entry.
 Properties retain their separate 16 MiB limit. The 64 MiB aggregate text ceiling,
 256 MiB streamed-entry ceiling, 1 GiB expanded-archive ceiling, entry count,
 path checks, prepublication validation and cleanup remain enforced. HTML is
@@ -34,9 +34,38 @@ synthetic 17 MiB template without patient instances, exports it through Manage
 eForms, removes the source and imports the downloaded ZIP. It checks exact byte
 length and SHA-256 without printing the large template, verifies unrelated rows,
 and removes only its verified fixtures. Installed native qualification is pending;
-this document does not claim the newly repaired importer is already packaged.
+the newly repaired importer still requires the next rebuilt-DEB qualification.
 
 All 8,111 complete Node cases pass across 570 test files on Node 22.23.5,
 with no failures, skips, cancellations or TODOs and all test-source fingerprints
 verified. The tracked case inventory comes from that actual execution. Node
 report SHA-256: `a622abac48d99d12fa96845233e30296f8984a8437f73aa06268ed47661b5a01`.
+
+Review follow-up: publication and registration now share one process-wide
+critical section across importer instances, bounding simultaneous retained-HTML
+loads. Extraction remains concurrent and disk-backed. Loading no longer creates
+a growing byte buffer plus its full-size byte-array copy. The form-name check
+is repeated under the registration lock, so another local import that finished
+during extraction is skipped before HTML loading or asset publication. This
+does not introduce a database uniqueness migration or claim cross-process
+atomicity for unrelated writers.
+
+Two concurrent-import regressions fail on the published pre-review source
+(JUnit SHA-256 `434e42f815330659551e2cb93abc514b2b9546c7019f08bdb97fe7317d1dd841`).
+All 81 selected cases pass after repair, including distinct-name handoff and
+same-name rejection (JUnit SHA-256
+`051d598a66cdb6ed7d492e74704f8dd172e26647f8b1bacfbf10949c8a2635ef`).
+Fresh floors rise to 99.1597% / 99.4690% / 93.1034%.
+
+The current release migration
+`V1.0.59.27__preserve_oscar19_text_capacity.sql` upgrades `eform.form_html`
+to LONGTEXT. The installed MariaDB information schema independently confirms
+LONGTEXT with a 4,294,967,295-byte capacity, rather than the historical
+MEDIUMTEXT baseline. The existing 50 MiB compressed multipart request ceiling
+remains independent of expanded HTML and archive budgets: compression, other
+entries and framing must fit that request ceiling. This change does not claim
+that every arbitrarily large exported archive fits a single upload.
+
+Review source-bound evidence SHA-256:
+`529924bcbec3ffa1b05036c07b9e140a01a588cb2df261885e591a7b55e23f21`. The final complete Node retake is in progress;
+the 8,111-case result above belongs to the initial published revision.
