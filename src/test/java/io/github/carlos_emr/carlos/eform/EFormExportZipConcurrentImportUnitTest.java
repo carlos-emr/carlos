@@ -376,13 +376,17 @@ class EFormExportZipConcurrentImportUnitTest {
         entries.put("refused/icons/orphan.png", "REFUSED");
         entries.put("refused/shared.png", "SHARED");
         entries.put("refused/theme.css", "@import 'shared-theme.css';");
-        entries.put("refused/styles/shared-theme.css", "body { background: url('../icons/background.png'); }");
+        entries.put("refused/styles/shared-theme.css", "@import 'theme.css';"
+                + "body { background: url('../icons/background.png'); }");
         entries.put("refused/icons/background.png", "STYLE-DEPENDENCY");
         entries.put("refused/styles/loader.js", "new Image().src='/eform/displayImage?imagefile=script%20icon.png';");
         entries.put("refused/icons/script icon.png", "SCRIPT-DEPENDENCY");
+        entries.put("refused/styles/module.mjs", "import('./loader.js');");
         entries.put("retained/eform.properties", "form.name=New\nform.htmlFilename=retained.html\n");
         entries.put("retained/retained.html", "<img src='${oscar_image_path}shared.png'>"
-                + "<link rel='stylesheet' href='theme.css'><script src='loader.js'></script>");
+                + "<link rel='stylesheet' href='theme.css'><script type='module' src='module.mjs'></script>"
+                + "<img src='https://external.test/orphan.png'><img src='//external.test/orphan.png'>"
+                + "<img src='/eform/displayImage?imagefile=orphan%ZZ.png'>");
         entries.put("retained/icons/indirect.png", "RETAINED");
         try (var folders = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
             folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
@@ -400,6 +404,7 @@ class EFormExportZipConcurrentImportUnitTest {
         assertThat(images.resolve("theme.css")).exists();
         assertThat(images.resolve("shared-theme.css")).exists();
         assertThat(images.resolve("loader.js")).exists();
+        assertThat(images.resolve("module.mjs")).exists();
         assertThat(Files.readString(images.resolve("background.png"))).isEqualTo("STYLE-DEPENDENCY");
         assertThat(Files.readString(images.resolve("script icon.png"))).isEqualTo("SCRIPT-DEPENDENCY");
         assertThat(stagingDirectories()).isEmpty();
