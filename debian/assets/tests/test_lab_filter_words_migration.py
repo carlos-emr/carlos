@@ -17,13 +17,17 @@ Run (from the repository root):
     python3 -m unittest discover -s debian/assets/tests
 """
 
+import errno
 import os
 import re
 import stat
+import struct
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+
+from test_lab_filter_migration import metadata_preservation_function
 
 ROOT = Path(__file__).resolve().parents[3]
 POSTINST = ROOT / "debian" / "carlos-emr.postinst"
@@ -42,7 +46,7 @@ def migration_block():
         raise AssertionError(
             "no LAB_FILTER_WORDS_SENTINEL block in carlos-emr.postinst -- this "
             "contract has lost its subject")
-    return m.group(0)
+    return metadata_preservation_function(text) + m.group(0)
 
 
 def old_line():
@@ -151,6 +155,29 @@ class TestLabFilterWordsMigration(unittest.TestCase):
         self.assertEqual(list(self.etc.iterdir()), [self.properties],
                          "the temporary file is left behind")
 
+    def test_preserves_access_acl_and_extended_attributes_on_the_rewritten_file(self):
+        self.write_properties(old_line())
+        # Linux ACL format 2. The owning group gets no permissions, while a named user has read access.
+        acl = struct.pack("<I", 2) + b"".join(struct.pack("<HHI", *entry) for entry in (
+            (1, 6, 0xffffffff), (2, 4, os.getuid()), (4, 0, 0xffffffff),
+            (16, 4, 0xffffffff), (32, 0, 0xffffffff),
+        ))
+        try:
+            os.setxattr(self.properties, "system.posix_acl_access", acl)
+            os.setxattr(self.properties, "user.carlos-fixture", b"keep this metadata")
+        except OSError as failure:
+            if failure.errno == errno.ENOTSUP:
+                self.skipTest("the temporary filesystem does not support file ACLs and extended attributes")
+            raise
+
+        result = self.run_block()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.properties.read_text(encoding="utf-8"), shipped_line() + "\n")
+        self.assertEqual(os.getxattr(self.properties, "system.posix_acl_access"), acl)
+        self.assertEqual(os.getxattr(self.properties, "user.carlos-fixture"), b"keep this metadata")
+
+
     def test_leaves_a_key_the_operator_defined_twice(self):
         self.write_properties(old_line(), KEY + ".*")
         before = self.properties.read_bytes()
@@ -203,9 +230,9 @@ class TestLabFilterWordsMigration(unittest.TestCase):
     def test_keeps_the_file_and_fails_when_the_rewrite_fails(self):
         bin_dir = Path(self.tmp.name) / "bin"
         bin_dir.mkdir()
-        chown = bin_dir / "chown"
-        chown.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
-        chown.chmod(0o755)
+        cp = bin_dir / "cp"
+        cp.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+        cp.chmod(0o755)
         self.write_properties("before=1", old_line())
         before = self.properties.read_bytes()
 
@@ -216,6 +243,23 @@ class TestLabFilterWordsMigration(unittest.TestCase):
         self.assertEqual(self.properties.read_bytes(), before)
         self.assertEqual(list(self.etc.iterdir()), [self.properties],
                          "the temporary file is left behind")
+        self.assertFalse((self.state / SENTINEL).exists())
+
+    def test_keeps_the_original_when_metadata_verification_fails(self):
+        bin_dir = Path(self.tmp.name) / "bin"
+        bin_dir.mkdir()
+        cp = bin_dir / "cp"
+        cp.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        cp.chmod(0o755)
+        self.write_properties(old_line())
+        before = self.properties.read_bytes()
+
+        result = self.run_block(path=str(bin_dir))
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("staged configuration metadata differs", result.stderr)
+        self.assertEqual(self.properties.read_bytes(), before)
+        self.assertEqual(list(self.etc.iterdir()), [self.properties])
         self.assertFalse((self.state / SENTINEL).exists())
 
     def test_runs_only_once(self):
