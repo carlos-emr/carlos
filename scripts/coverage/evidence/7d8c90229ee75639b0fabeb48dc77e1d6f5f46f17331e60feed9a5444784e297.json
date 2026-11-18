@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "223d0bb11be24f177a41ab17e19a253f982109bf",
+  "comparisonSha256": "d2c9be936e9ea4aa1357261bf6e862ccc35ea4013e077ee03c5b5fe69e6c7455",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/report/data/QueryByExampleSqlValidator.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "8da216feb75df6ba494e3b794c7c5306edc70ad3"
+    }
+  },
+  "baselineCommit": "7b16fa2055d0359e28c4a8dce4bb0b25a2429643",
+  "baselineSourceTree": "223d0bb11be24f177a41ab17e19a253f982109bf",
+  "baselineReportSha256": "aa159a72f80736b4fa07268967d66785f54afe8ecaf2f626f718251d1a2bbb5b",
+  "baselineLane": "Focused reporting grant, SQL validation, CDS and physical MariaDB MCEDT credential tests",
+  "baselineTestCounts": {
+    "tests": 200,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "4e3b6662f03244db5ce2bf3df3516e0b2d2c9092ec99df7ec6b9be47ff39f8d6",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}
