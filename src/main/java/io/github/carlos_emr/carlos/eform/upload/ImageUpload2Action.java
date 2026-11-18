@@ -172,11 +172,17 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
 
     private static void preserveReplacementMetadata(Path existing, Path staged, FileStore store, boolean posix)
             throws IOException {
+        preserveReplacementMetadata(existing, staged, store, posix,
+                "Linux".equals(System.getProperty("os.name")));
+    }
+
+    private static void preserveReplacementMetadata(Path existing, Path staged, FileStore store, boolean posix,
+            boolean linux) throws IOException {
         if (Files.notExists(existing, LinkOption.NOFOLLOW_LINKS)) return;
         if (!Files.isRegularFile(existing, LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException("Existing eForm image must be a regular file");
         }
-        if ("Linux".equals(System.getProperty("os.name"))) {
+        if (linux) {
             // GNU cp can copy named POSIX ACLs, which the Linux NIO provider does not expose.
             // Explicit preservation options cause copy failures to fail the upload.
             copyLinuxMetadata(existing, staged);
