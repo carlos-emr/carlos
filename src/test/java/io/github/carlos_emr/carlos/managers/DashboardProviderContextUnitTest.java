@@ -4,6 +4,11 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.dashboard.display.DisplayDashboard2Action;
+import io.github.carlos_emr.carlos.dashboard.display.DisplayDrilldown2Action;
+import io.github.carlos_emr.carlos.dashboard.display.beans.DashboardBean;
+import io.github.carlos_emr.carlos.dashboard.display.beans.DrilldownBean;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.HashMap;
@@ -114,6 +119,72 @@ class DashboardProviderContextUnitTest extends CarlosUnitTestBase {
     @Test void shouldPreferTheRequestSelection_whenItsProviderChooserHasJustChanged() {
         var request=new MockHttpServletRequest();request.setParameter("dashboardProviderNo","FAKE-provider-A");request(request);
         manager.setRequestedProviderNo(actor,"FAKE-provider-B");assertEquals("FAKE-provider-B",manager.getRequestedProviderNo(actor));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"default", "chooser", "followup"})
+    void shouldKeepTheHeadingSeparateFromTheQueryOverride_whenOpeningDashboardAndDrilldown(String selection) {
+        String provider = selection.equals("default") ? null : "FAKE-provider-A";
+        Provider loggedInProvider = new Provider();
+        loggedInProvider.setProviderNo("FAKE-login");
+        when(actor.getLoggedInProvider()).thenReturn(loggedInProvider);
+        Provider selectedProvider = new Provider();
+        selectedProvider.setProviderNo("FAKE-provider-A");
+        when(security.hasPrivilege(actor, "_dashboardDisplay", SecurityInfoManager.READ, null)).thenReturn(true);
+        when(security.hasPrivilege(actor, "_dashboardDrilldown", SecurityInfoManager.READ, null)).thenReturn(true);
+        when(security.hasPrivilege(actor, "_dxresearch", SecurityInfoManager.WRITE, null)).thenReturn(true);
+        registerMock(SecurityInfoManager.class, security);
+        var providerManager = createAndRegisterMock(ProviderManager2.class);
+        when(providerManager.getProvider(actor, "FAKE-provider-A")).thenReturn(selectedProvider);
+        var dashboards = spy(manager);
+        registerMock(DashboardManager.class, dashboards);
+        doReturn(mock(DashboardBean.class)).when(dashboards).getDashboard(actor, 11);
+        if (provider == null) {
+            doReturn(mock(DrilldownBean.class)).when(dashboards).getDrilldownData(actor, 22, "null");
+        } else {
+            doReturn(mock(DrilldownBean.class)).when(dashboards).getDrilldownData(actor, 22, provider, "null");
+        }
+        var dashboardRequest = new MockHttpServletRequest();
+        dashboardRequest.setParameter("dashboardId", "11");
+        if (selection.equals("chooser")) {
+            dashboardRequest.setParameter("providerNo", provider);
+        } else if (selection.equals("followup")) {
+            dashboardRequest.setParameter("dashboardProviderNo", provider);
+        }
+        LoggedInInfo.setLoggedInInfoIntoSession(dashboardRequest.getSession(), actor);
+        request(dashboardRequest);
+
+        var savedDashboardManager = ReflectionTestUtils.getField(DisplayDashboard2Action.class, "dashboardManager");
+        var savedDrilldownManager = ReflectionTestUtils.getField(DisplayDrilldown2Action.class, "dashboardManager");
+        ReflectionTestUtils.setField(DisplayDashboard2Action.class, "dashboardManager", dashboards);
+        ReflectionTestUtils.setField(DisplayDrilldown2Action.class, "dashboardManager", dashboards);
+        try {
+        assertEquals("success", new DisplayDashboard2Action().execute());
+        Provider heading = provider == null ? loggedInProvider : selectedProvider;
+        assertSame(heading, dashboardRequest.getAttribute("preferredProvider"));
+        assertEquals(provider, dashboardRequest.getAttribute("dashboardProviderNo"));
+
+        var drilldownRequest = new MockHttpServletRequest();
+        drilldownRequest.setSession(dashboardRequest.getSession());
+        drilldownRequest.setParameter("indicatorTemplateId", "22");
+        String dashboardOverride = (String) dashboardRequest.getAttribute("dashboardProviderNo");
+        if (dashboardOverride != null) {
+            drilldownRequest.setParameter("dashboardProviderNo", dashboardOverride);
+        }
+        request(drilldownRequest);
+
+        assertEquals("success", new DisplayDrilldown2Action().execute());
+        assertSame(heading, drilldownRequest.getAttribute("preferredProvider"));
+        assertEquals(provider, drilldownRequest.getAttribute("dashboardProviderNo"));
+        if (provider == null) {
+            verify(dashboards).getDrilldownData(actor, 22, "null");
+        } else {
+            verify(dashboards).getDrilldownData(actor, 22, provider, "null");
+        }
+        } finally {
+            ReflectionTestUtils.setField(DisplayDashboard2Action.class, "dashboardManager", savedDashboardManager);
+            ReflectionTestUtils.setField(DisplayDrilldown2Action.class, "dashboardManager", savedDrilldownManager);
+        }
     }
 
 }
