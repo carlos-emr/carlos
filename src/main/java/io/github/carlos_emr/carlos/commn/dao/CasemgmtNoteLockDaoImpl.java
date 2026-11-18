@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock;
 import org.springframework.stereotype.Repository;
 
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
 import java.util.List;
 
@@ -106,5 +107,21 @@ public class CasemgmtNoteLockDaoImpl extends AbstractDaoImpl<CasemgmtNoteLock> i
         List<CasemgmtNoteLock> results = query.getResultList();
 
         return results;
+    }
+
+    @Override
+    public boolean lockOwnedNote(Long id, String providerNo, Integer demographicNo, Long noteId, String sessionId) {
+        return entityManager.createQuery(
+                "select lock.sessionId from CasemgmtNoteLock lock where lock.id = :id and lock.providerNo = :provider"
+                        + " and lock.demographicNo = :patient and lock.noteId = :note and lock.sessionId = :session",
+                String.class)
+                .setParameter("id", id)
+                .setParameter("provider", providerNo)
+                .setParameter("patient", demographicNo)
+                .setParameter("note", noteId)
+                .setParameter("session", sessionId)
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                // Session identifiers are case-sensitive even on a case-insensitive schema.
+                .getResultList().contains(sessionId);
     }
 }
