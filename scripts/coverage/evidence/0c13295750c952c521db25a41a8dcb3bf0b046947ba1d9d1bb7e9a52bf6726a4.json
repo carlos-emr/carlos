@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "89272845056252df06ff6aa491fdf739388dd307",
+  "comparisonSha256": "c35293721211ff93f737a6a02609d8a6c33022979f6e575965c6396cd78efba9",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/dashboard/display/DisplayDrilldown2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f71a3cdc38c65f996f96c5e8bc610091bd480ced"
+    }
+  },
+  "baselineCommit": "2795aa313010b3bd5f0cd46c7de9a81087455123",
+  "baselineSourceTree": "89272845056252df06ff6aa491fdf739388dd307",
+  "baselineReportSha256": "3512c5311913db3f06766c55ce0f140effe549f4c578073014f15ea2e3d050e8",
+  "baselineLane": "Dashboard suite and focused shared-provider retest including export, permissions and missing selections",
+  "baselineTestCounts": {
+    "tests": 110,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "10cc51771c7696ff16934e252cd4ebc1f514eefc55e3535ef8bce1a463b06151",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}
