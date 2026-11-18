@@ -63,6 +63,42 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
     private PatientConsentManagerImpl manager;
     private LoggedInInfo loggedInInfo;
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"add", "edit", "optout", "byType", "all", "delete"})
+    void shouldPreserveLegacyDenialResponse_forConsentOperations(String operation) {
+        lenient().when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class),
+                eq("_demographic"), anyString(), anyInt())).thenReturn(false);
+        lenient().when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class),
+                eq("_demographic"), anyString(), nullable(String.class))).thenReturn(false);
+        Throwable denied = catchThrowable(() -> {
+            switch (operation) {
+                case "add" -> manager.addConsent(loggedInInfo, 100, 1, true, false);
+                case "edit" -> manager.addEditConsentRecord(loggedInInfo, 100, 1, true, false);
+                case "optout" -> manager.optoutConsent(loggedInInfo, 10);
+                case "byType" -> manager.getConsentByDemographicAndConsentType(loggedInInfo, 100, new ConsentType());
+                case "all" -> manager.getAllConsentsByDemographic(loggedInInfo, 100);
+                case "delete" -> manager.deleteConsent(loggedInInfo, 100, 1);
+                default -> throw new AssertionError("Unknown test operation");
+            }
+        });
+        assertThat(denied).isInstanceOf(RuntimeException.class)
+                .isNotInstanceOf(SecurityException.class).isNotInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Unauthorised Access. Object[_demographic]");
+        verifyNoInteractions(mockConsentDao, mockConsentTypeDao);
+        var mapper = new io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.GeneralExceptionMapper();
+        try (var actual = mapper.toResponse((Exception) denied);
+             var legacy = mapper.toResponse(new RuntimeException("Unauthorised Access. Object[_demographic]"))) {
+            assertThat(actual.getStatus()).isEqualTo(legacy.getStatus()).isEqualTo(500);
+            assertThat(actual.getMediaType()).isEqualTo(legacy.getMediaType());
+            assertThat(actual.getEntity()).usingRecursiveComparison().ignoringFields("timestamp")
+                    .isEqualTo(legacy.getEntity());
+            assertThat(actual.getEntity()).extracting("timestamp").asString()
+                    .matches("[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z");
+            assertThat(legacy.getEntity()).extracting("timestamp").asString()
+                    .matches("[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z");
+        }
+    }
+
     @BeforeEach
     void setUp() {
         registerMock(ConsentDao.class, mockConsentDao);
