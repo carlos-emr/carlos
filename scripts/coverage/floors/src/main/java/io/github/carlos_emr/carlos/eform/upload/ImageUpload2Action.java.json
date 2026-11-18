@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/eform/upload/ImageUpload2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "1efc8ded817f095cbb82fbecea75f9456b41fcde"
+  },
+  "evidenceSha256": "f162b33e5c4a3c33d4e3fe918831a47c334d6d249e6e4598f33e338e6e9fe642"
+}
