@@ -2561,6 +2561,8 @@ function updateCPPNote() {
 
         Element.remove(txtId);
         caseNote = "caseNote_note" + nId;
+        // Lock loss belongs to the prior editor; this selected note has its own lock.
+        lostNoteLock = false;
 
         var input = createNoteTextarea(caseNote, payload, true);
         $(txt).insertBefore(input, $(txt).firstChild);
@@ -3905,6 +3907,8 @@ function updateCPPNote() {
         if (changeToView(caseNote, function () { newNote(null); })) {
 
             caseNote = "caseNote_note" + safeNoteIdSuffix;
+            // Clear stale editor state only after the previous editor can be left.
+            lostNoteLock = false;
             document.forms["caseManagementEntryForm"].note_edit.value = "new";
             document.forms["caseManagementEntryForm"].noteId.value = "0";
             document.forms["caseManagementEntryForm"].newNoteIdx.value = newNoteIdx;

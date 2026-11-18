@@ -519,3 +519,73 @@ test('both editors expose an atomic polite status region', () => {
     assert.match(tag, /aria-atomic=['"]true['"]/);
   }
 });
+
+
+// Execute the real activation paths up to their DOM publication boundary, then use
+// the actual autosave and save-on-switch handlers for the newly selected editor.
+function editorAfterLostLock(kind, accepted) {
+  const h = modern();
+  const alerts = [];
+  h.context.lostNoteLock = true;
+  h.editor.parentNode = {id: 'nOld'};
+  h.editor.focus = () => {};
+  Object.assign(h.context, {
+    Event: {stop() {}, element: () => ({id: 'edit42'})},
+    deferNoteSaveUntilIssues: () => false,
+    changeToView: () => accepted,
+    createNoteTextarea: (id, value) => ({id, value}),
+    newNoteCounter: 0, reason: 'FAKE later note',
+    NoteisLocked: () => accepted ? 'none' : 'other',
+    Element: {remove: id => {delete h.elements[id];}},
+    alert: value => alerts.push(value),
+    validDate: () => true, caisiEnabled: false, providerNo: '999998',
+    noteLockLostError: 'Lock lost; copy the text and reopen the chart.',
+    Form: {serialize: () => 'fixture=form'}, beginNoteSwitchSave: () => () => {},
+  });
+  const from = modernSource.indexOf(`    function ${kind}(`);
+  const boundary = kind === 'newNote'
+    ? '            document.forms["caseManagementEntryForm"].note_edit.value'
+    : '        var input = createNoteTextarea(caseNote, payload, true);';
+  const to = modernSource.indexOf(boundary, from);
+  assert.ok(from > 0 && to > from);
+  let body = modernSource.slice(from, to).replace(/<%--[\s\S]*?--%>/g, '');
+  body += kind === 'newNote' ? '        } return false; }' : ' return false; }';
+  h.elements.n42 = {id: 'n42', getElementsBySelector: () => []};
+  h.elements.full42 = {value: 'false'};
+  vm.runInContext(body, h.context);
+  h.context[kind](kind === 'newNote' ? null : {});
+  const noteId = kind === 'newNote' ? '0' : '42';
+  if (accepted) {
+    h.elements[h.context.caseNote] = {value: 'FAKE later note'};
+    h.context.document.forms.caseManagementEntryForm.noteId.value = noteId;
+  }
+  h.context.document.forms.caseManagementEntryForm.method = {};
+  h.elements['encTypeSelect' + noteId] = {value: 'face-to-face'};
+  vm.runInContext(modernSource.slice(modernSource.indexOf('    function ajaxSaveNote('),
+    modernSource.indexOf('    function saveNoteAjax(')), h.context);
+  return {...h, alerts, noteId};
+}
+
+for (const kind of ['newNote', 'editNote']) {
+  test(`${kind} starts an independent editor with working autosave and manual saving after an earlier lock loss`, () => {
+    const h = editorAfterLostLock(kind, true);
+    h.context.autoSave();
+    assert.equal(h.requests.length, 1, 'the later editor must retain autosave protection');
+    assert.equal(h.context.lostNoteLock, false);
+    assert.equal(new URLSearchParams(h.requests[0].options.postBody).get('note_id'), h.noteId);
+    h.requests[0].options.onSuccess(ack()); h.requests[0].options.onComplete();
+    assert.equal(h.status.attributes['data-autosave-state'], 'saved');
+    h.context.ajaxSaveNote('sigLater', h.noteId, 'FAKE later note');
+    assert.equal(h.requests.length, 2, 'manual saves must use the later editor too');
+    assert.equal(new URLSearchParams(h.requests[1].options.postBody).get('nId'), h.noteId);
+    assert.equal(h.editor.value, 'Unsaved H&P + clinical text', 'the original refused text remains available');
+  });
+  test(`${kind} leaves the original editor conflicted when a switch is refused`, () => {
+    const h = editorAfterLostLock(kind, false);
+    h.context.autoSave();
+    assert.equal(h.context.lostNoteLock, true);
+    assert.equal(h.context.caseNote, 'editor');
+    assert.equal(h.editor.value, 'Unsaved H&P + clinical text');
+    assert.equal(h.requests.length, 0);
+  });
+}
