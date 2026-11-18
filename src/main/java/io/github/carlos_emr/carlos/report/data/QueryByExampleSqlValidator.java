@@ -73,7 +73,7 @@ public final class QueryByExampleSqlValidator {
      * and this application-level check refuses them before a query is sent, as defense in depth.
      * {@code QueryByExampleReportingClassificationUnitTest} keeps the two in step (issue #3372).</p>
      */
-    static final Set<String> SECURITY_SENSITIVE_TABLES = Set.of(
+    static final Set<String> SECURITY_SENSITIVE_TABLES = Set.of("mcedt_credential",
             "appdefinition",
             "appuser",
             "casemgmt_note_lock",
