@@ -8,22 +8,36 @@ const vm = require('node:vm');
 
 const webapp = path.join(__dirname, '../src/main/webapp');
 const jsp = fs.readFileSync(path.join(webapp, 'WEB-INF/jsp/rx/SearchDrug3.jsp'), 'utf8');
-const start = jsp.indexOf('function getCost(');
+const start = jsp.indexOf('function getLUC(');
 const end = jsp.indexOf('function validateRxDate(', start);
-assert.ok(start >= 0 && end > start, 'The prescribing price handler must exist');
+assert.ok(start >= 0 && end > start, 'The prescribing card lookup handlers must exist');
 const handler = jsp.slice(start, end);
 const ajax = fs.readFileSync(path.join(webapp, 'share/javascript/carlos-ajax.js'), 'utf8');
+const errorPage = '<html><body><main id="error-code">CARLOS Error: service unavailable</main></body></html>';
+const jsMsg = {
+  limitedUseLookupFailed: 'Limited-use codes could not be loaded.',
+  costLookupFailed: 'The drug price could not be loaded.',
+};
+
+function panel() {
+  let html = '';
+  return {
+    nodeType: 1,
+    notice: null,
+    get innerHTML() { return html; },
+    set innerHTML(value) { html = value; this.notice = null; },
+    set textContent(value) { this.innerHTML = value; },
+    replaceChildren(notice) { this.innerHTML = ''; this.notice = notice; },
+    insertAdjacentHTML(position, markup) {
+      assert.equal(position, 'beforeend');
+      this.innerHTML += markup;
+    },
+  };
+}
 
 function setup() {
   const requests = [];
-  const elements = new Map(['cost_7', 'cost_8'].map(id => [id, {
-    nodeType: 1,
-    innerHTML: '',
-    insertAdjacentHTML(position, html) {
-      assert.equal(position, 'beforeend');
-      this.innerHTML += html;
-    },
-  }]));
+  const elements = new Map(['cost_7', 'cost_8', 'luc_7'].map(id => [id, panel()]));
   class XMLHttpRequest {
     constructor() { this.aborted = false; requests.push(this); }
     open(method, url, asynchronous) { Object.assign(this, { method, url, asynchronous }); }
@@ -37,8 +51,11 @@ function setup() {
     }
   }
   const context = vm.createContext({
-    ctx: '/carlos', XMLHttpRequest, URLSearchParams, FormData, console,
-    document: { getElementById: id => elements.get(id) },
+    ctx: '/carlos', XMLHttpRequest, URLSearchParams, FormData, console, jsMsg,
+    document: {
+      getElementById: id => elements.get(id),
+      createElement: tagName => ({ tagName, setAttribute(name, value) { this[name] = value; } }),
+    },
   });
   // Use the shipped Ajax helper; no Prototype globals or compatibility stubs.
   vm.runInContext(ajax, context);
@@ -114,15 +131,44 @@ test('a removed prescription card does not start a price request', () => {
 
 
 for (const failure of ['network', 'http']) {
-  test(`a changed quantity clears its previous quote while pending and after ${failure} failure`, () => {
+  test(`a changed quantity replaces its previous quote with a local notice after ${failure} failure`, () => {
     const s = setup();
+    const cost = s.elements.get('cost_7');
     s.context.getCost('cost_7', '7', '0001234', '30');
     s.requests[0].respond('<span>$3.00/30</span>');
     s.context.getCost('cost_7', '7', '0001234', '60');
-    assert.equal(s.elements.get('cost_7').innerHTML, '', 'The pending lookup must not retain the old quote');
+    assert.equal(cost.innerHTML, '', 'The pending lookup must not retain the old quote');
     if (failure === 'network') s.requests[1].onerror();
-    else s.requests[1].respond('', 503);
-    assert.doesNotMatch(s.elements.get('cost_7').innerHTML, /3\.00|\/30/);
-    assert.equal(s.elements.get('cost_7')._priceRequest, null);
+    else s.requests[1].respond(errorPage, 503);
+    assert.equal(cost.innerHTML, '', 'A failed lookup must not insert its response document');
+    assert.equal(cost.notice.role, 'alert');
+    assert.equal(cost.notice.textContent, jsMsg.costLookupFailed + (failure === 'http' ? ' (HTTP 503)' : ''));
+    assert.equal(cost._priceRequest, null);
+
+    s.context.getCost('cost_7', '7', '0001234', '60');
+    s.requests[2].respond('<span>$6.00/60</span>');
+    assert.equal(cost.innerHTML, '<span>$6.00/60</span>');
+    assert.equal(cost.notice, null);
   });
 }
+
+test('the limited-use lookup shows a local notice on refusal and renders a later successful fragment', () => {
+  const s = setup();
+  const limitedUse = s.elements.get('luc_7');
+  s.context.getLUC('luc_7', '7', '02010909');
+  const request = s.requests[0];
+  const url = new URL(request.url, 'https://carlos.invalid');
+  assert.equal(request.method, 'GET');
+  assert.equal(url.pathname, '/carlos/rx/ViewLimitedUseCode');
+  assert.deepEqual([...url.searchParams], [['randomId', '7'], ['din', '02010909']]);
+  request.respond(errorPage, 403);
+  assert.equal(limitedUse.innerHTML, '');
+  assert.equal(limitedUse.notice.role, 'alert');
+  assert.equal(limitedUse.notice.textContent, `${jsMsg.limitedUseLookupFailed} (HTTP 403)`);
+
+  s.context.getLUC('luc_7', '7', '02010909');
+  const fragment = '<table><tr><th>Limited Use Codes</th></tr></table>';
+  s.requests[1].respond(fragment);
+  assert.equal(limitedUse.innerHTML, fragment);
+  assert.equal(limitedUse.notice, null);
+});
