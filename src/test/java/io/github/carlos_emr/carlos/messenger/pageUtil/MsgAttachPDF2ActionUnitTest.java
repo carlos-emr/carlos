@@ -943,6 +943,23 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(recordedAttachments).isEmpty();
         }
 
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.NullAndEmptySource
+        void shouldReserveRecordSpace_whenAnotherSelectedPdfFailsToRender(String failedPdf) throws Exception {
+            base64Pdf = failedPdf;
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic", "currentEncounter"});
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+            String stored = stagedPdfs();
+            assertThat(stored).contains("<STATUS>BAD</STATUS>", "<CONTENT></CONTENT>", "<STATUS>OK</STATUS>");
+            long bytesWithoutChartPayload = MsgMessageData.pdfAttachmentStorageBytes(stored)
+                    - Base64.getEncoder().encodeToString(encounterPdf).length();
+            assertThat(printBudgets).containsExactly(
+                    (MessageTbl.PDF_ATTACHMENT_MAX_BYTES - bytesWithoutChartPayload) / 4 * 3);
+        }
+
         @Test
         @DisplayName("should preview and attach the largest chart PDF that fits its message record")
         void shouldPreviewAndAttach_theLargestChartPdfThatFits() throws Exception {
