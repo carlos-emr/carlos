@@ -6347,7 +6347,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Owns one marker-titled template and one marker-named rbt_groups group; cleanup deletes only marker rows and asserts they are gone."
+      "fixtures": "Owns one marker-titled template and two marker-named rbt_groups groups, including a database-collation duplicate control; validates refused group names and membership without writes. Cleanup deletes only marker rows and asserts they are gone."
     },
     {
       "name": "report-cdm",

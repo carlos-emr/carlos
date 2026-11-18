@@ -62,6 +62,10 @@
 
     <h3>Template Groups</h3>
 
+    <c:if test="${not empty errormsg}">
+        <div class="alert alert-danger" role="alert">${carlos:forHtml(errormsg)}</div>
+    </c:if>
+
     <c:choose>
         <c:when test="${ empty templatesInGroup }">
             <div class="row">
