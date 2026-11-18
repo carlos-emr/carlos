@@ -7,11 +7,14 @@ package io.github.carlos_emr.carlos.eform;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -44,6 +47,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
@@ -388,15 +392,21 @@ class EFormExportZipConcurrentImportUnitTest {
                 + "<img src='https://external.test/orphan.png'><img src='//external.test/orphan.png'>"
                 + "<img src='/eform/displayImage?imagefile=orphan%ZZ.png'>");
         entries.put("retained/icons/indirect.png", "RETAINED");
-        try (var folders = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
+        PlatformTransactionManager transactions = mock(PlatformTransactionManager.class);
+        when(transactions.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
+        try (var folders = mockStatic(ImageUpload2Action.class);
+             var forms = mockStatic(EFormUtil.class);
+             var beans = mockStatic(SpringUtils.class)) {
             folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
             forms.when(() -> EFormUtil.formExistsInDB("Duplicate")).thenReturn(true);
+            beans.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactions);
 
-            List<String> errors = new EFormExportZip(Runnable::run)
+            List<String> errors = new EFormExportZip()
                     .importForm(new ByteArrayInputStream(zip(entries)));
 
             assertThat(errors).containsExactly("Skipped form 'Duplicate', form already exists");
             forms.verify(() -> EFormUtil.saveEForm(any(EForm.class)));
+            verify(transactions).commit(any());
         }
         assertThat(images.resolve("orphan.png")).doesNotExist();
         assertThat(Files.readString(images.resolve("shared.png"))).isEqualTo("SHARED");

@@ -503,34 +503,34 @@ public class EFormExportZip {
         if (!eformTableFailed.isEmpty() && retainedDirectories.isEmpty()) {
             return;
         }
-        Set<File> refusedDirectories = new HashSet<>();
-        for (String refusedName : eformTableFailed.keySet()) {
-            StagedEntry refused = tempFiles.get(refusedName);
-            if (refused != null) {
-                refusedDirectories.add(refused.archiveDirectory());
-            }
-        }
-        refusedDirectories.remove(imageTempFolderDir);
-        Map<String, StagedEntry> assets = new LinkedHashMap<>();
-        for (Entry<String, StagedEntry> staged : tempFiles.entrySet()) {
-            String name = staged.getKey();
-            if (!eformTable.containsKey(name) && !eformTableFailed.containsKey(name)) {
-                assets.put(name, staged.getValue());
-                if (refusedDirectories.isEmpty()
-                        || !isRefusedAsset(staged.getValue().archiveDirectory(), retainedDirectories, refusedDirectories)) {
-                    retainedAssets.add(name);
+        Map<String, StagedEntry> assets = new LinkedHashMap<>(tempFiles);
+        assets.keySet().removeAll(eformTable.keySet());
+        assets.keySet().removeAll(eformTableFailed.keySet());
+        Set<File> refusedDirectories = refusedFormDirectories(imageTempFolderDir, tempFiles, eformTableFailed.keySet());
+        if (!refusedDirectories.isEmpty()) {
+            retainedAssets.retainAll(assets.keySet());
+            for (Entry<String, StagedEntry> asset : assets.entrySet()) {
+                if (!isRefusedAsset(asset.getValue().archiveDirectory(), retainedDirectories, refusedDirectories)) {
+                    retainedAssets.add(asset.getKey());
                 }
             }
-        }
-        if (!refusedDirectories.isEmpty()) {
             retainAssetDependencies(assets, retainedAssets, textBytes);
+            assets.keySet().retainAll(retainedAssets);
         }
         for (Entry<String, StagedEntry> staged : assets.entrySet()) {
-            String name = staged.getKey();
-            if (retainedAssets.contains(name)) {
-                publishImportAsset(name, staged.getValue().file(), imageDir, imageTempFolderDir, errors, publishedAssets);
-            }
+            publishImportAsset(staged.getKey(), staged.getValue().file(), imageDir, imageTempFolderDir, errors,
+                    publishedAssets);
         }
+    }
+
+    private Set<File> refusedFormDirectories(File root, Map<String, StagedEntry> entries, Set<String> refusedNames) {
+        Set<File> directories = new HashSet<>();
+        for (String name : refusedNames) {
+            StagedEntry refused = entries.get(name);
+            if (refused != null) directories.add(refused.archiveDirectory());
+        }
+        directories.remove(root);
+        return directories;
     }
 
     /** The closest form directory owns the asset. A directory shared with a retained form is retained. */
@@ -549,7 +549,7 @@ public class EFormExportZip {
             String name = pending.removeFirst();
             String lowerName = name.toLowerCase(Locale.ROOT);
             StagedEntry entry = assets.get(name);
-            if (entry == null || !(lowerName.endsWith(".css") || lowerName.endsWith(".js") || lowerName.endsWith(".mjs"))) {
+            if (!(lowerName.endsWith(".css") || lowerName.endsWith(".js") || lowerName.endsWith(".mjs"))) {
                 continue;
             }
             textBytes = countImportTextBytes(entry.file(), textBytes, MAX_IMPORT_TEXT_ENTRY_BYTES);
