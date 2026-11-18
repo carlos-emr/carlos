@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "ac136f04737c81682ed84f87836d45115417aab9",
+  "comparisonSha256": "785eed4ee2b1b230793b27580f0b16765a10955018b8f2019c9cc1f9b0605532",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/PMmodule/web/admin/FacilityManager2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "5e0244e01c8ac65cf93d51055f6e5fe7590200d3"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "9e5afa12ea1e4b816d79abca854e99c96836b02e",
+  "baselineSourceTree": "ac136f04737c81682ed84f87836d45115417aab9",
+  "baselineReportSha256": "ac29f76a2ef42f760c434b64b7bd798c7802c32c477937de2fd57948949fc6fa",
+  "baselineLane": "Focused H2 Facility action and real CSRF filter regressions after full JDK25 production/test compilation;15 passing cases. This is source-specific evidence, not complete release coverage acceptance.",
+  "baselineTestCounts": {
+    "tests": 15,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "69bbf62167e2c339e5b9acc552ecef44cf0776f3d75758b6e1f79b6fa042f812",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

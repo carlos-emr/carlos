@@ -797,7 +797,8 @@
         "docs/eform-zip-import-limits.md",
         "scripts/eform-visual-widgets-playwright-checks.js",
         "scripts/eform-visual-widgets.test.js",
-        "docs/testing/eform-visual-widgets-inventory.md"
+        "docs/testing/eform-visual-widgets-inventory.md",
+        "scripts/eform-large-html-roundtrip-playwright-checks.js"
       ],
       "implementation": "Extend real save/reopen/print workflows for every changed form and eForm resource. Keep saved primary state distinct from failed email/PDF/fax/EDoc work and assert visible, retry-safe recovery.",
       "cases": "Unticked/checked/blank/long/multiline/quoted/Unicode data; autosave pending/error and multiple clicks; form version and refresh; editor toolbar/Bootstrap/jQuery aliases/AP values/calendar/signature; Mac ZIPs, bounded bulk export, path and collision attacks; actual expanded ZIP bytes/count and properties/retained-HTML budgets, exact-limit acceptance, rejection before publication and owned staging cleanup; primary save succeeds then secondary preparation fails; expired email draft. Native visual editor non-text controls: independent xBox/radio defaults, real grouping and local image/wet signature, exact saved/cleared markup and value rows, native history/reopen, actual PDF selected controls and image/ink pixels, same-template Update and revised new-instance layout. Explicit empty-field loss #5826 remains fatal.",
@@ -819,7 +820,8 @@
         "fixture-hrm-report-list",
         "fixture-messenger-reply-form",
         "fixture-search-sort-messenger-inbox",
-        "manual-demographic-converted-limits"
+        "manual-demographic-converted-limits",
+        "manual-eform-large-html-roundtrip"
       ]
     },
     {
@@ -8381,6 +8383,41 @@
         "--strict-release",
         "--only",
         "privacy-static-html-metadata",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
+    },
+    {
+      "id": "manual-eform-large-html-roundtrip",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "eform-large-html-roundtrip"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_PASSWORD"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "eform-large-html-roundtrip",
         "--province",
         "{profile}",
         "--residue-audit",

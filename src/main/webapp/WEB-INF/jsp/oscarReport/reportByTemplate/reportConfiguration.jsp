@@ -101,6 +101,7 @@
             }
         </script>
 
+        <link href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/reportByTemplateLayout.css" rel="stylesheet">
     </head>
 
     <%
@@ -112,7 +113,7 @@
         int step = 0;
     %>
 
-    <body>
+    <body class="rbt-page">
 
         <%@ include file="rbtTopNav.jspf" %>
 

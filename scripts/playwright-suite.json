@@ -2295,11 +2295,19 @@
     {
       "name": "login-legacy-intake",
       "script": "scripts/login-legacy-intake-playwright-checks.js",
-      "tiers": ["core"],
+      "tiers": [
+        "core"
+      ],
       "assertsDatabase": true,
-      "provinces": ["all"],
+      "provinces": [
+        "all"
+      ],
       "timeoutSec": 180,
-      "env": ["TEST_PASSWORD", "TEST_PIN", "MYSQL_PASSWORD"],
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
       "notes": "Issue 4562: a retained Patient Intake assignment uses the supported landing page after password login and forced reset; the replacement password remains usable.",
       "fixtures": "One owned throwaway login retains its copied privileges plus the legacy assignment. Cleanup removes its credentials, assignments, preferences and audit rows; no shared role or account is edited."
     },
@@ -6347,7 +6355,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Owns one marker-titled template and one marker-named rbt_groups group; cleanup deletes only marker rows and asserts they are gone."
+      "fixtures": "Owns one marker-titled template and two marker-named rbt_groups groups, including a database-collation duplicate control; validates refused group names and membership without writes. Cleanup deletes only marker rows and asserts they are gone."
     },
     {
       "name": "report-cdm",
@@ -18250,11 +18258,7 @@
       ],
       "profile": "private-consent",
       "fixtures": "An unused CONSENT_PROGRAM_ID is reserved for a marker-owned program, one throwaway doctor with exactly that default program and membership, and an owned patient. Cancelling changes nothing; confirming persists once and removes the banner. Cleanup removes the program, defaults, memberships, account and chart support rows.",
-      "expectedFailure": {
-        "finding": 332,
-        "step": "cancelled informed-consent confirmation leaves the banner and stored consent unchanged"
-      },
-      "notes": "Task 46: owned program/clinician, Cancel/OK, exact patient extension and reopened state. Finding 332: current release reads the static checked attribute, so the native click never opens its confirmation; later confirmed-save assertions remain behind that failure."
+      "notes": "Task 46: owned program/clinician, Cancel/OK, exact patient extension and reopened state. Native clicks use the live checkbox state; cancellation clears the selection and a subsequent confirmed click stores consent for the originating patient."
     },
     {
       "name": "document-clinical-followup",
@@ -19466,6 +19470,25 @@
       "notes": "#5928: installed Client Search bounds data and HTML to 10 rows, retains note identity and criteria drafts through repeated POST paging with fresh CSRF, applies global sorting and native Soundex paging; BC tray bounds each page to 50 rows and preserves both unsaved fee codes."
     },
     {
+      "name": "admin-facility-disable",
+      "script": "scripts/admin-facility-disable-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "mutates": [
+        "Facility"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "profile": "caisi-admin",
+      "fixtures": "One marker-owned enabled Facility copies configuration columns only, without memberships, programs or clinical data. Shared authz fixture cleanup checks ownership and removes the captured row even if Disable fails. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5929: native CAISI Facility list verifies every Disable link has its row form, including the first row; Cancel preserves the owned facility, a token-less POST is refused, GET/HEAD save and delete are rejected before mutation, and confirmed native POST persists disabled=1 and removes only the owned row from the active list. Requires a disposable exclusive host (EXCLUSIVE=1); the caisi-admin profile restarts the application before and after the check so FacilityDAO cache entries cannot retain the removed fixture."
+    },
+    {
       "name": "log-provider-order",
       "script": "scripts/log-provider-order-playwright-checks.js",
       "tiers": [
@@ -19518,6 +19541,28 @@
       "manual": true,
       "notes": "#5936: run on the host serving the packaged install, with a configured confidentiality statement. Verifies static HTML GET/HEAD metadata, conditional file-date requests, wildcard existence conditions, a two-mebibyte owned static page and same-URL AJAX/ordinary browser cache variants.",
       "fixtures": "Reads installed gpl.htm bytes and modification time; creates and removes one marker-named synthetic large HTML file beside it. Honors CARLOS_INSTALLED_WEBAPP_DIR. No clinical fixtures or configuration changes."
+    },
+    {
+      "name": "eform-large-html-roundtrip",
+      "script": "scripts/eform-large-html-roundtrip-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "manual": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "mutates": [
+        "eform"
+      ],
+      "notes": "Manual regression for #6018: creates one owned synthetic 17 MiB template, exports it through Manage eForms, removes the source and imports the downloaded ZIP. Verifies exact HTML byte length and SHA-256 without dumping the large value, no patient instances and unchanged unrelated template hashes. The 50 MiB HTML and separate 16 MiB properties/64 MiB aggregate limits also have JVM controls.",
+      "fixtures": "One marker-named synthetic template, removed only after verifying its name, file, provider, byte length, digest and lack of patient instances; owned download scratch directory. Requires an exclusive disposable host. It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     }
   ]
 }

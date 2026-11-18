@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/managers/EmailComposeManager.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 77.35849056603773,
+    "instructions": 83.38557993730407,
+    "branches": 75.0,
+    "sourceBlob": "dc0ae22fb5b1259b509dc6a5749638e600fd99ae"
+  },
+  "evidenceSha256": "bd820a4d6b042e21bd44b58a29a6591435489f2c5dce9db54abc742154bf3339"
+}
