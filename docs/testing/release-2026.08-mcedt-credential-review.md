@@ -9,16 +9,17 @@ retains the encrypted representation of the former 4,000-character capacity,
 including supplementary Unicode. Larger submitted passwords are refused before
 storage changes.
 
-Reads and writes acquire the singleton database lock, then lock legacy rows in
-ID order. A first read treats every legacy value as plaintext, including a
-literal `{ENC}` prefix. The first legacy row remains the effective credential;
-all legacy duplicates are removed in the same transaction. Already migrated
-ciphertext is authenticated and decrypted; corruption fails closed. Missing or
-blank credentials keep the configured fallback. Change Password replaces the
-encrypted record and removes every old plaintext row atomically. Failures expose
-only static errors. The page now shows an explicit failure alert, and the action
-emits a fixed credential-free warning. The Struts constructor resolves its
-dependency and delegates to a package-private injection constructor.
+Reads and writes lock the singleton. A save or a first read that can migrate a
+legacy value also takes a locking read of legacy rows in ID order. After
+migration, ordinary reads discover any obsolete rows without a locking range
+scan and delete them by ID and property name. A first read treats every legacy
+value as plaintext, including a literal `{ENC}` prefix. The first legacy row
+supplies the credential and the transaction removes every legacy duplicate.
+Already migrated ciphertext is authenticated before use. Missing or blank
+credentials keep the configured fallback. Change Password records the provider
+and timestamp when it replaces the encrypted value and removes legacy rows.
+The seed records the migration actor, and lazy legacy conversion records the
+system actor. The failure page and application warning use fixed messages.
 
 All 34 selected Java 25 cases pass: eight unit controls and 26 real H2 transaction
 cases. The same 26 transaction cases pass on a disposable MariaDB 11.8.8 server
@@ -31,9 +32,10 @@ preference update to commit before its credential locks are released.
 
 The first physical runs exposed a real MariaDB `HY000/1020` failure after the
 legacy writer committed. An ordinary encrypted-value SELECT had opened a
-repeatable-read snapshot before the legacy locking read. The final implementation
-uses current locking reads for both values. The failed physical reports are
-retained; the corrected 23-case retake passes with no failures/errors/skips.
+repeatable-read snapshot before the legacy locking read. That intermediate
+implementation used current locking reads for both values. The failed physical
+reports are retained. Its corrected 23-case retake passed with zero failures,
+errors and skips.
 The actual migration also passes independently: EXPLAIN selects
 `idx_property_name`, LONGTEXT is reported, and inserting a second singleton ID
 is rejected by its constraint. All test databases and the owned server are
@@ -73,10 +75,20 @@ authentication is exercised.
 
 Upgrade while application instances are stopped, as the packaged service upgrade
 does, and upgrade every instance before resuming MCEDT use. Older code reads only
-plaintext properties and cannot consume ciphertext; mixed old/new MCEDT writers
-are unsupported. Keeping plaintext available to those writers would defeat the
-storage repair. Retain the installation encryption key with its existing
-credential backups and use compatible code/schema when restoring them.
+plaintext properties and cannot consume ciphertext. Retain the installation
+encryption key with its credential backups and use compatible code and schema
+when restoring them.
+
+After every instance is upgraded, complete a credential read in the application
+or save the current password through Change Password. The schema upgrade seeds
+the singleton. The first successful application read or save removes the
+legacy plaintext. Verify cleanup with this count, which should return zero.
+
+```sql
+SELECT COUNT(*) FROM property WHERE name = 'mcedt_account_password';
+```
+
+Backups taken before cleanup retain the bytes captured at the time.
 
 The complete post-review Node retake passes all 8,111 cases across 570 files
 on Node 22.23.5 with zero failures, skips, cancellations or TODOs, and every

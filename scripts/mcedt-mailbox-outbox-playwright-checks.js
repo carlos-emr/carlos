@@ -17,9 +17,8 @@
  * mcedt.service.url is empty on the packaged install, so even a stray call could not leave the machine.
  *
  * WHAT IS ASSERTED, in step order (the labels below are the manifest's expectedFailure vocabulary):
- *   - the Ontario install, the paths and the clinic-wide state: the MCEDT password property is PARKED (renamed
- *     for the run, never read or printed; lib/mcedt-local-state.js) and the outbox listing and its two timestamp
- *     files are snapshotted, both restored byte for byte however the run ends;
+ *   - the Ontario install, the paths and the clinic-wide state: the encrypted singleton and its audit fields are
+ *     backed up server-side, legacy properties are parked separately, and the outbox and timestamps are snapshotted;
  *   - Menu ▸ Upload: the mailbox opens with its four tabs, the Upload tab lists the outbox and offers Add,
  *     Delete Selected and Submit (Submit is only inspected, disabled until a file is ticked);
  *   - the OHIP diskette is generated for an owned provider (the group-disk fixture) and its claim file is on the
@@ -30,8 +29,8 @@
  *     counted as "application not reached"), with the application's own message and nothing written anywhere;
  *   - Delete Selected removes only the ticked owned file: the OBEC-shaped bystander and a marker beside the outbox
  *     survive byte for byte; a list whose second name carries a path is refused and removes nothing;
- *   - Change Password writes the property and no page or response echoes it; a second change updates the row
- *     (still one row), it does not add another;
+ *   - both password changes update the seeded singleton, preserve an empty live legacy property slot and keep the
+ *     synthetic password out of the page and response bodies;
  *   - for Delete, Add and Change Password: a request with a valid token works (the control), then GET and the
  *     same POST WITHOUT its token are each refused with h.assertRefused (the application's own 403/405, never
  *     the front door's page) and change neither the outbox, the parent directory nor the property;
@@ -51,9 +50,8 @@
  *     filename.substring(0, 2), so Add of a ONE-character name ("x") answers HTTP 500 instead of the refusal every
  *     other non-claim name gets. Runs the menu, a two-character control ("ab" is refused with the message), then the pin
  *     (the status is not a server error) and, once that passes, the same refusal message the control gets.
- *   - MCEDT_PIN=plaintext (mcedt-mailbox-outbox-plaintext), finding 189: Change Password stores the typed text as
- *     given. Runs the menu and the Change Password step (which does NOT judge the stored value, so it keeps passing
- *     when the credential is encrypted at rest), then the pin: the stored value is not the typed one.
+ *   - MCEDT_PIN=plaintext (mcedt-mailbox-outbox-plaintext), finding 189: runs both successful changes and the
+ *     storage-failure control, then checks encrypted storage and absence of the live legacy property.
  * Both variants run only the steps their finding needs; the default run is the full flow above.
  *
  * Environment (suite-env.sh): OHIP_DISK_DIR (the application's HOME_DIR), GROUP_DISK_SERVICE_DATE,
@@ -83,6 +81,12 @@ const { createFixture, removeFixture, checkedDiskDirectory } = require('./billin
 
 const NAME = 'mcedt-mailbox-outbox';
 const PROPERTIES_FILE = process.env.CARLOS_PROPERTIES_FILE || '/etc/carlos-emr/carlos.properties';
+
+function preflightConfig() {
+  if (process.env.EXCLUSIVE !== '1') {
+    throw new h.SkipCheck('MCEDT credential and outbox restoration requires EXCLUSIVE=1');
+  }
+}
 
 // Literal step labels, so the manifest's expectedFailure can name the one it fails at.
 const STEP = {
@@ -191,18 +195,21 @@ async function workflow(s) {
   s.cleanup(() => parking.restore());
   const credentialBackup = `mcedt_pw_bak_${hex}`;
   h.assert(/^mcedt_pw_bak_[a-f0-9]{16}$/.test(credentialBackup), 'The credential backup name is not owned by this run');
+  const credentialColumns = 'id,encrypted_password,lastUpdateUser,lastUpdateDate';
   let credentialParked = false;
   let originalCredentialDigest = null;
-  const credentialDigest = () => sql.value("SELECT SHA2(CONCAT(id,':',IFNULL(HEX(encrypted_password),'NULL')),256) FROM mcedt_credential WHERE id=1");
+  const credentialDigest = () => sql.value("SELECT SHA2(CONCAT_WS(':',id,IFNULL(HEX(encrypted_password),'NULL'),"
+    + "HEX(lastUpdateUser),lastUpdateDate),256) FROM mcedt_credential WHERE id=1");
   s.cleanup(() => {
     if (!credentialParked) return;
-    if (String(sql.value(`SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=${q(credentialBackup)}`)) === '0') {
+    if (String(sql.value('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?',
+      [credentialBackup])) === '0') {
       h.assert(credentialDigest() === originalCredentialDigest, 'Credential changed before its backup was created');
       credentialParked = false;
       return;
     }
     h.assert(String(sql.value(`SELECT COUNT(*) FROM \`${credentialBackup}\` WHERE id=1`)) === '1', 'Owned encrypted-credential backup is missing');
-    sql.execute(`START TRANSACTION; DELETE FROM mcedt_credential WHERE id=1; INSERT INTO mcedt_credential(id,encrypted_password) SELECT id,encrypted_password FROM \`${credentialBackup}\` WHERE id=1; COMMIT;`);
+    sql.execute(`START TRANSACTION; DELETE FROM mcedt_credential WHERE id=1; INSERT INTO mcedt_credential(${credentialColumns}) SELECT ${credentialColumns} FROM \`${credentialBackup}\` WHERE id=1; COMMIT;`);
     h.assert(credentialDigest() === originalCredentialDigest, 'Encrypted MCEDT credential was not restored exactly');
     sql.execute(`DROP TABLE \`${credentialBackup}\``);
     credentialParked = false;
@@ -233,8 +240,9 @@ async function workflow(s) {
   const ownedRows = () => String(sql.value(`SELECT COUNT(*) FROM provider WHERE first_name=${q(marker)} OR last_name=${q(marker)}`));
   const propertyWhere = 'id=1 AND encrypted_password IS NOT NULL';
   const propertyRows = () => String(sql.value(`SELECT COUNT(*) FROM mcedt_credential WHERE ${propertyWhere}`));
+  const legacyPropertyRows = () => String(sql.value('SELECT COUNT(*) FROM property WHERE name=?', [L.PASSWORD_PROPERTY]));
   const storedDigest = () => sql.value("SELECT IFNULL(SHA2(encrypted_password,256),'') FROM mcedt_credential WHERE id=1");
-  const propertyHolds = (value) => sql.value(`SELECT COUNT(*) FROM mcedt_credential WHERE id=1 AND encrypted_password=${q(value)}`);
+  const propertyHolds = value => sql.value('SELECT COUNT(*) FROM mcedt_credential WHERE id=1 AND encrypted_password=?', [value]);
   const encryptedPropertyRows = () => String(sql.value("SELECT COUNT(*) FROM mcedt_credential WHERE id=1 AND LEFT(encrypted_password,5)='{ENC}'"));
   const parentNames = () => fs.readdirSync(ledger.parent).sort();
   const visibleState = () => JSON.stringify([ledger.visible(), parentNames()]);
@@ -312,17 +320,22 @@ async function workflow(s) {
 
   // =========================================================================================================
   await s.step(STEP.setup, async () => {
+    const interrupted = sql.value("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()"
+      + " AND TABLE_NAME REGEXP '^mcedt_pw_bak_' ORDER BY TABLE_NAME LIMIT 1");
+    if (interrupted) {
+      const name = /^mcedt_pw_bak_[a-f0-9]{16}$/.test(interrupted) ? ` ${interrupted}` : '';
+      throw new Error(`Interrupted encrypted-credential backup${name}. Restore row 1 from the backup, verify its digest, and drop the backup. Keep credential values private.`);
+    }
     ledger = L.createOutboxLedger({ outbox });
     h.assert(ledger.found.every((entry) => entry.kind === 'file' || entry.kind === 'dir'), 'The outbox holds an entry that is neither a file nor a directory');
-    console.log(`  outbox before: ${ledger.found.length} entr${ledger.found.length === 1 ? 'y' : 'ies'}; password property rows before: ${propertyRows()}`);
+    console.log(`  outbox before: ${ledger.found.length} entr${ledger.found.length === 1 ? 'y' : 'ies'}; stored encrypted credentials before: ${propertyRows()}`);
     parking.park();
     h.assert(String(sql.value('SELECT COUNT(*) FROM mcedt_credential WHERE id=1')) === '1', 'The seeded MCEDT credential record is unavailable');
-    h.assert(String(sql.value("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME LIKE 'mcedt\\_pw\\_bak\\_%'")) === '0', 'An interrupted encrypted-credential backup must be restored before this check');
     originalCredentialDigest = credentialDigest();
     credentialParked = true;
-    sql.execute(`CREATE TABLE \`${credentialBackup}\` AS SELECT id,encrypted_password FROM mcedt_credential WHERE id=1`);
+    sql.execute(`CREATE TABLE \`${credentialBackup}\` AS SELECT ${credentialColumns} FROM mcedt_credential WHERE id=1`);
     sql.execute('UPDATE mcedt_credential SET encrypted_password=NULL WHERE id=1');
-    h.assert(propertyRows() === '0', 'The MCEDT password rows were not parked');
+    h.assert(propertyRows() === '0' && legacyPropertyRows() === '0', 'The MCEDT credential and legacy properties were not parked');
     // The bystander the Delete step must leave alone, and a file beside the outbox a traversal would reach.
     seeded = {
       bystander: markers.seed(outbox, names.bystander, 'bystander'),
@@ -578,7 +591,8 @@ async function workflow(s) {
           await mailbox().getByRole('heading', { name: 'Welcome To MCEDT' }).waitFor({ state: 'visible', timeout: 20000 });
         });
         h.assert(dialogs.some((dialog) => /changed successfully/.test(dialog.text || '')), `Round ${round}: no success alert after Update Password`);
-        h.assert(propertyRows() === '1', `Round ${round}: the ${L.PASSWORD_PROPERTY} property has ${propertyRows()} rows, not one`);
+        h.assert(propertyRows() === '1', `Round ${round}: the encrypted credential singleton is missing`);
+        h.assert(legacyPropertyRows() === '0', `Round ${round}: the password change recreated a legacy property`);
         // Both the full workflow and the focused pin verify encrypted storage without reading a credential.
         h.assert(propertyHolds(value) === '0' && encryptedPropertyRows() === '1',
           `Round ${round}: the synthetic MCEDT credential was not encrypted at rest`);
@@ -600,7 +614,7 @@ async function workflow(s) {
         h.assert(!body.includes(passwords.first) && !body.includes(passwords.second), `A response (${new URL(response.url()).pathname}) echoes a password`);
       }
       h.assert(scanned >= 2, 'The step scanned no responses for an echoed password');
-      console.log(`  Change Password wrote one row twice (create, then update); ${scanned} responses and the page carry no password`);
+      console.log(`  Change Password updated the singleton twice; ${scanned} responses and the page carry no password`);
     } finally {
       admin.off('response', watch);
     }
@@ -609,8 +623,9 @@ async function workflow(s) {
   // =========================================================================================================
   // Finding 189 (variant `plaintext`): the pinned step holds only the stored value; Change Password itself ran above.
   if (full || PIN === 'plaintext') await s.step(STEP.passwordFailure, async () => {
-    const before = storedDigest();
-    sql.execute(`INSERT INTO \`${credentialBackup}\`(id,encrypted_password) SELECT 2,encrypted_password FROM mcedt_credential WHERE id=1; DELETE FROM mcedt_credential WHERE id=1;`);
+    const before = credentialDigest();
+    const legacyBefore = parking.digest();
+    sql.execute(`INSERT INTO \`${credentialBackup}\`(${credentialColumns}) SELECT 2,encrypted_password,lastUpdateUser,lastUpdateDate FROM mcedt_credential WHERE id=1; DELETE FROM mcedt_credential WHERE id=1;`);
     try {
       await openMailboxFromAdministration();
       await mailbox().getByRole('button', { name: 'Change Password' }).click();
@@ -634,9 +649,10 @@ async function workflow(s) {
         && !dialogs.some(dialog => /changed successfully/.test(dialog.text || '')), 'The storage failure did not show only its explicit failure alert');
       h.assert(!await mailbox().locator('html').innerHTML().then(body => body.includes(passwords.probe)), 'The failed page echoes a password');
       h.assert(String(sql.value('SELECT COUNT(*) FROM mcedt_credential')) === '0', 'The failed save silently recreated or changed credential storage');
+      h.assert(parking.digest() === legacyBefore, 'The failed save changed legacy password properties');
     } finally {
-      sql.execute(`INSERT INTO mcedt_credential(id,encrypted_password) SELECT 1,encrypted_password FROM \`${credentialBackup}\` WHERE id=2; DELETE FROM \`${credentialBackup}\` WHERE id=2;`);
-      h.assert(storedDigest() === before, 'The owned storage-failure probe did not restore its credential exactly');
+      sql.execute(`INSERT INTO mcedt_credential(${credentialColumns}) SELECT 1,encrypted_password,lastUpdateUser,lastUpdateDate FROM \`${credentialBackup}\` WHERE id=2; DELETE FROM \`${credentialBackup}\` WHERE id=2;`);
+      h.assert(credentialDigest() === before, 'The owned storage-failure probe did not restore its credential exactly');
     }
     await mailbox().getByRole('button', { name: 'Cancel', exact: true }).click();
     await mailbox().getByRole('heading', { name: 'Welcome To MCEDT' }).waitFor({ state: 'visible', timeout: 20000 });
@@ -645,6 +661,7 @@ async function workflow(s) {
   if (PIN === 'plaintext') {
     await s.step(STEP.plaintext, async () => {
       h.assert(propertyHolds(passwords.second) === '0' && encryptedPropertyRows() === '1', 'The MCEDT password is stored exactly as typed or without its encryption marker');
+      h.assert(legacyPropertyRows() === '0', 'The password change recreated a legacy property');
     });
   }
 
@@ -664,6 +681,7 @@ async function workflow(s) {
     const changed = await sendReplay(context, buildReplay(passwordCaptured, { origin, token, overrides: { password: passwords.control, conPassword: passwords.control } }));
     h.assert(changed.status() === 200 && propertyRows() === '1' && storedDigest() !== valueBeforeControl,
       'Control: Change Password with a token did not replace the stored password');
+    h.assert(legacyPropertyRows() === '0', 'The password control recreated a legacy property');
 
     // --- GET and a tokenless POST of each mutator.
     const targets = {
@@ -775,5 +793,5 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow(NAME, workflow, { openPatient: false });
+if (require.main === module) runWorkflow(NAME, workflow, { openPatient: false, preflightConfig });
 module.exports = { workflow, STEP, validatePin };
