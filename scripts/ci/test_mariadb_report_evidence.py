@@ -140,8 +140,44 @@ NATIVE_REQUIRED_CASES = {
     "LabRoutingLookupDaoIntegrationTest": "shouldPreserveBcLikeMatchingAndSpireShortestNameLimit_forProviderSearch",
 }
 
+LEGACY_NOTE_FLAG_REQUIRED_CASES = {
+    f"{method}(Boolean, Integer, boolean, int)[{index}]"
+    for method in (
+        "shouldLoadNullableFlags_whenReadingANoteById",
+        "shouldLoadNullableFlags_whenReadingANoteIdList",
+        "shouldLoadNullableFlags_whenReadingTheNativePatientNoteList",
+    )
+    for index in range(1, 10)
+} | {
+    f"shouldPersistExplicitFlagChanges_whenUpdatingALegacyNullNote(boolean)[{index}]"
+    for index in (1, 2)
+} | {"shouldUseTheNullablePublishedColumnTypes_onThePhysicalSchema"}
+
 
 class MariaDbReportEvidenceTest(unittest.TestCase):
+    def test_shipped_flyway_commands_select_the_legacy_note_flag_regressions(self):
+        workflow = (Path(__file__).resolve().parents[2]
+                    / '.github/workflows/maven-project.yml').read_text()
+        blocks = re.split(r'(?m)^      - name: ', workflow)
+        for title in (
+                'Verify critical DAO paths against the Flyway schema',
+                'Verify BC billing, encounter and day-sheet transactions against the Flyway schema'):
+            with self.subTest(step=title):
+                block = next(block for block in blocks if block.startswith(title + '\n'))
+                selection = re.search(r'-Dtest=([^\s\'"\\]+)', block).group(1).split(',')
+                self.assertIn('CaseManagementNoteLegacyFlagsMariaDbIntegrationTest', selection)
+                self.assertIn('CARLOS_TEST_MARIADB_SCHEMA=flyway', block)
+                self.assertIn('-Dgroups=spring-context | mariadb-native', block)
+
+    def test_flyway_evidence_requires_every_legacy_note_flag_case(self):
+        family = 'CaseManagementNoteLegacyFlagsMariaDbIntegrationTest'
+        self.assertEqual(len(LEGACY_NOTE_FLAG_REQUIRED_CASES), 30)
+        for mode in ('flyway', 'bc-flyway'):
+            with self.subTest(mode=mode):
+                self.assertEqual(MODULE.REQUIRED[mode].get(family, 0), 30)
+        self.assertEqual(MODULE.REQUIRED_CASES.get(family, set()), LEGACY_NOTE_FLAG_REQUIRED_CASES)
+        self.assertNotIn(family, MODULE.REQUIRED['generated'])
+
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
@@ -173,6 +209,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     "SoapTokenHousekeepingDaoIntegrationTest": TOKEN_REQUIRED_CASES,
                     "DemographicMergeMariaDbIntegrationTest": MERGE_REQUIRED_CASES,
                     "DemographicWebUnmergeIntegrationTest": UNMERGE_REQUIRED_CASES,
+                    "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": LEGACY_NOTE_FLAG_REQUIRED_CASES,
                     "SiteRenameClockMariaDbIntegrationTest": SITE_CLOCK_REQUIRED_CASES,
                     "DemographicIdentifierPreservationMariaDbIntegrationTest": IDENTIFIER_REQUIRED_CASES,
                     "ScheduleSyncMariaDbIntegrationTest": SCHEDULE_REQUIRED_CASES,
@@ -250,6 +287,8 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
         for mode in MODULE.REQUIRED:
             suffix = "" if mode == "generated" else "-" + mode
             families = [("AppointmentUpdateDaoIntegrationTest", APPOINTMENT_REQUIRED_CASES)] if mode == "generated" else []
+            if mode != "generated":
+                families.append(("CaseManagementNoteLegacyFlagsMariaDbIntegrationTest", LEGACY_NOTE_FLAG_REQUIRED_CASES))
             for family, names in families + [("SoapTokenHousekeepingDaoIntegrationTest", TOKEN_REQUIRED_CASES),
                                   ("DemographicMergeMariaDbIntegrationTest", MERGE_REQUIRED_CASES),
                                   ("DemographicWebUnmergeIntegrationTest", UNMERGE_REQUIRED_CASES),

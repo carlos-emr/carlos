@@ -79,6 +79,8 @@ import io.github.carlos_emr.carlos.log.LogConst;
 
 @Service
 public class ScheduleManagerImpl implements ScheduleManager {
+    private static final String APPOINTMENT_ID_AUDIT_PREFIX = "appointmentId=";
+
 
     private static Logger logger = MiscUtils.getLogger();
 
@@ -219,7 +221,9 @@ public class ScheduleManagerImpl implements ScheduleManager {
         oscarAppointmentDao.persist(appointment);
 
         //--- log action ---
-        LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.addAppointment", appointment.toString());
+        LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.addAppointment",
+                APPOINTMENT_ID_AUDIT_PREFIX + appointment.getId() + ";demographicNo=" + appointment.getDemographicNo()
+                        + ";providerNo=" + io.github.carlos_emr.carlos.utility.LogSafe.sanitize(appointment.getProviderNo()));
     }
 
     public List<Appointment> getAppointmentsForPatient(LoggedInInfo loggedInInfo, Integer demographicId, int startIndex, int itemsToReturn) {
@@ -247,7 +251,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
 
         //--- log action ---
         if (result != null) {
-            LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.getAppointment", "appointmentId=" + appointmentId);
+            LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.getAppointment", APPOINTMENT_ID_AUDIT_PREFIX + appointmentId);
         }
 
         return (result);
@@ -279,7 +283,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
         LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.updateAppointment", LogConst.CON_APPT,
                 String.valueOf(appointment.getId()),
                 appointment.getDemographicNo() > 0 ? String.valueOf(appointment.getDemographicNo()) : null,
-                "appointmentId=" + appointment.getId() + (newStatus == null ? "" : "; status=" + newStatus));
+                APPOINTMENT_ID_AUDIT_PREFIX + appointment.getId() + (newStatus == null ? "" : "; status=" + newStatus));
     }
 
     /**
