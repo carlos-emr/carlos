@@ -155,6 +155,8 @@ class RestTransferObjectDateShapeContractUnitTest {
             entry("webserv.rest.to.model.DrugTo1.rxDate", DATE),
             entry("webserv.rest.to.model.DrugTo1.writtenDate", DATE),
             entry("webserv.rest.to.model.EFormReportToolTo1.expiryDate", DATE + "; its only writer parses yyyy-MM-dd"),
+            entry("webserv.rest.to.model.EFormInstanceTo1.formDate", DATE + " (eform_data.form_date)"),
+            entry("webserv.rest.to.model.EFormInstanceTo1.formTime", TIME + " (eform_data.form_time)"),
             entry("webserv.rest.to.model.EFormTo1.formDate", DATE),
             entry("webserv.rest.to.model.EFormTo1.formTime", TIME),
             entry("webserv.rest.to.model.FormTo1.date", DATE + " (eform_data.form_date)"),

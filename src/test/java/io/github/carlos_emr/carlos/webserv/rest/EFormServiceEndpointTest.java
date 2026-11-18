@@ -23,7 +23,14 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import java.util.Map;
 
 import jakarta.ws.rs.core.Response;
 
@@ -36,6 +43,9 @@ import org.mockito.Mock;
 
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
 import io.github.carlos_emr.carlos.commn.model.EForm;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
+import io.github.carlos_emr.carlos.eform.EFormInstanceService;
+import io.github.carlos_emr.carlos.eform.EFormInstanceService.EFormInstanceException;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -58,11 +68,15 @@ class EFormServiceEndpointTest extends CarlosRestTestBase {
     @Mock
     private SecurityInfoManager mockSecurityInfoManager;
 
+    @Mock
+    private EFormInstanceService mockInstanceService;
+
     @Override
     protected Object getServiceBean() {
         EFormService service = new EFormService();
         injectDependency(service, "eFormDao", mockEFormDao);
         injectDependency(service, "securityInfoManager", mockSecurityInfoManager);
+        injectDependency(service, "eFormInstanceService", mockInstanceService);
         return service;
     }
 
@@ -142,6 +156,186 @@ class EFormServiceEndpointTest extends CarlosRestTestBase {
             var wireJson = responseJson(response);
             assertThat(wireJson.at("/error/message").textValue()).isEqualTo("EForm Name Already in Use");
             assertThat(wireJson.at("/status").textValue()).isEqualTo("ERROR");
+        }
+    }
+
+    private static EFormData instanceRow(int fdid, boolean current) {
+        EFormData data = new EFormData();
+        data.setId(fdid);
+        data.setFormId(3);
+        data.setFormName("Vitals");
+        data.setSubject("Follow-up");
+        data.setDemographicId(42);
+        data.setProviderNo("999998");
+        data.setCurrent(current);
+        data.setFormData("<html><form><input name=\"bp\" value=\"120/80\"></form></html>");
+        return data;
+    }
+
+    @Nested
+    @DisplayName("GET /eform/instance/{fdid}")
+    class GetInstance {
+
+        @Test
+        @DisplayName("should return the instance with its HTML and values")
+        void shouldReturnInstance_withHtmlAndValues() {
+            when(mockInstanceService.get(any(), eq(5)))
+                .thenReturn(new EFormInstanceService.Instance(instanceRow(5, true), Map.of("bp", "120/80")));
+
+            Response response = request().path("/eform/instance/5").get();
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            var wireJson = responseJson(response);
+            assertThat(wireJson.at("/status").textValue()).isEqualTo("SUCCESS");
+            assertThat(wireJson.at("/body/fdid").intValue()).isEqualTo(5);
+            assertThat(wireJson.at("/body/fid").intValue()).isEqualTo(3);
+            assertThat(wireJson.at("/body/demographicNo").intValue()).isEqualTo(42);
+            assertThat(wireJson.at("/body/current").booleanValue()).isTrue();
+            assertThat(wireJson.at("/body/values/bp").textValue()).isEqualTo("120/80");
+            assertThat(wireJson.at("/body/formHtml").textValue()).contains("120/80");
+        }
+
+        @Test
+        @DisplayName("should return 404 when no instance has the id")
+        void shouldReturn404_whenInstanceMissing() {
+            when(mockInstanceService.get(any(), eq(9)))
+                .thenThrow(new EFormInstanceException(EFormInstanceException.Reason.NOT_FOUND));
+
+            Response response = request().path("/eform/instance/9").get();
+
+            assertThat(response.getStatus()).isEqualTo(404);
+            assertThat(response.readEntity(String.class)).contains("EForm instance not found");
+        }
+
+        @Test
+        @DisplayName("should answer access denied when the service refuses the caller")
+        void shouldAnswerAccessDenied_whenServiceRefusesCaller() {
+            when(mockInstanceService.get(any(), eq(5)))
+                .thenThrow(new SecurityException("missing required sec object (_eform)"));
+
+            Response response = request().path("/eform/instance/5").get();
+
+            var wireJson = responseJson(response);
+            assertThat(wireJson.at("/status").textValue()).isEqualTo("ERROR");
+            assertThat(wireJson.at("/error/message").textValue()).isEqualTo("Access Denied");
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /eform/instance")
+    class CreateInstance {
+
+        @Test
+        @DisplayName("should create the instance from the template id, patient and values")
+        void shouldCreateInstance_fromTemplatePatientAndValues() {
+            when(mockInstanceService.create(any(), eq(3), eq(42), eq("Follow-up"), eq(Map.of("bp", "120/80"))))
+                .thenReturn(instanceRow(77, true));
+
+            String json = "{\"fid\":3,\"demographicNo\":42,\"subject\":\"Follow-up\",\"values\":{\"bp\":\"120/80\"}}";
+            Response response = request().path("/eform/instance").post(jakarta.ws.rs.client.Entity.json(json));
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            var wireJson = responseJson(response);
+            assertThat(wireJson.at("/status").textValue()).isEqualTo("SUCCESS");
+            assertThat(wireJson.at("/body/fdid").intValue()).isEqualTo(77);
+            assertThat(wireJson.at("/body/values/bp").textValue()).isEqualTo("120/80");
+            assertThat(wireJson.at("/body/formHtml").isNull() || wireJson.at("/body/formHtml").isMissingNode()).isTrue();
+        }
+
+        @Test
+        @DisplayName("should refuse without calling the service when fid or demographicNo is missing")
+        void shouldRefuseWithoutCallingService_whenRequiredIdsMissing() {
+            Response response = request().path("/eform/instance")
+                .post(jakarta.ws.rs.client.Entity.json("{\"fid\":3}"));
+
+            var wireJson = responseJson(response);
+            assertThat(wireJson.at("/status").textValue()).isEqualTo("ERROR");
+            assertThat(wireJson.at("/error/message").textValue()).isEqualTo("fid and demographicNo are required");
+            org.mockito.Mockito.verifyNoInteractions(mockInstanceService);
+        }
+
+        @Test
+        @DisplayName("should report the reason when the template cannot be used")
+        void shouldReportReason_whenTemplateUnavailable() {
+            when(mockInstanceService.create(any(), anyInt(), anyInt(), any(), any()))
+                .thenThrow(new EFormInstanceException(EFormInstanceException.Reason.TEMPLATE_UNAVAILABLE));
+
+            Response response = request().path("/eform/instance")
+                .post(jakarta.ws.rs.client.Entity.json("{\"fid\":3,\"demographicNo\":42}"));
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            var wireJson = responseJson(response);
+            assertThat(wireJson.at("/error/message").textValue()).isEqualTo("EForm template not found or not active");
+        }
+    }
+
+    @Nested
+    @DisplayName("PUT /eform/instance/{fdid}")
+    class ReviseInstance {
+
+        @Test
+        @DisplayName("should return the new revision when the instance is current")
+        void shouldReturnNewRevision_whenInstanceCurrent() {
+            when(mockInstanceService.revise(any(), eq(5), isNull(), anyMap())).thenReturn(instanceRow(78, true));
+
+            // A GET response sent straight back: server-set fields, including fdid, are ignored.
+            String json = "{\"fdid\":5,\"fid\":3,\"demographicNo\":42,\"current\":true,\"formHtml\":\"x\",\"values\":{\"bp\":\"130/85\"}}";
+            Response response = request().path("/eform/instance/5").put(jakarta.ws.rs.client.Entity.json(json));
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            var wireJson = responseJson(response);
+            assertThat(wireJson.at("/body/fdid").intValue()).isEqualTo(78);
+            verify(mockInstanceService).revise(any(), eq(5), isNull(), eq(Map.of("bp", "130/85")));
+        }
+
+        @Test
+        @DisplayName("should return 409 when the instance was already deleted or revised")
+        void shouldReturn409_whenInstanceRetired() {
+            when(mockInstanceService.revise(any(), eq(5), any(), any()))
+                .thenThrow(new EFormInstanceException(EFormInstanceException.Reason.RETIRED));
+
+            Response response = request().path("/eform/instance/5")
+                .put(jakarta.ws.rs.client.Entity.json("{\"values\":{}}"));
+
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(response.readEntity(String.class)).contains("EForm instance is no longer current");
+        }
+    }
+
+    @Nested
+    @DisplayName("DELETE /eform/instance/{fdid}")
+    class DeleteInstance {
+
+        @Test
+        @DisplayName("should return the retired fdid when the instance is current")
+        void shouldReturnRetiredFdid_whenInstanceCurrent() {
+            Response response = request().path("/eform/instance/5").delete();
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            var wireJson = responseJson(response);
+            assertThat(wireJson.at("/status").textValue()).isEqualTo("SUCCESS");
+            assertThat(wireJson.at("/body").intValue()).isEqualTo(5);
+            verify(mockInstanceService).delete(any(), eq(5));
+        }
+
+        @Test
+        @DisplayName("should accept the request when the client sends no content type")
+        void shouldAcceptRequest_whenNoContentTypeSent() {
+            Response response = request().path("/eform/instance/5")
+                .replaceHeader("Content-Type", (Object) null).delete();
+
+            assertThat(response.getStatus()).isEqualTo(200);
+        }
+
+        @Test
+        @DisplayName("should return 404 when no instance has the id")
+        void shouldReturn404_whenInstanceMissing() {
+            doThrow(new EFormInstanceException(EFormInstanceException.Reason.NOT_FOUND))
+                .when(mockInstanceService).delete(any(), eq(9));
+
+            Response response = request().path("/eform/instance/9").delete();
+
+            assertThat(response.getStatus()).isEqualTo(404);
         }
     }
 }
