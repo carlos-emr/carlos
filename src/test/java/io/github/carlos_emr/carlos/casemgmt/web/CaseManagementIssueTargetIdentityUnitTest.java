@@ -103,11 +103,14 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
         Issue catalog = new Issue();
         catalog.setId(9000L + id);
         catalog.setDescription("FAKE issue " + id);
+        catalog.setType("icd9");
         issue.setIssue(catalog);
         issue.setIssue_id(catalog.getId());
+        issue.setType(catalog.getType());
         CheckBoxBean entry = new CheckBoxBean();
         entry.setIssue(issue);
         entry.getIssueDisplay().setDescription(catalog.getDescription());
+        entry.getIssueDisplay().setCodeType(catalog.getType());
         form.getIssueCheckList().add(entry);
         return entry;
     }
@@ -360,8 +363,10 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
 
         assertThat(first.getIssue().getIssue()).isSameAs(replacement);
         assertThat(first.getIssue().getIssue_id()).isEqualTo(777L);
+        assertThat(first.getIssue().getType()).isEqualTo("icd10");
         assertThat(first.getIssueDisplay().getDescription()).isEqualTo("FAKE replacement diagnosis");
         assertThat(first.getIssueDisplay().getCode()).isEqualTo("FAKE777");
+        assertThat(first.getIssueDisplay().getCodeType()).isEqualTo("icd10");
         assertThat(second.getIssue().getIssue_id()).isEqualTo(9042L);
         verify(manager).saveCaseIssue(first.getIssue());
     }
@@ -413,6 +418,7 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
         Issue replacement = new Issue();
         replacement.setId(777L);
         replacement.setCode("FAKE777");
+        replacement.setType("icd10");
         replacement.setDescription("FAKE replacement diagnosis");
         when(manager.getIssue("777")).thenReturn(replacement);
         request.setParameter("change_diagnosis_id", "41");
@@ -421,9 +427,33 @@ class CaseManagementIssueTargetIdentityUnitTest extends CarlosUnitTestBase {
         assertThat(action.submitChangeDiagnosis()).isEqualTo("view");
 
         assertThat(first.getIssue().getIssue_id()).isEqualTo(777L);
+        assertThat(first.getIssue().getType()).isEqualTo("icd10");
         assertThat(first.getIssueDisplay().getDescription()).isEqualTo("FAKE replacement diagnosis");
+        assertThat(first.getIssueDisplay().getCode()).isEqualTo("FAKE777");
+        assertThat(first.getIssueDisplay().getCodeType()).isEqualTo("icd10");
         assertThat(second.getIssue().getIssue_id()).isEqualTo(9042L);
         verify(manager).saveCaseIssue(first.getIssue());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldPersistTheReplacementType_whenTheSelectedIssueHasNoDisplay(boolean ajax) {
+        CheckBoxBean entry = issue(41);
+        entry.setIssueDisplay(null);
+        Issue replacement = new Issue();
+        replacement.setId(777L);
+        replacement.setType("icd10");
+        when(manager.getIssue("777")).thenReturn(replacement);
+        request.setParameter("change_diagnosis_id", "41");
+        request.setParameter("newIssueId", "777");
+        chooseLegacyReplacement(777L);
+
+        assertThat(ajax ? action.ajaxChangeDiagnosis() : action.submitChangeDiagnosis())
+                .isEqualTo(ajax ? "issueList_ajax" : "view");
+
+        assertThat(entry.getIssue().getType()).isEqualTo("icd10");
+        assertThat(entry.getIssueDisplay()).isNull();
+        verify(manager).saveCaseIssue(entry.getIssue());
     }
 
     @Test

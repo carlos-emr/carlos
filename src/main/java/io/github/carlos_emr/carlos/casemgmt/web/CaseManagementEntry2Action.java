@@ -3080,9 +3080,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         target.getIssue().setIssue(newIssue);
         target.getIssue().setIssue_id(newIssueId);
         target.getIssue().setType(newIssue.getType());
-        target.getIssueDisplay().setCode(newIssue.getCode());
-        target.getIssueDisplay().setCodeType(newIssue.getType());
-        target.getIssueDisplay().setDescription(newIssue.getDescription());
+        IssueDisplay display = target.getIssueDisplay();
+        if (display != null) {
+            display.setCode(newIssue.getCode());
+            display.setCodeType(newIssue.getType());
+            display.setDescription(newIssue.getDescription());
+        }
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -3114,15 +3117,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return NONE;
         }
 
-        target.getIssue().setIssue(iss);
-        target.getIssue().setIssue_id(iss.getId());
+        recodeIssue(target, iss, iss.getId());
         this.caseManagementMgr.saveCaseIssue(target.getIssue());
-        // The returned fragment renders the display copy; keep it on the new diagnosis.
-        IssueDisplay display = target.getIssueDisplay();
-        if (display != null) {
-            display.setCode(iss.getCode());
-            display.setDescription(iss.getDescription());
-        }
 
         // update form with new issue list
         Set<CaseManagementIssue> issueset = new HashSet<CaseManagementIssue>();
