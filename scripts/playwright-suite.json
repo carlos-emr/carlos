@@ -19455,6 +19455,26 @@
       "notes": "#5928: installed Client Search bounds data and HTML to 10 rows, retains note identity and criteria drafts through repeated POST paging with fresh CSRF, applies global sorting and native Soundex paging; BC tray bounds each page to 50 rows and preserves both unsaved fee codes."
     },
     {
+      "name": "log-provider-order",
+      "script": "scripts/log-provider-order-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON",
+        "BC"
+      ],
+      "timeoutSec": 180,
+      "manual": true,
+      "mutates": [
+        "provider",
+        "providersite"
+      ],
+      "fixtures": "Requires a disposable exclusive host. Owns four synthetic provider rows and copies only the authenticated provider site memberships to them. Removes and verifies all owned rows. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#1831: the native Audit Log provider dropdown sorts first and last names without case grouping. Unit controls separately retain null ordering, stable equal-name order and site-restricted DAO selection."
+    },
+    {
       "name": "demographic-converted-limits",
       "script": "scripts/demographic-converted-limits-playwright-checks.js",
       "tiers": [

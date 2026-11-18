@@ -883,7 +883,8 @@
         "build",
         "packaged-full",
         "installed-package-reinstall",
-        "manual-report-configured-jasper"
+        "manual-report-configured-jasper",
+        "manual-log-provider-order"
       ]
     },
     {
@@ -8117,6 +8118,43 @@
         "java": "25"
       },
       "timeoutSeconds": 3600
+    },
+    {
+      "id": "manual-log-provider-order",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "log-provider-order"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "log-provider-order",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
     },
     {
       "id": "manual-demographic-converted-limits",
