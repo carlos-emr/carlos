@@ -108,4 +108,71 @@ class ReportQueryDeadlineUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> new ReportQueryDeadline(mock(Connection.class), System.nanoTime() - 1))
                 .isInstanceOf(SQLTimeoutException.class);
     }
+
+    @Test
+    void shouldPreserveTheDriverFailure_whenTheDeadlineHasNotExpired() throws Exception {
+        ResultSet delegate = mock(ResultSet.class);
+        SQLException failure = new SQLException("Synthetic ordinary driver failure");
+        when(delegate.next()).thenThrow(failure);
+        try (ReportQueryDeadline deadline = new ReportQueryDeadline(mock(Connection.class),
+                System.nanoTime() + TimeUnit.SECONDS.toNanos(30));
+             ResultSet rs = ReportQueryDeadline.wrap(delegate, deadline)) {
+            assertThatThrownBy(rs::next).isSameAs(failure);
+        }
+        verify(delegate, timeout(1000)).close();
+    }
+
+    @Test
+    void shouldPreserveNonSqlFailures_whenTheDeadlineExpiresDuringTheDriverCall() throws Exception {
+        Connection connection = mock(Connection.class);
+        ResultSet delegate = mock(ResultSet.class);
+        CountDownLatch aborted = new CountDownLatch(1);
+        doAnswer(call -> { aborted.countDown(); return null; }).when(connection).abort(any());
+        IllegalStateException failure = new IllegalStateException("Synthetic non-SQL driver failure");
+        when(delegate.next()).thenAnswer(call -> {
+            assertThat(aborted.await(5, TimeUnit.SECONDS)).isTrue();
+            throw failure;
+        });
+        try (ReportQueryDeadline deadline = new ReportQueryDeadline(connection,
+                System.nanoTime() + TimeUnit.SECONDS.toNanos(1));
+             ResultSet rs = ReportQueryDeadline.wrap(delegate, deadline)) {
+            assertThatThrownBy(rs::next).isSameAs(failure);
+        }
+        verify(delegate, timeout(1000)).close();
+    }
+
+    @Test
+    void shouldRefuseALateSuccessfulRead_andAnyFurtherReadAfterExpiry() throws Exception {
+        Connection connection = mock(Connection.class);
+        ResultSet delegate = mock(ResultSet.class);
+        CountDownLatch aborted = new CountDownLatch(1);
+        doAnswer(call -> { aborted.countDown(); return null; }).when(connection).abort(any());
+        when(delegate.next()).thenAnswer(call -> {
+            assertThat(aborted.await(5, TimeUnit.SECONDS)).isTrue();
+            return true;
+        });
+        try (ReportQueryDeadline deadline = new ReportQueryDeadline(connection,
+                System.nanoTime() + TimeUnit.SECONDS.toNanos(1));
+             ResultSet rs = ReportQueryDeadline.wrap(delegate, deadline)) {
+            assertThatThrownBy(rs::next).isInstanceOf(SQLTimeoutException.class);
+            assertThatThrownBy(rs::next).isInstanceOf(SQLTimeoutException.class);
+            verify(delegate).next();
+        }
+        verify(delegate, timeout(1000)).close();
+    }
+
+    @Test
+    void shouldKeepCloseIdempotent_andNotBlockOnAFailedAsynchronousCursorClose() throws Exception {
+        Connection connection = mock(Connection.class);
+        ResultSet delegate = mock(ResultSet.class);
+        doThrow(new SQLException("Synthetic cursor cleanup failure")).when(delegate).close();
+        try (ReportQueryDeadline deadline = new ReportQueryDeadline(connection,
+                System.nanoTime() + TimeUnit.SECONDS.toNanos(30));
+             ResultSet rs = ReportQueryDeadline.wrap(delegate, deadline)) {
+            rs.close();
+            rs.close();
+        }
+        verify(connection, timeout(1000)).abort(any());
+        verify(delegate, timeout(1000)).close();
+    }
 }

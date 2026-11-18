@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "00d92d2b7e7b60a7ba39b6c2805a76c3e069df25",
+  "comparisonSha256": "a0c5bfd0d664a90fad852f287002f24b193d13f29953497defe5a148bd14e47c",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java": {
+      "lines": 93.95604395604396,
+      "instructions": 91.4576802507837,
+      "branches": 82.5503355704698,
+      "sourceBlob": "bda1c16326dc10aedc8c51c6d7ef3cfc9a7f2713"
+    }
+  },
+  "baselineCommit": "5b46db58327587d78eb7f7ee2924b65ad88673bb",
+  "baselineSourceTree": "00d92d2b7e7b60a7ba39b6c2805a76c3e069df25",
+  "baselineReportSha256": "e0387915337ef1b11ab60ec750d397fe964921197c52441243c752ad8f546beb",
+  "baselineLane": "Fresh exact JDK25 driver classes;40 real MariaDB cases including default-zone changes after connect and client/server-prepared updatable DATE/null results, plus73 focused JDBC controls. All113 unique actual JUnit cases pass with zero skips. Selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 113,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "3b2004752adad31d212b19b2d01cdabc43c900273b1dcbb630c12b5675cba0fc",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}

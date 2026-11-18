@@ -227,7 +227,13 @@
                 url: url,
                 method: 'POST',
                 data: data,
+                dataType: 'json',
                 success: function (data) {
+                    if (!data || data.resolvedLogId !== String(emailLogId)) {
+                        HideSpin();
+                        alert(manageEmailsServerError);
+                        return;
+                    }
                     $('#emailStatus' + emailLogId).removeClass('status-tag-failed').addClass('status-tag-resolved');
                     $('#cardBody' + emailLogId).removeClass('vertical-status-divider-failed').addClass('vertical-status-divider-resolved');
                     $("#btnResolve" + emailLogId).remove();
