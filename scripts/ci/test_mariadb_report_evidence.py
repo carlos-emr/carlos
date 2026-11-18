@@ -94,6 +94,8 @@ TICKLER_REQUIRED_CASES = {
 MERGE_REQUIRED_CASES = {"shouldRefuseDeniedParticipants_beforeAnyDatabaseOrAuditChange"}
 
 UNMERGE_REQUIRED_CASES = {
+    'shouldRefuseARepeatedUnmerge_withoutAnotherAuditOrRecycleWrite',
+    'shouldRefuseTheEntireSelection_whenALaterPatientIsNoLongerMerged',
     "shouldRollbackEveryParticipant_whenALaterStorageValueIsMalformed",
     'shouldCanonicalizeAndDeduplicate_whenSelectedIdsHaveEquivalentSpellings',
     'shouldCommitOnlySelectedParticipants_whenTheBatchSucceeds',
@@ -169,6 +171,8 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                 }.get(family, set()) | MODULE.REQUIRED_CASES.get(family, set()))
                 if family in NATIVE_REQUIRED_CASES:
                     required_names = sorted(set(required_names) | {NATIVE_REQUIRED_CASES[family]})
+                if family == 'DemographicWebUnmergeIntegrationTest':
+                    count = max(count, len(UNMERGE_REQUIRED_CASES))
                 def case(index):
                     fault = tag if selected == mode and family == next(iter(required)) and index == 0 else ""
                     name = required_names[index] if index < len(required_names) else f"shouldRead_forRow{index}"
@@ -246,9 +250,35 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     with self.subTest(mode=mode, family=family, case=name):
                         report.write_text(original.replace('name="' + name + '"', 'name="unrelatedCase"'))
                         try:
-                            self.assert_refused(self.invoke(), f"Required MariaDB {mode} cases missing: {family}")
+                            python_modes = (False, True) if family == 'DemographicWebUnmergeIntegrationTest' else (False,)
+                            for optimized in python_modes:
+                                with self.subTest(optimized=optimized):
+                                    self.assert_refused(self.invoke(optimized), f"Required MariaDB {mode} cases missing: {family}")
                         finally:
                             report.write_text(original)
+
+    def test_original_16_case_unmerge_reports_are_refused_in_every_mode(self):
+        self.seed()
+        added = {'shouldRefuseARepeatedUnmerge_withoutAnotherAuditOrRecycleWrite',
+                 'shouldRefuseTheEntireSelection_whenALaterPatientIsNoLongerMerged'}
+        for mode in ('generated', 'flyway', 'bc-flyway'):
+            suffix = '' if mode == 'generated' else '-' + mode
+            report = self.reports / ('TEST-' + self.suite('DemographicWebUnmergeIntegrationTest') + suffix + '.xml')
+            original = report.read_text()
+            root = ET.fromstring(original)
+            for case in list(root):
+                if case.tag == 'testcase' and case.get('name') in added:
+                    root.remove(case)
+            self.assertEqual(len(root.findall('testcase')), 16)
+            root.set('tests', '16')
+            report.write_text(ET.tostring(root, encoding='unicode'))
+            try:
+                for optimized in (False, True):
+                    with self.subTest(mode=mode, optimized=optimized):
+                        self.assert_refused(self.invoke(optimized),
+                                            f'Required MariaDB {mode} coverage missing: DemographicWebUnmergeIntegrationTest')
+            finally:
+                report.write_text(original)
 
     def test_clean_controls_pass_in_both_python_modes(self):
         self.seed()
