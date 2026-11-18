@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -44,6 +45,7 @@ import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
 
@@ -101,7 +103,8 @@ public class PrivacyStatementAppendingFilter implements Filter {
     private Set<String> exclusions = Collections.synchronizedSet(new HashSet<String>());
 
     private String getPrivacyStatement() {
-        if (CarlosProperties.getConfidentialityStatement() == null || CarlosProperties.getConfidentialityStatement().trim().isEmpty()) {
+        String statement = CarlosProperties.getConfidentialityStatement();
+        if (statement == null || statement.trim().isEmpty()) {
             return "";
         }
         // carlos-print-decoration, alongside yesprint: this paragraph is PLATFORM boilerplate the
@@ -125,7 +128,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 "}\n" +
                 "--></style>" +
                 "<p class=\"yesprint carlos-print-decoration\"><b>\n" +
-                CarlosProperties.getConfidentialityStatement() +
+                statement +
                 "</b><br/>" +
                 "<b>END OF PRINTED DOCUMENT</b>" +
                 "</p>";
@@ -157,9 +160,28 @@ public class PrivacyStatementAppendingFilter implements Filter {
         try {
             // check if we are the first to print the request here
             isConfidentialityNotePrinted = isConfidentialtyNotePrinted(httpRequest);
+            String statement = isConfidentialityNotePrinted ? "" : getPrivacyStatement();
+            HttpServletRequest downstreamRequest = httpRequest;
+            boolean decoratedStaticHtml = !statement.isEmpty() && !RequestNegotiation.isAjax(httpRequest)
+                    && ("GET".equals(httpRequest.getMethod()) || "HEAD".equals(httpRequest.getMethod()))
+                    && hasHtmlResourceType(httpRequest);
+            if (decoratedStaticHtml) {
+                // A static file's validators omit the configured print statement. Prevent
+                // DefaultServlet from returning 304 for that different representation.
+                downstreamRequest = new PrintStatementRequest(httpRequest);
+            }
 
             DelegatingServletResponse delegatingServletResponse = new DelegatingServletResponse(httpResponse);
-            chain.doFilter(request, delegatingServletResponse);
+            chain.doFilter(downstreamRequest, delegatingServletResponse);
+
+            if (decoratedStaticHtml && delegatingServletResponse.getStatus() == HttpServletResponse.SC_NOT_MODIFIED) {
+                // A wildcard existence condition can still produce 304. Its metadata
+                // must not advertise the undecorated file's validators or length.
+                delegatingServletResponse.discardDeferredContentLength();
+                discardBareFileMetadata(delegatingServletResponse);
+                delegatingServletResponse.completeWithoutStatement();
+                return;
+            }
 
             if (isConfidentialityNotePrinted) {
                 delegatingServletResponse.completeWithoutStatement();
@@ -188,13 +210,19 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 return;
             }
 
-            String statement = getPrivacyStatement();
             if (statement.isEmpty()) {
                 delegatingServletResponse.completeWithoutStatement();
                 return;
             }
             if (!delegatingServletResponse.isResponseWriterObtained()
                     && !delegatingServletResponse.isResponseOutputStreamObtained()) {
+                if ("HEAD".equals(httpRequest.getMethod())
+                        && delegatingServletResponse.getStatus() == HttpServletResponse.SC_OK) {
+                    // GET appends the statement; the file's length cannot describe it.
+                    delegatingServletResponse.discardDeferredContentLength();
+                    discardBareFileMetadata(delegatingServletResponse);
+                    return;
+                }
                 delegatingServletResponse.completeWithoutStatement();
                 return;
             }
@@ -203,10 +231,62 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 return;
             }
             delegatingServletResponse.discardDeferredContentLength();
+            if (delegatingServletResponse.getStatus() == HttpServletResponse.SC_OK) {
+                discardBareFileMetadata(delegatingServletResponse);
+            }
             printConfidentialityStatement(response, delegatingServletResponse, statement);
         } finally {
             if (!isConfidentialityNotePrinted)
                 resetConfidentialityNote((HttpServletRequest) request);
+        }
+    }
+
+    private boolean hasHtmlResourceType(HttpServletRequest request) {
+        String path = getContextRelativePath(request);
+        return path != null && request.getServletContext() != null
+                && RequestNegotiation.isHtmlContentType(request.getServletContext().getMimeType(path));
+    }
+
+    private static void discardBareFileMetadata(HttpServletResponse response) {
+        response.setHeader("ETag", null);
+        response.setHeader("Last-Modified", null);
+        response.setHeader("Accept-Ranges", null);
+    }
+
+    /** Keeps every other request property, including Range/If-Range and authentication, unchanged. */
+    private static final class PrintStatementRequest extends HttpServletRequestWrapper {
+        private final boolean wildcard;
+
+        private PrintStatementRequest(HttpServletRequest request) {
+            super(request);
+            String tag = request.getHeader("If-None-Match");
+            wildcard = tag != null && "*".equals(tag.trim());
+        }
+
+        private boolean isFileCacheValidator(String name) {
+            return "If-Modified-Since".equalsIgnoreCase(name)
+                    || ("If-None-Match".equalsIgnoreCase(name) && !wildcard);
+        }
+
+        @Override
+        public String getHeader(String name) {
+            return isFileCacheValidator(name) ? null : super.getHeader(name);
+        }
+
+        @Override
+        public Enumeration<String> getHeaders(String name) {
+            return isFileCacheValidator(name) ? Collections.emptyEnumeration() : super.getHeaders(name);
+        }
+
+        @Override
+        public long getDateHeader(String name) {
+            return isFileCacheValidator(name) ? -1 : super.getDateHeader(name);
+        }
+
+        @Override
+        public Enumeration<String> getHeaderNames() {
+            return Collections.enumeration(Collections.list(super.getHeaderNames()).stream()
+                    .filter(name -> !isFileCacheValidator(name)).toList());
         }
     }
 

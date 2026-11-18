@@ -19476,6 +19476,21 @@
       ],
       "fixtures": "Owns the runWorkflow patient and one marker-named REST-created patient and admission; removes exact owned custom-field/archive/admission rows and verifies cleanup. Disposable exclusive host only. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#5999: six converted field lengths refuse REST create/update before side effects; exact schema limits and supplementary Unicode boundary values persist without truncation."
+    },
+    {
+      "name": "privacy-static-html-metadata",
+      "script": "scripts/privacy-static-html-metadata-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "manual": true,
+      "notes": "#5936: run on the host serving the packaged install, with a configured confidentiality statement. Verifies static HTML GET/HEAD metadata, conditional file-date requests, and wildcard existence conditions.",
+      "fixtures": "Read-only installed gpl.htm bytes and modification time; honors CARLOS_INSTALLED_WEBAPP_DIR. No clinical fixtures or configuration changes."
     }
   ]
 }
