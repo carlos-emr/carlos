@@ -904,17 +904,23 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should cap the chart print at what the message has left after the other ticked items")
         void shouldCapTheChartPrint_atWhatTheOtherItemsLeave() throws Exception {
-            base64Pdf = "A".repeat(4_000_000);
+            base64Pdf = "A".repeat(1_000_000);
             MsgAttachPDF2Action action = newAction();
             action.setItem(new String[]{"currentEncounter", "demographic", "prescriptions"});
 
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
 
-            // Two routed items rendered first, 8,000,000 Base64 characters; the print gets 3/4 of the rest.
-            assertThat(printBudgets).containsExactly((MessageTbl.PDF_ATTACHMENT_MAX_BYTES - 8_000_000L) / 4 * 3);
-            // The stored order is still the chooser's: the chart notes first.
-            assertThat(stagedPdfs()).containsSubsequence("<TITLE>All current chart notes and CPP</TITLE>",
-                    "<TITLE>FAKE-Doe");
+            // Two routed items rendered first, 2,000,000 Base64 characters; the print gets 3/4 of the rest.
+            assertThat(printBudgets).containsExactly((MessageTbl.PDF_ATTACHMENT_MAX_BYTES - 2_000_000L) / 4 * 3);
+            // The stored order is still the chooser's (demographic, current encounter, prescriptions), although the
+            // chart notes were printed last. Positions only: a failure must not print megabytes of records.
+            String stored = stagedPdfs();
+            int demographic = stored.indexOf("<TITLE>FAKE-Doe");
+            int chartNotes = stored.indexOf("<TITLE>All current chart notes and CPP</TITLE>");
+            int prescriptions = stored.toLowerCase(java.util.Locale.ROOT).indexOf("<title>current prescriptions</title>");
+            assertThat(demographic).isNotNegative();
+            assertThat(chartNotes).isGreaterThan(demographic);
+            assertThat(prescriptions).isGreaterThan(chartNotes);
         }
 
         @Test
