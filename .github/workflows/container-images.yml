@@ -194,7 +194,7 @@ jobs:
           # Check each container (name, output_name, context_path, extra_context)
           check_container "tomcat-dev" "tomcat" ".devcontainer/development" ""
           check_container "mariadb-dev" "mariadb" ".devcontainer/db" "database .devcontainer/development/config/shared/my.cnf"
-          check_container "drugref-dev" "drugref" ".devcontainer/drugref" ""
+          check_container "drugref-dev" "drugref" ".devcontainer/drugref" ".devcontainer/development/config/shared/volumes/drugref2.properties"
 
   # ===========================================================================
   # Build and push tomcat-dev container
@@ -492,6 +492,12 @@ jobs:
 
       - name: Test drugref container
         run: |
+          echo "Checking the mounted devcontainer settings against the image's actual JDBC driver..."
+          docker run --rm --network none --entrypoint bash \
+            -v "$PWD/.devcontainer/drugref:/driver-check:ro" \
+            -v "$PWD/.devcontainer/development/config/shared/volumes/drugref2.properties:/drugref2.properties:ro" \
+            carlos-drugref-dev:test /driver-check/check-driver-config.sh
+
           echo "Testing container starts correctly..."
           docker run -d --name test-drugref -p 8081:8080 carlos-drugref-dev:test
 
