@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.appointment.AppointmentCardContact;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
+import io.github.carlos_emr.carlos.commn.service.ProviderDocumentQueueService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -524,35 +525,26 @@ public class ProviderProperty2Action extends ActionSupport {
         UserProperty existingQ = this.getExistingDefaultDocQueueProperty();
         UserProperty newQ = this.getNewDefaultDocQueueProperty();
         String mode = request.getParameter("chooseMode");
-        String defaultQ = "";
-        if ("new".equalsIgnoreCase(mode) && newQ != null)
+        boolean createsQueue = "new".equalsIgnoreCase(mode);
+        String defaultQ;
+        if (createsQueue && newQ != null)
             defaultQ = newQ.getValue();
         else if ("existing".equalsIgnoreCase(mode) && existingQ != null)
             defaultQ = existingQ.getValue();
         else {
             return defaultDocQueueNotSaved();
         }
+        if (createsQueue && (defaultQ == null || defaultQ.isBlank())) {
+            return defaultDocQueueNotSaved();
+        }
         UserProperty prop;
-        if ("new".equalsIgnoreCase(mode)) {
-            if (defaultQ == null || defaultQ.isBlank()) {
-                return defaultDocQueueNotSaved();
-            }
-            try {
-                prop = SpringUtils.getBean(io.github.carlos_emr.carlos.commn.service.ProviderDocumentQueueService.class)
-                        .createDefaultQueue(providerNo, defaultQ);
-            } catch (RuntimeException e) {
-                logger.error("Unable to create default document queue ({})", e.getClass().getSimpleName());
-                return defaultDocQueueNotSaved();
-            }
-        } else {
-            prop = this.userPropertyDAO.getProp(providerNo, UserProperty.DOC_DEFAULT_QUEUE);
-            if (prop == null) {
-                prop = new UserProperty();
-                prop.setName(UserProperty.DOC_DEFAULT_QUEUE);
-                prop.setProviderNo(providerNo);
-            }
-            prop.setValue(defaultQ);
-            this.userPropertyDAO.saveProp(prop);
+        try {
+            var service = SpringUtils.getBean(ProviderDocumentQueueService.class);
+            prop = createsQueue ? service.createDefaultQueue(providerNo, defaultQ)
+                    : service.selectDefaultQueue(providerNo, defaultQ);
+        } catch (RuntimeException e) {
+            logger.error("Unable to save default document queue ({})", e.getClass().getSimpleName());
+            return defaultDocQueueNotSaved();
         }
         request.setAttribute("status", "success");
         request.setAttribute("defaultDocQueueProperty", prop);

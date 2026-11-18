@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Creates a grantable document queue and its owning provider's default as one transaction.
+ * Saves a provider's default document queue, including creation of a new grantable queue.
  * No role privileges are assigned by queue creation.
  *
  * @since 2026-11-16
@@ -44,11 +44,7 @@ public class ProviderDocumentQueueService {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Document queue name is required");
         }
-        // Serialize first-time creation even when there is no preference row to lock yet.
-        // Lock before queue queries can establish this transaction's read snapshot.
-        if (!properties.lockProviderPreferences(providerNo)) {
-            throw new IllegalArgumentException("Unknown document queue preference owner");
-        }
+        lockPreferenceOwner(providerNo);
         Integer id = queues.addNewQueueAndGetId(name);
         if (id == null) {
             throw new IllegalStateException("Queue persistence did not assign an ID");
@@ -58,13 +54,35 @@ public class ProviderDocumentQueueService {
         securityObject.setDescription(name);
         securityObject.setOrgapplicable(0);
         securityObjects.saveOrUpdate(securityObject);
+        return saveDefaultPreference(providerNo, id.toString());
+    }
+
+    /**
+     * @param providerNo provider from the authenticated session
+     * @param queueId existing queue preference selected by the provider
+     * @return the saved default-queue preference
+     * @throws IllegalArgumentException when the provider does not exist
+     */
+    public UserProperty selectDefaultQueue(String providerNo, String queueId) {
+        lockPreferenceOwner(providerNo);
+        return saveDefaultPreference(providerNo, queueId);
+    }
+
+    private void lockPreferenceOwner(String providerNo) {
+        // Both routes acquire the owner lock before a query can establish the read snapshot.
+        if (!properties.lockProviderPreferences(providerNo)) {
+            throw new IllegalArgumentException("Unknown document queue preference owner");
+        }
+    }
+
+    private UserProperty saveDefaultPreference(String providerNo, String queueId) {
         UserProperty property = properties.getProp(providerNo, UserProperty.DOC_DEFAULT_QUEUE);
         if (property == null) {
             property = new UserProperty();
             property.setProviderNo(providerNo);
             property.setName(UserProperty.DOC_DEFAULT_QUEUE);
         }
-        property.setValue(id.toString());
+        property.setValue(queueId);
         properties.saveProp(property);
         return property;
     }

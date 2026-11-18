@@ -73,7 +73,7 @@ class ProviderDocumentQueueTransactionIntegrationTest extends CarlosTestBase {
     @AfterEach
     void removeOnlyOwnedRows() {
         transactions.executeWithoutResult(status -> {
-            for (String queueName : java.util.List.of(name, name + "-second")) {
+            for (String queueName : java.util.List.of(name, name + "-existing", name + "-second")) {
                 for (Object id : database.createNativeQuery("SELECT id FROM queue WHERE name=:name")
                         .setParameter("name", queueName).getResultList()) {
                     String object = "_queue." + id;
@@ -109,8 +109,11 @@ class ProviderDocumentQueueTransactionIntegrationTest extends CarlosTestBase {
         });
     }
 
-    @Test
-    void shouldKeepOneDefault_whenFirstTimeSavesOverlapForTheSameProvider() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldKeepOneDefault_whenFirstTimeSavesOverlapForTheSameProvider(boolean firstSelectsExisting) throws Exception {
+        String existingQueueId = firstSelectsExisting
+                ? transactions.execute(status -> queues.addNewQueueAndGetId(name + "-existing")).toString() : null;
         boolean maria;
         try (var connection = dataSource.getConnection()) {
             maria = connection.getMetaData().getDatabaseProductName().contains("MariaDB");
@@ -135,7 +138,11 @@ class ProviderDocumentQueueTransactionIntegrationTest extends CarlosTestBase {
         }).when(followerPreferences).getProp(owner, UserProperty.DOC_DEFAULT_QUEUE);
         var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
         try {
-            var first = pool.submit(() -> service(security, firstPreferences).createDefaultQueue(owner, name));
+            var first = pool.submit(() -> {
+                ProviderDocumentQueueService firstService = service(security, firstPreferences);
+                return firstSelectsExisting ? firstService.selectDefaultQueue(owner, existingQueueId)
+                        : firstService.createDefaultQueue(owner, name);
+            });
             assertThat(firstRead.await(15, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
             var follower = pool.submit(() -> transactions.execute(status -> {
                 followerConnection.set(database.unwrap(org.hibernate.Session.class).doReturningWork(connection -> {
