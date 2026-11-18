@@ -336,9 +336,7 @@ public final class MariaDbCompatibilityDriver implements Driver {
             int column = columnIndex(rows, args);
             ResultSetMetaData metadata = rows.getMetaData();
             int sqlType = legacyColumnType(metadata, column);
-            if (requested == Object.class && (sqlType == Types.BIT || sqlType == Types.BOOLEAN)
-                    && metadata instanceof org.mariadb.jdbc.client.result.ResultSetMetaData
-                    && !metadata.isSigned(column) && nativeColumnMetadata(metadata, column).getType() == DataType.TINYINT) {
+            if (requested == Object.class && isUnsignedTinyIntFlag(metadata, column, sqlType)) {
                 // Connector/J keeps unsigned TINYINT(1) values as integers despite flag metadata.
                 int value = rows.getInt(column);
                 convertedWasNull = rows.wasNull();
@@ -347,9 +345,18 @@ public final class MariaDbCompatibilityDriver implements Driver {
             // transformedBitIsBoolean exposes TINYINT(1) as BOOLEAN; its object truth rule is identical.
             if (sqlType == Types.BOOLEAN && requested == Object.class) return bitValue(rows, column, 1, requested);
             if (FLOATING_TYPES.contains(sqlType)) {
-                return requested == java.math.BigDecimal.class ? floatingDecimal(rows, column) : NO_CONVERSION;
+                if (requested == java.math.BigDecimal.class) return floatingDecimal(rows, column);
+                if (requested == float.class || requested == Float.class) return floatingSingle(rows, column, requested);
             }
             return sqlType == Types.BIT ? bitValue(rows, column, metadata.getPrecision(column), requested) : NO_CONVERSION;
+        }
+
+        /** Recognizes unsigned TINYINT(1) even when MariaDB advertises it as a flag. */
+        private static boolean isUnsignedTinyIntFlag(ResultSetMetaData metadata, int column, int type) throws SQLException {
+            return (type == Types.BIT || type == Types.BOOLEAN)
+                    && metadata instanceof org.mariadb.jdbc.client.result.ResultSetMetaData
+                    && !metadata.isSigned(column)
+                    && nativeColumnMetadata(metadata, column).getType() == DataType.TINYINT;
         }
 
         /**
@@ -388,6 +395,17 @@ public final class MariaDbCompatibilityDriver implements Driver {
             return convertedWasNull ? null : java.math.BigDecimal.valueOf(value);
         }
 
+        /** Checks Connector/J's float range before narrowing the decoded double. */
+        private Object floatingSingle(ResultSet rows, int column, Class<?> requested) throws SQLException {
+            double value = rows.getDouble(column);
+            convertedWasNull = rows.wasNull();
+            if (convertedWasNull) return nullValue(requested);
+            if (policy.jdbcCompliantTruncation() && (value < -Float.MAX_VALUE || value > Float.MAX_VALUE)) {
+                throw new java.sql.SQLDataException("SQL numeric value is out of range for float", "22003");
+            }
+            return (float) value;
+        }
+
         /** Converts a BIT column (or TINYINT(1), which is reported as BIT) as Connector/J did. */
         private Object bitValue(ResultSet rows, int column, int precision, Class<?> requested) throws SQLException {
             boolean flag = requested == Object.class && precision == 1;
@@ -418,6 +436,17 @@ public final class MariaDbCompatibilityDriver implements Driver {
         private Object metadataOperation(ResultSetMetaData metadata, String name, Object[] args) throws SQLException {
             if (policy.aliases() && name.equals("getColumnName")) return metadata.getColumnLabel((Integer) args[0]);
             if (policy.aliases() && name.equals("getTableName")) return tableAlias(metadata, (Integer) args[0]);
+            switch (name) {
+                case "getColumnClassName", "getColumnType", "getColumnTypeName" -> {
+                    int column = (Integer) args[0];
+                    if (isUnsignedTinyIntFlag(metadata, column, metadata.getColumnType(column))) {
+                        if (name.equals("getColumnClassName")) return Integer.class.getName();
+                        if (name.equals("getColumnTypeName")) return "TINYINT UNSIGNED";
+                        return Types.TINYINT;
+                    }
+                }
+                default -> { }
+            }
             if (!policy.datetimeAsTimestamp() && name.equals("getColumnClassName")
                     && MariaDbJdbcCompatibility.asciiEquals("DATETIME", metadata.getColumnTypeName((Integer) args[0]))) {
                 return LocalDateTime.class.getName();

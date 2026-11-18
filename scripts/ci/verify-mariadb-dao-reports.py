@@ -41,6 +41,12 @@ REQUIRED_CASES = {
         "shouldRollbackArchiveAndEdit_whenReplacementPatientIsDenied",
         "shouldAllowAssignedPatientWrite_withoutReadPermission",
     },
+    "JdbcConnectorMariaDbIntegrationTest": {
+        "shouldCheckFloatRange_inBothPreparedProtocols(boolean)[1]",
+        "shouldCheckFloatRange_inBothPreparedProtocols(boolean)[2]",
+        "shouldPreserveZeroFilledTextAndUnsignedTinyIntegers_inBothPreparedProtocols(boolean)[1]",
+        "shouldPreserveZeroFilledTextAndUnsignedTinyIntegers_inBothPreparedProtocols(boolean)[2]",
+    },
     "ProgramAdmissionAuditMariaDbIntegrationTest": {
         "shouldRollbackReadAudits_whenALaterCheckedFailureEscapes",
 
@@ -121,7 +127,7 @@ REQUIRED_CASES = {
 # unordered page in secondary-index order, so its paging cases must execute on the physical server.
 # CaseManagementIssueDAO adds one duplicate-link case on the legacy Flyway schema only.
 REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
-                          "JdbcConnectorMariaDbIntegrationTest": 35,
+                          "JdbcConnectorMariaDbIntegrationTest": 47,
                           "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1,
                           "AbstractDaoFindAllOrderingIntegrationTest": 6,
                           "CaseManagementIssueDAOIntegrationTest": 21,

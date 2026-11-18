@@ -739,6 +739,10 @@ class JdbcConnectorMariaDbIntegrationTest {
                              + "WHERE id >= ? ORDER BY id")) {
                     query.setInt(1, 1);
                     try (var rows = query.executeQuery()) {
+                        var metadata = rows.getMetaData();
+                        assertThat(metadata.getColumnClassName(3)).isEqualTo(Integer.class.getName());
+                        assertThat(metadata.getColumnType(3)).isEqualTo(java.sql.Types.TINYINT);
+                        assertThat(metadata.getColumnTypeName(3)).isEqualTo("TINYINT UNSIGNED");
                         for (Integer tiny : new Integer[]{2, 255, null}) {
                             assertThat(rows.next()).isTrue();
                             String padded = tiny == null ? null : "00001.25";
@@ -750,6 +754,50 @@ class JdbcConnectorMariaDbIntegrationTest {
                             assertThat(rows.wasNull()).isEqualTo(tiny == null);
                             assertThat(rows.getObject("tiny")).isEqualTo(tiny);
                             assertThat(rows.getObject(3, Map.of())).isEqualTo(tiny);
+                        }
+                        assertThat(rows.next()).isFalse();
+                    }
+                }
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldCheckFloatRange_inBothPreparedProtocols(boolean legacy) throws Exception {
+        double boundary = Float.MAX_VALUE;
+        var values = new Double[]{1e100, -1e100, Math.nextUp(boundary), Math.nextDown(-boundary),
+                boundary, -boundary, null};
+        try (var source = source(legacy, ""); var connection = source.getConnection();
+             var statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE float_probe(id INT PRIMARY KEY, amount DOUBLE)");
+            try (var insert = connection.prepareStatement("INSERT INTO float_probe VALUES (?, ?)")) {
+                for (int index = 0; index < values.length; index++) {
+                    insert.setInt(1, index);
+                    insert.setObject(2, values[index]);
+                    insert.executeUpdate();
+                }
+            }
+        }
+        for (boolean prepared : new boolean[]{false, true}) {
+            for (boolean strict : new boolean[]{false, true}) {
+                String options = "useServerPrepStmts=" + prepared + "&jdbcCompliantTruncation=" + strict;
+                try (var source = source(legacy, options); var connection = source.getConnection();
+                     var query = connection.prepareStatement("SELECT amount FROM float_probe WHERE id >= ? ORDER BY id")) {
+                    query.setInt(1, 0);
+                    try (var rows = query.executeQuery()) {
+                        for (Double value : values) {
+                            assertThat(rows.next()).isTrue();
+                            if (strict && value != null && Math.abs(value) > boundary) {
+                                assertThatThrownBy(() -> rows.getFloat(1)).isInstanceOfSatisfying(
+                                        java.sql.SQLDataException.class, error -> assertThat(error.getSQLState()).isEqualTo("22003"));
+                                assertThatThrownBy(() -> rows.getObject("amount", Float.class)).isInstanceOfSatisfying(
+                                        java.sql.SQLDataException.class, error -> assertThat(error.getSQLState()).isEqualTo("22003"));
+                            } else {
+                                assertThat(rows.getFloat(1)).isEqualTo(value == null ? 0.0f : value.floatValue());
+                                assertThat(rows.wasNull()).isEqualTo(value == null);
+                                assertThat(rows.getObject("amount", Float.class)).isEqualTo(value == null ? null : value.floatValue());
+                            }
                         }
                         assertThat(rows.next()).isFalse();
                     }

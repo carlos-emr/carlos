@@ -2653,6 +2653,20 @@
               ]
             },
             {
+              "name": "shouldCheckFloatRange_inBothPreparedProtocols(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldCheckFloatRange_inBothPreparedProtocols(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldCheckFloatRange_inBothPreparedProtocols(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
               "name": "shouldPreserveDateWrites_whenJvmAndConnectionZonesDiffer(boolean)",
               "container": "",
               "destinations": [
@@ -5007,7 +5021,7 @@
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
         "DemographicMergeMariaDbIntegrationTest": 9,
-        "JdbcConnectorMariaDbIntegrationTest": 45,
+        "JdbcConnectorMariaDbIntegrationTest": 47,
         "BilledProviderReportDaoIntegrationTest": 2,
         "MariaDbDaoHarnessIntegrationTest": 1,
         "MeasurementDaoIntegrationTest": 1,
