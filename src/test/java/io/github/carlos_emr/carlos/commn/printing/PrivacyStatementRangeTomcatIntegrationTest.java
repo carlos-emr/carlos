@@ -81,7 +81,10 @@ class PrivacyStatementRangeTomcatIntegrationTest {
             assertThat(new String(full.body(), StandardCharsets.UTF_8))
                     .contains("FAKE-5782-NOTICE", "FAKE-5782-content-".repeat(32), "<html><body>", "</body></html>");
 
-            var partial = client.send(HttpRequest.newBuilder(uri).header("Range", "bytes=0-99").GET().build(),
+            // AJAX selects the raw file representation. A decorated static representation
+            // may ignore Range and return a complete 200 under the metadata policy.
+            var partial = client.send(HttpRequest.newBuilder(uri).header("X-Requested-With", "XMLHttpRequest")
+                    .header("Range", "bytes=0-99").GET().build(),
                     HttpResponse.BodyHandlers.ofByteArray());
             assertThat(partial.statusCode()).isEqualTo(206);
             assertThat(partial.body()).isEqualTo(Arrays.copyOfRange(HTML, 0, 100));

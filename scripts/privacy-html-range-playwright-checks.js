@@ -33,7 +33,7 @@ async function workflow(s) {
     h.assert(response.bytes.includes(originalBody), 'The decorated response lost original HTML body content');
   });
   await s.step('a single HTML byte range retains exact bytes and Content-Range without decoration', async () => {
-    const response = await fetch({Range: 'bytes=0-99'});
+    const response = await fetch({'X-Requested-With': 'XMLHttpRequest', Range: 'bytes=0-99'});
     h.assert(response.status === 206, 'The static HTML range did not return partial content');
     h.assert(response.bytes.equals(original.subarray(0, 100)), 'The partial HTML body no longer matches its range');
     h.assert(response.headers['content-range'] === `bytes 0-99/${original.length}`, 'The HTML Content-Range is incorrect');
