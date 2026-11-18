@@ -80,3 +80,14 @@ The original combined run with five cleanup-expectation failures is retained;
 the corrected composed-source retake passes all 131 cases, preserving the
 existing asset lease and rollback controls. Its JUnit SHA-256 is
 `aa2678094046547b26b22839680733ec63630878cc19d9bb053793825a601603`.
+
+The transactional-import follow-up has 23 additional selected passing controls:
+retained HTML references in quoted, unquoted and image-marker forms preserve
+only referenced shared assets and dedicated retained-form assets when a duplicate
+form is skipped. Incomplete custom metadata reaches neither registration nor
+asset publication. A real DAO transaction verifies that a successfully imported
+form appears in the active library and in its native zero-marker-backed group.
+The test transaction rolls back its owned rows. JUnit SHA-256:
+`afb6d52d725b8aa594d2abec15810e1303ac6ba835434f045bbb718956a466e3`.
+These source controls do not replace the pending rebuilt-package/browser retake
+for the latest transactional changes.
