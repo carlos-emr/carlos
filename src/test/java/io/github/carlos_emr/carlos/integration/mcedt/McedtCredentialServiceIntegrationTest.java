@@ -164,7 +164,7 @@ class McedtCredentialServiceIntegrationTest {
     private void awaitDatabaseBlock(int blocker,Future<?> waiting,String table) throws Exception {
         long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(10);
         String sql=((OwnedDataSource)source).mariaDb
-                ? "SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE ID NOT IN(CONNECTION_ID(),?) AND DB=DATABASE() AND COMMAND='Query' AND LOWER(INFO) LIKE CONCAT('%',?,'%') AND LOWER(INFO) LIKE '%for update%'"
+                ? "SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE ID NOT IN(CONNECTION_ID(),?) AND DB=DATABASE() AND COMMAND='Query' AND LOWER(INFO) LIKE CONCAT('%',?,'%') AND (LOWER(INFO) LIKE '%for update%' OR LOWER(INFO) LIKE '%delete %')"
                 : "SELECT COUNT(*) FROM INFORMATION_SCHEMA.SESSIONS WHERE BLOCKER_ID=?";
         try(Connection connection=source.getConnection();var query=connection.prepareStatement(sql)) {
             query.setInt(1,blocker);
@@ -278,6 +278,59 @@ class McedtCredentialServiceIntegrationTest {
                 assertEquals(1L,release.getCount());
                 release.countDown();completed(reader);
                 assertEquals("FAKE-after",tx.execute(status->em.find(UserProperty.class,preference).getValue()));
+            } finally {release.countDown();}
+        }
+    }
+
+    @ParameterizedTest @ValueSource(strings={"FAKE-current","  "})
+    void shouldAllowNewPreferenceInsert_whileMigratedCredentialReadRemainsOpen(String password) throws Exception {
+        credentials.savePassword(password);
+        var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();
+        try(var pool=Executors.newFixedThreadPool(2)) {
+            var reader=pool.submit(()->tx.executeWithoutResult(status->{
+                assertEquals(password.isBlank()?"FAKE-fallback":password,credentials.getPassword("FAKE-fallback"));hold(locked,release,session);
+            }));
+            try {
+                assertTrue(locked.await(15,TimeUnit.SECONDS));
+                var inserted=pool.submit(()->tx.execute(status->{
+                    if(((OwnedDataSource)source).mariaDb)em.createNativeQuery("SET innodb_lock_wait_timeout=2").executeUpdate();
+                    var row=new UserProperty();row.setProviderNo("FAKE");row.setName("provider.language");row.setValue("FAKE-language");em.persist(row);em.flush();return row.getId();
+                }));
+                int id=inserted.get(5,TimeUnit.SECONDS);
+                assertEquals(1L,release.getCount(),"the independent insert must commit before the credential reader releases its transaction");
+                assertEquals("FAKE-language",tx.execute(status->em.find(UserProperty.class,id).getValue()));
+                release.countDown();completed(reader);
+            } finally {release.countDown();}
+        }
+    }
+    @Test
+    void shouldKeepCurrentCredentialAndRemoveLegacy_whenAnOldWriterCommitsDuringRead() throws Exception {
+        obsoleteLegacyRead(false);
+    }
+    @Test
+    void shouldPreserveARegularPreference_whenTheLegacyWriterRenamesItsRow() throws Exception {
+        obsoleteLegacyRead(true);
+    }
+    private void obsoleteLegacyRead(boolean renamed) throws Exception {
+        credentials.savePassword("FAKE-current");int id=legacy("FAKE-old");
+        Integer snapshotIsolation=((OwnedDataSource)source).mariaDb?tx.execute(status->((Number)em.createNativeQuery("SELECT @@innodb_snapshot_isolation").getSingleResult()).intValue()):null;
+        var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var session=new AtomicInteger();
+        try(var pool=Executors.newFixedThreadPool(2)) {
+            var writer=pool.submit(()->tx.executeWithoutResult(status->{
+                var row=em.find(UserProperty.class,id,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+                if(renamed)row.setName("provider.language");else row.setValue("FAKE-new");
+                em.flush();hold(locked,release,session);
+            }));
+            try {
+                assertTrue(locked.await(15,TimeUnit.SECONDS));var reader=pool.submit(()->tx.execute(status->{
+                    String password=credentials.getPassword("FAKE-fallback");
+                    if(snapshotIsolation!=null)assertEquals(snapshotIsolation,((Number)em.createNativeQuery("SELECT @@innodb_snapshot_isolation").getSingleResult()).intValue(),"the cleanup statement must restore this same connection's setting");
+                    return password;
+                }));
+                awaitDatabaseBlock(session.get(),reader,"property");release.countDown();completed(writer);
+                assertEquals("FAKE-current",completed(reader));assertEquals(0,legacyCount());
+                if(renamed)assertEquals("provider.language",tx.execute(status->em.find(UserProperty.class,id).getName()));
+                if(snapshotIsolation!=null)assertEquals(snapshotIsolation,tx.execute(status->((Number)em.createNativeQuery("SELECT @@innodb_snapshot_isolation").getSingleResult()).intValue()));
             } finally {release.countDown();}
         }
     }

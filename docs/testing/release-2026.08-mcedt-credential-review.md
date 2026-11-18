@@ -127,3 +127,33 @@ checksum is `-1910160356`. The earlier qualified package used the prior unmerged
 migration checksum; this revised SQL/resource revision needs the next DEB batch.
 The owned reference schemas/server are retired. No application database repair
 or live-clinic repair is claimed by this reference proof.
+
+## Ordinary reads leave preference inserts unblocked
+
+First-read migration and saves retain their current locking reads. Once ciphertext
+exists, obsolete legacy rows are found without a locking range scan; a missing
+legacy key therefore cannot gap-lock an unrelated preference insert. Obsolete
+rows are deleted only while their ID and password-property name still match, so
+an old writer renaming its row into a regular preference cannot lose that row.
+
+MariaDB's snapshot-isolation conflict requires current-row deletion when an old
+writer commits after the nonlocking read. `SET STATEMENT` disables that conflict
+policy for the one guarded DELETE; it preserves the same connection's setting,
+keeps the caller's transaction, and borrows no second connection. Other databases
+use the same portable guarded DELETE without the MariaDB prefix. Credential
+values never appear in these statements or failure causes.
+
+The final tests comprise 38 distinct cases: 38 H2/consumer-unit executions and
+30 actual MariaDB 11.8.8/32K transaction executions, all passing with zero skips.
+The intentional database-lane repetition totals 68 executions, not 68 distinct
+testcases. Changed-line, instruction and branch coverage remain 100% across the
+two raw, unchanged reports. Those reports' SHA-256 values are
+`f4ed1a9c5b5945e57e09e0131639fbb32ea3385ce01f9e46d2b5f72dcb92c94a`
+and `b3edf53822e5a946dbc0e9c5c0ed9fb475e8854edb41d2af19f17e5afb15ca9a`.
+
+The insert controls keep the credential reader's transaction open and require a
+new `provider.language` row to commit before releasing it. Concurrent legacy-value
+changes, renaming, same-connection isolation restoration, first-save serialization,
+first-read migration, encryption failures and rollback are covered. The owned
+physical server is retired; the application database is untouched. Rebuilt-DEB
+and installed browser qualification of this follow-up remain pending.

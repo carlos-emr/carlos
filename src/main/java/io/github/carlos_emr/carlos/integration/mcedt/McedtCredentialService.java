@@ -30,11 +30,14 @@ public class McedtCredentialService {
                 .getSingleResult();
     }
 
-    private List<UserProperty> lockedLegacyPasswords() {
-        return entityManager.createQuery("SELECT p FROM UserProperty p WHERE p.name = :name ORDER BY p.id", UserProperty.class)
-                .setParameter("name", UserProperty.MCEDT_ACCOUNT_PASSWORD)
-                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
-                .getResultList();
+    private List<UserProperty> legacyPasswords(boolean lock) {
+        var query = entityManager.createQuery(
+                "SELECT p FROM UserProperty p WHERE p.name = :name ORDER BY p.id", UserProperty.class)
+                .setParameter("name", UserProperty.MCEDT_ACCOUNT_PASSWORD);
+        if (lock) {
+            query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        }
+        return query.getResultList();
     }
 
     private void store(String encrypted) {
@@ -43,8 +46,22 @@ public class McedtCredentialService {
     }
 
     private void removeLegacy(List<UserProperty> rows) {
+        if (rows.isEmpty()) {
+            return;
+        }
+        boolean mariaDb = entityManager.unwrap(org.hibernate.Session.class).doReturningWork(connection ->
+                connection.getMetaData().getDatabaseProductName().equals("MariaDB"));
+        // MariaDB snapshot isolation otherwise rejects cleanup when a legacy writer commits
+        // after the nonlocking read. Scope current-row deletion to this statement, preserving
+        // the caller's isolation and avoiding a second connection. The portable DELETE also
+        // guards the name so a row renamed into an ordinary preference cannot be erased.
+        String delete = (mariaDb ? "SET STATEMENT innodb_snapshot_isolation=OFF FOR " : "")
+                + "DELETE FROM property WHERE id = :id AND name = :name";
         for (UserProperty row : rows) {
-            entityManager.remove(row);
+            entityManager.createNativeQuery(delete)
+                    .setParameter("id", row.getId())
+                    .setParameter("name", UserProperty.MCEDT_ACCOUNT_PASSWORD).executeUpdate();
+            entityManager.detach(row);
         }
         entityManager.flush();
     }
@@ -62,7 +79,7 @@ public class McedtCredentialService {
             }
             String encrypted = EncryptionUtils.encrypt(password);
             lockCredential();
-            List<UserProperty> legacy = lockedLegacyPasswords();
+            List<UserProperty> legacy = legacyPasswords(true);
             store(encrypted);
             removeLegacy(legacy);
         } catch (Exception failure) {
@@ -81,12 +98,13 @@ public class McedtCredentialService {
      */
     public String getPassword(String fallback) {
         try {
-            // Both reads must be current locking reads. An ordinary ciphertext
-            // SELECT would open a repeatable-read snapshot before a legacy writer
-            // commits and can produce MariaDB error1020 when its row is then locked.
+            // The singleton is a current locking read, serializing saves and first-read migration.
             String encrypted = (String) entityManager.createNativeQuery(
                     "SELECT encrypted_password FROM mcedt_credential WHERE id = 1 FOR UPDATE", String.class).getSingleResult();
-            List<UserProperty> legacy = lockedLegacyPasswords();
+            // Only migration consumes legacy values and needs a current locking read. Once
+            // ciphertext exists, an ordinary query finds any obsolete rows without locking an
+            // absent secondary-index range. Their values never replace the canonical credential.
+            List<UserProperty> legacy = legacyPasswords(encrypted == null);
             if (encrypted == null && !legacy.isEmpty()) {
                 encrypted = EncryptionUtils.encrypt(legacy.get(0).getValue());
                 store(encrypted);
