@@ -59,3 +59,10 @@ Dashboard controls. Its second login now uses the fixture's required exact
 16-hex marker. The first installed retake failed that marker guard, and concurrent
 ENOSPC invalidated three other workflows; that run is retained as incomplete.
 This shared-action repair requires the next rebuilt DEB/native qualification.
+
+Both concurrent shared-provider repair histories and regression suites are retained.
+The merged implementation passes all 57 dashboard cases; JUnit SHA-256
+`61a96b0657752ad32e8ee458b3caa6392d89297897817c5a0c36cf3c767e8dd7`.
+All three tracked production sources retain 100% changed-line/instruction/branch
+coverage; merged evidence SHA-256
+`1e031222fd034deb6d3007d2c977c61e44e19774eb4ad0f01a165dd34cb92181`.
