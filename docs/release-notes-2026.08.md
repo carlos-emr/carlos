@@ -454,8 +454,8 @@ It also covers object diagnostics/equality, audit text and JavaScript encoding.
   offset instead. See the [REST list contract](api-collections-index.md#rest-list-pagination-and-demographic-validation).
 - REST demographic creation and update reject over-length values in fields
   checked by `Demographic.validateFieldLengths()` with HTTP 400 and a `text/plain`
-  body naming the fields and limits. This does not cover every text property;
-  `title`, for example, is not checked on the release base. JSON/XML clients
+  body naming the fields and limits. Checked fields include names, pronouns,
+  gender, title, addresses and contact details. JSON/XML clients
   must handle this plain-text error response; submitted patient values are not
   included.
 - Email-resolution requests distinguish invalid input (400), missing records
