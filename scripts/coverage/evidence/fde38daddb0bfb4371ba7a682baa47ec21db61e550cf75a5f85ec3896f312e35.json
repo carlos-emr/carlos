@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "59dea8ce89a829459c7629ba3a95f6e5361b542f",
+  "comparisonSha256": "706eda7fc9c795388e77cf46f53b9b560dc4c27f1dcb47d38f225459874de1c0",
+  "baselineCommit": "4ff15b6df42385ee7e1466a29b14a5aa2321e25c",
+  "baselineSourceTree": "59dea8ce89a829459c7629ba3a95f6e5361b542f",
+  "baselineReportSha256": "b7a4e5539e2b7a535cfba159bc449e733cb71fd4387af7172d1dc576ec1e4070",
+  "baselineLane": "Java 25 fax importer, polling backoff, and configuration action controls",
+  "baselineTestCounts": {
+    "tests": 160,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "697826a9e8e39d991594a083d4a50c6a80000953e4eaf8559646eb2e64b167d4",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/fax/core/FaxImporter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "64aa8f84f55eb3763374ef4ef83e92a62fcb093c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/fax/core/FaxPollBackoff.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "e48adb4073e56785f02de403e5afd6551770683d"
+    }
+  },
+  "exclusions": {}
+}
