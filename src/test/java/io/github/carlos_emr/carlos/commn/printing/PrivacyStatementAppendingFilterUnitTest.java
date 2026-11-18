@@ -881,4 +881,36 @@ class PrivacyStatementAppendingFilterUnitTest {
             return flushed.toString();
         }
     }
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldKeepDynamicHeadMetadata_whenStaticResourceContextIsUnavailable(boolean missingPath) throws Exception {
+        try (var notice = configuredStatement("FAKE metadata-only notice")) {
+            var request = spy(new MockHttpServletRequest("HEAD", "/dynamic.html"));
+            if (missingPath) {
+                doReturn(null).when(request).getServletPath();
+                doReturn(null).when(request).getRequestURI();
+            } else {
+                doReturn(null).when(request).getServletContext();
+            }
+            var response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentType("text/html");
+                res.setContentLengthLong(12345);
+                ((jakarta.servlet.http.HttpServletResponse) res).setHeader("ETag", "FAKE-dynamic-version");
+            });
+            assertThat(response.getHeader("Content-Length")).isEqualTo("12345");
+            assertThat(response.getHeader("ETag")).isEqualTo("FAKE-dynamic-version");
+            assertThat(response.getContentAsByteArray()).isEmpty();
+        }
+    }
+
+    private AutoCloseable configuredStatement(String value) {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object previous = properties.setProperty("confidentiality_statement.v1", value);
+        return () -> {
+            if (previous == null) properties.remove("confidentiality_statement.v1");
+            else properties.put("confidentiality_statement.v1", previous);
+        };
+    }
+
 }
