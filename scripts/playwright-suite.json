@@ -2295,11 +2295,19 @@
     {
       "name": "login-legacy-intake",
       "script": "scripts/login-legacy-intake-playwright-checks.js",
-      "tiers": ["core"],
+      "tiers": [
+        "core"
+      ],
       "assertsDatabase": true,
-      "provinces": ["all"],
+      "provinces": [
+        "all"
+      ],
       "timeoutSec": 180,
-      "env": ["TEST_PASSWORD", "TEST_PIN", "MYSQL_PASSWORD"],
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
       "notes": "Issue 4562: a retained Patient Intake assignment uses the supported landing page after password login and forced reset; the replacement password remains usable.",
       "fixtures": "One owned throwaway login retains its copied privileges plus the legacy assignment. Cleanup removes its credentials, assignments, preferences and audit rows; no shared role or account is edited."
     },
@@ -6347,7 +6355,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Owns one marker-titled template and one marker-named rbt_groups group; cleanup deletes only marker rows and asserts they are gone."
+      "fixtures": "Owns one marker-titled template and two marker-named rbt_groups groups, including a database-collation duplicate control; validates refused group names and membership without writes. Cleanup deletes only marker rows and asserts they are gone."
     },
     {
       "name": "report-cdm",
@@ -19480,6 +19488,25 @@
       "manual": true,
       "notes": "#5922: runs on a local disposable Ubuntu26.04 packaged host with JDK25+ and access to the private CARLOS properties. After shared browser login, selects a real binary eform.errorLog column through both installed bounded-reader implementations; legacy string decoding is the control. Credentials and cell contents are never printed.",
       "fixtures": "One owned inactive eForm with synthetic UTF8 errorLog text, no clinical data. Cleanup matches all ownership markers, refuses associated eform_data and verifies removal. Requires CARLOS_DISPOSABLE_HOST=true and EXCLUSIVE=1."
+    },
+    {
+      "name": "admin-facility-disable",
+      "script": "scripts/admin-facility-disable-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "mutates": [
+        "Facility"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "profile": "caisi-admin",
+      "fixtures": "One marker-owned enabled Facility copies configuration columns only, without memberships, programs or clinical data. Shared authz fixture cleanup checks ownership and removes the captured row even if Disable fails. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5929: native CAISI Facility list verifies every Disable link has its row form, including the first row; Cancel preserves the owned facility, a token-less POST is refused, GET/HEAD save and delete are rejected before mutation, and confirmed native POST persists disabled=1 and removes only the owned row from the active list. Requires a disposable exclusive host (EXCLUSIVE=1); the caisi-admin profile restarts the application before and after the check so FacilityDAO cache entries cannot retain the removed fixture."
     },
     {
       "name": "log-provider-order",
