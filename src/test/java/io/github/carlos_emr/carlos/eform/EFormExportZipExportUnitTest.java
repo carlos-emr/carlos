@@ -163,11 +163,12 @@ class EFormExportZipExportUnitTest {
                 saved.put(form.getFormName(), form.getFormHtml());
                 return "fixture";
             });
-            assertThat(new EFormExportZip().importForm(new ByteArrayInputStream(bytes.toByteArray()))).isEmpty();
+            assertThat(new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(bytes.toByteArray()))).isEmpty();
         }
         assertThat(saved).containsExactlyInAnyOrderEntriesOf(Map.of("A/B", "first", "A\\B", "second", "a_b", "third"));
         try (var staged = java.nio.file.Files.list(images.resolve("extractFolder"))) {
-            assertThat(staged.toList()).isEmpty();
+            assertThat(staged.map(path -> path.getFileName().toString()))
+                    .containsExactly(EFormImagePublicationLock.LOCK_FILE_NAME);
         }
     }
 
@@ -190,7 +191,7 @@ class EFormExportZipExportUnitTest {
                 saved.put(form.getFormName(), form.getFormHtml());
                 return "fixture";
             });
-            assertThat(new EFormExportZip().importForm(new ByteArrayInputStream(bytes.toByteArray()))).isEmpty();
+            assertThat(new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(bytes.toByteArray()))).isEmpty();
         }
         assertThat(saved).containsExactlyInAnyOrderEntriesOf(Map.of("First", "first", "Second", secondHtml));
         assertThat(java.nio.file.Files.readString(images.resolve("export-2.html"))).isEqualTo("SUPPORTING-ASSET");
@@ -221,7 +222,7 @@ class EFormExportZipExportUnitTest {
                 saved.put(form.getFormName(), form.getFormHtml());
                 return "fixture";
             });
-            assertThat(new EFormExportZip().importForm(new ByteArrayInputStream(bytes.toByteArray()))).isEmpty();
+            assertThat(new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(bytes.toByteArray()))).isEmpty();
         }
         assertThat(saved).hasSize(originals.size());
         for (EForm form : originals) {

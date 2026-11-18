@@ -1042,7 +1042,8 @@
     "test:playwright:forms-default-heading": "node scripts/forms-default-heading-playwright-checks.js",
     "test:admin-facility-disable-playwright": "node scripts/admin-facility-disable-playwright-checks.js",
     "test:playwright:log-provider-order": "node scripts/log-provider-order-playwright-checks.js",
-    "check:demographic-converted-limits": "node scripts/demographic-converted-limits-playwright-checks.js"
+    "check:demographic-converted-limits": "node scripts/demographic-converted-limits-playwright-checks.js",
+    "test:eform-large-html-roundtrip-playwright": "node scripts/eform-large-html-roundtrip-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
