@@ -207,5 +207,28 @@ class WLWaitingListNoteLengthActionUnitTest extends CarlosWebTestBase {
             verify(mockWaitingListDao).saveEntity(saved.capture());
             assertThat(saved.getValue().getNote()).isEqualTo(LONGEST);
         }
+
+        @Test
+        void shouldKeepTheRepositionAction_whenNoRowWasEdited() throws Exception {
+            addRequestParameter("update", "Y");
+            addRequestParameter("waitingListId", "7");
+            WaitingList row = new WaitingList();
+            row.setPosition(3);
+            when(mockWaitingListDao.findByWaitingListId(7)).thenReturn(List.of(row));
+
+            assertThat(runPage()).isEqualTo("continue");
+
+            assertThat(row.getPosition()).isEqualTo(1);
+            verify(mockWaitingListDao).merge(row);
+        }
+
+        @Test
+        void shouldReportFailure_whenTheSelectedRowCannotBeRead() throws Exception {
+            postRowEdit("");
+            when(mockWaitingListDao.findByWaitingListIdAndDemographicId(7, 42))
+                    .thenThrow(new IllegalStateException("Unavailable"));
+
+            assertThat(runPage()).isEqualTo("failure");
+        }
     }
 }
