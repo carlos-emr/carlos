@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/webserv/rest/DiseaseRegistryService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "1d945790b61039adeae306965459f104d8d58e66"
+  },
+  "evidenceSha256": "8559ea72d5df8d2b664b7cd48f9d4fbdd501a34598873e11a95478f064d6dbbc"
+}
