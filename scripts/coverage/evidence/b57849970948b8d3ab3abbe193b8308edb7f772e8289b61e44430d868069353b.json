@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "c1b874264fb156b9c697683546a43680fb5f6d14",
+  "comparisonSha256": "6da9ce0aa6777de04bdd5d850e5bcb72667e59ac374620ad83e0444afd9317a6",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java": {
+      "lines": 95.2069716775599,
+      "instructions": 93.52586480482387,
+      "branches": 87.5,
+      "sourceBlob": "735c1800e889d3ce8ee39a5ea0cdc77329c6b223"
+    }
+  },
+  "baselineCommit": "c7aeedd5261801693c66b1e5fee3440d649407ca",
+  "baselineSourceTree": "c1b874264fb156b9c697683546a43680fb5f6d14",
+  "baselineReportSha256": "fb06dd94527dfa892ec59ef7ca66bb33806dd743ed98ede2830031e1094d1c6f",
+  "baselineLane": "136 JDBC compatibility cases including 47 physical MariaDB and Connector/J reference cases",
+  "baselineTestCounts": {
+    "tests": 136,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "a73fb8bf8884c5fd219e6cc0e4b9fc4f6021ae38cc2cd3b839933aa459969e35",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}
