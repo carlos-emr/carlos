@@ -62,6 +62,22 @@ for (const [label, body, expected] of [
   });
 }
 
+test('packaged Tomcat disables the Base64 intrinsic even with existing site JVM options', () => {
+  const launcher = fs.readFileSync(path.join(__dirname, '..', 'debian/assets/bin/carlos-emr-tomcat'), 'utf8');
+  const assignments = launcher.split('\n').filter(line => line.startsWith('CATALINA_OPTS='));
+  const script = [...assignments, 'printf "%s\\n" "$CATALINA_OPTS"'].join('\n');
+  const result = spawnSync('bash', ['-ec', script], {
+    env: { ...process.env, CARLOS_JAVA_OPTS: '-Dclinic.example=true -XX:+UseBASE64Intrinsics' },
+    encoding: 'utf8',
+  });
+  assert.ifError(result.error);
+  assert.equal(result.status, 0, result.stderr);
+  const options = result.stdout.trim().split(/\s+/);
+  assert.ok(options.includes('-Dclinic.example=true'));
+  assert.equal(options.filter(option => /^-XX:[+-]UseBASE64Intrinsics$/.test(option)).at(-1),
+    '-XX:-UseBASE64Intrinsics');
+});
+
 test('Tomcat startup invalidates only generated JSP code without following cache symlinks', () => {
   const os = require('node:os');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-jsp-cache-'));

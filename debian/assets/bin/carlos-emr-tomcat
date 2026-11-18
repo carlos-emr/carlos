@@ -173,6 +173,9 @@ CATALINA_OPTS="${CATALINA_OPTS} -Duser.timezone=${CARLOS_TZ}"
 CATALINA_OPTS="${CATALINA_OPTS} -Dcarlos_override_properties=${PROPERTIES}"
 CATALINA_OPTS="${CATALINA_OPTS} --add-opens java.base/java.net=ALL-UNNAMED"
 CATALINA_OPTS="${CATALINA_OPTS} ${CARLOS_JAVA_OPTS}"
+# CVE-2026-114938: disable the HotSpot Base64 intrinsic until Ubuntu ships the fix.
+# Apply this after site options so upgrades also protect previously tuned JVMs.
+CATALINA_OPTS="${CATALINA_OPTS} -XX:-UseBASE64Intrinsics"
 
 export CATALINA_HOME CATALINA_BASE CATALINA_OPTS
 export CATALINA_TMPDIR="${CATALINA_BASE}/temp"
