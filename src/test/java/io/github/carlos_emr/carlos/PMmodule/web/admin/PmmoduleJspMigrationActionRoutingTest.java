@@ -43,6 +43,8 @@ import io.github.carlos_emr.carlos.commn.dao.EFormDao;
 import io.github.carlos_emr.carlos.commn.dao.FacilityDao;
 import io.github.carlos_emr.carlos.commn.dao.FunctionalCentreDao;
 import io.github.carlos_emr.carlos.commn.model.Facility;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.services.LookupManager;
 import io.github.carlos_emr.carlos.services.security.RolesManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
@@ -61,7 +63,9 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -154,7 +158,12 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
     }
 
     private ProgramManager2Action newProgramManagerAction() {
-        ProgramManager2Action action = new ProgramManager2Action();
+        ProgramManager2Action action = new ProgramManager2Action() {
+            @Override
+            public String getText(String key, String defaultValue) {
+                return key;
+            }
+        };
         action.setProgramManager(programManager);
         action.setProgramQueueManager(programQueueManager);
         action.setAdmissionManager(admissionManager);
@@ -233,6 +242,55 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
         assertThat(result).isEqualTo("edit");
         assertThat(getMockRequest().getAttribute("program")).isEqualTo(program);
         verifySecurityCheck("_pmm_management", "w");
+    }
+
+    @Test
+    void shouldLoadProviderChoices_whenOpeningTheStaffTab() throws Exception {
+        Program program = new Program();
+        program.setId(17);
+        when(programManager.getProgram("17")).thenReturn(program);
+        List<Provider> providers = List.of(new Provider());
+        when(providerManager.getActiveProviders()).thenReturn(providers);
+        addRequestParameter("method", "edit");
+        addRequestParameter("id", "17");
+        addRequestParameter("view.tab", "Staff");
+
+        assertThat(executeAction(newProgramManagerAction())).isEqualTo("edit");
+
+        assertThat(getMockRequest().getAttribute("availableProviders")).isEqualTo(providers);
+    }
+
+    @Test
+    void shouldSaveRestrictionSettings_whenTheFormOnlySubmitsRestrictionFields() throws Exception {
+        Program program = new Program();
+        program.setId(17);
+        program.setName("Shelter");
+        program.setMaximumServiceRestrictionDays(60);
+        program.setMaxAllowed(null);
+        when(programManager.getProgram(17)).thenReturn(program);
+        when(programManager.getProgram("17")).thenReturn(program);
+        Provider provider = new Provider();
+        provider.setFirstName("FAKE");
+        provider.setLastName("Provider");
+        when(providerManager.getProvider("999998")).thenReturn(provider);
+        Program form = new Program();
+        form.setId(17);
+        form.setDefaultServiceRestrictionDays(30);
+        form.setMaximumServiceRestrictionDays(0);
+        ProgramManager2Action action = newProgramManagerAction();
+        action.setProgram(form);
+        addRequestParameter("method", "save_restriction_settings");
+        addRequestParameter("id", "17");
+        addRequestParameter("view.tab", "Service Restrictions");
+
+        try (var log = mockStatic(LogAction.class)) {
+            assertThat(executeAction(action)).isEqualTo("edit");
+        }
+
+        assertThat(program.getMaximumServiceRestrictionDays()).isZero();
+        assertThat(program.getDefaultServiceRestrictionDays()).isEqualTo(30);
+        verify(programManager).saveProgram(program);
+        verify(programManager).saveProgramSignature(argThat(signature -> "Shelter".equals(signature.getProgramName())));
     }
 
     @Test
