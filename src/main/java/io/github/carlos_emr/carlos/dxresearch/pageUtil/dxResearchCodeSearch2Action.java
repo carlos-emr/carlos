@@ -76,7 +76,7 @@ public final class dxResearchCodeSearch2Action extends ActionSupport {
             throws Exception {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "r", null)) {
-            throw new RuntimeException("missing required sec object (_dxresearch)");
+            throw new SecurityException("missing required sec object (_dxresearch)");
         }
 
         // --- Trust boundary: validate codeType against the known-good allowlist ---

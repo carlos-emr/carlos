@@ -1,0 +1,31 @@
+# Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
+name: CDS change detection
+
+on:
+  workflow_call:
+    outputs:
+      run-tests:
+        description: CDS files changed, or this is a PR to main or an explicit manual run
+        value: ${{ jobs.changes.outputs.run-tests }}
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      run-tests: ${{ steps.select.outputs.run-tests }}
+    steps:
+      - name: Check out change selection tooling and Git history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Use the complete Git diff, including deletions and both sides of
+          # renames, without GitHub's workflow path-filter file limit.
+          fetch-depth: 0
+          sparse-checkout: scripts/ci
+      - name: Select CDS tests
+        id: select
+        run: python3 scripts/ci/select-cds-tests.py
