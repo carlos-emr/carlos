@@ -21,3 +21,8 @@ mutation. All fourteen cases pass after repair, including read-only controls,
 explicit write access, absent report access, anonymous requests and HTTP-method
 refusals. Source-bound coverage and rebuilt-package/browser qualification follow
 in this issue's validation record; no installed execution is claimed here yet.
+
+The new gate has 100% changed-line/instruction/branch coverage, including its
+required privilege-refusal line 28. After JUnit SHA-256:
+`fe5b72434dc360fb5b1f2f0dc9b57f41c1eb15cc502ab1308c86f515b91c43e9`. Source-bound coverage SHA-256:
+`f628a30a7ff6eaee9aaf909251b42b7359b60b28109ffdf29f33df9b6791dadd`.
