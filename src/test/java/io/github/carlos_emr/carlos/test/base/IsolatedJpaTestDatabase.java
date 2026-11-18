@@ -2,7 +2,6 @@
 package io.github.carlos_emr.carlos.test.base;
 
 import io.github.carlos_emr.carlos.utility.MariaDbCompatibilityDriver;
-import io.github.carlos_emr.carlos.utility.MariaDbJdbcCompatibility;
 import java.sql.DriverManager;
 import java.util.Map;
 import java.util.Properties;
@@ -47,7 +46,7 @@ public final class IsolatedJpaTestDatabase implements AutoCloseable {
                 || !java.util.List.of("on", "bc").contains(province)) {
             throw new IllegalArgumentException("Unknown native test schema or province");
         }
-        server = nativeMode ? MariaDbJdbcCompatibility.normalizeUrl(MariaDbTestUrl.requireServerUrl(configuredServer)) : null;
+        server = nativeMode ? MariaDbTestUrl.toNativeUrl(MariaDbTestUrl.requireServerUrl(configuredServer)) : null;
         migrated = nativeMode && "flyway".equals(mode);
         database = "carlos_test_" + label + "_" + UUID.randomUUID().toString().replace("-", "");
         if (!nativeMode) {

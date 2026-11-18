@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.test.base;
 
+import io.github.carlos_emr.carlos.utility.MariaDbJdbcCompatibility;
 import java.util.regex.Pattern;
 
 /** Server-only JDBC URLs for tests that own their MariaDB schema. */
@@ -21,5 +22,10 @@ public final class MariaDbTestUrl {
     /** Identifies the legacy scheme on a validated server URL. */
     public static boolean usesLegacyScheme(String url) {
         return url.startsWith("jdbc:mysql:");
+    }
+
+    /** Converts a fixture URL for callers that open a connection through the native driver. */
+    public static String toNativeUrl(String url) {
+        return MariaDbJdbcCompatibility.normalizeUrl(url);
     }
 }

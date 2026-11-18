@@ -3,7 +3,6 @@ package io.github.carlos_emr.carlos.test.base;
 
 import io.github.carlos_emr.carlos.util.persistence.OscarMySQL5Dialect;
 import io.github.carlos_emr.carlos.utility.MariaDbCompatibilityDriver;
-import io.github.carlos_emr.carlos.utility.MariaDbJdbcCompatibility;
 import org.flywaydb.core.Flyway;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.config.BeanDefinition;
@@ -35,7 +34,7 @@ public class MariaDbDaoTestContextInitializer
     public void initialize(ConfigurableApplicationContext context) {
         if (!"true".equals(System.getenv("CARLOS_TEST_MARIADB_DAO"))) return;
         String configuredServer = MariaDbTestUrl.requireServerUrl(System.getenv("CARLOS_TEST_MARIADB_URL"));
-        String server = MariaDbJdbcCompatibility.normalizeUrl(configuredServer);
+        String server = MariaDbTestUrl.toNativeUrl(configuredServer);
         String schemaMode = System.getenv().getOrDefault("CARLOS_TEST_MARIADB_SCHEMA", "generated");
         if (!List.of("generated", "flyway").contains(schemaMode)) {
             throw new IllegalArgumentException("MariaDB test schema must be generated or flyway");
@@ -74,7 +73,7 @@ public class MariaDbDaoTestContextInitializer
             // including a failed context refresh. No pre-existing database is opened or dropped.
             beans.registerSingleton("mariaDbDaoTestDatabase", cleanup);
             beans.registerDisposableBean("mariaDbDaoTestDatabase", cleanup);
-            if (migrated) Flyway.configure().dataSource(MariaDbJdbcCompatibility.normalizeUrl(jdbcUrl), credentials.getProperty("user"),
+            if (migrated) Flyway.configure().dataSource(MariaDbTestUrl.toNativeUrl(jdbcUrl), credentials.getProperty("user"),
                             credentials.getProperty("password"))
                     // BC's published wide legacy form tables require the packaged server's
                     // innodb_strict_mode=0 during bootstrap (60-carlos-emr.cnf).
