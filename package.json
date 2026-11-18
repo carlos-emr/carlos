@@ -37,6 +37,7 @@
     "test:playwright-list": "node scripts/run-playwright-suite.js --list",
     "test:lab-merged-patient-routing-playwright": "node scripts/lab-merged-patient-routing-playwright-checks.js",
     "test:login-playwright": "node scripts/login-playwright-checks.js",
+    "test:login-legacy-intake-playwright": "node scripts/login-legacy-intake-playwright-checks.js",
     "test:allergy-class-shortcut-alert-playwright": "node scripts/allergy-class-shortcut-alert-playwright-checks.js",
     "test:csrfguard-client-browser": "node scripts/csrfguard-client-browser-check.js",
     "test:consult-attachment-ownership-playwright": "node scripts/consult-attachment-ownership-playwright-checks.js",
@@ -295,6 +296,7 @@
     "test:csrf-xhr-token-playwright": "node scripts/csrf-xhr-token-playwright-checks.js",
     "test:csrf-negative-matrix-playwright": "node scripts/csrf-negative-matrix-playwright-checks.js",
     "test:direct-response-contract-playwright": "node scripts/direct-response-contract-playwright-checks.js",
+    "test:download-missing-playwright": "node scripts/download-missing-playwright-checks.js",
     "test:mcedt-mailbox-outbox-playwright": "node scripts/mcedt-mailbox-outbox-playwright-checks.js",
     "test:mcedt-mailbox-outbox-plaintext-playwright": "MCEDT_PIN=plaintext node scripts/mcedt-mailbox-outbox-playwright-checks.js",
     "test:mcedt-mailbox-outbox-short-name-playwright": "MCEDT_PIN=short-name node scripts/mcedt-mailbox-outbox-playwright-checks.js",
@@ -432,6 +434,7 @@
     "test:admin-jobs-playwright": "node scripts/admin-jobs-playwright-checks.js",
     "test:admin-lookup-lists-playwright": "node scripts/admin-lookup-lists-playwright-checks.js",
     "test:reference-data-cache-playwright": "node scripts/reference-data-cache-playwright-checks.js",
+    "test:facility-disable-browser": "node --test scripts/facility-disable-browser-checks.js",
     "test:admin-facility-messages-playwright": "node scripts/admin-facility-messages-playwright-checks.js",
     "test:admin-update-demographic-provider-playwright": "node scripts/admin-update-demographic-provider-playwright-checks.js",
     "test:dx-registry-quicklist-playwright": "node scripts/dx-registry-quicklist-playwright-checks.js",
@@ -1035,7 +1038,10 @@
     "test:server-table-page-playwright": "node scripts/server-table-page-playwright-checks.js",
     "test:consultation-correctness-playwright": "node scripts/consultation-correctness-playwright-checks.js",
     "test:server-table-installed-playwright": "node scripts/server-table-installed-playwright-checks.js",
-    "test:admin-keygen-create-key-retry-playwright": "node scripts/admin-keygen-create-key-retry-playwright-checks.js"
+    "test:admin-keygen-create-key-retry-playwright": "node scripts/admin-keygen-create-key-retry-playwright-checks.js",
+    "test:admin-facility-disable-playwright": "node scripts/admin-facility-disable-playwright-checks.js",
+    "test:playwright:log-provider-order": "node scripts/log-provider-order-playwright-checks.js",
+    "check:demographic-converted-limits": "node scripts/demographic-converted-limits-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

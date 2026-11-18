@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "f1e3550855ec5c2bfe4563c7a4b0ff4d446dac2e",
+  "comparisonSha256": "42cc52fee57a9546eed01171b1203b3a60dff5ac047d249d428a76f7aa9cdcaa",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/MSP/MSPReconcile.java": {
+      "lines": 78.81773399014779,
+      "instructions": 76.7713004484305,
+      "branches": 69.23076923076923,
+      "sourceBlob": "1bf130069d547a08c169ac0c23577e5985f39ff0"
+    }
+  },
+  "baselineCommit": "3bede7f6007434bbeadcc9a40b41dc2847196d84",
+  "baselineSourceTree": "f1e3550855ec5c2bfe4563c7a4b0ff4d446dac2e",
+  "baselineReportSha256": "d013a30e2bdb73b57a7cc952282e6e74a8d61aedfb817b3225a606c69366b155",
+  "baselineLane": "Focused JDK25 billing history/account/status component run; changed production source and test freshly compiled against byte-verified aggregate prerequisites.47 cases, no failures/errors/skips. Selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 47,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "c4c4a751efca1c500aa1cf37320905e0b37029f28643456158e242f62260f3c8",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}

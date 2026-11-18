@@ -23,12 +23,14 @@ package io.github.carlos_emr.carlos.casemgmt.service;
 
 import io.github.carlos_emr.carlos.commn.dao.CaseManagementTmpSaveDao;
 import io.github.carlos_emr.carlos.commn.dao.CaseManagementTmpSaveDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDaoImpl;
 import io.github.carlos_emr.carlos.commn.model.CaseManagementTmpSave;
+import io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock;
+import io.github.carlos_emr.carlos.test.base.IsolatedJpaTestDatabase;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import java.util.Date;
 import java.util.List;
-import java.util.UUID;
 import java.util.function.Function;
 import org.hibernate.cfg.Configuration;
 import org.junit.jupiter.api.AfterAll;
@@ -36,6 +38,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.orm.jpa.EntityManagerFactoryUtils;
 import org.springframework.orm.jpa.JpaTransactionManager;
@@ -50,7 +54,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Exercises the real temporary-note DAO and service through Spring JPA transactions.
- * The isolated H2 database is unique to this class and destroyed when its factory closes.
+ * Uses isolated H2 by default and the physical MariaDB fixture when explicitly selected.
  * No test transaction surrounds a service call, so replacement must commit or roll back itself.
  *
  * @since 2026-10-24
@@ -58,39 +62,45 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("integration")
 @Tag("casemgmt")
 class CaseManagementTmpSaveTransactionIntegrationTest {
+    private static IsolatedJpaTestDatabase database;
     private static EntityManagerFactory factory;
     private static JpaTransactionManager transactions;
     private static CaseManagementManager manager;
 
     @BeforeAll
-    static void openDatabase() {
-        factory = new Configuration().addAnnotatedClass(CaseManagementTmpSave.class)
-                .setProperty("hibernate.connection.driver_class", "org.h2.Driver")
-                .setProperty("hibernate.connection.url", "jdbc:h2:mem:temporary_notes_" + UUID.randomUUID()
-                        + ";MODE=MySQL;LOCK_TIMEOUT=10000")
-                .setProperty("hibernate.connection.username", "sa")
-                .setProperty("hibernate.connection.password", "")
-                .setProperty("hibernate.hbm2ddl.auto", "create-drop")
-                .setProperty("hibernate.show_sql", "false")
-                .buildSessionFactory();
+    static void openDatabase() throws Exception {
+        database = new IsolatedJpaTestDatabase("note_draft_lease");
+        var configuration = new Configuration().addAnnotatedClass(CaseManagementTmpSave.class)
+                .addAnnotatedClass(CasemgmtNoteLock.class);
+        configuration.getProperties().putAll(database.jpaProperties());
+        configuration.getProperties().put("hibernate.connection.datasource", database.dataSource());
+        factory = configuration.buildSessionFactory();
         transactions = new JpaTransactionManager(factory);
 
         CaseManagementTmpSaveDaoImpl dao = new CaseManagementTmpSaveDaoImpl();
-        ReflectionTestUtils.setField(dao, "entityManager", SharedEntityManagerCreator.createSharedEntityManager(factory));
+        var entityManager = SharedEntityManagerCreator.createSharedEntityManager(factory);
+        ReflectionTestUtils.setField(dao, "entityManager", entityManager);
         ReflectionTestUtils.setField(dao, "entityManagerFactory", factory);
         ProxyFactory daoProxy = new ProxyFactory(dao);
         daoProxy.addAdvice(new TransactionInterceptor(transactions, new AnnotationTransactionAttributeSource()));
 
         CaseManagementManagerImpl service = new CaseManagementManagerImpl();
         service.setCaseManagementTmpSaveDao((CaseManagementTmpSaveDao) daoProxy.getProxy());
+        var locks = new CasemgmtNoteLockDaoImpl();
+        ReflectionTestUtils.setField(locks, "entityManager", entityManager);
+        ReflectionTestUtils.setField(service, "casemgmtNoteLockDao", locks);
         ProxyFactory serviceProxy = new ProxyFactory(service);
         serviceProxy.addAdvice(new TransactionInterceptor(transactions, new AnnotationTransactionAttributeSource()));
         manager = (CaseManagementManager) serviceProxy.getProxy();
     }
 
     @AfterAll
-    static void closeDatabase() {
-        if (factory != null) factory.close();
+    static void closeDatabase() throws Exception {
+        try {
+            if (factory != null) factory.close();
+        } finally {
+            if (database != null) database.close();
+        }
     }
 
     @BeforeEach
@@ -99,6 +109,7 @@ class CaseManagementTmpSaveTransactionIntegrationTest {
             em.createNativeQuery("ALTER TABLE casemgmt_tmpsave DROP CONSTRAINT IF EXISTS temporary_note_failure")
                     .executeUpdate();
             em.createQuery("DELETE FROM CaseManagementTmpSave").executeUpdate();
+            em.createQuery("DELETE FROM CasemgmtNoteLock").executeUpdate();
             seed(em, "999998", 101, 11, 501, "Original target draft");
             seed(em, "999998", 101, 11, 502, "Earlier target draft");
             seed(em, "999998", 101, 22, 503, "Same patient, another program");
@@ -123,6 +134,36 @@ class CaseManagementTmpSaveTransactionIntegrationTest {
                     assertThat(row.note()).isEqualTo("Replacement <literal> & draft");
                     assertThat(row.updated()).isPositive();
                 });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"FAKE-takeover-editor", "fake-original-editor"})
+    void shouldPreserveTheNewerDraft_whenTakeoverCommitsAfterThePriorLeaseRead(String takeoverSession) {
+        var observed = write(em -> {
+            var lock = new CasemgmtNoteLock();
+            lock.setDemographicNo(101);
+            lock.setNoteId(501L);
+            lock.setProviderNo("999998");
+            lock.setSessionId("FAKE-original-editor");
+            lock.setIpAddress("127.0.0.1");
+            lock.setLockAcquired(new Date());
+            em.persist(lock);
+            return lock;
+        });
+        assertThat(manager.replaceTmpSaveWithOwnedLock(observed, "11", "501", "Original editor draft")).isTrue();
+        var takeover = write(em -> {
+            var lock = em.find(CasemgmtNoteLock.class, observed.getId());
+            lock.setSessionId(takeoverSession);
+            return lock;
+        });
+        assertThat(manager.replaceTmpSaveWithOwnedLock(takeover, "11", "501", "Newer editor draft")).isTrue();
+        var committed = rows();
+
+        assertThat(manager.replaceTmpSaveWithOwnedLock(observed, "11", "501", "Stale editor draft")).isFalse();
+        assertThat(rows()).containsExactlyElementsOf(committed);
+        assertThat(committed).filteredOn(row -> row.provider().equals("999998")
+                && row.patient() == 101 && row.program() == 11).singleElement()
+                .satisfies(row -> assertThat(row.note()).isEqualTo("Newer editor draft"));
     }
 
     @Test

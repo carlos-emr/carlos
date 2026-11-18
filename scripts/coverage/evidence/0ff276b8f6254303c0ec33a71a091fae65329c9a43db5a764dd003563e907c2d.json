@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "be660c03fb83506f23ffaa48fd2436f90bcbcd9c",
+  "comparisonSha256": "bf9ce5cc369b35465808b5686ca7a00cfc50aca614d125ee905e5ba726bd7228",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/LabRoutingLookupDao.java": {
+      "lines": 94.66666666666667,
+      "instructions": 93.69747899159664,
+      "branches": 82.8125,
+      "sourceBlob": "1ab3b8dfb803d45f98337b26c3991eb8ad937b44"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DocumentTransferDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6fcfff3300702ba2719f6ecb4db87d07d2abb5b1"
+    }
+  },
+  "baselineCommit": "f3c34012802339617d5b230a30e665f938d52f91",
+  "baselineSourceTree": "be660c03fb83506f23ffaa48fd2436f90bcbcd9c",
+  "baselineReportSha256": "def4d6e6278c5e37f071214ae6544bcaf50ff9614c40a58e6731031307ea5c90",
+  "baselineLane": "Copyright-comment correction only; both fresh JDK25 DAO classes are byte-identical to historical qualified classes, including line positions.35 fresh physical MariaDB controls pass and reuse3256 successful historical invocations only for these unchanged class bytes.3291 is an invocation count, not unique tests. Canonical report copies retain every testcase and correct only root counters; raw15 collisions and all raw hashes retained.",
+  "baselineTestCounts": {
+    "tests": 3291,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "55401f78ad1056e4a946bd8ae0fe3220cc39e26e96469ddff287e56a22997dc2",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}

@@ -19,7 +19,7 @@
 const h = require('./lib/playwright-harness');
 const { requirePoppler } = require('./lib/export-content-helpers');
 const {
-  enterLot, openPreventionIndex, ownPatientPreventions, preventionForms, printPreventions, printedIncludes,
+  enterLot, openPreventionIndex, ownPatientPreventions, preventionForms, printPreventions, printedIncludes, requireId,
 } = require('./lib/prevention-coverage');
 const { runWorkflow } = require('./lib/workflow-session');
 
@@ -29,7 +29,7 @@ const GIVEN_ON = '2026-05-06';
 const SITE = 'Deltoid Lt';
 
 async function workflow(s) {
-  const { context, config, marker } = s;
+  const { context, config, marker, sql } = s;
   ownPatientPreventions(s);
   const index = await openPreventionIndex(s);
   const picker = index.locator('#immunization');
@@ -108,8 +108,7 @@ async function workflow(s) {
     h.assert(!printedIncludes(printed, 'Dose Administered: 0.5 mL'), 'The printout shows the archived dose');
   });
 
-  // The known defect (finding 322) is asserted in a step of its own, after the steps that act on the page, so a
-  // failure while saving or reopening is reported under those steps and never mistaken for the known defect.
+  // Exercise the original data-loss reproduction before other legacy dose spellings (#5431).
   await s.step('a dose saved with no unit is stored as entered', async () => {
     editor = await forms.open(id);
     await editor.locator('#dose').fill('0.5');
@@ -131,6 +130,46 @@ async function workflow(s) {
     h.assert(reopened === '0.5' && resaved === '0.5',
       `A dose stored as "0.5" with no unit reopened as "${reopened}", and an unchanged save stored "${resaved}"`);
   });
+
+  const storedDose = recordId => {
+    const rows = sql.rows(`SELECT HEX(val), id FROM preventionsExt
+      WHERE prevention_id=? AND keyval='dose'`, [requireId(recordId, 'The dose record')]);
+    h.assert(rows.length === 1 && rows[0].length === 2 && /^(?:[0-9A-F]{2})*$/.test(rows[0][0]), 'The stored dose is absent, null or ambiguous');
+    return Buffer.from(rows[0][0], 'hex').toString('utf8');
+  };
+  for (const dose of ['0.5ml', '0.5 unknown', 'half a vial', '0.5  mL', 'Équipe "dose"', 'A&B <dose>',
+    '0.5 mL ', 'half mL', '0.5 ML', '']) {
+    await s.step(`the stored dose ${JSON.stringify(dose)} survives reopening and an unchanged save`, async () => {
+      editor = await forms.open(id);
+      await editor.locator('#dose').fill(dose);
+      await editor.locator('select[name="doseUnit"]').selectOption('');
+      id = await forms.saveAmendment(editor, id);
+      h.assert(storedDose(id) === dose, 'The submitted dose was changed before reopening');
+      editor = await forms.open(id);
+      const actual = await editor.locator('#dose').inputValue();
+      const unit = await editor.locator('select[name="doseUnit"]').inputValue();
+      h.assert(actual === dose && unit === '',
+        `The stored dose ${JSON.stringify(dose)} reopened as ${JSON.stringify(actual)} / ${JSON.stringify(unit)}`);
+      id = await forms.saveAmendment(editor, id);
+      h.assert(storedDose(id) === dose, 'An unchanged save changed the stored dose');
+    });
+  }
+  for (const original of ['half\nvial', 'half\rvial', 'half\r\nvial', '\nleading\rtrailing\n']) {
+    await s.step(`an unchanged multiline dose retains its exact stored line endings ${JSON.stringify(original)}`, async () => {
+      h.assert(sql.value("SELECT COUNT(*) FROM preventionsExt WHERE prevention_id=? AND keyval='dose'", [id]) === '1',
+        'The owned dose extension is missing or ambiguous');
+      sql.execute("UPDATE preventionsExt SET val=? WHERE prevention_id=? AND keyval='dose'", [original, id]);
+      h.assert(storedDose(id) === original, 'The owned legacy dose was not seeded exactly');
+      editor = await forms.open(id);
+      h.assert(await editor.locator('#dose').evaluate(element => element.tagName) === 'TEXTAREA',
+        'The dose editor cannot retain line breaks');
+      h.assert(await editor.locator('#dose').inputValue() === original.replace(/\r\n?/g, '\n'),
+        'The multiline dose changed in the editor');
+      id = await forms.saveAmendment(editor, id);
+      h.assert(storedDose(id) === original, 'An unchanged multiline dose lost its original line endings');
+    });
+  }
+
 }
 
 if (require.main === module) {

@@ -181,6 +181,23 @@
       "minimumAssertions": 61
     },
     {
+      "id": "facility-disable-browser-checks",
+      "command": [
+        "node",
+        "--test",
+        "scripts/facility-disable-browser-checks.js"
+      ],
+      "source": "scripts/facility-disable-browser-checks.js",
+      "sourceSha256": "3cd54d75ab5cfab984ed36e255b989d51118125edeb5b3d8efc606e5a57730a9",
+      "minimumAssertions": 12,
+      "requiredCases": [
+        "every parsed row retains its own POST form, including the first facility",
+        "Disable submits only the selected facility: 20959291",
+        "Disable submits only the selected facility: 20959292",
+        "Cancel leaves every facility unsubmitted"
+      ]
+    },
+    {
       "id": "job-types-datatable-browser-check",
       "command": [
         "node",
@@ -191,5 +208,5 @@
       "minimumAssertions": 139
     }
   ],
-  "workflowSha256": "de77639916b0891e78726ae4b456c94eea8c271aa8f59cdc6db72f8cdadeb3d7"
+  "workflowSha256": "7488801e7183b3b4893938b62b7d1b73fb36a5f17f08ebd99a659d3107527a89"
 }
