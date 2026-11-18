@@ -80,12 +80,6 @@
       "disposition": "required installed retake; blocks release readiness"
     },
     {
-      "check": "login-mfa-no-pin",
-      "finding": 347,
-      "step": "Enable MFA on the security record sets usingMfa and stores no secret yet",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
       "check": "chart-informed-consent",
       "finding": 332,
       "step": "cancelled informed-consent confirmation leaves the banner and stored consent unchanged",
@@ -203,6 +197,12 @@
       "finding": 323,
       "step": "every dose unit and route the catalogue prefills is shown by the Add Prevention form as given",
       "disposition": "Source fix for issue #5432: the Add Prevention form maps each catalogue route and dose unit to its own code (PreventionFormCodes) and shows any other value as given. Manifest pin retired and retained as an active regression. PASS on a local release/2026.08 server build (2026-11-11); a fresh installed PASS is still required."
+    },
+    {
+      "check": "login-mfa-no-pin",
+      "finding": 347,
+      "step": "Enable MFA on the security record sets usingMfa and stores no secret yet",
+      "disposition": "Source fix for #5885: guard PIN validation with the same legacy-PIN setting that renders the controls. The existing complete MFA lifecycle remains an active regression in the no-pin profile. Strict installed PASS on rebuilt Ubuntu 26.04 packages (Chromium154.0.8025.0): default PIN48.4s and no-PIN50.1s, zero residue/unexpected restarts, exact configuration and credential preservation. A final integrated release retake is still required."
     },
     {
       "check": "prevention-dose-route-amendment",

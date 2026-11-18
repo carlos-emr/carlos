@@ -303,7 +303,7 @@
         <action name="report/ViewReportResult" class="io.github.carlos_emr.carlos.report.gate.ViewReport2Action">
             <result name="success">/WEB-INF/jsp/report/reportResult.jsp</result>
         </action>
-        <action name="report/ViewReportdaysheet" class="io.github.carlos_emr.carlos.report.gate.ViewReport2Action">
+        <action name="report/ViewReportdaysheet" class="io.github.carlos_emr.carlos.report.gate.ViewReportDaySheet2Action">
             <result name="success">/WEB-INF/jsp/report/reportdaysheet.jsp</result>
         </action>
         <action name="report/ViewReportecharthistory" class="io.github.carlos_emr.carlos.report.gate.ViewReportEChartHistory2Action">
