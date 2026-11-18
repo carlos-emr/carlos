@@ -94,6 +94,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     private RoleProgramAccessDAO roleProgramAccessDAO;
     private RolesManager roleManager;
     private CaseManagementTmpSaveDao caseManagementTmpSaveDao;
+    @Autowired
+    private CasemgmtNoteLockDao casemgmtNoteLockDao;
     private AdmissionManager admissionManager;
 
     @Autowired
@@ -1231,6 +1233,18 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         // separately from an action committed the deletion even when the replacement failed.
         deleteTmpSave(providerNo, demographicNo, programId);
         tmpSave(providerNo, demographicNo, programId, noteId, note);
+    }
+
+    @Override
+    public boolean replaceTmpSaveWithOwnedLock(CasemgmtNoteLock observed, String programId, String noteId, String note) {
+        String provider = observed.getProviderNo();
+        Integer patient = observed.getDemographicNo();
+        if (!casemgmtNoteLockDao.lockOwnedNote(observed.getId(), provider, patient,
+                observed.getNoteId(), observed.getSessionId())) {
+            return false;
+        }
+        replaceTmpSave(provider, patient.toString(), programId, noteId, note);
+        return true;
     }
 
     @Override

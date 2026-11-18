@@ -88,19 +88,28 @@ async function workflow(s) {
     savedNotes = noteSnapshot();
   });
   let alerts;
+  let expectedLockAlert;
   await s.step('session A, which lost the lock, clicks Save: nothing is written over session B\'s note', async () => {
+    expectedLockAlert = await aChart.evaluate(() => window.noteLockLostError);
+    h.assert(typeof expectedLockAlert === 'string' && expectedLockAlert.length > 0,
+      'The chart has no configured lock-loss message');
     const editor = editorOf(aChart);
     await editor.click();
     await editor.fill(textA);
     const mark = failureMark(s.recorder);
     let refusedUrl;
-    // Whatever the page does about it (an alert, or none) is asserted by the next step; accept it here.
     alerts = await h.withExpectedDialogs(aChart, async () => {
-      const [response] = await Promise.all([aChart.waitForResponse(isEntry('save'), { timeout: 30000 }), aChart.locator('#saveImg').first().click()]);
+      const [response] = await Promise.all([
+        aChart.waitForResponse(isEntry('save'), { timeout: 30000 }),
+        aChart.waitForEvent('dialog', {
+          predicate: dialog => dialog.type() === 'alert' && dialog.message() === expectedLockAlert,
+          timeout: 30000,
+        }),
+        aChart.locator('#saveImg').first().click(),
+      ]);
       h.assert(isAppEntry(response.url()), 'The stale save left the configured application endpoint');
       h.assert(response.status() === 409, `The stale window's save answered HTTP ${response.status()}, expected 409`);
       refusedUrl = h.withoutQueryStrings(response.url());
-      await aChart.waitForTimeout(1500); // the page applies the response (and any alert) after it arrives
     });
     h.assert(s.recorder.badResponses.slice(mark.responses).every(entry => isAppEntry(entry.url)),
       'The stale save recorded an HTTP failure outside the configured application endpoint');
@@ -116,12 +125,9 @@ async function workflow(s) {
   await s.step('session A is told its save was refused and its typed text is still in the editor', async () => {
     const editor = editorOf(aChart);
     const kept = await editor.count() > 0 && await editor.inputValue() === textA;
-    const body = await aChart.locator('body').innerText();
     h.assert(kept, `The stale window's refused Save lost the editor or its typed text (${alerts.length} alert(s) raised)`);
-    // The Save handler appends the status to a localized failure message (English: "Failed to save note! 409").
-    const told = alerts.some(alert => alert.type === 'alert'
-      && (/lock/i.test(alert.text) || /\s409$/.test(alert.text))) || /note lock/i.test(body);
-    h.assert(told, 'The stale window kept its editor but gave the user no alert or visible message that the save was refused');
+    const told = alerts.some(alert => alert.type === 'alert' && alert.text === expectedLockAlert);
+    h.assert(told, 'The stale window kept its editor but gave the user no lock-specific alert after Save');
   });
 }
 
