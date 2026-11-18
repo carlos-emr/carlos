@@ -78,3 +78,19 @@ Privacy floors remain 97.53/97.83/94.44; logout floors rise from
 90.48/92.52/75.00 to 91.49/93.25/78.26 percent. These are source-bound fresh
 measurements. Positive installed verification of this follow-up and its next
 combined DEB are pending; the failed combined package is not labelled complete.
+
+The Ubuntu 26.04 installed component retake passes the static HTML workflow,
+including HEAD, alongside both MCEDT mailbox variants. Three native cases pass
+with no residue; JUnit SHA-256 `bb659a9c83b1bf1a285fab5b8aec8c4b5a5d9eb2f53460ed652538e07245d8b6`.
+All 10,755 original application files, properties and test inputs are restored.
+The scoped audit explains exactly three owned invalid-delete refusals and four
+recognized events; its raw exit 1 is retained. This six-class temporary overlay
+does not replace the pending combined-DEB qualification.
+
+The three static-analysis audit markers are documented at their exact sites:
+the untrusted header selects only HTTP wildcard existence behavior, and fixed
+ASCII field-name comparisons implement the case-insensitive HTTP protocol.
+A fresh 666-case rerun passes (JUnit SHA-256
+`69aa00afcc52a3f41a96761e6e20563d1c28f4d208ff81fe31ab6bdad6b87039`);
+source-bound floors are retained. Evidence SHA-256
+`0cf9583c95483bb17bdcf59120b9844de3b6a5475b58632bfe17e7f7b0cc8cb6`.
