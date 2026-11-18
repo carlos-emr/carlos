@@ -140,6 +140,31 @@ class JdbcMetadataDefaultUnitTest extends CarlosUnitTestBase {
         assertThat(effective.connectTimeout()).isEqualTo(300);
     }
 
+    @Test
+    void shouldRetainAnExplicitNativeTimezone_withoutAddingAJvmTimezoneDefault() throws Exception {
+        try (var source = new OscarTrackingBasicDataSource()) {
+            source.setUrl("jdbc:mariadb://127.0.0.1/fixture?timezone=UTC");
+            assertThat(options(source)).containsEntry("timezone", "UTC").doesNotContainKey("connectiontimezone");
+        }
+    }
+
+    @Test
+    void shouldRefuseInvalidNativeSettings_beforeAddingTimezoneDefaults() throws Exception {
+        try (var source = new OscarTrackingBasicDataSource()) {
+            assertThatThrownBy(() -> source.setUrl("jdbc:mariadb://127.0.0.1/fixture?carlosLegacyMysqlScheme=false"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Invalid database connection configuration").hasNoCause();
+        }
+    }
+
+    @Test
+    void shouldRetainOtherDriversUrls_withoutAddingMariaDbOptions() throws Exception {
+        try (var source = new OscarTrackingBasicDataSource()) {
+            source.setUrl("jdbc:h2:mem:FAKE-unchanged-driver");
+            assertThat(source.getUrl()).isEqualTo("jdbc:h2:mem:FAKE-unchanged-driver");
+        }
+    }
+
     private static java.util.Map<String, String> options(OscarTrackingBasicDataSource source) {
         var result = new java.util.HashMap<String, String>();
         for (String option : source.getUrl().substring(source.getUrl().indexOf('?') + 1).split("&")) {

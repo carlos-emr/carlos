@@ -223,6 +223,10 @@ public class GenerateOutFiles2Action extends ActionSupport {
         Object[] cells = new Object[record.size()];
         for (int i = 0; i < cells.length; i++) {
             String value = record.get(i);
+            // This server-kept CSV was produced by SpreadsheetCsv, which adds exactly
+            // one tab before guarded text (including every original leading tab).
+            // XLSX string cells cannot execute formulas, so restore the raw value.
+            if (value.startsWith("\t")) value = value.substring(1);
             Double numeric = header ? null : exactSpreadsheetNumber(value);
             cells[i] = numeric == null ? value : numeric;
         }
@@ -235,6 +239,8 @@ public class GenerateOutFiles2Action extends ActionSupport {
      * metadata, so only canonical decimal notation is eligible for numeric conversion.
      */
     private static Double exactSpreadsheetNumber(String value) {
+        // Restore legacy whitespace handling for numeric detection only; text stays exact.
+        value = value.trim();
         // At most 15 digits plus a sign and decimal separator; bound parsing work too.
         if (value.length() > 17 || !CANONICAL_DECIMAL.matcher(value).matches()) return null;
         BigDecimal decimal = new BigDecimal(value);

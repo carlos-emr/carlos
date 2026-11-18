@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/util/UtilXML.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "63f53ed7c661a05fb71c60e964bb0f5c47d0cf94"
+  },
+  "evidenceSha256": "ef6c9bcbe4116891e505e86cec66717c1cbdd93f097da59c2448c8e87232414e"
+}

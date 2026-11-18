@@ -4149,6 +4149,7 @@
     }
   },
   "reviewNotes": [
+    "Review for #5999: Demographic.java adds six database-width constants and six calls in validateFieldLengths for title, official/spoken language, country of origin, newsletter and anonymous. Only demographic web add/update and REST create/update call this validator. Getters, setters, JPA/native mappings, CDS import/export readers and field/choice dispositions are unchanged. Limits follow the baseline schema and the existing V1.0.59.27 newsletter widening to 32; valid Unicode code-point boundaries and NULL/empty values retain the existing policy. Refreshed only this model source fingerprint; schema pins, all 407 field dispositions, 130 choice arms and synthetic fixture bytes remain unchanged.",
     "The exact-path review exposed the guide3.1 legal-middle-name native mapping omission. Signed implementation60ef650da1 adds bounded ordered GIV projection, diagnostic/fallback and prepared capacity guard; crosswalk keeps PartQualifier and other name-purpose data source-only.",
     "Independent API2 review of25073dbf66: ViewCdsSourceFields2Action retains authenticated GET/HEAD and the same read-only assembler. Its explicit readOnlyParameters path preserves durable versionless HTML links while rejecting an incorrect supplied version or duplicate/unknown parameters. No destination, normalization, original-retention or clinical transaction mapping changed; refreshed only this reviewed reader hash.",
     "Independent review of adf26958a9: medication start reads retain DRUGS_STARTDATE precision independently of written date; an imported incomplete flag with exact-only storage refuses instead of exposing its anchor. Form and CPP string views use explicit unknown/year/month labels, and the Date-only medication summary refuses the imported category before filtering. Native exact-date contracts are preserved. Actual form, CPP, summary and Spring wiring are covered by the 82-case focused consumer run. Only this previously tracked reader hash is refreshed; final integrated and installed checks remain required.",
@@ -4195,7 +4196,7 @@
     "src/main/java/io/github/carlos_emr/carlos/commn/dto/CdsExportSelectionRowDto.java": "2377a866f37f75dac3d865e7475199353d00c2a5a337a42592d4bfda89c35812",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Appointment.java": "7969638419911fc8f21364e754fee8d65134f0381a575212e4fd0c82fca1d9d4",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Contact.java": "d99fcad3390fc32ccc49a5bd6b834ef68ab22ee87c2b2dc665fc340aa18cc1ad",
-    "src/main/java/io/github/carlos_emr/carlos/commn/model/Demographic.java": "da909f55c656bb02d8be93e01205ffce3c4d717cb89abf6490604782eff68e54",
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Demographic.java": "7d0b12bc5521f0e1db042077db948c910e3dd2e2b2e58bd406d739513a9998ff",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Document.java": "d5f4136f10342873ab4a36513e67c22d10e2e449d4c4ab68bc2d0fea69bf26d5",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": "7361c58b4e786c59f47a9e171e793ffb22b5b295bc04cde259641818178b5d24",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/PharmacyInfo.java": "de6f091818d30531a93ec6d08e97c84dab5860619c45c10d6986db9440f16bc5",
