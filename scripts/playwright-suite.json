@@ -4835,7 +4835,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Two owned synthetic patients merged and unmerged through Administration > Merge Patient Records; demographic_merged, secObjPrivilege and recyclebin rows removed."
+      "fixtures": "Owned synthetic patients merged and unmerged through Administration > Merge Patient Records; forged form provider must not override authenticated recycle/audit attribution (#6004); demographic_merged, secObjPrivilege and recyclebin rows removed."
     },
     {
       "name": "patient-set-cohort",
