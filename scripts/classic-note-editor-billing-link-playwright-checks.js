@@ -63,6 +63,7 @@ async function workflow(s) {
     await editor.waitForLoadState('domcontentloaded');
     const button = editor.locator(ADD_BILLING).first();
     await button.waitFor({ state: 'visible', timeout: 30000 });
+    await editor.locator('#editLegacyNote').click();
     const billing = await s.popup(editor, button, 'classic add billing');
     try {
       await billing.waitForLoadState('domcontentloaded');
