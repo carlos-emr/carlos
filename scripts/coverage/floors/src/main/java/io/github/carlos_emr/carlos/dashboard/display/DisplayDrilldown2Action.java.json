@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/dashboard/display/DisplayDrilldown2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "c14548c740f9a86a3624520e5f20dd7294c4e331"
+  },
+  "evidenceSha256": "83053955ceed35a0cf5c95a707764993ce52ecccfcaffdc15585b4cc9165d369"
+}

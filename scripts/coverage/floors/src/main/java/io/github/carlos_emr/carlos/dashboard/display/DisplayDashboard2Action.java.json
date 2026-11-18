@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/dashboard/display/DisplayDashboard2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 83.33333333333333,
+    "sourceBlob": "28b1e5f5b6ac6942e035c6a7c0c2930758db05b1"
+  },
+  "evidenceSha256": "83053955ceed35a0cf5c95a707764993ce52ecccfcaffdc15585b4cc9165d369"
+}
