@@ -19476,6 +19476,28 @@
       ],
       "fixtures": "Owns the runWorkflow patient and one marker-named REST-created patient and admission; removes exact owned custom-field/archive/admission rows and verifies cleanup. Disposable exclusive host only. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#5999: six converted field lengths refuse REST create/update before side effects; exact schema limits and supplementary Unicode boundary values persist without truncation."
+    },
+    {
+      "name": "eform-large-html-roundtrip",
+      "script": "scripts/eform-large-html-roundtrip-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "manual": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "mutates": [
+        "eform"
+      ],
+      "notes": "Manual regression for #6018: creates one owned synthetic 17 MiB template, exports it through Manage eForms, removes the source and imports the downloaded ZIP. Verifies exact HTML byte length and SHA-256 without dumping the large value, no patient instances and unchanged unrelated template hashes. The 50 MiB HTML and separate 16 MiB properties/64 MiB aggregate limits also have JVM controls.",
+      "fixtures": "One marker-named synthetic template, removed only after verifying its name, file, provider, byte length, digest and lack of patient instances; owned download scratch directory. Requires an exclusive disposable host. It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     }
   ]
 }
