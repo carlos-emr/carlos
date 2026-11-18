@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/eform/data/EForm.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 99.31506849315069,
+    "sourceBlob": "0e4ed539413852eee778ebb175cf081f0d4ae41e"
+  },
+  "evidenceSha256": "112fef373927a33b6b62360b8c1a7d6f9d859a3014fbbf193bb8b453a35fbe23"
+}
