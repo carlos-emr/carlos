@@ -115,7 +115,22 @@ var CarlosAjax = (function () {
             responseURL: responseURL || '',
             responseJSON: null
         };
-        if (xhr && typeof xhr.getResponseHeader === 'function') {
+        if (xhr && typeof xhr.getAllResponseHeaders === 'function') {
+            // Keep the response seen by every callback, even if an earlier callback aborts the XHR.
+            var responseHeaders = Object.create(null);
+            (xhr.getAllResponseHeaders() || '').split(/\r?\n/).forEach(function (line) {
+                var separator = line.indexOf(':');
+                if (separator <= 0) return;
+                var name = line.slice(0, separator).toLowerCase();
+                var value = line.slice(separator + 1).trim();
+                responseHeaders[name] = responseHeaders[name] === undefined ? value
+                    : responseHeaders[name] + ', ' + value;
+            });
+            transport.getResponseHeader = function (name) {
+                var value = responseHeaders[String(name).toLowerCase()];
+                return value === undefined ? null : value;
+            };
+        } else if (xhr && typeof xhr.getResponseHeader === 'function') {
             transport.getResponseHeader = xhr.getResponseHeader.bind(xhr);
         }
         if (responseText) {

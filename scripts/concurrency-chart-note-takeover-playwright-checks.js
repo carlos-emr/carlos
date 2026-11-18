@@ -98,13 +98,18 @@ async function workflow(s) {
     await editor.fill(textA);
     const mark = failureMark(s.recorder);
     let refusedUrl;
-    // Whatever the page does about it (an alert, or none) is asserted by the next step; accept it here.
     alerts = await h.withExpectedDialogs(aChart, async () => {
-      const [response] = await Promise.all([aChart.waitForResponse(isEntry('save'), { timeout: 30000 }), aChart.locator('#saveImg').first().click()]);
+      const [response] = await Promise.all([
+        aChart.waitForResponse(isEntry('save'), { timeout: 30000 }),
+        aChart.waitForEvent('dialog', {
+          predicate: dialog => dialog.type() === 'alert' && dialog.message() === expectedLockAlert,
+          timeout: 30000,
+        }),
+        aChart.locator('#saveImg').first().click(),
+      ]);
       h.assert(isAppEntry(response.url()), 'The stale save left the configured application endpoint');
       h.assert(response.status() === 409, `The stale window's save answered HTTP ${response.status()}, expected 409`);
       refusedUrl = h.withoutQueryStrings(response.url());
-      await aChart.waitForTimeout(1500); // the page applies the response (and any alert) after it arrives
     });
     h.assert(s.recorder.badResponses.slice(mark.responses).every(entry => isAppEntry(entry.url)),
       'The stale save recorded an HTTP failure outside the configured application endpoint');

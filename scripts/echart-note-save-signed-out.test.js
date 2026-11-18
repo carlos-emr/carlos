@@ -58,13 +58,14 @@ function harness(heartbeat = valid) {
     },
   };
   const fields = {
-    editor1: editor, autosaveTime: { textContent: 'previous status' },
+    editor1: editor, autosaveTime: { textContent: 'previous status', setAttribute(name, value) { this[name] = value; } },
     notCPP: { update: html => { replaced.push(html); editor.value = ''; } },
   };
   const context = {
     caseNote: 'editor1', ctx: '/carlos', chartContext: '', demographicNo: '123', fullChart: 'false',
     caisiEnabled: false, savingNoteError: 'save failed', invalidObservationDateError: 'invalid date',
     sessionEndedNotSavedError: SIGNED_OUT, lostNoteLock: false,
+    draftSaveConflictMessage: 'Draft conflict',
     noteLockLostError: 'Your note lock has been lost; copy your text and reopen the chart.',
     URL, AbortController, window: { location: { href: `${ORIGIN}/carlos/CaseManagementEntry?method=edit` } },
     setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
@@ -82,6 +83,7 @@ function harness(heartbeat = valid) {
   vm.createContext(context);
   vm.runInContext(chartActionUrlSource(source), context);
   vm.runInContext(slice('    var ajaxRequest;', '    function submitIssue('), context);
+  vm.runInContext(slice('function showAutosaveStatus(', 'function autosaveAcknowledged('), context);
   vm.runInContext(slice('    function saveNoteAjax(', '    var changeIssueMsg;'), context);
   const shortcut = source.match(/jQuery\(document\)\.on\('keydown', function\(e\) \{[\s\S]*?\n        \}\);/);
   assert.ok(shortcut, 'the production keyboard shortcut is present');
@@ -136,6 +138,8 @@ for (const signed of [false, true]) {
     assert.equal(h.editor.disabled, false);
     assert.deepEqual(h.replaced, []);
     assert.equal(h.effects.includes('resume autosave'), false);
+    assert.equal(h.fields.autosaveTime['data-autosave-state'], 'conflict');
+    assert.equal(h.fields.autosaveTime.textContent, h.context.draftSaveConflictMessage);
     assert.equal(h.context.saveNoteAjax('save', 'list'), false);
     assert.equal(h.requests.length, 1, 'Another toolbar click must keep the draft without a second POST');
   });

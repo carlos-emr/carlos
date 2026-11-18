@@ -320,13 +320,16 @@ test('cancelling Exit after an assignment-only edit keeps the chart open', () =>
 
 test('toolbar Save retains the dirty editor and selected issues on a stale-revision 409', () => {
   const h = harness(); const requests = []; let restored = 0; let timers = 0; let replaced = 0;
+  vm.runInContext(block('function showAutosaveStatus(', 'function autosaveAcknowledged('), h.context);
   vm.runInContext(block('    function saveNoteAjax(', '    function savePage('), h.context);
   Object.assign(h.context, { caseNote: 'editor', caisiEnabled: false, deferNoteSaveUntilIssues: () => false,
     $F: () => 'dirty draft', clearAutoSaveTimer() {}, setTimer() { timers++; }, savingNoteError: 'Save failed',
     noteLockLostError: 'Your note lock has been lost; copy your text and reopen the chart.', lostNoteLock: false,
+    draftSaveConflictMessage: 'Draft conflict',
     beginNoteSwitchSave: () => () => { restored++; }, Form: { serialize: () => 'note=dirty&issue=12' },
     CarlosAjax: { request: (url, options) => requests.push(options) } });
   h.fields.notCPP = { update() { replaced++; } };
+  h.fields.autosaveTime = { textContent: 'Draft saved', setAttribute(name, value) { this[name] = value; } };
   Object.assign(h.note, { method: {}, ajax: {}, chain: {}, includeIssue: {} });
   h.context.saveNoteAjax('save', 'list');
   assert.equal(replaced, 0, 'Editor must survive while Save is pending');
@@ -334,6 +337,8 @@ test('toolbar Save retains the dirty editor and selected issues on a stale-revis
   requests[0].onComplete();
   assert.equal(replaced, 0); assert.equal(restored, 1); assert.equal(timers, 0);
   assert.equal(h.context.lostNoteLock, true);
+  assert.equal(h.fields.autosaveTime['data-autosave-state'], 'conflict');
+  assert.equal(h.fields.autosaveTime.textContent, h.context.draftSaveConflictMessage);
   assert.deepEqual(h.alerts, [h.context.noteLockLostError]);
 });
 

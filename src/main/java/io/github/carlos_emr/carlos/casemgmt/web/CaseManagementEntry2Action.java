@@ -2461,6 +2461,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     /** Resolves this editor's persisted lock without replacing another window's patient cache. */
     private CasemgmtNoteLock ownedNoteLock(String patient, long selectedId) {
+        return ownedNoteLock(patient, selectedId, false);
+    }
+
+    private CasemgmtNoteLock ownedNoteLock(String patient, long selectedId, boolean autosave) {
         String sessionId = request.getSession().getId();
         String provider = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
         CasemgmtNoteLock cached = (CasemgmtNoteLock) request.getSession().getAttribute("casemgmtNoteLock" + patient); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- authorized patient's cached lock
@@ -2476,7 +2480,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                     if (ownsNoteLock(stored, patient, selectedId, provider, sessionId)) return stored;
                 }
             }
-            response.setHeader("X-Carlos-Note-Lock-Lost", "true");
+            if (!autosave || matchesAutosaveSelection(patient, selectedId, null)) {
+                response.setHeader("X-Carlos-Note-Lock-Lost", "true");
+            }
         } catch (RuntimeException failedLockRead) {
             logger.warn("Note lock validation failed ({})", failedLockRead.getClass().getSimpleName());
         }
@@ -3559,6 +3565,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return "historyview";
     }
 
+    /**
+     * Saves the selected chart draft while its note lease is still owned. A 409 carries
+     * {@code X-Carlos-Note-Lock-Lost: true} only when the current editor's lease is confirmed
+     * absent. A lookup failure or superseded selection returns an unmarked 409.
+     *
+     * @return null after setting the HTTP status
+     */
     public String autosave() {
         logger.debug("autosave");
 
@@ -3573,8 +3586,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             return null;
         }
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
-
         String demographicNo;
         try {
             demographicNo = EncounterPatientContext.requireDemographicNo(request);
@@ -3605,17 +3616,25 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         Integer reference = authorizedAutosaveNoteReference(loggedInInfo, demographicNo, programId, noteId);
         if (reference == null) return null;
 
-        if (ownedNoteLock(demographicNo, reference) == null) return null;
+        CaseManagementNote editor = getCaseNote();
+        CasemgmtNoteLock lock = ownedNoteLock(demographicNo, reference, true);
+        if (lock == null) return null;
 
         try {
-            caseManagementMgr.replaceTmpSave(providerNo, demographicNo, programId, noteId, note);
+            if (!caseManagementMgr.replaceTmpSaveWithOwnedLock(lock, programId, noteId, note)) {
+                if (matchesAutosaveSelection(demographicNo, reference, null)) {
+                    response.setHeader("X-Carlos-Note-Lock-Lost", "true");
+                }
+                response.setStatus(HttpServletResponse.SC_CONFLICT);
+                return null;
+            }
         } catch (Exception e) {
             logger.warn("Encounter autosave failed ({})", e.getClass().getSimpleName());
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             return null;
         }
 
-        this.getCaseNote().setNote(note);
+        editor.setNote(note);
 
         response.setStatus(HttpServletResponse.SC_OK);
         return null;
@@ -3630,28 +3649,32 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return null;
         }
-        CaseManagementNote selected = null;
-        if (reference > 0) {
-            selected = caseManagementMgr.getNote(Integer.toString(reference));
-            if (selected == null || !patient.equals(selected.getDemographic_no())
-                    || (!"0".equals(program) && caseManagementMgr.filterNotes(login,
-                    login.getLoggedInProviderNo(), List.of(selected), program).isEmpty())) {
-                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                return null;
-            }
+        CaseManagementNote selected = reference > 0 ? caseManagementMgr.getNote(Integer.toString(reference)) : null;
+        if (reference > 0 && !canReadAutosaveNote(login, patient, program, selected)) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return null;
         }
+        int selectedId = Math.max(0, reference);
+        if (!matchesAutosaveSelection(patient, selectedId, selected)) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            return null;
+        }
+        return selectedId;
+    }
+
+    private boolean canReadAutosaveNote(LoggedInInfo login, String patient, String program, CaseManagementNote note) {
+        return note != null && patient.equals(note.getDemographic_no()) && ("0".equals(program)
+                || !caseManagementMgr.filterNotes(login, login.getLoggedInProviderNo(), List.of(note), program).isEmpty());
+    }
+
+    private boolean matchesAutosaveSelection(String patient, long reference, CaseManagementNote selected) {
         CaseManagementEntryFormBean form = (CaseManagementEntryFormBean) request.getSession()
                 .getAttribute(ChartProgramContext.formKey(request, patient));
-        if (form != null) {
-            CaseManagementNote current = form.getCaseNote();
-            long expected = current == null || current.getId() == null ? 0 : Math.max(0, current.getId());
-            if (expected != Math.max(0, reference) || (selected != null
-                    && !Objects.equals(current.getProgram_no(), selected.getProgram_no()))) {
-                response.setStatus(HttpServletResponse.SC_CONFLICT);
-                return null;
-            }
-        }
-        return Math.max(0, reference);
+        if (form == null) return true;
+        CaseManagementNote current = form.getCaseNote();
+        long expected = current == null || current.getId() == null ? 0 : Math.max(0, current.getId());
+        return expected == reference && (selected == null
+                || Objects.equals(current.getProgram_no(), selected.getProgram_no()));
     }
 
     public String restore() throws Exception {

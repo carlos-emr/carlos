@@ -25,14 +25,21 @@ async function run({ status = 409, extraResponse, extraConsole, revision = false
   const resourceError = { text: 'Failed to load resource: the server responded with a status of 409 ()', location: { url } };
   const chart = stale => {
     let text = '';
+    let pendingDialog;
     return {
-      async evaluate() { return expectedLockAlert; },
+      async evaluate(callback) {
+        return vm.runInNewContext(`(${callback})()`, { window: { noteLockLostError: expectedLockAlert } });
+      },
       async waitForResponse(predicate) {
         const result = response(stale ? status : 200, stale ? responseUrl : undefined);
         assert.equal(predicate(result), true);
         return result;
       },
-      async waitForTimeout() {},
+      waitForEvent(event, { predicate, timeout }) {
+        assert.equal(event, 'dialog');
+        assert.equal(timeout, 30000);
+        return new Promise((resolve, reject) => { pendingDialog = { predicate, resolve, reject }; });
+      },
       locator(selector) {
         if (selector === '#saveImg') return { first() { return this; }, async click() {
           if (!stale) { bSaved = !missingB; return; }
@@ -41,6 +48,12 @@ async function run({ status = 409, extraResponse, extraConsole, revision = false
           if (status === 409) recorder.consoleIssues.push(resourceError);
           if (extraResponse) recorder.badResponses.push(extraResponse);
           if (extraConsole) recorder.consoleIssues.push(extraConsole);
+          assert.ok(pendingDialog, 'Wait for the alert before clicking Save');
+          const dialog = alerts.map(({ type, text: message }) => ({
+            type: () => type, message: () => message,
+          })).find(pendingDialog.predicate);
+          if (dialog) pendingDialog.resolve(dialog);
+          else pendingDialog.reject(new Error('The stale window gave no lock-specific alert after Save'));
         } };
         return { async waitFor() {}, async click() {}, async fill(value) { text = value; },
           async count() { return staleSaved && !kept ? 0 : 1; }, async inputValue() { return text; } };
