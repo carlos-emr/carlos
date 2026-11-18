@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.BufferedReader;
@@ -17,11 +18,13 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.GroupPrincipal;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFileAttributes;
@@ -35,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.doThrow;
@@ -114,6 +118,43 @@ class EFormImagePublicationLockUnitTest {
             }
         }
         assertAvailableToAnotherThread();
+    }
+
+    private enum WriterGroupAssignment {
+        ASSIGNED, INHERITED_ACL, DENIED
+    }
+
+    @ParameterizedTest
+    @EnumSource(WriterGroupAssignment.class)
+    void shouldApplyWriterPermissions_whenANewMarkerStartsInAnotherGroup(WriterGroupAssignment assignment) throws Exception {
+        Path staging = createGroupWritableStaging();
+        Path prepared = Files.createTempFile(staging, "prepared", ".tmp");
+        var writerGroup = Files.readAttributes(staging, PosixFileAttributes.class).group();
+        var inherited = mock(PosixFileAttributes.class);
+        when(inherited.group()).thenReturn(mock(GroupPrincipal.class));
+        when(inherited.permissions()).thenReturn(PosixFilePermissions.fromString(
+                assignment == WriterGroupAssignment.INHERITED_ACL ? "rw-rw----" : "rw-r-----"));
+        var view = mock(PosixFileAttributeView.class);
+        when(view.readAttributes()).thenReturn(inherited, Files.readAttributes(prepared, PosixFileAttributes.class));
+        var denied = new FileSystemException("FAKE group assignment refused");
+        if (assignment != WriterGroupAssignment.ASSIGNED) doThrow(denied).when(view).setGroup(writerGroup);
+
+        try (var files = mockStatic(Files.class, CALLS_REAL_METHODS)) {
+            files.when(() -> Files.createTempFile(eq(staging), anyString(), anyString(), any(FileAttribute[].class)))
+                    .thenReturn(prepared);
+            files.when(() -> Files.getFileAttributeView(prepared, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS))
+                    .thenReturn(view);
+            if (assignment == WriterGroupAssignment.DENIED) {
+                assertThatThrownBy(() -> EFormImagePublicationLock.acquire(images.toFile())).isSameAs(denied);
+                assertThat(marker()).doesNotExist();
+            } else {
+                try (var _ = EFormImagePublicationLock.acquire(images.toFile())) {
+                    assertThat(marker()).isEmptyFile();
+                }
+            }
+        }
+        verify(view).setGroup(writerGroup);
+        assertThat(prepared).doesNotExist();
     }
 
     @Test

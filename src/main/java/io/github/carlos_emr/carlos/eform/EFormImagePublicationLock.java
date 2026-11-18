@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
@@ -87,7 +88,7 @@ public final class EFormImagePublicationLock implements AutoCloseable {
             try {
                 // Set the effective mode before the permanent inode becomes visible to other JVMs.
                 // A default POSIX ACL can already provide write access. Preserve it when it does.
-                ensureGroupWrite(prepared, attributes.group());
+                prepareNewMarker(prepared, attributes.group());
                 try {
                     Files.createLink(marker, prepared);
                 } catch (FileAlreadyExistsException anotherPublisherWon) {
@@ -97,6 +98,21 @@ public final class EFormImagePublicationLock implements AutoCloseable {
                 Files.deleteIfExists(prepared);
             }
         }
+    }
+
+    private static void prepareNewMarker(Path marker, GroupPrincipal writers) throws IOException {
+        var view = Files.getFileAttributeView(marker, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+        var attributes = view.readAttributes();
+        if (!writers.equals(attributes.group())) {
+            try {
+                view.setGroup(writers);
+            } catch (FileSystemException denied) {
+                // An inherited default ACL can give the other writers access to this group class.
+                if (attributes.permissions().contains(PosixFilePermission.GROUP_WRITE)) return;
+                throw denied;
+            }
+        }
+        ensureGroupWrite(marker, writers);
     }
 
     private static void ensureGroupWrite(Path file, GroupPrincipal group) throws IOException {
