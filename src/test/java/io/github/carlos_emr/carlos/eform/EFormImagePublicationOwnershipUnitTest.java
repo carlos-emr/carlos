@@ -65,6 +65,27 @@ class EFormImagePublicationOwnershipUnitTest {
     private enum CopyFailure { READ, WRITE, CLOSE, MOVE }
     private enum CleanupFailure { IO, SECURITY }
 
+    @Test
+    void shouldRefuseReplacingUnwritableImage_withoutChangingItsBytesOrPermissions() throws Exception {
+        Path images = Files.createDirectory(scratch.resolve("images"));
+        Path shared = Files.writeString(images.resolve("existing.png"), "FAKE previously committed image");
+        boolean posix = Files.getFileStore(images).supportsFileAttributeView(java.nio.file.attribute.PosixFileAttributeView.class);
+        var originalPermissions = posix ? Files.getPosixFilePermissions(shared) : null;
+        try (var folder = mockStatic(ImageUpload2Action.class);
+             var files = mockStatic(Files.class, call -> {
+                 // Model the filesystem's effective access denial, including under root CI.
+                 if (call.getMethod().getName().equals("isWritable") && shared.equals(call.getArgument(0))) return false;
+                 return call.callRealMethod();
+             })) {
+            folder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            assertThat(uploadReplacing(shared, "error")).isEqualTo("FAKE previously committed image");
+        }
+        if (posix) assertThat(Files.getPosixFilePermissions(shared)).isEqualTo(originalPermissions);
+        try (var remaining = Files.list(images)) {
+            assertThat(remaining.toList()).containsExactlyInAnyOrder(shared, images.resolve("extractFolder"));
+        }
+    }
+
     @ParameterizedTest
     @EnumSource(CleanupFailure.class)
     void shouldReportPublishedImageAsUploaded_whenStagingDirectoryCleanupFails(CleanupFailure mode) throws Exception {

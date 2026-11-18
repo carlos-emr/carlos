@@ -108,6 +108,12 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
             try (var _ = EFormImagePublicationLock.acquire(imageFolder)) {
                 File destinationFile = PathValidationUtils.validateUpload(image, imageFileName, imageFolder);
                 var destination = destinationFile.toPath();
+                // Atomic rename checks the directory, so retain the former target-write refusal.
+                // Do this under the shared publication lease, before allocating/copying staging.
+                if (Files.exists(destination) && !Files.isWritable(destination)) {
+                    throw new java.nio.file.AccessDeniedException(destination.toString(), null,
+                            "Existing image is not writable");
+                }
                 boolean posix = Files.getFileStore(imageFolder.toPath()).supportsFileAttributeView(PosixFileAttributeView.class);
                 // A private directory makes the staged file inaccessible from its creation.
                 // Normal file creation inside it retains the process umask for a new image.
