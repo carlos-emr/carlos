@@ -274,6 +274,7 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         checkbox.setIssue(staged);
         checkbox.setChecked("off");
         form.setIssueCheckList(new ArrayList<>(List.of(checkbox)));
+        request.setParameter("renderedIssueIdentity", "", renderedIdentity(checkbox));
         request.getSession().setAttribute(ChartProgramContext.formKey(request, "1"), form);
         WebApplicationContext spring = mock(WebApplicationContext.class);
         when(spring.getBean(AdmissionManager.class)).thenReturn(admissions);
@@ -880,6 +881,42 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         verify(locks, never()).merge(any());
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRefuseSave_whenPositionalIssueIdentitiesWereRenderedInADifferentOrder(boolean compact) throws Exception {
+        CheckBoxBean selected;
+        if (compact) {
+            selected = form.getIssueCheckList().getFirst();
+            request.setParameter("numIssues", "2");
+        } else {
+            original.setId(null);
+            lock.setNoteId(0L);
+            selected = prepareFullIssueSave(true, false);
+        }
+        CaseManagementIssue otherIssue = new CaseManagementIssue();
+        otherIssue.setId(caseIssueId + 1);
+        otherIssue.setIssue_id(selected.getIssue().getIssue_id() + 1);
+        otherIssue.setDemographic_no(1);
+        CheckBoxBean other = new CheckBoxBean();
+        other.setIssue(otherIssue);
+        List<CheckBoxBean> current = new ArrayList<>(List.of(other, selected));
+        form.setIssueCheckList(current);
+        request.setParameter("renderedIssueIdentity", "", renderedIdentity(selected), renderedIdentity(other));
+        Snapshot before = snapshot();
+
+        if (compact) {
+            assertThat(action.ajaxsave()).isNull();
+        } else {
+            assertThat(action.save()).isEqualTo("windowCloseError");
+        }
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(snapshot()).isEqualTo(before);
+        assertThat(form.getIssueCheckList()).isSameAs(current).containsExactly(other, selected);
+        assertThat(form.getCaseNote()).isSameAs(original);
+        verify(locks, never()).merge(any());
+    }
+
     @Test
     void shouldRefuseIssueDeletion_whenTheRenderedChecklistOrderIsStale() throws Exception {
         CheckBoxBean selected = prepareIssueDeletion();
@@ -1097,6 +1134,7 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         request.getSession().setAttribute("casemgmtNoteLock1", otherLock);
         request.setParameter("numIssues", "0");
         form.setIssueCheckList(new ArrayList<>());
+        request.setParameter("renderedIssueIdentity", "");
         Snapshot before = snapshot();
         List<List<String>> otherLockBefore = storedLockRows(otherLock.getId());
 
@@ -1386,6 +1424,7 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         else {
             request.setParameter("numIssues", "0");
             form.setIssueCheckList(new ArrayList<>());
+            request.setParameter("renderedIssueIdentity", "");
         }
         if (releaseOnly) request.setParameter("noteId", originalId.toString());
         String token = ChartProgramContext.token(request);
@@ -1940,6 +1979,7 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
     private void prepareFullSave(String rawNote) {
         request.setParameter("noteId", form.getCaseNote().getId() == null ? "0" : form.getCaseNote().getId().toString());
         form.setIssueCheckList(new ArrayList<>());
+        request.setParameter("renderedIssueIdentity", "");
         request.getSession().setAttribute("newCaseManagement", "true");
         request.setParameter("caseNote_note", rawNote);
         action.setObservation_date("14-Oct-2026 10:00");

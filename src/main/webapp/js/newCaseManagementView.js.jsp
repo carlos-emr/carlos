@@ -2994,7 +2994,15 @@ function updateCPPNote() {
         // parameters) and a "+" arrived as a space. This is the save that runs when
         // the clinician opens another note or the new-note icon with unsaved text.
         var params = "nId=" + noteId + issueParams + "&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&numIssues=" + idx + "&obsDate=" + $F("observationDate") + "&encType=" + encodeURIComponent($F(encType)) + "&noteTxt=" + encodeURIComponent(noteTxt);
-        params += "&" + Form.serialize(caseMgtEntryfrm);
+        var formParams = new URLSearchParams(Form.serialize(caseMgtEntryfrm));
+        var issueList = document.getElementById("noteIssues");
+        if (issueList) {
+            formParams.delete("renderedIssueIdentity");
+            issueList.querySelectorAll('input[name="renderedIssueIdentity"]').forEach(function (identity) {
+                formParams.append("renderedIssueIdentity", identity.value);
+            });
+        }
+        params += "&" + formParams.toString();
         // A chart refresh may still fail after this save succeeds. Keep the
         // acknowledged revision editable until its replacement chart arrives.
         if (preserveEditor) params += "&preserveEditor=true";

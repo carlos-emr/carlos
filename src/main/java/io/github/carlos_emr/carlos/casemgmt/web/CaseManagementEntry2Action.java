@@ -1839,7 +1839,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (selectedLock == null) return -1L;
         List<CheckBoxBean> checklist = sessionFrm.getIssueCheckList();
         List<CheckBoxBean> checkedlist = checklist == null ? null : new ArrayList<>(checklist);
-        if (note.getId() != null && !matchesRenderedIssueChecklist(checkedlist)) {
+        if ((note.getId() != null || request.getParameterValues("renderedIssueIdentity") != null)
+                && !matchesRenderedIssueChecklist(checkedlist)) {
             response.setStatus(HttpServletResponse.SC_CONFLICT);
             return -1L;
         }
@@ -2066,7 +2067,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         caseManagementIssue.setResolved("resolved".equals(issueDisplay.resolved));
     }
 
-    /** Validates the order behind the positional checkbox names before applying an existing note's form. */
+    /** Validates the rendered order before applying positional issue selections. */
     private boolean matchesRenderedIssueChecklist(List<CheckBoxBean> checklist) {
         String[] rendered = request.getParameterValues("renderedIssueIdentity");
         if (rendered == null) {
@@ -2342,13 +2343,18 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return null;
         }
 
-        List<CheckBoxBean> checkedlist = sessionFrm.getIssueCheckList();
+        List<CheckBoxBean> checklist = sessionFrm.getIssueCheckList();
+        List<CheckBoxBean> checkedlist = checklist == null ? null : new ArrayList<>(checklist);
         int numIssues;
         try {
             numIssues = Integer.parseInt(request.getParameter("numIssues"));
             if (checkedlist == null || numIssues < 0 || numIssues > checkedlist.size()) throw new NumberFormatException();
         } catch (NumberFormatException invalidForm) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return null;
+        }
+        if (!matchesRenderedIssueChecklist(checkedlist)) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
             return null;
         }
         NoteTimes times = readNoteTimes();
