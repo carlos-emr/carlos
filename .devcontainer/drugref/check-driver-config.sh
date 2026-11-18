@@ -6,5 +6,5 @@ trap 'rm -rf "$probe_dir"' EXIT
 cd "$probe_dir"
 jar xf /usr/local/tomcat/webapps/drugref2.war
 java --class-path 'WEB-INF/classes:WEB-INF/lib/*' \
-  /driver-check/DriverConfigurationProbe.java /drugref2.properties \
+  /driver-check/io/github/carlos_emr/carlos/devcontainer/DriverConfigurationProbe.java /drugref2.properties \
   WEB-INF/classes/spring_config.xml

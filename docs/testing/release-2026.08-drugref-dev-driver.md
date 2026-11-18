@@ -29,3 +29,11 @@ Eight container controls on Ubuntu 26.04 / OpenJDK 25 pass their expected outcom
 
 These are driver-wiring checks. They do not establish database connectivity or a
 complete devcontainer deployment. Current-head CI image-build results are pending.
+
+The CodeRabbit follow-up places the probe in
+`io.github.carlos_emr.carlos.devcontainer`, with the matching source-file path in
+the shell caller. Its JavaDoc records both argument paths, the extracted-WAR
+classpath, failure contract and the initial Git commit date (`2026-11-17`). XML
+secure processing is explicit alongside the existing DOCTYPE refusal and empty
+external-access settings. All eight Ubuntu 26.04/JDK 25 driver-wiring and shell
+controls pass again with the same immutable inputs and real packaged WAR.

@@ -1,4 +1,6 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+package io.github.carlos_emr.carlos.devcontainer;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Driver;
@@ -7,14 +9,33 @@ import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.w3c.dom.Element;
 
-/** Checks the mounted settings against the datasource and drivers in the actual image WAR. */
+/**
+ * Checks mounted settings against the datasource and drivers in the actual image WAR.
+ * This offline CI probe neither opens a database connection nor prints credentials.
+ *
+ * @since 2026-11-17
+ */
 class DriverConfigurationProbe {
+    /**
+     * Loads the WAR's datasource, binds its configured driver and URL, and checks driver compatibility.
+     * The shell caller extracts the image WAR and supplies {@code WEB-INF/classes:WEB-INF/lib/*}
+     * as the Java classpath; datasource implementations and JDBC drivers must come from that WAR.
+     *
+     * @param args position 0 is the mounted DrugRef properties-file path; position 1 is
+     *             the extracted WAR's Spring datasource XML path
+     * @throws Exception if input reading, secure XML configuration/parsing, reflective datasource
+     *                   or driver loading/binding, driver URL checking, or datasource closing fails
+     * @throws IllegalStateException if the XML has missing/duplicate datasource settings,
+     *                               a placeholder is unresolved, or the driver refuses the URL
+     * @throws IndexOutOfBoundsException if either required argument is absent
+     */
     public static void main(String[] args) throws Exception {
         Properties settings = new Properties();
         try (var stream = Files.newInputStream(Path.of(args[0]))) {
             settings.load(stream);
         }
         var xml = DocumentBuilderFactory.newInstance();
+        xml.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
         xml.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         xml.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
         xml.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
