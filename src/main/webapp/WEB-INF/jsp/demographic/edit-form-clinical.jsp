@@ -833,7 +833,7 @@
                                                     <tr valign="top">
                                                         <td align="right"><b><carlos:encode value='<%= propDemoExt[k] %>' context="html"/>
                                                             : </b></td>
-                                                        <td align="left">
+                                                        <td align="left" data-custom-select-name="<%=SafeEncode.forHtmlAttribute(propDemoExt[k].replace(' ', '_'))%>">
                                                             <% if (bExtForm) {
                                                                 if (DemographicCustomFieldSelect.containsSelect(propDemoExtForm[k])) {
                                                                     out.println(DemographicCustomFieldSelect.markSaved(propDemoExtForm[k], demoExt.get(propDemoExt[k].replace(' ', '_'))));
@@ -853,7 +853,7 @@
                                                         <td align="right"><b>
                                                             <%out.println(SafeEncode.forHtmlContent(propDemoExt[k + 1]) + ":");%></b>
                                                         </td>
-                                                        <td align="left">
+                                                        <td align="left" data-custom-select-name="<%=SafeEncode.forHtmlAttribute(propDemoExt[k + 1].replace(' ', '_'))%>">
                                                             <% if (bExtForm) {
                                                                 if (DemographicCustomFieldSelect.containsSelect(propDemoExtForm[k + 1])) {
                                                                     out.println(DemographicCustomFieldSelect.markSaved(propDemoExtForm[k + 1], demoExt.get(propDemoExt[k + 1].replace(' ', '_'))));

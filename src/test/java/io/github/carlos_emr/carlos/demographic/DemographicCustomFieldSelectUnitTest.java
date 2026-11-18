@@ -119,16 +119,40 @@ class DemographicCustomFieldSelectUnitTest {
     @Test
     @DisplayName("should not read options from short comments, text-only elements or after an unclosed comment")
     void shouldSkipNonMarkup_forShortCommentsTextBodiesAndUnclosedComments() {
-        String shortComment = "<select name=\"FAKE_field\"><!--><option value=\"A\">A</option>"
-                + "<textarea><option value=\"B\">B</option></textarea><option value=\"B\">B</option></select>";
+        String shortComment = "<textarea><option value=\"B\">B</option></textarea>"
+                + "<select name=\"FAKE_field\"><!--><option value=\"A\">A</option><option value=\"B\">B</option></select>";
         String rendered = DemographicCustomFieldSelect.markSaved(shortComment, "B");
         assertThat(rendered).contains("<textarea><option value=\"B\">B</option></textarea>")
-                .contains("</textarea><option value=\"B\" selected>B</option>");
+                .contains("<option value=\"B\" selected>B</option></select>");
 
         String unclosed = "<select name=\"FAKE_field\"><option value=\"A\">A</option>"
                 + "<!-- <option value=\"B\">B</option></select>";
         assertThat(DemographicCustomFieldSelect.markSaved(unclosed, "B")).isEqualTo(unclosed);
         assertThat(DemographicCustomFieldSelect.markSaved(unclosed, "A")).contains("<option value=\"A\" selected>A");
+    }
+
+    @Test
+    void shouldMarkOnlyOptionsOfTheRenderedSelect_whenTemplatesAlsoContainMatchingOptions() {
+        String inert = "<template><template><select><option value=B>B</option></select></template>"
+                + "<option value=B selected>B</option></template>";
+        String inner = "<template><option value=B>B</option></template>";
+        String edit = "<select name=FAKE_field><option value=A selected>A</option>" + inner
+                + "<option value=B>B</option></select>";
+
+        assertThat(DemographicCustomFieldSelect.containsSelect(inert)).isFalse();
+        assertThat(DemographicCustomFieldSelect.markSaved(inert, "B")).isEqualTo(inert);
+        assertThat(DemographicCustomFieldSelect.markSaved(inert + edit, "B")).isEqualTo(inert
+                + "<select name=FAKE_field><option value=A>A</option>" + inner
+                + "<option value=B selected>B</option></select>");
+    }
+
+    @Test
+    void shouldRemoveTemplateDefaults_whenAMultipleSelectWasClearedWithoutABlankOption() {
+        String template = "<select name=FAKE_field multiple><option value=A selected>A</option>"
+                + "<option value=B selected>B</option></select>";
+
+        assertThat(DemographicCustomFieldSelect.markSaved(template, "")).isEqualTo(
+                "<select name=FAKE_field multiple><option value=A>A</option><option value=B>B</option></select>");
     }
 
     @Test

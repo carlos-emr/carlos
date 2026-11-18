@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
-import org.jsoup.Jsoup;
+import org.jsoup.nodes.Element;
 import org.jsoup.parser.Parser;
 
 /**
@@ -41,7 +41,7 @@ import org.jsoup.parser.Parser;
  * <p>The option tags are read as a browser reads them: attributes in any order and case, quoted with
  * {@code "} or {@code '} or bare, a {@code >} inside a quoted value, line breaks inside the tag; text in a
  * quoted attribute (a {@code title} that says {@code value=...}) is never taken for an attribute, and
- * options inside comments, {@code <script>} or {@code <style>} are not options. Each option's value is
+ * options outside the rendered select, including inside inert templates, are ignored. Each option's value is
  * decoded as a browser decodes it; without a value attribute it is the option's text, decoded, with
  * whitespace collapsed. The saved text is compared case-sensitively with the exact decoded value,
  * with a whitespace-trimmed fallback for older stored values.</p>
@@ -52,10 +52,10 @@ import org.jsoup.parser.Parser;
  * When nothing was ever saved ({@code null}: a new patient, or a field added since), the template is
  * printed unchanged, so its own default stands. A value that was saved and then cleared (blank) selects
  * the template's blank option ({@code value=""}) if it has one, so the field reopens cleared and an
- * unchanged Save keeps it cleared; without a blank option the template is printed unchanged. When no
- * option carries the saved value, the template is printed unchanged too. A {@code multiple} select is treated the same
- * way: the field stores one value, so one option is marked. The saved value is only compared, never
- * written into the HTML, a pattern or a replacement string.</p>
+ * unchanged Save keeps it cleared. A cleared {@code multiple} select without a blank option reopens
+ * with no selection. Otherwise, when no option carries the saved value, the template is printed
+ * unchanged. The field stores one value, so at most one option is marked. The saved value is only
+ * compared, never written into the HTML, a pattern or a replacement string.</p>
  *
  * @since 2026-11-17
  */
@@ -78,7 +78,13 @@ public final class DemographicCustomFieldSelect {
 
     /** Whether the configured template renders a select element. */
     public static boolean containsSelect(String template) {
-        return template != null && Jsoup.parseBodyFragment(template).selectFirst("select") != null;
+        return template != null && renderedSelect(template) != null;
+    }
+
+    private static Element renderedSelect(String template) {
+        // Use the parsed control and original source positions so markup outside it stays untouched.
+        return Parser.htmlParser().setTrackPosition(true).parseInput(template, "").select("select")
+                .stream().filter(select -> select.closest("template") == null).findFirst().orElse(null);
     }
 
     /** Configured select field names, using the same keys as the Master Record edit. */
@@ -103,7 +109,8 @@ public final class DemographicCustomFieldSelect {
      * @param selectHtml the configured select template; {@code null} prints nothing
      * @param saved the patient's saved value: {@code null} when none was ever saved, blank when it was cleared
      * @return the template with that option selected and no other, or the template unchanged when
-     *         nothing was ever saved or no option carries the saved value
+     *         nothing was ever saved or no option carries the saved value; a cleared multiple
+     *         select without a blank option has no selected option
      */
     public static String markSaved(String selectHtml, String saved) {
         if (selectHtml == null) {
@@ -114,8 +121,12 @@ public final class DemographicCustomFieldSelect {
             // value is "" (the key is stored), and selects the blank option below.
             return selectHtml;
         }
+        Element select = renderedSelect(selectHtml);
+        if (select == null) {
+            return selectHtml;
+        }
         String wanted = StringUtils.trimToEmpty(saved);
-        List<OptionTag> options = options(selectHtml);
+        List<OptionTag> options = options(selectHtml, select);
         OptionTag match = null;
         for (OptionTag option : options) {
             if (option.value().equals(saved)) {
@@ -126,7 +137,7 @@ public final class DemographicCustomFieldSelect {
                 match = option;
             }
         }
-        if (match == null) {
+        if (match == null && !(select.hasAttr("multiple") && wanted.isEmpty())) {
             return selectHtml;
         }
 
@@ -141,7 +152,9 @@ public final class DemographicCustomFieldSelect {
                 edits.add(new Edit(start, selected.end(), ""));
             }
         }
-        edits.add(new Edit(match.insertAt(), match.insertAt(), " selected"));
+        if (match != null) {
+            edits.add(new Edit(match.insertAt(), match.insertAt(), " selected"));
+        }
         edits.sort(Comparator.comparingInt(Edit::start).thenComparingInt(Edit::end));
 
         StringBuilder out = new StringBuilder(selectHtml.length() + 16);
@@ -153,35 +166,18 @@ public final class DemographicCustomFieldSelect {
         return out.append(selectHtml, copied, selectHtml.length()).toString();
     }
 
-    /** Every option start tag of the template, in order; reading stops at an unclosed quote or tag. */
-    private static List<OptionTag> options(String html) {
+    /** The rendered options and their attribute ranges in the original template. */
+    private static List<OptionTag> options(String html, Element select) {
         List<OptionTag> options = new ArrayList<>();
-        int n = html.length();
-        int i = 0;
-        while (i < n) {
-            int lt = html.indexOf('<', i);
-            if (lt < 0) {
-                break;
-            }
-            int skipped = skipNonMarkup(html, lt);
-            if (skipped < 0) {
-                break;
-            }
-            if (skipped > lt) {
-                i = skipped;
+        for (Element option : select.select("option")) {
+            if (option.closest("template") != null) {
                 continue;
             }
-            if (!startsTag(html, lt, "option")) {
-                i = afterTagOrText(html, lt);
-                if (i < 0) {
-                    break;
-                }
-                continue;
-            }
+            int lt = option.sourceRange().start().pos();
             List<Attribute> attributes = new ArrayList<>();
             int close = readAttributes(html, lt + 1 + "option".length(), attributes);
             if (close < 0) {
-                break;
+                continue;
             }
             Attribute value = null;
             List<Attribute> selected = new ArrayList<>();
@@ -199,7 +195,6 @@ public final class DemographicCustomFieldSelect {
                 int insertAt = html.charAt(close - 1) == '/' ? close - 1 : close;
                 options.add(new OptionTag(insertAt, optionText(html, close + 1), selected));
             }
-            i = close + 1;
         }
         return options;
     }
