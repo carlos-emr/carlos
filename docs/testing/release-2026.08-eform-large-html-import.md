@@ -67,5 +67,5 @@ entries and framing must fit that request ceiling. This change does not claim
 that every arbitrarily large exported archive fits a single upload.
 
 Review source-bound evidence SHA-256:
-`529924bcbec3ffa1b05036c07b9e140a01a588cb2df261885e591a7b55e23f21`. The final complete Node retake is in progress;
-the 8,111-case result above belongs to the initial published revision.
+`529924bcbec3ffa1b05036c07b9e140a01a588cb2df261885e591a7b55e23f21`. The final complete Node retake also passes all 8,111 cases across 570 files,
+with zero failures, skips, TODOs, cancellations or changed test sources.
