@@ -57,7 +57,7 @@ public class DisplayDrilldown2Action extends ActionSupport {
 
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private static DashboardManager dashboardManager = SpringUtils.getBean(DashboardManager.class);
+    private final DashboardManager dashboardManager = SpringUtils.getBean(DashboardManager.class);
     private ProviderManager2 providerManager = SpringUtils.getBean(ProviderManager2.class);
     private static Logger logger = MiscUtils.getLogger();
 
@@ -93,10 +93,7 @@ public class DisplayDrilldown2Action extends ActionSupport {
             id = Integer.parseInt(indicatorTemplateId);
         }
 
-        String providerNo = null;
-        if (dashboardManager.getRequestedProviderNo(loggedInInfo) != null) {
-            providerNo = dashboardManager.getRequestedProviderNo(loggedInInfo);
-        }
+        String providerNo = dashboardManager.getRequestedProviderNo(loggedInInfo);
         DrilldownBean drilldown;
         if (providerNo == null) {
             drilldown = dashboardManager.getDrilldownData(loggedInInfo, id, "null");
@@ -110,11 +107,12 @@ public class DisplayDrilldown2Action extends ActionSupport {
         }
 
         Provider preferredProvider = loggedInInfo.getLoggedInProvider();
-        if (dashboardManager.getRequestedProviderNo(loggedInInfo) != null) {
-            preferredProvider = providerManager.getProvider(loggedInInfo, dashboardManager.getRequestedProviderNo(loggedInInfo));
+        if (providerNo != null) {
+            preferredProvider = providerManager.getProvider(loggedInInfo, providerNo);
         }
 
         request.setAttribute("preferredProvider", preferredProvider);
+        request.setAttribute("dashboardProviderNo", providerNo);
         request.setAttribute("drilldown", drilldown);
         return SUCCESS;
     }
