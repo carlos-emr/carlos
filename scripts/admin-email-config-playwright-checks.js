@@ -255,6 +255,7 @@ async function workflow(s) {
     ]);
     h.assert(response.status() === 200, `Fetch Emails answered HTTP ${response.status()}`);
     await manager.waitForFunction(() => window.jQuery && window.jQuery.active === 0);
+    return response.request();
   }
 
   async function assertUnconfirmed(id) {
@@ -263,24 +264,28 @@ async function workflow(s) {
     await fetchEmails('FAILED');
     h.assert(await manager.locator(`#emailStatus${id}`).count() === 0,
       'An unconfirmed delivery appeared in the FAILED queue');
-    await fetchEmails('UNCONFIRMED');
+    const search = await fetchEmails('UNCONFIRMED');
     h.assert((await manager.locator(`#emailStatus${id}`).innerText()).trim() === 'UNCONFIRMED',
       'Manage Emails did not display the retained unconfirmed result');
     h.assert(await manager.locator(`#btnResolve${id}, #btnResend${id}`).count() === 0,
       'An unconfirmed delivery offers Resolve or Copy');
     h.assert(await cards().filter({hasText: 'Check the sending provider'}).count() === 1,
       'The card did not explain how to reconcile an unconfirmed result');
+    const csrf = (await search.allHeaders())['csrf-token'] || new URLSearchParams(search.postData()).get('CSRF-TOKEN');
+    h.assert(csrf, 'The authenticated Manage Emails search did not carry a CSRF token');
+    const where = `id=${id} AND demographicNo=${patient} AND configId=${configId} AND status='UNCONFIRMED'`;
     for (const [method, httpMethod] of [['setResolved', 'POST'], ['resendEmail', 'GET']]) {
-      const response = await manager.evaluate(({id, method, httpMethod}) => new Promise(resolve => {
-        window.jQuery.ajax({
-          url: document.querySelector('#emailSearchForm').action,
-          method: httpMethod,
-          data: {method, logId: id},
-          complete: xhr => resolve({status: xhr.status, body: xhr.responseJSON}),
-        });
-      }), {id, method, httpMethod});
-      h.assert(response.status === 409 && /delivery is unconfirmed/i.test(response.body?.errorMessage)
-        && !response.body.resolvedLogId, `${method} accepted an unconfirmed row or returned a stale acknowledgement`);
+      const fields = {method, logId: id};
+      const params = httpMethod === 'POST'
+        ? {form: fields, headers: {'CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest'}}
+        : {params: fields};
+      const response = await context.request.fetch(search.url(), {
+        method: httpMethod, maxRedirects: 0, failOnStatusCode: false, timeout: TIMEOUT, ...params,
+      });
+      await h.assertRefused(s, {response, table: 'emailLog', where, before: '1', alsoRefusedBy: [409], label: method});
+      const body = await response.json();
+      h.assert(response.status() === 409 && /delivery is unconfirmed/i.test(body.errorMessage)
+        && !body.resolvedLogId, `${method} accepted an unconfirmed row or returned a stale acknowledgement`);
     }
     h.assert(sql.value('SELECT status FROM emailLog WHERE id=?', [id]) === 'UNCONFIRMED',
       'A refused action changed the stored unconfirmed outcome');
