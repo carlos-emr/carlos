@@ -109,7 +109,7 @@ class DashboardProviderContextUnitTest extends CarlosUnitTestBase {
         if(selectedInRequest)manager.setRequestedProviderNo(actor,"FAKE-provider-A");
         else request.setParameter("dashboardProviderNo","FAKE-provider-A");
         when(security.hasPrivilege(any(),eq("_dashboardChgUser"),eq(SecurityInfoManager.READ),isNull())).thenReturn(false);
-        assertThrows(jakarta.ws.rs.ForbiddenException.class,()->manager.getRequestedProviderNo(actor));
+        assertThrows(SecurityException.class,()->manager.getRequestedProviderNo(actor));
     }
     @Test void shouldPreferTheRequestSelection_whenItsProviderChooserHasJustChanged() {
         var request=new MockHttpServletRequest();request.setParameter("dashboardProviderNo","FAKE-provider-A");request(request);

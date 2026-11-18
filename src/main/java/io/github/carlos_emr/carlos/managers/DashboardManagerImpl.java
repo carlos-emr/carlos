@@ -32,7 +32,6 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionContext;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.ws.rs.ForbiddenException;
 import org.springframework.security.crypto.encrypt.BytesEncryptor;
 import org.springframework.security.crypto.encrypt.Encryptors;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
@@ -825,7 +824,7 @@ public class DashboardManagerImpl implements DashboardManager {
         if (provider == null || provider.isBlank()) return null;
         if (!actor.equals(provider)
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardChgUser", SecurityInfoManager.READ, null)) {
-            throw new ForbiddenException("Dashboard provider access denied");
+            throw new SecurityException("missing required sec object (_dashboardChgUser)");
         }
         return provider;
     }
