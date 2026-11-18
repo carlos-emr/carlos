@@ -295,6 +295,7 @@
     "test:csrf-xhr-token-playwright": "node scripts/csrf-xhr-token-playwright-checks.js",
     "test:csrf-negative-matrix-playwright": "node scripts/csrf-negative-matrix-playwright-checks.js",
     "test:direct-response-contract-playwright": "node scripts/direct-response-contract-playwright-checks.js",
+    "test:download-missing-playwright": "node scripts/download-missing-playwright-checks.js",
     "test:mcedt-mailbox-outbox-playwright": "node scripts/mcedt-mailbox-outbox-playwright-checks.js",
     "test:mcedt-mailbox-outbox-plaintext-playwright": "MCEDT_PIN=plaintext node scripts/mcedt-mailbox-outbox-playwright-checks.js",
     "test:mcedt-mailbox-outbox-short-name-playwright": "MCEDT_PIN=short-name node scripts/mcedt-mailbox-outbox-playwright-checks.js",
@@ -1036,7 +1037,8 @@
     "test:consultation-correctness-playwright": "node scripts/consultation-correctness-playwright-checks.js",
     "test:server-table-installed-playwright": "node scripts/server-table-installed-playwright-checks.js",
     "test:admin-keygen-create-key-retry-playwright": "node scripts/admin-keygen-create-key-retry-playwright-checks.js",
-    "test:admin-issue-editor-save": "node scripts/admin-issue-editor-save-playwright-checks.js"
+    "test:admin-issue-editor-save": "node scripts/admin-issue-editor-save-playwright-checks.js",
+    "check:demographic-converted-limits": "node scripts/demographic-converted-limits-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

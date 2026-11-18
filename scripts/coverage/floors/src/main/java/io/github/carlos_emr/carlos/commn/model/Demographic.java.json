@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/model/Demographic.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "05d495f2001229db3a83f2e6d6bf80b17969d818"
+  },
+  "evidenceSha256": "6a90d4fe2bb1a2a1ffba3915c0dba9ad33c9d31910dd7f24b76f8a3b42687699"
+}

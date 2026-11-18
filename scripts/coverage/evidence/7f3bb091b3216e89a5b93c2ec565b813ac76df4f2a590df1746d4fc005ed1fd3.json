@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "3a18f3ba37bfa138e862637e534f1404cb50e8e7",
+  "comparisonSha256": "a25a2924eb0374e80a03aea453e32896263227b4561e3fd6c14c3d9eb7e29285",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/fax/core/FaxImporter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "34d6038edc9f61e6be26673ae65c49669c77a652"
+    }
+  },
+  "baselineCommit": "bd5d178006555d1068cafb14b689f9f15f388446",
+  "baselineSourceTree": "3a18f3ba37bfa138e862637e534f1404cb50e8e7",
+  "baselineReportSha256": "688641bc0502c98353c33ba303450eaa4c47329a63c64f97de9244d5812fd932",
+  "baselineLane": "Fresh exact JDK25 importer/backoff classes;64 focused real poll,backoff,import,deduplication and rollback cases,including discarded stale-state continuation. All64 unique actual JUnit cases pass with zero skips;two initial logging regressions fail before repair. Selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 64,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "da53b92ba0afb6d09487677c814be5a478acfbafb6a7756acd616e89d361a378",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}
