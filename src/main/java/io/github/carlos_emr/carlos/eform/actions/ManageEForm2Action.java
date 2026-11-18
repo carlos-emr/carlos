@@ -58,6 +58,8 @@ import java.util.Collections;
 import java.util.List;
 
 public class ManageEForm2Action extends ActionSupport implements UploadedFilesAware {
+    private static final String IMPORT_ERRORS = "importErrors";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -99,7 +101,7 @@ public class ManageEForm2Action extends ActionSupport implements UploadedFilesAw
         request.setAttribute("input", "import");
         if (zippedForm == null) {
             MiscUtils.getLogger().error("importEForm() called with no uploaded file; returning fail.");
-            request.setAttribute("importErrors", Collections.singletonList("No file was uploaded."));
+            request.setAttribute(IMPORT_ERRORS, Collections.singletonList("No file was uploaded."));
             return "fail";
         }
 
@@ -109,11 +111,11 @@ public class ManageEForm2Action extends ActionSupport implements UploadedFilesAw
             errors = eFormExportZip.importForm(zippedFormStream);
         } catch (IOException e) {
             MiscUtils.getLogger().warn("eForm ZIP import could not be read: {}", LogSafe.exceptionTrace(e));
-            request.setAttribute("importErrors", Collections.singletonList(getText("eform.importReadFailed")));
+            request.setAttribute(IMPORT_ERRORS, Collections.singletonList(getText("eform.importReadFailed")));
             return "fail";
         }
         if (!errors.isEmpty()) {
-            request.setAttribute("importErrors", errors);
+            request.setAttribute(IMPORT_ERRORS, errors);
             return "fail";
         } else {
             request.setAttribute("status", "success");

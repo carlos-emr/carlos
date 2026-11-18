@@ -85,7 +85,7 @@ class EFormImageReplacementMetadataUnitTest {
     @ParameterizedTest @ValueSource(booleans={false,true})
     void shouldRetainLinuxMetadata_withAndWithoutPosixViews(boolean posix) throws Exception {
         var process=successfulCopy();
-        try(var files=metadata();var builders=mockConstruction(ProcessBuilder.class,
+        try(var _=metadata();var builders=mockConstruction(ProcessBuilder.class,
                 withSettings().defaultAnswer(RETURNS_SELF),(builder,context)->when(builder.start()).thenReturn(process))) {
             preserve(posix,true);assertEquals(1,builders.constructed().size());
             verify(process).waitFor(30,TimeUnit.SECONDS);verifyNoInteractions(store);
@@ -94,7 +94,7 @@ class EFormImageReplacementMetadataUnitTest {
     @ParameterizedTest @ValueSource(strings={"owner","group","permissions"})
     void shouldRejectLinuxMetadata_thatCannotBePreservedExactly(String changed) throws Exception {
         var process=successfulCopy();
-        try(var files=metadata();var builders=mockConstruction(ProcessBuilder.class,
+        try(var _=metadata();var _=mockConstruction(ProcessBuilder.class,
                 withSettings().defaultAnswer(RETURNS_SELF),(builder,context)->when(builder.start()).thenReturn(process))) {
             switch(changed) {
                 case "owner"->when(replacement.owner()).thenReturn(otherOwner);
@@ -107,7 +107,7 @@ class EFormImageReplacementMetadataUnitTest {
     }
     @Test void shouldRejectNonRegularStaging_afterLinuxMetadataCopy() throws Exception {
         var process=successfulCopy();
-        try(var files=metadata();var builders=mockConstruction(ProcessBuilder.class,
+        try(var files=metadata();var _=mockConstruction(ProcessBuilder.class,
                 withSettings().defaultAnswer(RETURNS_SELF),(builder,context)->when(builder.start()).thenReturn(process))) {
             files.when(()->Files.isRegularFile(staged,LinkOption.NOFOLLOW_LINKS)).thenReturn(false);
             assertThrows(IOException.class,()->preserve(true,true));
@@ -133,7 +133,7 @@ class EFormImageReplacementMetadataUnitTest {
         }
     }
     @Test void shouldSupportProviders_withoutOptionalMetadataViews() throws Exception {
-        try(var files=metadata()){preserve(false,false);verifyNoInteractions(targetPosix);}
+        try(var _=metadata()){preserve(false,false);verifyNoInteractions(targetPosix);}
     }
     @ParameterizedTest @ValueSource(strings={"empty","complete","short-read","short-write"})
     void shouldCopyEachUserAttribute_orRefuseIncompleteTransfers(String mode) throws Exception {
@@ -164,7 +164,7 @@ class EFormImageReplacementMetadataUnitTest {
         if(mode.equals("interrupted"))when(process.waitFor(30,TimeUnit.SECONDS)).thenThrow(new InterruptedException("FAKE interrupt"));
         else when(process.waitFor(30,TimeUnit.SECONDS)).thenReturn(!mode.equals("timeout"));
         when(process.exitValue()).thenReturn(mode.equals("failure")?1:0);
-        try(var builders=mockConstruction(ProcessBuilder.class,withSettings().defaultAnswer(RETURNS_SELF),(builder,context)->{
+        try(var _=mockConstruction(ProcessBuilder.class,withSettings().defaultAnswer(RETURNS_SELF),(builder,context)->{
             if(mode.equals("unavailable"))when(builder.start()).thenThrow(startFailure);
             else when(builder.start()).thenReturn(process);
         })) {

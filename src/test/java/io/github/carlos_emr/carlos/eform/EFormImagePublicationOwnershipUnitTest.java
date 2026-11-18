@@ -77,7 +77,7 @@ class EFormImagePublicationOwnershipUnitTest {
         boolean posix = Files.getFileStore(images).supportsFileAttributeView(java.nio.file.attribute.PosixFileAttributeView.class);
         var originalPermissions = posix ? Files.getPosixFilePermissions(shared) : null;
         try (var folder = mockStatic(ImageUpload2Action.class);
-             var files = mockStatic(Files.class, call -> {
+             var _ = mockStatic(Files.class, call -> {
                  // Model the filesystem's effective access denial, including under root CI.
                  if (call.getMethod().getName().equals("isWritable") && shared.equals(call.getArgument(0))) return false;
                  return call.callRealMethod();
@@ -101,7 +101,7 @@ class EFormImagePublicationOwnershipUnitTest {
         var failures = new AtomicInteger();
         try (var folder = mockStatic(ImageUpload2Action.class);
              var capture = LogCapture.forLogger(ImageUpload2Action.class.getName() + "$StagingCleanup");
-             var files = mockStatic(Files.class, call -> {
+             var _ = mockStatic(Files.class, call -> {
                  if (call.getMethod().getName().equals("deleteIfExists")) {
                      Path path = call.getArgument(0);
                      if (images.equals(path.getParent()) && path.getFileName().toString().startsWith(".carlos-image-")) {
@@ -133,7 +133,7 @@ class EFormImagePublicationOwnershipUnitTest {
                 ? new IOException("FAKE staging cleanup refusal") : new SecurityException("FAKE staging cleanup refusal");
         try (var folder = mockStatic(ImageUpload2Action.class);
              var capture = LogCapture.forLogger(ImageUpload2Action.class);
-             var paths = mockStatic(PathValidationUtils.class, call -> {
+             var _ = mockStatic(PathValidationUtils.class, call -> {
                  if (call.getMethod().getName().equals("openValidatedUploadInputStream")) {
                      return new java.io.FilterInputStream((java.io.InputStream) call.callRealMethod()) {
                          @Override public int read(byte[] bytes, int offset, int length) throws IOException {
@@ -143,7 +143,7 @@ class EFormImagePublicationOwnershipUnitTest {
                  }
                  return call.callRealMethod();
              });
-             var files = mockStatic(Files.class, call -> {
+             var _ = mockStatic(Files.class, call -> {
                  if (call.getMethod().getName().equals("deleteIfExists")) {
                      Path path = call.getArgument(0);
                      if (images.equals(path.getParent()) && path.getFileName().toString().startsWith(".carlos-image-")) {
@@ -169,7 +169,7 @@ class EFormImagePublicationOwnershipUnitTest {
         var failure = new SecurityException("FAKE later containment refusal");
         var validations = new AtomicInteger();
         try (var folder = mockStatic(ImageUpload2Action.class);
-             var paths = mockStatic(PathValidationUtils.class, call -> {
+             var _ = mockStatic(PathValidationUtils.class, call -> {
                  if (call.getMethod().getName().equals("validateExistingPath")
                          && call.<java.io.File>getArgument(0).isFile()
                          && validations.incrementAndGet() == 2) throw failure;
@@ -192,7 +192,7 @@ class EFormImagePublicationOwnershipUnitTest {
         Path published = Files.createLink(scratch.resolve("published.png"), staged);
         var primary = new IOException("FAKE original import failure");
         var cleanup = new SecurityException("FAKE rollback permission refusal");
-        try (var files = mockStatic(Files.class, call -> {
+        try (var _ = mockStatic(Files.class, call -> {
             if (call.getMethod().getName().equals("deleteIfExists") && published.equals(call.getArgument(0))) throw cleanup;
             return call.callRealMethod();
         })) {
@@ -211,7 +211,7 @@ class EFormImagePublicationOwnershipUnitTest {
         Path shared = Files.writeString(images.resolve("existing.png"), "FAKE previously committed image");
         var failure = new IOException("FAKE image copy refusal");
         try (var folder = mockStatic(ImageUpload2Action.class);
-             var paths = mockStatic(PathValidationUtils.class, call -> {
+             var _ = mockStatic(PathValidationUtils.class, call -> {
                  if (call.getMethod().getName().equals("openValidatedUploadInputStream")) {
                      return new java.io.FilterInputStream((java.io.InputStream) call.callRealMethod()) {
                          private int reads;
@@ -227,7 +227,7 @@ class EFormImagePublicationOwnershipUnitTest {
                  }
                  return call.callRealMethod();
              });
-             var files = mockStatic(Files.class, call -> {
+             var _ = mockStatic(Files.class, call -> {
                  if (failureMode == CopyFailure.METADATA && call.getMethod().getName().equals("readAttributes")
                          && shared.equals(call.getArgument(0)) && PosixFileAttributes.class.equals(call.getArgument(1))) {
                      throw failure;
@@ -285,7 +285,7 @@ class EFormImagePublicationOwnershipUnitTest {
         var store = mock(java.nio.file.FileStore.class);
         when(store.supportsFileAttributeView(java.nio.file.attribute.PosixFileAttributeView.class)).thenReturn(false);
         try (var folder = mockStatic(ImageUpload2Action.class);
-             var files = mockStatic(Files.class, call -> {
+             var _ = mockStatic(Files.class, call -> {
                  if (call.getMethod().getName().equals("getFileStore") && images.equals(call.getArgument(0))) return store;
                  return call.callRealMethod();
              })) {
@@ -303,7 +303,7 @@ class EFormImagePublicationOwnershipUnitTest {
         if (posix) Files.setPosixFilePermissions(shared, permissions);
         var closed = new AtomicInteger();
         try (var folder = mockStatic(ImageUpload2Action.class);
-             var files = mockStatic(Files.class, call -> {
+             var _ = mockStatic(Files.class, call -> {
                  if (call.getMethod().getName().equals("newOutputStream") && call.<Path>getArgument(0).startsWith(images)) {
                      Path staged = call.getArgument(0);
                      assertThat(staged).isNotEqualTo(shared);

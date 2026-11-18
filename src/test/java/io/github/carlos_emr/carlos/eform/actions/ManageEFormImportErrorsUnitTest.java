@@ -110,6 +110,17 @@ class ManageEFormImportErrorsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldKeepTheImportFormOpen_whenNoFileWasUploaded() throws Exception {
+        try (var importer = mockConstruction(EFormExportZip.class)) {
+            assertThat(new ManageEForm2Action().execute()).isEqualTo("fail");
+            assertThat(importer.constructed()).isEmpty();
+        }
+        assertThat(request.getAttribute("input")).isEqualTo("import");
+        assertThat(request.getAttribute("importErrors")).isEqualTo(List.of("No file was uploaded."));
+        assertThat(request.getAttribute("status")).isNull();
+    }
+
+    @Test
     void shouldReturnSafeImportErrors_whenTheUploadedFileCannotBeRead() throws Exception {
         Path missing = temporary.resolve("private-server-file.zip");
         assertThat(action(missing).execute()).isEqualTo("fail");
