@@ -170,6 +170,11 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
             MiscUtils.getLogger().warn("SecurityException during image upload: " + se.getMessage(), se);
             addActionError("Upload failed: invalid file or security policy violation");
             return ERROR;
+        } catch (ImageOwnershipException e) {
+            MiscUtils.getLogger().warn("Image replacement refused because its ownership could not be preserved");
+            addActionError("Cannot replace this image because CARLOS cannot preserve its owner or group. "
+                    + "Ask an administrator to review the image's ownership and permissions for the CARLOS service account.");
+            return ERROR;
         } catch (IOException e) {
             MiscUtils.getLogger().error("Image upload failed for file: {}", imageFileName, e);
             addActionError("Upload failed: an error occurred while saving the image. Please try again or contact support.");
@@ -194,9 +199,11 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
                 var original = Files.readAttributes(existing, PosixFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
                 var replacement = Files.readAttributes(staged, PosixFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
                 // GNU cp may skip ownership changes that the current user cannot make.
-                if (!original.owner().equals(replacement.owner()) || !original.group().equals(replacement.group())
-                        || !original.permissions().equals(replacement.permissions())) {
-                    throw new IOException("Unable to retain existing eForm image ownership and permissions");
+                if (!original.owner().equals(replacement.owner()) || !original.group().equals(replacement.group())) {
+                    throw new ImageOwnershipException();
+                }
+                if (!original.permissions().equals(replacement.permissions())) {
+                    throw new IOException("Unable to retain existing eForm image permissions");
                 }
             }
             return;
@@ -246,6 +253,10 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
         } finally {
             if (copy.isAlive()) copy.destroyForcibly();
         }
+    }
+
+    private static final class ImageOwnershipException extends IOException {
+        private static final long serialVersionUID = 1L;
     }
 
     /** Cleanup failure after atomic publication cannot make a completed upload retryable. */

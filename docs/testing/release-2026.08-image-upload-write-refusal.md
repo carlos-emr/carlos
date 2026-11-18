@@ -4,13 +4,23 @@ The atomic image publisher now checks effective write access to an existing
 image while holding the shared publication lease. An unwritable destination
 returns the established upload error before staging or replacement, preserving
 the original bytes and permissions. Missing destinations and writable image
-replacement retain their existing success behavior.
+replacement retain their existing success behavior when the service can
+preserve the existing image metadata.
 
 On Linux, replacing an existing eForm image also requires effective read
 access. The metadata copier opens the destination image for reading to retain
 its ACLs and extended attributes. Shared image storage must grant the upload
 process both read and write access to images it replaces. A write-only image
 returns a specific upload error before staging.
+
+On Linux, group write access may have allowed in-place replacement of images
+owned by another account. Atomic replacement must also be able to retain the
+image's owner and group on the new file. If CARLOS reports that it cannot
+preserve ownership, an administrator should review the affected file in
+`EFORM_IMAGES_DIR`, set its owner to the CARLOS service account when appropriate,
+and select a group that account can assign. Check that the file's mode and ACLs
+still grant the intended access before retrying. The failed upload retains the
+original image and its metadata.
 
 The new deterministic refusal case fails before the fix (`success` instead of
 `error`); all 152 related Java controls pass afterward, with no skipped cases.

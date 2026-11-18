@@ -23,6 +23,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -30,6 +32,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFileAttributes;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -231,6 +234,34 @@ class EFormUploadFilenameValidationUnitTest extends CarlosUnitTestBase {
                     io.github.carlos_emr.carlos.utility.PathValidationUtils.class, "allowedTempDirectories", previousRoots);
             Files.deleteIfExists(outside);
             Files.deleteIfExists(outsideDir);
+        }
+    }
+
+    @Test
+    @EnabledOnOs(OS.LINUX)
+    void shouldExplainOwnershipRefusal_whenReplacingAnImageOwnedByAnotherAccount() throws Exception {
+        Path images = Files.createDirectory(tempDir.resolve("images"));
+        Path existing = Files.writeString(images.resolve("diagram.png"), "FAKE previous image");
+        Path upload = Files.writeString(tempDir.resolve("upload.png"), "FAKE replacement image");
+        var original = mock(PosixFileAttributes.class);
+        when(original.owner()).thenReturn(() -> "FAKE other account");
+
+        try (var folders = mockStatic(ImageUpload2Action.class);
+             var files = mockStatic(Files.class, CALLS_REAL_METHODS)) {
+            folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            files.when(() -> Files.readAttributes(existing, PosixFileAttributes.class,
+                    java.nio.file.LinkOption.NOFOLLOW_LINKS)).thenReturn(original);
+            var action = new ImageUpload2Action();
+            action.setImage(upload.toFile());
+            action.setImageFileName("diagram.png");
+
+            assertThat(action.execute()).isEqualTo("error");
+            assertThat(action.getActionErrors()).singleElement().asString().contains("CARLOS service account");
+            assertThat(request.getAttribute("status")).isNull();
+        }
+        assertThat(Files.readString(existing)).isEqualTo("FAKE previous image");
+        try (var entries = Files.list(images)) {
+            assertThat(entries.toList()).containsExactlyInAnyOrder(existing, images.resolve("extractFolder"));
         }
     }
 
