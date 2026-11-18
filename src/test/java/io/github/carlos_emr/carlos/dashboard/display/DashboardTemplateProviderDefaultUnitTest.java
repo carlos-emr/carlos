@@ -19,7 +19,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.xml.sax.InputSource;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -31,8 +30,6 @@ class DashboardTemplateProviderDefaultUnitTest extends CarlosUnitTestBase {
     private LoggedInInfo actor;
     private Provider heading;
     private MockHttpServletRequest request;
-    private Object previousDashboardManager;
-    private Object previousDrilldownManager;
 
     @BeforeEach void prepare() {
         dashboard = mock(DashboardManager.class);
@@ -50,14 +47,6 @@ class DashboardTemplateProviderDefaultUnitTest extends CarlosUnitTestBase {
         registerMock(DemographicExtDao.class, mock(DemographicExtDao.class));
         request = new MockHttpServletRequest();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), actor);
-        previousDashboardManager = ReflectionTestUtils.getField(DisplayDashboard2Action.class, "dashboardManager");
-        previousDrilldownManager = ReflectionTestUtils.getField(DisplayDrilldown2Action.class, "dashboardManager");
-        ReflectionTestUtils.setField(DisplayDashboard2Action.class, "dashboardManager", dashboard);
-        ReflectionTestUtils.setField(DisplayDrilldown2Action.class, "dashboardManager", dashboard);
-    }
-    @AfterEach void restoreStaticManagers() {
-        ReflectionTestUtils.setField(DisplayDashboard2Action.class, "dashboardManager", previousDashboardManager);
-        ReflectionTestUtils.setField(DisplayDrilldown2Action.class, "dashboardManager", previousDrilldownManager);
     }
     static Stream<Arguments> scopes() {
         return Stream.of("all", "%", "loggedInProvider").flatMap(alias ->

@@ -122,9 +122,9 @@ class DashboardProviderContextUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"default", "chooser", "followup"})
+    @ValueSource(strings = {"default", "blank", "chooser", "followup"})
     void shouldKeepTheHeadingSeparateFromTheQueryOverride_whenOpeningDashboardAndDrilldown(String selection) {
-        String provider = selection.equals("default") ? null : "FAKE-provider-A";
+        String provider = (selection.equals("default") || selection.equals("blank")) ? null : "FAKE-provider-A";
         Provider loggedInProvider = new Provider();
         loggedInProvider.setProviderNo("FAKE-login");
         when(actor.getLoggedInProvider()).thenReturn(loggedInProvider);
@@ -148,17 +148,14 @@ class DashboardProviderContextUnitTest extends CarlosUnitTestBase {
         dashboardRequest.setParameter("dashboardId", "11");
         if (selection.equals("chooser")) {
             dashboardRequest.setParameter("providerNo", provider);
+        } else if (selection.equals("blank")) {
+            dashboardRequest.setParameter("providerNo", "  ");
         } else if (selection.equals("followup")) {
             dashboardRequest.setParameter("dashboardProviderNo", provider);
         }
         LoggedInInfo.setLoggedInInfoIntoSession(dashboardRequest.getSession(), actor);
         request(dashboardRequest);
 
-        var savedDashboardManager = ReflectionTestUtils.getField(DisplayDashboard2Action.class, "dashboardManager");
-        var savedDrilldownManager = ReflectionTestUtils.getField(DisplayDrilldown2Action.class, "dashboardManager");
-        ReflectionTestUtils.setField(DisplayDashboard2Action.class, "dashboardManager", dashboards);
-        ReflectionTestUtils.setField(DisplayDrilldown2Action.class, "dashboardManager", dashboards);
-        try {
         assertEquals("success", new DisplayDashboard2Action().execute());
         Provider heading = provider == null ? loggedInProvider : selectedProvider;
         assertSame(heading, dashboardRequest.getAttribute("preferredProvider"));
@@ -180,10 +177,6 @@ class DashboardProviderContextUnitTest extends CarlosUnitTestBase {
             verify(dashboards).getDrilldownData(actor, 22, "null");
         } else {
             verify(dashboards).getDrilldownData(actor, 22, provider, "null");
-        }
-        } finally {
-            ReflectionTestUtils.setField(DisplayDashboard2Action.class, "dashboardManager", savedDashboardManager);
-            ReflectionTestUtils.setField(DisplayDrilldown2Action.class, "dashboardManager", savedDrilldownManager);
         }
     }
 
