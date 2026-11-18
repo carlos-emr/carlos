@@ -285,7 +285,8 @@ public class MsgAttachPDF2Action extends ActionSupport {
             Optional<Attachment> attachment = resolver.resolve(item, demographicNo, patientName, labels);
             if (attachment.isEmpty()) {
                 // A stale chooser must not silently remove an item the sender explicitly selected.
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Attachment item is unavailable");
+                request.setAttribute("carlosMessengerAttachmentUnavailable", true);
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;
             }
             String html = render(attachment.get(), demographicNo, loggedInInfo);
