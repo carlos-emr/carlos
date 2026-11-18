@@ -187,6 +187,37 @@ class EFormSelectValueRestoreUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should change nothing when the submitted names and values do not pair up")
+    void shouldLeaveTheFormAsItIs_whenNamesAndValuesDiffInNumber() {
+        EForm form = formOf(VALUELESS);
+        String before = form.getFormHtml();
+
+        form.setValues(list("s", "t"), list("Yes"), Map.of());
+
+        assertThat(form.getFormHtml()).isEqualTo(before);
+    }
+
+    @Test
+    @DisplayName("should use the single value when no per-name submission map is passed at all")
+    void shouldUseSingleValue_whenSubmittedValuesIsNull() {
+        EForm form = formOf(VALUELESS);
+
+        form.setValues(list("s"), list("No"), null);
+
+        assertThat(selectedTexts(Jsoup.parse(form.getFormHtml()), "s")).containsExactly("No");
+    }
+
+    @Test
+    @DisplayName("should use the single value when the submission map holds an empty list for the select")
+    void shouldUseSingleValue_whenSubmittedListForTheSelectIsEmpty() {
+        EForm form = formOf(VALUELESS);
+
+        form.setValues(list("s"), list("Yes"), Map.of("s", List.of()));
+
+        assertThat(selectedTexts(Jsoup.parse(form.getFormHtml()), "s")).containsExactly("Yes");
+    }
+
+    @Test
     @DisplayName("should still clear a text, textarea and radio default that was submitted empty")
     void shouldClearOtherDefaults_whenSubmittedEmpty() {
         String html = "<input type=\"text\" name=\"t\" value=\"default\">"
