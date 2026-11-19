@@ -272,6 +272,179 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
         assertThat(renderedSelection("Smith & Sons", "<option value=\"Other\">o</option>")).isNull();
     }
 
+    /** The select markup after {@link EForm#selectedOptionEdit} is applied, or unchanged when no option matches. */
+    private static String chooseOnly(String select, String wanted, boolean single) {
+        EForm.SelectEdit edit = EForm.selectedOptionEdit(select, 0, select.length(), wanted, single);
+        if (edit == null) return select;
+        StringBuilder html = new StringBuilder(select);
+        edit.applyTo(html);
+        return html.toString();
+    }
+
+    static Stream<Arguments> singleSelects() {
+        return Stream.of(
+                Arguments.of("default after the match",
+                        "<option value=\"Yes\">a</option><option value=\"No\" selected>b</option>",
+                        "Yes",
+                        "<option selected value=\"Yes\">a</option><option value=\"No\">b</option>"),
+                Arguments.of("default before the match",
+                        "<option value=\"No\" selected>b</option><option value=\"Yes\">a</option>",
+                        "Yes",
+                        "<option value=\"No\">b</option><option selected value=\"Yes\">a</option>"),
+                Arguments.of("defaults before and after the match",
+                        "<option value=\"A\" selected>a</option><option value=\"Yes\">b</option>"
+                                + "<option value=\"C\" selected>c</option>",
+                        "Yes",
+                        "<option value=\"A\">a</option><option selected value=\"Yes\">b</option>"
+                                + "<option value=\"C\">c</option>"),
+                Arguments.of("two defaults before the match",
+                        "<option value=\"A\" selected>a</option><option value=\"B\" selected>b</option>"
+                                + "<option value=\"Yes\">y</option>",
+                        "Yes",
+                        "<option value=\"A\">a</option><option value=\"B\">b</option><option selected value=\"Yes\">y</option>"),
+                Arguments.of("selected written as selected=selected, SELECTED, selected=\"\" and with spaces around =",
+                        "<option value=\"Yes\">y</option><option value=\"No\" selected=\"selected\">n</option>"
+                                + "<option SELECTED value=\"C\">c</option><option value=\"D\" selected=\"\">d</option>"
+                                + "<option value=\"E\" selected = 'x'>e</option><option value=\"F\" selected=x>f</option>",
+                        "Yes",
+                        "<option selected value=\"Yes\">y</option><option value=\"No\">n</option>"
+                                + "<option value=\"C\">c</option><option value=\"D\">d</option>"
+                                + "<option value=\"E\">e</option><option value=\"F\">f</option>"),
+                Arguments.of("the matching option already selected, and another",
+                        "<option value=\"No\" selected>n</option><option value=\"Yes\" selected>y</option>",
+                        "Yes",
+                        "<option value=\"No\">n</option><option selected value=\"Yes\" selected>y</option>"),
+                Arguments.of("a second option with the same value is not the match",
+                        "<option value=\"Yes\">a</option><option value=\"yes\" selected>b</option>",
+                        "Yes",
+                        "<option selected value=\"Yes\">a</option><option value=\"yes\">b</option>"),
+                Arguments.of("only the attribute goes: text, values and other attributes stay",
+                        "<option value=\"No\" title=\"selected\" selected>selected</option><option value=\"Yes\">y</option>",
+                        "Yes",
+                        "<option value=\"No\" title=\"selected\">selected</option><option selected value=\"Yes\">y</option>"),
+                Arguments.of("an option group's own attribute stays",
+                        "<optgroup label=\"g\" selected><option value=\"No\" selected>n</option></optgroup>"
+                                + "<option value=\"Yes\">y</option>",
+                        "Yes",
+                        "<optgroup label=\"g\" selected><option value=\"No\">n</option></optgroup>"
+                                + "<option selected value=\"Yes\">y</option>"),
+                Arguments.of("an option in a comment is not touched",
+                        "<!-- <option value=\"No\" selected> --><option value=\"Yes\">y</option>"
+                                + "<option value=\"C\" selected>c</option>",
+                        "Yes",
+                        "<!-- <option value=\"No\" selected> --><option selected value=\"Yes\">y</option>"
+                                + "<option value=\"C\">c</option>"),
+                Arguments.of("no option matches: the template's default stays",
+                        "<option value=\"No\" selected>n</option><option value=\"Yes\">y</option>",
+                        "Maybe",
+                        "<option value=\"No\" selected>n</option><option value=\"Yes\">y</option>"),
+                Arguments.of("an empty output marks the first valued option and takes nothing out",
+                        "<option value=\"\">p</option><option value=\"A\" selected>a</option>",
+                        "",
+                        "<option selected value=\"\">p</option><option value=\"A\" selected>a</option>"),
+                Arguments.of("markup that cannot be read before the match changes nothing",
+                        "<option value=\"No\" selected>n</option><!-- never closed <option value=\"Yes\">y</option>",
+                        "Yes",
+                        "<option value=\"No\" selected>n</option><!-- never closed <option value=\"Yes\">y</option>"),
+                Arguments.of("an unreadable tag after the match keeps the insert and removes nothing",
+                        "<option value=\"Yes\">y</option><option value=\"No\" selected>n</option><option value=\"C\" selected",
+                        "Yes",
+                        "<option selected value=\"Yes\">y</option><option value=\"No\" selected>n</option>"
+                                + "<option value=\"C\" selected"),
+                Arguments.of("an unclosed comment after the match keeps the insert and removes nothing",
+                        "<option value=\"Yes\">y</option><option value=\"No\" selected>n</option><!-- never closed",
+                        "Yes",
+                        "<option selected value=\"Yes\">y</option><option value=\"No\" selected>n</option><!-- never closed"),
+                Arguments.of("an unclosed quote after the match keeps the insert and removes nothing",
+                        "<option value=\"Yes\">y</option><option value=\"No\" selected>n</option><option value=\"C>c</option>",
+                        "Yes",
+                        "<option selected value=\"Yes\">y</option><option value=\"No\" selected>n</option>"
+                                + "<option value=\"C>c</option>"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("singleSelects")
+    void shouldLeaveOnlyTheMatchingOptionSelected_inASingleSelect(String name, String select, String wanted,
+            String expected) {
+        assertThat(chooseOnly(select, wanted, true)).isEqualTo(expected);
+    }
+
+    @Test
+    void shouldLeaveEverySelectedAttributeAsItWas_inASelectWithMultiple() {
+        String select = "<option value=\"Yes\">a</option><option value=\"No\" selected>b</option>";
+
+        assertThat(chooseOnly(select, "Yes", false))
+                .isEqualTo("<option selected value=\"Yes\">a</option><option value=\"No\" selected>b</option>");
+    }
+
+    @Test
+    void shouldMarkADisabledMatchingOption_asItAlwaysHas() {
+        // Today's behaviour, stated and not changed: a browser does not submit a disabled selected option.
+        String select = "<option value=\"A\" disabled>x</option><option value=\"B\" selected>y</option>";
+
+        assertThat(chooseOnly(select, "A", true))
+                .isEqualTo("<option selected value=\"A\" disabled>x</option><option value=\"B\">y</option>");
+        assertThat(choose("<option value=\"A\" disabled>x</option>", "A"))
+                .isEqualTo("<option selected value=\"A\" disabled>x</option>");
+    }
+
+    @Test
+    void shouldOnlyTakeSelectedOutOfTheGivenRange_whenAnotherSelectFollows() {
+        String first = "<option value=\"Yes\">a</option><option value=\"No\" selected>b</option>";
+        String both = first + "</select><select><option value=\"C\" selected>c</option>";
+        EForm.SelectEdit edit = EForm.selectedOptionEdit(both, 0, first.length(), "Yes", true);
+        StringBuilder html = new StringBuilder(both);
+        edit.applyTo(html);
+
+        assertThat(html.toString()).isEqualTo("<option selected value=\"Yes\">a</option><option value=\"No\">b</option>"
+                + "</select><select><option value=\"C\" selected>c</option>");
+    }
+
+    @Test
+    void shouldReadWhetherASelectIsSingle_orSayNoOnAnyDoubt() {
+        String single = "<select name=\"a\" oscarDB=x class=\"c\"><option value=\"Yes\">y</option>";
+        String multiple = "<select oscarDB=x MULTIPLE><option value=\"Yes\">y</option>";
+        int pointer = single.indexOf("oscarDB=x") + 9;
+
+        assertThat(EForm.isSingleSelect(single, pointer, single.length())).isTrue();
+        assertThat(EForm.isSingleSelect(multiple, multiple.indexOf("oscarDB=x") + 9, multiple.length())).isFalse();
+        // No tag before the pointer, a tag that is not a select, and a start tag that cannot be read.
+        assertThat(EForm.isSingleSelect("oscarDB=x>", 9, 10)).isFalse();
+        assertThat(EForm.isSingleSelect("<div oscarDB=x><option value=\"Yes\">", 14, 35)).isFalse();
+        assertThat(EForm.isSingleSelect("<select oscarDB=x title=\"never closed><option>", 15, 47)).isFalse();
+        assertThat(EForm.isSingleSelect("<select oscarDB=x", 17, 400)).isFalse();
+    }
+
+    @Test
+    void shouldShowTheStoredValue_whenTheTemplateDefaultComesAfterIt() throws Exception {
+        String options = "<option value=\"Yes\">a</option><option value=\"No\" selected>b</option>";
+
+        assertThat(renderedSelectedValues("", "Yes", options)).containsExactly("Yes");
+        assertThat(renderedSelectedValues(" class=\"c\"", "Yes", options)).containsExactly("Yes");
+        // A select with multiple keeps the template's default beside the stored value.
+        assertThat(renderedSelectedValues(" multiple", "Yes", options)).containsExactly("Yes", "No");
+        assertThat(renderedSelectedValues(" MULTIPLE=\"multiple\"", "Yes", options)).containsExactly("Yes", "No");
+        // No match: the template's default stays.
+        assertThat(renderedSelectedValues("", "Maybe", options)).containsExactly("No");
+    }
+
+    /** The values of every selected option after the database tag run. */
+    private static java.util.List<String> renderedSelectedValues(String selectAttributes, String output, String options)
+            throws Exception {
+        DatabaseAP ap = new DatabaseAP("choice", "", output);
+        try (var loader = mockStatic(EFormLoader.class)) {
+            loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
+            loader.when(() -> EFormLoader.getAP("choice")).thenReturn(ap);
+            EForm form = new EForm();
+            form.setDemographicNo("7");
+            form.setFormHtml("<form><select name=\"Choice\" oscarDB=choice" + selectAttributes + ">" + options
+                    + "</select></form>");
+            form.setDatabaseAPs();
+
+            return Jsoup.parse(form.getFormHtml()).select("option[selected]").eachAttr("value");
+        }
+    }
+
     /** The value of the selected option after the database tag run, or null when none is selected. */
     private static String renderedSelection(String output, String options) throws Exception {
         DatabaseAP ap = new DatabaseAP("choice", "", output);
