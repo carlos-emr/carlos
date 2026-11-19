@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/report/pageUtil/RptFormQuery.java",
+  "kind": "floor",
+  "floor": {
+    "sourceBlob": "47f06302521bc889dc0611b457246d832d88b7ce",
+    "lines": 77.77777777777777,
+    "instructions": 71.03448275862068,
+    "branches": 55.55555555555556
+  },
+  "evidenceSha256": "e899ecfb32e3881c56bb3277fa710b661a1ba480b90fcecf672b3f5e3af8fead"
+}

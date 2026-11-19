@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "581fe2e8c3cd0291aad70aeb12cc6dbed2f0aa78",
+  "comparisonSha256": "3647e2d89ae2fc95264ffab257dde8b958e49d0b19eacdf166617faf64e35bcc",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/app/CsrfGuardScriptInjectionFilter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 98.6842105263158,
+      "sourceBlob": "f91d1b5e4d4b48f07b94c123221d58429c05540f"
+    }
+  },
+  "baselineCommit": "c2fd99184bfcb1a38fc2bc6f2d006b95a3ccde7a",
+  "baselineSourceTree": "581fe2e8c3cd0291aad70aeb12cc6dbed2f0aa78",
+  "baselineReportSha256": "39af7d29a326e1434a8c7761478f11f394147b1623d421bf52636fd7763ecd9b",
+  "baselineLane": "Java 25 focused CSRF script-injection filter unit tests plus embedded Tomcat response-filter lifecycle, JavaMelody, sanitization, privacy and logout filter tests, for the bounded-capture review fixes",
+  "baselineTestCounts": {
+    "tests": 828,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "56f99d40dceab84186789437b1570fe59c7df190863b34820c3d0b0b0c0bbc9b",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

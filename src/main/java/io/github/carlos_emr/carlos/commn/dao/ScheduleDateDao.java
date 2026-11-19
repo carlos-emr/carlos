@@ -40,6 +40,25 @@ public interface ScheduleDateDao extends AbstractDao<ScheduleDate> {
     /** Returns the active day with highest priority (manual c before generated b/a), newest ID for ties. */
     ScheduleDate findByProviderNoAndDate(String providerNo, Date date);
 
+    /**
+     * Locks the provider's row ({@code select ... for update}) until the current transaction ends,
+     * so that schedule override changes for one provider run one at a time.
+     *
+     * <p>The provider row exists before the provider's first override, so it serializes even the
+     * first insert for a date, which no lock on the {@code scheduledate} rows could (#5297).</p>
+     *
+     * @param providerNo the provider whose schedule is about to change
+     * @return whether the provider exists
+     */
+    boolean lockProviderForScheduleChange(String providerNo);
+
+    /**
+     * Every active override of the provider for the date, oldest first, read with a write lock.
+     * Normally there is at most one, but a date can hold more from before the replacement was
+     * serialized.
+     */
+    List<ScheduleDate> findActiveForUpdate(String providerNo, Date date);
+
     List<ScheduleDate> findByProviderPriorityAndDateRange(String providerNo, char priority, Date date, Date date2);
 
     List<ScheduleDate> findByProviderAndDateRange(String providerNo, Date date, Date date2);

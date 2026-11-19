@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "07f0fc9f4042589d7a39579989f5d2e85433de9f",
+  "comparisonSha256": "1957fa80511c0cac7be429dcc05b24ae2d983816c082a909af8bca16a7ed511e",
+  "baselineCommit": "fabe8a30811269d6128f2d68c2d97412f642e80f",
+  "baselineSourceTree": "07f0fc9f4042589d7a39579989f5d2e85433de9f",
+  "baselineReportSha256": "0091ace1a67a6ebd853cecc7223f20657dd0821fa88638e7a763141e17841352",
+  "baselineLane": "JDK 25 embedded Tomcat and response-filter regressions, including downstream close of the output-stream fallback",
+  "baselineTestCounts": {
+    "tests": 834,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "ea9848c3b60d399b8216465485c6682b7daea260ca88c0cdb3f814eacf90648c",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.app.CsrfGuardScriptInjectionFilterUnitTest",
+    "io.github.carlos_emr.carlos.app.LogoutBroadcastFilterUnitTest",
+    "io.github.carlos_emr.carlos.commn.printing.PrivacyStatementAppendingFilterUnitTest",
+    "io.github.carlos_emr.carlos.utility.JavaMelodyResponseIntegrationTest",
+    "io.github.carlos_emr.carlos.utility.ResponseFilterLifecycleIntegrationTest",
+    "io.github.carlos_emr.carlos.utility.ResponseSanitizationFilterUnitTest"
+  ],
+  "observedChangedSourceCoverage": {
+    "src/main/java/io/github/carlos_emr/carlos/app/CsrfGuardScriptInjectionFilter.java": {
+      "lineCounts": {
+        "covered": 179,
+        "missed": 0
+      },
+      "instructionBranchCounts": {
+        "covered_instructions": 788,
+        "missed_instructions": 0,
+        "covered_branches": 87,
+        "missed_branches": 1,
+        "partial_lines": [],
+        "missed_branch_lines": [
+          780
+        ]
+      },
+      "percentages": {
+        "lines": 100.0,
+        "instructions": 100.0,
+        "branches": 98.86363636363636
+      }
+    }
+  },
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/app/CsrfGuardScriptInjectionFilter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 98.83720930232558,
+      "sourceBlob": "e4c2d98698b22e3d4941cfaa4c7a589972458fe5"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {}
+}
