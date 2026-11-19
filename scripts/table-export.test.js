@@ -18,6 +18,13 @@ test('normalizes header whitespace without changing line breaks in data', () => 
   assert.equal(exportCsv([' SERVICE\n  DATE '], 'TH'), '\uFEFFSERVICE DATE\r\n');
   assert.equal(exportCsv(['line one\nline two']), '\uFEFF"line one\nline two"\r\n');
 });
+test('keeps leading control characters for the export cell guard', () => {
+  for (const prefix of ['\t', '\r', '\n', '\r\n']) {
+    assert.equal(exportCsv([prefix + '-12.5']), `\uFEFF"\t${prefix}-12.5"\r\n`);
+    assert.equal(exportCsv([prefix + '  SERVICE\n  DATE  '], 'TH'), `\uFEFF"\t${prefix}SERVICE DATE"\r\n`);
+  }
+});
+
 test('exports negative adjustments as numeric CSV values', () => {
   assert.equal(exportCsv(['-12.50', '-0.01', '-123']), '\uFEFF-12.50,-0.01,-123\r\n');
 });
