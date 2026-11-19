@@ -12,6 +12,9 @@ const { prepareWaitingLists } = require('./lib/waiting-list-ui-workflow');
 async function workflow(s) {
   const f = await prepareWaitingLists(s, { members: true });
   h.assert(f.patients.length === 2, 'The fixture needs the workflow patient and one control patient');
+  // The IDs are interpolated into SQL, selectors and patterns below; accept positive integers only.
+  for (const patient of f.patients) h.assert(/^[1-9]\d*$/.test(String(patient)), `Unexpected patient ID ${patient}`);
+  h.assert(/^[1-9]\d*$/.test(String(f.list.id)), `Unexpected list ID ${f.list.id}`);
   // DisplayWaitingList.jsp prints request.getContextPath() in front of each route.
   const managerPath = new URL(f.manager.url()).pathname;
   const contextPath = managerPath.slice(0, managerPath.indexOf('/waitinglist/'));
