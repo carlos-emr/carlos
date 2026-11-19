@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -31,10 +32,13 @@ import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import jakarta.ws.rs.core.Form;
 import jakarta.ws.rs.core.MediaType;
@@ -140,6 +144,121 @@ class OscarJobServiceEndpointTest extends CarlosRestTestBase {
                 timer.shutdownNow();
             }
         }
+    }
+
+    @Test
+    void shouldReturnTheCreatedJob_whenItHasNoScheduleYet() {
+        int jobId = 3046;
+        var type = createTestJobType(1, "TestType", "com.example.TestJob");
+        var stored = createTestJob(jobId, "Scheduled job", type);
+        when(mockOscarJobManager.getJob(any(LoggedInInfo.class), eq(jobId))).thenReturn(stored);
+        doAnswer(call -> {
+            call.<OscarJob>getArgument(1).setId(jobId);
+            return null;
+        }).when(mockOscarJobManager).saveJob(any(LoggedInInfo.class), any(OscarJob.class));
+
+        try (Response response = request().path("/jobs/saveJob")
+                .type(MediaType.APPLICATION_FORM_URLENCODED).post(saveForm(0, true))) {
+            assertThat(response.getStatus()).isEqualTo(200);
+            JsonNode json = response.readEntity(JsonNode.class);
+            assertThat(json.path("jobs").get(0).path("id").asInt()).isEqualTo(jobId);
+            assertThat(json.has("scheduleActivation")).isFalse();
+        }
+    }
+
+    @Test
+    void shouldEnableAndReturnAnExistingJobThroughTheSharedScheduler() throws Exception {
+        int jobId = 3047;
+        var type = createTestJobType(1, "TestType", "com.example.TestJob");
+        var stored = createTestJob(jobId, "Scheduled job", type);
+        stored.setEnabled(false);
+        when(mockOscarJobManager.getJob(any(LoggedInInfo.class), eq(jobId))).thenReturn(stored);
+        var form = new Form().param("jobId", Integer.toString(jobId));
+
+        try (var scheduler = mockStatic(OscarJobUtils.class);
+                Response response = request().path("/jobs/enableJob")
+                        .type(MediaType.APPLICATION_FORM_URLENCODED).post(form)) {
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(stored.isEnabled()).isTrue();
+            scheduler.verify(() -> OscarJobUtils.scheduleJob(stored));
+        }
+    }
+
+    @Test
+    void shouldLeaveNoTimer_whenAnEnabledSaveOverlapsADisableFromAnotherRestService() throws Exception {
+        int jobId = 3045;
+        var storedEnabled = new AtomicBoolean();
+        var type = createTestJobType(1, "TestType", "com.example.TestJob");
+        when(mockOscarJobManager.getJob(any(LoggedInInfo.class), eq(jobId))).thenAnswer(call -> {
+            var stored = createTestJob(jobId, "Scheduled job", type);
+            stored.setEnabled(storedEnabled.get());
+            stored.setCronExpression("0 15 * * * *");
+            return stored;
+        });
+        doAnswer(call -> {
+            OscarJob job = call.getArgument(1);
+            storedEnabled.set(job.isEnabled());
+            return null;
+        }).when(mockOscarJobManager).updateJob(any(LoggedInInfo.class), any(OscarJob.class));
+
+        OscarJobService primary = authenticatedService();
+        OscarJobService secondary = authenticatedService();
+        ScheduledFuture<Object> timer = mock();
+        when(timer.cancel(false)).thenReturn(true);
+        var reachedScheduler = new CountDownLatch(1);
+        var disableAcknowledged = new CountDownLatch(1);
+        var scheduledJobs = OscarJobExecutingManager.getFutures();
+        try (var requests = Executors.newFixedThreadPool(2)) {
+            var save = requests.submit(() -> {
+                try (var scheduler = mockStatic(OscarJobUtils.class)) {
+                    scheduler.when(() -> OscarJobUtils.scheduleJob(any(OscarJob.class))).thenAnswer(call -> {
+                        reachedScheduler.countDown();
+                        disableAcknowledged.await(2, TimeUnit.SECONDS);
+                        scheduledJobs.put(jobId, timer);
+                        return true;
+                    });
+                    return primary.saveJob(saveForm(jobId, true).asMap());
+                }
+            });
+            assertThat(reachedScheduler.await(5, TimeUnit.SECONDS)).isTrue();
+            var disable = requests.submit(() -> {
+                var response = secondary.saveJob(saveForm(jobId, false).asMap());
+                disableAcknowledged.countDown();
+                return response;
+            });
+            assertThat(save.get(8, TimeUnit.SECONDS).getScheduleActivation())
+                    .isEqualTo(OscarJobResponse.ScheduleActivation.ACTIVE);
+            assertThat(disable.get(8, TimeUnit.SECONDS).getScheduleActivation())
+                    .isEqualTo(OscarJobResponse.ScheduleActivation.DISABLED);
+            assertThat(storedEnabled).isFalse();
+            assertThat(scheduledJobs).doesNotContainKey(jobId);
+            verify(timer).cancel(false);
+        } finally {
+            scheduledJobs.remove(jobId, timer);
+        }
+    }
+
+    private OscarJobService authenticatedService() {
+        var principal = new LoggedInInfo();
+        OscarJobService service = new OscarJobService() {
+            @Override
+            protected LoggedInInfo getLoggedInInfo() {
+                return principal;
+            }
+        };
+        injectDependency(service, "oscarJobManager", mockOscarJobManager);
+        injectDependency(service, "securityInfoManager", mockSecurityInfoManager);
+        return service;
+    }
+
+    private static Form saveForm(int jobId, boolean enabled) {
+        Form form = new Form().param("job.id", Integer.toString(jobId)).param("job.name", "Scheduled job")
+                .param("job.description", "Synthetic job details").param("job.oscarJobTypeId", "1")
+                .param("job.provider", "999998");
+        if (enabled) {
+            form.param("job.enabled", "on");
+        }
+        return form;
     }
 
     @Nested

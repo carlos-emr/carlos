@@ -43,6 +43,7 @@ import jakarta.ws.rs.core.MultivaluedMap;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
+import io.github.carlos_emr.carlos.commn.jobs.OscarJobExecutingManager;
 import io.github.carlos_emr.carlos.commn.jobs.OscarJobUtils;
 import io.github.carlos_emr.carlos.commn.model.OscarJob;
 import io.github.carlos_emr.carlos.commn.model.OscarJobType;
@@ -213,28 +214,31 @@ public class OscarJobService extends AbstractServiceImpl {
         job.setProviderNo(params.getFirst("job.provider"));
         job.setUpdated(new Date());
 
-        OscarJob result = null;
-
         if (job.getId() > 0) {
-            //edit
-            OscarJob savedJob = oscarJobManager.getJob(getLoggedInInfo(), job.getId());
-            savedJob.setName(job.getName());
-            savedJob.setDescription(job.getDescription());
-            savedJob.setEnabled(job.isEnabled());
-            savedJob.setOscarJobTypeId(job.getOscarJobTypeId());
-            savedJob.setOscarJobType(null);
-            savedJob.setProviderNo(job.getProviderNo());
-
-            oscarJobManager.updateJob(getLoggedInInfo(), savedJob);
-            result = savedJob;
-        } else {
-            job.setId(null);
-            oscarJobManager.saveJob(getLoggedInInfo(), job);
-            result = job;
+            synchronized (OscarJobExecutingManager.schedulingLock(job.getId())) {
+                OscarJob savedJob = oscarJobManager.getJob(getLoggedInInfo(), job.getId());
+                savedJob.setName(job.getName());
+                savedJob.setDescription(job.getDescription());
+                savedJob.setEnabled(job.isEnabled());
+                savedJob.setOscarJobTypeId(job.getOscarJobTypeId());
+                savedJob.setOscarJobType(null);
+                savedJob.setProviderNo(job.getProviderNo());
+                oscarJobManager.updateJob(getLoggedInInfo(), savedJob);
+                return applyStoredSchedule(savedJob.getId());
+            }
         }
 
+        job.setId(null);
+        oscarJobManager.saveJob(getLoggedInInfo(), job);
+        synchronized (OscarJobExecutingManager.schedulingLock(job.getId())) {
+            return applyStoredSchedule(job.getId());
+        }
+    }
+
+    /** Reads and applies the stored schedule while the caller holds the job's scheduling lock. */
+    private OscarJobResponse applyStoredSchedule(Integer jobId) {
         // The form does not carry the cron or the persisted job type association.
-        OscarJob persisted = oscarJobManager.getJob(getLoggedInInfo(), result.getId());
+        OscarJob persisted = oscarJobManager.getJob(getLoggedInInfo(), jobId);
         OscarJobResponse.ScheduleActivation activation = null;
         try {
             if (!persisted.isEnabled()) {
@@ -324,6 +328,12 @@ public class OscarJobService extends AbstractServiceImpl {
             }
         }
 
+        synchronized (OscarJobExecutingManager.schedulingLock(jobId)) {
+            return updateStoredCron(jobId, parts);
+        }
+    }
+
+    private OscarJobResponse updateStoredCron(Integer jobId, String[] parts) {
         OscarJob job = oscarJobManager.getJob(getLoggedInInfo(), jobId);
         if (job != null) {
             job.setCronExpression(parts[0] + " " + parts[1] + " " + parts[2] + " " + parts[3] + " " + parts[4] + " " + parts[5]);
@@ -431,6 +441,12 @@ public class OscarJobService extends AbstractServiceImpl {
     @Consumes("application/x-www-form-urlencoded")
     public OscarJobResponse enableJob(@FormParam(value = "jobId") Integer jobId) {
         requireAdminPrivilege("w");
+        synchronized (OscarJobExecutingManager.schedulingLock(jobId)) {
+            return enableStoredJob(jobId);
+        }
+    }
+
+    private OscarJobResponse enableStoredJob(Integer jobId) {
         OscarJob job = oscarJobManager.getJob(getLoggedInInfo(), jobId);
         if (job != null) {
             job.setEnabled(true);
@@ -450,6 +466,12 @@ public class OscarJobService extends AbstractServiceImpl {
     @Consumes("application/x-www-form-urlencoded")
     public OscarJobResponse disableJob(@FormParam(value = "jobId") Integer jobId) {
         requireAdminPrivilege("w");
+        synchronized (OscarJobExecutingManager.schedulingLock(jobId)) {
+            return disableStoredJob(jobId);
+        }
+    }
+
+    private OscarJobResponse disableStoredJob(Integer jobId) {
         OscarJob job = oscarJobManager.getJob(getLoggedInInfo(), jobId);
         if (job != null) {
             job.setEnabled(false);

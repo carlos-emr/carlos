@@ -84,6 +84,24 @@ class OscarJobSchedulingUnitTest {
         }
     }
 
+    @Test
+    void shouldLeaveNoTimer_whenThereIsNoNextExecution() throws Exception {
+        var type = new OscarJobType();
+        type.setEnabled(true);
+        type.setClassName(TestJob.class.getName());
+        var job = new OscarJob();
+        job.setId(51025);
+        job.setEnabled(true);
+        job.setCronExpression("0 * * * * *");
+        job.setOscarJobType(type);
+        job.setProviderNo("123");
+        ProviderDao providers = mock(ProviderDao.class);
+        when(providers.getProvider("123")).thenReturn(new Provider());
+
+        assertThat(schedule(job, mock(TaskScheduler.class), providers)).isFalse();
+        assertThat(OscarJobExecutingManager.getFutures()).doesNotContainKey(job.getId());
+    }
+
     private static boolean schedule(OscarJob job, TaskScheduler scheduler, ProviderDao providers) throws Exception {
         try (var beans = mockStatic(SpringUtils.class)) {
             beans.when(() -> SpringUtils.getBean(TaskScheduler.class)).thenReturn(scheduler);

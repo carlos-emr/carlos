@@ -114,22 +114,26 @@ public class OscarJobUtils {
 
 
     public static boolean scheduleJob(OscarJob job) throws Exception {
-        try {
-            // Keep cancellation, registration and publication together for this job ID.
-            return OscarJobExecutingManager.getFutures().compute(job.getId(), (id, current) -> {
-                cancelFuture(current, false);
-                return registerJob(job);
-            }) != null;
-        } finally {
-            OscarJobExecutingManager.purgeCompletedFutures();
+        synchronized (OscarJobExecutingManager.schedulingLock(job.getId())) {
+            try {
+                // Keep cancellation, registration and publication together for this job ID.
+                return OscarJobExecutingManager.getFutures().compute(job.getId(), (id, current) -> {
+                    cancelFuture(current, false);
+                    return registerJob(job);
+                }) != null;
+            } finally {
+                OscarJobExecutingManager.purgeCompletedFutures();
+            }
         }
     }
 
     public static void cancelJob(Integer jobId, boolean interrupt) {
-        OscarJobExecutingManager.getFutures().computeIfPresent(jobId, (id, current) -> {
-            cancelFuture(current, interrupt);
-            return null;
-        });
+        synchronized (OscarJobExecutingManager.schedulingLock(jobId)) {
+            OscarJobExecutingManager.getFutures().computeIfPresent(jobId, (id, current) -> {
+                cancelFuture(current, interrupt);
+                return null;
+            });
+        }
     }
 
     private static void cancelFuture(ScheduledFuture<?> future, boolean interrupt) {
