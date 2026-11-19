@@ -109,6 +109,14 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         // A module right does not override a patient lock (_demographic$N / _eChart$N).
         PatientReadAccess.requirePatient(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
                 demographicNo, "_measurement", SecurityInfoManager.READ);
+        // The three charts that draw this patient's prescriptions (the medication chart, the medication
+        // and lab chart, and the lab chart with medications) also need the prescription read right, as
+        // the drug profile page does (#6322), and are refused before any of the patient's data is read.
+        // A chart without medications keeps _measurement alone.
+        if (drawsMedications(request.getParameter("method"), request.getParameterValues("drug"))) {
+            PatientRecordAccess.require(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                    patient, "_rx", "r");
+        }
         String typeIdName = request.getParameter("type");
         String typeIdName2 = request.getParameter("type2");
 
@@ -152,6 +160,15 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         image.writeTo(o);
         o.flush();
         return NONE;
+    }
+
+    /**
+     * Whether the chart asked for draws prescriptions: the medication chart ({@code ChartMeds}), the medication
+     * and lab chart ({@code rxincl}), and the actual-lab chart when {@code drug} values are sent. Every other chart
+     * method and a lab chart without {@code drug} values read no prescription.
+     */
+    static boolean drawsMedications(String method, String[] drugs) {
+        return "ChartMeds".equals(method) || "rxincl".equals(method) || ("actualLab".equals(method) && drugs != null);
     }
 
     private MeasurementChart requestedChart(Integer demographicNo, String typeIdName, String typeIdName2,
