@@ -248,6 +248,21 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
 
         private io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideService overrides;
 
+        /** The override the mocked service last committed for the date, as the database would hold it. */
+        private final java.util.concurrent.atomic.AtomicReference<io.github.carlos_emr.carlos.commn.model.ScheduleDate> committed =
+                new java.util.concurrent.atomic.AtomicReference<>();
+
+        /** An override service whose replacements commit to {@link #committed} and whose reads return it. */
+        private io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideService committingService() {
+            var service = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideService.class);
+            when(service.replaceOverride(any(), any(), any())).thenAnswer(call -> {
+                committed.set(call.getArgument(2));
+                return true;
+            });
+            when(service.currentOverride(any(), any())).thenAnswer(call -> committed.get());
+            return service;
+        }
+
         /** An authorized POST of the popup form, with the override service mocked. */
         private ScheduleDateSave2Action postedSave(String submit) throws Exception {
             return postedSave(submit, "2031-05-14");
@@ -260,8 +275,7 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
             addRequestParameter("provider_no", "999998");
             addRequestParameter("date", date);
             addRequestParameter("Submit", submit);
-            overrides = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideService.class);
-            when(overrides.replaceOverride(any(), any(), any())).thenReturn(true);
+            overrides = committingService();
             ScheduleDateSave2Action action = inject(new ScheduleDateSave2Action());
             injectField(action, "overrideService", overrides);
             return action;
@@ -315,6 +329,105 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
             assertThat(mockRequest.getAttribute(io.github.carlos_emr.carlos.utility.RefusalNotice.KEY_ATTRIBUTE))
                     .isEqualTo("error.refusal.scheduleDateIncomplete");
             assertThat(cache).containsEntry("2031-05-14", "cached");
+            verify(overrides, org.mockito.Mockito.never()).currentOverride(any(), any());
+        }
+
+        @Test
+        @DisplayName("should refresh the calendar's padded key when Save names an unpadded date (#5297)")
+        void shouldRefreshThePaddedCalendarKey_onSaveOfAnUnpaddedDate() throws Exception {
+            ScheduleDateSave2Action action = postedSave("Save", "2032-2-29");
+            addRequestParameter("available", "0");
+            addRequestParameter("reason", "Leap day off");
+            java.util.Hashtable<String, Object> cache = new java.util.Hashtable<>();
+            cache.put("2032-02-29", new io.github.carlos_emr.HScheduleDate("1", "c", "stale", "0800", "FAKE"));
+            setSessionAttribute("scheduleDateBean", cache);
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+            // schedulecreatedate.jsp looks the day up as year-MM-dd.
+            var shown = (io.github.carlos_emr.HScheduleDate) cache.get("2032-02-29");
+            assertThat(shown.reason).isEqualTo("Leap day off");
+            assertThat(shown.available).isEqualTo("0");
+            assertThat(cache).containsOnlyKeys("2032-02-29");
+        }
+
+        @Test
+        @DisplayName("should clear the calendar's padded key when Delete names an unpadded date (#5297)")
+        void shouldClearThePaddedCalendarKey_onDeleteOfAnUnpaddedDate() throws Exception {
+            ScheduleDateSave2Action action = postedSave("Delete", "2032-2-29");
+            setSessionAttribute("scheduleRscheduleBean", ruleSchedule(false));
+            java.util.Hashtable<String, Object> cache = new java.util.Hashtable<>();
+            cache.put("2032-02-29", new io.github.carlos_emr.HScheduleDate("0", "c", "stale", "", "FAKE"));
+            setSessionAttribute("scheduleDateBean", cache);
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+            verify(overrides).replaceOverride(org.mockito.ArgumentMatchers.eq("999998"),
+                    org.mockito.ArgumentMatchers.eq(java.sql.Date.valueOf("2032-02-29")),
+                    org.mockito.ArgumentMatchers.isNull());
+            assertThat(cache).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should show the last committed Save when an earlier Save refreshes the calendar last (#5297)")
+        void shouldShowTheLastCommittedOverride_whenAnEarlierSaveRefreshesLast() throws Exception {
+            ScheduleDateSave2Action first = postedSave("Save");
+            addRequestParameter("available", "1");
+            addRequestParameter("reason", "First save");
+            java.util.Hashtable<String, Object> cache = new java.util.Hashtable<>();
+            setSessionAttribute("scheduleDateBean", cache);
+            ScheduleDateSave2Action second = inject(new ScheduleDateSave2Action());
+            injectField(second, "overrideService", committingService());
+            // The second Save commits and refreshes the calendar after the first has committed but
+            // before the first reaches the cache, as two overlapping requests in one session can.
+            when(overrides.replaceOverride(any(), any(), any())).thenAnswer(call -> {
+                committed.set(call.getArgument(2));
+                runOverlappingSave(second, "Second save");
+                return true;
+            });
+
+            assertThat(executeAction(first)).isEqualTo(ActionSupport.SUCCESS);
+
+            assertThat(committed.get().getReason()).isEqualTo("Second save");
+            assertThat(((io.github.carlos_emr.HScheduleDate) cache.get("2031-05-14")).reason).isEqualTo("Second save");
+        }
+
+        @Test
+        @DisplayName("should read the committed override under the session mutex (#5297)")
+        void shouldReadTheCommittedOverride_underTheSessionMutex() throws Exception {
+            ScheduleDateSave2Action action = postedSave("Save");
+            addRequestParameter("available", "1");
+            var lockHeld = new java.util.ArrayList<Boolean>();
+            when(overrides.currentOverride(any(), any())).thenAnswer(call -> {
+                lockHeld.add(Thread.holdsLock(org.springframework.web.util.WebUtils.getSessionMutex(mockSession)));
+                return committed.get();
+            });
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+            assertThat(lockHeld).containsExactly(true);
+            verify(overrides).currentOverride("999998", java.sql.Date.valueOf("2031-05-14"));
+        }
+
+        /** Runs a whole Save for the same session on its own request, then restores the outer request. */
+        private void runOverlappingSave(ScheduleDateSave2Action action, String reason) throws Exception {
+            var request = new org.springframework.mock.web.MockHttpServletRequest("POST", "/schedule/DateSave");
+            request.setSession(mockSession);
+            request.setParameter("provider_no", "999998");
+            request.setParameter("date", "2031-05-14");
+            request.setParameter("Submit", "Save");
+            request.setParameter("available", "1");
+            request.setParameter("reason", reason);
+            org.apache.struts2.ActionContext outer = org.apache.struts2.ActionContext.getContext();
+            org.apache.struts2.ActionContext.of()
+                    .withServletRequest(request)
+                    .withServletResponse(new org.springframework.mock.web.MockHttpServletResponse())
+                    .bind();
+            try {
+                assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            } finally {
+                outer.bind();
+            }
         }
 
         @Test

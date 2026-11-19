@@ -38,11 +38,13 @@ import io.github.carlos_emr.carlos.commn.model.ScheduleDate;
 import io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideService;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.springframework.web.util.WebUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -51,7 +53,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *
  * <p>The whole command is validated before anything is written, and the current override is
  * retired and its replacement inserted in one transaction ({@link ScheduleDateOverrideService}).
- * The session's schedule caches are updated only after that commits. The JSP used to retire the
+ * Only after that commits is the month view's cached day refreshed, from the committed override
+ * and under the calendar's own date key. The JSP used to retire the
  * override first and then validate, so a malformed or failed Save left the date with no override
  * (#5297). The result JSP now only refreshes the calendar and closes the popup.</p>
  *
@@ -120,26 +123,24 @@ public final class ScheduleDateSave2Action extends ActionSupport {
             return badRequest(request, "error.refusal.scheduleSaveOrDelete", "Choose Save or Delete.");
         }
 
+        // The validated date as the month view keys it (year-MM-dd, as schedulecreatedate.jsp loads
+        // and looks up its days), not the popup's unpadded year-month-day.
+        String day = ConversionUtils.toDateString(date);
         HttpSession session = request.getSession();
         String creator = session.getAttribute("userlastname") + "," + session.getAttribute("userfirstname");
         RscheduleBean ruleSchedule = sessionBean(session, RULE_SCHEDULE, RscheduleBean.class, RscheduleBean::new);
         ScheduleDate replacement = null;
-        HScheduleDate cached = null;
         if (save) {
             String available = request.getParameter("available");
             if (available == null || available.isEmpty()) {
                 return badRequest(request, "error.refusal.scheduleAvailability",
                         "Choose whether the provider is available on this date.");
             }
-            String priority = "c";
-            String reason = request.getParameter("reason");
-            String hour = request.getParameter("hour");
-            replacement = override(date, providerNo, available.charAt(0), priority.charAt(0), reason, hour, creator,
-                    ruleSchedule.active.charAt(0));
-            cached = new HScheduleDate(available, priority, reason, hour, creator);
-        } else if (ruleSchedule.getDateAvail(dateParam)) {
+            replacement = override(date, providerNo, available.charAt(0), 'c', request.getParameter("reason"),
+                    request.getParameter("hour"), creator, ruleSchedule.active.charAt(0));
+        } else if (ruleSchedule.getDateAvail(day)) {
             // Delete falls back to the provider's rule schedule for the date, when it has one.
-            replacement = override(date, providerNo, '1', 'b', "", ruleSchedule.getDateAvailHour(dateParam), creator,
+            replacement = override(date, providerNo, '1', 'b', "", ruleSchedule.getDateAvailHour(day), creator,
                     ruleSchedule.active.charAt(0));
         }
 
@@ -147,14 +148,35 @@ public final class ScheduleDateSave2Action extends ActionSupport {
             return badRequest(request, "error.refusal.scheduleDateIncomplete", "The schedule's provider does not exist.");
         }
 
-        // The transaction has committed: only now update the session's calendar cache.
-        @SuppressWarnings("unchecked")
-        Hashtable<String, Object> dateCache = sessionBean(session, SCHEDULE_DATE_CACHE, Hashtable.class, Hashtable::new);
-        dateCache.remove(dateParam);
-        if (cached != null) {
-            dateCache.put(dateParam, cached);
-        }
+        refreshCalendarDay(session, providerNo, date, day);
         return SUCCESS;
+    }
+
+    /**
+     * Sets the month view's entry for the date to the override that is now committed. Called only
+     * after the replacement has committed.
+     *
+     * <p>The cache holds custom ({@code c}) overrides only, as schedulecreatedate.jsp loads it: a
+     * date without one shows the provider's rule schedule.</p>
+     *
+     * <p>The provider row lock is released at commit, so a later Save for the same date can commit
+     * before this request reaches the cache. Storing this request's own value would then leave the
+     * calendar one change behind. The committed override is therefore read and stored under the
+     * session mutex. The request that refreshes last reads after every commit that preceded it, so
+     * the calendar ends on the latest committed value whatever order the requests finish in.</p>
+     */
+    private void refreshCalendarDay(HttpSession session, String providerNo, java.sql.Date date, String day) {
+        synchronized (WebUtils.getSessionMutex(session)) {
+            @SuppressWarnings("unchecked")
+            Hashtable<String, Object> dateCache = sessionBean(session, SCHEDULE_DATE_CACHE, Hashtable.class, Hashtable::new);
+            ScheduleDate current = overrideService().currentOverride(providerNo, date);
+            if (current != null && current.getPriority() == 'c') {
+                dateCache.put(day, new HScheduleDate(String.valueOf(current.getAvailable()),
+                        String.valueOf(current.getPriority()), current.getReason(), current.getHour(), current.getCreator()));
+            } else {
+                dateCache.remove(day);
+            }
+        }
     }
 
     /**

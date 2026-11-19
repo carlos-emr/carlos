@@ -79,4 +79,18 @@ public class ScheduleDateOverrideService {
         }
         return true;
     }
+
+    /**
+     * The provider's committed active override for the date, so a caller can show the value that
+     * won rather than the one it wrote. A custom ({@code c}) override is returned ahead of a
+     * rule-made ({@code b}) one.
+     *
+     * @param providerNo the provider whose schedule is read
+     * @param date the schedule date
+     * @return the active override, or {@code null} when the date has none
+     */
+    @Transactional(readOnly = true)
+    public ScheduleDate currentOverride(String providerNo, Date date) {
+        return scheduleDateDao.findByProviderNoAndDate(providerNo, date);
+    }
 }

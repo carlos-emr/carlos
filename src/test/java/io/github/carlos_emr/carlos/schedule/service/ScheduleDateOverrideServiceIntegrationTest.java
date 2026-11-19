@@ -191,6 +191,25 @@ class ScheduleDateOverrideServiceIntegrationTest extends CarlosTestBase {
         assertThat(written).isEmpty();
     }
 
+    @Test
+    @DisplayName("should read the override that committed last, and none once it is deleted")
+    void shouldReadTheLatestCommittedOverride_afterEachReplacement() {
+        ScheduleDateOverrideService overrideService = service(scheduleDateDao);
+        ScheduleDate ruleDay = override("Rule day");
+        ruleDay.setPriority('b');
+        assertThat(overrideService.replaceOverride(PROVIDER, DATE, ruleDay)).isTrue();
+        assertThat(overrideService.currentOverride(PROVIDER, DATE).getPriority()).isEqualTo('b');
+
+        assertThat(overrideService.replaceOverride(PROVIDER, DATE, override("First save"))).isTrue();
+        assertThat(overrideService.replaceOverride(PROVIDER, DATE, override("Second save"))).isTrue();
+        ScheduleDate current = overrideService.currentOverride(PROVIDER, DATE);
+        assertThat(current.getReason()).isEqualTo("Second save");
+        assertThat(current.getPriority()).isEqualTo('c');
+
+        assertThat(overrideService.replaceOverride(PROVIDER, DATE, null)).isTrue();
+        assertThat(overrideService.currentOverride(PROVIDER, DATE)).isNull();
+    }
+
     /** The provider's active overrides for the date, read after every transaction has finished. */
     private List<ScheduleDate> active() {
         return transaction().execute(status -> scheduleDateDao.findByProviderAndDateRange(PROVIDER, DATE, DATE)).stream()
