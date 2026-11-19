@@ -62,6 +62,23 @@ class AuditLogPurgeServiceUnitTest {
     }
 
     @Test
+    void shouldValidateUnquotedDumpValues() throws Exception {
+        Path sql = temporary.resolve("literal.sql");
+        String head = "INSERT INTO `log` (`id`, `data`) VALUES (1,";
+        String columns = "`id`, `data`";
+        for (String value : List.of("NULL", "0xA0b4", "0Xf", "-42", "+3.125E-6", "3.1e7")) {
+            Files.writeString(sql, head + value + ");\n");
+            assertThatCode(() -> AuditLogPurgeService.verifyDump(sql, List.of(1L), columns))
+                    .doesNotThrowAnyException();
+        }
+        for (String value : List.of("", "0x", "2.", "3e-", "1.2.3")) {
+            Files.writeString(sql, head + value + ");\n");
+            assertThatThrownBy(() -> AuditLogPurgeService.verifyDump(sql, List.of(1L), columns))
+                    .isInstanceOf(IOException.class);
+        }
+    }
+
+    @Test
     void shouldRequireExactDumpIds_whenRowsAreMissingDuplicatedOrUnexpected() throws Exception {
         Path sql = temporary.resolve("backup.sql");
         String first = "INSERT INTO `log` (`id`, `dateTime`, `data`) VALUES (1,'2000-01-01','FAKE');\n";

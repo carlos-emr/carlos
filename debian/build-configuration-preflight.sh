@@ -9,6 +9,8 @@ rm -rf "$out/configuration-preflight"
 mkdir -p "$out/configuration-preflight"
 "$javahome/bin/javac" --release 25 -encoding UTF-8 -d "$out/configuration-preflight" \
     src/main/java/io/github/carlos_emr/carlos/config/PackagedConfigurationPreflight.java
+printf 'Premain-Class: io.github.carlos_emr.carlos.config.PackagedConfigurationPreflight\n' \
+    > "$out/configuration-preflight.mf"
 "$javahome/bin/jar" --create --file "$out/carlos-configuration-preflight.jar" \
-    --main-class io.github.carlos_emr.carlos.config.PackagedConfigurationPreflight \
+    --manifest "$out/configuration-preflight.mf" --main-class io.github.carlos_emr.carlos.config.PackagedConfigurationPreflight \
     -C "$out/configuration-preflight" .

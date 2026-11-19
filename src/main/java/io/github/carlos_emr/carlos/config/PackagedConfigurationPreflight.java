@@ -17,7 +17,10 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Duration;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
+import java.util.HexFormat;
 import java.util.Objects;
 import java.util.Properties;
 
@@ -54,14 +57,58 @@ public final class PackagedConfigurationPreflight {
                 verify(path, Path.of(System.getProperty("user.home"), "carlos.properties"));
             }
         } catch (IOException | RuntimeException failure) {
-            // Properties parse errors and file paths can contain untrusted text.
-            // Only our own contextual message and the exception type are emitted.
-            System.err.println("carlos-emr: configuration preflight refused ("
-                    + failure.getClass().getSimpleName() + "): " + safe(failure.getMessage()));
-            System.err.println("carlos-emr: the application was not started. Restore the original configuration/key "
-                    + "before retrying; see docs/modern-chart-cutover.md. Do not generate a replacement key for existing encrypted data.");
-            System.exit(1);
+            refuse(failure);
         }
+    }
+
+    private static final String VERIFIED_KEY = "carlos.packaged.verifiedEncryptionKeySha256";
+
+    /**
+     * Checks effective configuration in the service JVM before Tomcat runs its main method.
+     *
+     * @param defaultPath String packaged properties path used when the JVM has no override
+     * @since 2026.08
+     */
+    public static void premain(String defaultPath) {
+        String configured = System.getProperty("carlos_override_properties", defaultPath);
+        try {
+            String key = verify(Path.of(configured), Path.of(System.getProperty("user.home"), "carlos.properties"));
+            System.setProperty(VERIFIED_KEY, fingerprint(key));
+        } catch (IOException | RuntimeException failure) {
+            refuse(failure);
+        }
+    }
+
+    /**
+     * Checks that startup loaded the key verified in this packaged JVM.
+     *
+     * @param key String encryption key from the application's effective properties, possibly null
+     * @throws IllegalStateException if the packaged key is missing or changed
+     * @since 2026.08
+     */
+    public static void requireVerifiedKey(String key) {
+        String verified = System.getProperty(VERIFIED_KEY);
+        if (verified != null && (key == null || !verified.equals(fingerprint(key.trim())))) {
+            throw new IllegalStateException("The packaged encryption key changed during startup; restore the original key and restart");
+        }
+    }
+
+    private static String fingerprint(String key) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(key.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("Java runtime does not provide SHA-256", impossible);
+        }
+    }
+
+    private static void refuse(Exception failure) {
+        // Do not print property values. File paths and parser diagnostics are sanitized.
+        System.err.println("carlos-emr: configuration preflight refused ("
+                + failure.getClass().getSimpleName() + "): " + safe(failure.getMessage()));
+        System.err.println("carlos-emr: restore the original configuration/key before retrying. "
+                + "Do not generate a replacement key for existing encrypted data.");
+        System.exit(1);
     }
 
     static void reconcile(Path configured, boolean requireRootOwnership) throws IOException {
@@ -115,7 +162,7 @@ public final class PackagedConfigurationPreflight {
         }
     }
 
-    static void verify(Path managed, Path home) throws IOException {
+    static String verify(Path managed, Path home) throws IOException {
         Properties effective = readFile(managed);
         Path last = managed;
         if (!Files.notExists(home) && !Files.isSameFile(managed, home)) {
@@ -143,6 +190,7 @@ public final class PackagedConfigurationPreflight {
             throw new IOException("Invalid persisted encryption key in the effective configuration "
                     + safe(last.toString()) + "; restore the original key; no replacement was generated");
         }
+        return key;
     }
 
     private static Properties readFile(Path path) throws IOException {

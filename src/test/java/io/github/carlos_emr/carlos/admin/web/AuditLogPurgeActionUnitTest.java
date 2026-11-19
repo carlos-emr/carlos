@@ -70,6 +70,9 @@ class AuditLogPurgeActionUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(any(), anyString(), anyString(), isNull())).thenReturn(false);
         request.setMethod("GET");
         assertThatThrownBy(() -> new AuditLogPurge2Action().execute()).isInstanceOf(SecurityException.class);
+        request.setMethod("POST");
+        request.setParameter("dateBegin", "2000-01-01");
+        assertThatThrownBy(() -> new AuditLogPurge2Action().execute()).isInstanceOf(SecurityException.class);
         verifyNoInteractions(manager);
     }
 

@@ -49,6 +49,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * A server-visible random lock proves the dump reads the same server session's
  * database, even if DNS changes. Unbacked or incompletely dumped rows survive.
  * The public manager retains its existing entry point and retention contract.
+ *
+ * @since 2026.08
  */
 @Service
 public class AuditLogPurgeService {
@@ -57,11 +59,15 @@ public class AuditLogPurgeService {
     private static final Duration COMMAND_TIMEOUT = Duration.ofSeconds(60);
     private static final Pattern INSERT = Pattern.compile(
             "^INSERT INTO `log` \\((`id`(?:, `[A-Za-z_][A-Za-z0-9_]{0,63}`){1,255})\\) VALUES \\((-?[0-9]+),");
-    private static final Pattern UNQUOTED_DUMP_VALUE = Pattern.compile(
-            "NULL|0[xX][0-9A-Fa-f]+|[+-]?[0-9]+(?:\\.[0-9]+)?(?:[Ee][+-]?[0-9]+)?");
     private final DataSource source;
     private final Duration commandTimeout;
 
+    /**
+     * Uses the application's live datasource for verification and deletion.
+     *
+     * @param source DataSource supplying the database connection and its client policy
+     * @since 2026.08
+     */
     @Autowired
     public AuditLogPurgeService(DataSource source) {
         this(source, COMMAND_TIMEOUT);
@@ -76,6 +82,13 @@ public class AuditLogPurgeService {
      * Executes the configured dump without a shell or credentials in argv.
      * Every committed cohort has a durable SQL file, identity manifest and hash.
      * Failed attempts retain their private artifacts for diagnosis/recovery.
+     *
+     * @param settings Properties retention, executable and backup directory settings
+     * @param through Date requested last day in the clinic's timezone
+     * @param recordAudit Runnable operation that records the purge before deletion
+     * @return int count of rows whose deletion committed
+     * @throws IOException if preparation, backup, auditing or deletion fails
+     * @since 2026.08
      */
     public int purge(Properties settings, java.util.Date through, Runnable recordAudit) throws IOException {
         LocalDate date;
@@ -300,12 +313,48 @@ public class AuditLogPurgeService {
             } else {
                 int value = cursor;
                 while (cursor < line.length() && line.charAt(cursor) != ',' && line.charAt(cursor) != ')') cursor++;
-                if (!UNQUOTED_DUMP_VALUE.matcher(line.substring(value, cursor).strip()).matches()) return false;
+                if (!validUnquotedDumpValue(line.substring(value, cursor).strip())) return false;
             }
             if (field == count - 1) return ");".equals(line.substring(cursor).stripTrailing());
             if (cursor >= line.length() || line.charAt(cursor++) != ',') return false;
         }
         return false;
+    }
+
+    private static boolean validUnquotedDumpValue(String value) {
+        if ("NULL".equals(value)) return true;
+        if (value.startsWith("0x") || value.startsWith("0X")) {
+            return value.length() > 2 && value.chars().skip(2).allMatch(HexFormat::isHexDigit);
+        }
+
+        int start = skipNumberSign(value, 0);
+        int end = decimalDigitsEnd(value, start);
+        if (end == start) return false;
+        if (end < value.length() && value.charAt(end) == '.') {
+            start = end + 1;
+            end = decimalDigitsEnd(value, start);
+            if (end == start) return false;
+        }
+        if (end < value.length() && (value.charAt(end) == 'e' || value.charAt(end) == 'E')) {
+            start = skipNumberSign(value, end + 1);
+            end = decimalDigitsEnd(value, start);
+            if (end == start) return false;
+        }
+        return end == value.length();
+    }
+
+    private static int skipNumberSign(String value, int offset) {
+        if (offset < value.length() && (value.charAt(offset) == '+' || value.charAt(offset) == '-')) {
+            return offset + 1;
+        }
+        return offset;
+    }
+
+    private static int decimalDigitsEnd(String value, int offset) {
+        while (offset < value.length() && value.charAt(offset) >= '0' && value.charAt(offset) <= '9') {
+            offset++;
+        }
+        return offset;
     }
 
     private static int quotedDumpValueEnd(String line, int start) {

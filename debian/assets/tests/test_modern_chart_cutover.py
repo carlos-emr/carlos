@@ -201,6 +201,26 @@ class TestModernChartCutover(unittest.TestCase):
                 self.assertEqual(self.properties.read_bytes(), original)
                 self.assertNotIn("FAKE-invalid-secret", result.stderr)
 
+    def test_service_jvm_uses_the_override_and_refuses_a_different_loaded_key(self):
+        build = ROOT / "debian/build-configuration-preflight.sh"
+        subprocess.run(["sh", str(build), str(self.root)], cwd=ROOT, check=True, capture_output=True)
+        self.properties.write_text("AbandonOldChart=true\n")
+        override = self.root / "configured override.properties"
+        override.write_text("AbandonOldChart=true\nencryption.util.secret.key=AAAAAAAAAAAAAAAAAAAAAA==\n")
+        home = self.root / "home"
+        home.mkdir()
+        command = [str(self.java),
+                   f"-javaagent:{self.root / 'carlos-configuration-preflight.jar'}={self.properties}",
+                   f"-Dcarlos_override_properties={override}", f"-Duser.home={home}",
+                   "-cp", str(self.classes), "io.github.carlos_emr.carlos.config.ConfigurationPreflightFixture",
+                   "verify-loaded-key"]
+        subprocess.run([*command, str(override)], check=True, capture_output=True)
+        different = self.root / "different.properties"
+        different.write_text("AbandonOldChart=true\nencryption.util.secret.key=AQAAAAAAAAAAAAAAAAAAAA==\n")
+        refused = subprocess.run([*command, str(different)], capture_output=True, text=True)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("packaged encryption key changed during startup", refused.stderr)
+
     def test_parallel_configures_append_one_complete_entry(self):
         original = self.write_properties(b"AbandonOldChart=false\n")
         command, env = self.command()
@@ -227,7 +247,8 @@ class TestModernChartCutover(unittest.TestCase):
         self.assertNotIn('if [ "${PROVISION_LOCK_HELD}" = 1 ]', migration_block())
         service = (ROOT / "debian/carlos-emr.carlos-emr.service").read_text()
         self.assertIn("ExecStartPre=+/usr/lib/carlos-emr/carlos-emr-config-preflight reconcile", service)
-        self.assertIn("ExecStartPre=/usr/lib/carlos-emr/carlos-emr-config-preflight verify", service)
+        launcher = (ROOT / "debian/assets/bin/carlos-emr-tomcat").read_text()
+        self.assertIn("-javaagent:/usr/share/carlos-emr/lib/carlos-configuration-preflight.jar", launcher)
 
     def test_fresh_install_skeleton_explicitly_selects_modern_chart(self):
         settings = re.findall(r"^AbandonOldChart=(.*)$", SHIPPED.read_text(), re.M)

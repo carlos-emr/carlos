@@ -25,6 +25,12 @@ same locked rows. A random server lock in the dump predicate proves the dump
 read the same database server. New records beyond the initial ID bound remain
 for a later run. Writers to selected rows can wait while a cohort is backed up.
 
+The form waits for completion. Each group of up to 1,000 rows adds a dump
+process and a disk flush, and each dump may take up to 60 seconds. For a large
+purge, use successive cutoff dates during a maintenance window. If the browser
+or proxy times out, check the service log and the retained backup directory
+before submitting again. An active purge keeps its database-wide lock.
+
 The installed MariaDB or MySQL dump client must support the options emitted by
 this service. TCP and local Unix sockets are supported. Required TLS includes
 a dump-session cipher check, so an older client's opportunistic TLS fallback

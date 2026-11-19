@@ -6,6 +6,13 @@ import java.nio.file.Path;
 
 /** Unprivileged fixture; this class is never included in the installed helper. */
 public final class ConfigurationPreflightFixture {
+    /**
+     * Runs one mode against the fixture's temporary properties files.
+     *
+     * @param args String[] mode followed by the managed path and, for verify, the home path
+     * @throws Exception if reading or reconciling the fixture fails
+     * @since 2026.08
+     */
     public static void main(String[] args) throws Exception {
         if (args[0].equals("reconcile")) {
             PackagedConfigurationPreflight.reconcile(Path.of(args[1]), false);
@@ -15,6 +22,12 @@ public final class ConfigurationPreflightFixture {
             System.out.println(Boolean.parseBoolean(properties.getProperty("AbandonOldChart")) ? "ready" : "absent");
         } else if (args[0].equals("verify")) {
             PackagedConfigurationPreflight.verify(Path.of(args[1]), Path.of(args[2]));
+        } else if (args[0].equals("verify-loaded-key")) {
+            java.util.Properties properties = new java.util.Properties();
+            try (var input = java.nio.file.Files.newInputStream(Path.of(args[1]))) {
+                properties.load(input);
+            }
+            PackagedConfigurationPreflight.requireVerifiedKey(properties.getProperty("encryption.util.secret.key"));
         } else {
             throw new IllegalArgumentException("unknown fixture mode");
         }

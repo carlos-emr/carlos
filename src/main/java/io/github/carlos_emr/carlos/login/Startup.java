@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.login;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.config.PackagedConfigurationPreflight;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -142,6 +143,7 @@ public class Startup implements ServletContextListener {
 			// 	Ensure that a secret key for encryption is available when OSCAR starts, either by retrieving a
 			// 	previously saved key or generating a new one and storing it for future use.
 			String secretKey = p.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
+			PackagedConfigurationPreflight.requireVerifiedKey(secretKey);
 			if (Objects.isNull(secretKey) || secretKey.isBlank()) {
 				try {
 					secretKey = p.getOrCreateEncryptionKey();

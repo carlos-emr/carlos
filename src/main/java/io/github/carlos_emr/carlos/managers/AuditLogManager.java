@@ -43,6 +43,12 @@ public class AuditLogManager {
      * Backs up and removes rows through the selected calendar date. Configuration
      * is resolved only when invoked: a plain db_name must never break bean startup.
      * Failed/uncertain attempts retain protected backups and report failure.
+     *
+     * @param loggedInInfo LoggedInInfo administrator recorded in the audit trail
+     * @param endDateToPurge Date requested last day in the clinic's timezone
+     * @return int count of rows whose deletion committed
+     * @throws Exception if the backup or purge cannot be confirmed
+     * @since 2026.08
      */
     public int purgeAuditLog(LoggedInInfo loggedInInfo, Date endDateToPurge) throws Exception {
         CarlosProperties configured = CarlosProperties.getInstance();
