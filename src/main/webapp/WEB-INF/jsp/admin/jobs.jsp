@@ -221,7 +221,7 @@
                                 return;
                             }
                             finish();
-                            if (schedule && data.scheduleActivation === 'FAILED') {
+                            if (data.scheduleActivation === 'FAILED') {
                                 dialog.find('.save-error').text(jobsScheduleActivationFailedLabel);
                                 return;
                             }

@@ -125,13 +125,17 @@ for(const id of ['new-job','scheduleDialog']) {
     assert.equal(state.saves.length,2);
   }));
 }
-test('shouldReportAStoredSchedule_whenActivationFails',async()=>withPage(async(page,state)=>{
-  await open(page,'scheduleDialog');state.mode='activationFailed';
-  await button(page,'scheduleDialog').click();await posted(state);
-  await page.waitForFunction(()=>jQuery.active===0);
-  assert.equal(await page.evaluate(()=>jQuery('#scheduleDialog').dialog('isOpen')),true);
-  assert.match(await page.locator('#scheduleDialog .save-error').innerText(),/jobsScheduleActivationFailedLabel/);
-}));
+for (const id of ['scheduleDialog', 'new-job']) {
+  test(`shouldKeepTheDialogOpen_whenSavedChangesCannotBeScheduled (${id})`, async () => withPage(async (page, state) => {
+    await open(page, id);
+    state.mode = 'activationFailed';
+    await button(page, id).click();
+    await posted(state);
+    await page.waitForFunction(() => jQuery.active === 0);
+    assert.equal(await page.evaluate(dialogId => jQuery('#' + dialogId).dialog('isOpen'), id), true);
+    assert.match(await page.locator('#' + id + ' .save-error').innerText(), /jobsScheduleActivationFailedLabel/);
+  }));
+}
 test('shouldReleaseTheDialog_andKeepTheDraft_whenAnAcceptedPostTimesOut',async()=>withPage(async(page,state)=>{
   await open(page,'new-job');state.mode='defer';
   await page.locator('#jobName').fill('FAKE timed-out draft');

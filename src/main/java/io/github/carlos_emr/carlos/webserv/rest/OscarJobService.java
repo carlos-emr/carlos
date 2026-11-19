@@ -178,15 +178,17 @@ public class OscarJobService extends AbstractServiceImpl {
     @GET
     @Path("/job/{jobId}")
     @Produces("application/json")
+    public OscarJobResponse getJob(@PathParam("jobId") Integer jobId) {
+        requireAdminPrivilege("r");
+        return jobResponse(oscarJobManager.getJob(getLoggedInInfo(), jobId));
+    }
+
     // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
     // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
     @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
             justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
                     "known CARLOS types; no user-controlled property name reaches the sink")
-    public OscarJobResponse getJob(@PathParam("jobId") Integer jobId) {
-        requireAdminPrivilege("r");
-        OscarJob result = oscarJobManager.getJob(getLoggedInInfo(), jobId);
-
+    private OscarJobResponse jobResponse(OscarJob result) {
         OscarJobResponse response = new OscarJobResponse();
 
         OscarJobTo1 to = new OscarJobTo1();
@@ -234,14 +236,30 @@ public class OscarJobService extends AbstractServiceImpl {
             result = job;
         }
 
-        if (job.getCronExpression() != null && job.getCronExpression().length() > 0) {
-            try {
-                OscarJobUtils.scheduleJob(job);
-            } catch (Exception e) {
-                logger.warn("job " + job.getName() + " not added");
+        // The form does not carry the cron or the persisted job type association.
+        OscarJob persisted = oscarJobManager.getJob(getLoggedInInfo(), result.getId());
+        OscarJobResponse.ScheduleActivation activation = null;
+        try {
+            if (!persisted.isEnabled()) {
+                OscarJobExecutingManager.getFutures().computeIfPresent(persisted.getId(), (id, scheduled) -> {
+                    if (!scheduled.cancel(false) && !scheduled.isDone()) {
+                        throw new IllegalStateException("The scheduled job could not be cancelled");
+                    }
+                    return null;
+                });
+                activation = OscarJobResponse.ScheduleActivation.DISABLED;
+            } else if (persisted.getCronExpression() != null && !persisted.getCronExpression().isBlank()) {
+                activation = OscarJobUtils.scheduleJob(persisted)
+                        ? OscarJobResponse.ScheduleActivation.ACTIVE : OscarJobResponse.ScheduleActivation.FAILED;
             }
+        } catch (Exception e) {
+            logger.warn("Could not apply saved job {} to the scheduler ({})", persisted.getId(), e.getClass().getSimpleName());
+            activation = OscarJobResponse.ScheduleActivation.FAILED;
         }
-        return getJob(result.getId());
+        requireAdminPrivilege("r");
+        OscarJobResponse response = jobResponse(persisted);
+        response.setScheduleActivation(activation);
+        return response;
     }
 
     @POST

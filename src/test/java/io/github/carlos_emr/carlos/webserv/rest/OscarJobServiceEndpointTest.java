@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -31,6 +32,9 @@ import static org.mockito.Mockito.when;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import jakarta.ws.rs.core.Form;
 import jakarta.ws.rs.core.MediaType;
@@ -44,12 +48,14 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
 import io.github.carlos_emr.carlos.commn.model.OscarJob;
 import io.github.carlos_emr.carlos.commn.model.OscarJobType;
+import io.github.carlos_emr.carlos.commn.jobs.OscarJobExecutingManager;
 import io.github.carlos_emr.carlos.commn.jobs.OscarJobUtils;
 import io.github.carlos_emr.carlos.managers.OscarJobManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -109,6 +115,101 @@ class OscarJobServiceEndpointTest extends CarlosRestTestBase {
         job.setEnabled(true);
         job.setOscarJobType(jobType);
         return job;
+    }
+
+    @Nested
+    @DisplayName("POST /jobs/saveJob")
+    class SaveJob {
+
+        private static final int JOB_ID = 3042;
+        private static final String CRON = "0 15 * * * *";
+
+        private OscarJob persistedEdit(boolean enabled) {
+            OscarJobType type = createTestJobType(1, "TestType", "com.example.TestJob");
+            OscarJob before = createTestJob(JOB_ID, "Previous job", type);
+            before.setCronExpression(CRON);
+            OscarJob stored = createTestJob(JOB_ID, "Edited job", type);
+            stored.setCronExpression(CRON);
+            stored.setEnabled(enabled);
+            when(mockOscarJobManager.getJob(any(LoggedInInfo.class), eq(JOB_ID))).thenReturn(before, stored);
+            return stored;
+        }
+
+        private Response post(boolean enabled) {
+            Form form = new Form().param("job.id", String.valueOf(JOB_ID))
+                .param("job.name", "Edited job").param("job.description", "Synthetic job details")
+                .param("job.oscarJobTypeId", "1").param("job.provider", "999998");
+            if (enabled) {
+                form.param("job.enabled", "on");
+            }
+            return request().path("/jobs/saveJob").type(MediaType.APPLICATION_FORM_URLENCODED).post(form);
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {false, true})
+        void shouldClearTheScheduledTask_whenTheSavedEditDisablesTheJob(boolean alreadyCancelled) {
+            persistedEdit(false);
+            try (var timer = new ScheduledThreadPoolExecutor(1)) {
+                var future = timer.<Object>schedule(() -> null, 1, TimeUnit.HOURS);
+                if (alreadyCancelled) {
+                    future.cancel(false);
+                }
+                var futures = OscarJobExecutingManager.getFutures();
+                futures.put(JOB_ID, future);
+                try (Response response = post(false)) {
+                    assertThat(response.getStatus()).isEqualTo(200);
+                    assertThat(future.isCancelled()).isTrue();
+                    assertThat(futures).doesNotContainKey(JOB_ID);
+                    assertThat(response.readEntity(JsonNode.class).path("scheduleActivation").asText()).isEqualTo("DISABLED");
+                } finally {
+                    futures.remove(JOB_ID, future);
+                    timer.shutdownNow();
+                }
+            }
+        }
+
+        @Test
+        void shouldReportFailureAndKeepTrackingTheTask_whenCancellationIsRefused() {
+            persistedEdit(false);
+            ScheduledFuture<Object> future = mock();
+            var futures = OscarJobExecutingManager.getFutures();
+            futures.put(JOB_ID, future);
+            try (Response response = post(false)) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                assertThat(response.readEntity(JsonNode.class).path("scheduleActivation").asText()).isEqualTo("FAILED");
+                assertThat(futures).containsEntry(JOB_ID, future);
+                verify(future).cancel(false);
+            } finally {
+                futures.remove(JOB_ID, future);
+            }
+        }
+
+        @ParameterizedTest
+        @NullAndEmptySource
+        void shouldConfirmASavedJobWithNoSchedule_withoutTryingToActivateIt(String cron) {
+            OscarJob stored = persistedEdit(true);
+            stored.setCronExpression(cron);
+            try (var scheduler = mockStatic(OscarJobUtils.class); Response response = post(true)) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                assertThat(response.readEntity(JsonNode.class).has("scheduleActivation")).isFalse();
+                scheduler.verifyNoInteractions();
+            }
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {true, false})
+        void shouldConfirmActivationOnlyWhenThePersistedJobWasScheduled(boolean activated) throws Exception {
+            OscarJob stored = persistedEdit(true);
+            try (var scheduler = mockStatic(OscarJobUtils.class)) {
+                scheduler.when(() -> OscarJobUtils.scheduleJob(stored)).thenReturn(activated);
+                try (Response response = post(true)) {
+                    assertThat(response.getStatus()).isEqualTo(200);
+                    assertThat(response.readEntity(JsonNode.class).path("scheduleActivation").asText())
+                        .isEqualTo(activated ? "ACTIVE" : "FAILED");
+                    scheduler.verify(() -> OscarJobUtils.scheduleJob(stored));
+                }
+            }
+        }
     }
 
     /** Tests for GET /jobs/types/current endpoint. */
