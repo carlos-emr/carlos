@@ -52,7 +52,9 @@ class RptDemographicQueryAsOfRosterUnitTest extends CarlosUnitTestBase {
     private static final String AS_OF = "2025-06-30";
     private static final String CURRENT_ONLY = " d.provider_no = :provider0 )";
     private static final String ARCHIVE_ADMISSION =
-            "d.demographic_no in (select da.demographic_no from demographicArchive da where da.provider_no = :provider0)";
+            "d.demographic_no in (select da.demographic_no from demographicArchive da where da.provider_no = :provider0"
+                    + " and da.roster_date <= :rosterHistoryDate"
+                    + " and (da.roster_termination_date is null or da.roster_termination_date >= :rosterHistoryDate))";
 
     private FormsDao formsDao;
     private MockedStatic<PreventionReportUtil> history;
@@ -106,7 +108,23 @@ class RptDemographicQueryAsOfRosterUnitTest extends CarlosUnitTestBase {
 
         String sql = capturedSql();
         assertThat(sql).contains("( d.provider_no = :provider0 or " + ARCHIVE_ADMISSION + " )");
-        assertThat(capturedParams()).containsEntry("provider0", DR_A);
+        assertThat(capturedParams())
+                .containsEntry("provider0", DR_A)
+                .containsEntry("rosterHistoryDate", java.sql.Date.valueOf(AS_OF));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("builders")
+    @DisplayName("should admit every archived period when the as-of date cannot be read")
+    void shouldAdmitAllArchivedPeriods_whenAsOfDateIsUnreadable(
+            String name, BiFunction<RptDemographicReport2Form, String, List<?>> build) {
+        when(formsDao.runParameterizedNativeQuery(anyString(), anyMap())).thenReturn(new ArrayList<>());
+
+        build.apply(form(), "not-a-date");
+
+        assertThat(capturedSql()).contains(
+                "d.demographic_no in (select da.demographic_no from demographicArchive da where da.provider_no = :provider0) )");
+        assertThat(capturedParams()).doesNotContainKey("rosterHistoryDate");
     }
 
     @ParameterizedTest(name = "{0}")

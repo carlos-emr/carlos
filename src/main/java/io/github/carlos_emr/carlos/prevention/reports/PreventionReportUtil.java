@@ -56,7 +56,8 @@ public final class PreventionReportUtil {
     }
 
     public static boolean wasRostered(LoggedInInfo loggedInInfo, Integer demographicId, Date onThisDate) {
-        logger.debug("Checking rosterd:" + demographicId);
+        // Patient and provider numbers stay out of the log: report queries call this for every row.
+        logger.debug("Checking roster history for one patient");
         Demographic demographic = demographicManager().getDemographic(loggedInInfo, demographicId);
 
         if (rosteredDuringThisTimeDemographic(onThisDate, demographic.getRosterDate(), demographic.getRosterTerminationDate()))
@@ -73,7 +74,8 @@ public final class PreventionReportUtil {
 
 
     public static boolean wasEnrolledToThisProvider(LoggedInInfo loggedInInfo, Integer demographicId, Date onThisDate, String providerNo) {
-        logger.debug("Checking rosterd:" + demographicId + " for this date " + onThisDate + " for this providerNo " + providerNo);
+        // Patient and provider numbers stay out of the log: report queries call this for every row.
+        logger.debug("Checking roster history for one patient");
         if (providerNo == null) {
             return false;
         }
@@ -97,7 +99,8 @@ public final class PreventionReportUtil {
     }
 
     public static boolean wasRosteredToThisProvider(LoggedInInfo loggedInInfo, Integer demographicId, Date onThisDate, String providerNo) {
-        logger.debug("Checking rosterd:" + demographicId + " for this date " + onThisDate + " for this providerNo " + providerNo);
+        // Patient and provider numbers stay out of the log: report queries call this for every row.
+        logger.debug("Checking roster history for one patient");
         if (providerNo == null) {
             return false;
         }

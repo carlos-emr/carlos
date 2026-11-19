@@ -104,6 +104,14 @@ public class RptDemographicQuery2Builder {
         // then checks each row against the roster history. The check needs the patient number
         // whatever columns were selected, and a row limit must count only the rows it keeps.
         boolean historicalRoster = asofRosterDate != null && providers != null && providers.length > 0;
+        java.sql.Date rosterHistoryDate = null;
+        if (historicalRoster) {
+            java.util.Date parsed = UtilDateUtilities.getDateFromString(asofRosterDate, "yyyy-MM-dd");
+            if (parsed != null) {
+                rosterHistoryDate = new java.sql.Date(parsed.getTime());
+                params.put("rosterHistoryDate", rosterHistoryDate);
+            }
+        }
 
         String firstName = frm.getFirstName();
         String lastName = frm.getLastName();
@@ -307,9 +315,14 @@ public class RptDemographicQuery2Builder {
                     // the per-row history check below decides. Filtering on the patient's current
                     // provider here dropped patients who were the provider's then but have since
                     // moved (#5877), so also admit patients any archived period assigns to them.
+                    // Only archived periods that could cover the date are candidates; the history check
+                    // applies the exact rule. Without a readable date, every archived period is a candidate.
+                    String archivePeriod = rosterHistoryDate == null ? ""
+                            : " and da.roster_date <= :rosterHistoryDate"
+                                    + " and (da.roster_termination_date is null or da.roster_termination_date >= :rosterHistoryDate)";
                     providerPredicate = " ( d.provider_no = :" + paramName
                             + " or d.demographic_no in (select da.demographic_no from demographicArchive da"
-                            + " where da.provider_no = :" + paramName + ") )";
+                            + " where da.provider_no = :" + paramName + archivePeriod + ") )";
                 }
                 if (i == (providers.length - 1)) {
                     stringBuffer.append(providerPredicate + " )");
