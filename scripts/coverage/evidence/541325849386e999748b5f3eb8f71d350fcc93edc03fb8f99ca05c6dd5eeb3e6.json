@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "b015e8b01bc14779cf6117f0c2f66a85ffbf1f2e",
+  "comparisonSha256": "59a2293f370a9fe2e877e11d46bc1e5636a0ff9564f730ab0fdc3676b0ab9ec9",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtClientBuilder.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d16df6afad7db22a35ead229954ff97bfe07975b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/PlaintextCryptoPasswordEncryptor.java": {
+      "lines": 83.33333333333333,
+      "instructions": 80.95238095238095,
+      "branches": 100.0,
+      "sourceBlob": "6b05e15c77388802b2b9fbfd63ffca42ae3720ca"
+    }
+  },
+  "baselineCommit": "88e18ff31eb1727e042dea57bb8386939f62ac07",
+  "baselineSourceTree": "b015e8b01bc14779cf6117f0c2f66a85ffbf1f2e",
+  "baselineReportSha256": "ca14499fde15758f1541ce1de698cbbd3ca57d685b6ff7a2fae05fdb9dc16dc7",
+  "baselineLane": "Focused JDK 25 EBS run. The selected production EBS sources and test classes were freshly compiled with release-locked CXF and WSS4J dependencies. This run measures only the two owned sources.",
+  "baselineTestCounts": {
+    "tests": 26,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "fd590a1134bb216ce6e547b9970999488c924b4ef4a954c0c0e6af896f6b1e66",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}

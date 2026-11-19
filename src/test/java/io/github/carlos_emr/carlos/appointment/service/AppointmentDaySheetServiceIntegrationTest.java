@@ -124,6 +124,37 @@ class AppointmentDaySheetServiceIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    void shouldAcknowledgeOnlyRenderedVersions_whenRowsAreBookedOrEditedAfterPreview() {
+        List<AppointmentDaySheetRow> preview = List.of(row(ids.get(0)), row(ids.get(1)));
+        String[] parameters = preview.stream()
+                .map(row -> row.appointmentNo() + ":" + row.editVersion()).toArray(String[]::new);
+        tx.executeWithoutResult(status -> {
+            Appointment changed = appointments.find(ids.get(1));
+            changed.setUpdateDateTime(new java.util.Date(changed.getUpdateDateTime().getTime() + 5000));
+            appointments.merge(changed);
+            Appointment later = new Appointment();
+            later.setProviderNo(PROVIDER);
+            later.setAppointmentDate(Date.valueOf(DAY));
+            later.setStartTime(Time.valueOf("09:00:00"));
+            later.setEndTime(Time.valueOf("09:15:00"));
+            later.setStatus("t");
+            entityManager.persist(later);
+            entityManager.flush();
+            ids.add(later.getId());
+        });
+        var selection = DaySheetSelection.fromParameters(parameters, "2");
+        List<AppointmentDaySheetRow> fresh = ids.stream().map(this::row).toList();
+        assertThat(service(archives).acknowledge(selection.matching(fresh), null, null, false, PROVIDER))
+                .extracting(AppointmentDaySheetRow::appointmentNo).containsExactly(ids.get(0));
+        assertThat(statuses()).containsExactly("T", "t", "t");
+        assertThat(archivedStatuses()).containsExactly("t");
+        assertThat(service(archives).acknowledge(selection.matching(ids.stream().map(this::row).toList()),
+                null, null, false, PROVIDER)).isEmpty();
+        assertThat(statuses()).containsExactly("T", "t", "t");
+        assertThat(archivedStatuses()).containsExactly("t");
+    }
+
+    @Test
     void shouldCommitAcknowledgmentsAndOriginalVersions_whenEveryArchiveSucceeds() {
         List<AppointmentDaySheetRow> rows = List.of(row(ids.get(1)), row(ids.get(0)));
         assertThat(service(archives).acknowledge(rows, null, null, false, PROVIDER)).containsExactlyElementsOf(rows);

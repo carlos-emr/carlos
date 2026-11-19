@@ -473,6 +473,12 @@ class MutatorActionGetRejectionContractUnitTest {
                         "io.github.carlos_emr.carlos.report.pageUtil.DbReportAgeSex2Action",
                         "_report",
                         "r"),
+                // Clinical Reports "Del" and "Clear" change the session's list of run reports: _report r,
+                // POST-only.
+                Arguments.of(
+                        "io.github.carlos_emr.carlos.report.ClinicalReports.PageUtil.RemoveClinicalReportFromHistory2Action",
+                        "_report",
+                        "r"),
                 Arguments.of(
                         "io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesFavorite2Action",
                         "_admin",

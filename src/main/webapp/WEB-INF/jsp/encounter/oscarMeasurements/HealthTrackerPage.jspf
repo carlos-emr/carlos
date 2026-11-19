@@ -1410,7 +1410,7 @@
                 document.getElementById('deleteModalLabel').textContent = el.getAttribute('data-label') || 'Delete measurement';
                 document.getElementById('deleteMeas').textContent = el.getAttribute('data-value');
                 document.getElementById('deleteObsDate').textContent =
-                        el.getAttribute('data-entered-by') + ' — Date: ' + el.getAttribute('data-observed');
+                        el.getAttribute('data-entered-by') + ' \u2014 Date: ' + el.getAttribute('data-observed');
                 document.getElementById('deleteComment').textContent =
                         el.getAttribute('data-comment') ? 'Comment: ' + el.getAttribute('data-comment') : '';
                 document.getElementById('deleteId').value = el.getAttribute('data-measurement-id');

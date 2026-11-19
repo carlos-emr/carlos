@@ -258,13 +258,21 @@ async function workflow(s, {prepare, afterMerge, afterUnmerge, beforeCleanup} = 
     h.assert(await rows().count() === 1 && await rowFor('Duplicate').count() === 1, 'Search Merged Records did not list exactly the merged duplicate');
     h.assert(await merge.locator('form[name="mergeform"] input[name="head"]').count() === 0, 'The merged-records list offers a Main Record radio');
     await rowFor('Duplicate').locator('input[name="records"]').check();
+    // Attribution must come from the authenticated session, never this hidden form value (#6004).
+    const forgedProvider = provider === '777777' ? '777778' : '777777';
+    const submittedProvider = merge.locator('form[name="mergeform"] input[name="provider_no"]');
+    h.assert(await submittedProvider.count() === 1, 'The unmerge form must expose one provider field');
+    await submittedProvider.evaluate((input, value) => { input.value = value; }, forgedProvider);
     h.assert(await submitMerge('UnMerge Selected Records', UNMERGED, 'unmerge') === 'successUnMerge', 'The unmerge did not land on its success outcome');
     h.assert(sql.value(`SELECT COUNT(*) FROM demographic_merged WHERE demographic_no=? AND merged_to=?
       AND deleted=1 AND lastUpdateUser=?`, [dup, head, provider]) === '1' && liveRows() === '0', 'The unmerge did not mark the merge row deleted');
     h.assert(privilegeRows() === '0', 'The unmerge left the merged chart privilege in place');
     h.assert(sql.value(`SELECT COUNT(*) FROM recyclebin WHERE table_name='secObjPrivilege'
       AND keyword=? AND provider_no=?`, [`_all|_eChart$${dup}`, provider]) === '1',
-    'The unmerge did not park the removed privilege in the recycle bin');
+    'The unmerge did not attribute the recycled privilege to the authenticated provider');
+    h.assert(sql.value(`SELECT COUNT(*) FROM log WHERE action='DemographicMerged.UnMerge'
+      AND demographic_no=? AND provider_no=?`, [dup, provider]) === '1',
+    'The unmerge response arrived before its authenticated audit was committed');
     await search();
     for (const name of ['Primary', 'Duplicate']) {
       h.assert(await rowFor(name).locator('input[name="head"]').count() === 1, `${name} is not a head record again after the unmerge`);

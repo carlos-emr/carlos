@@ -63,6 +63,7 @@ ADMISSION_REQUIRED_CASES = {
 }
 
 APPOINTMENT_REQUIRED_CASES = {
+    "shouldReuseReturnedVersion_whenEditEntersTheRepeatedHour",
     "shouldRefuseStoredPatient_beforeArchivalOrMutation",
     "shouldRollbackArchiveAndEdit_whenReplacementPatientIsDenied",
     "shouldAllowAssignedPatientWrite_withoutReadPermission",
@@ -92,6 +93,28 @@ TICKLER_REQUIRED_CASES = {
 }
 
 MERGE_REQUIRED_CASES = {"shouldRefuseDeniedParticipants_beforeAnyDatabaseOrAuditChange"}
+
+UNMERGE_REQUIRED_CASES = {
+    'shouldRefuseARepeatedUnmerge_withoutAnotherAuditOrRecycleWrite',
+    'shouldPreserveEarlierUnmergeAttribution_whenAnActiveLinkIsRemoved',
+    'shouldRefuseTheEntireSelection_whenALaterPatientIsNoLongerMerged',
+    "shouldRollbackEveryParticipant_whenALaterStorageValueIsMalformed",
+    'shouldCanonicalizeAndDeduplicate_whenSelectedIdsHaveEquivalentSpellings',
+    'shouldCommitOnlySelectedParticipants_whenTheBatchSucceeds',
+    'shouldKeepTheFailureOutcome_whenTheSelectionIsEmpty',
+    'shouldRefuseBeforeWrites_whenTheCallerLacksWritePrivilege',
+    'shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String)[1]',
+    'shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String)[2]',
+    'shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String)[3]',
+    'shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String)[4]',
+    'shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String)[5]',
+    'shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String)[6]',
+    'shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String)[7]',
+    'shouldRefuseTheWholeSelection_whenAnyPatientIsMissing',
+    'shouldRollbackEveryParticipant_whenTheLaterAuditWriteFails',
+    'shouldRollbackEveryParticipant_whenTheLaterRecycleWriteFails',
+    'shouldUseAuthenticatedAttribution_whenTheRequestSuppliesAnotherProvider',
+}
 
 SITE_CLOCK_REQUIRED_CASES = {
     'shouldIncludeTheLaterUnrelatedEdit_whenSyncContinuesFromTheRenamedSite(boolean)[1]',
@@ -186,6 +209,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     "Growth0To36FormPersistenceIntegrationTest": GROWTH_REQUIRED_CASES,
                     "SoapTokenHousekeepingDaoIntegrationTest": TOKEN_REQUIRED_CASES,
                     "DemographicMergeMariaDbIntegrationTest": MERGE_REQUIRED_CASES,
+                    "DemographicWebUnmergeIntegrationTest": UNMERGE_REQUIRED_CASES,
                     "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": LEGACY_NOTE_FLAG_REQUIRED_CASES,
                     "SiteRenameClockMariaDbIntegrationTest": SITE_CLOCK_REQUIRED_CASES,
                     "DemographicIdentifierPreservationMariaDbIntegrationTest": IDENTIFIER_REQUIRED_CASES,
@@ -198,6 +222,8 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                 }.get(family, set()) | MODULE.REQUIRED_CASES.get(family, set()))
                 if family in NATIVE_REQUIRED_CASES:
                     required_names = sorted(set(required_names) | {NATIVE_REQUIRED_CASES[family]})
+                if family == 'DemographicWebUnmergeIntegrationTest':
+                    count = max(count, len(UNMERGE_REQUIRED_CASES))
                 def case(index):
                     fault = tag if selected == mode and family == next(iter(required)) and index == 0 else ""
                     name = required_names[index] if index < len(required_names) else f"shouldRead_forRow{index}"
@@ -220,6 +246,8 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
     def suite(family: str) -> str:
         if family == 'LegacyLabNativeMariaDbIntegrationTest':
             return MODULE.INBOX_CLASS
+        if family == 'DemographicWebUnmergeIntegrationTest':
+            return 'io.github.carlos_emr.carlos.demographic.pageUtil.DemographicWebUnmergeIntegrationTest'
         return next((name for name in MODULE.BC_PHYSICAL_CASES if name.rsplit('.', 1)[-1] == family), 'example.' + family)
 
     def test_each_physical_type_case_is_required_even_when_family_counts_are_unchanged(self):
@@ -264,6 +292,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                 families.append(("CaseManagementNoteLegacyFlagsMariaDbIntegrationTest", LEGACY_NOTE_FLAG_REQUIRED_CASES))
             for family, names in families + [("SoapTokenHousekeepingDaoIntegrationTest", TOKEN_REQUIRED_CASES),
                                   ("DemographicMergeMariaDbIntegrationTest", MERGE_REQUIRED_CASES),
+                                  ("DemographicWebUnmergeIntegrationTest", UNMERGE_REQUIRED_CASES),
                                   ("SiteRenameClockMariaDbIntegrationTest", SITE_CLOCK_REQUIRED_CASES),
                                   ("DemographicIdentifierPreservationMariaDbIntegrationTest", IDENTIFIER_REQUIRED_CASES),
                                   ("ScheduleSyncMariaDbIntegrationTest", SCHEDULE_REQUIRED_CASES),
@@ -277,9 +306,36 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     with self.subTest(mode=mode, family=family, case=name):
                         report.write_text(original.replace('name="' + name + '"', 'name="unrelatedCase"'))
                         try:
-                            self.assert_refused(self.invoke(), f"Required MariaDB {mode} cases missing: {family}")
+                            python_modes = (False, True) if family == 'DemographicWebUnmergeIntegrationTest' else (False,)
+                            for optimized in python_modes:
+                                with self.subTest(optimized=optimized):
+                                    self.assert_refused(self.invoke(optimized), f"Required MariaDB {mode} cases missing: {family}")
                         finally:
                             report.write_text(original)
+
+    def test_original_16_case_unmerge_reports_are_refused_in_every_mode(self):
+        self.seed()
+        added = {'shouldRefuseARepeatedUnmerge_withoutAnotherAuditOrRecycleWrite',
+                 'shouldPreserveEarlierUnmergeAttribution_whenAnActiveLinkIsRemoved',
+                 'shouldRefuseTheEntireSelection_whenALaterPatientIsNoLongerMerged'}
+        for mode in ('generated', 'flyway', 'bc-flyway'):
+            suffix = '' if mode == 'generated' else '-' + mode
+            report = self.reports / ('TEST-' + self.suite('DemographicWebUnmergeIntegrationTest') + suffix + '.xml')
+            original = report.read_text()
+            root = ET.fromstring(original)
+            for case in list(root):
+                if case.tag == 'testcase' and case.get('name') in added:
+                    root.remove(case)
+            self.assertEqual(len(root.findall('testcase')), 16)
+            root.set('tests', '16')
+            report.write_text(ET.tostring(root, encoding='unicode'))
+            try:
+                for optimized in (False, True):
+                    with self.subTest(mode=mode, optimized=optimized):
+                        self.assert_refused(self.invoke(optimized),
+                                            f'Required MariaDB {mode} coverage missing: DemographicWebUnmergeIntegrationTest')
+            finally:
+                report.write_text(original)
 
     def test_clean_controls_pass_in_both_python_modes(self):
         self.seed()
@@ -287,6 +343,26 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             with self.subTest(optimized=optimized):
                 result = self.invoke(optimized)
                 self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_another_package_cannot_supply_required_unmerge_coverage(self):
+        self.seed()
+        family = 'DemographicWebUnmergeIntegrationTest'
+        suite = self.suite(family)
+        wrong_class = 'example.' + family
+        for mode in ('generated', 'flyway', 'bc-flyway'):
+            suffix = '' if mode == 'generated' else '-' + mode
+            report = self.reports / f'TEST-{suite}{suffix}.xml'
+            replacement = self.reports / f'TEST-{wrong_class}{suffix}.xml'
+            original = report.read_text()
+            replacement.write_text(original.replace(suite, wrong_class))
+            report.unlink()
+            try:
+                for optimized in (False, True):
+                    with self.subTest(mode=mode, optimized=optimized):
+                        self.assert_refused(self.invoke(optimized), f'Required MariaDB {mode} coverage missing: {family}')
+            finally:
+                replacement.unlink()
+                report.write_text(original)
 
     def test_another_package_or_nested_class_cannot_supply_required_inbox_cases(self):
         self.seed()

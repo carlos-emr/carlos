@@ -435,7 +435,7 @@
                                             <option value="NDE">North Ndebele</option>
                                             <option value="SME">Northern Sami</option>
                                             <option value="NOR">Norwegian</option>
-                                            <option value="NOB">Norwegian Bokm�l</option>
+                                            <option value="NOB">Norwegian Bokm&#229;l</option>
                                             <option value="NNO">Norwegian Nynorsk</option>
                                             <option value="NYA">Nyanja</option>
                                             <option value="OCI">Occitan (post 1500)</option>
