@@ -6,7 +6,7 @@ CI guard against the silent-failure classes introduced by the OWASP encoder
 migration (PR #1787):
 
   Class A — missing taglib directive:
-    A JSP that uses <e:forXxx> without declaring a taglib for the "e" prefix
+    A JSP that uses <e:forXxx> without declaring the OWASP encoder taglib
     compiles clean, and Jasper writes the tag out as literal template text
     instead of the encoded value. PR #1821 mass-fixed 311 such files.
 
@@ -243,8 +243,8 @@ def main() -> int:
             if not TAGLIB_DECL_RE.search(text):
                 print(f"ERROR [Class A — missing taglib]: {rel}")
                 print(
-                    "       Uses <e:forXxx> with no taglib bound to the e prefix;"
-                    " Jasper writes the tag out as literal text."
+                    "       Uses <e:forXxx> without declaring the OWASP encoder taglib;"
+                    " Jasper writes a tag with an undeclared prefix out as literal text."
                 )
                 print(
                     "       Migrate the tag to <carlos:encode value=\"...\" context=\"...\"/>"

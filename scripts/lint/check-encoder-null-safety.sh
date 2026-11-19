@@ -6,7 +6,7 @@
 # migration (PR #1787):
 #
 #   Class A — missing taglib directive:
-#     A JSP that uses <e:forXxx> with no taglib bound to the e prefix
+#     A JSP that uses <e:forXxx> without declaring the OWASP encoder taglib
 #     compiles clean, and Jasper writes the tag out as literal text.
 #     PR #1821 mass-fixed 311 such files.
 #
