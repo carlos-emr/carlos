@@ -19620,6 +19620,26 @@
       ]
     },
     {
+      "name": "forms-default-heading",
+      "script": "scripts/forms-default-heading-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON",
+        "BC"
+      ],
+      "timeoutSec": 180,
+      "manual": true,
+      "mutates": [
+        "demographic",
+        "eform"
+      ],
+      "fixtures": "Requires a disposable exclusive host. Creates a synthetic patient and one active eForm template, reads the forms REST endpoint and removes both owned fixtures on exit. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#3093: the installed authenticated REST surface returns the available-form list when heading is omitted, preserves empty/unrecognized-heading behavior and keeps Completed scoped to the owned patient."
+    },
+    {
       "name": "provider-document-queue-security",
       "script": "scripts/provider-document-queue-security-playwright-checks.js",
       "tiers": [

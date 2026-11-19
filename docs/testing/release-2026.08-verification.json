@@ -820,6 +820,7 @@
         "fixture-hrm-report-list",
         "fixture-messenger-reply-form",
         "fixture-search-sort-messenger-inbox",
+        "manual-forms-default-heading",
         "manual-demographic-converted-limits",
         "manual-eform-large-html-roundtrip"
       ]
@@ -8460,6 +8461,43 @@
         "node": "22",
         "npm": "10.9.9"
       },
+      "requireLockedChromium": true
+    },
+    {
+      "id": "manual-forms-default-heading",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "forms-default-heading"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "forms-default-heading",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
       "requireLockedChromium": true
     },
     {
