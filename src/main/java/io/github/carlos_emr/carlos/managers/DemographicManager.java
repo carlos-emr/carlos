@@ -136,9 +136,13 @@ public interface DemographicManager {
      * its extensions and their archive copies are saved all together or not at all. Joins the
      * caller's transaction when there is one.
      *
+     * <p>Every extension is saved under this patient, and a stored extension (one with an id) must
+     * already be this patient's; otherwise the update is refused before anything is written.</p>
+     *
      * @param loggedInInfo {@link LoggedInInfo} the acting provider
      * @param demographic {@link Demographic} the patient's new values, with optional extras
      * @throws IllegalArgumentException if the birth date cannot be parsed or the patient does not exist
+     * @throws DemographicExtensionNotFoundException if an extension names a stored row that is not this patient's
      */
     public void updateDemographic(LoggedInInfo loggedInInfo, Demographic demographic);
 

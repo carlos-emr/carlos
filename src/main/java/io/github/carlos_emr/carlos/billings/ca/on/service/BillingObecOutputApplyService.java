@@ -142,9 +142,13 @@ public class BillingObecOutputApplyService {
                         continue;
                     }
                     if (dVer.trim().compareTo(beanVer.trim()) == 0) {
-                        for (Demographic demographic : ds) {
-                            demographic.setVer("##");
-                            demographicManager.updateDemographic(loggedInInfo, demographic);
+                        for (Demographic stored : ds) {
+                            // The manager archives the stored row before it saves the new one, and
+                            // inside this transaction `stored` is that row. Changed in place, the
+                            // archive recorded "##" instead of the version code being invalidated.
+                            Demographic invalidated = new Demographic(stored);
+                            invalidated.setVer("##");
+                            demographicManager.updateDemographic(loggedInInfo, invalidated);
                             appliedCount++;
                         }
                         DemographicCust demographicCust = demographicCustDao.find(d.getDemographicNo());

@@ -19,6 +19,20 @@ row cannot be written is not saved. Existing records are unchanged. Custom field
 overwritten through this endpoint on 2026.08.0-beta8 were not archived and cannot be
 reconstructed.
 
+Three requests that this endpoint used to accept or fail on unclearly are now refused
+with HTTP 409 and a JSON error code, and save nothing: a second extension with a key
+the patient already holds (`DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY`), an extension id
+that is not one of this patient's stored extensions (`DEMOGRAPHIC_EXTENSION_NOT_FOUND`;
+the id alone could re-point another patient's extension to this patient), and a
+waiting list on which the patient has no entry (`WAITING_LIST_ENTRY_NOT_FOUND`; the
+patient was saved and the waiting-list note dropped without an error). Every extension
+is saved under the patient being updated, whatever patient number the request gives it.
+Integrations that send extension ids or a waiting-list id should reload the patient on
+these codes.
+
+An Ontario OBEC response that invalidates a health-card version code now archives the
+patient with the code that was replaced; the archive row used to hold the `##` marker.
+
 ## Note lock recovery
 
 When another window takes a note lock, a refused toolbar save now explains that

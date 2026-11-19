@@ -5163,7 +5163,7 @@
         "RxStrictAuditIntegrationTest": 1,
         "DemographicWebUnmergeIntegrationTest": 19,
         "SiteRenameClockMariaDbIntegrationTest": 8,
-        "DemographicUpdateDaoTransactionIntegrationTest": 18
+        "DemographicUpdateDaoTransactionIntegrationTest": 23
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -5235,7 +5235,7 @@
         "DemographicWebUnmergeIntegrationTest": 19,
         "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
         "SiteRenameClockMariaDbIntegrationTest": 8,
-        "DemographicUpdateDaoTransactionIntegrationTest": 18
+        "DemographicUpdateDaoTransactionIntegrationTest": 23
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -5305,7 +5305,7 @@
         "DemographicWebUnmergeIntegrationTest": 19,
         "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
         "SiteRenameClockMariaDbIntegrationTest": 8,
-        "DemographicUpdateDaoTransactionIntegrationTest": 18
+        "DemographicUpdateDaoTransactionIntegrationTest": 23
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -9060,7 +9060,7 @@
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/managers/DemographicManagerImpl.java": {
-      "reason": "Merged-demographic read audit identifies the requested patient; installed chart reads verify the patient-filtered access audit. A demographic update and its custom-field save are single transactions (#5298): database-raised failures at the patient, extension, custom-field and audit rows leave nothing behind on H2 and physical MariaDB, extensions are written in the order given so that a refused change to a stored extension is raised by the update itself rather than at the caller's commit, and the installed REST update is checked end to end. Other manager acceptance and source-scope gaps are not waived.",
+      "reason": "Merged-demographic read audit identifies the requested patient; installed chart reads verify the patient-filtered access audit. A demographic update and its custom-field save are single transactions (#5298): database-raised failures at the patient, extension, custom-field and audit rows leave nothing behind on H2 and physical MariaDB, extensions are written in the order given so that a refused change to a stored extension is raised by the update itself rather than at the caller's commit, every extension is bound to the patient being updated and a stored one that is not that patient's is refused before any write, and the installed REST update is checked end to end. Other manager acceptance and source-scope gaps are not waived.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/managers/DemographicManagerUnitTest.java",
         "scripts/audit-log-chart-read-playwright-checks.js",

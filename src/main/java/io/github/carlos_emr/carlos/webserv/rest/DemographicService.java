@@ -77,6 +77,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.WaitingList;
 import io.github.carlos_emr.carlos.commn.model.WaitingListName;
 import io.github.carlos_emr.carlos.managers.AllergyManager;
+import io.github.carlos_emr.carlos.managers.DemographicExtensionNotFoundException;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.MeasurementManager;
 import io.github.carlos_emr.carlos.managers.NoteManager;
@@ -669,6 +670,13 @@ public class DemographicService extends AbstractServiceImpl {
      * stored row are the committed ones. A request refused for missing privilege, an invalid
      * field, or a failed write changes nothing.</p>
      *
+     * <p>Three refusals are answered HTTP 409 with a JSON error code, and likewise change nothing:
+     * {@code WAITING_LIST_ENTRY_NOT_FOUND} when the patient has no entry on the waiting list the
+     * request names, {@code DEMOGRAPHIC_EXTENSION_NOT_FOUND} when an extension id is not one of
+     * this patient's stored extensions, and {@code DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY} when the
+     * database refuses a second extension with a key the patient already holds. Every extension
+     * is saved under this patient, whatever patient number it carries.</p>
+     *
      * <p>One record is deliberately outside that transaction: the web-service access log row
      * ({@code WebServiceLoggingAdvice}), which is written after the transaction has ended so that a
      * failed request is still recorded.</p>
@@ -708,9 +716,14 @@ public class DemographicService extends AbstractServiceImpl {
             demographicManager.createUpdateDemographicCust(loggedInInfo, demoCust);
         }
 
-        //update waitingList
-        if (data.getWaitingListID() != null) {
-            WLWaitingListUtil.updateWaitingListRecord(data.getWaitingListID().toString(), data.getWaitingListNote(), data.getDemographicNo().toString(), null);
+        //update waitingList (0 is the form's "no list" value, which the helper skips)
+        if (data.getWaitingListID() != null && data.getWaitingListID() != 0
+                && !WLWaitingListUtil.updateWaitingListRecord(data.getWaitingListID().toString(), data.getWaitingListNote(), data.getDemographicNo().toString(), null)) {
+            // The patient has no entry on the list this request names, typically because it was
+            // removed after the client loaded the form. Saving the rest and answering success
+            // would drop the note silently; refusing rolls back the custom fields saved above.
+            throw staleRequest("WAITING_LIST_ENTRY_NOT_FOUND",
+                    "The patient has no entry on the submitted waiting list; reload before retrying.");
         }
 
         try {
@@ -723,6 +736,12 @@ public class DemographicService extends AbstractServiceImpl {
     }
 
     private static RuntimeException extensionWriteFailure(RuntimeException failure) {
+        if (failure instanceof DemographicExtensionNotFoundException) {
+            // The manager refused before its first write, and the transaction rolls back what this
+            // method saved before calling it. The message names neither the id nor another patient.
+            return staleRequest("DEMOGRAPHIC_EXTENSION_NOT_FOUND",
+                    "A submitted extension is not a stored extension of this patient; reload before retrying.");
+        }
         if (!DemographicWriteConflict.isDuplicateExtensionKey(failure)) {
             return failure;
         }
@@ -730,6 +749,12 @@ public class DemographicService extends AbstractServiceImpl {
                 "DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY", "The request would create a duplicate demographic extension key.");
         return new WebApplicationException(failure, Response.status(Response.Status.CONFLICT)
                 .type(MediaType.APPLICATION_JSON).entity(error).build());
+    }
+
+    /** HTTP 409 with a JSON error code: the request no longer matches what is stored. Rolls the update back. */
+    private static WebApplicationException staleRequest(String code, String message) {
+        return new WebApplicationException(Response.status(Response.Status.CONFLICT)
+                .type(MediaType.APPLICATION_JSON).entity(ErrorResponse.of(code, message)).build());
     }
 
     /** Resolve omitted identifiers under the row lock before related records are changed. */

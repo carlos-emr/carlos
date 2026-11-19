@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.managers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -31,6 +33,7 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import javax.sql.DataSource;
@@ -61,6 +64,9 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.interceptor.TransactionInterceptor;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingEdtObecOutputSpecificationRecordDto;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecOutputApplyService;
+import io.github.carlos_emr.carlos.commn.dao.BatchEligibilityDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.DemographicCustArchiveDao;
@@ -364,7 +370,9 @@ class DemographicUpdateDaoTransactionIntegrationTest {
     @DisplayName("should not commit an update whose audit row cannot be written")
     void shouldNotCommitTheUpdate_whenItsAuditRowCannotBeWritten() {
         long auditsBefore = audits(UPDATE_AUDIT);
-        refuse("log", AUDIT_FAULT, "action <> '" + UPDATE_AUDIT + "'");
+        // Only this patient's update audit row is refused: other cases have committed theirs, and
+        // the database checks the rows it already holds when the constraint is added.
+        refuse("log", AUDIT_FAULT, "action <> '" + UPDATE_AUDIT + "' OR data <> 'demographicNo=" + patientId + "'");
         Demographic changed = storedPatient();
         changed.setFirstName("Changed");
         changed.setExtras(new DemographicExt[] { existingExtension("555-0199") });
@@ -523,6 +531,100 @@ class DemographicUpdateDaoTransactionIntegrationTest {
         assertThat(extensionValues()).containsExactlyInAnyOrder(HELD_KEY + "=555-0100", "demo_cell=555-0111");
         assertThat(archivedExtensionValues()).as("the stored extension as it was").containsExactly("demo_cell=555-0100");
         assertThat(audits(UPDATE_AUDIT)).isEqualTo(auditsBefore + 1);
+    }
+
+    @Test
+    @DisplayName("should refuse the REST update and keep nothing when the waiting-list entry it names is gone")
+    void shouldRefuseAndKeepNothing_whenTheWaitingListEntryIsGone() {
+        long auditsBefore = audits(UPDATE_AUDIT);
+        long customFieldAuditsBefore = audits(CUSTOM_FIELD_AUDIT);
+        DemographicTo1 data = restPayload("Changed");
+        // The entry is removed after the client loaded the form that names it.
+        jdbc.update("DELETE FROM waitingList WHERE listID=? AND demographic_no=?", waitingListId, patientId);
+
+        // Saving the patient and answering success would lose the note the client sent, silently.
+        assertThatThrownBy(() -> put(data)).isInstanceOfSatisfying(WebApplicationException.class,
+                refusal -> assertConflict(refusal, "WAITING_LIST_ENTRY_NOT_FOUND"));
+
+        assertNothingOfTheUpdateRemains(auditsBefore);
+        assertThat(customFieldAlert()).as("demographiccust alert").isEqualTo("Original alert");
+        assertThat(archivedCustomFieldAlerts()).as("demographiccustArchive rows").isEmpty();
+        assertThat(audits(CUSTOM_FIELD_AUDIT)).as("custom-field audit rows").isEqualTo(customFieldAuditsBefore);
+        assertThat(waitingListNotes("N")).as("current waiting-list entries").isEmpty();
+        assertThat(waitingListNotes("Y")).as("historical waiting-list entries").isEmpty();
+    }
+
+    @Test
+    @DisplayName("should save the patient and leave the waiting list alone when the request names no list")
+    void shouldSaveThePatient_whenTheRequestNamesNoWaitingList() {
+        DemographicTo1 data = restPayload("Changed");
+        // The form's value for "no list": not a list the patient could be missing from.
+        data.setWaitingListID(0);
+
+        put(data);
+
+        assertThat(patientFirstName()).isEqualTo("Changed");
+        assertThat(waitingListNotes("N")).as("current waiting-list entries").containsExactly("Original note");
+        assertThat(waitingListNotes("Y")).as("historical waiting-list entries").isEmpty();
+    }
+
+    @Test
+    @DisplayName("should refuse the REST update before either chart changes when a stored extension is another patient's")
+    void shouldRefuseBeforeEitherChartChanges_whenAStoredExtensionIsAnotherPatients() {
+        long auditsBefore = audits(UPDATE_AUDIT);
+        long customFieldAuditsBefore = audits(CUSTOM_FIELD_AUDIT);
+        int foreignExtension = storeExtension(mergedChildId, "demo_cell", "555-0177");
+        DemographicTo1 data = restPayload("Changed");
+        // Sent as this patient's: the id alone would re-point the other patient's row and overwrite it.
+        data.getExtras().add(extensionPayload(foreignExtension, HELD_KEY, "555-0188"));
+
+        assertThatThrownBy(() -> put(data)).isInstanceOfSatisfying(WebApplicationException.class,
+                refusal -> assertConflict(refusal, "DEMOGRAPHIC_EXTENSION_NOT_FOUND"));
+
+        assertNothingOfTheUpdateRemains(auditsBefore);
+        assertNoCompanionWriteRemains(customFieldAuditsBefore);
+        assertThat(extensionValues(mergedChildId)).as("the other patient's extensions").containsExactly("demo_cell=555-0177");
+        assertThat(archivedExtensionRows(mergedChildId)).as("the other patient's extension archive").isZero();
+    }
+
+    @Test
+    @DisplayName("should keep every extension with the patient being updated, whatever owner the request names")
+    void shouldKeepEveryExtensionWithThePatient_whateverOwnerWasSent() {
+        DemographicTo1 data = restPayload("Changed");
+        DemographicExtTo1 stored = extensionPayload(extensionId, "demo_cell", "555-0199");
+        stored.setDemographicNo(mergedChildId);
+        DemographicExtTo1 added = extensionPayload(null, HELD_KEY, "42");
+        added.setDemographicNo(mergedChildId);
+        data.getExtras().add(stored);
+        data.getExtras().add(added);
+
+        put(data);
+
+        // The caller may update this patient; the owner it names must not move or create rows elsewhere.
+        assertThat(extensionValues()).containsExactlyInAnyOrder("demo_cell=555-0199", HELD_KEY + "=42");
+        assertThat(extensionValues(mergedChildId)).as("the other patient's extensions").isEmpty();
+    }
+
+    @Test
+    @DisplayName("should archive the previous version code when an OBEC response invalidates it")
+    void shouldArchiveThePreviousVersionCode_whenAnObecResponseInvalidatesIt() {
+        jdbc.update("UPDATE demographic SET hin=?, ver=? WHERE demographic_no=?", "9999999999", "AB", patientId);
+        when(privileges.getReadableDemographicIds(eq(actor), any())).thenReturn(Set.of(patientId));
+        ProxyFactory factory = new ProxyFactory(
+                new BillingObecOutputApplyService(mock(BatchEligibilityDao.class), customFields, manager));
+        factory.setProxyTargetClass(true);
+        factory.addAdvice(new TransactionInterceptor(transactions, new AnnotationTransactionAttributeSource()));
+        BillingObecOutputApplyService obec = (BillingObecOutputApplyService) factory.getProxy();
+
+        // The service runs in one transaction, so the patient it reads is the stored row itself.
+        BillingObecOutputApplyService.ApplyResult result = obec.applyOutputSpec(actor,
+                List.of(new BillingEdtObecOutputSpecificationRecordDto("9999999999", "AB", "65")));
+
+        assertThat(result.appliedCount()).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT ver FROM demographic WHERE demographic_no=?", String.class, patientId))
+                .as("the stored version code").isEqualTo("##");
+        assertThat(jdbc.queryForList("SELECT ver FROM demographicArchive WHERE demographic_no=?", String.class, patientId))
+                .as("the archive holds the row as it was").containsExactly("AB");
     }
 
     @Test
@@ -720,6 +822,24 @@ class DemographicUpdateDaoTransactionIntegrationTest {
         return extension;
     }
 
+    /** Stores an extension for {@code demographicNo} and returns its id. */
+    private int storeExtension(int demographicNo, String key, String value) {
+        return new TransactionTemplate(transactions).execute(status -> {
+            DemographicExt extension = newExtension(key, value);
+            extension.setDemographicNo(demographicNo);
+            extension.setProviderNo(SEEDING_USER);
+            em.persist(extension);
+            return extension.getId();
+        });
+    }
+
+    /** The resource's refusal of a request that no longer matches what is stored: HTTP 409 with a code. */
+    private static void assertConflict(WebApplicationException refusal, String code) {
+        assertThat(refusal.getResponse().getStatus()).isEqualTo(409);
+        assertThat(refusal.getResponse().getEntity()).isInstanceOfSatisfying(ErrorResponse.class,
+                error -> assertThat(error.getCode()).isEqualTo(code));
+    }
+
     /** Gives the patient a second stored extension, under {@link #HELD_KEY}. */
     private void storeHeldExtension() {
         new TransactionTemplate(transactions).executeWithoutResult(status -> {
@@ -849,8 +969,17 @@ class DemographicUpdateDaoTransactionIntegrationTest {
 
     /** Extension rows as {@code key=value}, read through the DAO because {@code value} is a reserved word in H2. */
     private List<String> extensionValues() {
-        return extensions.getDemographicExtByDemographicNo(patientId).stream()
+        return extensionValues(patientId);
+    }
+
+    private List<String> extensionValues(int demographicNo) {
+        return extensions.getDemographicExtByDemographicNo(demographicNo).stream()
                 .map(extension -> extension.getKey() + "=" + extension.getValue()).toList();
+    }
+
+    private long archivedExtensionRows(int demographicNo) {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM demographicExtArchive WHERE demographic_no=?",
+                Long.class, demographicNo);
     }
 
     private List<String> archivedExtensionValues() {

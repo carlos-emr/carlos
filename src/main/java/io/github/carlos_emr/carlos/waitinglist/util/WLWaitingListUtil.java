@@ -89,17 +89,23 @@ public class WLWaitingListUtil {
 
     /*
      * This method adds the Waiting List note to the same position in the waitingList table but do not delete previous ones - later on DisplayWaitingList.jsp will display only the most current Waiting List Note record.
+     *
+     * Returns true when the note was recorded, and false when nothing was written: no list was
+     * named (id "0"), or the patient has no entry on the named list.
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    static public synchronized void updateWaitingListRecord(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+    static public synchronized boolean updateWaitingListRecord(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
         MiscUtils.getLogger().debug("WLWaitingListUtil.updateWaitingListRecord(): waitingListID: " + waitingListID + " for patient " + demographicNo);
         boolean isWatingIdSet = !waitingListID.equalsIgnoreCase("0") && !demographicNo.equalsIgnoreCase("0");
-        if (!isWatingIdSet) return;
+        if (!isWatingIdSet) return false;
 
         WaitingListDao dao = SpringUtils.getBean(WaitingListDao.class);
         List<WaitingList> waitingLists = dao.findByWaitingListIdAndDemographicId(ConversionUtils.fromIntString(waitingListID), ConversionUtils.fromIntString(demographicNo));
-        if (waitingLists.isEmpty()) return;
+        // Not on this list: the patient edit form relies on this being a no-op (it then offers the
+        // add), so it stays one, but it is reported, because a caller that was asked to save this
+        // note has not saved it.
+        if (waitingLists.isEmpty()) return false;
 
         long pos = 1;
         for (WaitingList wl : waitingLists) {
@@ -128,6 +134,7 @@ public class WLWaitingListUtil {
 
         // update the waiting list positions
         rePositionWaitingList(waitingListID);
+        return true;
     }
 
     /*

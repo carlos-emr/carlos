@@ -216,8 +216,14 @@ class BillingObecOutputApplyServiceUnitTest {
 
         service.applyOutputSpec(loggedInInfo, List.of(row));
 
-        assertThat(d.getVer()).isEqualTo("##");
-        verify(demographicManager).updateDemographic(eq(loggedInInfo), eq(d));
+        // The manager is given a copy that carries the marker. The stored row keeps its version code
+        // until the manager has archived it: changed in place, the archive recorded "##".
+        var saved = org.mockito.ArgumentCaptor.forClass(Demographic.class);
+        verify(demographicManager).updateDemographic(eq(loggedInInfo), saved.capture());
+        assertThat(saved.getValue()).isNotSameAs(d);
+        assertThat(saved.getValue().getDemographicNo()).isEqualTo(101);
+        assertThat(saved.getValue().getVer()).isEqualTo("##");
+        assertThat(d.getVer()).isEqualTo("AB");
 
         assertThat(cust.getAlert())
                 .contains("existing-alert")
@@ -289,7 +295,7 @@ class BillingObecOutputApplyServiceUnitTest {
             String message = "Invalid old version code: ZZ\nReason: Expired card- Renew card\nResponse Code: 60";
             assertThat(cust.getAlert()).isEqualTo(existing == null || existing.isEmpty() ? message : existing + "\n" + message);
             assertThat(result.appliedCount()).isEqualTo(1);
-            assertThat(patient.getVer()).isEqualTo("##");
+            assertThat(patient.getVer()).as("the stored row is left for the manager to archive").isEqualTo("ZZ");
         }
     }
 

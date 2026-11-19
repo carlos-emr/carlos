@@ -24,11 +24,18 @@
  * Step 4: an update in which the stored extension gives up its key and a new extension takes that
  * key is valid in the order given, and both rows are stored. With the stored row's UPDATE left
  * until after the INSERT, the new row met the key the stored one still held and was refused.
+ * Step 5: an update that sends the id of another patient's extension is refused (409,
+ * DEMOGRAPHIC_EXTENSION_NOT_FOUND) before either chart changes. The id alone used to re-point that
+ * row to this patient and overwrite it.
+ * Step 6: an update that names a waiting list the patient is no longer on (the entry was removed
+ * after the form was loaded) is refused (409, WAITING_LIST_ENTRY_NOT_FOUND) and rolled back. It
+ * used to save the patient and answer success while dropping the waiting-list note.
  *
  * The patient is the runWorkflow fixture (last name = this run's FAKE-PW<hex> marker, which the
  * updates keep). The waiting list is a list of its own, named by the marker, so renumbering it
- * touches no other patient's entry. Cleanup removes the patient's rows from each table the update
- * writes, then the list, and verifies them gone. Environment: the common contract (BASE_URL,
+ * touches no other patient's entry. Step 5's second patient has this run's marker plus "-V" as its
+ * last name. Cleanup removes the patient's rows from each table the update writes, the second
+ * patient and its extension, then the list, and verifies them gone. Environment: the common contract (BASE_URL,
  * TEST_USER, TEST_PASSWORD, TEST_PIN, MYSQL_*).
  */
 'use strict';
@@ -50,6 +57,9 @@ async function workflow(s) {
   const patient = Number(s.patient);
   const count = (sql, parameters) => Number(s.sql.value(sql, parameters));
   const audits = action => count('SELECT COUNT(*) FROM log WHERE action=? AND provider_no=?', [action, s.provider]);
+  /** Step 5's second patient, whose extension the update must not be able to claim. */
+  const victimName = `${s.marker}-V`;
+  const victimRows = 'SELECT demographic_no FROM demographic WHERE last_name=?';
 
   h.assert(count('SELECT COUNT(*) FROM waitingListName WHERE name=?', [s.marker]) === 0,
     'A waiting list with this run\'s marker already exists');
@@ -59,6 +69,12 @@ async function workflow(s) {
       h.assert(count(`SELECT COUNT(*) FROM ${table} WHERE ${column}=?`, [patient]) === 0,
         `Owned ${table} rows were not removed`);
     }
+    for (const table of ['demographicExtArchive', 'demographicExt']) {
+      s.sql.execute(`DELETE FROM ${table} WHERE demographic_no IN (${victimRows})`, [victimName]);
+    }
+    s.sql.execute('DELETE FROM demographic WHERE last_name=?', [victimName]);
+    h.assert(count('SELECT COUNT(*) FROM demographic WHERE last_name=?', [victimName]) === 0,
+      'The second patient was not removed');
     s.sql.execute('DELETE FROM waitingListName WHERE name=?', [s.marker]);
     h.assert(count('SELECT COUNT(*) FROM waitingListName WHERE name=?', [s.marker]) === 0,
       'The owned waiting list was not removed');
@@ -135,18 +151,17 @@ async function workflow(s) {
   });
 
   /**
-   * Sends an update the database refuses for a duplicate extension key. The client must be told so
-   * (HTTP 409 with the documented code), and nothing of the update may have been stored.
-   * `refusedValues` matches the extension values only this update carries.
+   * Sends an update that must be refused. The client must be told why (HTTP 409 with the documented
+   * error code; `meaning` says what the code identifies), and nothing of the update may have been
+   * stored. `refusedValues` matches the extension values only this update carries.
    */
-  const expectDuplicateKeyConflict = async (what, data, refusedValues) => {
+  const expectRefusal = async (what, data, code, meaning, refusedValues) => {
     const before = state();
     const failuresBefore = audits(ACCESS_FAILURE);
     const response = await s.context.request.put(endpoint, { data, maxRedirects: 0 });
     h.assert(response.status() === 409, `${what} expected HTTP 409, received ${response.status()}`);
     const failure = await response.json().catch(() => null);
-    h.assert(failure?.code === 'DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY',
-      'the response did not identify the duplicate demographic extension key');
+    h.assert(failure?.code === code, `the response did not identify ${meaning}`);
     await response.dispose();
 
     const after = state();
@@ -156,6 +171,9 @@ async function workflow(s) {
       'The refused update left an extension behind');
     h.assert(audits(ACCESS_FAILURE) === failuresBefore + 1, 'The refused call was not recorded as a failure in the access log');
   };
+
+  const expectDuplicateKeyConflict = (what, data, refusedValues) => expectRefusal(what, data,
+    'DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY', 'the duplicate demographic extension key', refusedValues);
 
   await s.step('an update whose last extension is refused leaves every record as it was', async () => {
     await expectDuplicateKeyConflict('a duplicate-key update',
@@ -191,6 +209,41 @@ async function workflow(s) {
       ['demo_cell', `${s.marker}-cell1`]]),
       `The extension archive is ${JSON.stringify(now.extensionArchive)}, expected a copy of the stored row before each change`);
     h.assert(now.updateAudits === auditsBefore + 1, 'The update wrote no audit row for the signed-in provider');
+  });
+
+  await s.step('an extension id of another patient is refused before either chart changes', async () => {
+    const victimValue = `${s.marker}-victim`;
+    s.sql.execute(`INSERT INTO demographic (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,
+      sex,patient_status,provider_no,hc_type,province,roster_status,lastUpdateDate)
+      VALUES (?,'Victim','1975','05','06','M','AC',?,'ON','ON','NR',NOW())`, [victimName, s.provider]);
+    const victim = Number(s.sql.value(victimRows, [victimName]));
+    h.assert(Number.isSafeInteger(victim) && victim > 0 && victim !== patient, 'The second patient fixture was not created');
+    s.sql.execute(`INSERT INTO demographicExt (demographic_no,provider_no,key_val,value,date_time)
+      VALUES (?,?,'demo_cell',?,NOW())`, [victim, s.provider, victimValue]);
+    const victimExt = Number(s.sql.value('SELECT id FROM demographicExt WHERE demographic_no=?', [victim]));
+    h.assert(Number.isSafeInteger(victimExt) && victimExt > 0, 'The second patient\'s extension fixture was not created');
+
+    // Sent as this patient's own extension: only the id says whose row it is.
+    await expectRefusal('claiming another patient\'s extension by id',
+      update('Claimed', 5, [extra('wPhoneExt', `${s.marker}-claim5`, victimExt)]),
+      'DEMOGRAPHIC_EXTENSION_NOT_FOUND', 'the extension that is not this patient\'s', `${s.marker}-claim5`);
+
+    const victimRow = s.sql.rows('SELECT demographic_no,key_val,value FROM demographicExt WHERE id=?', [victimExt]);
+    h.assert(JSON.stringify(victimRow) === JSON.stringify([[String(victim), 'demo_cell', victimValue]]),
+      `The other patient's extension row is ${JSON.stringify(victimRow)}, expected it unchanged and still theirs`);
+    h.assert(count('SELECT COUNT(*) FROM demographicExtArchive WHERE demographic_no=?', [victim]) === 0,
+      'The refused update archived the other patient\'s extension');
+  });
+
+  await s.step('an update naming a waiting list the patient is no longer on is refused, not half saved', async () => {
+    // The entry is removed after the form that names the list was loaded.
+    s.sql.execute('DELETE FROM waitingList WHERE listID=? AND demographic_no=?', [list, patient]);
+    h.assert(count('SELECT COUNT(*) FROM waitingList WHERE listID=? AND demographic_no=?', [list, patient]) === 0,
+      'The waiting-list entries were not removed');
+
+    await expectRefusal('an update naming a removed waiting-list entry',
+      update('Stale', 6, [extra('wPhoneExt', `${s.marker}-stale6`)]),
+      'WAITING_LIST_ENTRY_NOT_FOUND', 'the missing waiting-list entry', `${s.marker}-stale6`);
   });
 }
 

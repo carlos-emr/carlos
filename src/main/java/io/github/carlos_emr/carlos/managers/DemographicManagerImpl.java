@@ -583,9 +583,15 @@ public class DemographicManagerImpl implements DemographicManager {
      * a transaction holds the stored row itself, and the archive would then record the new values
      * (see {@code DemographicProviderReassignmentService}).</p>
      *
+     * <p>Every extension is saved under this patient, whatever patient number it carries, and a
+     * stored extension (one with an id) must already be this patient's. The check runs before the
+     * first write: the caller holds update access to this patient only, and an id or a patient
+     * number taken from a request must not reach into another chart.</p>
+     *
      * @param loggedInInfo {@link LoggedInInfo} the acting provider; must hold update access to the demographic security object
      * @param demographic {@link Demographic} the patient's new values, with optional extras; must name an existing patient
      * @throws IllegalArgumentException if the birth date cannot be parsed or the patient does not exist
+     * @throws DemographicExtensionNotFoundException if an extension names a stored row that is not this patient's
      */
     @Override
     @Transactional
@@ -599,6 +605,8 @@ public class DemographicManagerImpl implements DemographicManager {
 
         // Archive previous demo
         Demographic prevDemo = demographicDao.getDemographicById(demographic.getDemographicNo());
+        // Before the first write, so an update that is refused here has changed neither chart.
+        bindExtensionsToPatient(demographic);
         demographicArchiveDao.archiveRecord(prevDemo);
 
         // retain merge info
@@ -631,6 +639,32 @@ public class DemographicManagerImpl implements DemographicManager {
         LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.updateDemographic",
                 "demographicNo=" + demographic.getDemographicNo());
 
+    }
+
+    /**
+     * Ties every submitted extension to the patient being updated.
+     *
+     * <p>An extension carries its own patient number and, for a stored row, an id, and both come
+     * from the caller: the REST converter keeps what the client sent. Trusted as they are, the id
+     * would let an update of one patient re-point and overwrite another patient's row, and the
+     * number would create a row in another patient's chart.</p>
+     */
+    private void bindExtensionsToPatient(Demographic demographic) {
+        if (demographic.getExtras() == null) {
+            return;
+        }
+        Integer patient = demographic.getDemographicNo();
+        for (DemographicExt ext : demographic.getExtras()) {
+            if (ext.isPersistent()) {
+                DemographicExt stored = demographicExtDao.find(ext.getId());
+                // One answer for a row that is gone and for another patient's row: the refusal must
+                // not tell a caller which ids exist elsewhere.
+                if (stored == null || !Objects.equals(patient, stored.getDemographicNo())) {
+                    throw new DemographicExtensionNotFoundException();
+                }
+            }
+            ext.setDemographicNo(patient);
+        }
     }
 
     /**

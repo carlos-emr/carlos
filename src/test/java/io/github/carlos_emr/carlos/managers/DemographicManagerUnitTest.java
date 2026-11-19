@@ -1245,6 +1245,51 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             verify(mockDemographicExtDao, never()).flush();
         }
 
+        @org.junit.jupiter.params.ParameterizedTest(name = "stored row belongs to {0}")
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"another patient", "nobody: it is gone"})
+        @DisplayName("should refuse the update before any write when a stored extension is not the patient's")
+        void shouldRefuseBeforeAnyWrite_whenAStoredExtensionIsNotThePatients(String owner) {
+            Demographic updated = createTestDemographicWithId(TEST_DEMO_NO);
+            DemographicExt claimed = createTestDemographicExt(TEST_DEMO_NO, "demo_cell", "555-0199");
+            claimed.setId(65);
+            updated.setExtras(new DemographicExt[] {claimed});
+            when(mockDemographicDao.getDemographicById(TEST_DEMO_NO)).thenReturn(createTestDemographicWithId(TEST_DEMO_NO));
+            DemographicExt foreign = createTestDemographicExt(TEST_DEMO_NO + 1, "demo_cell", "555-0100");
+            foreign.setId(65);
+            when(mockDemographicExtDao.find(claimed.getId())).thenReturn(owner.startsWith("another") ? foreign : null);
+
+            // One refusal for both, so it cannot be used to learn which ids exist in other charts.
+            assertThatThrownBy(() -> manager.updateDemographic(mockLoggedInInfo, updated))
+                    .isExactlyInstanceOf(DemographicExtensionNotFoundException.class)
+                    .hasMessage("A submitted extension is not a stored extension of this patient.");
+
+            verifyNoInteractions(mockDemographicArchiveDao, mockDemographicExtArchiveDao);
+            verify(mockDemographicDao, never()).save(any(Demographic.class));
+            verify(mockDemographicExtDao, never()).saveEntity(any(DemographicExt.class));
+        }
+
+        @Test
+        @DisplayName("should save every extension under the patient being updated, whatever number it carries")
+        void shouldSaveExtensionsUnderThePatient_whateverNumberTheyCarry() {
+            Demographic updated = createTestDemographicWithId(TEST_DEMO_NO);
+            DemographicExt stored = createTestDemographicExt(TEST_DEMO_NO, "demo_cell", "555-0100");
+            stored.setId(65);
+            DemographicExt changed = createTestDemographicExt(TEST_DEMO_NO + 1, "demo_cell", "555-0199");
+            changed.setId(65);
+            DemographicExt added = createTestDemographicExt(TEST_DEMO_NO + 1, "hPhoneExt", "42");
+            added.setId(null);
+            updated.setExtras(new DemographicExt[] {changed, added});
+            when(mockDemographicDao.getDemographicById(TEST_DEMO_NO)).thenReturn(createTestDemographicWithId(TEST_DEMO_NO));
+            when(mockDemographicExtDao.find(changed.getId())).thenReturn(stored);
+
+            manager.updateDemographic(mockLoggedInInfo, updated);
+
+            assertThat(changed.getDemographicNo()).isEqualTo(TEST_DEMO_NO);
+            assertThat(added.getDemographicNo()).isEqualTo(TEST_DEMO_NO);
+            verify(mockDemographicExtDao).saveEntity(changed);
+            verify(mockDemographicExtDao).saveEntity(added);
+        }
+
         @Test
         @DisplayName("should add demographic without admission")
         void shouldAddDemographic_withoutAdmission() {
