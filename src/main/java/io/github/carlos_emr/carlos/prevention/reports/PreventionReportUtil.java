@@ -34,6 +34,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -127,7 +128,8 @@ public final class PreventionReportUtil {
         Date currentRevision = current.getLastUpdateDate();
         if (currentRevision != null && !currentRevision.after(onThisDate)) {
             return matchesRoster(providerNumbers, current.getProviderNo(), onThisDate,
-                    current.getRosterDate(), current.getRosterTerminationDate());
+                    current.getRosterDate(), current.getRosterTerminationDate())
+                    && !hasCompetingProviderAtRevision(demographicId, current, currentRevision, onThisDate);
         }
 
         // A demographic save archives the previous version with its original lastUpdateDate.
@@ -166,6 +168,18 @@ public final class PreventionReportUtil {
 
     private static boolean matchesRoster(Set<String> providers, String provider, Date date, Date start, Date end) {
         return provider != null && providers.contains(provider) && rosteredDuringThisTimeDemographic(date, start, end);
+    }
+
+    private static boolean hasCompetingProviderAtRevision(Integer demographicId, Demographic current,
+                                                          Date currentRevision, Date reportDate) {
+        // An older provider change could carry the same timestamp into both records. Competing
+        // providers with that timestamp leave the assignment on the report date unresolved.
+        return demographicArchiveDao().findByDemographicNo(demographicId).stream()
+                .anyMatch(archive -> archive.getLastUpdateDate() != null
+                        && archive.getLastUpdateDate().getTime() == currentRevision.getTime()
+                        && !Objects.equals(archive.getProviderNo(), current.getProviderNo())
+                        && rosteredDuringThisTimeDemographic(reportDate, archive.getRosterDate(),
+                                archive.getRosterTerminationDate()));
     }
 
     private static boolean rosteredDuringThisTimeDemographic(Date onThisDate, Date rosterStart, Date rosterEnd) {

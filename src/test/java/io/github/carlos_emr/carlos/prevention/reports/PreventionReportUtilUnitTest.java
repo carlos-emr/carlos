@@ -164,6 +164,35 @@ class PreventionReportUtilUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should omit conflicting provider assignments with the same revision and open roster")
+    void shouldLeaveOutAmbiguousProviderChanges_whenLiveAndArchiveShareARevision() {
+        Date revision = day(2023, 2, 1);
+        current.setRosterDate(archived.getRosterDate());
+        current.setLastUpdateDate(revision);
+        archived.setLastUpdateDate(revision);
+        archived.setRosterTerminationDate(null);
+
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, CURRENT_PROVIDER)).isFalse();
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, ARCHIVED_PROVIDER)).isFalse();
+
+        archived.setRosterTerminationDate(day(2024, 1, 1));
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, CURRENT_PROVIDER)).isTrue();
+
+        archived.setRosterTerminationDate(null);
+        archived.setProviderNo(CURRENT_PROVIDER);
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, CURRENT_PROVIDER)).isTrue();
+
+        archived.setProviderNo(ARCHIVED_PROVIDER);
+        archived.setLastUpdateDate(null);
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, CURRENT_PROVIDER)).isTrue();
+    }
+
+    @Test
     @DisplayName("should choose the later archive ID when provider revisions share a timestamp")
     void shouldUseLatestArchive_whenVersionsShareTheSameTimestamp() {
         current.setLastUpdateDate(day(2025, 2, 1));
@@ -225,6 +254,18 @@ class PreventionReportUtilUnitTest extends CarlosUnitTestBase {
         when(archiveDao.findByDemographicNo(DEMOGRAPHIC_NO)).thenReturn(List.of(archived));
         assertThat(PreventionReportUtil.wasRosteredToThisProvider(
                 loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, CURRENT_PROVIDER)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should accept a recorded roster only within its dates")
+    void shouldRespectRosterBounds_forCurrentAndArchivedRecords() {
+        Date beforeRoster = day(2022, 6, 15);
+        assertThat(PreventionReportUtil.wasRostered(loggedInInfo, DEMOGRAPHIC_NO, IN_CURRENT_PERIOD)).isTrue();
+        assertThat(PreventionReportUtil.wasRostered(loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD)).isTrue();
+        assertThat(PreventionReportUtil.wasRostered(loggedInInfo, DEMOGRAPHIC_NO, beforeRoster)).isFalse();
+        current.setLastUpdateDate(day(2022, 1, 1));
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, beforeRoster, CURRENT_PROVIDER)).isFalse();
     }
 
     @Test
