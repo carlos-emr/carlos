@@ -69,7 +69,6 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String wlid = (String) request.getAttribute("WLId");
@@ -200,7 +199,7 @@
                                             ${carlos:forHtml(waitingListBean.position)}
                                         </td>
                                         <td class="${styleClass}">
-                                            <a href="#" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=${carlos:forJavaScript(e:forUriComponent(waitingListBean.demographicNo))}'); return false;">
+                                            <a href="#" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=${carlos:forJavaScript(carlos:forUriComponent(waitingListBean.demographicNo))}'); return false;">
                                                 ${carlos:forHtml(waitingListBean.patientName)}
                                             </a>
                                             <input type="button" value="<fmt:message key='oscarwaitinglist.displayWaitingList.update'/>" name="update_${ctr.index}" style="font-size: 7pt;"
