@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/model/Appointment.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "1a363d25fba54c7cae11bc0d54b623d3ae0d209e"
+  },
+  "evidenceSha256": "ac30a79851e2fa412fd21014e4e51e21bb08e02ed3f0106d5184964e743c7f37"
+}

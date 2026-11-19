@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "1e47989a3d4f32881a73796e709d5b9eeacfc987",
+  "comparisonSha256": "2fb05201984e69bb51112219eee106115e6dd290b008f3bfde80d3d2efc4a9c5",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/appointment/service/DaySheetSelection.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "4ef813112d9531eb246d8f2be7bcb2e2a6168ad4"
+    }
+  },
+  "baselineCommit": "f5e431f620d2ba8b39b1add87ec9b34ab44b9d5b",
+  "baselineSourceTree": "1e47989a3d4f32881a73796e709d5b9eeacfc987",
+  "baselineReportSha256": "8a0f6605c1f667495de013aace3cffb4502c0f337fee5aacd5b226140dab5f48",
+  "baselineLane": "Fresh exact JDK25 selected-source classes and existing/regression controls. All24 unique actual JUnit cases pass with zero failures/errors/skips. Component inputs and exact JUnit hashes retained; selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 24,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "d640437e8aec91170a359ed48cb14adf18043e3b38668d8158cd9dd8babd0501",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}

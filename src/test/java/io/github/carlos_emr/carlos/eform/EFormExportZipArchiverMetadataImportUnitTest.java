@@ -110,9 +110,35 @@ class EFormExportZipArchiverMetadataImportUnitTest {
                 saved.add(invocation.getArgument(0));
                 return "1";
             });
-            List<String> errors = new EFormExportZip().importForm(new ByteArrayInputStream(zip));
+            List<String> errors = new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(zip));
             return new Result(errors, saved);
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"<img src=\"${oscar_image_path}kept.png?v=1#section\">",
+            "<img src=\"kept.png\">", "<img src='kept.png'>", "<img src=kept.png>"})
+    void shouldKeepReferencedAndDedicatedAssets_andDropDuplicateFormOrphans(String html) throws Exception {
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        entries.put("kept/eform.properties", utf8("form.name=FAKE kept\nform.htmlFilename=kept.html\n"));
+        entries.put("kept/kept.html", utf8(html + "<img src='missing.png'>"));
+        entries.put("kept/indirect.css", utf8("FAKE indirect stylesheet"));
+        entries.put("refused/eform.properties", utf8("form.name=FAKE existing\nform.htmlFilename=refused.html\n"));
+        entries.put("refused/refused.html", utf8("FAKE refused HTML"));
+        entries.put("refused/orphan.png", utf8("FAKE orphan"));
+        entries.put("kept.png", utf8("FAKE shared referenced image"));
+        entries.put("unassigned.png", utf8("FAKE image from a shared location"));
+        var saved = new ArrayList<EForm>();
+        try (var images = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
+            images.when(ImageUpload2Action::getImageFolder).thenReturn(imageFolder.toFile());
+            forms.when(() -> EFormUtil.formExistsInDB(any())).thenAnswer(call -> "FAKE existing".equals(call.getArgument(0)));
+            forms.when(() -> EFormUtil.saveEForm(any(EForm.class))).thenAnswer(call -> { saved.add(call.getArgument(0)); return "1"; });
+            assertThat(new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(zip(entries))))
+                    .singleElement().asString().contains("FAKE existing", "already exists");
+        }
+        assertThat(saved).singleElement().satisfies(form -> assertThat(form.getFormHtml()).contains(html));
+        assertThat(publishedNames()).containsExactly("indirect.css", "kept.png", "unassigned.png");
+        assertThat(Files.readString(imageFolder.resolve("kept.png"))).isEqualTo("FAKE shared referenced image");
     }
 
     /** Everything the import left in the image folder, except its own staging parent. */

@@ -1916,7 +1916,7 @@ public class EForm extends EFormBase {
         for (EctFormData.PatientForm form : attachedForms) {
             Map<String, String> additionalProperties = new HashMap<>();
             additionalProperties.put("data-formName", form.getFormName());
-            additionalProperties.put("data-formDate", form.getEdited());
+            additionalProperties.put("data-formDate", StringUtils.defaultString(form.getEdited()));
             addHiddenInputElement("entry_formNo" + form.getFormId(), null, "delegateOldFormAttachment", null, additionalProperties);
             addHiddenInputElement("delegate_formNo" + form.getFormId(), "formNo", "delegateAttachment", form.getFormId(), null);
         }

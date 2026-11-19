@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "44189a85541c75e33490eb47d55151757e52e5e3",
+  "comparisonSha256": "b5ff0433c707e39079f9d51f89f237def3ca3485e1c375414ff8627d187a67f3",
+  "baselineCommit": "0b2c8b9f372f38be649fb9f5d4aec409c932ac29",
+  "baselineSourceTree": "44189a85541c75e33490eb47d55151757e52e5e3",
+  "baselineReportSha256": "567a1c8ac3fde969f91d8bfd0b4ceb0f1ebfcc10323acecaaa61108301343c82",
+  "baselineLane": "Focused Java 25 and JaCoCo test run for the merged source and tests of PR #6180; only the selected Java file is covered by this record.",
+  "baselineTestCounts": {
+    "tests": 83,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "9b61a3cac899fda15a89ffaf38a1216e24ab68c9995f5427d7a515492e0caa93",
+  "baselineTestReportsHashFormat": "SHA-256 of a filename-to-SHA-256 JSON object with sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "Clinical Reports page links and buttons",
+    "Clinical report SQL JDBC boundary",
+    "Clinical report numerators and denominators by id",
+    "Removing a report from the Clinical Reports list",
+    "Report by Template layout JSP regressions",
+    "Running a clinical report with unusual posted values",
+    "io.github.carlos_emr.carlos.report.ClinicalReports.PageUtil.ClinicalReportsJspEncodingRegressionTest",
+    "io.github.carlos_emr.carlos.report.ClinicalReports.PageUtil.RunClinicalReport2ActionUnitTest",
+    "io.github.carlos_emr.carlos.report.ClinicalReports.ReportEvaluatorUnitTest"
+  ],
+  "priorSourceEvidenceSha256": [
+    "5433a6fe6261cca9b46666af0268cf9b0eae2be1eeeb4b74e177cee22ad6271b",
+    "9051ff5cad5280f9729edd8aa32b66a353c1b0b7d4f9e6299761d420c4d75047"
+  ],
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/report/ClinicalReports/PageUtil/RunClinicalReport2Action.java": {
+      "lines": 97.36842105263158,
+      "instructions": 94.91525423728814,
+      "branches": 100.0,
+      "sourceBlob": "51c21521ca60413789f2875704129ea1e0313585"
+    }
+  }
+}

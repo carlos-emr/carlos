@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "761445ad56d5b55781d578eb4101a2a3a98e07fb",
+  "comparisonSha256": "00a4c1154939956adc3422783b7fc3ecc5da692c8393a5538662d9e56ceb21b3",
+  "baselineCommit": "c59bcdabd017eb16fb5dfffe35a24dd84600b940",
+  "baselineSourceTree": "761445ad56d5b55781d578eb4101a2a3a98e07fb",
+  "baselineReportSha256": "3924bfdbecbd4085761c2566e17537828bf869a8bcfb3ce368b43bd65e46a366",
+  "baselineLane": "Java 25 and physical MariaDB 11.8.8 appointment edit version and repeated-hour round trip",
+  "baselineTestCounts": {
+    "tests": 18,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "20e6e63a2ab2c636ede6f05b25a8a520cbb4ea0ba614a2a4567267b3aed4d337",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Appointment.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "1a363d25fba54c7cae11bc0d54b623d3ae0d209e"
+    }
+  },
+  "exclusions": {}
+}

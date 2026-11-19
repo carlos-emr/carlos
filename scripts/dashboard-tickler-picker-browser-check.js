@@ -35,6 +35,7 @@ const web = path.join(__dirname, '../src/main/webapp');
         window.requests = [];
         $.ajax = request => { window.requests.push(request.data); request.complete(); };
       });
+      await page.addScriptTag({path: path.join(web, 'web/dashboard/display/dashboard-provider-context.js')});
       await page.addScriptTag({path: path.join(web, 'web/dashboard/display/drilldownDisplayController.js')});
       await page.evaluate(() => new Promise(resolve => $(document).ready(() => {initTicklerPickers(); resolve();})));
       await page.evaluate(() => initTicklerPickers());

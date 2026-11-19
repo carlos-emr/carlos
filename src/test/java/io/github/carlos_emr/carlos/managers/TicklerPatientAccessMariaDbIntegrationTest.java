@@ -224,7 +224,16 @@ class TicklerPatientAccessMariaDbIntegrationTest {
         try(var connection=dataSource.getConnection();var query=connection.prepareStatement(
                 "SELECT COUNT(*) FROM information_schema.INNODB_LOCK_WAITS w JOIN information_schema.INNODB_TRX t ON w.requesting_trx_id=t.trx_id WHERE t.trx_mysql_thread_id=?")) {
             query.setLong(1,writer);
-            do {try(var result=query.executeQuery()) {result.next();if(result.getInt(1)>0)return;}Thread.sleep(20);} while(System.nanoTime()<deadline);
+            do {
+                try (var result = query.executeQuery()) {
+                    result.next();
+                    if (result.getInt(1) > 0) {
+                        return;
+                    }
+                }
+                // MariaDB refreshes the InnoDB lock snapshot only after 100 ms without a read.
+                Thread.sleep(150);
+            } while (System.nanoTime() < deadline);
         }
         throw new AssertionError("The independent native writer did not wait on the held patient lock");
     }

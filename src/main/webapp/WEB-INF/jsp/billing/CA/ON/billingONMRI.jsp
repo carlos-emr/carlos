@@ -205,7 +205,7 @@
     <c:if test="${not empty skippedProviders}">
         <div class="alert alert-warning d-print-none" role="alert">
             <strong>${fn:length(skippedProviders)} provider(s) skipped</strong>
-            — per-provider transactions rolled back. The other providers'
+            &#8212; per-provider transactions rolled back. The other providers'
             files were generated as usual; re-run the report for the
             named providers and check the server log for the full cause.
             <ul class="mb-0">
@@ -214,7 +214,7 @@
                         provider <carlos:encode value="${fp.providerNo}" context="html"/>
                         (ohip <carlos:encode value="${fp.ohipNo}" context="html"/>):
                         <carlos:encode value="${fp.causeClass}" context="html"/>
-                        — <carlos:encode value="${fp.causeMessage}" context="html"/>
+                        &#8212; <carlos:encode value="${fp.causeMessage}" context="html"/>
                     </li>
                 </c:forEach>
             </ul>
