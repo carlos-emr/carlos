@@ -16,8 +16,9 @@
  * Fixtures: four documents (document + ctl_document + providerLabRouting) and three labs (hl7TextMessage +
  *   hl7TextInfo + providerLabRouting + patientLabRouting) for the run's FAKE- patient, whose empty HIN is
  *   set so the patient search judges dates only; cleanup removes every row by id and marker and asserts
- *   none remain. The global SystemPreferences row inboxDateSearchType is snapshotted and restored exactly
- *   (EXCLUSIVE=1: it changes every user's Inbox date mode while the check runs).
+ *   none remain. The global SystemPreferences row inboxDateSearchType is snapshotted and restored exactly; it
+ *   changes every user's Inbox date mode while the check runs, so the check must not run concurrently with
+ *   other checks (live wrapper: EXCLUSIVE=1).
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
