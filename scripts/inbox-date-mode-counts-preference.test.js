@@ -10,6 +10,10 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { DatabaseSync } = require('node:sqlite');
+const { spawnSync } = require('node:child_process');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { guardDatePreference, preflightConfig, WORKFLOW_OPTIONS } = require('./inbox-date-mode-counts-playwright-checks');
 
 const PREFERENCE = 'inboxDateSearchType';
@@ -115,4 +119,30 @@ test('shouldSkipBeforeAnyWrite_whenTheRunIsNotExclusiveOnADisposableHost', () =>
 
 test('shouldEnforceExclusivity_atTheDirectEntryPoint', () => {
   assert.equal(WORKFLOW_OPTIONS.preflightConfig, preflightConfig);
+});
+
+test('shouldSkipWithoutTouchingTheDatabase_whenTheNpmEntryPointRunsWithoutExclusive', () => {
+  // The invocation the review exercised: `npm run test:inbox-date-mode-counts-playwright` with EXCLUSIVE unset
+  // (or not 1). A fake mysql first on PATH records any database contact; the refusal must come before it.
+  const root = path.join(__dirname, '..');
+  const script = 'scripts/inbox-date-mode-counts-playwright-checks.js';
+  const { scripts } = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  assert.equal(scripts['test:inbox-date-mode-counts-playwright'], `node ${script}`);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'inbox-date-mode-entry-'));
+  try {
+    const contacted = path.join(dir, 'mysql-contacted');
+    fs.writeFileSync(path.join(dir, 'mysql'), `#!/bin/sh\necho contacted >> '${contacted}'\nexit 1\n`, { mode: 0o755 });
+    for (const exclusive of [undefined, '0']) {
+      const env = { PATH: `${dir}${path.delimiter}${process.env.PATH}`, HOME: dir, CARLOS_DISPOSABLE_HOST: 'true',
+        MYSQL_HOST: '127.0.0.1', MYSQL_PASSWORD: 'unused' };
+      if (exclusive !== undefined) env.EXCLUSIVE = exclusive;
+      const run = spawnSync(process.execPath, [script], { cwd: root, env, encoding: 'utf8', timeout: 30000 });
+      const output = `${run.stdout}${run.stderr}`;
+      assert.equal(run.status, 2, `EXCLUSIVE=${exclusive}: ${output}`);
+      assert.match(output, /SKIP inbox-date-mode-counts -- Requires a disposable exclusive application host/);
+      assert.equal(fs.existsSync(contacted), false, `EXCLUSIVE=${exclusive}: the entry point reached the database`);
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
