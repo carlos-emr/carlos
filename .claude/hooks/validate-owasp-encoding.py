@@ -23,6 +23,39 @@ CARLOS_ENCODE_TAG_RE = re.compile(
 ATTRIBUTE_RE = re.compile(rf"(?:^|\s)(?P<name>[\w:-]+)\s*=\s*(?P<value>{QUOTED_ATTRIBUTE})", re.DOTALL)
 
 
+def blank_jsp_comments(content: str) -> str:
+    """Blank JSP comments, which Jasper discards, keeping offsets and line breaks.
+
+    The hook sees only the edited text, not the whole page. An edit inside a comment can
+    therefore start after its ``<%--`` or stop before its ``--%>``: text up to a ``--%>``
+    that no ``<%`` precedes, and text after an unclosed ``<%--``, are comment too. A
+    scriptlet ending ``--%>`` (``<% i--%>``) is preceded by its own ``<%``, so it is not
+    mistaken for one. HTML comments are kept: Jasper still evaluates EL inside them.
+    scripts/lint/check-encoder-null-safety.py checks the whole page.
+    """
+    chars = list(content)
+
+    def blank(start: int, end: int) -> None:
+        for i in range(start, end):
+            if chars[i] != "\n":
+                chars[i] = " "
+
+    position = 0
+    close = content.find("--%>")
+    opener = content.find("<%")
+    if close != -1 and (opener == -1 or close < opener):
+        blank(0, close + 4)
+        position = close + 4
+    while (start := content.find("<%--", position)) != -1:
+        end = content.find("--%>", start + 4)
+        if end == -1:
+            blank(start, len(content))
+            break
+        blank(start, end + 4)
+        position = end + 4
+    return "".join(chars)
+
+
 def encoded_value_expressions(content: str) -> set[int]:
     """Locate expressions in the value attribute of a CARLOS encoder tag."""
     starts = set()
@@ -65,8 +98,12 @@ def check_jsp_unsafe_patterns(content: str) -> list[str]:
     Blocked: the OWASP encoder JSP taglib (owasp.encoder.jakarta[.advanced]) and its
     <e:forXxx> / ${e:forXxx(...)} forms. CARLOS no longer ships that library (#5477),
     so such a page fails to translate.
+
+    JSP comments are not checked: Jasper discards them, so a comment that names the
+    retired taglib or an EL expression is documentation, not code.
     """
     issues = []
+    content = blank_jsp_comments(content)
 
     if re.search(r'owasp\.encoder\.jakarta|OWASP_Java_Encoder_Project', content, re.IGNORECASE) \
             or re.search(r'<e:for\w+|\be:for\w+\s*\(', content):

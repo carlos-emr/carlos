@@ -204,6 +204,42 @@ then
   fails=$((fails+1))
 fi
 
+# The hook sees only the edited text. Jasper discards JSP comments, so naming the
+# retired taglib or an e:forXxx call inside one must not block an edit; the same
+# text outside a JSP comment, or inside an HTML comment (whose EL still runs), must.
+if ! python3 - "$SCRIPT_DIR/../../.claude/hooks/validate-owasp-encoding.py" <<'PY'
+import json
+import subprocess
+import sys
+
+# labDisplay.jsp lines 454-455, verbatim.
+LAB_DISPLAY_COMMENT = (
+    "        <%-- Pre-declare i18n messages used in JavaScript so they can be safely embedded\n"
+    "        in JavaScript string literals using OWASP ${e:forJavaScript(msgComment)} encoding --%>"
+)
+cases = (
+    (LAB_DISPLAY_COMMENT, 0),
+    (LAB_DISPLAY_COMMENT.split("\n")[1], 0),                     # edit ends a comment opened before it
+    ("<%-- see ${e:forHtml(x)} for the old form", 0),            # edit opens a comment closed after it
+    ("<%-- was owasp.encoder.jakarta.advanced (#5477) --%>", 0),
+    ("<%-- ${param.foo} --%>", 0),
+    ("<%-- note --%>${e:forHtml(x)}", 2),
+    ("<!-- ${e:forHtml(x)} -->", 2),
+    ("${e:forHtml(x)}<% count--%>", 2),                         # a scriptlet's --%> closes no comment
+    ('<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>', 2),
+    ("<%-- note --%><span>${param.foo}</span>", 2),
+)
+for markup, expected in cases:
+    payload = {"tool_name": "Edit", "tool_input": {"file_path": "fixture.jsp", "old_string": "x", "new_string": markup}}
+    result = subprocess.run([sys.executable, sys.argv[1]], input=json.dumps(payload), text=True, capture_output=True)
+    assert result.returncode == expected and "Error in OWASP validation hook" not in result.stderr, \
+        f"{markup!r}: expected {expected}, got {result.returncode}\n{result.stderr}"
+print("PASS: the encoder hook ignores JSP comments and still checks the code around them")
+PY
+then
+  fails=$((fails+1))
+fi
+
 if [[ $fails -eq 0 ]]; then
   echo "All encoder-null-safety lint fixtures pass."
   exit 0
