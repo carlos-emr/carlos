@@ -1203,26 +1203,29 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
         }
 
         @Test
-        @DisplayName("should execute a changed stored extension before the update returns")
-        void shouldFlushExtensionWrites_whenAStoredExtensionIsChanged() {
+        @DisplayName("should execute a changed stored extension before it saves the next one")
+        void shouldFlushEachStoredExtension_beforeSavingTheNext() {
             Demographic updated = createTestDemographicWithId(TEST_DEMO_NO);
             DemographicExt stored = createTestDemographicExt(TEST_DEMO_NO, "demo_cell", "555-0100");
             stored.setId(65);
             DemographicExt changed = createTestDemographicExt(TEST_DEMO_NO, "hPhoneExt", "555-0100");
             changed.setId(65);
-            updated.setExtras(new DemographicExt[] {changed});
+            DemographicExt added = createTestDemographicExt(TEST_DEMO_NO, "demo_cell", "555-0111");
+            added.setId(null);
+            updated.setExtras(new DemographicExt[] {changed, added});
             when(mockDemographicDao.getDemographicById(TEST_DEMO_NO)).thenReturn(createTestDemographicWithId(TEST_DEMO_NO));
             // By the Integer id, as the manager reads it: find(int) is a different overload.
             when(mockDemographicExtDao.find(changed.getId())).thenReturn(stored);
 
             manager.updateDemographic(mockLoggedInInfo, updated);
 
-            // The database answers the UPDATE at the flush; the update is audited only after it.
+            // The database answers the stored row's UPDATE at the flush. It must run before the new
+            // row's INSERT, which takes the key the stored row gave up; one flush is enough for both.
             var order = inOrder(mockDemographicExtDao);
             order.verify(mockDemographicExtDao).saveEntity(changed);
             order.verify(mockDemographicExtDao).flush();
-            logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(
-                    mockLoggedInInfo, "DemographicManager.updateDemographic", "demographicNo=" + TEST_DEMO_NO));
+            order.verify(mockDemographicExtDao).saveEntity(added);
+            verify(mockDemographicExtDao, times(1)).flush();
         }
 
         @Test

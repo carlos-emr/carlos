@@ -21,6 +21,9 @@
  * the same index, but as an UPDATE of an existing row, which the application executes later than
  * the INSERT of a new one. It is answered and rolled back exactly as step 2 is; it used to be
  * refused only when the transaction committed and reported as HTTP 500.
+ * Step 4: an update in which the stored extension gives up its key and a new extension takes that
+ * key is valid in the order given, and both rows are stored. With the stored row's UPDATE left
+ * until after the INSERT, the new row met the key the stored one still held and was refused.
  *
  * The patient is the runWorkflow fixture (last name = this run's FAKE-PW<hex> marker, which the
  * updates keep). The waiting list is a list of its own, named by the marker, so renumbering it
@@ -166,6 +169,28 @@ async function workflow(s) {
     await expectDuplicateKeyConflict('renaming a stored extension onto a held key',
       update('Renamed', 3, [extra('hPhoneExt', `${s.marker}-cell3`, cell)]),
       `${s.marker}-cell3`);
+  });
+
+  await s.step('a stored extension can give up the key a new one takes in the same update', async () => {
+    const auditsBefore = audits(UPDATE_AUDIT);
+    const response = await s.context.request.put(endpoint, {
+      data: update('Reordered', 4, [extra('cytolNum', `${s.marker}-cell4`, cell), extra('demo_cell', `${s.marker}-new4`)]),
+      maxRedirects: 0,
+    });
+    h.assert(response.status() === 200, `an update valid in the order given expected HTTP 200, received ${response.status()}`);
+    await response.dispose();
+
+    const now = JSON.parse(state());
+    h.assert(JSON.stringify(now.patient) === JSON.stringify([['Reordered', s.marker, s.provider]]),
+      `The patient row is ${JSON.stringify(now.patient)}, expected the new first name`);
+    // Ordered by id: the stored row under its new key, step 1's extension, then the new row.
+    h.assert(JSON.stringify(now.extensions) === JSON.stringify([['cytolNum', `${s.marker}-cell4`],
+      ['hPhoneExt', `${s.marker}-ext1`], ['demo_cell', `${s.marker}-new4`]]),
+      `The extensions are ${JSON.stringify(now.extensions)}, expected the stored row renamed and a new demo_cell row`);
+    h.assert(JSON.stringify(now.extensionArchive) === JSON.stringify([['demo_cell', `${s.marker}-cell0`],
+      ['demo_cell', `${s.marker}-cell1`]]),
+      `The extension archive is ${JSON.stringify(now.extensionArchive)}, expected a copy of the stored row before each change`);
+    h.assert(now.updateAudits === auditsBefore + 1, 'The update wrote no audit row for the signed-in provider');
   });
 }
 

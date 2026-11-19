@@ -184,7 +184,7 @@ class DemographicUpdateDaoTransactionIntegrationTest {
      * that name.
      */
     private static final String SINGLE_VALUE_KEY = "uk_demo_ext_single_value";
-    /** The key of the second extension {@link #storeHeldExtension} gives the patient. */
+    /** A second extension key: the one {@link #storeHeldExtension} gives the patient. */
     private static final String HELD_KEY = "hPhoneExt";
 
     @Autowired private DataSource dataSource;
@@ -505,6 +505,24 @@ class DemographicUpdateDaoTransactionIntegrationTest {
         assertNothingOfTheUpdateRemains(auditsBefore, "demo_cell=555-0100", HELD_KEY + "=42");
         assertNoCompanionWriteRemains(customFieldAuditsBefore);
         assertThat(audits(EXTENSION_AUDIT)).as("extension audit rows").isEqualTo(extensionAuditsBefore);
+    }
+
+    @Test
+    @DisplayName("should store both extensions when a stored one gives up the key a new one takes")
+    void shouldStoreBothExtensions_whenAStoredExtensionFreesTheKeyANewOneTakes() {
+        long auditsBefore = audits(UPDATE_AUDIT);
+        DemographicTo1 data = restPayload("Changed");
+        data.getExtras().add(extensionPayload(extensionId, HELD_KEY, "555-0100"));
+        data.getExtras().add(extensionPayload(null, "demo_cell", "555-0111"));
+
+        // Valid in the order given. Were the stored row's UPDATE left until after the INSERT, the new
+        // row would meet the key the stored one still held and the request would be refused.
+        put(data);
+
+        assertThat(patientFirstName()).isEqualTo("Changed");
+        assertThat(extensionValues()).containsExactlyInAnyOrder(HELD_KEY + "=555-0100", "demo_cell=555-0111");
+        assertThat(archivedExtensionValues()).as("the stored extension as it was").containsExactly("demo_cell=555-0100");
+        assertThat(audits(UPDATE_AUDIT)).isEqualTo(auditsBefore + 1);
     }
 
     @Test
