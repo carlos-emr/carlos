@@ -101,7 +101,7 @@ wait_for_db() {
         # bash's /dev/tcp is enough: we only need to know something is
         # accepting on the port, and it avoids depending on a client binary
         # inside the service sandbox.
-        if (exec 3<>"/dev/tcp/${CARLOS_DB_HOST}/${CARLOS_DB_PORT}") 2>/dev/null; then
+        if : 2>/dev/null >"/dev/tcp/${CARLOS_DB_HOST}/${CARLOS_DB_PORT}"; then
             return 0
         fi
         sleep 2
