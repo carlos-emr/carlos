@@ -54,6 +54,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.waitinglist.bean.WLPatientWaitingListBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -79,7 +80,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 @Tag("waitinglist")
 @Tag("security")
-class WaitingListMasterRecordLinkEncodingUnitTest {
+class WaitingListMasterRecordLinkEncodingUnitTest extends CarlosUnitTestBase {
 
     private static final Path DISPLAY_WAITING_LIST_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/waitinglist/DisplayWaitingList.jsp");
