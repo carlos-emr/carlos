@@ -59,6 +59,7 @@ class PreventionReportUtilUnitTest extends CarlosUnitTestBase {
     private static final String ARCHIVED_ENROLLED_TO = "990101";
     private static final String ARCHIVED_PROVIDER = "990102";
     private static final String CURRENT_PROVIDER = "990103";
+    private static final String THIRD_PROVIDER = "990104";
     /** Inside the archived roster period (2023-01-01 to 2024-12-31), before the current one. */
     private static final Date IN_ARCHIVED_PERIOD = day(2024, 6, 15);
     /** Inside the current, open roster period (from 2025-02-01). */
@@ -193,8 +194,8 @@ class PreventionReportUtilUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should choose the later archive ID when provider revisions share a timestamp")
-    void shouldUseLatestArchive_whenVersionsShareTheSameTimestamp() {
+    @DisplayName("should leave the provider unresolved when archived versions with different providers share a timestamp")
+    void shouldLeaveProviderUnresolved_whenArchivedVersionsShareATimestamp() {
         current.setLastUpdateDate(day(2025, 2, 1));
         archived.setId(4L);
         archived.setLastUpdateDate(day(2023, 2, 1));
@@ -205,10 +206,54 @@ class PreventionReportUtilUnitTest extends CarlosUnitTestBase {
         replacement.setProviderNo(CURRENT_PROVIDER);
         when(archiveDao.findByDemographicNo(DEMOGRAPHIC_NO)).thenReturn(List.of(replacement, archived));
 
+        // The archive ID orders archiving, not the unrecorded moment the provider changed.
         assertThat(PreventionReportUtil.wasRosteredToThisProvider(
-                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, CURRENT_PROVIDER)).isTrue();
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, CURRENT_PROVIDER)).isFalse();
         assertThat(PreventionReportUtil.wasRosteredToThisProvider(
                 loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, ARCHIVED_PROVIDER)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should credit neither earlier provider after a legacy A-to-B change and a stamped B-to-C change")
+    void shouldLeaveLegacyChainUnresolved_whenAAndBShareTheirTimestamp() {
+        // A -> B saved before reassignments were stamped, so B kept A's timestamp; B -> C was stamped.
+        Date legacyRevision = day(2023, 2, 1);
+        archived.setId(4L);
+        archived.setRosterTerminationDate(null);
+        archived.setLastUpdateDate(legacyRevision);
+        var providerB = new DemographicArchive();
+        providerB.setId(5L);
+        providerB.setRosterDate(archived.getRosterDate());
+        providerB.setLastUpdateDate(legacyRevision);
+        providerB.setProviderNo(THIRD_PROVIDER);
+        current.setRosterDate(archived.getRosterDate());
+        current.setLastUpdateDate(day(2025, 2, 1));
+        when(archiveDao.findByDemographicNo(DEMOGRAPHIC_NO)).thenReturn(List.of(archived, providerB));
+
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, ARCHIVED_PROVIDER)).as("A").isFalse();
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, THIRD_PROVIDER)).as("B").isFalse();
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, day(2025, 6, 15), CURRENT_PROVIDER)).as("C after its stamped change").isTrue();
+    }
+
+    @Test
+    @DisplayName("should still credit the provider when archived versions sharing a timestamp agree on it")
+    void shouldCreditProvider_whenArchivedVersionsShareATimestampAndProvider() {
+        current.setLastUpdateDate(day(2025, 2, 1));
+        archived.setId(4L);
+        archived.setLastUpdateDate(day(2023, 2, 1));
+        var sameProvider = new DemographicArchive();
+        sameProvider.setId(5L);
+        sameProvider.setLastUpdateDate(archived.getLastUpdateDate());
+        sameProvider.setRosterDate(archived.getRosterDate());
+        sameProvider.setRosterTerminationDate(archived.getRosterTerminationDate());
+        sameProvider.setProviderNo(ARCHIVED_PROVIDER);
+        when(archiveDao.findByDemographicNo(DEMOGRAPHIC_NO)).thenReturn(List.of(sameProvider, archived));
+
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, ARCHIVED_PROVIDER)).isTrue();
     }
 
     @Test

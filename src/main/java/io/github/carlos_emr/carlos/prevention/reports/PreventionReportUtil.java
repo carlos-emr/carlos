@@ -142,7 +142,8 @@ public final class PreventionReportUtil {
         if (asOfVersion.isPresent()) {
             DemographicArchive archive = asOfVersion.get();
             return matchesRoster(providerNumbers, archive.getProviderNo(), onThisDate,
-                    archive.getRosterDate(), archive.getRosterTerminationDate());
+                    archive.getRosterDate(), archive.getRosterTerminationDate())
+                    && !hasCompetingArchiveAtRevision(archives, archive, onThisDate);
         }
 
         // Legacy history can establish a closed period from roster dates alone. An undated
@@ -178,6 +179,21 @@ public final class PreventionReportUtil {
                 .anyMatch(archive -> archive.getLastUpdateDate() != null
                         && archive.getLastUpdateDate().getTime() == currentRevision.getTime()
                         && !Objects.equals(archive.getProviderNo(), current.getProviderNo())
+                        && rosteredDuringThisTimeDemographic(reportDate, archive.getRosterDate(),
+                                archive.getRosterTerminationDate()));
+    }
+
+    private static boolean hasCompetingArchiveAtRevision(List<DemographicArchive> archives, DemographicArchive selected,
+                                                         Date reportDate) {
+        // Legacy MRP reassignments copied the previous version's lastUpdateDate, so two archived
+        // versions can share one timestamp. The archive ID orders when they were archived, not
+        // when each provider took over, so competing providers leave the report date unresolved.
+        long revision = selected.getLastUpdateDate().getTime();
+        return archives.stream()
+                .anyMatch(archive -> archive != selected
+                        && archive.getLastUpdateDate() != null
+                        && archive.getLastUpdateDate().getTime() == revision
+                        && !Objects.equals(archive.getProviderNo(), selected.getProviderNo())
                         && rosteredDuringThisTimeDemographic(reportDate, archive.getRosterDate(),
                                 archive.getRosterTerminationDate()));
     }
