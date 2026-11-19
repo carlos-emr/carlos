@@ -14,16 +14,24 @@ package io.github.carlos_emr.carlos.report.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Vector;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedConstruction;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
+import io.github.carlos_emr.carlos.report.data.RptReportFilter;
 
 /**
  * Unit tests for {@link RptFormQuery#getQueryWhereParameterized(java.util.List)}
@@ -178,5 +186,82 @@ class RptFormQueryTest {
 
         assertThat(result.getSql()).isEmpty();
         assertThat(result.getParams()).isEmpty();
+    }
+
+    // ---- #5831: filter predicates come from the stored report filters, never the request ----
+
+    /** Stored filter row in RptReportFilter#getNameList's six-column shape. */
+    private static String[] storedFilter(String orderNo, String predicate, String dateFormat) {
+        return new String[]{"description " + orderNo, predicate, "position", orderNo, "", dateFormat};
+    }
+
+    private static MockedConstruction<RptReportFilter> storedFilters(String[]... rows) {
+        return mockConstruction(RptReportFilter.class, (filters, context) ->
+                when(filters.getNameList(anyString(), anyInt())).thenReturn(new Vector<>(Arrays.asList(rows))));
+    }
+
+    @Test
+    @DisplayName("should use the stored predicate and ignore SQL text posted in value_ fields")
+    void shouldUseStoredPredicate_whenRequestPostsItsOwnSql() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addParameter("filter_2", "on");
+        request.addParameter("value_2", "1=1 UNION SELECT user_name FROM security");
+        request.addParameter("dateFormat_2", "dd/MM/yyyy");
+        try (var filters = storedFilters(storedFilter("2", "demographic.sex=${sex1}", ""))) {
+            List<RptFormQuery.CheckedFilter> checked = new RptFormQuery().checkedFilters("7", request);
+
+            assertThat(checked).containsExactly(new RptFormQuery.CheckedFilter("demographic.sex=${sex1}", ""));
+        }
+    }
+
+    @Test
+    @DisplayName("should return only ticked filters, in stored order")
+    void shouldReturnTickedFilters_inStoredOrder() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addParameter("filter_3", "on");
+        request.addParameter("filter_1", "on");
+        try (var filters = storedFilters(
+                storedFilter("1", "a=${a1}", ""),
+                storedFilter("2", "b=${b1}", ""),
+                storedFilter("3", "c>=${startDate1}", "yyyy-MM-dd"))) {
+            assertThat(new RptFormQuery().checkedFilters("7", request)).containsExactly(
+                    new RptFormQuery.CheckedFilter("a=${a1}", ""),
+                    new RptFormQuery.CheckedFilter("c>=${startDate1}", "yyyy-MM-dd"));
+        }
+    }
+
+    @Test
+    @DisplayName("should keep the first stored filter when two share an order number, as the browser does")
+    void shouldKeepFirstStoredFilter_whenOrderNumbersRepeat() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addParameter("filter_1", "on");
+        try (var filters = storedFilters(storedFilter("1", "first=1", ""), storedFilter("1", "second=1", ""))) {
+            assertThat(new RptFormQuery().checkedFilters("7", request))
+                    .containsExactly(new RptFormQuery.CheckedFilter("first=1", ""));
+        }
+    }
+
+    @Test
+    @DisplayName("should refuse a ticked filter the report does not define")
+    void shouldRefuseTickedFilter_whenReportDoesNotDefineIt() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addParameter("filter_1", "on");
+        request.addParameter("filter_99", "on");
+        request.addParameter("value_99", "1=1");
+        try (var filters = storedFilters(storedFilter("1", "a=1", ""))) {
+            assertThatThrownBy(() -> new RptFormQuery().checkedFilters("7", request))
+                    .isInstanceOf(RptFormQuery.UnknownReportFilterException.class)
+                    .hasMessageContaining("reload the report filter page");
+        }
+    }
+
+    @Test
+    @DisplayName("should return no filters when nothing is ticked")
+    void shouldReturnNoFilters_whenNothingIsTicked() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addParameter("value_1", "1=1 UNION SELECT 1");
+        try (var filters = storedFilters(storedFilter("1", "a=1", ""))) {
+            assertThat(new RptFormQuery().checkedFilters("7", request)).isEmpty();
+        }
     }
 }
