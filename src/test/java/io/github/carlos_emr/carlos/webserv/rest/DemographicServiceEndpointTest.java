@@ -361,6 +361,29 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             assertThat(note.getValue().getListId()).isEqualTo(7);
         }
 
+        @ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+        void shouldReportOnlyWaitingListLockConflicts_asRetryable(boolean lockConflict) {
+            registerMock(WaitingListDao.class, mockWaitingListDao);
+            var data = payload("PUT");
+            data.setWaitingListID(7);
+            data.setWaitingListNote("Synthetic note");
+            String privateValue = "FAKE-PRIVATE-WAITING-LIST-DIAGNOSTIC";
+            RuntimeException failure = lockConflict
+                    ? new jakarta.persistence.PessimisticLockException(privateValue)
+                    : new IllegalStateException(privateValue);
+            when(mockWaitingListDao.findByWaitingListIdForUpdate(7)).thenThrow(failure);
+
+            try (Response response = request().path("/demographics").invoke("PUT", data)) {
+                assertThat(response.getStatus()).isEqualTo(lockConflict ? 409 : 500);
+                if (lockConflict) {
+                    assertThat(response.readEntity(String.class)).contains("WAITING_LIST_CHANGED", "reload before retrying")
+                            .doesNotContain(privateValue);
+                }
+            }
+            verify(mockDemographicManager, never()).updateDemographic(any(LoggedInInfo.class), any(Demographic.class));
+        }
+
         @Test
         void shouldNotCheckTheNote_whenNoWaitingListIsNamed() {
             // The note is written only with a list, so without one a long note is not a reason to refuse.

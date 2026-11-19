@@ -438,6 +438,11 @@ class DemographicUpdateDaoTransactionIntegrationTest {
         TransactionTemplate overlappingWrite = new TransactionTemplate(transactions);
         overlappingWrite.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         earlierSnapshot.executeWithoutResult(status -> {
+            if (physicalMariaDb()) {
+                // Exercise repeatable read without MariaDB's optional snapshot-conflict
+                // refusal, which would stop the second request at the earlier patient lock.
+                jdbc.execute("SET SESSION innodb_snapshot_isolation = OFF");
+            }
             assertThat(waitingListNotes("N")).containsExactly("Original note");
             overlappingWrite.executeWithoutResult(inner -> put(first));
             put(second);

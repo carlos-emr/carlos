@@ -670,9 +670,10 @@ public class DemographicService extends AbstractServiceImpl {
      * stored row are the committed ones. A request refused for missing privilege, an invalid
      * field, or a failed write changes nothing.</p>
      *
-     * <p>Three refusals are answered HTTP 409 with a JSON error code, and likewise change nothing:
+     * <p>These refusals are answered HTTP 409 with a JSON error code, and likewise change nothing:
      * {@code WAITING_LIST_ENTRY_NOT_FOUND} when the patient has no current entry on the waiting list the
-     * request names, {@code DEMOGRAPHIC_EXTENSION_NOT_FOUND} when an extension id is not one of
+     * request names, {@code WAITING_LIST_CHANGED} when the database refuses a conflicting list update,
+     * {@code DEMOGRAPHIC_EXTENSION_NOT_FOUND} when an extension id is not one of
      * this patient's stored extensions, and {@code DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY} when the
      * database refuses a second extension with a key the patient already holds. Every extension
      * is saved under this patient, whatever patient number it carries.</p>
@@ -717,8 +718,7 @@ public class DemographicService extends AbstractServiceImpl {
         }
 
         //update waitingList (0 is the form's "no list" value, which the helper skips)
-        if (data.getWaitingListID() != null && data.getWaitingListID() != 0
-                && !WLWaitingListUtil.updateCurrentWaitingListRecord(data.getWaitingListID().toString(), data.getWaitingListNote(), data.getDemographicNo().toString(), null)) {
+        if (data.getWaitingListID() != null && data.getWaitingListID() != 0 && !updateWaitingListNote(data)) {
             // The patient has no current entry on the list this request names, typically because
             // it was removed after the client loaded the form (a removal keeps the entry as
             // history, which does not count). Saving the rest and answering success would drop
@@ -735,6 +735,18 @@ public class DemographicService extends AbstractServiceImpl {
         }
 
         return demoConverter.getAsTransferObject(loggedInInfo, demographic);
+    }
+
+    private static boolean updateWaitingListNote(DemographicTo1 data) {
+        try {
+            return WLWaitingListUtil.updateCurrentWaitingListRecord(data.getWaitingListID().toString(),
+                    data.getWaitingListNote(), data.getDemographicNo().toString(), null);
+        } catch (RuntimeException failure) {
+            if (DemographicWriteConflict.isConflict(failure)) {
+                throw staleRequest("WAITING_LIST_CHANGED", "The waiting list changed; reload before retrying.");
+            }
+            throw failure;
+        }
     }
 
     private static RuntimeException extensionWriteFailure(RuntimeException failure) {
