@@ -1839,8 +1839,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (selectedLock == null) return -1L;
         List<CheckBoxBean> checklist = sessionFrm.getIssueCheckList();
         List<CheckBoxBean> checkedlist = checklist == null ? null : new ArrayList<>(checklist);
-        if ((note.getId() != null || request.getParameterValues("renderedIssueIdentity") != null)
-                && !matchesRenderedIssueChecklist(checkedlist)) {
+        if (!matchesRenderedIssueChecklist(checkedlist)) {
             response.setStatus(HttpServletResponse.SC_CONFLICT);
             return -1L;
         }

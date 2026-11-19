@@ -881,6 +881,44 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         verify(locks, never()).merge(any());
     }
 
+    @Test
+    void shouldRefuseNewFullSave_whenAnOlderFormPostsCheckboxesWithoutTheIssueLayout() throws Exception {
+        original.setId(null);
+        lock.setNoteId(0L);
+        CheckBoxBean selected = prepareFullIssueSave(true, false);
+        CheckBoxBean other = prepareFullIssueSave(true, true);
+        List<CheckBoxBean> current = new ArrayList<>(List.of(other, selected));
+        form.setIssueCheckList(current);
+        request.removeParameter("renderedIssueIdentity");
+        Snapshot before = snapshot();
+
+        assertThat(action.save()).isEqualTo("windowCloseError");
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(snapshot()).isEqualTo(before);
+        assertThat(form.getIssueCheckList()).isSameAs(current).containsExactly(other, selected);
+        assertThat(form.getCaseNote()).isSameAs(original);
+        assertThat(request.getAttribute("unsavedNoteText")).isEqualTo(submittedText);
+        verify(locks, never()).merge(any());
+    }
+
+    @Test
+    void shouldSaveNewFullForm_whenAnOlderEmptyFormHasNoIssueLayoutOrCheckboxes() throws Exception {
+        original.setId(null);
+        lock.setNoteId(0L);
+        prepareFullSave(submittedText);
+        request.removeParameter("renderedIssueIdentity");
+        request.removeParameter("issueCheckList[0].checked");
+        Snapshot before = snapshot();
+
+        assertThat(action.save()).isEqualTo("view");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(snapshot().notes()).hasSize(before.notes().size() + 1);
+        tx().executeWithoutResult(status -> assertThat(caseManagementNoteDAO.getNote(form.getCaseNote().getId()).getIssues())
+                .isEmpty());
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void shouldRefuseSave_whenPositionalIssueIdentitiesWereRenderedInADifferentOrder(boolean compact) throws Exception {
