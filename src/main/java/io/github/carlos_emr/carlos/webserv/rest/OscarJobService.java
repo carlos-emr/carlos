@@ -34,6 +34,7 @@ import java.util.List;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -216,7 +217,7 @@ public class OscarJobService extends AbstractServiceImpl {
 
         if (job.getId() > 0) {
             synchronized (OscarJobExecutingManager.schedulingLock(job.getId())) {
-                OscarJob savedJob = oscarJobManager.getJob(getLoggedInInfo(), job.getId());
+                OscarJob savedJob = requireStoredJob(job.getId());
                 savedJob.setName(job.getName());
                 savedJob.setDescription(job.getDescription());
                 savedJob.setEnabled(job.isEnabled());
@@ -235,10 +236,18 @@ public class OscarJobService extends AbstractServiceImpl {
         }
     }
 
+    private OscarJob requireStoredJob(Integer jobId) {
+        OscarJob job = oscarJobManager.getJob(getLoggedInInfo(), jobId);
+        if (job == null) {
+            throw new NotFoundException();
+        }
+        return job;
+    }
+
     /** Reads and applies the stored schedule while the caller holds the job's scheduling lock. */
     private OscarJobResponse applyStoredSchedule(Integer jobId) {
         // The form does not carry the cron or the persisted job type association.
-        OscarJob persisted = oscarJobManager.getJob(getLoggedInInfo(), jobId);
+        OscarJob persisted = requireStoredJob(jobId);
         OscarJobResponse.ScheduleActivation activation = null;
         try {
             if (!persisted.isEnabled()) {

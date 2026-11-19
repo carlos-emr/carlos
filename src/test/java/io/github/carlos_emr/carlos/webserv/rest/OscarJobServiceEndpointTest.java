@@ -291,6 +291,20 @@ class OscarJobServiceEndpointTest extends CarlosRestTestBase {
 
         @ParameterizedTest
         @ValueSource(booleans = {false, true})
+        void shouldReturnNotFound_whenTheJobIsMissingDuringSave(boolean foundBeforeUpdate) {
+            var type = createTestJobType(1, "TestType", "com.example.TestJob");
+            var before = createTestJob(JOB_ID, "Previous job", type);
+            when(mockOscarJobManager.getJob(any(LoggedInInfo.class), eq(JOB_ID)))
+                    .thenReturn(foundBeforeUpdate ? before : null, (OscarJob) null);
+
+            try (var scheduler = mockStatic(OscarJobUtils.class); Response response = post(true)) {
+                assertThat(response.getStatus()).isEqualTo(404);
+                scheduler.verifyNoInteractions();
+            }
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {false, true})
         void shouldClearTheScheduledTask_whenTheSavedEditDisablesTheJob(boolean alreadyCancelled) {
             persistedEdit(false);
             try (var timer = new ScheduledThreadPoolExecutor(1)) {
