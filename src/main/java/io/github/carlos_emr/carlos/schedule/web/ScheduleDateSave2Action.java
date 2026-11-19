@@ -123,13 +123,9 @@ public final class ScheduleDateSave2Action extends ActionSupport {
             return badRequest(request, "error.refusal.scheduleSaveOrDelete", "Choose Save or Delete.");
         }
 
-        // The rule schedule and the calendar's days are session-wide. Another tab may have opened a
-        // different provider's calendar since this popup was drawn, and Delete would then write that
-        // provider's rule hours for this one. Refuse before writing anything (#5297).
         HttpSession session = request.getSession();
-        RscheduleBean ruleSchedule = session.getAttribute(RULE_SCHEDULE) instanceof RscheduleBean bean ? bean : null;
-        if (ruleSchedule == null || !providerNo.equals(ruleSchedule.provider_no)
-                || !ScheduleCalendarCache.isFor(session, providerNo)) {
+        RscheduleBean ruleSchedule = openCalendarRule(session, providerNo);
+        if (ruleSchedule == null) {
             return refuse(request, HttpServletResponse.SC_CONFLICT, "error.refusal.scheduleCalendarChanged",
                     "The calendar open in this session is for another provider.");
         }
@@ -161,6 +157,22 @@ public final class ScheduleDateSave2Action extends ActionSupport {
         // copy is marked for the month view to reload and the save is still acknowledged.
         ScheduleCalendarCache.refreshDay(session, providerNo, date, () -> overrideService().currentOverride(providerNo, date));
         return SUCCESS;
+    }
+
+    /**
+     * The session's rule schedule, provided the calendar open in the session is this provider's;
+     * otherwise {@code null}.
+     *
+     * <p>The rule schedule and the calendar's days are session-wide. Another tab may have opened a
+     * different provider's calendar since this popup was drawn, and Delete would then write that
+     * provider's rule hours for this one. The caller refuses before writing anything (#5297).</p>
+     */
+    private static RscheduleBean openCalendarRule(HttpSession session, String providerNo) {
+        RscheduleBean rule = session.getAttribute(RULE_SCHEDULE) instanceof RscheduleBean bean ? bean : null;
+        if (rule == null || !providerNo.equals(rule.provider_no) || !ScheduleCalendarCache.isFor(session, providerNo)) {
+            return null;
+        }
+        return rule;
     }
 
     /**

@@ -84,8 +84,9 @@ class ScheduleDateSaveJspRegressionTest {
         // A save that could not read its change back leaves the days to be reloaded before the month
         // is drawn, on every request including the display-only one.
         int reload = calendar.indexOf("ScheduleCalendarCache.reloadIfStale(session, provider_no, scheduleDateDao);");
-        assertThat(reload).as("the calendar reloads stale days").isPositive();
-        assertThat(reload).isLessThan(calendar.indexOf("<html>"));
+        assertThat(reload).as("the calendar reloads stale days, before drawing")
+                .isPositive()
+                .isLessThan(calendar.indexOf("<html>"));
         // Outside the block that builds the calendar, so the bFirstDisp=0 redisplay reloads too.
         int build = calendar.indexOf("if (request.getParameter(\"bFirstDisp\") == null || request.getParameter(\"bFirstDisp\").compareTo(\"1\") == 0) {");
         assertThat(build).as("the calendar's build block").isPositive().isLessThan(reload);
