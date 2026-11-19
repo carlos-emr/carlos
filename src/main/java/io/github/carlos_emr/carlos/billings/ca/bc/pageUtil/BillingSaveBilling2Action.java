@@ -127,6 +127,18 @@ public class BillingSaveBilling2Action extends ActionSupport {
             return NONE;
         }
 
+        // Recheck mandatory rule availability at the write boundary, including submissions whose review was bypassed.
+        var rules = SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.BillingServiceDao.class);
+        try {
+            if (rules.findTimeRules() == null || rules.findAllConditionRules() == null) {
+                throw new org.springframework.dao.DataRetrievalFailureException("Billing rules are unavailable");
+            }
+        } catch (jakarta.persistence.PersistenceException | org.springframework.dao.DataAccessException
+                | org.springframework.transaction.TransactionException unavailable) {
+            response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE, "Billing validation rules are unavailable. Retry before saving.");
+            return NONE;
+        }
+
         bean.setCreator(loggedInInfo.getLoggedInProviderNo());
 
         MiscUtils.getLogger().debug("BC billing appointment link present={}", bean.getApptNo() != null);

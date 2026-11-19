@@ -41,8 +41,48 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class ReportConfigDaoImpl extends AbstractDaoImpl<ReportConfig> implements ReportConfigDao {
 
+    private static final String REPORT_ID_PARAMETER = "reportId";
+
     public ReportConfigDaoImpl() {
         super(ReportConfig.class);
+    }
+
+    @Override
+    public List<ReportConfig> findByReportIdAndSaveForUpdate(int reportId, String save) {
+        return entityManager.createQuery("select r from ReportConfig r where r.reportId = :reportId and (r.save = :save or (:save is null and r.save is null)) order by r.id", ReportConfig.class)
+                .setParameter(REPORT_ID_PARAMETER, reportId).setParameter("save", save)
+                .setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).getResultList();
+    }
+
+    @Override
+    public List<ReportConfig> findByReportIdAndSave(int reportId, String save) {
+        return entityManager.createQuery("select x from ReportConfig x where x.reportId=:reportId and (x.save=:save or (:save is null and x.save is null)) order by coalesce(x.orderNo, 0), x.id", ReportConfig.class)
+                .setParameter(REPORT_ID_PARAMETER, reportId).setParameter("save", save).getResultList();
+    }
+
+    @Override
+    public List<ReportConfig> findByReportId(int reportId) {
+        return entityManager.createQuery("select x from ReportConfig x where x.reportId=:reportId order by coalesce(x.orderNo, 0), x.id", ReportConfig.class)
+                .setParameter(REPORT_ID_PARAMETER, reportId).getResultList();
+    }
+
+    @Override
+    public List<String> findTableNames(int reportId) {
+        return entityManager.createQuery("select distinct x.tableName from ReportConfig x where x.reportId=:reportId order by x.tableName desc", String.class)
+                .setParameter(REPORT_ID_PARAMETER, reportId).getResultList();
+    }
+
+    @Override
+    public List<String> findFormTableNames(int reportId) {
+        return entityManager.createQuery("select distinct x.tableName from ReportConfig x where x.reportId=:reportId and x.tableName like 'form%' order by x.tableName", String.class)
+                .setParameter(REPORT_ID_PARAMETER, reportId).getResultList();
+    }
+
+    @Override
+    public int nextOrder(int reportId) {
+        Integer maximum = entityManager.createQuery("select max(x.orderNo) from ReportConfig x where x.reportId=:reportId", Integer.class)
+                .setParameter(REPORT_ID_PARAMETER, reportId).getSingleResult();
+        return maximum == null ? 1 : maximum + 1;
     }
 
     @Override
@@ -62,7 +102,7 @@ public class ReportConfigDaoImpl extends AbstractDaoImpl<ReportConfig> implement
 
     @Override
     public List<ReportConfig> findByReportIdAndSaveAndGtOrderNo(int reportId, String save, int orderNo) {
-        Query q = entityManager.createQuery("select x from ReportConfig x where x.reportId=?1 and x.save=?2 and x.orderNo >= ?3 order by x.orderNo DESC");
+        Query q = entityManager.createQuery("select x from ReportConfig x where x.reportId=?1 and (x.save=?2 or (?2 is null and x.save is null)) and coalesce(x.orderNo, 0) >= ?3 order by coalesce(x.orderNo, 0) DESC, x.id");
         q.setParameter(1, reportId);
         q.setParameter(2, save);
         q.setParameter(3, orderNo);

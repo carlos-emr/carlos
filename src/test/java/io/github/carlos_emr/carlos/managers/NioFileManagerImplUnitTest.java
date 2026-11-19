@@ -198,14 +198,19 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
     @DisplayName("Rejects delete targets outside approved temp directories")
     void shouldThrowSecurityException_whenOutsidePathProvided() throws IOException {
         outsideDir = createOutsideAllowedTempDirectory();
-        outsideFile = Files.createFile(outsideDir.resolve("outside.tmp"));
+        outsideFile = Files.createFile(outsideDir.resolve("FAKE-PRIVATE-PATIENT.tmp"));
         assumeTrue(!PathValidationUtils.isInAllowedTempDirectory(outsideFile.toFile()),
                 "outside test directory unexpectedly resolves inside an allowed temp directory");
         String outsidePath = outsideFile.toString();
 
-        assertThatThrownBy(() -> nioFileManager.deleteTempFile(outsidePath))
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("Invalid temp deletion target");
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(NioFileManagerImpl.class)) {
+            assertThatThrownBy(() -> nioFileManager.deleteTempFile(outsidePath))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("Invalid temp deletion target");
+            assertThat(logs.events()).isNotEmpty();
+            assertThat(String.join("\n", logs.messages())).doesNotContain("FAKE-PRIVATE-PATIENT", outsidePath);
+            assertThat(logs.events()).allSatisfy(event -> assertThat(event.getThrown()).isNull());
+        }
         assertThat(outsideFile).exists();
     }
 

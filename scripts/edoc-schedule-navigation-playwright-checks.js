@@ -593,7 +593,10 @@ async function run() {
   }
 }
 
-run().catch(() => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('edoc-schedule-navigation', async () => {
+  await run().catch(() => {
   console.error('FAIL: eDoc validation or fixture cleanup failed');
   process.exitCode = process.exitCode || 1;
 });
+}, {existingSignalHandlers:true});

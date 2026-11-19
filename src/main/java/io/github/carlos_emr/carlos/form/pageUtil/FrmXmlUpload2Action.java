@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
@@ -49,6 +50,7 @@ import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
+import java.nio.file.Files;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
@@ -107,12 +109,23 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
             return forwardActionErrors();
         }
 
-        File tmpFile = stageUploadedArchive();
-
-        try (ZipFile zf = new ZipFile(tmpFile)) {
-            String importResult = isEFormArchive(zf) ? importEFormArchive(tmpFile) : importLegacyArchive(zf);
-            if (importResult != null) {
-                return importResult;
+        File tmpFile = File.createTempFile("tmp", ".zip");
+        // Register cleanup before staging/opening so copy failures and malformed ZIPs are removed too.
+        try (AutoCloseable cleanup = () -> {
+            try {
+                Files.deleteIfExists(tmpFile.toPath());
+            } catch (IOException cleanupFailure) {
+                tmpFile.deleteOnExit();
+                LOGGER.warn("Staged form ZIP cleanup failed; removal scheduled for JVM exit: {}",
+                        LogSafe.exceptionTrace(cleanupFailure));
+            }
+        }) {
+            stageUploadedArchive(tmpFile);
+            try (ZipFile zf = new ZipFile(tmpFile)) {
+                String importResult = isEFormArchive(zf) ? importEFormArchive(tmpFile) : importLegacyArchive(zf);
+                if (importResult != null) {
+                    return importResult;
+                }
             }
         }
 
@@ -122,15 +135,12 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
     /**
      * Copies the validated upload into a fresh temp file for zip processing.
      *
-     * @return the staged temp file, ready to be opened as a {@link ZipFile}
+     * @param tmpFile File destination owned and removed by {@link #execute()}
      * @throws IllegalStateException if the servlet container's temp directory is unavailable
      * @throws IllegalArgumentException if the uploaded file path fails validation
      * @throws IOException if the upload cannot be copied to the temp file
      */
-    private File stageUploadedArchive() throws IOException {
-        File tmpFile = File.createTempFile("tmp", ".zip");
-        tmpFile.deleteOnExit();
-
+    private void stageUploadedArchive(File tmpFile) throws IOException {
         ServletContext servletContext = ServletActionContext.getServletContext();
         File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir"); // Use a safe directory
         if (safeDir == null) {
@@ -148,7 +158,6 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
              OutputStream fos = new FileOutputStream(tmpFile)) {
             is.transferTo(fos);
         }
-        return tmpFile;
     }
 
     /**
@@ -184,28 +193,15 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
      * @return {@code null} after all entries were processed, or {@link #ERROR} on failure
      */
     private String importLegacyArchive(ZipFile zf) throws IOException {
-        Enumeration<? extends ZipEntry> entries = zf.entries();
-        boolean processedEntry = false;
-        while (entries.hasMoreElements()) {
-            ZipEntry entry = entries.nextElement();
-            if (entry.isDirectory()) {
-                continue;
-            }
-            try (InputStream zis = zf.getInputStream(entry)) {
-                JDBCUtil.toDataBase(zis, entry.getName());
-                processedEntry = true;
-            } catch (JDBCUtil.XmlImportException e) {
-                // Earlier entries may already be committed by the legacy JDBC importer.
-                // Do not report success or expose archive contents/database details.
-                Throwable cause = e.getCause() == null ? e : e.getCause();
-                LOGGER.error("Legacy form import failed (causeType={}, earlierEntriesImported={})",
-                        cause.getClass().getName(), processedEntry);
-                addActionError(ResourceBundle.getBundle("oscarResources", request.getLocale())
-                        .getString(processedEntry ? "form.xmlUpload.legacyPartialFailure" : "form.xmlUpload.legacyFailure"));
-                return forwardActionErrors();
-            }
+        int processed;
+        try {
+            processed = SpringUtils.getBean(io.github.carlos_emr.carlos.form.service.FormXmlImportService.class).importArchive(zf);
+        } catch (JDBCUtil.XmlImportException | RuntimeException e) {
+            LOGGER.error("Legacy form archive rolled back (causeType={})", e.getClass().getName());
+            addActionError(ResourceBundle.getBundle("oscarResources", request.getLocale()).getString("form.xmlUpload.legacyFailure"));
+            return forwardActionErrors();
         }
-        if (!processedEntry) {
+        if (processed == 0) {
             addActionError(ResourceBundle.getBundle("oscarResources", request.getLocale())
                     .getString("form.xmlUpload.legacyEmpty"));
             return forwardActionErrors();

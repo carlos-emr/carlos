@@ -114,18 +114,30 @@ public class DemographicMerged {
             secObjPrivilegeDao.persist(sop);
         }
 
-        // Log for the source demographic being merged
-        LogAction.addLog(loggedInInfo, "DemographicMerged.Merge", "demographic", demographic_no, demographic_no, "merged_from=" + demographic_no + " merged_to=" + head);
+        // Join the caller's transaction: a failed batch must not leave audit rows for rolled-back merges.
+        LogAction.addLogStrict(loggedInInfo, "DemographicMerged.Merge", "demographic", demographic_no, demographic_no, "merged_from=" + demographic_no + " merged_to=" + head);
 
         // Log for the target demographic receiving the merge
-        LogAction.addLog(loggedInInfo, "DemographicMerged.Merge", "demographic", head, head, "merged_from=" + demographic_no + " merged_to=" + head);
+        LogAction.addLogStrict(loggedInInfo, "DemographicMerged.Merge", "demographic", head, head, "merged_from=" + demographic_no + " merged_to=" + head);
 
 
     }
 
+    /**
+     * Removes a patient's active merge links and chart restriction, saves the restriction in the recycle bin,
+     * and writes the audit record. The caller supplies a shared transaction for all changes to commit together.
+     *
+     * @param loggedInInfo authenticated actor used for the audit and merge history
+     * @param demographic_no patient identifier as a decimal integer
+     * @param curUser_no provider recorded in the recycle bin
+     * @throws NumberFormatException if the patient identifier is not a valid integer
+     * @throws jakarta.persistence.PersistenceException if a JPA operation fails
+     * @throws org.springframework.dao.DataAccessException if Spring translates a persistence failure
+     */
     public void UnMerge(LoggedInInfo loggedInInfo, String demographic_no, String curUser_no) {
 
-        List<io.github.carlos_emr.carlos.commn.model.DemographicMerged> dms = dao.findByDemographicNo(Integer.parseInt(demographic_no));
+        List<io.github.carlos_emr.carlos.commn.model.DemographicMerged> dms =
+                dao.findCurrentByDemographicNo(Integer.parseInt(demographic_no));
         for (io.github.carlos_emr.carlos.commn.model.DemographicMerged dm : dms) {
             dm.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
             dm.setLastUpdateDate(new Date());
@@ -154,7 +166,7 @@ public class DemographicMerged {
         recycleBinDao.persist(rb);
 
         // Log the unmerge operation for the demographic
-        LogAction.addLog(loggedInInfo, "DemographicMerged.UnMerge", "demographic", demographic_no, demographic_no, "unmerged_demographic_no=" + demographic_no);
+        LogAction.addLogStrict(loggedInInfo, "DemographicMerged.UnMerge", "demographic", demographic_no, demographic_no, "unmerged_demographic_no=" + demographic_no);
 
     }
 

@@ -33,9 +33,22 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
 
 const TIMEOUT = 20000;
-const GRANTS = [['_dashboardDisplay', 'x'], ['_dashboardDrilldown', 'x'], ['_dashboardManager', 'r'], ['_dashboardChgUser', 'r']];
+const GRANTS = [['_dashboardDisplay', 'x'], ['_dashboardDrilldown', 'x'], ['_dashboardManager', 'w'], ['_dashboardChgUser', 'r']];
 const DX_CODE = '250';
 
+/** Bootstrap focuses the dialog after its transition; type only after that native event. */
+async function openTicklerModal(page, trigger) {
+  await page.locator('#assignTickler').evaluate(modal => {
+    modal.dataset.playwrightTicklerShown = 'false';
+    modal.addEventListener('shown.bs.modal', () => { modal.dataset.playwrightTicklerShown = 'true'; }, { once: true });
+  });
+  const result = await trigger();
+  await page.waitForFunction(() => document.getElementById('assignTickler').dataset.playwrightTicklerShown === 'true',
+    null, { timeout: TIMEOUT });
+  return result;
+}
+
+/** Build an indicator scoped to the current owned provider, with the run marker identifying its UI and stored metadata. */
 function templateXml(marker) {
   const scope = "FROM demographic d WHERE d.provider_no = '${provider}'";
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -72,17 +85,23 @@ function templateXml(marker) {
     <drillDownActions>
       <action id="tickler" name="Assign Tickler" />
       <action id="dxUpdate" name="Add To Disease Registry" value="${DX_CODE}" />
+      <action id="demoExcl" name="Exclude Patients" />
     </drillDownActions>
     <query>SELECT d.* ${scope} ORDER BY d.demographic_no</query>
   </drillDownQuery>
 </indicatorTemplateXML>`;
 }
 
+/** Qualify native dashboard reads and Tickler saves using owned indicators/patients, retaining deferred failures until cleanup. */
 async function workflow(s) {
   const { sql, marker, recorder } = s;
   const M = h.sqlString(marker);
   const fixture = throwawayLoginFixture({ sql, marker, provider: s.provider, testUser: s.config.testUser });
   s.cleanup(() => fixture.cleanup());
+  // Keep the fixture's exact sixteen-hex marker grammar while giving window B a distinct owner.
+  const otherMarker = marker.slice(0, -1) + (parseInt(marker.slice(-1), 16) ^ 1).toString(16);
+  const otherFixture = throwawayLoginFixture({ sql, marker: otherMarker, provider: s.provider, testUser: s.config.testUser });
+  s.cleanup(() => otherFixture.cleanup());
   const patients = [];
   let dashboardId;
   let indicatorId;
@@ -143,6 +162,15 @@ async function workflow(s) {
     h.assert(/^[1-9]\d*$/.test(id), 'A synthetic dashboard patient was not created');
     patients.push(id);
   }
+  otherFixture.create();
+  const otherPatients = [];
+  for (const [first, status] of [['Window B active', 'AC'], ['Window B inactive', 'IN']]) {
+    const id = sql.value(`INSERT INTO demographic (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,
+      patient_status,provider_no,hc_type,province,roster_status,lastUpdateDate)
+      VALUES (${M},${h.sqlString(first)},'1980','01','02','F',${h.sqlString(status)},${h.sqlString(otherFixture.providerNo)},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(id), 'A second-window synthetic patient was not created');
+    patients.push(id); otherPatients.push(id);
+  }
   dashboardId = sql.value(`INSERT INTO dashboard (name,description,creator,edited,active,locked)
     VALUES (${M},'Synthetic dashboard',${P},NOW(),1,0); SELECT LAST_INSERT_ID()`);
   indicatorId = sql.value(`INSERT INTO indicatorTemplate (dashboardId,name,category,subCategory,framework,frameworkVersion,
@@ -151,6 +179,24 @@ async function workflow(s) {
       ${h.sqlString(marker + ' Owned patients')},'CARLOS EMR','2026-01-01','Synthetic','Synthetic',
       ${h.sqlString(templateXml(marker))},1,0,0); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(dashboardId) && /^[1-9]\d*$/.test(indicatorId), 'The dashboard fixture was not created');
+  const clinicIndicators = ['all', '%'].map(alias => {
+    const name = `${marker} Clinic ${alias}`;
+    // Even the clinic-wide default is restricted to this run's five owned IDs.
+    const template = templateXml(marker)
+      .replaceAll('value="loggedInProvider"', `value="${alias}"`)
+      .replaceAll("WHERE d.provider_no = '${provider}'",
+        "WHERE d.provider_no LIKE '${provider}' AND d.demographic_no IN (" + patients.join(',') + ')')
+      .replaceAll(`${marker} Patient status`, name)
+      .replace('</heading>', `<metricLabel>${marker} Shared ${alias}</metricLabel></heading>`
+        + `<sharedMetricSetName>${marker} Shared ${alias}</sharedMetricSetName>`);
+    const id = sql.value(`INSERT INTO indicatorTemplate (dashboardId,name,category,subCategory,framework,frameworkVersion,
+        definition,notes,template,active,locked,shared)
+      VALUES (${dashboardId},${h.sqlString(name)},${h.sqlString(marker + ' Category')},
+        ${h.sqlString(marker + ' Owned patients')},'CARLOS EMR','2026-01-01','Synthetic','Synthetic',
+        ${h.sqlString(template)},1,0,${alias === 'all' ? 1 : 0}); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(id), 'A clinic-default indicator was not created');
+    return {id, alias};
+  });
 
   const ctx = await h.newContext(s.context.browser(), s.config);
   ctx.setDefaultTimeout(TIMEOUT);
@@ -203,13 +249,13 @@ async function workflow(s) {
     h.assert((await page.locator('.dashboardHeading h2').innerText()).trim() === marker, 'The dashboard window shows another dashboard');
     return page;
   }
-  async function drillDown(page) {
-    await page.locator(`#indicatorId_${indicatorId} .indicatorPanelContainer`).waitFor();
-    await page.locator(`#indicatorId_${indicatorId} .dropdown-toggle`).click();
+  async function drillDown(page, targetId = indicatorId) {
+    await page.locator(`#indicatorId_${targetId} .indicatorPanelContainer`).waitFor();
+    await page.locator(`#indicatorId_${targetId} .dropdown-toggle`).click();
     const [response] = await Promise.all([
       page.waitForResponse(r => /\/web\/dashboard\/display\/DrilldownDisplay$/.test(new URL(r.url()).pathname)
         && r.request().method() === 'POST' && r.request().resourceType() === 'document'),
-      page.locator(`#getDrilldown_${indicatorId}`).click(),
+      page.locator(`#getDrilldown_${targetId}`).click(),
     ]);
     await page.waitForLoadState('load');
     return response;
@@ -232,6 +278,124 @@ async function workflow(s) {
     h.assert(JSON.stringify(plots) === JSON.stringify([[['Active', Number(active)], ['Not active', Number(inactive)]]]),
       'Indicator counts differ from the owned-scope SQL counts');
     h.assert(await dashboard.locator(`#graphCanvas_${indicatorId}`).evaluate(c => c.width > 0 && c.height > 0), 'The indicator chart was not drawn');
+  });
+
+  await s.step('all and wildcard template defaults survive native drilldown and CSV until a provider is explicitly chosen', async () => {
+    for (const {id, alias} of clinicIndicators) {
+      const page = await openDashboard('dashboard-clinic-default-' + alias);
+      try {
+        await page.locator(`#graphPlots_${id}`).waitFor({ state: 'attached' });
+        h.assert(await page.locator('#dashboardProviderNo').inputValue() === '', 'A heading became an explicit provider override');
+        h.assert(await page.locator(`#graphPlots_${id}`).inputValue() === JSON.stringify([[['Active', 3], ['Not active', 2]]]),
+          'A clinic-wide template default was narrowed to the logged-in provider');
+        h.assert((await drillDown(page, id)).status() === 200, 'Clinic-default drilldown was refused');
+        h.assert(await page.locator('#dashboardProviderNo').inputValue() === '', 'Drilldown replaced the template default');
+        const shown = await page.locator('#drilldownTable input.patientChecked').evaluateAll(inputs => inputs.map(input => input.id).sort());
+        h.assert(JSON.stringify(shown) === JSON.stringify([...patients].sort()), 'Clinic-default drilldown lost owned patients');
+        const outcome = await ui.clickDownloadsOrOpens(page, page.locator(`#exportResults_${id}`),
+          { context: ctx, recorder, label: 'dashboard-clinic-export-' + alias, timeout: TIMEOUT });
+        h.assert(outcome.kind === 'download', 'Clinic-default CSV did not download');
+        const expected = sql.rows(`SELECT demographic_no,last_name,patient_status FROM demographic
+          WHERE demographic_no IN (${patients.join(',')}) ORDER BY demographic_no`);
+        h.assert(fs.readFileSync(await outcome.download.path(), 'utf8') ===
+          ['Patient Id,Last Name,Status', ...expected.map(row => row.join(','))].join('\n') + '\n',
+          'Clinic-default CSV narrowed the template scope');
+        await ui.clickAndAwaitReload(page, page.locator('.backtoDashboardBtn'),
+          { label: 'return to clinic-default dashboard', timeout: TIMEOUT });
+        await page.locator('#providerNo').selectOption(otherFixture.providerNo);
+        await ui.clickAndAwaitReload(page, page.locator('input[type="submit"][value="Change Dashboard Provider"]'),
+          { label: 'explicitly override clinic-default provider', timeout: TIMEOUT });
+        await page.locator(`#graphPlots_${id}`).waitFor({ state: 'attached' });
+        h.assert(await page.locator('#dashboardProviderNo').inputValue() === otherFixture.providerNo, 'The explicit selection was lost');
+        h.assert(await page.locator(`#graphPlots_${id}`).inputValue() === JSON.stringify([[['Active', 1], ['Not active', 1]]]),
+          'The explicit provider selection did not override the clinic-wide default');
+      } finally { await page.close(); }
+    }
+  });
+
+  await s.step('two windows of one login keep their provider-specific lists, exports and exclusions after switching the second window', async () => {
+    const other = await openDashboard('dashboard-window-b');
+    const shownRows = async page => page.locator('#drilldownTable tbody tr').evaluateAll(rows => rows.map(row =>
+      [row.querySelector('input.patientChecked').id, row.cells[3].textContent.trim(), row.cells[4].textContent.trim()]));
+    async function verifyExport(page, expectedRows, label) {
+      const outcome = await ui.clickDownloadsOrOpens(page, page.locator(`#exportResults_${indicatorId}`),
+        { context: ctx, recorder, label, timeout: TIMEOUT });
+      h.assert(outcome.kind === 'download', 'The window export did not download a file');
+      const expected = ['Patient Id,Last Name,Status', ...expectedRows.map(row => row.join(','))].join('\n') + '\n';
+      h.assert(fs.readFileSync(await outcome.download.path(), 'utf8') === expected, 'A window exported another provider scope');
+    }
+    try {
+      await other.locator('#providerNo').selectOption(otherFixture.providerNo);
+      await ui.clickAndAwaitReload(other, other.locator('input[type="submit"][value="Change Dashboard Provider"]'),
+        { label: 'select second dashboard provider', timeout: TIMEOUT });
+      await other.locator(`#graphPlots_${indicatorId}`).waitFor({ state: 'attached' });
+      h.assert((await other.locator(`#graphPlots_${indicatorId}`).inputValue()) !== plotted,
+        'The second window did not render its distinct owned provider counts');
+      h.assert((await drillDown(dashboard)).status() === 200, 'The first window drilldown was refused');
+      h.assert(JSON.stringify((await shownRows(dashboard)).sort()) === JSON.stringify(ownedRows().sort()),
+        'Changing the second window mixed its patients into the first window');
+      await verifyExport(dashboard, ownedRows(), 'dashboard-window-a-export');
+      h.assert((await drillDown(other)).status() === 200, 'The second window drilldown was refused');
+      const expectedOther = sql.rows(`SELECT demographic_no,last_name,patient_status FROM demographic
+        WHERE demographic_no IN (${otherPatients.join(',')}) ORDER BY demographic_no`);
+      h.assert(JSON.stringify((await shownRows(other)).sort()) === JSON.stringify([...expectedOther].sort()),
+        'The second window did not retain its own patient list');
+      await verifyExport(other, expectedOther, 'dashboard-window-b-export');
+      await other.locator(`input.patientChecked[id="${otherPatients[0]}"]`).check();
+      await other.locator('#actionMenuLink').click();
+      await other.locator('#excludePatientsChecked').click();
+      await other.locator('#modalConfirmPatientExclusion').waitFor({ state: 'visible' });
+      const excluded = other.waitForResponse(response => /\/web\/dashboard\/display\/BulkPatientAction$/.test(new URL(response.url()).pathname)
+        && response.request().method() === 'POST');
+      await other.locator('#confirmPatientExclusion').click();
+      h.assert((await excluded).status() === 200, 'The second window exclusion was refused');
+      const identifier = `${marker} Patient status|${marker} Category|${marker} Owned patients`;
+      const exclusion = `SELECT COUNT(*) FROM demographicExt WHERE demographic_no=${otherPatients[0]}
+        AND key_val='excludeIndicator' AND value=${h.sqlString(identifier)}`;
+      h.assert(sql.value(exclusion + ` AND provider_no=${h.sqlString(otherFixture.providerNo)}`) === '1',
+        'The second window exclusion did not retain its selected provider');
+      h.assert(sql.value(exclusion + ` AND provider_no=${P}`) === '0',
+        'The second window exclusion was filed under the first window provider');
+    } finally { await other.close(); }
+    await ui.clickAndAwaitReload(dashboard, dashboard.locator('.backtoDashboardBtn'),
+      { label: 'return first window to its dashboard', timeout: TIMEOUT });
+    await dashboard.locator(`#graphPlots_${indicatorId}`).waitFor({ state: 'attached' });
+    h.assert(await dashboard.locator(`#graphPlots_${indicatorId}`).inputValue() === plotted,
+      'Returning to the first dashboard inherited another window provider');
+  });
+
+  await s.step('shared whole metrics and slices retain their displayed provider in the native export form and return navigation', async () => {
+    const expectedRows = sql.rows(`SELECT demographic_no,last_name,patient_status FROM demographic
+      WHERE demographic_no IN (${otherPatients.join(',')}) ORDER BY demographic_no`);
+    for (const {id, alias} of clinicIndicators) {
+      const page = await openDashboard('dashboard-shared-' + alias);
+      try {
+        // This is the supported callback/bookmark from the external shared dashboard. All
+        // metric templates, providers and patients belong to this run; the external service
+        // is not contacted. Export and Dashboard use the page's real controls afterwards.
+        const params = new URLSearchParams({method: 'getDrilldownBySharedMetricSetName',
+          sharedMetricSetName: `${marker} Shared ${alias}`, providerNo: otherFixture.providerNo});
+        if (alias === '%') params.set('sharedMetricSetLable', `${marker} Shared ${alias}`);
+        const response = await page.goto(h.appUrl(s.config.baseUrl,
+          '/web/dashboard/display/DrilldownDisplay?' + params), {waitUntil: 'domcontentloaded'});
+        h.assert(response.status() === 200, 'The owned shared drilldown was refused');
+        await h.assertNotErrorPage(page, 'owned shared drilldown');
+        h.assert(await page.locator('#dashboardProviderNo').inputValue() === otherFixture.providerNo,
+          'The shared drilldown did not retain its validated provider');
+        const shown = await page.locator('#drilldownTable input.patientChecked').evaluateAll(inputs => inputs.map(input => input.id).sort());
+        h.assert(JSON.stringify(shown) === JSON.stringify([...otherPatients].sort()), 'The shared drilldown lists another provider scope');
+        const outcome = await ui.clickDownloadsOrOpens(page, page.locator(`#exportResults_${id}`),
+          {context: ctx, recorder, label: 'dashboard-shared-export-' + alias, timeout: TIMEOUT});
+        h.assert(outcome.kind === 'download', 'The shared export did not download a file');
+        const expected = ['Patient Id,Last Name,Status', ...expectedRows.map(row => row.join(','))].join('\n') + '\n';
+        h.assert(fs.readFileSync(await outcome.download.path(), 'utf8') === expected,
+          'The shared export fell back to the template default instead of the displayed provider');
+        await ui.clickAndAwaitReload(page, page.locator('.backtoDashboardBtn'),
+          {label: 'return from the shared drilldown', timeout: TIMEOUT});
+        h.assert(await page.locator('#dashboardProviderNo').inputValue() === otherFixture.providerNo,
+          'Returning from the shared drilldown lost the selected provider');
+      } finally {await page.close();}
+    }
   });
 
   await s.step('Indicator Info shows the stored definition', async () => {
@@ -270,10 +434,10 @@ async function workflow(s) {
   await s.step('Actions > Assign Tickler requests the tickler form for exactly the checked owned patients', async () => {
     for (const id of [alpha, bravo]) await dashboard.locator(`input.patientChecked[id="${id}"]`).check();
     await dashboard.locator('#actionMenuLink').click();
-    const [request] = await Promise.all([
+    const [request] = await openTicklerModal(dashboard, () => Promise.all([
       dashboard.waitForRequest(r => /\/web\/dashboard\/display\/AssignTickler$/.test(new URL(r.url()).pathname) && r.method() === 'POST'),
       dashboard.locator('#assignTicklerChecked').click(),
-    ]);
+    ]));
     h.assert(new URLSearchParams(request.postData() || '').get('demographics') === `${alpha},${bravo}`,
       'The tickler form request does not carry exactly the checked patients');
     const modal = dashboard.locator('#assignTickler');
@@ -307,29 +471,53 @@ async function workflow(s) {
       h.assert(await form.locator('input[name="serviceDate"].flatpickr-input').count() === 1
         && await form.locator('input[name="serviceTime"].flatpickr-input').count() === 1,
         'The Service Date / Time pickers did not start in the Assign Tickler modal');
-      // Set the value directly: typing into the picker normalizes what it can parse before submit.
-      await form.locator('input[name="serviceDate"]').evaluate(input => { input.value = '31/12/2030'; });
-      await form.locator('input[name="serviceTime"]').fill('10:30 AM');
       await form.locator('textarea[name="messageAppend"]').fill(`${marker} recall`);
-      // A refused date names the field to fix instead of the "could not be confirmed" text.
-      const mark = failureMark(recorder);
-      const dialogs = await h.withExpectedDialogs(dashboard, async () => {
-        await Promise.all([
-          dashboard.waitForResponse(r => /\/web\/dashboard\/display\/AssignTickler$/.test(new URL(r.url()).pathname)
-            && r.request().method() === 'POST' && r.status() === 400),
-          dashboard.locator('#saveTicklerBtn').click(),
-        ]);
-        await dashboard.waitForTimeout(500);
-      });
-      consumeExpectedFailure(recorder, mark, { status: 400, path: /\/web\/dashboard\/display\/AssignTickler$/ });
-      h.assert(dialogs.length === 1, `Expected one alert for the refused date, saw ${dialogs.length}`);
-      const alertText = dialogs[0].text;
-      h.assert(/Nothing was saved/.test(alertText) && /service date/i.test(alertText) && !/could not be confirmed/.test(alertText),
-        `A bad Service Date was not explained to the user: ${alertText}`);
-      h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no IN (${alpha},${bravo})`) === '0',
-        'A refused date wrote ticklers');
-      // The ISO date the picker emits (and a typed one) is accepted; the same receipt is reused.
-      await form.locator('input[name="serviceDate"]').fill('2030-12-31');
+      // #4457: use keyboard input, then blur/Enter: setting .value bypasses flatpickr's parser.
+      const dateInput = form.locator('input[name="serviceDate"]');
+      const timeInput = form.locator('input[name="serviceTime"]');
+      const saveRequests = [];
+      const trackSave = request => {
+        if (/\/web\/dashboard\/display\/AssignTickler$/.test(new URL(request.url()).pathname)
+            && new URLSearchParams(request.postData() || '').get('method') === 'saveTickler') saveRequests.push(request);
+      };
+      dashboard.on('request', trackSave);
+      try {
+        for (const [field, value, commit] of [
+          [dateInput, '31/12/2030', 'Tab'], [dateInput, '12/11/2030', 'Enter'],
+          [dateInput, '2030-02-30', 'Tab'], [dateInput, '2030-12-31junk', 'Enter'],
+          [dateInput, 'today', 'Tab'], [timeInput, 'today', 'Enter'],
+          [timeInput, '25:90', 'Tab'], [timeInput, '10:30garbage', 'Enter'],
+        ]) {
+          await dateInput.fill('2030-12-31');
+          await timeInput.fill('10:30 AM');
+          await field.fill('');
+          await field.pressSequentially(value);
+          await field.press(commit);
+          await form.locator('textarea[name="messageAppend"]').click();
+          h.assert(await field.inputValue() === value, `Invalid typed value ${value} became ${JSON.stringify(await field.inputValue())}`);
+          h.assert((field === dateInput ? /Invalid service date/ : /Invalid service time/)
+            .test(await field.evaluate(input => input.validationMessage)),
+            `Invalid typed value ${value} has no validation explanation`);
+          await dashboard.locator('#saveTicklerBtn').click();
+          await dashboard.waitForTimeout(500);
+          h.assert(saveRequests.length === 0, `Invalid typed value ${value} reached Save`);
+          h.assert(sql.value('SELECT COUNT(*) FROM tickler WHERE demographic_no IN (?, ?)', [alpha, bravo]) === '0',
+            'An invalid typed date/time wrote ticklers');
+        }
+      } finally {
+        dashboard.off('request', trackSave);
+      }
+      // Correct the date through the actual picker and the time by typing; assert
+      // their submitted AND stored values below. Keep the calendar walk bounded.
+      await dateInput.fill('31/12/2030');
+      await dateInput.press('Tab');
+      await form.locator('textarea[name="messageAppend"]').click();
+      h.assert(await dateInput.inputValue() === '31/12/2030', 'Calendar correction lost the refused date before selection');
+      await ui.pickDate(dashboard, dateInput, '2030-12-31',
+        { timeout: TIMEOUT, maxMonthSteps: 120 });
+      await timeInput.fill('');
+      await timeInput.pressSequentially('10:30 AM');
+      await timeInput.press('Tab');
       await form.locator('textarea[name="messageAppend"]').fill(`${marker} recall`);
       const invalid = await form.evaluate(element => Object.fromEntries(new FormData(element)));
       // Match the save controller: DOMPurify removes the hidden name="method" field.
@@ -353,6 +541,8 @@ async function workflow(s) {
         || new URLSearchParams(request.postData() || '').get('CSRF-TOKEN')), 'The successful tickler save carried no CSRF token');
       h.assert((await response.json()).success === 'true', 'Assign Tickler did not acknowledge the save');
       const submitted = new URLSearchParams(request.postData() || '');
+      h.assert(submitted.get('serviceDate') === '2030-12-31' && submitted.get('serviceTime') === '10:30 AM',
+        'The selected date/typed time changed before submission');
       h.assert(Boolean(submitted.get('ticklerSubmission')), 'The save has no server-issued operation key');
       const replay = async (body) => ctx.request.post(request.url(), {
         data: body.toString(), headers: {'Content-Type': 'application/x-www-form-urlencoded',
@@ -376,6 +566,83 @@ async function workflow(s) {
         'The tickler service date/time was not stored as entered');
     });
   }
+
+  if (ticklerForm) await s.step('supported 24-hour and mixed-case AM/PM inputs save their exact intended times', async () => {
+    const control=JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE demographic_no IN (${alpha},${bravo}) ORDER BY tickler_no`));
+    const controlIds=sql.rows(`SELECT tickler_no FROM tickler WHERE demographic_no IN (${alpha},${bravo}) ORDER BY tickler_no`).flat().join(',');
+    for (const [index, [typed, display, stored]] of [
+      ['14:30','2:30 PM','14:30'],['10:30 am','10:30 AM','10:30'],['2:30 Pm','2:30 PM','14:30'],
+      ['00:00','12:00 AM','00:00'],['23:59','11:59 PM','23:59'],
+    ].entries()) {
+      await dashboard.locator('#actionMenuLink').click();
+      await openTicklerModal(dashboard, () => dashboard.locator('#assignTicklerChecked').click());
+      const modal=dashboard.locator('#assignTickler'),form=modal.locator('#ticklerAddForm');await form.waitFor({state:'visible'});
+      await form.locator('select[name="ticklerCategoryId"]').selectOption({index:0});
+      await form.locator('select[name="taskAssignedTo"]').selectOption(fixture.providerNo);
+      await form.locator('select[name="priority"]').selectOption('High');
+      await form.locator('input[name="serviceDate"]').fill('2030-12-31');
+      const time=form.locator('input[name="serviceTime"]');await time.fill(typed);await time.press('Tab');
+      await modal.locator('.modal-header').click();
+      h.assert(await time.inputValue()===display,'Supported typed service time was changed incorrectly');
+      const stamp=`${marker} supported time ${index}`;
+      await form.locator('textarea[name="messageAppend"]').fill(stamp);
+      const [response]=await Promise.all([
+        dashboard.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/web/dashboard/display/AssignTickler')),
+        dashboard.locator('#saveTicklerBtn').click(),
+      ]);
+      h.assert(response.status()===200&&(await response.json()).success==='true','A supported time did not receive a complete save acknowledgement');
+      await modal.waitFor({state:'hidden'});
+      for(const id of [alpha,bravo]) h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${id}
+        AND message=${h.sqlString(' '+stamp)} AND DATE_FORMAT(service_date,'%Y-%m-%d %H:%i')=${h.sqlString('2030-12-31 '+stored)}
+        AND creator=${P} AND task_assigned_to=${P} AND priority='High' AND status='A'`)==='1','A supported time stored another patient, recipient, date or time');
+      h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${charlie}`)==='0','A supported time save changed the unchecked patient');
+    }
+    h.assert(JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE tickler_no IN (${controlIds}) ORDER BY tickler_no`))===control,'Supported time saves changed the original control tasks');
+  });
+
+  if (ticklerForm && process.env.TICKLER_DST_GAP_ZONE) await s.step('the configured daylight-saving gap is refused without writes and correction saves the retained draft', async () => {
+    const zone=process.env.TICKLER_DST_GAP_ZONE;
+    // BC observes permanent daylight time after March 2026. Use its real last
+    // spring gap rather than inventing a Vancouver transition in a later year.
+    const gapDate=zone==='America/Vancouver'?'2026-03-08':'2030-03-10';
+    h.assert(['America/Toronto','America/Vancouver'].includes(zone),'Unsupported DST qualification zone');
+    const config=fs.readFileSync('/etc/carlos-emr/carlos-emr.env','utf8');
+    h.assert(config.split('\n').filter(line=>line===`CARLOS_TZ="${zone}"`).length===1,'The installed clinic is not configured for the requested DST gap');
+    await dashboard.locator('#actionMenuLink').click();
+    await openTicklerModal(dashboard, () => dashboard.locator('#assignTicklerChecked').click());
+    const modal=dashboard.locator('#assignTickler'),form=modal.locator('#ticklerAddForm');await form.waitFor({state:'visible'});
+    await form.locator('select[name="ticklerCategoryId"]').selectOption({index:0});
+    await form.locator('select[name="taskAssignedTo"]').selectOption(fixture.providerNo);
+    await form.locator('select[name="priority"]').selectOption('High');
+    await form.locator('input[name="serviceDate"]').fill(gapDate);
+    const time=form.locator('input[name="serviceTime"]');await time.fill('02:30 AM');await time.press('Tab');await modal.locator('.modal-header').click();
+    const stamp=`${marker} DST recovered`;await form.locator('textarea[name="messageAppend"]').fill(stamp);
+    const snapshot=()=>JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE demographic_no IN (${alpha},${bravo},${charlie}) ORDER BY tickler_no`));
+    const initial=snapshot(),mark=failureMark(recorder);
+    const dialogs=await h.withExpectedDialogs(dashboard,async()=>{
+      const [response]=await Promise.all([
+        dashboard.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/web/dashboard/display/AssignTickler')),
+        dashboard.locator('#saveTicklerBtn').click(),
+      ]);
+      const submitted=new URLSearchParams(response.request().postData());
+      h.assert(submitted.get('serviceDate')===gapDate&&submitted.get('serviceTime')==='2:30 AM','DST request did not carry the chosen date and time');
+      const body=await response.json();
+      h.assert(response.status()===400&&body.success==='false'&&/daylight saving/i.test(body.message),'The nonexistent clinic time was not explicitly refused');
+      await dashboard.waitForFunction(()=>document.getElementById('saveTicklerBtn').disabled===false);
+    });
+    h.assert(dialogs.length===1&&dialogs[0].type==='alert'&&/Nothing was saved.*daylight saving/i.test(dialogs[0].text),'DST refusal was not shown to the user');
+    h.assert(await modal.isVisible()&&await form.locator('textarea[name="messageAppend"]').inputValue()===stamp&&await time.inputValue()==='2:30 AM'&&snapshot()===initial,'DST refusal changed tasks or discarded the draft');
+    consumeExpectedFailure(recorder,mark,{status:400,path:/\/web\/dashboard\/display\/AssignTickler$/});
+    await time.fill('03:30 AM');await time.press('Tab');await modal.locator('.modal-header').click();
+    const [saved]=await Promise.all([
+      dashboard.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/web/dashboard/display/AssignTickler')),
+      dashboard.locator('#saveTicklerBtn').click(),
+    ]);
+    h.assert(saved.status()===200&&(await saved.json()).success==='true','Correcting the refused time did not save');await modal.waitFor({state:'hidden'});
+    for(const id of [alpha,bravo])h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${id} AND message=${h.sqlString(' '+stamp)}
+      AND DATE_FORMAT(service_date,'%Y-%m-%d %H:%i')=${h.sqlString(gapDate+' 03:30')} AND creator=${P} AND task_assigned_to=${P}`)==='1','Corrected DST time was not saved exactly once for the intended recipient and patient');
+    h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${charlie}`)==='0','DST recovery changed the unchecked patient');
+  });
 
   const dxRows = id => `SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${id} AND dxresearch_code='${DX_CODE}'
     AND coding_system='icd9' AND status='A' AND providerNo=${P}`;
@@ -527,4 +794,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('dashboard-display', workflow, { openPatient: false });
-module.exports = { workflow };
+module.exports = { workflow, openTicklerModal };

@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "e8388024c3fd7eff8c1a870892d9f563108d6392",
+  "comparisonSha256": "bb7ab8a6d20a0b03f384d1c815d110119b966ed290e96581a0e8ef17611bdff0",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/eform/EFormExportZip.java": {
+      "lines": 96.11111111111111,
+      "instructions": 96.74698795180723,
+      "branches": 87.5,
+      "sourceBlob": "99f02e3aa125f0d78627b244d5e08d8bf1ae1ae5"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/eform/EFormImagePublicationLock.java": {
+      "lines": 62.06896551724138,
+      "instructions": 76.84210526315789,
+      "branches": 25.0,
+      "sourceBlob": "b088d37865cff1bd1aacbb14a7e990dbe350f520"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/eform/EFormUtil.java": {
+      "lines": 2.6666666666666665,
+      "instructions": 3.217821782178218,
+      "branches": 2.6315789473684212,
+      "sourceBlob": "b29aaa534f130b1c70f6d2b97e3e21a16633f6c1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/eform/upload/ImageUpload2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "1efc8ded817f095cbb82fbecea75f9456b41fcde"
+    }
+  },
+  "baselineCommit": "c1081774686879e488a9b935e9374a5bb290cc46",
+  "baselineSourceTree": "e8388024c3fd7eff8c1a870892d9f563108d6392",
+  "baselineReportSha256": "fbd1c784f03d78bb261043591385cf45a3052377f232f7a202afb0de58393e31",
+  "baselineLane": "Focused H2 eForm ZIP, DAO, image upload and utility regression tests",
+  "baselineTestCounts": {
+    "tests": 174,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "496be0894039e7fa23affc02f6f01e92ca84da198af3592ee3334ac21c32c6da",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

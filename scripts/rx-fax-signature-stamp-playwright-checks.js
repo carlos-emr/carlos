@@ -685,7 +685,9 @@ async function runChecks(context, cancellation) {
   }
 }
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('rx-fax-signature-stamp', async () => {
+  await (async () => {
   const cancellation = createGracefulSignalCancellation();
   const launchOptions = { handleSIGINT: false, handleSIGTERM: false, headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] };
   if (chromePath) launchOptions.executablePath = chromePath;
@@ -728,5 +730,6 @@ async function runChecks(context, cancellation) {
 })().catch((error) => {
   console.error(`FAIL rx-fax-signature-stamp: ${checkPhase}: ${browserErrorClass(error)}${fixtureErrorTag(error)}${errorSourceLocation(error)}`);
   removeSecretsDir();
-  process.exit(1);
+  process.exitCode = 1;
 });
+}, {existingSignalHandlers:true});

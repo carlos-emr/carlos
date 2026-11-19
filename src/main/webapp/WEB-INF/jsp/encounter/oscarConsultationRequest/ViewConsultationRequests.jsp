@@ -38,6 +38,9 @@
     Features:
     - Bootstrap 5 responsive table with sortable columns
     - Fetches one extra match to suppress empty final pages; submitting filters resets the offset
+    - Leaves out the rows of patients the user may not read, with a notice above the table, and
+      keeps the page boundaries where they are; a list that could not be loaded is reported as an
+      error instead of being shown as an empty list (issue #5775)
     - Filter by team, date range (referral or appointment date), and completion status
     - Filter by Consultant (type-ahead over specialists referenced by consult requests, served by
       encounter/consultation/searchConsultants) and by Provider (the patient's MRP). Both values
@@ -74,8 +77,8 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao" %>
 
-<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.*,java.text.*,java.util.*" %>
-<%@ page import="java.sql.ResultSet" %>
+<%@ page import="java.text.*, java.util.*" %>
+
 <%@ page
         import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.carlos.commn.model.UserProperty, org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -90,13 +93,13 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewConsultationRequestsUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.consultation.dto.ConsultationListFilterDto" %>
 <%@ page import="io.github.carlos_emr.carlos.consultation.dto.ConsultationMrpOptionDto" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -187,8 +190,6 @@
     }
 %>
 
-<html>
-
     <%
 
         String team = (String) request.getAttribute("teamVar");
@@ -270,9 +271,22 @@
         // Patients with a Nothing Done referral older than a week -> the name the row shows. One entry
         // per patient however many referrals qualify: the Add Tickler form is single-patient.
         Map<String, String> overdueTicklerPatients = new LinkedHashMap<String, String>();
+
+        // Loaded here, before the table is written, so that the two outcomes that are not a plain
+        // list can be said above it (issue #5775): the list could not be loaded, which must not look
+        // like a team with no consultations, and rows left out because the user may not read the
+        // patient's record. limit + 1 fetches the lookahead row behind the Next button.
+        EctViewConsultationRequestsUtil theRequests = new EctViewConsultationRequestsUtil();
+        boolean consultationListLoaded = theRequests.estConsultationPageByTeam(
+                LoggedInInfo.getLoggedInInfoFromSession(request),
+                new ConsultationListFilterDto(team, includeCompleted, startDate, endDate, orderby, desc,
+                        searchDate, offset, limit + 1, consultantId, filterProviderNo,
+                        restrictToSiteOrTeam ? providerMap.keySet() : null,
+                        bMultisites && restrictToSiteOrTeam ? new java.util.HashSet<>(mgrSite) : null), limit);
     %>
 
 
+<html>
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
@@ -584,6 +598,9 @@
     </head>
 
     <body>
+        <% if (theRequests.hasRestrictedRows()) { %>
+        <div class="alert alert-warning" role="status"><fmt:message key="consultation.list.restricted"/></div>
+        <% } %>
     <% if (showScheduleNav) { %>
         <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
     <% } %>
@@ -768,6 +785,16 @@
                 <% } %>
             </div>
 
+            <% if (!consultationListLoaded) { %>
+            <div class="alert alert-danger" role="alert" id="consultationListLoadFailed">
+                <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgListLoadFailed"/>
+            </div>
+            <% } else if (theRequests.hasRestrictedRows()) { %>
+            <div class="alert alert-warning" role="status" id="consultationListRestrictedRows">
+                <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgRestrictedRowsOmitted"/>
+            </div>
+            <% } %>
+
             <!-- Consultation Results Table -->
             <div class="table-responsive">
                 <table class="table table-hover table-sm table-bordered consult-table">
@@ -832,13 +859,6 @@
                     </thead>
                     <tbody>
                         <%
-                            EctViewConsultationRequestsUtil theRequests;
-                            theRequests = new EctViewConsultationRequestsUtil();
-                            theRequests.estConsultationVecByTeam(LoggedInInfo.getLoggedInInfoFromSession(request),
-                                    new ConsultationListFilterDto(team, includeCompleted, startDate, endDate, orderby, desc,
-                                            searchDate, offset, limit + 1, consultantId, filterProviderNo,
-                                            restrictToSiteOrTeam ? providerMap.keySet() : null,
-                                            bMultisites && restrictToSiteOrTeam ? new java.util.HashSet<>(mgrSite) : null));
                             boolean overdue;
                             UserPropertyDAO pref = (UserPropertyDAO) WebApplicationContextUtils.getWebApplicationContext(pageContext.getServletContext()).getBean(UserPropertyDAO.class);
                             String user = (String) session.getAttribute("user");
@@ -847,7 +867,10 @@
                             int countback = 0;
 
                             if (up != null && up.getValue() != null && !up.getValue().trim().equals("")) {
-                                timeperiod = up.getValue();
+                                if (io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod.isValid(up.getValue())) {
+                                    timeperiod = up.getValue();
+                                    countback = -Integer.parseInt(timeperiod.trim());
+                                }
                             }
 
                             for (int i = 0; i < Math.min(limit, theRequests.ids.size()); i++) {
@@ -889,26 +912,15 @@
                                 overdue = false;
 
                                 if (timeperiod != null) {
-                                    try {
-                                        countback = Integer.parseInt(timeperiod);
-                                    } catch (NumberFormatException e) {
-                                        timeperiod = null; // fall through to default logic below
-                                    }
-                                }
-                                if (timeperiod != null) {
-                                    countback = countback * -1;
-
-                                    if ((status.equals("1") || status.equals("2") || status.equals("3")) && dateGreaterThan(date, Calendar.MONTH, countback)) {
+                                    if (("1".equals(status) || "2".equals(status) || "3".equals(status)) && dateGreaterThan(date, Calendar.MONTH, countback)) {
                                         overdue = true;
                                     }
                                 } else {
-                                    countback = -7;  //7 days
-                                    if ((status.equals("1") || status.equals("3")) && dateGreaterThan(date, Calendar.DAY_OF_YEAR, countback)) {
+                                    if (("1".equals(status) || "3".equals(status)) && dateGreaterThan(date, Calendar.DAY_OF_YEAR, -7)) {
                                         overdue = true;
                                     }
 
-                                    countback = -30;  //30 days
-                                    if (status.equals("2") && dateGreaterThan(date, Calendar.DAY_OF_YEAR, countback)) {
+                                    if ("2".equals(status) && dateGreaterThan(date, Calendar.DAY_OF_YEAR, -30)) {
                                         overdue = true;
                                     }
                                 }
@@ -921,15 +933,15 @@
                             onclick="popupOscarRx(700,960,'<carlos:encode value='<%= viewUrl %>' context="javaScriptAttribute"/>')"
                             onkeypress="if(event.key==='Enter'){popupOscarRx(700,960,'<carlos:encode value='<%= viewUrl %>' context="javaScriptAttribute"/>');}">
                             <td class="consult-status-<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
-                                <% if (status.equals("1")) { %>
+                                <% if ("1".equals(status)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgND"/>
-                                <% } else if (status.equals("2")) { %>
+                                <% } else if ("2".equals(status)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgSR"/>
-                                <% } else if (status.equals("3")) { %>
+                                <% } else if ("3".equals(status)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgPR"/>
-                                <% } else if (status.equals("4")) { %>
+                                <% } else if ("4".equals(status)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgDONE"/>
-                                <% } else if (status.equals("5")) { %>
+                                <% } else if ("5".equals(status)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgBC"/>
                                 <%}%>
                             </td>
@@ -997,7 +1009,9 @@
                         <i class="fas fa-chevron-left me-1"></i><fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgPrev"/>
                     </button><%
                         }
-                        if (theRequests.ids.size() > limit) {
+                        // Not ids.size(): rows left out for patients the user may not read do not
+                        // end the list.
+                        if (theRequests.hasMoreRows()) {
                     %><button type="button" class="btn btn-secondary btn-sm ms-1" onclick="gotoPage(true);">
                         <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgNext"/><i class="fas fa-chevron-right ms-1"></i>
                     </button><%

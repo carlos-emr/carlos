@@ -3,10 +3,11 @@
 const fs=require('node:fs'),path=require('node:path'),{parse}=require('acorn');
 const scanned=new Map();
 const ENTRY_POINTS=new Set(['runCheck','runWorkflow','installCleanupSignalHandlers','createGracefulSignalCancellation','runLegacyCheck']);
+const STRUCTURED_ENTRY_POINTS=new Set(['runCheck','runWorkflow','runLegacyCheck']);
 const isFunction=node=>node&&['FunctionDeclaration','FunctionExpression','ArrowFunctionExpression'].includes(node.type);
-function hasSignalEntryPoint(file,seen=new Set(),isRoot=true) {
-  file=path.resolve(file);const key=file+'|'+isRoot;if(seen.has(key))return false;seen.add(key);
-  if(scanned.has(key)){const cached=scanned.get(key);return cached.direct||cached.dependencies.some(name=>dependencyHasEntry(file,name,seen));}
+function hasSignalEntryPoint(file,seen=new Set(),isRoot=true,entryPoints=ENTRY_POINTS) {
+  file=path.resolve(file);const key=file+'|'+isRoot+'|'+[...entryPoints].join(',');if(seen.has(key))return false;seen.add(key);
+  if(scanned.has(key)){const cached=scanned.get(key);return cached.direct||cached.dependencies.some(name=>dependencyHasEntry(file,name,seen,entryPoints));}
   const tree=parse(fs.readFileSync(file,'utf8'),{ecmaVersion:'latest',sourceType:'script',allowHashBang:true});
   const scopes=new WeakMap(),root={parent:null,bindings:new Map()},visitedFunctions=new Set(),dependencies=[];
   let direct=false;
@@ -50,8 +51,8 @@ function hasSignalEntryPoint(file,seen=new Set(),isRoot=true) {
     if(node.type==='CallExpression') {
       const callee=node.callee,called=callee.type==='Identifier'?callee.name:callee.type==='MemberExpression'&&!callee.computed?callee.property.name:'';
       const binding=callee.type==='Identifier'?resolve(called,scopes.get(node)):null;
-      if((ENTRY_POINTS.has(called)&&(!binding||binding.kind==='import'))
-        ||(binding?.kind==='import'&&ENTRY_POINTS.has(binding.importedName)))direct=true;
+      if((entryPoints.has(called)&&(!binding||binding.kind==='import'))
+        ||(binding?.kind==='import'&&entryPoints.has(binding.importedName)))direct=true;
       if(binding?.fn)invoke(binding.fn);
       if(isFunction(callee))invoke(callee);
       if(callee.type==='Identifier'&&callee.name==='require'&&node.arguments[0]?.type==='Literal'){
@@ -60,11 +61,11 @@ function hasSignalEntryPoint(file,seen=new Set(),isRoot=true) {
     }
     children(node,visit);
   }
-  visit(tree);scanned.set(key,{direct,dependencies});return direct||dependencies.some(name=>dependencyHasEntry(file,name,seen));
+  visit(tree);scanned.set(key,{direct,dependencies});return direct||dependencies.some(name=>dependencyHasEntry(file,name,seen,entryPoints));
 }
-function dependencyHasEntry(file,name,seen) {
+function dependencyHasEntry(file,name,seen,entryPoints) {
   let dependency=path.resolve(path.dirname(file),name);if(!path.extname(dependency))dependency+='.js';
-  return /\.(?:js|cjs)$/.test(dependency)&&fs.existsSync(dependency)&&hasSignalEntryPoint(dependency,seen,false);
+  return /\.(?:js|cjs)$/.test(dependency)&&fs.existsSync(dependency)&&hasSignalEntryPoint(dependency,seen,false,entryPoints);
 }
 function isMainGuard(node) {
   if(!node)return false;
@@ -72,4 +73,5 @@ function isMainGuard(node) {
   const matches=(member,module)=>member?.type==='MemberExpression'&&member.object?.name==='require'&&member.property?.name==='main'&&module?.name==='module';
   return node.type==='BinaryExpression'&&['===','=='].includes(node.operator)&&(matches(node.left,node.right)||matches(node.right,node.left));
 }
-module.exports={hasSignalEntryPoint};
+const hasStructuredEntryPoint=file=>hasSignalEntryPoint(file,new Set(),true,STRUCTURED_ENTRY_POINTS);
+module.exports={hasSignalEntryPoint,hasStructuredEntryPoint};

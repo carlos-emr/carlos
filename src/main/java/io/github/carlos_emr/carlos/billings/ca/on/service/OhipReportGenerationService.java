@@ -206,7 +206,8 @@ public class OhipReportGenerationService {
                     "<xml_p_specialty_code>", "</xml_p_specialty_code>"));
 
             String groupKey = mode == Mode.GROUP_REPORT ? groupNo : proOHIP;
-            String batchCount = nextBatchCount(monthCode, groupKey, curYear);
+            String batchCount = unreservedBatchCount(monthCode, groupKey, proOHIP, curYear,
+                    mode == Mode.GROUP_REPORT);
 
             OhipClaimExtractService extract = ohipClaimExtractFactory.getObject();
             extract.seteFlag("1");
@@ -379,6 +380,24 @@ public class OhipReportGenerationService {
             if (bc > max) max = bc;
         }
         return String.valueOf(max + 1);
+    }
+
+    /**
+     * Advances the legacy sequence past claim or HTML names reserved by imported history.
+     * Exhausting the valid sequence range fails the batch before any output is written.
+     */
+    private String unreservedBatchCount(String monthCode, String groupKey, String providerOhip,
+                                        int year, boolean isGroup) {
+        int first = parseStrictBatchCount(nextBatchCount(monthCode, groupKey, year));
+        for (int candidate = first; candidate <= 999; candidate++) {
+            String[] names = buildFilenames(monthCode, groupKey, providerOhip,
+                    Integer.toString(candidate), isGroup);
+            if (!billActivityDao.isImportedFilenameReserved(names[0])
+                    && !billActivityDao.isImportedFilenameReserved(names[1])) {
+                return Integer.toString(candidate);
+            }
+        }
+        throw new BillingFileWriteException("No unused OHIP filename remains for this billing month; review billing output before retrying");
     }
 
     private String[] buildFilenames(String monthCode, String groupKey, String proOHIP,

@@ -137,6 +137,10 @@ public class FrmRecordFactory {
             return null;
         }
 
+        if ("Growth0_36".equals(which)) {
+            return new Growth0To36Form();
+        }
+
         // Build the full class name from the whitelisted form name.
         String fullName = "io.github.carlos_emr.carlos.form.Frm" + which + "Record";
         FrmRecord myClass = null;

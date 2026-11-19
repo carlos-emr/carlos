@@ -219,6 +219,43 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
     }
 
     @Test
+    void shouldSkipHistoricalNames_whenGeneratingNewReport() {
+        @SuppressWarnings("unchecked")
+        org.springframework.beans.factory.ObjectFactory<OhipClaimExtractService> factory =
+                mock(org.springframework.beans.factory.ObjectFactory.class);
+        OhipClaimExtractService extract = mock(OhipClaimExtractService.class);
+        when(factory.getObject()).thenReturn(extract);
+        when(extract.getValue()).thenReturn("claim");
+        when(extract.getHtmlCode()).thenReturn("html");
+        Provider provider = mock(Provider.class);
+        when(provider.getOhipNo()).thenReturn("111111");
+        when(provider.getProviderNo()).thenReturn("11");
+        when(provider.getComments()).thenReturn("");
+        when(providerDao.getActiveProviders()).thenReturn(java.util.List.of(provider));
+        when(billActivityDao.isImportedFilenameReserved("HOB111111.001")).thenReturn(true);
+        when(billActivityDao.isImportedFilenameReserved("HOB111111_002.htm")).thenReturn(true);
+        OhipReportGenerationService generator = new OhipReportGenerationService(
+                billActivityDao, providerDao, billingDao, billingDetailDao, factory,
+                mock(org.springframework.transaction.PlatformTransactionManager.class));
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("monthCode", "OB");
+        request.setParameter("providers", "all");
+        try (MockedStatic<CarlosProperties> properties = mockStatic(CarlosProperties.class)) {
+            CarlosProperties props = mock(CarlosProperties.class);
+            when(props.getProperty("hybrid_billing", "")).thenReturn("");
+            properties.when(CarlosProperties::getInstance).thenReturn(props);
+            assertThat(generator.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT)).isEmpty();
+        }
+        verify(extract).setOhipFilename("HOB111111.003");
+        verify(extract).setHtmlFilename("HOB111111_003.htm");
+        org.mockito.ArgumentCaptor<io.github.carlos_emr.carlos.billing.CA.model.BillActivity> saved =
+                org.mockito.ArgumentCaptor.forClass(io.github.carlos_emr.carlos.billing.CA.model.BillActivity.class);
+        verify(billActivityDao).persist(saved.capture());
+        assertThat(saved.getValue().getBatchCount()).isEqualTo(3);
+        assertThat(saved.getValue().getOhipFilename()).isEqualTo("HOB111111.003");
+    }
+
+    @Test
     void shouldReturnFailedProviderEntry_whenOneProviderRollsBack() {
         // Round-7 contract: a per-provider failure must (a) NOT abort the
         // batch, (b) emit a FailedProvider record into the returned list

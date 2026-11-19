@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/form/pageUtil/FrmXmlUpload2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "e611fece2b7d5c39656be2cb787fcf23f828927a"
+  },
+  "evidenceSha256": "504212d6aee2d36836fa1a2feb841ab455abd9764af453a28c82a5e76288d2b6"
+}

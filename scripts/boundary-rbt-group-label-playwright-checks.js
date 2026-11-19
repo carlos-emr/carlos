@@ -52,8 +52,7 @@ async function workflow(s) {
     const rows = s.sql.rows(`SELECT HEX(group_name) FROM rbt_groups WHERE group_name LIKE ${like}`);
     h.assert(rows.length === 1, 'Add Group did not store exactly one group marker row');
     const stored = Buffer.from(rows[0][0], 'hex').toString('utf8');
-    h.assert(rows[0][0] === b.hex(group), `The stored group name differs from what was typed: typed="${group}" stored="${stored}" `
-      + '(RBTGroupManager.addTemplateToGroup runs the name through Encode.forJava before persisting it)');
+    h.assert(rows[0][0] === b.hex(group), `The stored group name differs from what was typed: typed="${group}" stored="${stored}"`);
     h.assert(await frame.locator('#groupListTbl td[title]').filter({ hasText: group }).count() === 1, 'The group list does not show the name as typed');
   });
 }

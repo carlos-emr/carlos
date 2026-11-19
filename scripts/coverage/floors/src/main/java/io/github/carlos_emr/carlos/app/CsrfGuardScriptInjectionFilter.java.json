@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/app/CsrfGuardScriptInjectionFilter.java",
+  "kind": "floor",
+  "floor": {
+    "sourceBlob": "7cab012a9838c653d091b3bef9da8f8fc7571c99",
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 98.86363636363636
+  },
+  "evidenceSha256": "f3f19ebc525d65bfe9eec090655f32c59dee815d4be7c6ca53766328af0b0a16"
+}

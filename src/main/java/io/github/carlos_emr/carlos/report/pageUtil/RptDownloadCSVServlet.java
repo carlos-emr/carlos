@@ -23,14 +23,23 @@
 
 package io.github.carlos_emr.carlos.report.pageUtil;
 
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.RefusalNotice;
+import io.github.carlos_emr.carlos.utility.SpreadsheetCsv;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import io.github.carlos_emr.carlos.commn.dao.AntenatalReportDao;
+
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.StringWriter;
-import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Properties;
 import java.util.Vector;
 
@@ -45,8 +54,9 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.login.DBHelp;
+import io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery;
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
+import io.github.carlos_emr.carlos.report.data.ReportLimitNotice;
 import io.github.carlos_emr.carlos.report.data.RptReportConfigData;
 import io.github.carlos_emr.carlos.report.data.RptReportCreator;
 import io.github.carlos_emr.carlos.report.data.RptReportItem;
@@ -54,67 +64,147 @@ import io.github.carlos_emr.carlos.report.data.RptReportItem;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 
+/**
+ * CSV download of a configured form report, and of the legacy demographic/antenatal report
+ * ({@code demoReport}), at {@code /report/reportDownload}.
+ *
+ * <p>The report filter page posts to {@code report/ViewReportResult}, whose JSP forwards the
+ * "Report in CSV" submission here by servlet name. The servlet is also mapped directly, so it
+ * enforces the same access rule itself: {@code _report} or {@code _admin.reporting} read, as
+ * {@code reportResult.jsp} requires (#5831).</p>
+ *
+ * <p>Both branches build their WHERE clause from the stored filter definitions of the report
+ * named by {@code id}: the request only ticks {@code filter_<n>} and supplies the bound
+ * {@code ${...}} placeholder values. SQL text posted in {@code value_<n>} is ignored, and a
+ * ticked filter the report does not define is answered 400 (see {@link RptFormQuery#checkedFilters}).</p>
+ */
 public class RptDownloadCSVServlet extends HttpServlet {
 
     private static final Logger _logger = MiscUtils.getLogger();
-    String reportName = "";
+    /** Default size limit of the download; {@code configured_report.max_csv_mb} in carlos.properties changes it. */
+    public static final int MAX_CSV_EXPORT_BYTES = ConfiguredReportQuery.MAX_CSV_MB * 1024 * 1024;
+    private static final String SQL_AND = " and ";
+
     String DELIMETER = "\t";
+
+    private final transient SecurityInfoManager securityInfoManager;
+
+    /** Container constructor; authorization uses the security manager from the current Spring context. */
+    public RptDownloadCSVServlet() {
+        this(null);
+    }
+
+    /** Test constructor. */
+    RptDownloadCSVServlet(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
+
+    /** The report filter page's own rule: {@code _report} or {@code _admin.reporting} read. */
+    private boolean mayReadReports(LoggedInInfo loggedInInfo) {
+        SecurityInfoManager security = securityInfoManager == null
+                ? SpringUtils.getBean(SecurityInfoManager.class) : securityInfoManager;
+        return security.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)
+                || security.hasPrivilege(loggedInInfo, "_admin.reporting", SecurityInfoManager.READ, null);
+    }
+
+    /** The filter selection named a filter the report does not define, anywhere in the cause chain. */
+    private static RptFormQuery.UnknownReportFilterException unknownFilter(Throwable failure) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof RptFormQuery.UnknownReportFilterException unknown) {
+                return unknown;
+            }
+        }
+        return null;
+    }
+
+    private record GeneratedCsv(String reportName, String content) { }
+    private record ExtensionColumn(String key, String caption) { }
+    private record ExtensionValueKey(String demographic, String key) { }
+
+    /**
+     * Answers a download whose report could not be generated: status 500, nothing partial sent.
+     *
+     * <p>A configured_report.* limit refusal is the user's to fix (narrow the report, or ask for the limit
+     * to be raised), not a defect: this servlet logs it once, as a warning naming the setting and its value
+     * without the trace, and the error page names the limit. Any other failure is logged as an error with its
+     * trace. (The container's error page adds its own generic line for every error status.)</p>
+     */
+    private static void reportFailed(HttpServletRequest request, HttpServletResponse response, String failureMessage,
+                                     Exception failure) throws IOException {
+        var refusal = ReportLimitNotice.find(failure);
+        if (refusal != null) {
+            _logger.warn("Report download refused by its {} limit of {}", refusal.limit().setting(), refusal.value());
+            ReportLimitNotice.publish(request, refusal.limit(), refusal.value());
+        } else {
+            _logger.error(failureMessage, failure);
+        }
+        response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate report");
+    }
 
     public void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpSession session = request.getSession(false);
         if (session == null)
             return;
-        String in = "";
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(session);
+        if (loggedInInfo == null || !mayReadReports(loggedInInfo)) {
+            RefusalNotice.send(request, response, HttpServletResponse.SC_FORBIDDEN,
+                    "error.refusal.reportAccess", "missing required sec object (_report)");
+            return;
+        }
+        GeneratedCsv report;
         try {
-            in = request.getParameter("demoReport") != null ? demoReport(request) : formReport(request);
-        } catch (ServletException e1) {
-            _logger.error("RptDownloadCSVServlet service() - form report failed", e1);
+            report = request.getParameter("demoReport") != null ? demoReport(request) : formReport(request);
         } catch (Exception e1) {
-            _logger.error("RptDownloadCSVServlet service() - report generation failed", e1);
-        }
-
-
-        String filename = reportName.replaceAll("[\\r\\n]", "") + ".csv"; // request.getParameter("filename");
-        OutputStream out = null;
-        try {
-            if (in != null) {
-                out = new BufferedOutputStream(response.getOutputStream());
-                byte[] b = in.getBytes();
-                int len = b.length;
-                int n = 0;
-                int FIXED_LEN = 2048;
-                String contentType = "application/unknow";
-                MiscUtils.getLogger().debug("contentType: " + contentType);
-                response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
-                while (n <= len - FIXED_LEN) {
-                    out.write(b, n, FIXED_LEN); // b.flush();
-                    n += FIXED_LEN;
-                }
-                if (n > len - FIXED_LEN) {
-                    out.write(b, n, len - n);
-                }
+            RptFormQuery.UnknownReportFilterException unknown = unknownFilter(e1);
+            if (unknown != null) {
+                // A stale or hand-built selection: the user can reload the filter page and retry.
+                _logger.warn("Report download refused: the selected filters are not this report's active filters");
+                RefusalNotice.send(request, response, HttpServletResponse.SC_BAD_REQUEST,
+                        "error.refusal.reportFilterSelection", unknown.getMessage());
+            } else if (e1 instanceof ServletException) {
+                reportFailed(request, response, "RptDownloadCSVServlet service() - form report failed", e1);
+            } else {
+                reportFailed(request, response, "RptDownloadCSVServlet service() - report generation failed", e1);
             }
-        } finally {
-            if (out != null)
-                try {
-                    out.close();
-                } catch (Exception e) {
-                }
+            return;
         }
 
+        String in = report.content();
+        if (in == null) {
+            return;
+        }
+        byte[] bytes = in.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        // configured_report.max_csv_mb, read for each download; MAX_CSV_EXPORT_BYTES is its default.
+        int maximumMb = ConfiguredReportQuery.Limit.CSV.configured();
+        if (bytes.length > (long) maximumMb * 1024 * 1024) {
+            // The same refusal as a query limit: one warning naming the setting, no trace.
+            _logger.warn("Report download refused by its {} limit of {}", ConfiguredReportQuery.Limit.CSV.setting(), maximumMb);
+            ReportLimitNotice.publish(request, ConfiguredReportQuery.Limit.CSV, maximumMb);
+            response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
+                    ConfiguredReportQuery.Limit.CSV.english(maximumMb));
+            return;
+        }
+
+        String filename = report.reportName().replaceAll("[\\r\\n]", "") + ".csv";
+        try (OutputStream out = new BufferedOutputStream(response.getOutputStream())) {
+            response.setContentType("text/csv; charset=UTF-8");
+            response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
+            response.setHeader("X-Content-Type-Options", "nosniff");
+            out.write(bytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- bounded UTF-8 CSV attachment with text/csv and nosniff headers; not HTML
+        }
     }
 
     public void init(ServletConfig config) throws ServletException {
         super.init(config);
     }
 
-    private String formReport(HttpServletRequest request) {
+    private GeneratedCsv formReport(HttpServletRequest request) throws ServletException {
 
 
         String SAVE_AS = "default";
         String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
         // get form name
-        //String reportName = "";
+        String reportName;
         String in = "";
         try {
             reportName = (new RptReportItem()).getReportName(reportId);
@@ -134,15 +224,17 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 .build();
             CSVPrinter csvp = new CSVPrinter(swr, format);
 
+            // Every header and cell goes through the spreadsheet formula guard, as the
+            // demographic branch below does: these values include patient-entered text (#5846).
             for (int i = 0; i < vecFieldCaption.size(); i++) {
-                csvp.print((String) vecFieldCaption.get(i));
+                csvp.print(SpreadsheetCsv.sanitizeCell((String) vecFieldCaption.get(i)));
             }
 
             for (int i = 0; i < vecFieldValue.size(); i++) {
                 Properties prop = (Properties) vecFieldValue.get(i);
                 csvp.println();
                 for (int j = 0; j < vecFieldCaption.size(); j++) {
-                    csvp.print(prop.getProperty((String) vecFieldCaption.get(j), ""));
+                    csvp.print(SpreadsheetCsv.sanitizeCell(prop.getProperty((String) vecFieldCaption.get(j), "")));
                 }
             }
             csvp.flush();
@@ -150,569 +242,344 @@ public class RptDownloadCSVServlet extends HttpServlet {
 
 
         } catch (Exception e1) {
-            _logger.error("service() - form report");
+            throw new ServletException("Unable to generate form report", e1);
         }
-        return in;
+        return new GeneratedCsv(reportName, in);
     }
 
-    private String demoReport(HttpServletRequest request) throws Exception {
-        reportName = "clientDatabaseReport";
-        String in = "";
+    private GeneratedCsv demoReport(HttpServletRequest request) throws Exception {
+        return new DemographicCsvReport(request).generate();
+    }
 
+    /** Selected columns and bound predicates for one report data source. */
+    private static final class ReportColumns {
+        private final Properties captions = new Properties();
+        private final java.util.StringJoiner selection = new java.util.StringJoiner(",");
+        private final java.util.StringJoiner filter = new java.util.StringJoiner(SQL_AND);
+        private final List<Object> parameters = new ArrayList<>();
+        private boolean selected;
+        private boolean filtered;
+    }
 
-        String ARTYPE = "formBCAR";
-        if (request.getParameter("bcartype") != null && request.getParameter("bcartype").equals("BCAR2007")) {
-            ARTYPE = "formBCAR2007";
+    /** Request-owned phases for the legacy demographic/antenatal CSV combinations. */
+    private static final class DemographicCsvReport {
+        private static final String DEMOGRAPHIC_NUMBER = "demographic_no";
+        private static final String DEMOGRAPHIC_PREFIX = "demographic.";
+        private static final String EXTENSION_PREFIX = "demographicExt.";
+        private static final String FROM_DEMOGRAPHIC = " from demographic where ";
+        private static final String ORDER_BY = " order by demographic.last_name, demographic.first_name";
+        private static final List<String> DEMOGRAPHIC_FIELDS = List.of("last_name", "first_name", "date_joined",
+                "hin", "hc_type", "address", "city", "postal", "phone", "phone2", "email");
+
+        private final HttpServletRequest request;
+        private final ReportColumns demographicColumns = new ReportColumns();
+        private final ReportColumns extensionColumns = new ReportColumns();
+        private final ReportColumns antenatalColumns = new ReportColumns();
+        private final String antenatalTable;
+        private final java.util.Set<String> selectedDemographics = new java.util.HashSet<>();
+        private final List<RptFormQuery.CheckedFilter> filters = new ArrayList<>();
+        private final Vector<String> fieldCaptions = new Vector<>();
+        private final Vector<String> fieldNames = new Vector<>();
+        private final List<ExtensionColumn> selectedExtensionColumns = new ArrayList<>();
+        private final Map<ExtensionValueKey, String> extensionValues = new HashMap<>();
+        private Vector<Properties> fieldValues = new Vector<>();
+
+        private DemographicCsvReport(HttpServletRequest request) {
+            this.request = request;
+            antenatalTable = "BCAR2007".equals(request.getParameter("bcartype")) ? "formBCAR2007" : "formBCAR";
+            String[] captions = {"Last Name", "First Name", "Date Joined", "Health Ins.", "HC Type", "Address",
+                    "City", "Postal Code", "Phone (H)", "Phone (W)", "Email"};
+            for (int i = 0; i < DEMOGRAPHIC_FIELDS.size(); i++) {
+                demographicColumns.captions.setProperty(DEMOGRAPHIC_FIELDS.get(i), captions[i]);
+            }
+            extensionColumns.captions.setProperty("prefer_language", "Preferred Language");
+            String configuredExtensions = CarlosProperties.getInstance().getProperty("demographicExt");
+            if (configuredExtensions != null) {
+                for (String caption : configuredExtensions.split("\\|")) {
+                    extensionColumns.captions.setProperty(caption.replace(' ', '_'), caption);
+                }
+            }
+            antenatalColumns.captions.setProperty("c_EDD", "EDD");
+            antenatalColumns.captions.setProperty("pg1_famPhy", "Family Physician");
+            antenatalColumns.captions.setProperty("pg1_partnerName", "Partner Name");
+            antenatalColumns.captions.setProperty("ga", "GA Today");
+            antenatalColumns.captions.setProperty("b_primiparous", "Primiparous");
         }
 
-        MiscUtils.getLogger().debug("AR TYPE " + ARTYPE);
-
-
-        Properties propDemoSelect = new Properties();
-        Properties propSpecSelect = new Properties();
-        Properties propARSelect = new Properties();
-        propDemoSelect.setProperty("last_name", "Last Name");
-        propDemoSelect.setProperty("first_name", "First Name");
-        propDemoSelect.setProperty("date_joined", "Date Joined");
-        propDemoSelect.setProperty("hin", "Health Ins.");
-        propDemoSelect.setProperty("hc_type", "HC Type");
-        propDemoSelect.setProperty("address", "Address");
-        propDemoSelect.setProperty("city", "City");
-        propDemoSelect.setProperty("postal", "Postal Code");
-        propDemoSelect.setProperty("phone", "Phone (H)");
-        propDemoSelect.setProperty("phone2", "Phone (W)");
-        propDemoSelect.setProperty("email", "Email");
-        Vector vecSeqDemoSelect = new Vector();
-        vecSeqDemoSelect.add("last_name");
-        vecSeqDemoSelect.add("first_name");
-        vecSeqDemoSelect.add("date_joined");
-        vecSeqDemoSelect.add("hin");
-        vecSeqDemoSelect.add("hc_type");
-        vecSeqDemoSelect.add("address");
-        vecSeqDemoSelect.add("city");
-        vecSeqDemoSelect.add("postal");
-        vecSeqDemoSelect.add("phone");
-        vecSeqDemoSelect.add("phone2");
-        vecSeqDemoSelect.add("email");
-
-        Vector vecSeqSpecSelect = new Vector();
-        propSpecSelect.setProperty("prefer_language", "Preferred Language");
-        CarlosProperties oscarProps = CarlosProperties.getInstance();
-        if (oscarProps.getProperty("demographicExt") != null) {
-            String[] propDemoExt = oscarProps.getProperty("demographicExt", "").split("\\|");
-            for (int i = 0; i < propDemoExt.length; i++) {
-                propSpecSelect.setProperty(propDemoExt[i].replace(' ', '_'), propDemoExt[i]);
-                vecSeqSpecSelect.add(propDemoExt[i].replace(' ', '_'));
-            }
+        private GeneratedCsv generate() throws Exception {
+            readSelections();
+            // The predicates are the stored filters of the report named by id; the request only
+            // ticks them and supplies their bound placeholder values (#5831).
+            String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
+            filters.addAll(new RptFormQuery().checkedFilters(reportId, request));
+            readFilters();
+            queryDemographics();
+            queryDemographicExtensions();
+            queryAntenatal();
+            queryAllTables();
+            return new GeneratedCsv("clientDatabaseReport", renderCsv());
         }
 
-        propARSelect.setProperty("c_EDD", "EDD");
-        propARSelect.setProperty("pg1_famPhy", "Family Physician");
-        propARSelect.setProperty("pg1_partnerName", "Partner Name");
-        Vector vecSeqARSelect = new Vector();
-        vecSeqARSelect.add("c_EDD");
-        vecSeqARSelect.add("ga");
-        vecSeqARSelect.add("pg1_famPhy");
-        vecSeqARSelect.add("pg1_partnerName");
-
-        propARSelect.setProperty("ga", "GA Today");
-        propARSelect.setProperty("b_primiparous", "Primiparous");
-
-//        get selection
-        boolean bDemoSelect = false;
-        boolean bARSelect = false;
-        boolean bSpecSelect = false;
-        String sDemoSelect = "";
-        String sSpecSelect = "";
-        String sARSelect = "";
-
-
-        String CHECK_BOX = "filter_";
-        String VALUE = "value_";
-        String DATE_FORMAT = "dateFormat_";
-        String VARNAME_FORMAT = "startDate\\d|endDate\\d";
-        Vector vecValue = new Vector();
-        Vector vecDateFormat = new Vector();
-        Properties propTempDemoSelect = new Properties();
-        Properties propTempARSelect = new Properties();
-        Properties propTempSpecSelect = new Properties();
-
-        Enumeration varEnum = request.getParameterNames();
-        while (varEnum.hasMoreElements()) {
-            String name = (String) varEnum.nextElement();
-            if (propDemoSelect.containsKey(name)) {
-                bDemoSelect = true;
-                propTempDemoSelect.setProperty(name, "");
+        private void readSelections() {
+            Enumeration<String> names = request.getParameterNames();
+            while (names.hasMoreElements()) {
+                selectField(names.nextElement());
             }
-            if (propARSelect.containsKey(name)) {
-                bARSelect = true;
-
-
-                if (!name.equals("ga") && !name.equals("b_primiparous"))
-                    sARSelect += (sARSelect.length() < 1 ? "" : ",") + ARTYPE + "." + name;
-            }
-            if (propSpecSelect.containsKey(name)) {
-                bSpecSelect = true;
-                sSpecSelect += (sSpecSelect.length() < 1 ? "" : ",") + "demographicExt." + name;
-            }
-
-            if (name.startsWith(VALUE)) {
-                String serialNo = name.substring(VALUE.length());
-                if (request.getParameter(CHECK_BOX + serialNo) == null)
-                    continue;
-
-                vecValue.add(request.getParameter(name));
-                vecDateFormat.add(request.getParameter(DATE_FORMAT + serialNo));
-
-            }
-        }
-//         get seq. select string
-        for (int i = 0; i < vecSeqDemoSelect.size(); i++) {
-            if (propTempDemoSelect.getProperty((String) vecSeqDemoSelect.get(i)) != null) {
-                sDemoSelect += (sDemoSelect.length() < 1 ? "" : ",") + "demographic." + vecSeqDemoSelect.get(i);
-            }
-        }
-        for (int i = 0; i < vecSeqARSelect.size(); i++) {
-            if (propTempARSelect.getProperty((String) vecSeqARSelect.get(i)) != null) {
-                sARSelect += (sARSelect.length() < 1 ? "" : ",") + ARTYPE + "." + vecSeqARSelect.get(i);
-            }
-        }
-        for (int i = 0; i < vecSeqSpecSelect.size(); i++) {
-            if (propTempSpecSelect.getProperty((String) vecSeqSpecSelect.get(i)) != null) {
-                sSpecSelect += (sSpecSelect.length() < 1 ? "" : ",") + "demographicExt." + vecSeqSpecSelect.get(i);
+            for (String field : DEMOGRAPHIC_FIELDS) {
+                if (selectedDemographics.contains(field)) {
+                    demographicColumns.selection.add(DEMOGRAPHIC_PREFIX + field);
+                }
             }
         }
 
-        MiscUtils.getLogger().debug(":" + bDemoSelect + bSpecSelect + bARSelect);
-        MiscUtils.getLogger().debug(":" + sDemoSelect + sSpecSelect + sARSelect);
-
-//        get replaced filter
-//         filling the var with the real date value — now parameterized
-        Vector vecFilter = new Vector();
-        boolean bDemoFilter = false;
-        boolean bARFilter = false;
-        boolean bSpecFilter = false;
-        String sDemoFilter = "";
-        String sSpecFilter = "";
-        String sARFilter = "";
-        List<Object> demoFilterParams = new ArrayList<>();
-        List<Object> specFilterParams = new ArrayList<>();
-        List<Object> arFilterParams = new ArrayList<>();
-        String sTempEle = "";
-        for (int i = 0; i < vecValue.size(); i++) {
-            String tempVal = (String) vecValue.get(i);
-            Vector vecVar = RptReportCreator.getVarVec(tempVal);
-            Vector vecVarValue = new Vector();
-            for (int j = 0; j < vecVar.size(); j++) {
-                // conver date format if needed
-                if (((String) vecVar.get(j)).matches(VARNAME_FORMAT) && ((String) vecDateFormat.get(i)).length() > 1) {
-                    vecVarValue.add(RptReportCreator.getDiffDateFormat(request.getParameter((String) vecVar.get(j)),
-                            (String) vecDateFormat.get(i), "yyyy-MM-dd"));
-                } else {
-                    vecVarValue.add(request.getParameter((String) vecVar.get(j)));
+        private void selectField(String name) {
+            if (demographicColumns.captions.containsKey(name)) {
+                demographicColumns.selected = true;
+                selectedDemographics.add(name);
+            }
+            if (antenatalColumns.captions.containsKey(name)) {
+                antenatalColumns.selected = true;
+                if (!name.equals("ga") && !name.equals("b_primiparous")) {
+                    antenatalColumns.selection.add(antenatalTable + "." + name);
                 }
             }
-            ParameterizedSql psFilter = RptReportCreator.getWhereValueClauseParameterized(tempVal, vecVarValue);
-            String strFilter = psFilter.getSql();
-            List<Object> filterParams = psFilter.getParams();
-            if (strFilter.indexOf("demographic.") >= 0) {
-                bDemoFilter = true;
-                sDemoFilter += (sDemoFilter.length() < 1 ? "" : " and ") + strFilter;
-                demoFilterParams.addAll(filterParams);
+            if (extensionColumns.captions.containsKey(name)) {
+                extensionColumns.selected = true;
+                extensionColumns.selection.add(EXTENSION_PREFIX + name);
             }
-            if (strFilter.indexOf("demographicExt.") >= 0) {
-                bSpecFilter = true;
-                sSpecFilter += (sSpecFilter.length() < 1 ? "" : " and ") + strFilter;
-                specFilterParams.addAll(filterParams);
-            }
-            if (strFilter.indexOf(ARTYPE + ".") >= 0) {
-                bARFilter = true;
-                //"formBCAR.demographic_no in (select distinct demographic_no from formBCBirthSumMo)"
-                if (strFilter.indexOf("formBCBirthSumMo") > 0) {
-                    ResultSet rs = DBHelp.searchDBRecord("select distinct demographic_no from formBCBirthSumMo");
-                    String sBirthSumNo = "";
-                    if (rs != null) while (rs.next()) {
-                        sBirthSumNo += (sBirthSumNo.length() > 0 ? "," : "") + rs.getInt("demographic_no");
-                    }
-                    sBirthSumNo = sBirthSumNo.length() > 0 ? sBirthSumNo : "0";
-                    strFilter = " " + ARTYPE + ".demographic_no in (" + sBirthSumNo + ")";
-                    filterParams = new ArrayList<>(); // no bind params for the integer-only IN list
-                }
-
-                sARFilter += (sARFilter.length() < 1 ? "" : " and ") + strFilter;
-                arFilterParams.addAll(filterParams);
-            }
-            MiscUtils.getLogger().debug(i + tempVal + " tempVal: " + vecVarValue);
-            MiscUtils.getLogger().debug(i + strFilter);
-            vecFilter.add(strFilter);
         }
 
-//        query sub
-//        todo: filt out Delivered Clients
-//         one table: demographic
-        Vector vecFieldCaption = new Vector();
-        Vector vecFieldName = new Vector();
-        Vector vecFieldValue = new Vector();
-        String ORDER_BY = " order by demographic.last_name, demographic.first_name";
-        if (bDemoSelect && !bARSelect && !bSpecSelect && bDemoFilter && !bARFilter && !bSpecFilter) {
-            String sql = "select " + sDemoSelect + " from demographic where " + sDemoFilter + ORDER_BY;
-            MiscUtils.getLogger().debug(" one table: demographic: " + sql);
-            String[] temp = sDemoSelect.replaceAll("demographic.", "").split(",");
-            for (int i = 0; i < temp.length; i++) {
-                vecFieldCaption.add(propDemoSelect.getProperty(temp[i].trim()));
-                vecFieldName.add(temp[i].trim());
-                MiscUtils.getLogger().debug(" vecFieldCaption: " + propDemoSelect.getProperty(temp[i].trim()));
+        private void readFilters() throws Exception {
+            for (RptFormQuery.CheckedFilter checked : filters) {
+                ParameterizedSql filter = bindFilter(checked.predicate(), checked.dateFormat());
+                String sql = filter.getSql();
+                if (sql.contains(DEMOGRAPHIC_PREFIX)) {
+                    demographicColumns.filtered = true;
+                    demographicColumns.filter.add(sql);
+                    demographicColumns.parameters.addAll(filter.getParams());
+                }
+                if (sql.contains(EXTENSION_PREFIX)) {
+                    extensionColumns.filtered = true;
+                    extensionColumns.filter.add(sql);
+                    extensionColumns.parameters.addAll(filter.getParams());
+                }
+                if (sql.contains(antenatalTable + ".")) {
+                    antenatalColumns.filtered = true;
+                    ParameterizedSql antenatal = replaceBirthSummaryFilter(filter);
+                    antenatalColumns.filter.add(antenatal.getSql());
+                    antenatalColumns.parameters.addAll(antenatal.getParams());
+                }
             }
-            vecFieldValue = (new RptReportCreator()).query(sql, vecFieldName, demoFilterParams.toArray());
         }
 
-//         table: demographic and demographicExt
-        Vector vecSpecCaption = new Vector();
-        Properties propSpecValue = new Properties();
-        if ((bDemoSelect && !bARSelect && bSpecSelect && !bARFilter) || (!bARFilter && bSpecFilter)) {
-            if (bDemoSelect && !bARSelect && bSpecSelect && !bSpecFilter) {
-                vecFieldName.add("demographic_no");
-                String sql = "select demographic_no," + sDemoSelect + " from demographic where " + sDemoFilter + ORDER_BY;
-                MiscUtils.getLogger().debug(" demographic and demographicExt: " + sql);
-                String[] temp = sDemoSelect.replaceAll("demographic.", "").split(",");
-                for (int i = 0; i < temp.length; i++) {
-                    vecFieldCaption.add(propDemoSelect.getProperty(temp[i].trim()));
-                    vecFieldName.add(temp[i].trim());
-                    MiscUtils.getLogger().debug(" vecFieldCaption: " + propDemoSelect.getProperty(temp[i].trim()));
+        private ParameterizedSql bindFilter(String value, String dateFormat) throws Exception {
+            Vector<?> variables = RptReportCreator.getVarVec(value);
+            Vector<String> values = new Vector<>();
+            for (Object variable : variables) {
+                String name = (String) variable;
+                String parameter = request.getParameter(name);
+                if (name.matches("startDate\\d|endDate\\d") && dateFormat != null && dateFormat.length() > 1) {
+                    parameter = RptReportCreator.getDiffDateFormat(parameter, dateFormat, "yyyy-MM-dd");
                 }
-                vecFieldValue = (new RptReportCreator()).query(sql, vecFieldName, demoFilterParams.toArray());
-                vecFieldName.remove(0); // remove "demographic_no"
-
-                //get demographic_no
-                java.util.List<String> demoNoList = new java.util.ArrayList<>();
-                for (int j = 0; j < vecFieldValue.size(); j++) {
-                    Properties prop = (Properties) vecFieldValue.get(j);
-                    demoNoList.add(prop.getProperty("demographic_no"));
-                }
-                temp = sSpecSelect.replaceAll("demographicExt.", "").split(",");
-                if (!demoNoList.isEmpty()) {
-                    String inPlaceholders = String.join(",", java.util.Collections.nCopies(demoNoList.size(), "?"));
-                    for (int i = 0; i < temp.length; i++) {
-                        vecSpecCaption.add(propSpecSelect.getProperty(temp[i].trim()));
-                        sql = "select demographic_no,value from demographicExt where key_val=? and demographic_no in (" + inPlaceholders + ") order by date_time desc limit 1";
-                        Object[] params = new Object[1 + demoNoList.size()];
-                        params[0] = temp[i].trim();
-                        for (int k = 0; k < demoNoList.size(); k++) {
-                            params[k + 1] = demoNoList.get(k);
-                        }
-                        ResultSet rs = DBHelp.searchDBRecord(sql, params);
-                        if (rs != null) while (rs.next()) {
-                            propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
-                        }
-                    }
-                } else {
-                    for (int i = 0; i < temp.length; i++) {
-                        vecSpecCaption.add(propSpecSelect.getProperty(temp[i].trim()));
-                    }
-                }
-                MiscUtils.getLogger().debug(" demographic and demographicExt: " + sql);
+                values.add(parameter);
             }
-            if (bSpecFilter) {
-                vecFieldName.add("demographic_no");
-                // get demoNo
-                String sql = null;
-                ResultSet rs = null;
-                String subQuery = "select distinct(demographic.demographic_no) from demographicExt, demographic where demographic.demographic_no=demographicExt.demographic_no ";
-                String joined = RptReportCreator.joinPredicates(sDemoFilter, sSpecFilter);
-                if (!joined.isEmpty()) subQuery += " and " + joined + "  ";
-                MiscUtils.getLogger().debug(" demographic and demographicExt subQuery: " + subQuery);
-                java.util.List<String> subDemoNoList = new java.util.ArrayList<>();
-                List<Object> subQueryParams = new ArrayList<>();
-                subQueryParams.addAll(demoFilterParams);
-                subQueryParams.addAll(specFilterParams);
-                rs = DBHelp.searchDBRecord(subQuery, subQueryParams.toArray());
-                if (rs != null) while (rs.next()) {
-                    subDemoNoList.add(String.valueOf(rs.getInt("demographic.demographic_no")));
-                }
-                // Build comma-separated string — subFormDemoNo built from rs.getInt() (integer-only)
-                String subFormDemoNo = subDemoNoList.isEmpty() ? "0" : String.join(",", subDemoNoList);
-                // get value for spec
-                String[] temp = sSpecSelect.replaceAll("demographicExt.", "").split(",");
-                if (!subDemoNoList.isEmpty()) {
-                    String inPlaceholders = String.join(",", java.util.Collections.nCopies(subDemoNoList.size(), "?"));
-                    for (int i = 0; i < temp.length; i++) {
-                        vecSpecCaption.add(propSpecSelect.getProperty(temp[i].trim()));
-                        sql = "select demographic_no,value from demographicExt where key_val=? and demographic_no in (" + inPlaceholders + ") order by date_time desc limit 1";
-                        Object[] params = new Object[1 + subDemoNoList.size()];
-                        params[0] = temp[i].trim();
-                        for (int k = 0; k < subDemoNoList.size(); k++) {
-                            params[k + 1] = subDemoNoList.get(k);
-                        }
-                        MiscUtils.getLogger().debug(" demographic and demographicExt: " + sql);
-                        rs = DBHelp.searchDBRecord(sql, params);
-                        if (rs != null) while (rs.next()) {
-                            propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
-                        }
-                    }
-                } else {
-                    for (int i = 0; i < temp.length; i++) {
-                        vecSpecCaption.add(propSpecSelect.getProperty(temp[i].trim()));
-                    }
-                }
+            return RptReportCreator.getWhereValueClauseParameterized(value, values);
+        }
 
-                //sTempEle = sSpecSelect.length()>0? (","+sSpecSelect) : "";
-                sql = "select demographic.demographic_no," + sDemoSelect + " from demographic where ";
-                sql += " demographic.demographic_no in (" + subFormDemoNo + ") " + ORDER_BY; // subFormDemoNo built from rs.getInt() (integer-only)
-                MiscUtils.getLogger().debug(" demographic and demographicExt: " + sql);
+        private ParameterizedSql replaceBirthSummaryFilter(ParameterizedSql filter) throws java.sql.SQLException {
+            if (filter.getSql().indexOf("formBCBirthSumMo") <= 0) {
+                return filter;
+            }
+            List<Integer> numbers = SpringUtils.getBean(AntenatalReportDao.class).birthSummaryDemographics();
+            String identifiers = identifierList(numbers.stream().map(String::valueOf).toList());
+            return new ParameterizedSql(" " + antenatalTable + ".demographic_no in (" + identifiers + ")", List.of());
+        }
 
-                temp = sDemoSelect.replaceAll("demographic.", "").split(",");
-                for (int i = 0; i < temp.length; i++) {
-                    vecFieldCaption.add(propDemoSelect.getProperty(temp[i].trim()));
-                    vecFieldName.add(temp[i].trim());
-                    MiscUtils.getLogger().debug(" vecFieldCaption: " + propDemoSelect.getProperty(temp[i].trim()));
+        private void queryDemographics() throws java.sql.SQLException {
+            if (demographicColumns.selected && !antenatalColumns.selected && !extensionColumns.selected
+                    && demographicColumns.filtered && !antenatalColumns.filtered && !extensionColumns.filtered) {
+                String sql = "select " + demographicColumns.selection + FROM_DEMOGRAPHIC + demographicColumns.filter + ORDER_BY;
+                addDemographicFields();
+                fieldValues = new RptReportCreator().query(sql, fieldNames, demographicColumns.parameters.toArray());
+            }
+        }
+
+        private void queryDemographicExtensions() throws java.sql.SQLException {
+            if (!((demographicColumns.selected && !antenatalColumns.selected && extensionColumns.selected && !antenatalColumns.filtered)
+                    || (!antenatalColumns.filtered && extensionColumns.filtered))) {
+                return;
+            }
+            if (demographicColumns.selected && !antenatalColumns.selected && extensionColumns.selected && !extensionColumns.filtered) {
+                queryDemographicsWithExtensions();
+            }
+            if (extensionColumns.filtered) {
+                queryFilteredExtensions();
+            }
+        }
+
+        private void queryDemographicsWithExtensions() throws java.sql.SQLException {
+            fieldNames.add(DEMOGRAPHIC_NUMBER);
+            String sql = "select demographic_no," + demographicColumns.selection + FROM_DEMOGRAPHIC + demographicColumns.filter + ORDER_BY;
+            addDemographicFields();
+            fieldValues = new RptReportCreator().query(sql, fieldNames, demographicColumns.parameters.toArray());
+            fieldNames.remove(0);
+            readExtensionValues(resultDemographics());
+        }
+
+        private void queryFilteredExtensions() throws java.sql.SQLException {
+            fieldNames.add(DEMOGRAPHIC_NUMBER);
+            List<String> demographics = extensionDemographics();
+            readExtensionValues(demographics);
+            String sql = "select demographic.demographic_no," + demographicColumns.selection + FROM_DEMOGRAPHIC
+                    + " demographic.demographic_no in (" + identifierList(demographics) + ") " + ORDER_BY;
+            addDemographicFields();
+            fieldValues = new RptReportCreator().query(sql, fieldNames);
+            fieldNames.remove(0);
+        }
+
+        private List<String> extensionDemographics() throws java.sql.SQLException {
+            String sql = "select distinct(demographic.demographic_no) from demographicExt, demographic where demographic.demographic_no=demographicExt.demographic_no ";
+            String joined = RptReportCreator.joinPredicates(demographicColumns.filter.toString(), extensionColumns.filter.toString());
+            if (!joined.isEmpty()) {
+                sql += SQL_AND + joined + "  ";
+            }
+            List<Object> parameters = new ArrayList<>(demographicColumns.parameters);
+            parameters.addAll(extensionColumns.parameters);
+            return ConfiguredReportQuery.identifiers(sql, parameters.toArray()).stream().map(String::valueOf).toList();
+        }
+
+        private void queryAntenatal() throws java.sql.SQLException {
+            if ((demographicColumns.selected && antenatalColumns.selected && !extensionColumns.selected && !extensionColumns.filtered)
+                    || (!extensionColumns.selected && antenatalColumns.filtered && !extensionColumns.filtered)) {
+                queryAntenatalRows(null);
+            }
+        }
+
+        private void queryAllTables() throws java.sql.SQLException {
+            if (!((demographicColumns.selected && antenatalColumns.selected && extensionColumns.selected) || (antenatalColumns.filtered && extensionColumns.filtered))) {
+                return;
+            }
+            if (demographicColumns.selected && antenatalColumns.selected && extensionColumns.selected && !extensionColumns.filtered) {
+                fieldNames.add(DEMOGRAPHIC_NUMBER);
+                queryAntenatalRows(null);
+                fieldNames.remove(0);
+                readExtensionValues(resultDemographics());
+            }
+            if (antenatalColumns.filtered && extensionColumns.filtered) {
+                fieldNames.add(DEMOGRAPHIC_NUMBER);
+                List<String> demographics = extensionDemographics();
+                readExtensionValues(demographics);
+                queryAntenatalRows(demographics);
+                fieldNames.remove(0);
+            }
+        }
+
+        private String antenatalIdentifiers() throws java.sql.SQLException {
+            String joined = RptReportCreator.joinPredicates(demographicColumns.filter.toString(), antenatalColumns.filter.toString());
+            String sql = "select max(ID) from " + antenatalTable + ", demographic where demographic.demographic_no="
+                    + antenatalTable + ".demographic_no ";
+            if (!joined.isEmpty()) {
+                sql += SQL_AND + joined;
+            }
+            sql += " group by " + antenatalTable + ".demographic_no," + antenatalTable + ".formCreated ";
+            List<Object> parameters = new ArrayList<>(demographicColumns.parameters);
+            parameters.addAll(antenatalColumns.parameters);
+            return identifierList(ConfiguredReportQuery.identifiers(sql, parameters.toArray()).stream().map(String::valueOf).toList());
+        }
+
+        private void queryAntenatalRows(List<String> demographics) throws java.sql.SQLException {
+            String identifiers = antenatalIdentifiers();
+            String selectedAntenatalColumns = antenatalColumns.selection.length() > 0 ? "," + antenatalColumns.selection : "";
+            String sql = "select demographic.demographic_no," + demographicColumns.selection + selectedAntenatalColumns
+                    + " from demographic," + antenatalTable + " where ";
+            if (demographics != null) {
+                sql += " demographic.demographic_no in (" + identifierList(demographics) + ") and ";
+            }
+            // Both IN lists contain only integer identifiers obtained from the bounded readers.
+            sql += " " + antenatalTable + ".ID in (" + identifiers + ") and demographic.demographic_no="
+                    + antenatalTable + ".demographic_no " + ORDER_BY;
+            addDemographicFields();
+            if (antenatalColumns.selected) {
+                addFields(antenatalColumns.selection.toString(), antenatalTable + ".", antenatalColumns.captions);
+            }
+            fieldValues = new RptReportCreator().query(sql, fieldNames);
+        }
+
+        private void addDemographicFields() {
+            addFields(demographicColumns.selection.toString(), DEMOGRAPHIC_PREFIX, demographicColumns.captions);
+        }
+
+        private void addFields(String selection, String prefix, Properties captions) {
+            for (String column : selection.replaceAll(prefix, "").split(",")) {
+                fieldCaptions.add(captions.getProperty(column.trim()));
+                fieldNames.add(column.trim());
+            }
+        }
+
+        private List<String> resultDemographics() {
+            return fieldValues.stream().map(row -> row.getProperty(DEMOGRAPHIC_NUMBER)).toList();
+        }
+
+        private void readExtensionValues(List<String> demographics) throws java.sql.SQLException {
+            for (String column : extensionColumns.selection.toString().replaceAll(EXTENSION_PREFIX, "").split(",")) {
+                String key = column.trim();
+                selectedExtensionColumns.add(new ExtensionColumn(key, extensionColumns.captions.getProperty(key)));
+            }
+            if (demographics.isEmpty()) return;
+            // One bounded read covers all selected patient/key values, including their combined text.
+            // The derived keys preserve the requested spelling under a case-insensitive database collation.
+            String keys = String.join(" UNION ALL ", java.util.Collections.nCopies(
+                    selectedExtensionColumns.size(), "SELECT ? AS extension_key"));
+            String patients = String.join(",", java.util.Collections.nCopies(demographics.size(), "?"));
+            List<Object> parameters = new ArrayList<>();
+            selectedExtensionColumns.forEach(column -> parameters.add(column.key()));
+            demographics.forEach(number -> parameters.add(Integer.valueOf(number)));
+            String sql = "select x.demographic_no, k.extension_key, x.value from demographicExt x join (" + keys
+                    + ") k on x.key_val=k.extension_key where x.demographic_no in (" + patients
+                    + ") order by x.date_time, x.id";
+            for (var extension : ConfiguredReportQuery.read(sql, parameters.toArray()).rows()) {
+                String value = extension.value("value");
+                extensionValues.put(new ExtensionValueKey(extension.value(DEMOGRAPHIC_NUMBER), extension.value("extension_key")),
+                        value == null ? "" : value);
+            }
+        }
+
+        private static String identifierList(List<String> identifiers) {
+            return identifiers.isEmpty() ? "0" : String.join(",", identifiers);
+        }
+
+        private String renderCsv() throws IOException {
+            StringWriter text = new StringWriter();
+            CSVFormat format = CSVFormat.Builder.create(CSVFormat.DEFAULT).setDelimiter('\t').get();
+            try (CSVPrinter csv = new CSVPrinter(text, format)) {
+                csv.print("id");
+                for (String caption : fieldCaptions) {
+                    csv.print(SpreadsheetCsv.sanitizeCell(caption));
                 }
-                /*
-                if(bSpecSelect) {
-                    temp = sSpecSelect.replaceAll("demographicExt.","").split(",");
-                    for(int i=0; i<temp.length; i++) {
-                        vecFieldCaption.add(propSpecSelect.getProperty(temp[i].trim()));
-                        vecFieldName.add(temp[i].trim());
-                        MiscUtils.getLogger().debug(" vecFieldCaption: " + propSpecSelect.getProperty(temp[i].trim()));
+                if (extensionColumns.selected) {
+                    for (ExtensionColumn extension : selectedExtensionColumns) {
+                        csv.print(SpreadsheetCsv.sanitizeCell(extension.caption()));
                     }
                 }
-                */
-                vecFieldValue = (new RptReportCreator()).query(sql, vecFieldName);
-                vecFieldName.remove(0); // remove "demographic_no"
+                for (int i = 0; i < fieldValues.size(); i++) {
+                    renderRow(csv, fieldValues.get(i), i + 1);
+                }
             }
+            return text.toString();
         }
 
-//         table: demographic and formBCAR
-
-
-        if ((bDemoSelect && bARSelect && !bSpecSelect && !bSpecFilter) || (!bSpecSelect && bARFilter && !bSpecFilter)) {
-            String joinedAr = RptReportCreator.joinPredicates(sDemoFilter, sARFilter);
-            String subQuery = "select max(ID) from " + ARTYPE + ", demographic where demographic.demographic_no=" + ARTYPE + ".demographic_no ";
-            if (!joinedAr.isEmpty()) subQuery += " and " + joinedAr;
-            subQuery += " group by " + ARTYPE + ".demographic_no," + ARTYPE + ".formCreated ";
-            MiscUtils.getLogger().debug(" demographic and " + ARTYPE + " subQuery: " + subQuery);
-            String subFormId = "";
-            List<Object> subQueryParams = new ArrayList<>();
-            subQueryParams.addAll(demoFilterParams);
-            subQueryParams.addAll(arFilterParams);
-            ResultSet rs = DBHelp.searchDBRecord(subQuery, subQueryParams.toArray());
-            if (rs != null) while (rs.next()) {
-                subFormId += (subFormId.length() > 0 ? "," : "") + rs.getInt("max(ID)");
+        private void renderRow(CSVPrinter csv, Properties row, int number) throws IOException {
+            csv.println();
+            csv.print(String.valueOf(number));
+            for (String name : fieldNames) {
+                csv.print(SpreadsheetCsv.sanitizeCell(row.getProperty(name, "")));
             }
-
-            sTempEle = sARSelect.length() > 0 ? ("," + sARSelect) : "";
-            subFormId = subFormId.length() > 0 ? subFormId : "0";
-            String sql = "select demographic.demographic_no," + sDemoSelect + sTempEle + " from demographic," + ARTYPE + " where ";
-            sql += " " + ARTYPE + ".ID in (" + subFormId + ") and demographic.demographic_no=" + ARTYPE + ".demographic_no " + ORDER_BY; // subFormId built from rs.getInt() (integer-only)
-            MiscUtils.getLogger().debug(" demographic and " + ARTYPE + ": " + sql);
-
-            String[] temp = sDemoSelect.replaceAll("demographic.", "").split(",");
-            for (int i = 0; i < temp.length; i++) {
-                vecFieldCaption.add(propDemoSelect.getProperty(temp[i].trim()));
-                vecFieldName.add(temp[i].trim());
-                MiscUtils.getLogger().debug(" vecFieldCaption: " + propDemoSelect.getProperty(temp[i].trim()));
-            }
-            if (bARSelect) {
-                temp = sARSelect.replaceAll(ARTYPE + ".", "").split(",");
-                for (int i = 0; i < temp.length; i++) {
-                    vecFieldCaption.add(propARSelect.getProperty(temp[i].trim()));
-                    vecFieldName.add(temp[i].trim());
-                    MiscUtils.getLogger().debug(" vecFieldCaption: " + propARSelect.getProperty(temp[i].trim()));
-                }
-            }
-            vecFieldValue = (new RptReportCreator()).query(sql, vecFieldName);
-
-            //vecFieldName.remove(0); // remove "demographic_no"
-        }
-
-//         table: all
-        if ((bDemoSelect && bARSelect && bSpecSelect) || (bARFilter && bSpecFilter)) {
-            if (bDemoSelect && bARSelect && bSpecSelect && !bSpecFilter) {
-                vecFieldName.add("demographic_no");
-                String joinedAllAr = RptReportCreator.joinPredicates(sDemoFilter, sARFilter);
-                String subQuery = "select max(ID) from " + ARTYPE + ", demographic where demographic.demographic_no=" + ARTYPE + ".demographic_no ";
-                if (!joinedAllAr.isEmpty()) subQuery += " and " + joinedAllAr;
-                subQuery += " group by " + ARTYPE + ".demographic_no," + ARTYPE + ".formCreated ";
-                MiscUtils.getLogger().debug(" demographic and " + ARTYPE + " subQuery: " + subQuery);
-                String subFormId = "";
-                List<Object> subQueryParams = new ArrayList<>();
-                subQueryParams.addAll(demoFilterParams);
-                subQueryParams.addAll(arFilterParams);
-                ResultSet rs = DBHelp.searchDBRecord(subQuery, subQueryParams.toArray());
-                if (rs != null) while (rs.next()) {
-                    subFormId += (subFormId.length() > 0 ? "," : "") + rs.getInt("max(ID)");
-                }
-
-                sTempEle = sARSelect.length() > 0 ? ("," + sARSelect) : "";
-                subFormId = subFormId.length() > 0 ? subFormId : "0";
-                String sql = "select demographic.demographic_no," + sDemoSelect + sTempEle + " from demographic," + ARTYPE + " where ";
-                sql += " " + ARTYPE + ".ID in (" + subFormId + ") and demographic.demographic_no=" + ARTYPE + ".demographic_no " + ORDER_BY; // subFormId built from rs.getInt() (integer-only)
-                MiscUtils.getLogger().debug(" demographic and " + ARTYPE + ": " + sql);
-
-                String[] temp = sDemoSelect.replaceAll("demographic.", "").split(",");
-                for (int i = 0; i < temp.length; i++) {
-                    vecFieldCaption.add(propDemoSelect.getProperty(temp[i].trim()));
-                    vecFieldName.add(temp[i].trim());
-                    MiscUtils.getLogger().debug(" vecFieldCaption: " + propDemoSelect.getProperty(temp[i].trim()));
-                }
-                if (bARSelect) {
-                    temp = sARSelect.replaceAll(ARTYPE + ".", "").split(",");
-                    for (int i = 0; i < temp.length; i++) {
-                        vecFieldCaption.add(propARSelect.getProperty(temp[i].trim()));
-                        vecFieldName.add(temp[i].trim());
-                        MiscUtils.getLogger().debug(" vecFieldCaption: " + propARSelect.getProperty(temp[i].trim()));
-                    }
-                }
-                vecFieldValue = (new RptReportCreator()).query(sql, vecFieldName);
-                vecFieldName.remove(0); // remove "demographic_no"
-
-                //get demographic_no
-                java.util.List<String> demoNoList = new java.util.ArrayList<>();
-                for (int j = 0; j < vecFieldValue.size(); j++) {
-                    Properties prop = (Properties) vecFieldValue.get(j);
-                    demoNoList.add(prop.getProperty("demographic_no"));
-                }
-                temp = sSpecSelect.replaceAll("demographicExt.", "").split(",");
-                if (!demoNoList.isEmpty()) {
-                    String inPlaceholders = String.join(",", java.util.Collections.nCopies(demoNoList.size(), "?"));
-                    for (int i = 0; i < temp.length; i++) {
-                        vecSpecCaption.add(propSpecSelect.getProperty(temp[i].trim()));
-                        sql = "select demographic_no,value from demographicExt where key_val=? and demographic_no in (" + inPlaceholders + ") order by date_time ";
-                        Object[] params = new Object[1 + demoNoList.size()];
-                        params[0] = temp[i].trim();
-                        for (int k = 0; k < demoNoList.size(); k++) {
-                            params[k + 1] = demoNoList.get(k);
-                        }
-                        rs = DBHelp.searchDBRecord(sql, params);
-                        if (rs != null) while (rs.next()) {
-                            propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
-                        }
-                    }
-                } else {
-                    for (int i = 0; i < temp.length; i++) {
-                        vecSpecCaption.add(propSpecSelect.getProperty(temp[i].trim()));
-                    }
-                }
-            }
-            MiscUtils.getLogger().debug(" table: all: ");
-
-            if (bARFilter && bSpecFilter) {
-                // spec first
-                vecFieldName.add("demographic_no");
-                // get demoNo
-                String sql = null;
-                ResultSet rs = null;
-                String joinedSpec1 = RptReportCreator.joinPredicates(sDemoFilter, sSpecFilter);
-                String subQuery = "select distinct(demographic.demographic_no) from demographicExt, demographic where demographic.demographic_no=demographicExt.demographic_no ";
-                if (!joinedSpec1.isEmpty()) subQuery += " and " + joinedSpec1 + "  ";
-                MiscUtils.getLogger().debug(" demographic and demographicExt subQuery: " + subQuery);
-                java.util.List<String> subDemoNoList = new java.util.ArrayList<>();
-                List<Object> subQueryParams1 = new ArrayList<>();
-                subQueryParams1.addAll(demoFilterParams);
-                subQueryParams1.addAll(specFilterParams);
-                rs = DBHelp.searchDBRecord(subQuery, subQueryParams1.toArray());
-                if (rs != null) while (rs.next()) {
-                    subDemoNoList.add(String.valueOf(rs.getInt("demographic.demographic_no")));
-                }
-                // get value for spec
-                String[] temp = sSpecSelect.replaceAll("demographicExt.", "").split(",");
-                if (!subDemoNoList.isEmpty()) {
-                    String inPlaceholders = String.join(",", java.util.Collections.nCopies(subDemoNoList.size(), "?"));
-                    for (int i = 0; i < temp.length; i++) {
-                        vecSpecCaption.add(propSpecSelect.getProperty(temp[i].trim()));
-                        sql = "select demographic_no,value from demographicExt where key_val=? and demographic_no in (" + inPlaceholders + ") order by date_time desc limit 1";
-                        Object[] params = new Object[1 + subDemoNoList.size()];
-                        params[0] = temp[i].trim();
-                        for (int k = 0; k < subDemoNoList.size(); k++) {
-                            params[k + 1] = subDemoNoList.get(k);
-                        }
-                        rs = DBHelp.searchDBRecord(sql, params);
-                        if (rs != null) while (rs.next()) {
-                            propSpecValue.setProperty(rs.getString("demographic_no") + temp[i], rs.getString("value"));
-                        }
-                    }
-                } else {
-                    for (int i = 0; i < temp.length; i++) {
-                        vecSpecCaption.add(propSpecSelect.getProperty(temp[i].trim()));
-                    }
-                }
-
-                // formAR second
-                String joinedAr2 = RptReportCreator.joinPredicates(sDemoFilter, sARFilter);
-                subQuery = "select max(ID) from " + ARTYPE + ", demographic where demographic.demographic_no=" + ARTYPE + ".demographic_no ";
-                if (!joinedAr2.isEmpty()) subQuery += " and " + joinedAr2;
-                subQuery += " group by " + ARTYPE + ".demographic_no," + ARTYPE + ".formCreated ";
-                MiscUtils.getLogger().debug(" demographic and " + ARTYPE + " subQuery: " + subQuery);
-                String subFormId = "";
-                List<Object> subQueryParams2 = new ArrayList<>();
-                subQueryParams2.addAll(demoFilterParams);
-                subQueryParams2.addAll(arFilterParams);
-                rs = DBHelp.searchDBRecord(subQuery, subQueryParams2.toArray());
-                if (rs != null) while (rs.next()) {
-                    subFormId += (subFormId.length() > 0 ? "," : "") + rs.getInt("max(ID)");
-                }
-
-                // total — subFormDemoNo and subFormId built from rs.getInt() (integer-only)
-                sTempEle = sARSelect.length() > 0 ? ("," + sARSelect) : "";
-                subFormId = subFormId.length() > 0 ? subFormId : "0";
-                String subFormDemoNo = subDemoNoList.isEmpty() ? "0" : String.join(",", subDemoNoList);
-                sql = "select demographic.demographic_no," + sDemoSelect + sTempEle + " from demographic," + ARTYPE + " where ";
-                sql += " demographic.demographic_no in (" + subFormDemoNo + ") and "; // subFormDemoNo built from rs.getInt() (integer-only)
-                sql += " " + ARTYPE + ".ID in (" + subFormId + ") and demographic.demographic_no=" + ARTYPE + ".demographic_no " + ORDER_BY; // subFormId built from rs.getInt() (integer-only)
-                MiscUtils.getLogger().debug(" total: " + sql);
-
-                temp = sDemoSelect.replaceAll("demographic.", "").split(",");
-                for (int i = 0; i < temp.length; i++) {
-                    vecFieldCaption.add(propDemoSelect.getProperty(temp[i].trim()));
-                    vecFieldName.add(temp[i].trim());
-                    MiscUtils.getLogger().debug(" vecFieldCaption: " + propDemoSelect.getProperty(temp[i].trim()));
-                }
-                if (bARSelect) {
-                    temp = sARSelect.replaceAll(ARTYPE + ".", "").split(",");
-                    for (int i = 0; i < temp.length; i++) {
-                        vecFieldCaption.add(propARSelect.getProperty(temp[i].trim()));
-                        vecFieldName.add(temp[i].trim());
-                        MiscUtils.getLogger().debug(" vecFieldCaption: " + propARSelect.getProperty(temp[i].trim()));
-                    }
-                }
-                vecFieldValue = (new RptReportCreator()).query(sql, vecFieldName);
-                vecFieldName.remove(0); // remove "demographic_no"
-
-            }
-        }
-
-        StringWriter swr = new StringWriter();
-        CSVFormat format = CSVFormat.Builder.create(CSVFormat.DEFAULT)
-            .setDelimiter('\t')
-            .build();
-        CSVPrinter csvp = new CSVPrinter(swr, format);
-
-        csvp.print("id");
-        for (int i = 0; i < vecFieldCaption.size(); i++) {
-            csvp.print((String) vecFieldCaption.get(i));
-        }
-        if (bSpecSelect) {
-            for (int i = 0; i < vecSpecCaption.size(); i++) {
-                csvp.print((String) vecSpecCaption.get(i));
-            }
-        }
-
-        for (int i = 0; i < vecFieldValue.size(); i++) {
-            Properties prop = (Properties) vecFieldValue.get(i);
-            csvp.println();
-            csvp.print("" + (i + 1));
-
-            for (int j = 0; j < vecFieldName.size(); j++) {
-                csvp.print(prop.getProperty((String) vecFieldName.get(j), ""));
-            }
-            if (bSpecSelect) {
-                String demoNo = prop.getProperty("demographic_no");
-                for (int j = 0; j < vecSpecCaption.size(); j++) {
-                    csvp.print(propSpecValue.getProperty(demoNo + ((String) vecSpecCaption.get(j)).replaceAll(" ", "_"), ""));
+            if (extensionColumns.selected) {
+                String demographic = row.getProperty(DEMOGRAPHIC_NUMBER);
+                for (ExtensionColumn extension : selectedExtensionColumns) {
+                    csv.print(SpreadsheetCsv.sanitizeCell(extensionValues.getOrDefault(new ExtensionValueKey(demographic, extension.key()), "")));
                 }
             }
         }
-
-        in = swr.toString();
-        return in;
     }
 }

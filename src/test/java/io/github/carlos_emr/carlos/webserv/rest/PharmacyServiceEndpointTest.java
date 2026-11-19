@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.util.Collections;
 import java.util.List;
@@ -33,6 +35,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 
 import io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao;
@@ -99,6 +104,63 @@ class PharmacyServiceEndpointTest extends CarlosRestTestBase {
     @DisplayName("GET /pharmacies/")
     class GetPharmacies {
 
+        @ParameterizedTest
+        @ValueSource(strings = {"application/json", "application/xml"})
+        void shouldPreserveActiveAndInactiveStatuses_whenListingTheDirectory(String mediaType) throws Exception {
+            PharmacyInfo inactive = new PharmacyInfo();
+            inactive.setId(201);
+            inactive.setName("Synthetic inactive pharmacy");
+            inactive.setStatus('0');
+            PharmacyInfo active = new PharmacyInfo();
+            active.setId(202);
+            active.setName("Synthetic active pharmacy");
+            active.setStatus('1');
+            when(mockPharmacyInfoDao.findAll(0, 2)).thenReturn(List.of(inactive, active));
+
+            try (Response response = request().path("/pharmacies/").query("offset", 0).query("limit", 2)
+                    .replaceHeader("Accept", mediaType).get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                if ("application/json".equals(mediaType)) {
+                    var rows = responseJson(response).at("/Item");
+                    assertThat(rows).hasSize(2);
+                    assertThat(rows.get(0).get("id").intValue()).isEqualTo(201);
+                    assertThat(rows.get(0).get("status").textValue()).isEqualTo("0");
+                    assertThat(rows.get(1).get("id").intValue()).isEqualTo(202);
+                    assertThat(rows.get(1).get("status").textValue()).isEqualTo("1");
+                } else {
+                    var xml = io.github.carlos_emr.carlos.utility.XmlUtils.toDocument(response.readEntity(String.class));
+                    var statuses = xml.getElementsByTagName("status");
+                    assertThat(statuses.getLength()).isEqualTo(2);
+                    assertThat(statuses.item(0).getTextContent()).isEqualTo("0");
+                    assertThat(statuses.item(1).getTextContent()).isEqualTo("1");
+                }
+                verify(mockPharmacyInfoDao).findAll(0, 2);
+            }
+        }
+
+        @ParameterizedTest
+        @CsvSource({"0,5001", "0,2147483647", "0,-1", "-1,10"})
+        @DisplayName("should return 400 without querying for invalid pagination")
+        void shouldReturn400_whenPaginationIsInvalid(int offset, int limit) {
+            try (Response response = request().path("/pharmacies/")
+                    .query("offset", offset).query("limit", limit).get()) {
+                assertThat(response.getStatus()).isEqualTo(400);
+                verifyNoInteractions(mockPharmacyInfoDao);
+            }
+        }
+
+        @ParameterizedTest
+        @CsvSource({"0,0", "0,1", "0,5000", "2147483647,10"})
+        @DisplayName("should preserve supported pagination boundaries")
+        void shouldReturn200_whenPaginationIsWithinBounds(int offset, int limit) {
+            when(mockPharmacyInfoDao.findAll(offset, limit)).thenReturn(Collections.emptyList());
+            try (Response response = request().path("/pharmacies/")
+                    .query("offset", offset).query("limit", limit).get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                verify(mockPharmacyInfoDao).findAll(offset, limit);
+            }
+        }
+
         @Test
         @DisplayName("should return 200 with pharmacy list")
         void shouldReturn200_whenPharmaciesExist() {
@@ -130,6 +192,7 @@ class PharmacyServiceEndpointTest extends CarlosRestTestBase {
             assertThat(wireJson.at("/total").intValue()).isEqualTo(0);
             assertThat(wireJson.at("/Item").isArray()).isTrue();
             assertThat(wireJson.at("/Item")).hasSize(0);
+            verify(mockPharmacyInfoDao).findAll(null, null);
         }
     }
 

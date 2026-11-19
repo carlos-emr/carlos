@@ -46,7 +46,7 @@ function add_status(form) {
 		return false;
 	}
 	
-	form.elements['client_status.id'].value='0';
+	form.elements['client_status.id'].value = '';
 	form.elements['method'].value='save_status';
 	form.submit();
 }
@@ -59,24 +59,36 @@ function add_status(form) {
 </table>
 </div>
 <!--  show current staff -->
-<display:table class="simple" cellspacing="2" cellpadding="3" id="status" name="client_statuses" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
-	<display:setProperty name="paging.banner.placement" value="bottom" />
-	<display:setProperty name="basic.msg.empty_list" value="No statuses are currently defined for this program." />
-	<display:column sortable="false" title="">
+<c:if test="${not empty client_statuses}">
+<table class="carlos-table-spaced simple" id="status" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
+
+
+    <th scope="col"></th>
+    <th scope="col"><span data-table-sort>Name</span></th>
+</tr></thead>
+<tbody><c:forEach var="status" items="${client_statuses}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+
+    <td>
 		<a onclick="deleteStatus('${carlos:forJavaScript(status.id)}');return false;" href="javascript:void(0);"> Delete </a>
-	</display:column>
-	<display:column property="name" sortable="true" title="Name" />	
-</display:table>
+    </td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(status.name))}" data-sort-type="${carlos:tableSortType(status.name)}">${carlos:forHtml(status.name)}</td>
+</tr></c:forEach></tbody>
+</table>
+</c:if>
+<c:if test="${empty client_statuses}">No statuses are currently defined for this program.</c:if>
 <br />
-<html:hidden property="client_status.id" />
+<input type="hidden" name="client_status.id" />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<tr class="b">
-		<td width="20%">Name:</td>
-		<td><html:text property="client_status.name" size="50" maxlength="255"/></td>
+		<td width="20%"><label for="program-client-status-name">Name:</label></td>
+		<td><input type="text" name="client_status.name" id="program-client-status-name" size="50" maxlength="255" value="${carlos:forHtmlAttribute(client_status.name)}" /></td>
 	</tr>
 	<tr>
 		<td colspan="2">
-			<input type="button" value="Save" onclick="add_status(this.form)" /> <html:cancel />
+			<input type="button" value="Save" onclick="add_status(this.form)" />
+			<a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${carlos:forUriComponent(requestScope.id)}&amp;view.tab=Client%20Status">Cancel</a>
 		</td>
 	</tr>
 </table>

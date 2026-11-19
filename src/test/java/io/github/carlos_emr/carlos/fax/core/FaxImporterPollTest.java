@@ -19,15 +19,18 @@ package io.github.carlos_emr.carlos.fax.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
@@ -72,6 +75,8 @@ class FaxImporterPollTest extends CarlosUnitTestBase {
     private FaxProviderClient faxProviderClient;
 
     private FaxImporter faxImporter;
+    private final java.util.concurrent.atomic.AtomicReference<java.time.Instant> now =
+            new java.util.concurrent.atomic.AtomicReference<>(java.time.Instant.parse("2026-11-01T00:00:00Z"));
 
     @org.junit.jupiter.api.io.TempDir
     java.nio.file.Path faxIncomingDir;
@@ -97,7 +102,11 @@ class FaxImporterPollTest extends CarlosUnitTestBase {
         properties.setProperty("FAX_INCOMING_DIR", faxIncomingDir.toString());
 
         faxImporter = new FaxImporter(faxConfigDao, faxJobDao, queueDocumentLinkDao,
-                providerLabRoutingDao, faxProviderClientFactory, faxIncomingDir.toString());
+                providerLabRoutingDao, faxProviderClientFactory, faxIncomingDir.toString(), new java.time.Clock() {
+                    public java.time.ZoneId getZone() { return java.time.ZoneOffset.UTC; }
+                    public java.time.Clock withZone(java.time.ZoneId zone) { return this; }
+                    public java.time.Instant instant() { return now.get(); }
+                });
         faxImporter.initialize();
         assertThat(faxImporter.isInitialized())
                 .describedAs("poll() is a no-op unless the importer initialized; without this every "
@@ -291,6 +300,182 @@ class FaxImporterPollTest extends CarlosUnitTestBase {
         verify(faxProviderClient).listInboundFaxes(goodConfig);
     }
 
+    @Test
+    void shouldBackOffOneAccountAndLogTransitions_whenProviderRemainsUnavailable() throws Exception {
+        FaxConfig failing = createFaxConfig(1, true, true);
+        FaxConfig healthy = createFaxConfig(2, true, true);
+        when(faxConfigDao.findAll(null, null)).thenReturn(List.of(failing, healthy));
+        when(faxProviderClientFactory.getClient(any())).thenReturn(faxProviderClient);
+        when(faxProviderClient.listInboundFaxes(healthy)).thenReturn(List.of());
+        when(faxProviderClient.listInboundFaxes(failing)).thenThrow(
+                new FaxProviderException("PRIVATE_PROVIDER_RESPONSE", new java.io.IOException("PRIVATE_CAUSE"), 503));
+
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxImporter.class)) {
+            faxImporter.poll();
+            var firstFailure = faxImporter.getPollingFailures().get(1).firstFailure();
+            for (int attempt = 1; attempt <= 10; attempt++) {
+                var state = faxImporter.getPollingFailures().get(1);
+                assertThat(state.attempts()).isEqualTo(attempt);
+                assertThat(state.firstFailure()).isEqualTo(firstFailure);
+                assertThat(state.nextRetry()).isEqualTo(now.get().plusSeconds(
+                        60 * Math.min(60, 1L << Math.min(attempt - 1, 6))));
+                now.set(state.nextRetry().minusMillis(1));
+                faxImporter.poll();
+                verify(faxProviderClient, times(attempt)).listInboundFaxes(failing);
+                now.set(state.nextRetry());
+                faxImporter.poll();
+                verify(faxProviderClient, times(attempt + 1)).listInboundFaxes(failing);
+            }
+            verify(faxProviderClient, times(21)).listInboundFaxes(healthy);
+            assertThat(logs.messages().stream().filter(m -> m.contains("Inbound fax polling failed"))).hasSize(1);
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_");
+            assertThat(logs.events()).allMatch(e -> e.getThrown() == null);
+
+            org.mockito.Mockito.doReturn(List.of()).when(faxProviderClient).listInboundFaxes(failing);
+            now.set(faxImporter.getPollingFailures().get(1).nextRetry());
+            faxImporter.poll();
+            faxImporter.poll();
+            assertThat(faxImporter.getPollingFailures()).isEmpty();
+            assertThat(logs.messages().stream().filter(m -> m.contains("Inbound fax polling recovered"))).hasSize(1);
+
+            when(faxProviderClient.listInboundFaxes(failing)).thenThrow(new FaxProviderException("unavailable again"));
+            faxImporter.poll();
+            assertThat(faxImporter.getPollingFailures().get(1).attempts()).isEqualTo(1);
+            assertThat(faxImporter.getPollingFailures().get(1).nextRetry()).isEqualTo(now.get().plusSeconds(60));
+            assertThat(logs.messages().stream().filter(m -> m.contains("Inbound fax polling failed"))).hasSize(2);
+            assertThat(logs.messages()).anyMatch(m -> m.contains("HTTP n/a"));
+            assertThat(logs.messages()).noneMatch(m -> m.contains("HTTP 0"));
+        }
+    }
+
+    @Test
+    void shouldDiscardBackoff_whenAccountIsDisabledOrRemoved() throws Exception {
+        FaxConfig config = createFaxConfig(1, true, true);
+        when(faxConfigDao.findAll(null, null)).thenReturn(List.of(config));
+        when(faxProviderClientFactory.getClient(config)).thenReturn(faxProviderClient);
+        when(faxProviderClient.listInboundFaxes(config)).thenThrow(new FaxProviderException("unavailable"));
+        faxImporter.poll();
+        assertThat(faxImporter.getPollingFailures()).containsKey(1);
+        config.setDownload(false);
+        faxImporter.poll();
+        assertThat(faxImporter.getPollingFailures()).isEmpty();
+        config.setDownload(true);
+        faxImporter.poll();
+        assertThat(faxImporter.getPollingFailures()).containsKey(1);
+        config.setActive(false);
+        faxImporter.poll();
+        assertThat(faxImporter.getPollingFailures()).isEmpty();
+        config.setActive(true);
+        faxImporter.poll();
+        when(faxConfigDao.findAll(null, null)).thenReturn(List.of());
+        faxImporter.poll();
+        assertThat(faxImporter.getPollingFailures()).isEmpty();
+    }
+
+    @Test
+    void shouldBackOffAndKeepPendingImportsRunning_whenClientCreationFails() throws Exception {
+        FaxConfig config = createFaxConfig(1, true, true);
+        when(faxConfigDao.findAll(null, null)).thenReturn(List.of(config));
+        when(faxProviderClientFactory.getClient(config)).thenThrow(new IllegalStateException("PRIVATE_CREDENTIAL"));
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxImporter.class)) {
+            faxImporter.poll();
+            java.nio.file.Path accountDir = java.nio.file.Files.createDirectories(faxIncomingDir.resolve("1"));
+            java.nio.file.Files.writeString(accountDir.resolve("pending.pdf"), "invalid PDF");
+            faxImporter.poll();
+            verify(faxProviderClientFactory).getClient(config);
+            assertThat(logs.messages()).anyMatch(m -> m.contains("Retrying import of pending fax"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_CREDENTIAL");
+            assertThat(logs.messages()).anyMatch(m -> m.contains("HTTP n/a"));
+            assertThat(logs.messages()).noneMatch(m -> m.contains("HTTP 0"));
+        }
+    }
+
+    @Test
+    void shouldKeepAccountPollingAndReportRecovery_whenOneDocumentHasALocalFailure() throws Exception {
+        FaxConfig config = createFaxConfig(1, true, true);
+        FaxJob document = new FaxJob();
+        document.setJobId(123L);
+        when(faxConfigDao.findAll(null, null)).thenReturn(List.of(config));
+        when(faxProviderClientFactory.getClient(config)).thenReturn(faxProviderClient);
+        when(faxProviderClient.listInboundFaxes(config)).thenThrow(new FaxProviderException("unavailable"));
+        faxImporter.poll();
+        now.set(faxImporter.getPollingFailures().get(1).nextRetry());
+        org.mockito.Mockito.doReturn(List.of(document)).when(faxProviderClient).listInboundFaxes(config);
+        when(faxJobDao.findByProviderJobId(123L)).thenThrow(new IllegalStateException("PRIVATE_DATABASE_FAILURE"));
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxImporter.class)) {
+            faxImporter.poll();
+            assertThat(faxImporter.getPollingFailures()).isEmpty();
+            faxImporter.poll();
+            verify(faxProviderClient, times(3)).listInboundFaxes(config);
+            assertThat(logs.messages().stream().filter(m -> m.contains("Inbound fax polling recovered"))).hasSize(1);
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_DATABASE_FAILURE");
+        }
+    }
+
+    @Test
+    void shouldReportTheInitialOutageAtError_withoutLoggingEveryScheduledPoll() throws Exception {
+        FaxConfig config = createFaxConfig(1, true, true);
+        when(faxConfigDao.findAll(null, null)).thenReturn(List.of(config));
+        when(faxProviderClientFactory.getClient(config)).thenReturn(faxProviderClient);
+        when(faxProviderClient.listInboundFaxes(config)).thenThrow(
+                new FaxProviderException("PRIVATE_PROVIDER_RESPONSE", new java.io.IOException("PRIVATE_CAUSE"), 503));
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxImporter.class)) {
+            faxImporter.poll();
+            faxImporter.poll();
+            verify(faxProviderClient).listInboundFaxes(config);
+            assertThat(logs.events().stream().filter(event -> event.getLevel() == org.apache.logging.log4j.Level.ERROR))
+                    .singleElement().satisfies(event -> assertThat(event.getMessage().getFormattedMessage())
+                            .contains("Inbound fax polling failed", "HTTP 503"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+        }
+    }
+
+    @Test
+    void shouldReportHourlyOutages_withConsecutiveCountsAndOneInitialError() throws Exception {
+        FaxConfig config = createFaxConfig(1, true, true);
+        when(faxConfigDao.findAll(null, null)).thenReturn(List.of(config));
+        when(faxProviderClientFactory.getClient(config)).thenReturn(faxProviderClient);
+        when(faxProviderClient.listInboundFaxes(config)).thenThrow(new FaxProviderException("PRIVATE_PROVIDER_RESPONSE"));
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxImporter.class)) {
+            for (int attempt = 1; attempt <= 9; attempt++) {
+                faxImporter.poll();
+                now.set(faxImporter.getPollingFailures().get(1).nextRetry());
+            }
+            verify(faxProviderClient, times(9)).listInboundFaxes(config);
+            assertThat(logs.events().stream().filter(event -> event.getLevel() == org.apache.logging.log4j.Level.ERROR))
+                    .hasSize(1);
+            var hourly = logs.events().stream().filter(event -> event.getLevel() == org.apache.logging.log4j.Level.WARN)
+                    .map(event -> event.getMessage().getFormattedMessage()).toList();
+            assertThat(hourly).hasSize(2);
+            assertThat(hourly.get(0)).contains("8 consecutive", "one hour");
+            assertThat(hourly.get(1)).contains("9 consecutive", "one hour");
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+        }
+    }
+
+    @Test
+    void shouldContinueOtherAccounts_whenFailureStateWasDiscardedDuringPoll() throws Exception {
+        FaxConfig stale = createFaxConfig(1, true, true);
+        FaxConfig healthy = createFaxConfig(2, true, true);
+        when(faxConfigDao.findAll(null, null)).thenReturn(List.of(stale, healthy));
+        var backoff = mock(FaxPollBackoff.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(faxImporter, "pollBackoff", backoff);
+        when(backoff.isDue(any(), anyLong())).thenReturn(true);
+        when(backoff.isCurrent(any(), anyLong())).thenReturn(true);
+        when(backoff.snapshot()).thenReturn(java.util.Map.of());
+        when(faxProviderClientFactory.getClient(stale)).thenThrow(new IllegalStateException("PRIVATE_STALE_FAILURE"));
+        when(faxProviderClientFactory.getClient(healthy)).thenReturn(faxProviderClient);
+        when(faxProviderClient.listInboundFaxes(healthy)).thenReturn(List.of());
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxImporter.class)) {
+            faxImporter.poll();
+            verify(faxProviderClient).listInboundFaxes(healthy);
+            assertThat(logs.messages()).noneMatch(message -> message.contains("Inbound fax polling"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_");
+        }
+    }
+
     // -- helper methods --
 
     /**
@@ -310,5 +495,124 @@ class FaxImporterPollTest extends CarlosUnitTestBase {
         config.setProviderType(FaxConfig.ProviderType.SRFAX);
         config.setQueue(1);
         return config;
+    }
+    @Test
+    void shouldRetryOnlyTheResetAccount_atTheNextPollWithoutWaitingForItsOldDeadline() throws Exception {
+        FaxConfig first = createFaxConfig(1, true, true);
+        FaxConfig second = createFaxConfig(2, true, true);
+        when(faxConfigDao.findAll(null, null)).thenReturn(List.of(first, second));
+        when(faxProviderClientFactory.getClient(any())).thenReturn(faxProviderClient);
+        when(faxProviderClient.listInboundFaxes(any())).thenThrow(new FaxProviderException("FAKE unavailable"));
+        for (int attempt = 0; attempt < 7; attempt++) {
+            faxImporter.poll();
+            if (attempt < 6) now.set(faxImporter.getPollingFailures().get(1).nextRetry());
+        }
+        var secondFailure = faxImporter.getPollingFailures().get(2);
+        assertThat(secondFailure.nextRetry()).isEqualTo(now.get().plusSeconds(3600));
+        faxImporter.resetPollingBackoff(1);
+        org.mockito.Mockito.doReturn(List.of()).when(faxProviderClient).listInboundFaxes(first);
+        faxImporter.poll();
+        verify(faxProviderClient, times(8)).listInboundFaxes(first);
+        verify(faxProviderClient, times(7)).listInboundFaxes(second);
+        assertThat(faxImporter.getPollingFailures()).containsOnlyKeys(2);
+        assertThat(faxImporter.getPollingFailures().get(2)).isEqualTo(secondFailure);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"configurationRead", "clientSetup", "providerRequest"})
+    void shouldDiscardTheStalePoll_afterConfigurationReset(String resetDuring) throws Exception {
+        FaxConfig config = createFaxConfig(1, true, true);
+        FaxConfig other = createFaxConfig(2, true, true);
+        FaxJob staleFax = mock(FaxJob.class);
+        var firstRead = new AtomicBoolean(true);
+        when(faxConfigDao.findAll(null, null)).thenAnswer(call -> {
+            if (firstRead.getAndSet(false) && resetDuring.equals("configurationRead")) {
+                faxImporter.resetPollingBackoff(1);
+            }
+            return List.of(config, other);
+        });
+        when(faxProviderClientFactory.getClient(other)).thenReturn(faxProviderClient);
+        when(faxProviderClient.listInboundFaxes(other)).thenReturn(List.of());
+        var firstSetup = new AtomicBoolean(true);
+        when(faxProviderClientFactory.getClient(config)).thenAnswer(call -> {
+            if (firstSetup.getAndSet(false) && resetDuring.equals("clientSetup")) {
+                faxImporter.resetPollingBackoff(1);
+            }
+            return faxProviderClient;
+        });
+        var firstRequest = new AtomicBoolean(true);
+        when(faxProviderClient.listInboundFaxes(config)).thenAnswer(call -> {
+            if (firstRequest.getAndSet(false) && resetDuring.equals("providerRequest")) {
+                faxImporter.resetPollingBackoff(1);
+                return List.of(staleFax);
+            }
+            return List.of();
+        });
+
+        faxImporter.poll();
+
+        verify(faxProviderClientFactory, times(resetDuring.equals("configurationRead") ? 0 : 1)).getClient(config);
+        verify(faxProviderClient, times(resetDuring.equals("providerRequest") ? 1 : 0)).listInboundFaxes(config);
+        verify(faxProviderClient).listInboundFaxes(other);
+        verifyNoInteractions(staleFax);
+        assertThat(faxImporter.getPollingFailures()).isEmpty();
+
+        faxImporter.poll();
+
+        verify(faxProviderClientFactory, times(resetDuring.equals("configurationRead") ? 1 : 2)).getClient(config);
+        verify(faxProviderClient, times(resetDuring.equals("providerRequest") ? 2 : 1)).listInboundFaxes(config);
+        verify(faxProviderClient, times(2)).listInboundFaxes(other);
+        assertThat(faxImporter.getPollingFailures()).isEmpty();
+    }
+
+    @Test
+    void shouldIgnoreAClosedProbe() throws Exception {
+        FaxConfig config = createFaxConfig(1, true, true);
+        when(faxConfigDao.findAll(null, null)).thenReturn(List.of(config));
+        when(faxProviderClientFactory.getClient(config)).thenThrow(new FaxProviderException("FAKE unavailable"));
+        var probe = faxImporter.beginPollingBackoffProbe(1);
+        probe.close();
+        probe.close();
+        faxImporter.poll();
+        var failure = faxImporter.getPollingFailures().get(1);
+
+        probe.resetIfCurrent();
+
+        assertThat(failure).isNotNull();
+        assertThat(faxImporter.getPollingFailures().get(1)).isEqualTo(failure);
+    }
+
+    @Test
+    void shouldNotWaitForAnInflightRequest_orLetItsLaterFailureRestoreBackoff() throws Exception {
+        FaxConfig config = createFaxConfig(1, true, true);
+        when(faxConfigDao.findAll(null, null)).thenReturn(List.of(config));
+        when(faxProviderClientFactory.getClient(config)).thenReturn(faxProviderClient);
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var finish = new java.util.concurrent.CountDownLatch(1);
+        when(faxProviderClient.listInboundFaxes(config)).thenAnswer(call -> {
+            entered.countDown();
+            if (!finish.await(5, java.util.concurrent.TimeUnit.SECONDS)) throw new AssertionError("Old request was not released");
+            throw new FaxProviderException("FAKE old request failure");
+        });
+        var worker = java.util.concurrent.Executors.newSingleThreadExecutor();
+        try {
+            var oldPoll = worker.submit(faxImporter::poll);
+            try {
+                assertThat(entered.await(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+                faxImporter.resetPollingBackoff(1);
+                assertThat(oldPoll.isDone()).isFalse();
+            } finally {
+                finish.countDown();
+            }
+            oldPoll.get(5, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(faxImporter.getPollingFailures()).isEmpty();
+            org.mockito.Mockito.doReturn(List.of()).when(faxProviderClient).listInboundFaxes(config);
+            faxImporter.poll();
+            verify(faxProviderClient, times(2)).listInboundFaxes(config);
+        } finally {
+            finish.countDown();
+            worker.shutdownNow();
+            assertThat(worker.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        }
     }
 }

@@ -52,6 +52,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -236,13 +237,16 @@ public final class Frm2Action extends ActionSupport {
                 }
 
                 props.setProperty("provider_no", loggedInInfo.getLoggedInProviderNo());
-                newID = rec.saveFormRecord(props);
+                newID = rec.saveFormRecord(loggedInInfo, props);
                 LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, request
                         .getParameter("form_class"), "" + newID, request.getRemoteAddr(), request.getParameter("demographic_no"));
             } else if ("autosaveAjax".equals(request.getParameter("submit"))) {
                 quickSaveForm(rec, request, response);
                 return null;
             } else if ("saveFormLetter".equals(request.getParameter("submit"))) {
+                if (rec instanceof FrmBCAR2020Record) {
+                    throw new SQLException(FrmBCAR2020Record.RETIRED_SAVE_MESSAGE);
+                }
                 for (Enumeration varEnum = request.getParameterNames(); varEnum.hasMoreElements(); ) {
                     String name = (String) varEnum.nextElement();
                     props.setProperty(name, request.getParameter(name));
@@ -287,13 +291,13 @@ public final class Frm2Action extends ActionSupport {
                 }
 
                 props.setProperty("provider_no", loggedInInfo.getLoggedInProviderNo());
-                newID = rec.saveFormRecord(props);
+                newID = rec.saveFormRecord(loggedInInfo, props);
 
                 if (newID > 0) {
-                    log.info("{} new form ID {} successfully saved.", LogSafe.sanitize(formClassName), newID); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                    log.info("{} new form ID {} successfully saved.", LogSafe.sanitize(formClassName), LogSafe.sanitize(String.valueOf(newID))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     saveSuccess = Boolean.TRUE;
                 } else {
-                    log.info("{} form ID {} failed to save.", LogSafe.sanitize(formClassName), formId); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                    log.info("{} form ID {} failed to save.", LogSafe.sanitize(formClassName), LogSafe.sanitize(String.valueOf(formId))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 }
 
                 String ip = request.getRemoteAddr();
@@ -426,7 +430,7 @@ public final class Frm2Action extends ActionSupport {
         }
         props.setProperty("provider_no", LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
         try {
-            int newFormId = formRecord.saveFormRecord(props);
+            int newFormId = formRecord.saveFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), props);
             LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(),
                     LogConst.ADD, request.getParameter("form_class"), String.valueOf(newFormId),
                     request.getRemoteAddr(), request.getParameter("demographic_no"));

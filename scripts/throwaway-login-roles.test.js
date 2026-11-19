@@ -3,14 +3,15 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const {throwawayLoginFixture} = require('./lib/throwaway-login-fixture');
+const {assertScheduleLanding, ensureIntakeAssignment} = require('./login-legacy-intake-playwright-checks');
 
-function fixture() {
+function fixture({occupiedBillingCenter=false}={}) {
   const statements = [];
   const sql = {
     execute(query) { statements.push(query); },
     value(query) {
       statements.push(query);
-      if (query.startsWith('SELECT (SELECT COUNT')) return '0';
+      if (query.startsWith('SELECT (SELECT COUNT')) return occupiedBillingCenter&&query.includes('FROM providerbillcenter WHERE')?'1':'0';
       if (query.startsWith('SELECT COUNT(*) FROM security WHERE user_name=')) return query.includes("'source-login'") ? '1' : '0';
       if (query.startsWith('SELECT COUNT(*) FROM security WHERE provider_no=')) return '0';
       if (query.startsWith('SELECT COUNT(*) FROM provider')) return '1';
@@ -65,4 +66,67 @@ test('the add-appointment page locks under the throwaway number are part of its 
   assert.ok(deletes[0].indexOf(`DELETE ${lock}`) < deletes[0].indexOf('DELETE FROM provider '), 'the page locks are not deleted before the provider row');
   assert.ok(statements.filter(query => query.startsWith('SELECT (SELECT COUNT')).every(query => query.includes(lock)),
     'the leftover count skips page locks');
+});
+test('billing-centre rows are reserved and removed before their owned provider',()=>{
+  const {login,statements}=fixture();login.create();
+  const billing=`FROM providerbillcenter WHERE provider_no='${login.providerNo}'`;
+  assert.ok(statements.find(query=>query.startsWith('SELECT (SELECT COUNT')).includes(billing));
+  statements.length=0;login.cleanup();
+  const deletion=statements.find(query=>query.includes('DELETE FROM'));
+  assert.ok(deletion.includes(`DELETE ${billing}`));
+  assert.ok(deletion.indexOf(`DELETE ${billing}`)<deletion.indexOf('DELETE FROM provider '));
+  assert.ok(statements.filter(query=>query.startsWith('SELECT (SELECT COUNT')).every(query=>query.includes(billing)));
+});
+test('an orphan billing-centre row prevents fixture allocation and is never adopted or deleted',()=>{
+  const {login,statements}=fixture({occupiedBillingCenter:true});
+  assert.throws(()=>login.create(),/unused provider/);
+  assert.equal(login.providerNo,null);
+  assert.equal(statements.some(query=>query.startsWith('INSERT')||query.includes('DELETE FROM')),false);
+});
+
+for (const copied of [0, 1]) {
+  test(`legacy intake fixture adds a role only when absent (copied: ${copied})`, () => {
+    let assignments = copied;
+    let inserts = 0;
+    const sql = {
+      value(query, parameters) {
+        assert.match(query, /WHERE provider_no=\? AND role_name=\? AND activeyn=1/);
+        assert.deepEqual(parameters, ['850001', 'Patient Intake']);
+        return String(assignments);
+      },
+      execute(query, parameters) {
+        assert.match(query, /INSERT INTO secUserRole/);
+        assert.deepEqual(parameters, ['850001', 'Patient Intake', '850001']);
+        assignments += 1;
+        inserts += 1;
+      },
+    };
+    ensureIntakeAssignment(sql, '850001');
+    assert.equal(assignments, 1);
+    assert.equal(inserts, Number(copied === 0));
+  });
+}
+
+function scheduleLanding(body, providerNo) {
+  return {
+    url: () => 'https://example.test/provider/providercontrol',
+    waitForLoadState: async state => assert.equal(state, 'domcontentloaded'),
+    content: async () => body,
+    locator(selector) {
+      assert.equal(selector, '#scheduleLoggedInProviderNo');
+      return {count: async () => Number(Boolean(providerNo)), inputValue: async () => providerNo};
+    },
+  };
+}
+
+test('legacy intake requires the rendered schedule for the authenticated provider', async () => {
+  await assertScheduleLanding(scheduleLanding('<title>Schedule</title>', '850001'), '850001');
+  await assert.rejects(assertScheduleLanding(scheduleLanding('<title>Schedule</title>', '850002'), '850001'),
+    /did not render the expected provider/);
+});
+
+test('legacy intake rejects a matching URL with a blank or error landing', async () => {
+  await assert.rejects(assertScheduleLanding(scheduleLanding(''), '850001'), /did not render the expected provider/);
+  await assert.rejects(assertScheduleLanding(scheduleLanding('<title>Error Page</title>', '850001'), '850001'),
+    /displayed an application error/);
 });

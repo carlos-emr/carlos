@@ -151,6 +151,7 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional
     public boolean addTickler(LoggedInInfo loggedInInfo, Tickler tickler) {
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
@@ -158,6 +159,7 @@ public class TicklerManagerImpl implements TicklerManager {
             return false;
         }
 
+        requirePatientWrite(loggedInInfo, tickler.getDemographicNo(), PRIVILEGE_WRITE);
         ticklerDao.persist(tickler);
 
         // --- log action ---
@@ -173,6 +175,10 @@ public class TicklerManagerImpl implements TicklerManager {
 
         if (!validateTicklerIsValid(tickler)) {
             return false;
+        }
+        Integer storedPatient = getTicklerDemographicNoForUpdate(loggedInInfo, tickler.getId());
+        if (!Objects.equals(storedPatient, tickler.getDemographicNo())) {
+            requirePatientWrite(loggedInInfo, tickler.getDemographicNo(), PRIVILEGE_UPDATE);
         }
         for (TicklerUpdate tu : tickler.getUpdates()) {
             if (tu.getId() == null || tu.getId().intValue() == 0) {
@@ -451,6 +457,37 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public Integer getTicklerDemographicNoForUpdate(LoggedInInfo actor, Integer id) {
+        checkPrivilege(actor, PRIVILEGE_UPDATE);
+        if (id == null || id <= 0) throw new jakarta.ws.rs.BadRequestException("Invalid tickler identifier");
+        List<Integer> patients = ticklerDao.lockPatientForUpdate(id);
+        if (patients.isEmpty()) throw new jakarta.ws.rs.NotFoundException();
+        if (patients.size() != 1) throw new IllegalStateException("Invalid tickler identity result");
+        Integer patient = patients.getFirst();
+        // A legacy tickler stored without a patient (demographic_no 0 or NULL) has no
+        // patient-specific rule to consult: the global _tickler right checked above governs
+        // it, as it did before patient scoping, so such a row can still be completed or
+        // deleted. New patientless ticklers stay impossible (validateTicklerIsValid).
+        if (isAssignedPatient(patient)) {
+            requirePatientWrite(actor, patient, PRIVILEGE_UPDATE);
+        }
+        return patient;
+    }
+
+    private static boolean isAssignedPatient(Integer patient) {
+        return patient != null && patient > 0;
+    }
+
+    private void requirePatientWrite(LoggedInInfo actor, Integer patient, String right) {
+        if (patient == null || patient <= 0) throw new IllegalStateException("Stored tickler has no patient identity");
+        if (!securityInfoManager.hasPrivilege(actor, "_tickler", right, patient.toString())
+                || !securityInfoManager.isAllowedAccessToPatientRecord(actor, patient)) {
+            throw new io.github.carlos_emr.carlos.commn.exception.AccessDeniedException("_tickler", right, patient.toString());
+        }
+    }
+
+    @Override
     public Integer getTicklerDemographicNo(LoggedInInfo loggedInInfo, Integer id) {
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);
         List<Integer> patients = ticklerDao.findDemographicNos(id);
@@ -510,26 +547,92 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional
     public void updateStatus(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, Tickler.STATUS status) {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
 
+        Integer storedPatient = getTicklerDemographicNoForUpdate(loggedInInfo, tickler_id);
         Tickler tickler = ticklerDao.find(tickler_id);
-        if (tickler != null && tickler.getStatus() != null && tickler.getStatus() != null
-                && !status.equals(tickler.getStatus())) {
-            tickler.setStatus(status);
-            TicklerUpdate update = new TicklerUpdate();
-            update.setProviderNo(provider);
-            update.setStatus(status);
-            update.setTicklerNo(tickler_id.intValue());
-            update.setUpdateDate(new Date());
-
-            ticklerUpdateDao.persist(update);
-            ticklerDao.merge(tickler);
-
-            // --- log action ---
-            LogAction.addLogSynchronous(loggedInInfo, "TicklerManager.updateStatus",
-                    "ticklerId=" + tickler_id + ",providers=" + provider + ",status=" + status);
+        if (tickler == null || !Objects.equals(storedPatient, tickler.getDemographicNo())) {
+            throw new IllegalStateException("Tickler patient changed during authorization");
         }
+        if (tickler.getStatus() != null && tickler.getStatus() != null
+                && !status.equals(tickler.getStatus())) {
+            applyStatus(loggedInInfo, tickler, provider, status);
+        }
+    }
+
+    private void applyStatus(LoggedInInfo loggedInInfo, Tickler tickler, String provider, Tickler.STATUS status) {
+        tickler.setStatus(status);
+        TicklerUpdate update = new TicklerUpdate();
+        update.setProviderNo(provider);
+        update.setStatus(status);
+        update.setTicklerNo(tickler.getId());
+        update.setUpdateDate(new Date());
+
+        ticklerUpdateDao.persist(update);
+        ticklerDao.merge(tickler);
+
+        // --- log action ---
+        LogAction.addLogSynchronous(loggedInInfo, "TicklerManager.updateStatus",
+                "ticklerId=" + tickler.getId() + ",providers=" + provider + ",status=" + status);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>The row is read with a locking read, so the status compared here is the committed one
+     * even when this transaction's snapshot predates a concurrent change, and it cannot change
+     * again before this transaction ends.</p>
+     */
+    @Override
+    @Transactional
+    public StatusChange updateStatusIfCurrent(LoggedInInfo loggedInInfo, Integer ticklerId, String provider,
+                                              Tickler.STATUS renderedStatus, Tickler.STATUS status) {
+        checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
+        if (ticklerId == null || ticklerId <= 0) throw new jakarta.ws.rs.BadRequestException("Invalid tickler identifier");
+
+        Tickler tickler = ticklerDao.findForUpdate(ticklerId);
+        if (tickler == null) throw new jakarta.ws.rs.NotFoundException();
+        if (isAssignedPatient(tickler.getDemographicNo())) {
+            requirePatientWrite(loggedInInfo, tickler.getDemographicNo(), PRIVILEGE_UPDATE);
+        }
+
+        Tickler.STATUS current = tickler.getStatus();
+        if (current == null || status.equals(current)) {
+            // Nothing to change (updateStatus never wrote over a missing status either).
+            return StatusChange.UNCHANGED;
+        }
+        if (renderedStatus != null ? renderedStatus != current
+                : current == Tickler.STATUS.D && status == Tickler.STATUS.C) {
+            // Someone changed the status after the caller's page was rendered. With no rendered
+            // status to compare, the one transition no list offers is still refused: Complete
+            // must not bring a Deleted task back as Completed.
+            return StatusChange.STALE;
+        }
+        applyStatus(loggedInInfo, tickler, provider, status);
+        return StatusChange.APPLIED;
+    }
+
+    @Override
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public Tickler getTicklerForUpdate(LoggedInInfo loggedInInfo, Integer id) {
+        checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
+        if (id == null || id <= 0) return null;
+
+        Tickler locked = ticklerDao.findForUpdate(id);
+        if (locked == null) return null;
+        if (isAssignedPatient(locked.getDemographicNo())) {
+            requirePatientWrite(loggedInInfo, locked.getDemographicNo(), PRIVILEGE_UPDATE);
+        }
+        // findForUpdate has loaded the comments and the history on the locked instance. The detail
+        // query of getTickler() is deliberately not run here: after the locked load it fails for a
+        // tickler stored with program_id 0 (see TicklerDaoImpl.findForUpdate).
+
+        // --- log action ---
+        LogAction.addLogSynchronous(loggedInInfo, "TicklerManager.getTickler", "id=" + id);
+
+        return locked;
     }
 
     @Deprecated
@@ -540,6 +643,7 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional
     public void completeTickler(LoggedInInfo loggedInInfo, Integer tickler_id, String provider) {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
 
@@ -547,6 +651,7 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional
     public void deleteTickler(LoggedInInfo loggedInInfo, Integer tickler_id, String provider) {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
 
@@ -554,6 +659,7 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional
     public void resolveTicklersBySubstring(LoggedInInfo loggedInInfo, String providerNo, List<String> demographicIds,
                                            String remString) {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
@@ -562,7 +668,8 @@ public class TicklerManagerImpl implements TicklerManager {
         for (String str : demographicIds) {
             tmp.add(Integer.parseInt(str));
         }
-        List<Tickler> ticklers = ticklerDao.findActiveByMessageForPatients(tmp, remString);
+        List<Tickler> ticklers = new ArrayList<>(ticklerDao.findActiveByMessageForPatients(tmp, remString));
+        ticklers.sort(java.util.Comparator.comparing(Tickler::getId));
         for (Tickler t : ticklers) {
             deleteTickler(loggedInInfo, t.getId(), providerNo);
         }
@@ -663,6 +770,7 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional
     public void resolveTicklers(LoggedInInfo loggedInInfo, String providerNo, List<String> cdmPatientNos,
                                 String remString) {
         resolveTicklersBySubstring(loggedInInfo, providerNo, cdmPatientNos, remString);
@@ -784,7 +892,7 @@ public class TicklerManagerImpl implements TicklerManager {
 
     private void checkPrivilege(LoggedInInfo loggedInInfo, String privilege) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", privilege, null)) {
-            throw new RuntimeException("missing required sec object (_tickler)");
+            throw new SecurityException("missing required sec object (_tickler)");
         }
     }
 }

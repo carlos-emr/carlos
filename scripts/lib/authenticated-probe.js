@@ -7,7 +7,8 @@
  * redirects disabled so a refusal probe cannot leak them to another origin.
  */
 async function prepareRead(session, target, options, requireSessionCookie) {
-  const {allowSecurityErrorRedirect = false, ...requestOptions} = options;
+  const {allowSecurityErrorRedirect = false, allowPost = false, mutatingPost = false, ...requestOptions} = options;
+  if(mutatingPost&&(!requireSessionCookie||allowPost!==true||options.method!=='POST'))throw new Error('Mutating probe requires an explicitly enabled authenticated POST');
   const base = session.config.baseUrl;
   const url = new URL(target, base);
   if (url.origin !== base.origin || url.username || url.password) {
@@ -18,8 +19,14 @@ async function prepareRead(session, target, options, requireSessionCookie) {
   if (!['http:', 'https:'].includes(url.protocol) || (url.protocol === 'http:' && !loopback)) {
     throw new Error('Authenticated probes require HTTPS outside loopback');
   }
-  if (!['GET', 'HEAD'].includes(options.method || 'GET')) {
-    throw new Error('Authenticated refusal probes support only GET and HEAD');
+  // Shared probes remain read-only unless a caller explicitly enables POST.
+  // Mutating POST callers additionally track unacknowledged writes below.
+  // Authentication-state probes always remain read-only.
+  const postEnabled = requireSessionCookie && allowPost === true;
+  if (!(postEnabled ? ['GET', 'HEAD', 'POST'] : ['GET', 'HEAD']).includes(options.method || 'GET')) {
+    throw new Error(!requireSessionCookie ? 'Authentication-state probes support only GET and HEAD'
+      : postEnabled ? 'Authenticated refusal probes support only GET, HEAD and POST'
+        : 'Authenticated refusal probes support only GET and HEAD; POST requires explicit allowPost: true');
   }
   const now = Date.now() / 1000;
   const browserCookies=await session.context.cookies();
@@ -63,12 +70,39 @@ async function authenticatedProbe(session,target,options={}) {
   try {
     if(proof.status()!==200||(await proof.json()).valid!==true)throw new Error('Authenticated probe session is invalid; refusal evidence is inconclusive');
   } finally {await proof.dispose();}
-  const response = await session.context.request.fetch(url.href, {
-    ...requestOptions,
-    headers,
-    maxRedirects: 0,
-    failOnStatusCode: false,
-  });
+  if (options.method === 'POST') {
+    // The patient-lock print probe needs a genuine authenticated POST. Fetch
+    // this session's master token instead of mistaking CSRFGuard's rejection
+    // for the patient authorization check the caller means to exercise.
+    const tokenUrl = new URL(base.pathname.replace(/\/$/, '') + '/csrfguard', base);
+    const tokenResponse = await session.context.request.fetch(tokenUrl.href, {
+      method: 'GET', headers: { Cookie: cookieHeader(tokenUrl), Accept: 'text/javascript' },
+      maxRedirects: 0, failOnStatusCode: false,
+      ...(requestOptions.timeout === undefined ? {} : { timeout: requestOptions.timeout }),
+    });
+    try {
+      if (tokenResponse.status() !== 200) throw new Error('Authenticated POST probe could not fetch its CSRF token');
+      const match = /masterTokenValue\s*=\s*["']([^"'\r\n]+)["']/.exec(await tokenResponse.text());
+      if (!match) throw new Error('Authenticated POST probe received no CSRF master token');
+      for (const name of Object.keys(headers)) {
+        if (['csrf-token', 'x-requested-with'].includes(name.toLowerCase())) delete headers[name];
+      }
+      headers['X-Requested-With'] = 'XMLHttpRequest';
+      headers['CSRF-TOKEN'] = match[1];
+    } finally { await tokenResponse.dispose(); }
+  }
+  // Only the final request can mutate. Failed heartbeat/token preflights must
+  // not falsely retain fixtures. A lost write acknowledgement must retain them.
+  const operation=(async()=>{
+    try {return await session.context.request.fetch(url.href, {
+      ...requestOptions,headers,maxRedirects:0,failOnStatusCode:false,
+    });} catch(error) {
+      if(options.mutatingPost)require('./uncertain-server-writes').retainFixtures(session.context);
+      throw error;
+    }
+  })();
+  if(options.mutatingPost)require('./uncertain-server-writes').trackWrite(session.context,operation);
+  const response=await operation;
   // Even no-write/include assertions must not accept a logged-out redirect.
   const status = response.status();
   if (status >= 300 && status < 400) {

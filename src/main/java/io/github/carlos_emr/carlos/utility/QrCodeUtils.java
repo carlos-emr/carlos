@@ -87,7 +87,8 @@ public class QrCodeUtils {
             endIndex = Math.min(startIndex + maxQrCodeDataSize, s.length());
 
             String stringChunk = s.substring(startIndex, endIndex);
-            logger.debug("Encoding chunk : " + stringChunk);
+            // Callers include clinical HL7 data; diagnostics must never include the chunk contents.
+            logger.debug("Encoding QR chunk: chunkIndex={}, chunkLength={}", results.size(), stringChunk.length());
 
             results.add(toSingleQrCodeBufferedImage(stringChunk, ec, scaleFactor));
 

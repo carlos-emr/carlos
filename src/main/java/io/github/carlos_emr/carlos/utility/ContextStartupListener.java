@@ -64,9 +64,6 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
     @Override
     public void contextInitialized(jakarta.servlet.ServletContextEvent sce) {
 
-        // ensure cxf uses log4j2
-        System.setProperty("org.apache.cxf.Logger", "org.apache.cxf.commons.logging.Log4j2Logger");
-
         /*
          * Map log4j version 1 to version 2
          */
@@ -96,10 +93,25 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
             // ordinary clinical initialization pending. Earlier worker execution can
             // mistake an uninitialized privilege lookup for revoked authorization.
             SpringUtils.getBean(CdsImportService.class).start();
+            startCdsExport();
             logger.info("OSCAR web context started. context={} clinicalStartup={}", contextPath, clinicalStartup.state());
         } catch (Exception e) {
             logger.error("Unexpected error.", e);
             throw (new RuntimeException(e));
+        }
+    }
+
+    /**
+     * Starts the CDS export dispatcher without letting it decide whether the EMR deploys.
+     * Export is optional and off by default; a failure to start it leaves the dispatcher
+     * stopped, which the export status page already reports, while clinical use continues.
+     */
+    static void startCdsExport() {
+        try {
+            SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportService.class).start();
+        } catch (RuntimeException exportUnavailable) {
+            logger.error("CDS_EXPORT_STARTUP_FAILED dispatcher left stopped {}",
+                    LogSafe.exceptionTrace(exportUnavailable));
         }
     }
 

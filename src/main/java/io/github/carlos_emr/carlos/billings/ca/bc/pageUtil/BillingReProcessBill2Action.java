@@ -63,7 +63,7 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingHistoryDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingNote;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
-import io.github.carlos_emr.carlos.util.SqlUtils;
+import io.github.carlos_emr.carlos.util.LegacyReadResult;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -192,6 +192,8 @@ public class BillingReProcessBill2Action extends ActionSupport {
 
             ///
             String providerNo = frm.getProviderNo(); //f
+            boolean preservePhysician = providerNo == null || providerNo.isBlank() || providerNo.equals(bill.getProviderNo());
+            if (preservePhysician) providerNo = bill.getProviderNo();
             String demographicFirstName = demo.getFirstName(); //d
             String demographicLastName = demo.getLastName(); //d
 
@@ -203,8 +205,13 @@ public class BillingReProcessBill2Action extends ActionSupport {
             }
 
             String name_verify = demographicFirstName.substring(0, 1) + " " + demographicLastName.substring(0, 2); //d
-            String billingGroupNo = billform.getGroupNo(providerNo);
-            String practitionerNo = billform.getPracNo(providerNo); //p
+            String billingGroupNo = preservePhysician ? billingmaster.getPayeeNo() : billform.getGroupNo(providerNo);
+            String practitionerNo = preservePhysician ? billingmaster.getPractitionerNo() : billform.getPracNo(providerNo);
+            if (!preservePhysician && (billingGroupNo == null || billingGroupNo.isBlank()
+                    || practitionerNo == null || practitionerNo.isBlank())) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Select a physician with billing and practitioner numbers.");
+                return NONE;
+            }
 
     //d
     String hcNo = Objects.nonNull(demo.getHin()) ?
@@ -377,7 +384,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
                 MiscUtils.getLogger().error("Error", e);
                 throw new RuntimeException("BC BILLING - Exception when attempting to multiply Bill Amount by Unit ", e);
             }
-            bill.setProviderOhipNo(practitionerNo);
+            if (!preservePhysician) bill.setProviderOhipNo(practitionerNo);
             bill.setBillingDate(MyDateFormat.getSysDate(serviceDate));
             billingmaster.setDatacenter(dataCenterId);
             //TODO
@@ -587,25 +594,13 @@ public class BillingReProcessBill2Action extends ActionSupport {
 
     private String[] getServiceCodePrice(String billingServiceCode, boolean usePrefix) {
         String prepend = usePrefix ? "A" : "";
-        String[] privateCodeRecord = SqlUtils.getRow(
-                "select value from billingservice where service_code = ?", prepend + billingServiceCode);
-        return privateCodeRecord;
+        String price = LegacyReadResult.orNull(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.BillingServiceDao.class)
+                .findFirstPrice(prepend + billingServiceCode));
+        return price == null ? null : new String[]{price};
     }
 
-    /**
-     * getPersistedBillType
-     *
-     * @param billingmasterNo String
-     * @return String
-     */
     private String getPersistedBillType(String billingmasterNo) {
-        String qry = "select billingstatus from billingmaster where billingmaster.billingmaster_no = ?";
-        String row[] = SqlUtils.getRow(qry, billingmasterNo);
-        String ret = null;
-        if (row != null) {
-            ret = row[0];
-        }
-        return ret;
+        return LegacyReadResult.orNull(() -> SpringUtils.getBean(BillingmasterDAO.class).findBillStatus(billingmasterNo));
     }
 
     /**

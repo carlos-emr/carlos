@@ -47,7 +47,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  *   <li>Validates patient email consent status before sending</li>
  *   <li>Retrieves and validates recipient email addresses</li>
  *   <li>Sanitizes attachment filenames for security</li>
- *   <li>Validates numeric form ID (fid) parameters to prevent injection attacks</li>
+ *   <li>Validates the numeric form ID (fid) from the staged draft to prevent injection attacks</li>
  * </ul>
  *
  * Healthcare Context:
@@ -66,8 +66,8 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  *
  * Security Considerations:
  * <ul>
- *   <li>Validates fid parameter to ensure numeric format (prevents injection)</li>
- *   <li>Uses log-safe sanitization for invalid fid values in logs</li>
+ *   <li>Validates the staged draft's fid to ensure numeric format (prevents injection)</li>
+ *   <li>Uses log-safe sanitization for invalid staged fid values in logs</li>
  *   <li>Generates patient-specific PDF passwords based on demographic information</li>
  *   <li>Sanitizes attachment filenames through EmailComposeManager</li>
  *   <li>Session cleanup prevents information leakage across requests</li>
@@ -164,8 +164,7 @@ public class EmailCompose2Action extends ActionSupport {
      * Request Parameters:
      * <ul>
      *   <li>draft (String) - the one-time key of the draft the eForm save staged</li>
-     *   <li>fid (String, optional) - read by the eForm error page this may forward to; the compose
-     *       itself uses the template id carried by the draft</li>
+     *   <li>The template id and saved eForm id come from the staged draft, not URL parameters.</li>
      * </ul>
      *
      * Request Attributes Set:
@@ -193,8 +192,8 @@ public class EmailCompose2Action extends ActionSupport {
      *
      * Security Features:
      * <ul>
-     *   <li>Validates fid parameter with regex pattern to ensure numeric format only</li>
-     *   <li>Logs warnings for invalid fid values using OWASP-encoded output</li>
+     *   <li>Validates the staged draft's fid with a regex to ensure numeric format only</li>
+     *   <li>Logs warnings for invalid staged fid values using log-safe sanitization</li>
      *   <li>Generates patient-specific PDF passwords: YYYYMMDD (DOB) + 10-digit HIN</li>
      *   <li>Sanitizes all attachment filenames to prevent path traversal attacks</li>
      *   <li>Verifies patient email consent before allowing composition</li>
@@ -203,7 +202,9 @@ public class EmailCompose2Action extends ActionSupport {
      *
      * Error Handling:
      * If PDF generation fails for any attachment (eForm, document, lab, form, HRM), the method
-     * returns the "eFormError" result with a descriptive error message. This prevents incomplete
+     * returns the "eFormError" result to a dedicated email error page with a descriptive message.
+     * It does not forward to the eForm viewer, which would render a blank template under /email/.
+     * The restored draft lets the page retry the same compose URL. This prevents incomplete
      * emails from being composed when required attachments cannot be generated. Without a usable
      * draft for the request's key, it returns {@link #DRAFT_EXPIRED_RESULT} with HTTP 410.
      *
@@ -259,7 +260,7 @@ public class EmailCompose2Action extends ActionSupport {
 
         // Validate the draft's fid is numeric if provided
         if (fid != null && !fid.matches("\\d+")) {
-            logger.warn("Invalid (non-numeric) fid parameter received; ignoring it");
+            logger.warn("Invalid (non-numeric) draft fid received; ignoring it");
             fid = null;
         }
 
@@ -299,7 +300,9 @@ public class EmailCompose2Action extends ActionSupport {
         } catch (SecurityException e) {
             // A missing privilege is a refusal, not a preparation failure: it goes to the access-denied
             // page rather than the generic "try again" message. The draft still goes back, like any
-            // failure after take().
+            // failure after take(). The attachment types already prepared are deleted: a retry
+            // renders them again.
+            emailComposeManager.discardPreparedAttachments(emailAttachmentList);
             restoreDraft.run();
             throw e;
         } catch (PDFGenerationException | RuntimeException e) {
@@ -310,6 +313,9 @@ public class EmailCompose2Action extends ActionSupport {
             // exceptionTrace gives the types and code locations, never a message.
             logger.error("Unable to prepare the eForm email; causeType={}, reference={}{}",
                     e.getClass().getName(), reference, LogSafe.exceptionTrace(e));
+            // A later attachment type was refused (another patient's record) or failed after the
+            // earlier ones were rendered: delete those, as a retry renders them again.
+            emailComposeManager.discardPreparedAttachments(emailAttachmentList);
             restoreDraft.run();
             return emailComposeError(request, EmailFailureMessage.format(LocaleUtils.resolveBundleLocale(request),
                     EmailFailureMessage.EFORM_ATTACHMENTS_KEY, reference));
@@ -341,8 +347,16 @@ public class EmailCompose2Action extends ActionSupport {
         // Stage this window's attachments under its own key, bound to this patient (#4425). The send
         // takes exactly this entry, so another window's compose or resend cannot change what this
         // window sends.
-        EmailAttachmentStaging.Staged stagedAttachments =
-                EmailAttachmentStaging.stage(session, demographicNo, emailAttachmentList);
+        EmailAttachmentStaging.Staged stagedAttachments;
+        try {
+            stagedAttachments = EmailAttachmentStaging.stage(session, demographicNo, emailAttachmentList);
+        } catch (RuntimeException e) {
+            // Nothing was staged (for example, the session ended meanwhile), so no window can send
+            // these files. Discard them and let a live compose window retry from its original draft.
+            emailComposeManager.discardPreparedAttachments(emailAttachmentList);
+            restoreDraft.run();
+            throw e;
+        }
         request.setAttribute("emailAttachmentList", stagedAttachments.prepared().attachments());
         request.setAttribute(EmailAttachmentStaging.KEY_ATTRIBUTE, stagedAttachments.key());
 

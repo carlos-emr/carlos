@@ -29,9 +29,9 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
@@ -64,11 +64,13 @@
             src="${ pageContext.request.contextPath }/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/chartjs/chart.umd.min.js"></script>
+    <script src="${ pageContext.request.contextPath }/web/dashboard/display/dashboard-provider-context.js"></script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/web/dashboard/display/dashboardDisplayController.js"></script>
 </head>
 
 <body>
+<input type="hidden" id="dashboardProviderNo" value="${carlos:forHtmlAttribute(requestScope.dashboardProviderNo)}">
 
 <div class="container">
     <div class="row" id="dashboardPanel">

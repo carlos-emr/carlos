@@ -74,6 +74,24 @@ test('shouldAcceptMethodRefusal_when405IsRequiredAndBothVerbsHaveApplicationEvid
   assert.equal(ledger.assertAllRefused(), 1);
 });
 
+test('shouldAcceptMethodRefusal_whenBothVerbsAdvertiseTheRequiredPostMethod', async () => {
+  const headers = { ...APP, allow: 'POST' };
+  const ledger = await run([{ status: 405, headers }, { status: 405, headers }],
+    { expect405: true, expectAllow: 'POST' });
+  assert.equal(ledger.assertAllRefused(), 1);
+});
+
+for (const verb of [0, 1]) {
+  for (const allow of [undefined, 'GET', 'GET, POST']) {
+    test(`shouldRejectMethodRefusal_when${verb === 0 ? 'Get' : 'Head'}Advertises${allow ?? 'NoAllowHeader'}`, async () => {
+      const responses = [0, 1].map(() => ({ status: 405, headers: { ...APP, allow: 'POST' } }));
+      responses[verb].headers.allow = allow;
+      const ledger = await run(responses, { expect405: true, expectAllow: 'POST' });
+      assert.throws(() => ledger.assertAllRefused(), /Allow: .*; expected POST/);
+    });
+  }
+}
+
 test('shouldRejectChangedRows_evenWhenBothVerbsAnswerTheRequired405', async () => {
   let reads = 0;
   const ledger = await run([{ status: 405, headers: APP }, { status: 405, headers: APP }],

@@ -26,7 +26,9 @@
     client-side maxlength attributes stay aligned across both views.
 
     Features:
-    - Uses server-derived Demographic max-length constants
+    - Uses server-derived Demographic, DemographicCust and WaitingList max-length constants
+    - Counts the alert and the waiting-list note in Unicode code points, like the names, with each
+      textarea line break as the two characters (CR LF) the browser submits (#5869)
     - Applies limits on DOMContentLoaded so fields are updated after page markup loads
     - Safely no-ops on pages where a particular field is not rendered
 
@@ -43,6 +45,8 @@
             first_name: <%= Demographic.FIRST_NAME_MAX_LENGTH %>,
             middleNames: <%= Demographic.MIDDLE_NAMES_MAX_LENGTH %>,
             nameUsed: <%= Demographic.ALIAS_MAX_LENGTH %>,
+            pronouns: <%= Demographic.PRONOUN_MAX_LENGTH %>,
+            gender: <%= Demographic.GENDER_MAX_LENGTH %>,
             address: <%= Demographic.ADDRESS_MAX_LENGTH %>,
             city: <%= Demographic.CITY_MAX_LENGTH %>,
             year_of_birth: <%= Demographic.YEAR_OF_BIRTH_MAX_LENGTH %>,
@@ -58,7 +62,16 @@
             sin: <%= Demographic.SIN_MAX_LENGTH %>,
             chart_no: <%= Demographic.CHART_NO_MAX_LENGTH %>,
             r_doctor: <%= Demographic.REFERRING_DOCTOR_INPUT_MAX_LENGTH %>,
-            r_doctor_ohip: <%= Demographic.REFERRING_DOCTOR_OHIP_INPUT_MAX_LENGTH %>
+            r_doctor_ohip: <%= Demographic.REFERRING_DOCTOR_OHIP_INPUT_MAX_LENGTH %>,
+            // Full class names: add-form-clinical.jsp imports a different WaitingList class.
+            alert: <%= io.github.carlos_emr.carlos.commn.model.DemographicCust.ALERT_MAX_LENGTH %>,
+            cust3: <%= io.github.carlos_emr.carlos.commn.model.DemographicCust.ALERT_MAX_LENGTH %>,
+            waiting_list_note: <%= io.github.carlos_emr.carlos.commn.model.WaitingList.NOTE_MAX_LENGTH %>
+        };
+        // Fields checked in Unicode code points, as the server counts them, not in UTF-16 units.
+        var codePointFields = {
+            first_name: true, last_name: true, pronouns: true, gender: true,
+            alert: true, cust3: true, waiting_list_note: true
         };
 
         for (var fieldName in fieldLengthLimits) {
@@ -69,21 +82,23 @@
             var fields = document.querySelectorAll('input[name="' + fieldName + '"], textarea[name="' + fieldName + '"]');
             for (var i = 0; i < fields.length; i++) {
                 var maximum = fieldLengthLimits[fieldName];
-                if (fieldName === 'first_name' || fieldName === 'last_name') {
-                    // HTML counts UTF-16 units; native VARCHAR/XSD names count Unicode code points.
+                if (codePointFields[fieldName] === true) {
+                    // HTML counts UTF-16 units; native VARCHAR/XSD values count Unicode code points.
                     fields[i].setAttribute('maxlength', maximum * 2);
                     fields[i].setAttribute('data-max-codepoints', maximum);
                     (function (field, limit) {
-                        function validateNameLength() {
-                            var valid = Array.from(field.value || '').length <= limit;
+                        function validateFieldLength() {
+                            // A textarea line break reads as LF here but is submitted, and stored, as CR LF.
+                            var submitted = (field.value || '').replace(/\r?\n/g, '\r\n');
+                            var valid = Array.from(submitted).length <= limit;
                             field.setCustomValidity(valid ? '' : '${carlos:forJavaScript(demographicCodePointLimitMessage)}'.replace('{0}', limit));
                             return valid;
                         }
-                        field.addEventListener('input', validateNameLength);
+                        field.addEventListener('input', validateFieldLength);
                         if (field.form) field.form.addEventListener('submit', function (event) {
-                            if (!validateNameLength()) { event.preventDefault(); field.reportValidity(); }
+                            if (!validateFieldLength()) { event.preventDefault(); field.reportValidity(); }
                         });
-                        validateNameLength();
+                        validateFieldLength();
                     })(fields[i], maximum);
                 } else {
                     fields[i].setAttribute('maxlength', maximum);

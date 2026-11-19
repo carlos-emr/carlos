@@ -37,16 +37,16 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayLabAction2" %>
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.*,io.github.carlos_emr.carlos.lab.ca.on.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
+
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.ProviderData" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%-- ========== TAGLIB DECLARATIONS ========== --%>
@@ -289,7 +289,7 @@
                         <%  if (demographicNo == null) { %>
                         <td>
                             <%-- data-lab-type: the picker posts each checked lab as "<id>:<type>" (issue #4558). --%>
-                            <label for="flaggedLab<%= i %>" class="visually-hidden"><fmt:message key="dms.incomingDocs.select"/> — <fmt:message key="oscarMDS.index.msgDateTest"/>: <carlos:encode value='<%= formattedDate %>'/></label>
+                            <label for="flaggedLab<%= i %>" class="visually-hidden"><fmt:message key="dms.incomingDocs.select"/> &#8212; <fmt:message key="oscarMDS.index.msgDateTest"/>: <carlos:encode value='<%= formattedDate %>'/></label>
                             <input type="checkbox" id="flaggedLab<%= i %>" name="flaggedLabs" value="<carlos:encode value='<%= segmentID %>' context='htmlAttribute'/>"
                                    data-lab-type="<carlos:encode value='<%= result.labType %>' context='htmlAttribute'/>"/>
                         </td>

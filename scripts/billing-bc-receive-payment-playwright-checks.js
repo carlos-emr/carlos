@@ -30,7 +30,9 @@ const { masterRecordLink } = require('./lib/master-record-link');
 const TIMEOUT = 30000;
 
 async function workflow(s) {
-  const { sql, marker, patient, provider } = s;
+  const { sql, marker, patient } = s;
+  const boundariesOnly=process.env.BC_PAYMENT_BOUNDARIES_ONLY==='true';
+  const provider=boundariesOnly?require('./lib/bc-payment-boundaries').seedProvider(s):s.provider;
   const q = h.sqlString;
   let billingNo;
   let billingmasterNo;
@@ -154,6 +156,8 @@ async function workflow(s) {
     h.assert(historyRows() === '0', 'A blank amount wrote billing history');
   });
 
+  if(boundariesOnly)return require('./lib/bc-payment-boundaries').boundaries({s,pay,receipt,billStatus,billingNo,billingmasterNo,submit,status});
+
   await s.step('a part payment is archived and the bill stays open', async () => {
     await submit('10.00', 'part payment');
     h.assert(await pay.locator('input[name="amountReceived"]').count() === 0, 'The form did not give way to the confirmation');
@@ -183,5 +187,5 @@ async function preflight({ sql }) {
   }
 }
 
-if (require.main === module) runWorkflow('billing-bc-receive-payment', workflow, { openPatient: true, preflight });
+if (require.main === module) runWorkflow(process.env.BC_PAYMENT_BOUNDARIES_ONLY==='true'?'billing-bc-payment-boundaries':'billing-bc-receive-payment', workflow, { openPatient: true, preflight });
 module.exports = { workflow };

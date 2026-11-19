@@ -43,7 +43,7 @@ const legacyHarness=require('./lib/legacy-check');
 
 const assert = require('node:assert');
 const fs = require('node:fs');
-const { generatedPassword } = require('./lib/deb-login-password');
+const { generatedPassword, fillResetPasswords } = require('./lib/deb-login-password');
 const { launchBrowser, validateBaseUrl, isLocalTlsTarget } = require('./lib/playwright-harness');
 const { LOGIN_NAVIGATION_TIMEOUT_MS, submitLoginDocument, waitForProviderSchedule } = require('./lib/deb-login-navigation');
 
@@ -168,9 +168,7 @@ legacyHarness.runLegacyCheck('deb-login',async context=>{
     cancellation?.throwIfCancelled();
 
     await record('completing the reset reaches the provider schedule', async () => {
-      await page.locator('input[name="oldPassword"]').fill(creds.password);
-      await page.locator('input[name="newPassword"]').fill(newPassword);
-      await page.locator('input[name="confirmPassword"]').fill(newPassword);
+      await fillResetPasswords(page, creds.password, newPassword);
       cancellation?.throwIfCancelled();
       // Keep recovery evidence even when the server commits but navigation fails.
       console.log('The password reset will use NEW_PASSWORD; retain it until the outcome is confirmed.');

@@ -30,14 +30,14 @@
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 
-<%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.*, java.sql.*, org.apache.commons.lang3.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.*, org.apache.commons.lang3.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObject" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
@@ -58,9 +58,10 @@
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
         <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
+        <link href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/reportByTemplateLayout.css" rel="stylesheet">
     </head>
 
-    <body>
+    <body class="rbt-page">
 <%-- Multipart rejections (an empty part, a file over the 50MB cap, too many
      files, a field over struts.multipart.maxStringLength, a parse failure) are
      produced by the interceptor stack BEFORE this page's action runs, and reach

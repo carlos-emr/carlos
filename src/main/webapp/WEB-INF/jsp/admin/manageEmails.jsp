@@ -1,5 +1,5 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -82,7 +82,7 @@
             border-left: 3px solid #c30010 !important;
         }
 
-        .email-status-card .vertical-status-divider-outbox {
+        .email-status-card .vertical-status-divider-unconfirmed {
             border-left: 3px solid #0747a1 !important;
         }
 
@@ -120,7 +120,7 @@
             color: #c30010 !important;
         }
 
-        .email-status-card .status-tag-outbox {
+        .email-status-card .status-tag-unconfirmed {
             background-color: #bbdffb !important;
             color: #0747a1 !important;
         }
@@ -134,7 +134,7 @@
             background-color: #ffcbd1 !important;
         }
 
-        .email-status-card .status-tag-outbox:hover {
+        .email-status-card .status-tag-unconfirmed:hover {
             background-color: #90cbf9 !important;
         }
 
@@ -227,7 +227,13 @@
                 url: url,
                 method: 'POST',
                 data: data,
+                dataType: 'json',
                 success: function (data) {
+                    if (!data || data.resolvedLogId !== String(emailLogId)) {
+                        HideSpin();
+                        alert(manageEmailsServerError);
+                        return;
+                    }
                     $('#emailStatus' + emailLogId).removeClass('status-tag-failed').addClass('status-tag-resolved');
                     $('#cardBody' + emailLogId).removeClass('vertical-status-divider-failed').addClass('vertical-status-divider-resolved');
                     $("#btnResolve" + emailLogId).remove();

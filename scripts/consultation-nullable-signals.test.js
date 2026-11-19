@@ -70,6 +70,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     await vm.runInNewContext(source, {
       URL, Buffer, process: signalProcess, console: { log() {}, error() {} },
       require(name) {
+        if (name === './lib/legacy-check') return {runLegacyCheck:(id,operation,options)=>require('./lib/legacy-check').runLegacyCheck(id,operation,{...options,processRef:signalProcess})};
     if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
         if (name === 'playwright') return { chromium: { async launch(options) {
           launchOptions = options;

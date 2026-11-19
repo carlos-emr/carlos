@@ -157,6 +157,9 @@ public interface DashboardManager {
 
     String exportDrilldownQueryResultsToCSV(LoggedInInfo loggedInInfo, String providerNo, int indicatorId);
 
+    /** Exports a drilldown with the selected shared metric label. */
+    String exportDrilldownQueryResultsToCSV(LoggedInInfo loggedInInfo, String providerNo, int indicatorId, String metricLabel);
+
     /**
      * Get an Indicator Panel Bean with a fully executed query.
      */

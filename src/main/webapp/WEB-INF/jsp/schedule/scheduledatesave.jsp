@@ -29,95 +29,22 @@
 
 --%>
 
-<%
-
-    String user_name = (String) session.getAttribute("userlastname") + "," + (String) session.getAttribute("userfirstname");
-    String provider_no = request.getParameter("provider_no");
-%>
-<%@ page
-        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*"
-        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%--
+    Result page of schedule/DateSave (ScheduleDateSave2Action). The action validates the
+    command, replaces the provider's override for the date in one transaction and updates the
+    session caches after it commits (#5297); this page only refreshes the calendar and closes
+    the popup.
+--%>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-
-<jsp:useBean id="scheduleDateBean" class="java.util.Hashtable" scope="session"/>
-<jsp:useBean id="scheduleRscheduleBean" class="io.github.carlos_emr.RscheduleBean" scope="session"/>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleDate" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao" %>
-<%
-    ScheduleDateDao scheduleDateDao = SpringUtils.getBean(ScheduleDateDao.class);
-    ResourceBundle scheduleBundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
-    String submitSave = scheduleBundle.getString("schedule.scheduledatepopup.btnSave");
-    String submitDelete = scheduleBundle.getString("schedule.scheduledatepopup.btnDelete");
-%>
 <html>
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="schedule.scheduledatesave.title"/></title>
     </head>
-    <%
-        String available = request.getParameter("available");
-        String priority = "c";
-        String reason = request.getParameter("reason");
-        String hour = request.getParameter("hour");
-        String dateParam = request.getParameter("date");
-
-        if (provider_no == null || provider_no.isEmpty()) {
-            throw new IllegalArgumentException("missing required parameter: provider_no");
-        }
-        if (dateParam == null || dateParam.isEmpty()) {
-            throw new IllegalArgumentException("missing required parameter: date");
-        }
-
-        //save the record first, change holidaybean next
-        int rowsAffected = 0;
-
-        ScheduleDate sd = scheduleDateDao.findByProviderNoAndDate(provider_no, MyDateFormat.getSysDate(dateParam));
-        if (sd != null) {
-            sd.setStatus('D');
-            scheduleDateDao.merge(sd);
-        }
-        //add R schedule date if it is available
-        if (request.getParameter("Submit") != null && request.getParameter("Submit").equals(submitDelete)) {
-            if (scheduleRscheduleBean.getDateAvail(dateParam)) {
-                sd = new ScheduleDate();
-                sd.setDate(MyDateFormat.getSysDate(dateParam));
-                sd.setProviderNo(provider_no);
-                sd.setAvailable('1');
-                sd.setPriority('b');
-                sd.setReason("");
-                sd.setHour(scheduleRscheduleBean.getDateAvailHour(dateParam));
-                sd.setCreator(user_name);
-                sd.setStatus(scheduleRscheduleBean.active.charAt(0));
-                scheduleDateDao.persist(sd);
-            }
-        }
-        scheduleDateBean.remove(dateParam);
-
-        if (request.getParameter("Submit") != null && request.getParameter("Submit").equals(submitSave)) {
-
-            if (available == null || available.isEmpty()) {
-                throw new IllegalArgumentException("missing required parameter: available");
-            }
-
-            sd = new ScheduleDate();
-            sd.setDate(MyDateFormat.getSysDate(dateParam));
-            sd.setProviderNo(provider_no);
-            sd.setAvailable(available.charAt(0));
-            sd.setPriority(priority.charAt(0));
-            sd.setReason(reason);
-            sd.setHour(hour);
-            sd.setCreator(user_name);
-            sd.setStatus(scheduleRscheduleBean.active.charAt(0));
-            scheduleDateDao.persist(sd);
-
-            scheduleDateBean.put(dateParam, new HScheduleDate(available, priority, reason, hour, user_name));
-        }
-    %>
-
     <script language="JavaScript">
         <!--
         // Redisplay the calendar (the only page that opens this popup) without posting: reloading it

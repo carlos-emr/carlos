@@ -180,7 +180,8 @@ public final class RxDeleteRx2Action extends ActionSupport {
             for (Drug drug : drugsToDelete) {
                 setDrugDelete(drug);
                 drugDao.merge(drug);
-                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PRESCRIPTION, String.valueOf(drug.getId()), ip, "" + bean.getDemographicNo(), drug.getAuditString());
+                // Named by drug id only: the drug and its instructions stay in the (archived) drugs row.
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PRESCRIPTION, String.valueOf(drug.getId()), ip, "" + bean.getDemographicNo(), null);
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -266,7 +267,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
             }
             setDrugDelete(drug);
             drugDao.merge(drug);
-            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PRESCRIPTION, deleteRxId, ip, "" + bean.getDemographicNo(), drug.getAuditString());
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PRESCRIPTION, deleteRxId, ip, "" + bean.getDemographicNo(), null);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
@@ -401,7 +402,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
         }
 
         Date date = new Date();
-        String logStatement = drug + " Changing end date to :" + date;
+        String logStatement = "Prescription discontinued";
         // The database transition, rather than the earlier read, arbitrates simultaneous
         // discontinuations. Only its winner may file a note or change the original reason.
         if (drugDao.archiveIfActive(id, bean.getDemographicNo(), reason, date) != 1) {

@@ -34,12 +34,15 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import java.util.zip.ZipFile;
+import java.util.concurrent.atomic.AtomicReference;
 
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServletResponse;
@@ -59,10 +62,14 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
+import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.model.EForm;
 import io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action;
+import io.github.carlos_emr.carlos.form.service.FormXmlImportService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -80,6 +87,7 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
     private ServletContext servletContext;
     private SecurityInfoManager securityInfoManager;
     private EFormDao eformDao;
+    private PlatformTransactionManager eformTransactions;
 
     @TempDir
     Path tempDir;
@@ -101,6 +109,10 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, securityInfoManager);
         eformDao = mock(EFormDao.class);
         registerMock(EFormDao.class, eformDao);
+        when(eformDao.findMaxIdForActiveForm(any())).thenReturn(null);
+        eformTransactions = mock(PlatformTransactionManager.class);
+        registerMock(PlatformTransactionManager.class, eformTransactions);
+        when(eformTransactions.getTransaction(any())).thenAnswer(invocation -> new SimpleTransactionStatus());
         doAnswer(invocation -> {
             ReflectionTestUtils.setField((EForm) invocation.getArgument(0), "id", 1);
             return null;
@@ -200,7 +212,8 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<ImageUpload2Action> imageUploadActionMock = org.mockito.Mockito.mockStatic(ImageUpload2Action.class)) {
             imageUploadActionMock.when(ImageUpload2Action::getImageFolder).thenReturn(tempDir.toFile());
 
-            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(action.execute()).as("archive errors: %s", action.getActionErrors())
+                    .isEqualTo(ActionSupport.SUCCESS);
         }
 
         verify(eformDao).persist(org.mockito.ArgumentMatchers.<EForm>argThat(eform ->
@@ -208,11 +221,13 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
                         && "issue-3071-eform.html".equals(eform.getFileName())
                         && "<html><body>Issue 3071 eForm</body></html>".equals(eform.getFormHtml())
                         && eform.isCurrent()));
+        verify(eformTransactions).commit(any());
     }
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     void shouldRejectFailedOrEmptyLegacyArchive_withoutSuccess(boolean invalidEntry) throws Exception {
+        registerMock(FormXmlImportService.class, new FormXmlImportService(mock(EncounterFormDao.class)));
         request.setMethod("POST");
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.eform"), eq("w"), isNull()))
                 .thenReturn(true);
@@ -250,7 +265,8 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<ImageUpload2Action> imageUploadActionMock = org.mockito.Mockito.mockStatic(ImageUpload2Action.class)) {
             imageUploadActionMock.when(ImageUpload2Action::getImageFolder).thenReturn(tempDir.toFile());
 
-            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(action.execute()).as("archive errors: %s", action.getActionErrors())
+                    .isEqualTo(ActionSupport.SUCCESS);
         }
 
         verify(eformDao).persist(any(EForm.class));
@@ -308,8 +324,133 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
         verify(eformDao, never()).persist(any(EForm.class));
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {1, 0, -1, -2})
+    void shouldDeleteTheStagedCopy_afterLegacySuccessRefusalOrException(int outcome) throws Exception {
+        request.setMethod("POST");
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.eform"), eq("w"), isNull()))
+                .thenReturn(true);
+        Path upload = tempDir.resolve("cleanup-forms.zip");
+        try (ZipOutputStream archive = new ZipOutputStream(Files.newOutputStream(upload))) {
+            archive.putNextEntry(new ZipEntry("forms.xml"));
+            archive.write("<Results/>".getBytes(StandardCharsets.UTF_8));
+            archive.closeEntry();
+        }
+        AtomicReference<Path> staged = new AtomicReference<>();
+        FormXmlImportService importer = mock(FormXmlImportService.class);
+        when(importer.importArchive(any(ZipFile.class))).thenAnswer(call -> {
+            Path path = Path.of(((ZipFile) call.getArgument(0)).getName());
+            staged.set(path);
+            assertThat(path).exists().isNotEqualTo(upload);
+            if (outcome == -1) throw new IOException("synthetic import IO failure");
+            if (outcome == -2) throw new IllegalArgumentException("synthetic import refusal");
+            return outcome;
+        });
+        registerMock(FormXmlImportService.class, importer);
+        FrmXmlUpload2Action action = new FrmXmlUpload2Action();
+        action.setFile1(upload.toFile());
+        try {
+            if (outcome == -1) {
+                assertThatThrownBy(action::execute).isInstanceOf(IOException.class).hasMessage("synthetic import IO failure");
+            } else {
+                assertThat(action.execute()).isEqualTo(outcome == 1 ? ActionSupport.SUCCESS : ActionSupport.ERROR);
+            }
+            assertThat(staged.get()).isNotNull().doesNotExist();
+            assertThat(upload).exists();
+        } finally {
+            // Also clean the intentionally failing baseline reproduction.
+            if (staged.get() != null) Files.deleteIfExists(staged.get());
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"staging", "malformed", "success", "failure", "security"})
+    void shouldRemoveTheStagedArchive_onEveryNonLegacyExit(String outcome) throws Exception {
+        request.setMethod("POST");
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.eform"), eq("w"), isNull()))
+                .thenReturn(true);
+        Path upload = outcome.equals("malformed") ? Files.writeString(tempDir.resolve("malformed.zip"), "FAKE non-ZIP")
+                : createEFormArchive();
+        if (outcome.equals("staging")) when(servletContext.getAttribute("jakarta.servlet.context.tempdir")).thenReturn(null);
+        AtomicReference<Path> staged = new AtomicReference<>();
+        try (var temporaryFiles = org.mockito.Mockito.mockStatic(java.io.File.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+             var imports = org.mockito.Mockito.mockConstruction(io.github.carlos_emr.carlos.eform.EFormExportZip.class,
+                     (importer, context) -> when(importer.importForm(any(java.io.InputStream.class))).thenAnswer(call -> {
+                         assertThat(staged.get()).exists();
+                         if (outcome.equals("security")) throw new SecurityException("FAKE import security refusal");
+                         return outcome.equals("failure") ? List.of("FAKE import refusal") : List.of();
+                     }))) {
+            temporaryFiles.when(() -> java.io.File.createTempFile("tmp", ".zip")).thenAnswer(call -> {
+                Path path = Files.createTempFile(tempDir, "owned-staging-", ".zip");
+                staged.set(path);
+                return path.toFile();
+            });
+            var action = new FrmXmlUpload2Action();
+            action.setFile1(upload.toFile());
+            if (outcome.equals("staging")) {
+                assertThatThrownBy(action::execute).isInstanceOf(IllegalStateException.class)
+                        .hasMessage("Temporary directory attribute is not set.");
+            } else if (outcome.equals("malformed")) {
+                assertThatThrownBy(action::execute).isInstanceOf(java.util.zip.ZipException.class);
+            } else if (outcome.equals("security")) {
+                assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class)
+                        .hasMessage("FAKE import security refusal");
+            } else {
+                assertThat(action.execute()).isEqualTo(outcome.equals("success") ? ActionSupport.SUCCESS : ActionSupport.ERROR);
+            }
+            assertThat(staged.get()).isNotNull().doesNotExist();
+            assertThat(upload).exists();
+        } finally {
+            if (staged.get() != null) Files.deleteIfExists(staged.get());
+        }
+    }
+
     private Path createEFormArchive() throws Exception {
         return createEFormArchive("Issue3071/eform.properties");
+    }
+
+    @Test
+    @org.junit.jupiter.api.condition.EnabledOnOs(org.junit.jupiter.api.condition.OS.LINUX)
+    void shouldKeepSuccessfulImport_whenStagedArchiveCleanupFails() throws Exception {
+        request.setMethod("POST");
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.eform"), eq("w"), isNull()))
+                .thenReturn(true);
+        Path upload = tempDir.resolve("cleanup-obstruction.zip");
+        try (ZipOutputStream archive = new ZipOutputStream(Files.newOutputStream(upload))) {
+            archive.putNextEntry(new ZipEntry("forms.xml"));
+            archive.write("<Results/>".getBytes(StandardCharsets.UTF_8));
+            archive.closeEntry();
+        }
+        AtomicReference<Path> staged = new AtomicReference<>();
+        FormXmlImportService importer = mock(FormXmlImportService.class);
+        when(importer.importArchive(any(ZipFile.class))).thenAnswer(call -> {
+            Path path = Path.of(((ZipFile) call.getArgument(0)).getName());
+            staged.set(path);
+            assertThat(path).isNotEqualTo(upload);
+            // Linux permits unlinking the open ZIP. An owned nonempty directory makes the
+            // production cleanup operation fail with a real filesystem IOException.
+            Files.delete(path);
+            Files.createDirectory(path);
+            Files.writeString(path.resolve("FAKE-obstruction"), "FAKE");
+            return 1;
+        });
+        registerMock(FormXmlImportService.class, importer);
+        var action = new FrmXmlUpload2Action();
+        action.setFile1(upload.toFile());
+        try (var capture = LogCapture.forLogger(FrmXmlUpload2Action.class)) {
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(capture.events()).filteredOn(event -> event.getLevel() == org.apache.logging.log4j.Level.WARN)
+                    .singleElement().satisfies(event -> {
+                        assertThat(event.getThrown()).isNull();
+                        assertThat(event.getMessage().getFormattedMessage()).contains("cleanup", "JVM exit");
+                    });
+            assertThat(upload).exists();
+        } finally {
+            if (staged.get() != null) {
+                Files.deleteIfExists(staged.get().resolve("FAKE-obstruction"));
+                Files.deleteIfExists(staged.get());
+            }
+        }
     }
 
     private Path createEFormArchive(String propertiesEntryName) throws Exception {

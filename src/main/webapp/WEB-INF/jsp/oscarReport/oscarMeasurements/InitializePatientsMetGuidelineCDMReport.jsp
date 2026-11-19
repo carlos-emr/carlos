@@ -31,14 +31,14 @@
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil.*" %>
-<%@ page import="java.util.*, java.sql.*, java.text.*, java.net.*" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.MeasurementType" %>
+<%@ page import="java.util.*" %>
+
 
 <%
     GregorianCalendar now = new GregorianCalendar();
@@ -96,6 +96,7 @@
           onload="window.focus();">
     <%@ include file="cdmValidationErrors.jspf" %>
     <form action="${pageContext.request.contextPath}/oscarReport/oscarMeasurements/InitializePatientsMetGuidelineCDMReport" method="post">
+        <input type="hidden" name="cdmFormContext" value="${carlos:forHtmlAttribute(cdmFormContext)}" />
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
                 <td class="MainTableTopRowLeftColumn"><fmt:message key="oscarReport.CDMReport.msgReport"/></td>

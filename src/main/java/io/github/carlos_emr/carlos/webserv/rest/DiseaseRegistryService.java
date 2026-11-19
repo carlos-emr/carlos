@@ -134,9 +134,7 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public Response addToDiseaseRegistry(@PathParam("demographicNo") Integer demographicNo, IssueTo1 issue) {
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_newCasemgmt.DxRegistry", "w", null)) {
-            throw new SecurityException("missing required sec object (_newCasemgmt.DxRegistry)");
-        }
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.require(getLoggedInInfo(), securityInfoManager, "_newCasemgmt.DxRegistry", "w", demographicNo);
         boolean activeEntryExists = dxresearchDao.activeEntryExists(demographicNo, issue.getType(), issue.getCode());
 
         if (!activeEntryExists) {
@@ -148,7 +146,9 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
             dx.setStatus('A');
             dx.setProviderNo(getCurrentProvider().getProviderNo());
             dxresearchDao.persist(dx);
-            LogAction.addLog(getLoggedInInfo(), "Dxresearch.add", "dxresearch", "" + dx.getId(), "" + demographicNo, dx.toString());
+            LogAction.addLog(getLoggedInInfo(), "Dxresearch.add", "dxresearch", "" + dx.getId(), "" + demographicNo,
+                    "dxresearchId=" + dx.getId() + ";codingSystem="
+                            + io.github.carlos_emr.carlos.utility.LogSafe.sanitize(dx.getCodingSystem()));
         }
 
         return Response.ok().build();
@@ -159,9 +159,7 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public Response getDiseaseRegistry(@QueryParam("demographicNo") Integer demographicNo) {
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_newCasemgmt.DxRegistry", "r", null)) {
-            throw new SecurityException("missing required sec object (_newCasemgmt.DxRegistry)");
-        }
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.require(getLoggedInInfo(), securityInfoManager, "_newCasemgmt.DxRegistry", "r", demographicNo);
         List<Dxresearch> dxresearchList = dxresearchDao.getByDemographicNo(demographicNo);
         return Response.ok(dxresearchList).build();
     }

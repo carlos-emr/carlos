@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "scope": "Public Java API of production types changed by this PR; not the published whole-release wire gate",
+  "baseSource": "74f240a4b9f92188300a8700cf11f1d74bc2b58d",
+  "candidateSource": "ac2562ded1ecc5c800c7a47a1005f1b170e4ff02",
+  "baselineKind": "Source-built release/2026.08 base; not a published package",
+  "baseWarSha256": "8bf4354c0dbb9ab568f3c300e70abe0539ff7d8e3455e489234a0a1312339856",
+  "candidateWarSha256": "24d220efb38c4799244acabdcd7aa6b33901a24aeffcb4355e297fcafa116a87",
+  "inventorySha256": "8c5d337d013d504d73d35d559a902bcb61e199ed60a7a69e0b8cb12a1ae6fd73",
+  "oldCompiledClientSourceSha256": "74050e38b1ecc91861eccc62a860b75954c43e448234254559559539228fdf22",
+  "oldCompiledClientClassSha256": "c19aa826d8287a0bbec3f04d29243d767b1d515c98508c2e0a6ef1b700c3fadc",
+  "newAbstractInterfaceMethods": 0,
+  "extensionsToExistingEnums": 0,
+  "removedJvmSignatures": 0,
+  "declaringTypeChanges": [
+    {
+      "type": "io.github.carlos_emr.carlos.webserv.rest.conversion.DemographicConverter",
+      "disposition": "A new override retains the inherited JVM descriptor. Old compiled virtual call sites and public method handles link successfully against the candidate."
+    },
+    {
+      "type": "io.github.carlos_emr.carlos.webserv.rest.util.RestXmlAnnotationIntrospector",
+      "disposition": "A new override retains the inherited JVM descriptor. Old compiled virtual call sites and public method handles link successfully against the candidate."
+    }
+  ],
+  "additionsReview": "New model/adapter constructors and DAO/transfer overloads use different arities; original constructors/methods remain. Every method added to an existing interface has a default implementation. Newly introduced enums have no pre-existing exhaustive clients.",
+  "limits": "This checks signature/source linkage, not every external integration or behavioral compatibility. Native XML/profile, JSON, authorization and transaction checks provide separate evidence. The strict beta6-to-release receipt remains unqualified."
+}

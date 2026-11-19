@@ -22,6 +22,7 @@
  * Ontario, Canada
  
  * <p>
+ * Modifications by CARLOS Contributors, 2026.
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
@@ -29,6 +30,8 @@
 
 
 package io.github.carlos_emr.carlos.login;
+
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
@@ -57,6 +60,13 @@ public class Startup implements ServletContextListener {
 	private static final Logger logger = MiscUtils.getLogger();
 	private CarlosProperties p = CarlosProperties.getInstance();
 
+    /**
+     * Initializes configuration, persisted encryption state and application resources.
+     * Required configuration or key failures abort startup before encrypted data is used.
+     *
+     * @param sc ServletContextEvent the application context being initialized
+     * @throws RuntimeException if required startup configuration or initialization fails
+     */
     public void contextInitialized(ServletContextEvent sc) {
         logger.info("Starting OSCAR application ");
 
@@ -81,21 +91,21 @@ public class Startup implements ServletContextListener {
 
                 contextPath = url;
             } catch (Exception e) {
-                logger.error("Error", e);
+                logger.error("Error: {}", LogSafe.exceptionTrace(e));
             }
 
             String propName = contextPath + ".properties";
 
             char sep = System.getProperty("file.separator").toCharArray()[0];
             propFileName = System.getProperty("user.home") + sep + propName;
-            logger.info("looking up " + propFileName);
+            logger.info("Looking up application configuration");
 
             try {
                 // This has been used to look in the users home directory that started tomcat
                 p.readFromFile(propFileName);
-                logger.info("loading properties from " + propFileName);
+                logger.info("Loading application configuration");
             } catch (java.io.FileNotFoundException ex) {
-                logger.info(propFileName + " not found");
+                logger.info("Configuration file not found");
             }
             if (p.isEmpty()) {
                 /* if the file not found in the user root, look in the WEB-INF directory */
@@ -129,12 +139,11 @@ public class Startup implements ServletContextListener {
                 sc.getServletContext().setAttribute("CaseMgmtUsers", listUsers);
 
                 logger.info("BILLING REGION : " + p.getProperty("billregion", "NOTSET"));
-                logger.info("DB PROPS: Username :" + p.getProperty("db_username", "NOTSET") + " db name: " + p.getProperty("db_name", "NOTSET"));
+                logger.info("Database configuration loaded");
                 p.setProperty("OSCAR_START_TIME", "" + System.currentTimeMillis());
 
             } catch (Exception e) {
-                String s = "Property file not found at:" + propFileName;
-                logger.error(s, e);
+                logger.error("Application properties could not be loaded: {}", LogSafe.exceptionTrace(e));
             }
 
 
@@ -143,16 +152,17 @@ public class Startup implements ServletContextListener {
 			String secretKey = p.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
 			if (Objects.isNull(secretKey) || secretKey.isBlank()) {
 				try {
-					secretKey = EncryptionUtils.generateSecretKey();
-					p.saveProperty(propFileName, EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
-					logger.info("New Secret Key generated...");
+					secretKey = p.getOrCreateEncryptionKey();
+					p.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
+					logger.info("Secret Key initialized in persisted configuration...");
 				} catch (IOException | NoSuchAlgorithmException e) {
 					/*
 					 * A usable encryption key is mandatory: it protects stored PHI and provider
 					 * credentials. Fail fast rather than booting with no key, which would defer the
 					 * failure to the first credential save (an opaque runtime error for clinicians).
 					 */
-					throw new IllegalStateException("Unable to generate and persist a new encryption key at startup", e);
+					throw new IllegalStateException("Unable to generate and persist a new encryption key at startup: "
+							+ e.getMessage(), e);
 				}
 			} else {
 				logger.info("Using existing Secret Key...");
@@ -173,10 +183,14 @@ public class Startup implements ServletContextListener {
 						+ "); refusing to start. Restore the correct encryption key, or remove it to have a new one generated.", e);
 			}
 
+            // Modern saves no longer mirror to eChart. A rollback binary must keep reading
+            // modern data, so require the same durable flag before startup can complete.
+            p.ensureModernChartRollbackSafety();
+
 			// CHECK FOR DEFAULT PROPERTIES
 			String baseDocumentDir = p.getProperty("BASE_DOCUMENT_DIR");
 			if (baseDocumentDir != null) {
-				logger.info("Found Base Document Dir: " + baseDocumentDir);
+				logger.info("Found base document directory");
 				checkAndSetProperty(baseDocumentDir, contextPath, "HOME_DIR", "/billing/download/");
 				checkAndSetProperty(baseDocumentDir, contextPath, "DOCUMENT_DIR", "/document/");
 				checkAndSetProperty(baseDocumentDir, contextPath, "DOCUMENT_CACHE_DIR", "/document_cache/");
@@ -195,7 +209,7 @@ public class Startup implements ServletContextListener {
 
             logger.debug("LAST LINE IN contextInitialized");
         } catch (Exception e) {
-            logger.error("Unexpected error.", e);
+            logger.error("Unexpected error.: {}", LogSafe.exceptionTrace(e));
             throw (new RuntimeException(e));
         }
     }
@@ -208,14 +222,14 @@ public class Startup implements ServletContextListener {
         String propertyDir = p.getProperty(propName);
         if (propertyDir == null) {
             propertyDir = baseDir + "/" + context + endDir;
-            logger.debug("Setting property " + propName + " with value " + propertyDir);
+            logger.debug("Resolving configured application directory");
             p.setProperty(propName, propertyDir);
             // Create directory if it does not exist
             File propertyDirectory = PathValidationUtils.resolveConfiguredDirectory(propertyDir, propName);
             if (!propertyDirectory.exists()) {
-                logger.warn("Directory does not exist:  " + propertyDir + ". Creating.");
+                logger.warn("Directory does not exist; creating");
                 boolean success = propertyDirectory.mkdirs();
-                if (!success) logger.error("An error occured when creating " + propertyDir);
+                if (!success) logger.error("Application directory could not be created");
             }
         }
     }

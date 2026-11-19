@@ -45,7 +45,7 @@ function add_team(form) {
 		return false;
 	}
 	
-	form.elements['team.id'].value='0';
+	form.elements['team.id'].value = '';
 	form.elements['method'].value='save_team';
 	form.submit();
 }
@@ -58,36 +58,52 @@ function add_team(form) {
 </table>
 </div>
 <!--  show current staff -->
-<display:table class="simple" cellspacing="2" cellpadding="3" id="team" name="teams" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
-	<display:setProperty name="paging.banner.placement" value="bottom" />
-	<display:setProperty name="basic.msg.empty_list" value="No teams are currently defined for this program." />
-	<display:column sortable="false" title="">
+<c:if test="${not empty teams}">
+<table class="carlos-table-spaced simple" id="team" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
+
+
+    <th scope="col"></th>
+    <th scope="col"><span data-table-sort>Name</span></th>
+    <th scope="col"><span data-table-sort>Staff</span></th>
+    <th scope="col"><span data-table-sort>Clients</span></th>
+</tr></thead>
+<tbody><c:forEach var="team" items="${teams}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+
+    <td>
 		<a onclick="deleteTeam('${carlos:forJavaScript(team.id)}');return false;" href="javascript:void(0);"> Delete </a>
-	</display:column>
-	<display:column property="name" sortable="true" title="Name" />
-	<display:column sortable="true" title="Staff">
+    </td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(team.name))}" data-sort-type="${carlos:tableSortType(team.name)}">${carlos:forHtml(team.name)}</td>
+    <td>
 		<ul>
 			<c:forEach var="provider" items="${team.providers}">
 				<li>${carlos:forHtml(provider.provider.formattedName)} (${carlos:forHtml(provider.role.name)})</li>
 			</c:forEach>
 		</ul>
-	</display:column>
-	<display:column sortable="true" title="Clients">
+    </td>
+    <td>
 		<ul>
 			<c:forEach var="admission" items="${team.admissions}">
 				<li>${carlos:forHtml(admission.client.formattedName)}</li>
 			</c:forEach>
 		</ul>
-	</display:column>
-</display:table>
+    </td>
+</tr></c:forEach></tbody>
+</table>
+</c:if>
+<c:if test="${empty teams}">No teams are currently defined for this program.</c:if>
 <br />
+<input type="hidden" name="team.id" />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
-	<html:hidden property="team.id" />
 	<tr class="b">
-		<td width="20%">Name:</td>
-		<td><html:text property="team.name" size="50" maxlength="255"/></td>
+		<td width="20%"><label for="program-team-name">Name:</label></td>
+		<td><input type="text" name="team.name" id="program-team-name" size="50" maxlength="255" value="${carlos:forHtmlAttribute(team.name)}" /></td>
 	</tr>
 	<tr>
-		<td colspan="2"><input type="button" value="Save" onclick="add_team(this.form)" /> <html:cancel /></td>
+		<td colspan="2">
+			<input type="button" value="Save" onclick="add_team(this.form)" />
+			<a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${carlos:forUriComponent(requestScope.id)}&amp;view.tab=Teams">Cancel</a>
+		</td>
 	</tr>
 </table>

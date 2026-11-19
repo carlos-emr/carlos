@@ -49,7 +49,8 @@ class MsgPdfAttachmentResolverUnitTest {
         protected Object[][] getContents() {
             return new Object[][]{
                     {"messenger.generatePreviewPDF.information", "Information"},
-                    {"messenger.generatePreviewPDF.encounter", "Encounter:"},
+                    {"messenger.generatePreviewPDF.historicalEncounter", "Historical encounter:"},
+                    {"messenger.generatePreviewPDF.currentEncounter", "All current chart notes and CPP"},
                     {"messenger.generatePreviewPDF.currentPrescriptions", "Current Prescriptions"}};
         }
     };
@@ -62,6 +63,8 @@ class MsgPdfAttachmentResolverUnitTest {
     void shouldResolveFixedRoutes_forEachItem() {
         EChart chart = new EChart();
         chart.setId(9);
+        chart.setDemographicNo(12);
+        chart.setEncounter("Historical note");
         chart.setTimestamp(new Date(0));
         when(eChartDao.getLatestChart(12)).thenReturn(chart);
 
@@ -70,6 +73,8 @@ class MsgPdfAttachmentResolverUnitTest {
                 .map(Attachment::route))
                 .containsExactly(
                         "/demographic/DemographicPdfLabel?demographic_no=12",
+                        // The current encounter has no route: the chart's own print makes its PDF.
+                        null,
                         "/encounter/ViewEcharthistoryprint?echartid=9&demographic_no=12",
                         "/rx/ViewPrintDrugProfile2?demographic_no=12");
     }
@@ -81,6 +86,19 @@ class MsgPdfAttachmentResolverUnitTest {
                 .get().extracting(Attachment::title).isEqualTo("FAKE-Doe, Pat Information");
         assertThat(resolver.resolve(Item.PRESCRIPTIONS, 12, "", LABELS))
                 .get().extracting(Attachment::title).isEqualTo("Current Prescriptions");
+        assertThat(resolver.resolve(Item.CURRENT_ENCOUNTER, 12, "", LABELS))
+                .get().extracting(Attachment::title).isEqualTo("All current chart notes and CPP");
+    }
+
+    @Test
+    @DisplayName("should offer the current encounter whatever the legacy record holds, without reading it")
+    void shouldOfferCurrentEncounter_withoutALegacyChart() {
+        when(eChartDao.getLatestChart(12)).thenReturn(null);
+
+        assertThat(resolver.resolve(Item.CURRENT_ENCOUNTER, 12, "", LABELS)).isPresent();
+        assertThat(resolver.resolve(Item.ENCOUNTER, 12, "", LABELS)).isEmpty();
+        assertThat(resolver.resolve(Item.CURRENT_ENCOUNTER, 0, "", LABELS)).isEmpty();
+        assertThat(Item.fromKey("currentEncounter")).contains(Item.CURRENT_ENCOUNTER);
     }
 
     @Test
@@ -102,6 +120,33 @@ class MsgPdfAttachmentResolverUnitTest {
     }
 
     @Test
+    @DisplayName("should suppress header-only historical PDFs")
+    void shouldOmitEncounter_whenHistoricalChartIsEmpty() {
+        EChart chart = new EChart();
+        chart.setId(9);
+        chart.setDemographicNo(12);
+        chart.setEncounter(" ");
+        when(eChartDao.getLatestChart(12)).thenReturn(chart);
+
+        assertThat(resolver.resolve(Item.ENCOUNTER, 12, "", LABELS)).isEmpty();
+        chart.setOngoingConcerns("Historical concern");
+        assertThat(resolver.resolve(Item.ENCOUNTER, 12, "", LABELS))
+                .get().extracting(Attachment::title).isEqualTo("Historical encounter:");
+    }
+
+    @Test
+    @DisplayName("should refuse a historical chart belonging to another patient")
+    void shouldOmitEncounter_whenChartBelongsToAnotherPatient() {
+        EChart chart = new EChart();
+        chart.setId(9);
+        chart.setDemographicNo(13);
+        chart.setEncounter("Historical note");
+        when(eChartDao.getLatestChart(12)).thenReturn(chart);
+
+        assertThat(resolver.resolve(Item.ENCOUNTER, 12, "", LABELS)).isEmpty();
+    }
+
+    @Test
     @DisplayName("should resolve nothing for a non-positive patient or an unknown key")
     void shouldResolveNothing_forInvalidInput() {
         assertThat(resolver.resolve(Item.DEMOGRAPHIC, 0, "", LABELS)).isEmpty();
@@ -117,5 +162,15 @@ class MsgPdfAttachmentResolverUnitTest {
         assertThat(Item.DEMOGRAPHIC.securityObject()).isEqualTo("_demographic");
         assertThat(Item.ENCOUNTER.securityObject()).isEqualTo("_eChart");
         assertThat(Item.PRESCRIPTIONS.securityObject()).isEqualTo("_rx");
+        // The current encounter needs what the chart's own print needs.
+        assertThat(Item.CURRENT_ENCOUNTER.securityObjects())
+                .containsExactly("_eChart", "_demographic", "_casemgmt.notes");
+        assertThat(Item.ENCOUNTER.securityObjects()).containsExactly("_eChart");
+    }
+
+    @Test
+    @DisplayName("should print only the current encounter itself, every other item from its route")
+    void shouldPrintOwnPdf_onlyForCurrentEncounter() {
+        assertThat(Stream.of(Item.values()).filter(Item::printsOwnPdf)).containsExactly(Item.CURRENT_ENCOUNTER);
     }
 }

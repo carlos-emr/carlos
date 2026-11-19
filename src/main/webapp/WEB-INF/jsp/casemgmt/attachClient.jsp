@@ -43,11 +43,11 @@
     }
 %>
 
-<%@page import="io.github.carlos_emr.CarlosProperties" %>
+
 <%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils" %>
+
 <%@page import="java.util.*" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
@@ -144,6 +144,7 @@
     });
 </script>
 <script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
+<%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
 </head>
 <body>
 <%-- Inside the body: included above the doctype, its markup put the page in quirks mode. --%>
@@ -256,55 +257,79 @@
     </div>
 </form>
 <br/>
+<div id="serverTableRegion" data-server-page-region>
 <c:if test="${requestScope.clients != null}">
-    <form method="post" name="mergeform" action="<%=request.getContextPath()%>/admin/MergeRecords">
-        <%-- The paging and sorting links repeat the search's parameters as a GET, which CSRFGuard
-             does not check; the search form's token is left out of them, and so out of URLs. --%>
-        <display:table class="simple" cellspacing="2" cellpadding="3"
-                       id="client" name="clients" export="false" pagesize="10"
-                       requestURI="/PMmodule/ClientSearch2" excludedParams="CSRF-TOKEN">
-            <display:setProperty name="paging.banner.placement" value="bottom"/>
-            <display:setProperty name="basic.msg.empty_list"
-                                 value="No clients found."/>
-            <display:setProperty name="sort.amount" value="list"/>
+    <form method="post" name="mergeform" data-server-page-preserve-selection action="<%=request.getContextPath()%>/admin/MergeRecords">
+        <%-- Local paging excludes hidden-row controls from this merge form. The banner sits below
+             the table and a sort orders the whole list, as this page set paging.banner.placement
+             and sort.amount for displaytag. --%>
+        <c:if test="${not empty clients}">
+        <table class="carlos-table-spaced simple" id="client">
+<thead><tr>
 
-                <display:column sortable="true" title="Client No" sortProperty="demographicNo" defaultorder="ascending">
+
+
+
+                <th scope="col"><button type="submit" form="serverTablePageForm" name="tableSortChange" value="1">Client No</button></th>
+            <th scope="col"><button type="submit" form="serverTablePageForm" name="tableSortChange" value="2">Name</button></th>
+            <th scope="col"><button type="submit" form="serverTablePageForm" name="tableSortChange" value="3">Date of Birth</button></th>
+            <th scope="col"><button type="submit" form="serverTablePageForm" name="tableSortChange" value="4">Gender</button></th>
+            <th scope="col"><button type="submit" form="serverTablePageForm" name="tableSortChange" value="5">Chart No</button></th>
+            <th scope="col"><button type="submit" form="serverTablePageForm" name="tableSortChange" value="6">Admitted to Program</button></th>
+            <th scope="col"><button type="submit" form="serverTablePageForm" name="tableSortChange" value="7">H&S Alert</button></th>
+
+            <security:oscarSec roleName="<%=roleName$%>" objectName="_merge"
+                               rights="r">
+
+                <th scope="col">Head Record</th>
+
+                <th scope="col">Include</th>
+            </security:oscarSec>
+
+
+        </tr></thead>
+<tbody><c:forEach var="client" items="${clients}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+
+
+
+                <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(client.demographicNo))}" data-sort-type="${carlos:tableSortType(client.demographicNo)}">
                 <%-- Attaching writes a copy of the note into this client's chart, so it is a POST
                      (the click handler in the head), which CSRFGuard checks; it used to be a link. --%>
                 <a href="#" class="attach-note-to-client"
                    data-client="${carlos:forHtmlAttribute(client.demographicNo)}"
                    data-note="<carlos:encode value='<%= noteId$ %>' context="htmlAttribute"/>">${carlos:forHtml(client.demographicNo)}</a>
-            </display:column>
-            <display:column sortable="true" title="Name" sortProperty="formattedName">
+            </td>
+            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(client.formattedName))}" data-sort-type="${carlos:tableSortType(client.formattedName)}">
                 <a
                         href="javascript:popupPage(600,800,'client','${carlos:forJavaScript(pageContext.request.contextPath)}/PMmodule/ClientManager?id=${carlos:forUriComponent(client.currentRecord)}&amp;consent=${carlos:forUriComponent(consent)}')">${carlos:forHtml(client.formattedName)}</a>
-            </display:column>
-            <display:column sortable="true" title="Date of Birth">
+            </td>
+            <td>
                 ${carlos:forHtml(client.yearOfBirth)}/${carlos:forHtml(client.monthOfBirth)}/${carlos:forHtml(client.dateOfBirth)}
-            </display:column>
-            <display:column sortable="true" title="Gender" sortProperty="sexDesc">
+            </td>
+            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(client.sexDesc))}" data-sort-type="${carlos:tableSortType(client.sexDesc)}">
                 ${carlos:forHtml(client.sexDesc)}
-            </display:column>
-            <display:column sortable="true" title="Chart No" sortProperty="chartNo">
+            </td>
+            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(client.chartNo))}" data-sort-type="${carlos:tableSortType(client.chartNo)}">
                 ${carlos:forHtml(client.chartNo)}
-            </display:column>
-            <display:column sortable="true" title="Admitted to Program">
+            </td>
+            <td>
                 <c:choose>
                     <c:when test="${client.activeCount == 0}">No</c:when>
                     <c:otherwise>Yes</c:otherwise>
                 </c:choose>
-            </display:column>
-            <display:column sortable="true" title="H&S Alert">
+            </td>
+            <td>
                 <c:choose>
                     <c:when test="${client.hsAlertCount == 0}">No</c:when>
                     <c:otherwise>Yes</c:otherwise>
                 </c:choose>
-            </display:column>
+            </td>
 
             <security:oscarSec roleName="<%=roleName$%>" objectName="_merge"
                                rights="r">
 
-                <display:column title="Head Record">
+                <td>
                     <c:choose>
 
                         <c:when test="${client.headRecord == null}">
@@ -315,9 +340,9 @@
                             &nbsp;
                         </c:otherwise>
                     </c:choose>
-                </display:column>
+                </td>
 
-                <display:column title="Include">
+                <td>
                     <c:choose>
                         <c:when test="${client.headRecord == null}">
                             <input type="checkbox" name="records"
@@ -327,11 +352,14 @@
                             &nbsp;
                         </c:otherwise>
                     </c:choose>
-                </display:column>
+                </td>
             </security:oscarSec>
 
 
-        </display:table> <security:oscarSec roleName="<%=roleName$%>" objectName="_merge"
+        </tr></c:forEach></tbody>
+</table>
+        </c:if>
+<c:if test="${empty clients}">No clients found.</c:if> <security:oscarSec roleName="<%=roleName$%>" objectName="_merge"
                                             rights="r">
 
         <input type="hidden" name="mergeAction" value="merge"/>
@@ -342,5 +370,7 @@
     </security:oscarSec> <br/>
     </form>
 </c:if>
+<%@ include file="/WEB-INF/jspf/server-table-page.jspf" %>
+</div>
 </body>
 </html>

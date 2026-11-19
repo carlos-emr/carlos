@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.appointment.AppointmentCardContact;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
+import io.github.carlos_emr.carlos.commn.service.ProviderDocumentQueueService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -524,35 +525,26 @@ public class ProviderProperty2Action extends ActionSupport {
         UserProperty existingQ = this.getExistingDefaultDocQueueProperty();
         UserProperty newQ = this.getNewDefaultDocQueueProperty();
         String mode = request.getParameter("chooseMode");
-        String defaultQ = "";
-        if (mode.equalsIgnoreCase("new") && newQ != null)
+        boolean createsQueue = "new".equalsIgnoreCase(mode);
+        String defaultQ;
+        if (createsQueue && newQ != null)
             defaultQ = newQ.getValue();
-        else if (mode.equalsIgnoreCase("existing") && existingQ != null)
+        else if ("existing".equalsIgnoreCase(mode) && existingQ != null)
             defaultQ = existingQ.getValue();
         else {
-            request.setAttribute("status", "success");
-            request.setAttribute("providertitle", "provider.setDefaultDocumentQueue.title");
-            request.setAttribute("providermsgPrefs", "provider.setDefaultDocumentQueue.msgPrefs");
-            request.setAttribute("providermsgProvider", "provider.setDefaultDocumentQueue.msgProfileView");
-            request.setAttribute("providermsgSuccess", "provider.setDefaultDocumentQueue.msgNotSaved");
-            request.setAttribute("method", "saveDefaultDocQueue");
-            return "genDefaultDocQueue";
+            return defaultDocQueueNotSaved();
         }
-        UserProperty prop = this.userPropertyDAO.getProp(providerNo, UserProperty.DOC_DEFAULT_QUEUE);
-        if (prop == null) {
-            prop = new UserProperty();
-            prop.setName(UserProperty.DOC_DEFAULT_QUEUE);
-            prop.setProviderNo(providerNo);
+        if (createsQueue && (defaultQ == null || defaultQ.isBlank())) {
+            return defaultDocQueueNotSaved();
         }
-        if (mode.equals("new")) {
-            QueueDao queueDao = (QueueDao) SpringUtils.getBean(QueueDao.class);
-            queueDao.addNewQueue(defaultQ);
-            String lastId = queueDao.getLastId();
-            prop.setValue(lastId);
-            this.userPropertyDAO.saveProp(prop);
-        } else {
-            prop.setValue(defaultQ);
-            this.userPropertyDAO.saveProp(prop);
+        UserProperty prop;
+        try {
+            var service = SpringUtils.getBean(ProviderDocumentQueueService.class);
+            prop = createsQueue ? service.createDefaultQueue(providerNo, defaultQ)
+                    : service.selectDefaultQueue(providerNo, defaultQ);
+        } catch (RuntimeException e) {
+            logger.error("Unable to save default document queue ({})", e.getClass().getSimpleName());
+            return defaultDocQueueNotSaved();
         }
         request.setAttribute("status", "success");
         request.setAttribute("defaultDocQueueProperty", prop);
@@ -560,6 +552,16 @@ public class ProviderProperty2Action extends ActionSupport {
         request.setAttribute("providermsgPrefs", "provider.setDefaultDocumentQueue.msgPrefs");
         request.setAttribute("providermsgProvider", "provider.setDefaultDocumentQueue.msgProfileView");
         request.setAttribute("providermsgSuccess", "provider.setDefaultDocumentQueue.msgSuccess");
+        request.setAttribute("method", "saveDefaultDocQueue");
+        return "genDefaultDocQueue";
+    }
+
+    private String defaultDocQueueNotSaved() {
+        request.setAttribute("status", "error");
+        request.setAttribute("providertitle", "provider.setDefaultDocumentQueue.title");
+        request.setAttribute("providermsgPrefs", "provider.setDefaultDocumentQueue.msgPrefs");
+        request.setAttribute("providermsgProvider", "provider.setDefaultDocumentQueue.msgProfileView");
+        request.setAttribute("providermsgSuccess", "provider.setDefaultDocumentQueue.msgNotSaved");
         request.setAttribute("method", "saveDefaultDocQueue");
         return "genDefaultDocQueue";
     }
@@ -583,7 +585,7 @@ public class ProviderProperty2Action extends ActionSupport {
         Collection<LabelValueBean> viewChoices = new ArrayList<LabelValueBean>();
         viewChoices.add(new LabelValueBean("None", "-1"));
         for (Hashtable ht : queues) {
-            viewChoices.add(new LabelValueBean((String) ht.get("queue"), (String) ht.get("id")));
+            viewChoices.add(new LabelValueBean((String) ht.get("queue"), ht.get("id").toString()));
         }
         request.setAttribute("viewChoices", viewChoices);
         request.setAttribute("providertitle", "provider.setDefaultDocumentQueue.title");
@@ -971,6 +973,17 @@ public class ProviderProperty2Action extends ActionSupport {
         if (UdrugrefId != null) {
             drugrefId = UdrugrefId.getValue();
         }
+
+        if (!io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod.isValid(drugrefId)) {
+            addActionError(getText("provider.consultationWarning.invalid"));
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            viewConsultationRequestCuffOffDate();
+            this.setDateProperty(UdrugrefId);
+            request.setAttribute("dateProperty", UdrugrefId);
+            request.setAttribute("preferenceValidationError", getText("provider.consultationWarning.invalid"));
+            return "gen";
+        }
+        drugrefId = io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod.normalized(drugrefId);
 
         UserProperty prop = this.userPropertyDAO.getProp(providerNo, UserProperty.CONSULTATION_TIME_PERIOD_WARNING);
 

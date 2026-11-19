@@ -28,7 +28,11 @@ Improvements over the original version:
 - Any raw concatenated operand (not a builder var, counter, or class
   metadata) vetoes all allowlisting for its statement
 - No file-wide bypass: setParameter usage elsewhere never whitelists other matches
-- For Edit/MultiEdit, reconstructs the full post-edit file before scanning
+- Requires SQL structure or an explicit query context before treating words
+  such as FROM, SET and VALUES as SQL rather than ordinary English
+- For Edit/MultiEdit, reconstructs from one pre-edit snapshot, warns about
+  unchanged legacy findings, and blocks new/modified unsafe statements; Write
+  continues to scan the complete supplied content
 
 Exit codes:
 - 0: Safe patterns detected or non-applicable file
@@ -36,8 +40,10 @@ Exit codes:
 """
 
 import json
+import hashlib
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 
@@ -125,6 +131,14 @@ _PLACEHOLDER_LITERAL_BEFORE = re.compile(r'["\'][^"\']*[:?]\s*["\']\s*\)\s*$')
 _ONLY_STRING_LITERAL = re.compile(r'"(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)*\'')
 
 
+
+# Fingerprints retain full text-block bytes rather than the normalized detector
+# view. Escaped quotes must not end a Java literal or introduce fake scope.
+_JAVA_FINGERPRINT_LITERAL = re.compile(
+    r'"""(?:\\[\s\S]|(?!""")[^\\])*"""|' + _ONLY_STRING_LITERAL.pattern
+)
+
+
 def strip_line_comment(line: str) -> str:
     """Strip trailing // single-line comment from a Java line."""
     idx = line.find('//')
@@ -138,24 +152,78 @@ def strip_line_comment(line: str) -> str:
 
 
 
-def get_statement_containing(content: str, start: int, end: int) -> str:
+def mask_literal_statement_delimiters(content: str) -> str:
+    """Hide Java delimiters inside string/char literals without moving offsets."""
+    return _ONLY_STRING_LITERAL.sub(
+        lambda literal: re.sub(r'[;{}]', ' ', literal.group(0)), content
+    )
+
+
+def statement_bounds(content: str, start: int, end: int, boundaries: str) -> tuple[int, int]:
+    begin = max(boundaries.rfind(';', 0, start), boundaries.rfind('{', 0, start),
+                boundaries.rfind('}', 0, start)) + 1
+    term = boundaries.find(';', end)
+    return begin, len(content) if term == -1 else term + 1
+
+
+def get_statement_containing(
+    content: str, start: int, end: int, boundaries: str | None = None
+) -> str:
     """Extract the full Java statement containing the given match span.
 
-    Expands backward to the previous statement boundary (';', '{' or '}')
-    and forward to the next ';'. This is the correct scope for safety
-    evidence: placeholders or class metadata in a *different* statement on
-    the same line must never allowlist this one, while evidence in the same
-    statement that a truncated regex match missed still counts.
+    Expands backward to the previous Java statement boundary (';', '{' or '}')
+    and forward to the next ';', ignoring delimiters inside literals.
+    Placeholders or class metadata in a *different* statement on the same line
+    must never allowlist this one, while evidence in the same statement that a
+    truncated regex match missed still counts.
     """
-    begin = max(
-        content.rfind(';', 0, start),
-        content.rfind('{', 0, start),
-        content.rfind('}', 0, start),
-    ) + 1
-    term = content.find(';', end)
-    if term == -1:
-        term = len(content)
-    return content[begin:term + 1]
+    if boundaries is None:
+        boundaries = mask_literal_statement_delimiters(content)
+    begin, term = statement_bounds(content, start, end, boundaries)
+    return content[begin:term]
+
+
+def canonical_java(fragment: str) -> list:
+    """Ignore layout outside literals while retaining every literal byte."""
+    tokens, cursor = [], 0
+    pattern = r'[\w$]+|>>>|>>|<<|==|!=|<=|>=|&&|\|\||\+\+|--|->|::|[^\s]'
+    for literal in _JAVA_FINGERPRINT_LITERAL.finditer(fragment):
+        tokens.extend(['code', token] for token in re.findall(pattern, fragment[cursor:literal.start()]))
+        tokens.append(['literal', literal.group()])
+        cursor = literal.end()
+    tokens.extend(['code', token] for token in re.findall(pattern, fragment[cursor:]))
+    return tokens
+
+
+def finding_fingerprint(content: str, code: str, boundaries: str, match, description: str) -> str:
+    """Bind a finding to its complete statement and enclosing Java blocks.
+
+    Offsets and comments may move during an unrelated edit. A changed statement,
+    duplicate occurrence or move into another method must still be treated as new.
+    """
+    begin, end = statement_bounds(content, match.start(), match.end(), boundaries)
+    scopes, scope_parentheses, previous, parentheses = [], [], 0, 0
+    for token in re.finditer(r'[{};()]', code[:begin]):
+        value, position = token.group(), token.start()
+        if value == '(':
+            parentheses += 1
+        elif value == ')':
+            parentheses = max(0, parentheses - 1)
+        elif value == '{':
+            scopes.append(canonical_java(content[previous:position]))
+            scope_parentheses.append(parentheses)
+            previous = position + 1
+        elif value == '}':
+            if scopes:
+                scopes.pop()
+                scope_parentheses.pop()
+            previous = position + 1
+        # An outer call can remain open throughout a lambda body. Semicolons
+        # end statements at the current block's depth, but not in for headers.
+        elif parentheses == (scope_parentheses[-1] if scope_parentheses else 0):
+            previous = position + 1
+    evidence = [description, scopes, canonical_java(content[begin:end])]
+    return hashlib.sha256(json.dumps(evidence, separators=(',', ':')).encode()).hexdigest()
 
 
 def _mask_string_literals(text: str) -> str:
@@ -274,7 +342,7 @@ def has_raw_concat_operand(statement: str) -> bool:
     return any(not is_safe_operand(op) for op in operands)
 
 
-def mask_java_comments(content: str) -> str:
+def mask_java_comments(content: str, *, normalize_text_blocks: bool = True) -> str:
     """Replace Java comment spans with spaces, preserving offsets and newlines.
 
     Masks // line comments and /* ... */ block comments while respecting string,
@@ -285,7 +353,8 @@ def mask_java_comments(content: str) -> str:
     that follows a closed block comment on the same line.
 
     Text blocks are additionally normalised to ordinary string literals so a
-    query assembled from text-block fragments is still inspected.
+    query assembled from text-block fragments is still inspected. Fingerprint
+    callers disable that normalization to retain the original literal bytes.
     """
     out = list(content)
     i = 0
@@ -324,6 +393,9 @@ def mask_java_comments(content: str) -> str:
                     if out[k] != '\n':
                         out[k] = ' '
                 i = n
+                continue
+            if not normalize_text_blocks:
+                i = end + 3
                 continue
             out[i] = out[i + 1] = ' '
             out[i + 2] = '"'
@@ -527,14 +599,15 @@ def _apply_edit(content: str, old_string: str, new_string: str, replace_all: boo
     return content.replace(old_string, new_string) if replace_all else content.replace(old_string, new_string, 1)
 
 
-def get_file_content_from_input(tool_input: dict, tool_name: str) -> tuple[str, str]:
+def get_file_content_from_input(tool_input: dict, tool_name: str,
+                                existing_content: str | None = None) -> tuple[str, str]:
     """Extract file path and reconstruct the full post-edit content when possible."""
     file_path = tool_input.get("file_path", "")
 
     if tool_name == "Write":
         return file_path, tool_input.get("content", "")
 
-    content = _read_existing_file(file_path)
+    content = _read_existing_file(file_path) if existing_content is None else existing_content
     if tool_name == "Edit":
         content = _apply_edit(
             content,
@@ -553,7 +626,123 @@ def get_file_content_from_input(tool_input: dict, tool_name: str) -> tuple[str, 
 
     return file_path, content
 
-def check_sql_injection_patterns(content: str) -> list[str]:
+
+def is_message_literal(statement: str, start: int) -> bool:
+    """True when this literal belongs directly to an exception/logger message.
+
+    Follow enclosing calls, rather than exempting the entire statement: a
+    nested query call (including one whose name we do not know) must retain
+    its own SQL context. Grouping and String.format only wrap the message.
+    """
+    prefix = _ONLY_STRING_LITERAL.sub('""', statement[:start])
+    calls = []
+    logger_ends = set()
+    log_methods = {
+        'trace', 'debug', 'info', 'warn', 'error', 'fatal',
+        'log', 'logp', 'logrb', 'severe', 'warning', 'config', 'fine', 'finer', 'finest',
+        'entering', 'exiting', 'throwing',
+    }
+    for match in re.finditer(r'[()]', prefix):
+        if match.group() == ')':
+            if calls and calls.pop() == 'logger_factory':
+                logger_ends.add(match.start())
+            continue
+        before = prefix[:match.start()]
+        method = re.search(r'([\w$]+)\s*$', before)
+        name = method.group(1).lower() if method else ''
+        receiver = before[:method.start()].rstrip() if method else ''
+        receiver = receiver[:-1].rstrip() if receiver.endswith('.') else ''
+        # Track the factory's matching ')' so nested factory arguments work,
+        # without mistaking wrap(getLogger(...)).query(...) for a logger call.
+        logger_call = name in log_methods and (
+            re.search(r'\b(?:log|logger)$', receiver, re.IGNORECASE)
+            or len(receiver) - 1 in logger_ends
+        )
+        if re.search(
+            r'\bnew\s+(?:[\w$]+\.)*[\w$]*(?:Exception|Error)\s*$',
+            before, re.IGNORECASE
+        ) or logger_call:
+            calls.append('message')
+        elif re.search(r'\bString\s*\.\s*format\s*$', before):
+            calls.append('format')
+        elif name == 'getlogger':
+            calls.append('logger_factory')
+        elif method:
+            calls.append('other')
+        else:
+            calls.append('group')
+    for call in reversed(calls):
+        if call not in {'group', 'format'}:
+            return call == 'message'
+    return False
+
+
+def has_sql_context(statement: str) -> bool:
+    """Require query structure, a query variable, or an actual SQL sink.
+
+    A keyword alone is only a candidate: exception/log messages often contain
+    'from', 'set' or 'values'. Inspect literal contents for SQL clauses, and
+    masked Java code for sinks/assignments so prose cannot invent a sink.
+    Context stays within this statement; a nearby query must not turn an
+    unrelated message into SQL.
+    """
+    code = _mask_string_literals(statement)
+    if re.search(
+        r'\b(?:executeQuery|executeUpdate|execute|createQuery|createNativeQuery|'
+        r'createSQLQuery|prepareStatement|prepareCall)\s*\(', code
+    ):
+        return True
+
+    literals = re.finditer(r'"((?:[^"\\]|\\.)*)"', statement)
+    # Query-named assignments/appends also cover incomplete fragments, e.g.
+    # sql = "UPDATE " + table. Names supply context, never safety evidence.
+    query_names = re.findall(r'\b([A-Za-z_$][\w$]*)\s*\+?=(?!=)', code)
+    query_names.extend(re.findall(r'\b([A-Za-z_$][\w$]*)\s*\.\s*append\s*\(', code))
+    # Generic builder names (sb/buf/conditions) are equally common for prose.
+    if any(
+        QUERY_BUILDER_VARS.fullmatch(name)
+        and name.lower() not in {'sb', 'buf', 'conditions', 'servicecodevalues'}
+        for name in query_names
+    ):
+        return True
+
+    sql_structure = re.compile(
+        # Expression predicates need not start with a bare column: lower(...),
+        # CAST(...), CASE and quoted disjunctions can all embed raw values.
+        # A bare quote also starts an IN-list value assembled by a generic
+        # builder. Ordinary prose ending in a quote supplies neither signal.
+        r"^\s*(?:(?:WHERE|AND|OR|ON)\b\s*)?(?:\(\s*)*"
+        r"(?:[\w.$`]+\s*\(|CASE\b)[^;]*(?:[=<>!]|LIKE\b)\s*'\s*$|"
+        r"^\s*'\s+(?:AND|OR)\b\s+[^;]*(?:[=<>!]|LIKE\b)\s*'\s*$|"
+        # A literal containing only a clause starter is a query fragment, not
+        # a keyword embedded in a sentence ("Error reading XML from ...").
+        r'^\s*(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|INTO|VALUES|SET|JOIN)\s*$|'
+        r'\bSELECT\b[^;]*\bFROM\b|'
+        r'\bINSERT\s+INTO\b|\bDELETE\s+FROM\b|'
+        r'\bUPDATE\s+[\w.$`]+\s+SET\b|'
+        r'^\s*FROM\s+[\w.$`]+\b|'
+        r'\b(?:WHERE|SET|ON)\s+[\w.$`]+\s*(?:[=<>!]|LIKE\b|IN\s*\(|IS\b|BETWEEN\b)|'
+        r'\bVALUES\s*\(|\b(?:ORDER|GROUP)\s+BY\b|'
+        # Predicates are often assembled before WHERE is added. In particular,
+        # id = '\" + raw + "' must remain an always-unsafe quote sandwich.
+        r'^\s*,?\s*(?:(?:WHERE|AND|OR|SET|ON)\b\s*)?'
+        r'(?:\(\s*)*(?:NOT\b\s*(?:\(\s*)*)*[\w.$`]+\s*'
+        r'(?:[=<>!]|LIKE\b|IN\s*\(|IS\b|BETWEEN\b)',
+        re.IGNORECASE
+    )
+    return any(
+        (sql_structure.search(literal.group(1))
+         or (literal.group(1).strip() == "'"
+             # A closing quote after + raw + is also a bare literal; it must
+             # not turn ordinary prose ("Invalid values from '" + x + "'")
+             # into SQL context. The opening IN-list quote is the signal.
+             and not has_raw_concat_operand(statement[:literal.start()])))
+        and not is_message_literal(statement, literal.start())
+        for literal in literals
+    )
+
+
+def check_sql_injection_patterns(content: str, findings: list | None = None) -> list[str]:
     """def check_sql_injection_patterns(content: str) -> list[str]:
     
     Check Java content for SQL injection vulnerabilities.  This function analyzes
@@ -572,10 +761,17 @@ def check_sql_injection_patterns(content: str) -> list[str]:
     # Mask comments up front so (a) SQL inside comments is never flagged and
     # (b) comment text can never provide allowlisting evidence. Offsets are
     # preserved, so reported positions remain valid.
+    evidence = mask_java_comments(content, normalize_text_blocks=False) if findings is not None else ''
     content = mask_java_comments(content)
+    # Compute this once per file: SQL punctuation is literal data, not a Java
+    # boundary, and rescanning literals for every candidate is needlessly costly.
+    boundaries = mask_literal_statement_delimiters(content)
+    # Braces/parentheses inside literal data must not invent Java scope. Only
+    # metadata-producing edit comparisons need this second offset-preserving view.
+    code = _ONLY_STRING_LITERAL.sub(lambda m: re.sub(r'[^\n]', ' ', m.group()), content) if findings is not None else ''
 
-    # SQL keywords to look for
-    sql_keywords = r'(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|INTO|VALUES|SET|JOIN|ORDER\s+BY|GROUP\s+BY)'
+    # Broad candidates are confirmed against statement-local SQL context below.
+    sql_keywords = r'\b(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|INTO|VALUES|SET|JOIN|ORDER\s+BY|GROUP\s+BY)\b'
 
     # Pattern 1: String concatenation with SQL keywords
     concat_pattern = rf'["\'][^"\']*{sql_keywords}[^"\']*["\']\s*\+\s*\w+'
@@ -589,12 +785,12 @@ def check_sql_injection_patterns(content: str) -> list[str]:
     builder_pattern = rf'(?:StringBuilder|StringBuffer)\s*\(\s*["\'][^"\']*{sql_keywords}'
     append_pattern = rf'\.append\s*\(\s*["\'][^"\']*{sql_keywords}'
 
-    # Pattern 4: executeQuery/executeUpdate with concatenation
-    execute_concat = rf'(?:executeQuery|executeUpdate|execute)\s*\(\s*["\'][^"\']*{sql_keywords}[^"\']*["\']\s*\+'
-    execute_concat2 = r'(?:executeQuery|executeUpdate|execute)\s*\(\s*\w+\s*\+\s*["\']'
+    # Pattern 4: JDBC query sinks with concatenation (even without a keyword)
+    execute_concat = r'(?:executeQuery|executeUpdate|execute|prepareStatement|prepareCall)\s*\(\s*"(?:[^"\\]|\\.)*"\s*\+'
+    execute_concat2 = r'(?:executeQuery|executeUpdate|execute|prepareStatement|prepareCall)\s*\(\s*\w+\s*\+\s*["\']'
 
     # Pattern 5: createQuery/createNativeQuery with concatenation
-    create_query_concat = rf'(?:createQuery|createNativeQuery|createSQLQuery)\s*\(\s*["\'][^"\']*{sql_keywords}[^"\']*["\']\s*\+'
+    create_query_concat = r'(?:createQuery|createNativeQuery|createSQLQuery)\s*\(\s*"(?:[^"\\]|\\.)*"\s*\+'
     create_query_concat2 = r'(?:createQuery|createNativeQuery|createSQLQuery)\s*\(\s*\w+\s*\+\s*["\']'
 
     # Pattern 6: Direct variable in SQL string construction
@@ -606,7 +802,7 @@ def check_sql_injection_patterns(content: str) -> list[str]:
     # In Java source, this appears as a string ending with ' (single-quote before
     # the closing double-quote), then + variable +, then a string starting with '
     # Example: "WHERE name = '" + patientName + "' AND ..."
-    quote_sandwich = r"""'"\s*\+\s*\w+\s*\+\s*"'"""
+    quote_sandwich = r"""'"\s*\+\s*""" + _OPERAND_CHAIN + r"""\s*\+\s*"'"""
 
     patterns_to_check = [
         (concat_pattern, "String concatenation in SQL query", False),
@@ -627,6 +823,21 @@ def check_sql_injection_patterns(content: str) -> list[str]:
         (quote_sandwich, "Value embedded between SQL quotes (injection)", True),
     ]
 
+    # Java string literals may contain SQL single-quotes. Candidate discovery
+    # must not stop at those quotes or require a keyword in a partial predicate.
+    # The statement-local context and raw-operand checks still reject prose,
+    # markup and constant/parameterized fragments rather than flagging them.
+    java_literal = r'"(?:[^"\\]|\\.)*"'
+    operand_patterns = [
+        (java_literal + r'\s*\+(?![+=])', "Raw value concatenated with SQL"),
+        (_OPERAND_CHAIN + r'\s*\+\s*' + java_literal, "Raw value concatenated with SQL"),
+        (r'\.append\s*\(\s*' + java_literal, "Raw value appended to SQL"),
+    ]
+    requires_raw_operand = {pattern for pattern, _ in operand_patterns}
+    patterns_to_check.extend((pattern, description, False) for pattern, description in operand_patterns)
+    patterns_to_check.append((java_literal + r'\s*\.\s*formatted\s*\(',
+                              "String.formatted() with SQL query", True))
+
     found_patterns = set()  # Avoid duplicate messages
 
     for pattern, description, always_unsafe in patterns_to_check:
@@ -635,7 +846,13 @@ def check_sql_injection_patterns(content: str) -> list[str]:
             match_text = match.group(0)
 
             # Get the full statement containing this match
-            statement = get_statement_containing(content, match.start(), match.end())
+            statement = get_statement_containing(content, match.start(), match.end(), boundaries)
+
+            if not has_sql_context(statement):
+                continue
+
+            if pattern in requires_raw_operand and not has_raw_concat_operand(statement):
+                continue
 
             # Skip if match is a safe pattern (never for always-unsafe patterns)
             if not always_unsafe and is_safe_pattern(match_text, statement, content):
@@ -654,6 +871,9 @@ def check_sql_injection_patterns(content: str) -> list[str]:
                     f"  Found: ...{context}...\n"
                     f"  This is vulnerable to SQL injection."
                 )
+                if findings is not None:
+                    findings.append({'message': issues[-1], 'fingerprint':
+                        finding_fingerprint(evidence, code, boundaries, match, description)})
 
     # Additional check: Look for dangerous patterns in query construction
     raw_query_patterns = [
@@ -670,7 +890,10 @@ def check_sql_injection_patterns(content: str) -> list[str]:
         matches = re.finditer(pattern, content, re.IGNORECASE)
         for match in matches:
             match_text = match.group(0)
-            statement = get_statement_containing(content, match.start(), match.end())
+            statement = get_statement_containing(content, match.start(), match.end(), boundaries)
+
+            if not has_sql_context(statement):
+                continue
 
             if not always_unsafe and is_safe_pattern(match_text, statement, content):
                 continue
@@ -687,11 +910,14 @@ def check_sql_injection_patterns(content: str) -> list[str]:
                     f"  Found: ...{context}...\n"
                     f"  This is vulnerable to SQL injection."
                 )
+                if findings is not None:
+                    findings.append({'message': issues[-1], 'fingerprint':
+                        finding_fingerprint(evidence, code, boundaries, match, description)})
 
     return issues
 
 
-def validate_content(file_path: str, content: str) -> tuple[bool, list[str]]:
+def validate_content(file_path: str, content: str, findings: list | None = None) -> tuple[bool, list[str]]:
     """
     Validate file content for SQL injection vulnerabilities.
 
@@ -705,7 +931,7 @@ def validate_content(file_path: str, content: str) -> tuple[bool, list[str]]:
 
     # Only check Java files
     if file_path.endswith('.java'):
-        issues.extend(check_sql_injection_patterns(content))
+        issues.extend(check_sql_injection_patterns(content, findings))
 
     # All SQL injection issues are critical
     has_critical = len(issues) > 0
@@ -727,15 +953,36 @@ def main():
         if tool_name not in ("Edit", "Write", "MultiEdit"):
             sys.exit(0)
 
-        # Get file path and content
-        file_path, content = get_file_content_from_input(tool_input, tool_name)
+        # Read one immutable pre-edit snapshot for both reconstruction and the
+        # comparison. Write always scans the entire supplied replacement.
+        compare_existing = tool_name in ('Edit', 'MultiEdit')
+        previous = _read_existing_file(tool_input.get('file_path', '')) if compare_existing else None
+        file_path, content = get_file_content_from_input(tool_input, tool_name, previous)
 
         # Only check Java files
         if not file_path.endswith('.java'):
             sys.exit(0)
 
         # Validate content
-        is_safe, issues = validate_content(file_path, content)
+        findings = [] if compare_existing else None
+        is_safe, issues = validate_content(file_path, content, findings)
+        if compare_existing:
+            old_findings = []
+            validate_content(file_path, previous, old_findings)
+            available = Counter(finding['fingerprint'] for finding in old_findings)
+            introduced, unchanged = [], 0
+            for finding in findings:
+                identity = finding['fingerprint']
+                if available[identity]:
+                    available[identity] -= 1
+                    unchanged += 1
+                else:
+                    introduced.append(finding['message'])
+            issues = introduced
+            is_safe = not introduced
+            if unchanged:
+                print(f"WARNING: {unchanged} pre-existing SQL finding(s) remain in unchanged statements; "
+                      "this edit is blocked only for new or modified unsafe SQL.", file=sys.stderr)
 
         if issues:
             # Output feedback to stderr

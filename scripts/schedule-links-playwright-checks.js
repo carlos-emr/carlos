@@ -67,20 +67,6 @@ function safeGoto(page, appPath, options, search = '') {
   return page.goto(appUrl(appPath, search), options); // nosemgrep // NOSONAR - appUrl validates local-only BASE_URL and root-relative paths.
 }
 
-async function responseWithTimeout(request, timeoutMs) {
-  let timeoutId;
-  try {
-    return await Promise.race([
-      request.response(),
-      new Promise((resolve) => {
-        timeoutId = setTimeout(() => resolve(null), timeoutMs);
-      }),
-    ]);
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
 function isExpectedMissingAsset(status, responseUrl) {
   return status === 404 && (/\/imageRenderingServlet\?/.test(responseUrl) || /\/favicon\.ico$/.test(responseUrl));
 }
@@ -198,6 +184,13 @@ async function clickScheduleLink(context, schedulePage, linkSpec) {
   }
 }
 
+/**
+ * Select a provider through its popup and verify the matching POST and CSRF token.
+ * Observe the response before the successful preference page closes itself.
+ * @param {import('playwright').BrowserContext} context The owned browser context.
+ * @param {import('playwright').Page} schedulePage The authenticated schedule opener.
+ * @returns {Promise<void>} Resolves after recording any failures and settling the opener.
+ */
 async function selectProviderFromLastNameSearch(context, schedulePage) {
   const searchInput = schedulePage.locator('form[name="findprovider"] input[name="providername"]');
   if (!await searchInput.count()) {
@@ -205,6 +198,14 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
     return;
   }
 
+  // The preference response refreshes the opener and closes its own popup.
+  // Capture the response event before selection; request.response() can race
+  // that normal close once the click has settled.
+  const providerResponsePromise = context.waitForEvent('response', {
+    predicate: response => response.request().method() === 'POST'
+      && /\/provider\/providercontrol(?:\?|$)/.test(response.url()),
+    timeout: 30000,
+  }).catch(() => null);
   const requestPromise = context.waitForEvent('request', {
     predicate: (request) => request.method() === 'POST'
       && /\/provider\/providercontrol(?:\?|$)/.test(request.url()),
@@ -260,7 +261,10 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
     await resultPage.close();
     return;
   }
-  const response = await responseWithTimeout(providerRequest, 30000);
+  const response = await providerResponsePromise;
+  if (response && response.request() !== providerRequest) {
+    throw new Error('Provider selection response belongs to a different request');
+  }
   const requestBody = providerRequest.postData() || '';
 
   // The page event is emitted only after the initial response starts loading, and every
@@ -300,8 +304,8 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
   await resultPage.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
   await assertNoErrorPage(resultPage, 'schedule-provider-search');
   await resultPage.close();
-  // Selecting a provider navigates the MAIN schedule window (the popup submits into
-  // its opener), so schedulePage is mid-reload when this returns. Wait for that reload
+  // The successful preference page refreshes the MAIN schedule window before
+  // closing itself, so schedulePage may still be mid-reload. Wait for that reload
   // to settle before the caller asserts the schedule nav links — otherwise every link
   // check races a torn-down DOM and reports a false "missing-user-link".
   await schedulePage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});

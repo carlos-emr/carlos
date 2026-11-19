@@ -1,9 +1,9 @@
-# eForm Browser PDF Renderer (Selenium + Headless Chromium)
+# eForm Browser PDF Renderer (JDK + Headless Chromium)
 
 CARLOS renders saved eForms to PDF with a real browser engine because eForms are CSS- and
 JavaScript-dependent documents — absolutely-positioned fields over scanned background images,
 clinic-authored layout scripts, APCache-populated content, `@media print` rules — that pure-Java HTML
-renderers cannot reproduce faithfully. The renderer is driven entirely from the JVM by Selenium —
+renderers cannot reproduce faithfully. The renderer is driven entirely from the JVM by a bounded JDK HTTP client —
 **no Node.js runtime is installed, bundled, or executed anywhere on the server**.
 
 The render surface is a *passive* snapshot: the WYSIWYG editor and the other interactive control
@@ -17,7 +17,7 @@ EformDataManagerImpl.createEformPDF
   └─ EFormBrowserPdfService.renderSavedEformPdf(loggedInInfo, fdid)
        ├─ loads the saved eForm and checks _eform READ for its demographic
        ├─ mints a render-scoped render token (EFormRenderTokenService, 2-min TTL)
-       ├─ launches headless Chromium via Selenium ChromeDriver (fresh browser per render)
+       ├─ asks the separately confined chromedriver to launch headless Chromium (fresh browser per render)
        ├─ navigates over loopback to /EFormViewForPdfGenerationServlet?fdid=…&browserRender=true&renderToken=…
        │    ├─ servlet exchanges the one-time bootstrap token for a host-only,
        │    │    HttpOnly, SameSite=Strict CARLOS_EFORM_RENDER cookie
@@ -79,7 +79,7 @@ This preserves the legacy per-page geometry contract the form corpus depends on 
 text-layer PDF. (The previous implementation screenshotted each `pageN` region via
 `Page.captureScreenshot` and glued the PNGs with PDFBox `LosslessFactory`, which produced image-only
 PDFs with no extractable text — and clipped pages whose background image was smaller than their
-content.) Equivalence is pinned by the Selenium smoke test
+content.) Equivalence is pinned by the browser smoke test
 (`EFormBrowserPdfServiceSeleniumSmokeIntegrationTest`): the page-div fixture prints to a 2-page PDF
 whose page count matches the authored divs and whose text layer contains the form's text, and the
 free-flow fixture prints to a text-layer PDF with no injected `@page` size.
@@ -91,12 +91,14 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 > (`--renderer-process-limit=4`, all render content is same-origin loopback), and drop the GPU
 > process (`--disable-gpu`; headless print rasters in software). On the `.deb`, the
 > `carlos-emr-render-browser` unit additionally carries a cgroup ceiling for the whole browser tree
-> (`MemoryHigh=1G`, `MemoryMax=1536M`): under pressure the kernel throttles and, at the limit,
+> (`MemoryHigh=1324M`, `MemoryMax=1836M`): under pressure the kernel throttles and, at the limit,
 > OOM-kills **inside the unit** — a runaway form's render fails (retryably, via the normal
 > fail-closed render error, with `Restart=always` recycling the driver) instead of the browser
 > squeezing the EMR beside it. Size hosts for steady state: up to `MAX_CONCURRENT_RENDERS` (2)
-> concurrent Chromium instances of roughly 150–300 MB each, plus chromedriver (~20 MB), on top of
-> the Tomcat JVM. Deployments that raise concurrency must raise the unit ceiling to match.
+> shared Chromium instances plus `CHART_ONLY_RENDERS` (1) kept for measurement, lab and medication
+> graphs (#5853), roughly 150–300 MB each, plus chromedriver (~20 MB), on top of the Tomcat JVM.
+> The graph browser raised the unit ceiling by one browser's peak (300M) from `1G` / `1536M`.
+> Deployments that raise concurrency must raise the unit ceiling to match.
 
 > **Containerized deployments MUST run an init process (zombie reaping).** Each render launches a
 > Chromium process tree; on an abnormal teardown (a killed chromedriver, a deploy mid-render, an
@@ -140,7 +142,7 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 > render would — review that setting before assuming the deployment is broken.
 
 - **Chromium** (or Chrome) on the server. Point the renderer at it with
-  `eform_pdf_browser_chromium_path`; without the property, Selenium looks for a system Chrome.
+  `eform_pdf_browser_chromium_path`; without the property, chromedriver looks for a system Chrome.
 - **A RUNNING chromedriver, matching the browser's major version.** CARLOS connects to it over
   loopback (`eform_pdf_browser_service_url`); it does not launch one, and there is no
   Selenium Manager fallback to download a driver at first use. On the .deb this is the
@@ -155,7 +157,7 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
   spawned by the JVM under that unit it fails every boot on the 30s startup budget. Moving
   the browser to its own unit is what lets it be sandboxed without loosening the EMR's own
   hardening.
-- **No Node.js.** The renderer runs entirely in the JVM (Selenium driving Chromium); no Node
+- **No Node.js.** The renderer runs entirely in the JVM (the JDK client driving Chromium); no Node
   runtime or npm modules are required on the host. (The dev/CI Playwright check scripts under
   `scripts/` are separate test tooling, not part of the renderer.)
 - **Managed eForm assets update themselves.** `EFormAssetDeployer` keeps `editControl2.js`, the
@@ -172,7 +174,7 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 
 | Property | Default | Meaning |
 |---|---|---|
-| `eform_pdf_browser_base_url` | derived | Loopback base URL the renderer navigates to. Derived from the active request (`scheme://127.0.0.1:localPort/context`), downgrading a proxied `https` scheme to `http` when a TLS-terminating reverse proxy is detected (see "Base URL behind a TLS-terminating proxy" below), or from `project_home` when no request is available. Must resolve to a loopback host — anything else is rejected. |
+| `eform_pdf_browser_base_url` | derived | Loopback base URL the renderer navigates to. Derived from the active request (`scheme://127.0.0.1:localPort/context`), downgrading a proxied `https` scheme to `http` when a TLS-terminating reverse proxy is detected (see "Base URL behind a TLS-terminating proxy" below), or, for a render with no request (the CDS export worker), from the servlet container's own configuration: `http://127.0.0.1:<port>/<context>` with the port of the single plain-HTTP, non-AJP Tomcat connector that 127.0.0.1 reaches and the deployed context path (see "Base URL for renders without a request" below). Must resolve to a loopback host — anything else is rejected. |
 | `eform_pdf_browser_chromium_path` | unset | Absolute path to the Chromium/Chrome binary. |
 | `eform_pdf_browser_service_url` | `http://127.0.0.1:9515` | URL of an **already-running** chromedriver. CARLOS connects to it and never launches one. Must be `http` (chromedriver serves plaintext only) with an explicit port on a loopback host — anything else is rejected at startup. A path component is permitted and is the chromedriver `--url-base` prefix, which the .deb uses as a capability token. Unreachable fails the render closed; there is no fallback to launching a browser. |
 | ~~`eform_pdf_browser_chromedriver_path`~~ | — | **Removed.** CARLOS no longer spawns chromedriver, so a path to one has nothing to launch. See `eform_pdf_browser_service_url`. |
@@ -210,6 +212,20 @@ scheme to use for that loopback hop:
 deployments should set it explicitly** —
 `eform_pdf_browser_base_url=http://127.0.0.1:<tomcatPort>/<context>` — rather than relying on the
 heuristic.
+
+### Base URL for renders without a request
+
+A render started outside an HTTP request (the CDS export worker renders every listed eForm of a
+chart) has no request to take a port or context path from. It used to fall back to
+`http://127.0.0.1:8080/<project_home>`, which the packaged install does not serve (its only
+connector is `127.0.0.1:18080`). `RendererLoopbackOrigin` now reads the port from Tomcat's own
+connector configuration, as Tomcat publishes it over JMX: the one connector that is not AJP, whose
+scheme is plain `http`, that is not marked `secure`, and that is bound to every interface or to
+127.0.0.1. The context path is the one the servlet container deployed the application at
+(`EFormBrowserPdfService` is `ServletContextAware`), else `project_home`. Nothing comes from a
+client: the host is always `127.0.0.1`. When no single connector qualifies (none, several, TLS only,
+bound to another address) the legacy default is kept, and `eform_pdf_browser_base_url` overrides
+every derivation. The base URL derived this way is logged once, origin only.
 
 ## Security model
 
@@ -265,7 +281,20 @@ heuristic.
   caller-owned chromedriver service is stopped afterwards as a backstop
   when quit times out.
 - **Bounded concurrency.** At most 2 concurrent renders (30s slot wait, then a clean failure)
-  so rendering can never saturate Tomcat's request workers. Every WebDriver/CDP HTTP command is
+  so rendering can never saturate Tomcat's request workers. Graphs (`BrowserChartRenderer`) also
+  have 1 browser of their own, which they take first, so a graph does not wait behind eForm PDFs
+  while that browser is free; a PDF never takes it (#5853). While PDFs wait for a shared browser,
+  a graph that finds its own browser busy waits for it rather than taking a shared one. At most 3
+  renders hold a browser at once. A render whose browser start times out (30s) frees its slot
+  straight away, but the late browser can live up to 90s longer while it is reaped, so repeated
+  start timeouts can briefly run more than 3 browsers; on the `.deb`, the `carlos-emr-render-browser`
+  unit's memory ceiling still bounds them all (see the `KNOWN OVERSHOOT` note in
+  `startSessionWithinBudget`). The CDS export is the one caller that
+  waits longer: it renders one form at a time, so it never holds more than one slot, and it keeps
+  its place in the queue for as long as a slot takes, checking about once a second outside the
+  queue's lock whether its job was cancelled (`renderSavedEformPdf` with a slot-wait check,
+  `RenderAdmission.acquire(Kind, Runnable)`). A full queue is still refused at once for every
+  caller. Every WebDriver/CDP HTTP command is
   additionally client-bounded at 90s (vs Selenium's ~180s default), which sharply cuts down —
   but does not eliminate — how long a wedged Chromium can hold one of the 2 render slots; see
   "Known limitations and tracked follow-ups" for the honest worst-case shape.
@@ -641,8 +670,8 @@ carryovers from PR #3164:
   render's `finally` block is itself one more WebDriver command bound by that same 90-second client
   read timeout. Worst case that is roughly three 90-second spans — **up to ~4.5 minutes** — before
   `stopServiceQuietly`'s process-level kill actually frees the render
-  slot. `MAX_CONCURRENT_RENDERS=2` bounds the blast radius to at most 2 stuck slots at a time, not
-  the whole renderer, but a wedged browser is not guaranteed to fail within the nominal 90-second
+  slot. `MAX_CONCURRENT_RENDERS=2` bounds the blast radius to at most 2 stuck shared slots at a
+  time (plus the 1 graph-only slot), not the whole renderer, but a wedged browser is not guaranteed to fail within the nominal 90-second
   budget.
 
 ## Output contract
@@ -816,9 +845,16 @@ key extraction), the render servlet and token service, the capability cookie and
 authorization, the image/signature/APCache servlets, `LoginFilter` least-privilege, and the
 mutator/GET contract.
 
-End-to-end smoke, which skips cleanly on a host without a browser:
+Opt-in end-to-end smoke with a matching chromedriver and browser binary. The legacy
+`SeleniumSmokeIntegrationTest` class name is retained for existing operator commands; its implementation
+uses the JDK transport. Give it either a chromedriver binary (`CARLOS_SMOKE_CHROMEDRIVER`, started on a
+free loopback port and stopped after the class) or a running service (`CARLOS_SMOKE_DRIVER_URL`, which
+wins when both are set). Runs without a driver or browser skip cleanly; a configured driver that does
+not start fails:
 
 ```bash
+CARLOS_SMOKE_CHROMEDRIVER=/path/to/chromedriver \
+CARLOS_SMOKE_CHROMIUM=/path/to/chrome \
 mvn test -Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest
 ```
 

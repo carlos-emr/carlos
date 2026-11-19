@@ -63,8 +63,8 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     // Build role string for security validation
@@ -144,6 +144,22 @@
     <fmt:message
 					key="messenger.SentMessage.msgMessageSentTo" /> <carlos:encode value='<%= request.getAttribute("SentMessageProvs") != null ? request.getAttribute("SentMessageProvs").toString() : "" %>' context="html"/>
 </div>
+<c:if test="${patientLinkAfterSendFailed}">
+<div class="alert alert-warning" role="alert" data-carlos-patient-link-after-send-failed="true" style="margin-left:20px; margin-right:20px;">
+    <fmt:message key="messenger.SentMessage.patientLinkFailed"/>
+</div>
+</c:if>
+<c:if test="${attachmentsAfterSendFailed}">
+<div class="alert alert-warning" role="alert" data-carlos-attachments-after-send-failed="true" style="margin-left:20px; margin-right:20px;">
+    <fmt:message key="messenger.SentMessage.attachmentCleanupFailed"/>
+</div>
+</c:if>
+<%-- Send and Archive (#6042): the reply went out, but the message replied to could not be archived. --%>
+<c:if test="${archiveAfterSendFailed}">
+<div class="alert alert-warning" role="alert" data-carlos-archive-after-send-failed="true" style="margin-left:20px; margin-right:20px;">
+    <fmt:message key="messenger.SentMessage.archiveFailed"/>
+</div>
+</c:if>
 <div style="width:100%; margin-left:10px; margin-top: 50px;">
 <a class="btn btn-outline-secondary" href="${pageContext.request.contextPath}/messenger/ViewCreateMessage<%=scheduleNavFirstQuerySuffix%>">
     <i class="fa-solid fa-pencil"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.btnCompose"/></a>

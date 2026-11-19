@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.managers.MessagingManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.text.SimpleDateFormat;
@@ -47,7 +48,7 @@ public class EctDisplayMsg2Action extends EctDisplayAction {
     private static MessagingManager messagingManager = SpringUtils.getBean(MessagingManager.class);
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = getLoggedInInfo(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "r", null)) {
             return true; //Oscar message link won't show up on new CME screen.
         } else {
@@ -56,7 +57,7 @@ public class EctDisplayMsg2Action extends EctDisplayAction {
 
             //set link for lefthand module title
             String winName = "ViewMsg" + bean.demographicNo;
-            Dao.setLeftPopup(600, 900, winName, request.getContextPath() + "/messenger/DisplayDemographicMessages?orderby=date&boxType=3&demographic_no=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&userName=" + bean.userName);
+            Dao.setLeftPopup(600, 900, winName, request.getContextPath() + "/messenger/DisplayDemographicMessages?orderby=date&boxType=3&demographic_no=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&userName=" + SafeEncode.forUriComponent(bean.userName));
 
             //set the right hand heading link
             winName = "SendMsg" + bean.demographicNo;

@@ -10,6 +10,7 @@ const {reloadChart}=require('./chart-session-state-two-window-isolation-playwrig
 const {removeMarkedPatients} = require('./lib/gap-records-fixtures');
 const {chartNoteSave} = require('./lib/mutation-families');
 const NOTE = '#encMainDiv textarea[name="caseNote_note"]';
+/** Verify calculator paste/save/reopen with a second-patient control and owned-note cleanup. */
 async function workflow(s) {
   const {sql, patient, marker} = s, controlName = marker + '-CONTROL';
   s.cleanup(() => removeMarkedPatients(sql, controlName));
@@ -40,10 +41,18 @@ async function workflow(s) {
       const after = await chart.locator(NOTE).first().inputValue();
       h.assert(after.startsWith(before) && after.includes(prediction), 'Fracture Paste replaced the note or lost the prediction');
       h.assert(await controlChart.locator(NOTE).first().inputValue() === controlText, 'Fracture Paste changed another patient window');
+      // Manual Save intentionally aborts active drafts. Pause the next tick and
+      // finish the current draft before this calculator check explicitly saves.
+      await chart.evaluate(() => clearTimeout(window.autoSaveTimer));
+      await chart.waitForFunction(() => !window.autoSaveXhr && !window.autoSaveOperation,
+        undefined, { timeout: 30000 });
       const [saved] = await Promise.all([
-        chart.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/CaseManagementEntry')),
+        chart.waitForResponse(r => r.request().method() === 'POST'
+          && new URL(r.url()).pathname.endsWith('/CaseManagementEntry')
+          && new URLSearchParams(r.request().postData() || '').get('method') === 'save'),
         chart.locator('#saveImg').first().click(),
       ]);
+      await saved.finished();
       h.assert(saved.status() === 200, `Saving the pasted note returned HTTP ${saved.status()}`);
       // The note save trims surrounding whitespace and normalizes line endings.
       // Compare its complete content in hex so the SQL batch framing cannot

@@ -129,7 +129,9 @@ const signalHandlers = installCleanupSignalHandlers(() => {
   }
 });
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('demographic-add', async () => {
+  await (async () => {
   const recorder = createRecorder();
   const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), ...NO_PLAYWRIGHT_SIGNAL_HANDLING });
   initMysqlDefaults();
@@ -237,3 +239,4 @@ const signalHandlers = installCleanupSignalHandlers(() => {
     signalHandlers.dispose();
   }
 })();
+}, {existingSignalHandlers:true});

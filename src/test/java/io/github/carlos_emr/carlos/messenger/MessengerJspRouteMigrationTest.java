@@ -81,13 +81,19 @@ class MessengerJspRouteMigrationTest {
                 .contains("<form id=\"attachForm\" action=\"${pageContext.request.contextPath}/messenger/Doc2PDF\" method=\"post\">")
                 .contains("name=\"item\" value=\"demographic\"")
                 .contains("name=\"item\" value=\"encounter\"")
+                // #5856: the current notes and CPP, offered only with every read the chart print needs.
+                .contains("name=\"item\" value=\"currentEncounter\"")
+                .contains("MsgPdfAttachmentResolver.Item.CURRENT_ENCOUNTER, demographicNoInt);")
+                .contains("<c:if test=\"${canCurrentEncounter}\">")
                 .contains("name=\"item\" value=\"prescriptions\"")
                 .contains("name=\"previewItem\"")
                 // Items are offered only with the read Doc2PDF enforces, and the encounter is not
                 // even looked up without _eChart read (its existence and timestamp are chart data).
                 .contains("MsgAttachPDF2Action.canReadItem(")
                 .contains("isAllowedAccessToPatientRecord(loggedInInfo, demographicNoInt)")
-                .contains("canEncounter ? eChartDao.getLatestChart(demographicNoInt) : null")
+                .contains("encounter = canEncounter")
+                .contains("? new MsgPdfAttachmentResolver(eChartDao).resolve(MsgPdfAttachmentResolver.Item.ENCOUNTER,")
+                .contains(": java.util.Optional.empty();")
                 .contains("<c:if test=\"${canDemographic}\">")
                 .contains("<c:if test=\"${canPrescriptions}\">")
                 .contains("/securityError?type=_msg")
@@ -139,7 +145,8 @@ class MessengerJspRouteMigrationTest {
 
         assertThat(jsp)
                 .contains("<fmt:message key=\"messenger.generatePreviewPDF.information\" var=\"informationLabel\"/>")
-                .contains("<fmt:message key=\"messenger.generatePreviewPDF.encounter\" var=\"encounterLabel\"/>")
+                .contains("<fmt:message key=\"messenger.generatePreviewPDF.currentEncounter\" var=\"currentEncounterTitle\"/>")
+                .contains("<fmt:message key=\"messenger.generatePreviewPDF.secEncounters\"/>")
                 .contains("<html lang=\"<%= SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.utility"
                         + ".LocaleUtils.resolveBundleLocale(request).getLanguage()) %>\">")
                 .doesNotContain("<%@ taglib uri=\"owasp.encoder.jakarta\" prefix=\"e\" %>")

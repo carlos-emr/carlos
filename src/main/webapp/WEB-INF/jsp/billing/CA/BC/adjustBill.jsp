@@ -46,11 +46,11 @@
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.commn.model.*" %>
-<%@page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*" %>
-<%@page import="org.springframework.web.context.WebApplicationContext,org.springframework.web.context.support.WebApplicationContextUtils, io.github.carlos_emr.carlos.entities.*" %>
+<%@page import="io.github.carlos_emr.*, io.github.carlos_emr.carlos.commn.model.*" %>
+<%@page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" %>
+<%@page import="io.github.carlos_emr.carlos.entities.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
@@ -58,7 +58,7 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.service.GstSettingsService" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.administration.GstReport" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.entities.Billingmaster" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO" %>
@@ -676,8 +676,17 @@
                // Retrieving Provider
                String proFirst="", proLast="", proOHIP="", proNo="";
                int Count = 0;
-               for(Provider p:providerDao.getActiveProviders()) {
-            	 if(p.getOhipNo() != null && !p.getOhipNo().isEmpty()) {
+               java.util.List<Provider> billingPhysicians = new java.util.ArrayList<>(providerDao.getActiveProviders());
+               boolean storedPhysicianListed = false;
+               for (Provider candidate : billingPhysicians) {
+                   if (Provider.equals(candidate.getProviderNo())) storedPhysicianListed = true;
+               }
+               if (!storedPhysicianListed) {
+                   Provider storedPhysician = providerDao.getProvider(Provider);
+                   if (storedPhysician != null) billingPhysicians.add(storedPhysician);
+               }
+               for(Provider p:billingPhysicians) {
+                 if(Provider.equals(p.getProviderNo()) || (p.getOhipNo() != null && !p.getOhipNo().isEmpty())) {
                     proFirst = p.getFirstName();
                     proLast = p.getLastName();
                     proOHIP = p.getProviderNo();

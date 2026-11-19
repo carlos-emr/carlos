@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "c6f8a6fae422314f26db1e7c8323e86917415979",
+  "comparisonSha256": "e937aacbf48fa2474859ebf7e24f7ebaea00abd6e6d2629f430db945275c8921",
+  "baselineCommit": "c506d47862373f113ce15210c8aba9782355a573",
+  "baselineSourceTree": "c6f8a6fae422314f26db1e7c8323e86917415979",
+  "baselineReportSha256": "69ec9b76cbd2e9b08c3bf2f166fcd35a092ac263aea5c9a2c98fb1bf75fab108",
+  "baselineLane": "PR #6161 release merge with JDK 25 Messenger PDF, billing, chart-print and Tomcat attachment refusal tests",
+  "baselineTestCounts": {
+    "tests": 154,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "3bcbbaa40ad6139710310f230b8c2906392b2c3470da87ab8e1242b2c5d4bb38",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintAllergiesUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintAssemblyUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintConcurrencyUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintLabsUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintLockedNotesUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintMrpUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintPdfUnicodeUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintSelectedNotesUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintSizeLimitUnitTest",
+    "io.github.carlos_emr.carlos.commn.web.BillingInvoice2ActionUnitTest",
+    "io.github.carlos_emr.carlos.messenger.data.MsgMessageDataUnitTest",
+    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachPDF2ActionUnitTest",
+    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachmentRefusalIntegrationTest",
+    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgEncounterPdfComposerUnitTest",
+    "io.github.carlos_emr.carlos.util.ConcatPDFUnitTest"
+  ],
+  "observedChangedSourceCoverage": {
+    "coveredLines": 90,
+    "missedLines": 0,
+    "coveredInstructions": 435,
+    "missedInstructions": 0,
+    "coveredBranches": 48,
+    "missedBranches": 0
+  },
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgAttachPDF2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "13a960b4645e1c24a2b1f4e427e820d46b2ec4a6"
+    }
+  }
+}

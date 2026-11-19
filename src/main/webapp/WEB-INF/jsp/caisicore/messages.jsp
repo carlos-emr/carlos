@@ -1,6 +1,3 @@
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
 <%--
     Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -29,26 +26,13 @@
 --%>
 
 
-<%-- Error Messages --%>
+<%-- Error and success messages.
+     This fragment used to print the Struts 1 request attributes
+     org.apache.struts.action.ERROR / org.apache.struts.action.MESSAGE. Nothing under Struts 2
+     sets them, so those blocks always rendered nothing and were removed (#5479); the empty
+     table is kept so including pages lay out exactly as before. Showing Struts 2
+     actionErrors/actionMessages here would be a separate, behaviour-changing change. --%>
 
 <table width="100%" border="0" cellpadding="0" cellspacing="1"
        bgcolor="#C0C0C0">
-
-    <c:if test="${not empty pageContext.request.getAttribute('org.apache.struts.action.ERROR')}">
-        <c:forEach var="error" items="${pageContext.request.getAttribute('org.apache.struts.action.ERROR')}">
-            <tr>
-                <td class="error">${carlos:forHtml(error)}</td>
-            </tr>
-        </c:forEach>
-    </c:if>
-
-    <%-- Success Messages --%>
-    <c:if test="${not empty pageContext.request.getAttribute('org.apache.struts.action.MESSAGE')}">
-        <c:forEach var="message" items="${pageContext.request.getAttribute('org.apache.struts.action.MESSAGE')}">
-            <tr>
-                <td class="message">${carlos:forHtml(message)}</td>
-            </tr>
-        </c:forEach>
-    </c:if>
-
 </table>

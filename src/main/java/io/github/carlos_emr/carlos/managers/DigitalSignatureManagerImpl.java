@@ -27,6 +27,8 @@
 
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import io.github.carlos_emr.carlos.commn.dao.DigitalSignatureDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
@@ -69,31 +71,89 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
             return digitalSignature;
         }
 
-        try {
-            digitalSignature.setSignatureImage(EncryptionUtils.decrypt(digitalSignature.getSignatureImage()));
-        } catch (Exception e) {
-            // Decryption failed. The record is NOT mutated here (the old code destructively re-encrypted
-            // and persisted the bytes, permanently double-encrypting a merely-undecryptable record).
-            // setSignatureImage was not reached, so the entity still holds its original stored bytes.
-            //
-            // Those bytes are only safe to return when they really are a plaintext image (the legacy
-            // case). For a genuinely encrypted record whose key is currently unavailable (rotation,
-            // outage), the ciphertext is undecodable — returning it would stream garbage as image/jpeg
-            // with HTTP 200, and a signed eForm would fax/archive with a blank signature block while the
-            // render gate (which only trips on >= 400) sees success. So sniff the bytes: keep them only
-            // if they look like a real image; otherwise null the image so the signature servlet 404s and
-            // the render fails honestly.
-            byte[] stored = digitalSignature.getSignatureImage();
-            if (looksLikeImage(stored)) {
-                logger.warn("Could not decrypt signature ID {}; stored bytes look like a legacy plaintext image, returning as-is", id);
-            } else {
+        // Decryption failure never mutates the record (the old code destructively re-encrypted and
+        // persisted the bytes, permanently double-encrypting a merely-undecryptable record).
+        StoredImage read = readStoredImage(digitalSignature.getSignatureImage());
+        switch (read.form()) {
+            case DECRYPTED -> digitalSignature.setSignatureImage(read.image());
+            case LEGACY_PLAINTEXT ->
+                    logger.warn("Could not decrypt signature ID {}; stored bytes look like a legacy plaintext image, returning as-is", id);
+            case UNREADABLE -> {
                 logger.error("Could not decrypt signature ID {} and the stored bytes are not a recognizable image "
-                        + "(likely encrypted with a currently-unavailable key); returning no image", id, e);
+                        + "(likely encrypted with a currently-unavailable key); returning no image", id, read.failure());
                 digitalSignature.setSignatureImage(null);
             }
+            // Every form is handled above; an unknown one is never shown as an image.
+            default -> digitalSignature.setSignatureImage(null);
         }
 
         return digitalSignature;
+    }
+
+    /** How a stored signature image was read by {@link #readStoredImage}. */
+    public enum StoredImageForm {
+        /** The stored bytes were decrypted with the signature key: the normal case. */
+        DECRYPTED,
+        /** They could not be decrypted but are themselves a raster image: a legacy plaintext row. */
+        LEGACY_PLAINTEXT,
+        /** They could not be decrypted and are not an image (for example, the key is unavailable). */
+        UNREADABLE
+    }
+
+    /**
+     * A stored signature image as read: its form, the printable image (null when
+     * {@link StoredImageForm#UNREADABLE}) and the decryption failure, if any.
+     */
+    public record StoredImage(StoredImageForm form, byte[] image, Exception failure) {
+        public StoredImage {
+            Objects.requireNonNull(form);
+        }
+
+        /** Compares the image by content, not by array identity. */
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof StoredImage that
+                    && form == that.form
+                    && java.util.Arrays.equals(image, that.image)
+                    && Objects.equals(failure, that.failure);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * Objects.hash(form, failure) + java.util.Arrays.hashCode(image);
+        }
+
+        @Override
+        public String toString() {
+            return "StoredImage[" + form + "]";
+        }
+    }
+
+    /**
+     * Reads a stored {@code DigitalSignature.signatureImage} value as every printed record shows it:
+     * the one decryption path for stored signatures, used by {@link #getDigitalSignature} (the
+     * chart's Print, eForm and prescription rendering) and by the CDS export, which prints the
+     * signature from the patient's captured row rather than from today's database.
+     *
+     * <p>The stored value is decrypted with the signature key. When that fails, the stored bytes
+     * are only safe to show when they really are a plaintext image (the legacy case). For a
+     * genuinely encrypted record whose key is currently unavailable (rotation, outage) the
+     * ciphertext is undecodable: returning it would stream garbage as an image, and a signed form
+     * would fax or archive with a blank signature block while every check sees success. So the
+     * bytes are sniffed: kept only if they look like a real image, otherwise no image is returned
+     * and the caller reports the signature as unavailable. Nothing is logged or written here.
+     *
+     * @param stored the stored value, never null
+     * @return how it was read; {@link StoredImage#image()} is null only when unreadable
+     */
+    public static StoredImage readStoredImage(byte[] stored) {
+        Objects.requireNonNull(stored);
+        try {
+            return new StoredImage(StoredImageForm.DECRYPTED, EncryptionUtils.decrypt(stored), null);
+        } catch (Exception e) {
+            if (looksLikeImage(stored)) return new StoredImage(StoredImageForm.LEGACY_PLAINTEXT, stored, e);
+            return new StoredImage(StoredImageForm.UNREADABLE, null, e);
+        }
     }
 
     /**
@@ -118,11 +178,20 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
 
     @Override
     public DigitalSignature getDigitalSignatureMetadata(int id) {
-        return this.digitalSignatureDao.findMetadataById(id);
+        // This is used for authorization before loading signature bytes.
+        // Imported -1 rows require the frozen source owner even for legacy callers.
+        return this.digitalSignatureDao.findReadableMetadataById(id);
     }
 
     @Override
     public DigitalSignature saveDigitalSignature(Integer facilityId, String providerNo, Integer demographicNo, byte[] imageData, ModuleType moduleType) {
+        // The import preserves historical OSCAR rows with demographicId=-1,
+        // but that sentinel is not a valid patient for a NEW signature.
+        // Before the compatibility FK migration the database rejected it;
+        // keep that write boundary for every caller of this manager.
+        if (demographicNo == null || demographicNo <= 0) {
+            throw new IllegalArgumentException("A positive patient number is required for a new digital signature");
+        }
         DigitalSignature digitalSignature = new DigitalSignature();
         digitalSignature.setDateSigned(new Date());
         digitalSignature.setDemographicId(demographicNo);
@@ -159,13 +228,13 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
             Path filePath = validatedFile.toPath();
 
             if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
-                logger.debug("Signature file not found or not a regular file: {}", filePath);
+                logger.debug("Signature file not found or not a regular file");
                 return null;
             }
 
             byte[] image = Files.readAllBytes(filePath);
             if (image.length == 0) {
-                logger.debug("Signature file is empty: {}", filePath);
+                logger.debug("Signature file is empty");
                 return null;
             }
 
@@ -177,11 +246,11 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
                     moduleType
             );
         } catch (FileNotFoundException e) {
-            logger.debug("Signature file not found. User probably didn't collect a signature.", e);
+            logger.debug("Signature file not found. User probably didn't collect a signature.: {}", LogSafe.exceptionTrace(e));
         } catch (SecurityException e) {
-            logger.warn("Blocked unsafe file access attempt.", e);
+            logger.warn("Blocked unsafe file access attempt.: {}", LogSafe.exceptionTrace(e));
         } catch (Exception e) {
-            logger.error("Unexpected error processing digital signature.", e);
+            logger.error("Unexpected error processing digital signature.: {}", LogSafe.exceptionTrace(e));
         }
 
         return null;
@@ -215,7 +284,7 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
             File stampFile = PathValidationUtils.validatePath(stampFilename, imageFolder);
 
             if (!stampFile.exists()) {
-                logger.debug("Stamp signature file not found: {}", stampFilename);
+                logger.debug("Stamp signature file not found");
                 return null;
             }
 
@@ -226,7 +295,7 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
             // rendered consult that no gate can see, because the decrypt-failure defence below only
             // inspects bytes that failed to decrypt. Refuse to store what can only render blank.
             if (imageData.length == 0) {
-                logger.warn("Stamp signature file is empty; refusing to store it: {}", stampFilename);
+                logger.warn("Stamp signature file is empty; refusing to store it");
                 return null;
             }
             return this.saveDigitalSignature(
@@ -234,11 +303,11 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
                     providerNo, demographicNo, imageData, moduleType
             );
         } catch (SecurityException e) {
-            logger.warn("Blocked unsafe file access attempt for stamp signature.", e);
+            logger.warn("Blocked unsafe file access attempt for stamp signature.: {}", LogSafe.exceptionTrace(e));
         } catch (IOException e) {
-            logger.error("Error reading stamp signature file: {}", stampFilename, e);
+            logger.error("Error reading stamp signature file: {}", LogSafe.exceptionTrace(e));
         } catch (RuntimeException e) {
-            logger.error("Error persisting stamp signature for provider {}: {}", providerNo, e.getMessage(), e);
+            logger.error("Error persisting stamp signature for provider {}: {}", providerNo, LogSafe.exceptionTrace(e));
         }
 
         return null;

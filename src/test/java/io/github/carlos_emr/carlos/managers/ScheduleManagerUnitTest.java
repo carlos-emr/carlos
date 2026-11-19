@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentStatusDao;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao;
@@ -132,6 +134,7 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
      */
     @BeforeEach
     void setUp() {
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(),eq(TEST_DEMO_NO))).thenReturn(true);
         // Register mocks for SpringUtils
         registerMock(OscarAppointmentDao.class, mockOscarAppointmentDao);
         registerMock(AppointmentArchiveDao.class, mockAppointmentArchiveDao);
@@ -297,6 +300,24 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
     class AddAppointment {
 
         @Test
+        void shouldIdentifyTheCreatedAppointment_withoutRecordingClinicalText() {
+            Appointment appointment = createTestAppointment(null, TEST_PROVIDER, new Date());
+            appointment.setDemographicNo(42);
+            appointment.setName("PRIVATE_APPOINTMENT_NAME");
+            appointment.setNotes("PRIVATE_APPOINTMENT_NOTE");
+            Security security = new Security();
+            security.setId(100);
+            security.setUserName("FAKE_USER");
+            doAnswer(call -> { appointment.setId(71); return null; }).when(mockOscarAppointmentDao).persist(appointment);
+            scheduleManager.addAppointment(mockLoggedInInfo, security, appointment);
+            var data = org.mockito.ArgumentCaptor.forClass(String.class);
+            logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(
+                    eq(mockLoggedInInfo), eq("AppointmentManager.addAppointment"), data.capture()));
+            assertThat(data.getValue()).contains("appointmentId=71", "demographicNo=42", "providerNo=" + TEST_PROVIDER)
+                    .doesNotContain("PRIVATE_APPOINTMENT");
+        }
+
+        @Test
         @DisplayName("should persist appointment with security credentials")
         void shouldPersistAppointment_withSecurityCredentials() {
             // Given
@@ -388,9 +409,209 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
         verify(mockOscarAppointmentDao, never()).flush();
     }
 
+    @Test
+    @Tag("update")
+    void shouldAuditTheEditUnderTheAppointmentAndItsPatient_whenAnUpdateIsSaved() {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setDemographicNo(TEST_DEMO_NO);
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+
+        scheduleManager.updateAppointment(mockLoggedInInfo, 77, null, row -> row.setReason("changed"));
+
+        // The overload that carries the client address and the patient: REST clients and the classic
+        // Edit Appointment form both save through this method, and an audit row without them cannot
+        // be found from the patient's audit trail. The action name and data stay as they were.
+        logActionMock.verify(() -> LogAction.addLogSynchronous(mockLoggedInInfo, "AppointmentManager.updateAppointment",
+                LogConst.CON_APPT, "77", String.valueOf(TEST_DEMO_NO), "appointmentId=77"));
+    }
+
+    @Test
+    @Tag("update")
+    void shouldNameTheNewStatusInTheEditAudit_whenTheEditChangesIt() {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setDemographicNo(TEST_DEMO_NO);
+        current.setStatus("t");
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+
+        scheduleManager.updateAppointment(mockLoggedInInfo, 77, null, row -> row.setStatus("C"));
+
+        // The status only: the reason, notes and name never reach the audit row.
+        logActionMock.verify(() -> LogAction.addLogSynchronous(mockLoggedInInfo, "AppointmentManager.updateAppointment",
+                LogConst.CON_APPT, "77", String.valueOf(TEST_DEMO_NO), "appointmentId=77; status=C"));
+    }
+
+    @Test
+    @Tag("update")
+    void shouldAuditTheEditWithoutAPatient_whenTheSlotNamesNone() {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setDemographicNo(0);
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+
+        scheduleManager.updateAppointment(mockLoggedInInfo, 77, null, row -> row.setReason("changed"));
+
+        logActionMock.verify(() -> LogAction.addLogSynchronous(mockLoggedInInfo, "AppointmentManager.updateAppointment",
+                LogConst.CON_APPT, "77", null, "appointmentId=77"));
+    }
+
+    // -----------------------------------------------------------------------
+    // removeAppointment (classic Edit Appointment form: Delete and Cut)
+    // -----------------------------------------------------------------------
+
+    @Test
+    @Tag("delete")
+    void shouldRejectStaleRemoval_beforeArchivingOrRemoving() {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setUpdateDateTime(new Date(2000));
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+
+        assertThatThrownBy(() -> scheduleManager.removeAppointment(mockLoggedInInfo, 77, "1000"))
+                .isInstanceOfSatisfying(AppointmentUpdateException.class, refused ->
+                        assertThat(refused.getReason()).isEqualTo(AppointmentUpdateException.Reason.STALE_VERSION));
+
+        verifyNoInteractions(mockAppointmentArchiveDao);
+        verify(mockOscarAppointmentDao, never()).remove(any(Appointment.class));
+    }
+
+    @Test
+    @Tag("delete")
+    void shouldArchiveThenRemoveLockedRow_whenVersionIsCurrent() {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setUpdateDateTime(new Date(2000));
+        current.setLastUpdateUser(null);
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+
+        Appointment removed = scheduleManager.removeAppointment(mockLoggedInInfo, 77, "2000");
+
+        assertThat(removed).isSameAs(current);
+        // The archive row names who removed an appointment nobody had edited before.
+        assertThat(current.getLastUpdateUser()).isEqualTo(mockLoggedInInfo.getLoggedInProviderNo());
+        var inOrder = inOrder(mockOscarAppointmentDao, mockAppointmentArchiveDao);
+        inOrder.verify(mockOscarAppointmentDao).findForUpdate(77);
+        inOrder.verify(mockAppointmentArchiveDao).archiveAppointment(current);
+        inOrder.verify(mockOscarAppointmentDao).remove(current);
+    }
+
+    @Test
+    @Tag("delete")
+    void shouldRemoveUnconditionally_whenNoVersionIsSupplied() {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setUpdateDateTime(new Date(2000));
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+
+        scheduleManager.removeAppointment(mockLoggedInInfo, 77, " ");
+
+        verify(mockAppointmentArchiveDao).archiveAppointment(current);
+        verify(mockOscarAppointmentDao).remove(current);
+    }
+
+    @Test
+    @Tag("delete")
+    void shouldReportNotFound_whenRemovedRowNoLongerExists() {
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(null);
+
+        assertThatThrownBy(() -> scheduleManager.removeAppointment(mockLoggedInInfo, 77, "2000"))
+                .isInstanceOfSatisfying(AppointmentUpdateException.class, refused ->
+                        assertThat(refused.getReason()).isEqualTo(AppointmentUpdateException.Reason.NOT_FOUND));
+        verifyNoInteractions(mockAppointmentArchiveDao);
+    }
+
+    @Test
+    @Tag("delete")
+    void shouldRejectRemoval_whenDeletePrivilegeIsMissing() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("d"), isNull()))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> scheduleManager.removeAppointment(mockLoggedInInfo, 77, "2000"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_appointment)");
+        verifyNoInteractions(mockOscarAppointmentDao, mockAppointmentArchiveDao);
+    }
+
     // -----------------------------------------------------------------------
     // getAppointmentsForPatient
     // -----------------------------------------------------------------------
+
+    @Test
+    void shouldAvoidQueriesAndAudits_whenALegacySyncRequestsZeroRows() {
+        assertThat(scheduleManager.getAppointmentUpdatedAfterDate(mockLoggedInInfo, null, 0)).isEmpty();
+        assertThat(scheduleManager.getAppointmentArchiveUpdatedAfterDate(mockLoggedInInfo, null, 0)).isEmpty();
+        assertThat(scheduleManager.getAppointmentsByProgramProviderDemographicDate(
+                mockLoggedInInfo, 5, TEST_PROVIDER, TEST_DEMO_NO, null, 0)).isEmpty();
+        verifyNoInteractions(mockOscarAppointmentDao, mockAppointmentArchiveDao, mockPatientConsentManager);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldRejectAMissingFilteredSyncTimestamp_beforeQueryingOrAuditing() {
+        assertThatThrownBy(() -> scheduleManager.getAppointmentsByProgramProviderDemographicDate(
+                mockLoggedInInfo, 5, TEST_PROVIDER, TEST_DEMO_NO, null, 1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Schedule update timestamp is required");
+        verifyNoInteractions(mockOscarAppointmentDao, mockAppointmentArchiveDao);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldReportADisappearedEdit_beforeArchivingOrAuditing() {
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(null);
+        assertThatThrownBy(() -> scheduleManager.updateAppointment(mockLoggedInInfo, 77, "2000", row -> {
+            throw new AssertionError("Missing-row edit callback ran");
+        })).isInstanceOfSatisfying(AppointmentUpdateException.class, refused ->
+                assertThat(refused.getReason()).isEqualTo(AppointmentUpdateException.Reason.NOT_FOUND));
+        verifyNoInteractions(mockAppointmentArchiveDao);
+        verify(mockOscarAppointmentDao, never()).merge(any());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", " "})
+    void shouldPreserveLegacyEdits_whenTheVersionIsBlank(String version) {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setUpdateDateTime(new Date(2000));
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+        assertThat(scheduleManager.updateAppointment(mockLoggedInInfo, 77, version,
+                row -> row.setReason("legacy edit"))).isSameAs(current);
+        assertThat(current.getReason()).isEqualTo("legacy edit");
+        verify(mockAppointmentArchiveDao).archiveAppointment(current);
+        verify(mockOscarAppointmentDao).merge(current);
+    }
+
+    @Test
+    void shouldPreserveLegacyRemovalAndItsEditor_whenNoVersionIsSent() {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setLastUpdateUser("prior-editor");
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+        assertThat(scheduleManager.removeAppointment(mockLoggedInInfo, 77, null)).isSameAs(current);
+        assertThat(current.getLastUpdateUser()).isEqualTo("prior-editor");
+        verify(mockAppointmentArchiveDao).archiveAppointment(current);
+        verify(mockOscarAppointmentDao).remove(current);
+    }
+
+    @Test
+    void shouldIdentifyTheRemovingEditor_whenThePreviousEditorIsEmpty() {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setLastUpdateUser("");
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+        scheduleManager.removeAppointment(mockLoggedInInfo, 77, null);
+        assertThat(current.getLastUpdateUser()).isEqualTo(mockLoggedInInfo.getLoggedInProviderNo());
+        verify(mockAppointmentArchiveDao).archiveAppointment(current);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldFailClosedWithoutAnAccessAudit_whenTheConsentPolicyReturnsInvalidRows(boolean wrongType) {
+        Date after = new Date(0);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_appointment.UpdatedAfterDate"), eq("x"), isNull()))
+                .thenReturn(false);
+        when(mockOscarAppointmentDao.findByUpdateDateAndId(after, Integer.MAX_VALUE, 2))
+                .thenReturn(List.of(createTestAppointment(77, TEST_PROVIDER, new Date())));
+        when(mockPatientConsentManager.filterProviderSpecificConsent(any(), anyList()))
+                .thenAnswer(call -> wrongType ? List.of(mock(io.github.carlos_emr.carlos.commn.model.DemographicData.class)) : null);
+        assertThatThrownBy(() -> scheduleManager.getAppointmentUpdatedAfterDate(mockLoggedInInfo, after, 1))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage(wrongType ? "Invalid schedule consent result type" : "Schedule consent policy returned no result");
+        logActionMock.verifyNoInteractions();
+    }
 
     /**
      * Tests for {@link ScheduleManagerImpl#getAppointmentsForPatient}
@@ -465,8 +686,8 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
                 createTestAppointment(1, TEST_PROVIDER, new Date()),
                 createTestAppointment(2, TEST_PROVIDER, new Date()));
 
-            when(mockOscarAppointmentDao.findByProgramProviderDemographicDate(
-                eq(programId), eq(TEST_PROVIDER), eq(demographicId), any(Date.class), eq(itemsToReturn)))
+            when(mockOscarAppointmentDao.findByProgramProviderDemographicDateAndId(
+                eq(programId), eq(TEST_PROVIDER), eq(demographicId), any(Date.class), eq(Integer.MAX_VALUE), eq(itemsToReturn+1)))
                 .thenReturn(expected);
 
             // When
@@ -475,8 +696,8 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
 
             // Then
             assertThat(result).hasSize(2);
-            verify(mockOscarAppointmentDao).findByProgramProviderDemographicDate(
-                programId, TEST_PROVIDER, demographicId, afterDate.getTime(), itemsToReturn);
+            verify(mockOscarAppointmentDao).findByProgramProviderDemographicDateAndId(
+                programId, TEST_PROVIDER, demographicId, afterDate.getTime(), Integer.MAX_VALUE, itemsToReturn+1);
         }
     }
 
@@ -662,11 +883,11 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
         @DisplayName("should return appointments without filtering when privileged")
         void shouldReturnAppointments_withoutFiltering_whenPrivileged() {
             // Given
-            Date afterDate = new Date();
+            Date afterDate = new Date(0);
             List<Appointment> expected = Collections.singletonList(
                 createTestAppointment(1, TEST_PROVIDER, new Date()));
 
-            when(mockOscarAppointmentDao.findByUpdateDate(afterDate, 10)).thenReturn(expected);
+            when(mockOscarAppointmentDao.findByUpdateDateAndId(afterDate, Integer.MAX_VALUE, 11)).thenReturn(expected);
             when(mockSecurityInfoManager.hasPrivilege(
                 eq(mockLoggedInInfo), eq("_appointment.UpdatedAfterDate"), eq("x"), isNull()))
                 .thenReturn(true);
@@ -684,14 +905,16 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
         @DisplayName("should filter by consent when privilege is missing")
         void shouldFilterByConsent_whenPrivilegeIsMissing() {
             // Given
-            Date afterDate = new Date();
+            Date afterDate = new Date(0);
             List<Appointment> appointments = new ArrayList<>();
             appointments.add(createTestAppointment(1, TEST_PROVIDER, new Date()));
 
-            when(mockOscarAppointmentDao.findByUpdateDate(afterDate, 10)).thenReturn(appointments);
+            when(mockOscarAppointmentDao.findByUpdateDateAndId(afterDate, Integer.MAX_VALUE, 11)).thenReturn(appointments);
             when(mockSecurityInfoManager.hasPrivilege(
                 eq(mockLoggedInInfo), eq("_appointment.UpdatedAfterDate"), eq("x"), isNull()))
                 .thenReturn(false);
+
+            when(mockPatientConsentManager.filterProviderSpecificConsent(any(), anyList())).thenAnswer(call -> call.getArgument(1));
 
             // When
             scheduleManager.getAppointmentUpdatedAfterDate(mockLoggedInInfo, afterDate, 10);
@@ -781,11 +1004,13 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
         @DisplayName("should return archives updated after specified date")
         void shouldReturnArchives_updatedAfterSpecifiedDate() {
             // Given
-            Date afterDate = new Date();
+            Date afterDate = new Date(0);
             AppointmentArchive archive = new AppointmentArchive();
+            org.springframework.test.util.ReflectionTestUtils.setField(archive,"id",1);
+            archive.setUpdateDateTime(new Date(1000));
             List<AppointmentArchive> expected = Collections.singletonList(archive);
 
-            when(mockAppointmentArchiveDao.findByUpdateDate(afterDate, 25))
+            when(mockAppointmentArchiveDao.findByUpdateDateAndId(afterDate, Integer.MAX_VALUE, 26))
                 .thenReturn(expected);
 
             // When
@@ -794,7 +1019,7 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
 
             // Then
             assertThat(result).hasSize(1);
-            verify(mockAppointmentArchiveDao).findByUpdateDate(afterDate, 25);
+            verify(mockAppointmentArchiveDao).findByUpdateDateAndId(afterDate, Integer.MAX_VALUE, 26);
         }
     }
 

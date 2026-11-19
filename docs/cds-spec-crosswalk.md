@@ -19,7 +19,7 @@ The documentary review uses **EMR Data Migration Implementation Guide v1.1 Final
 ## How to read the artifacts
 
 - [cds-spec-crosswalk.json](cds-spec-crosswalk.json) is generated from the complete local import graph. It includes all **407 distinct leaf/attribute paths**, **45 instantiated choices / 130 arms**, and **150 sequence/all/choice instances** under `OmdCds/PatientRecord`, across 16 source categories. Eight of the 407 paths are attributes. QName prefixes are fixed for display: `cds` means namespace `cds`, `dt` means namespace `cds_dt`; an attribute without a prefix is genuinely unqualified.
-- [cds-spec-review.json](cds-spec-review.json) is the separately reviewed input. Its 54 groups enumerate exact paths, native destinations or source-only dispositions, normalization, original retention, transaction/dependency policy, error policy, implementation/reader references and tests. Every choice arm separately identifies its applicable groups and evidence. There is no wildcard rule that silently classifies future source fields.
+- [cds-spec-review.json](cds-spec-review.json) is the separately reviewed input. Its 56 groups enumerate exact paths, native destinations or source-only dispositions, normalization, original retention, transaction/dependency policy, error policy, implementation/reader references and tests. Every choice arm separately identifies its applicable groups and evidence. There is no wildcard rule that silently classifies future source fields.
 - A field's `variants` retain **all** declaration contexts, type/base/facet chains, enum/pattern/length/whitespace constraints, defaults/fixed values, nil permission, parent occurrence bounds and conditional choice membership. A phone extension appearing in both phone-number sequence alternatives therefore retains two variants instead of losing one branch. Repetition is represented as source occurrence bounds, not flattened to one clinical fact.
 - `globalTypes` also records 18 datatype declarations unreachable from this envelope. For example, unused datatype attributes or a blank-indicator branch are not falsely advertised as fields allowed anywhere in a patient record. The standalone global `Reports` declaration does not change the importer's required patient envelope.
 - The eight attributes are the schema-declared application attributes. XML namespace declarations and universal XML Schema instance control attributes such as `xsi:type` are not additional clinical data definitions in these counts. The accepted XML bytes retain that metadata; accepted attributes inside a source section also follow the parser's generic preservation path. External schema resolution remains denied by the pinned validator.
@@ -82,3 +82,34 @@ python3 -m venv /tmp/cds-spec-venv
 For an intentional contract change, first review the schema/provenance and native/source/reader dispositions, update the explicit reviewed paths/arms and reviewed hashes, then run `scripts/cds-spec-crosswalk.py --write-fixtures` using that Python environment. Without `--write-fixtures`, generation requires the checked-in synthetic fixture bytes and coverage manifest to match. `--check` writes nothing and refuses missing/stale classifications, choice evidence, source/schema drift, invalid references and stale generated artifacts. Unknown XSD constructs/attributes, recursive types, scoped prefix rebinding, DTD/entities, nonlocal imports or namespace mismatches require an explicit generator review rather than being skipped.
 
 The native-contract workflow runs that check and its refusal tests, then requires `CdsSpecificationCrosswalkUnitTest` against the **actual deployed pinned validator and streaming field parser**. That six-case Java gate validates all four XMLs, checks every emitted original value/decoded binary, leaf namespace, kind, schema whitespace, length/hash and source address, checks all 130 exclusive witnesses, and rejects a document with both address alternatives without a parse seal. Source parsing remains preflight-only; these tests write no clinical rows. The existing physical/native, installed web/CLI, recovery, large-input and downstream-reader gates remain separately required.
+
+
+## REST hardening reader recheck
+
+The `DemographicService` source fingerprint is refreshed for the authorized-list
+pagination Javadoc change in #6098. The service's executable CDS source and
+clinical projection readers, field mappings, normalization, precision and
+retained-source behavior are unchanged. Manager-level list and SOAP bulk reads
+now respect patient-specific privileges; this restricts access without changing
+clinical values available to authorized readers. The schema pins, 407 paths,
+130 choice arms and synthetic fixture bytes remain unchanged. Regeneration
+updates the reviewed reader fingerprint and its canonical inventory binding;
+it does not waive native, installed or release qualification.
+
+The model reader fingerprint is also refreshed for the XML-only birthday adapter
+selection. Published requests use the same date-time conversion; the explicit
+MOXy birthday profile selects its historical date-only spelling. CDS import
+writes the year/month/day fields directly, and CDS export builds its XMLBeans
+date from `DemographicData.getDob`; neither uses the model's JAXB birthday
+adapter. JSON and native storage mappings are unchanged.
+
+## Case-management equality reader recheck
+
+The `CaseManagementNote` reader fingerprint is refreshed for #6031's reference
+identity check in `equals`. The provider, observation date, note content,
+precision extensions, getters and field mappings retain their reviewed behavior.
+The sibling `CaseManagementIssue` change preserves persisted identifier
+comparisons. Validation passed 66 equality/revision/access/persistence cases and
+91 CDS core projection, category-boundary and schema-crosswalk cases. The schema
+pins, 407 paths, 130 choice arms and synthetic fixture bytes are retained;
+regeneration updates the reader fingerprint and canonical review binding.

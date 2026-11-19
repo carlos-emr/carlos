@@ -60,8 +60,11 @@ class ProviderWsEndpointTest extends CarlosSoapTestBase {
     @Mock
     private Provider mockProvider;
 
+    private io.github.carlos_emr.carlos.managers.SecurityInfoManager billingPolicy;
+
     @Override
     protected Object getServiceBean() {
+        billingPolicy = createAndRegisterMock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
         ProviderWs ws = new ProviderWs();
         injectDependency(ws, "providerManager", mockProviderManager);
         return ws;
@@ -89,6 +92,27 @@ class ProviderWsEndpointTest extends CarlosSoapTestBase {
         assertThat(result).isNotNull();
         assertThat(result.getProviderNo()).isEqualTo("999998");
         assertThat(result.getLastName()).isEqualTo("Doctor");
+    }
+
+    @Test
+    @DisplayName("should return all four billing identifiers on SOAP detail and list responses without billing read")
+    void shouldReturnAllFourBillingIdentifiers_onSoapDetailAndListResponsesWithoutBillingRead() {
+        // The registered policy mock denies every privilege, _billing r included.
+        when(mockProvider.getBillingNo()).thenReturn("FAKE-BILLING");
+        when(mockProvider.getOhipNo()).thenReturn("FAKE-OHIP");
+        when(mockProvider.getRmaNo()).thenReturn("FAKE-RMA");
+        when(mockProvider.getHsoNo()).thenReturn("FAKE-HSO");
+        when(mockProviderManager.getProviders(any(LoggedInInfo.class), eq(true))).thenReturn(List.of(mockProvider));
+        ProviderWs proxy = createClient(ProviderWs.class);
+        for (ProviderTransfer response : List.of(proxy.getLoggedInProviderTransfer(), proxy.getProviders2(true)[0],
+                proxy.getProviders(true)[0])) {
+            assertThat(response.getProviderNo()).isEqualTo("999998");
+            assertThat(response.getBillingNo()).isEqualTo("FAKE-BILLING");
+            assertThat(response.getOhipNo()).isEqualTo("FAKE-OHIP");
+            assertThat(response.getRmaNo()).isEqualTo("FAKE-RMA");
+            assertThat(response.getHsoNo()).isEqualTo("FAKE-HSO");
+        }
+        org.mockito.Mockito.verifyNoInteractions(billingPolicy);
     }
 
     @Test

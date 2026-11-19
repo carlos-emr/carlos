@@ -583,7 +583,9 @@ function cleanupResources() {
 // cannot run it twice (issue #3600).
 installCleanupSignalHandlers(cleanupResources);
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('flowsheet-admin', async () => {
+  await (async () => {
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -626,5 +628,6 @@ installCleanupSignalHandlers(cleanupResources);
 })().catch((error) => {
   console.error('FAIL CARLOS EMR flowsheet admin Playwright checks');
   console.error(error.stack || error.message);
-  process.exit(1);
+  process.exitCode = 1;
 });
+}, {existingSignalHandlers:true});

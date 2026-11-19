@@ -64,7 +64,7 @@
 --%>
 
 <%@ page import="java.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.rx.util.*" %>
+
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
@@ -73,7 +73,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <c:set var="ctx" value="${pageContext.request.contextPath}" />
@@ -315,6 +315,9 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
     </div>
      <%-- Splice in the Indication field --%>
 
+    <% if (rx.getPendingSubmission() != null) { %>
+    <p role="alert" class="alert alert-warning"><fmt:message key="oscarRx.pendingSubmission"/></p>
+    <% } %>
     <%-- Modern flexbox layout for instructions field - improves alignment and collapsible special instructions section --%>
     <div style="margin-bottom:5px;">
         <div style="display:flex;align-items:center;gap:5px;">

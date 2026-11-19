@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.offset;
 
-/** Real workbook and application-export round trips for the POI/XMLBeans dependency set. */
+/** Independent POI workbook reads and application-export round trips; POI remains test-only. */
 @Tag("integration")
 @Tag("report")
 class SpreadsheetRuntimeIntegrationTest {

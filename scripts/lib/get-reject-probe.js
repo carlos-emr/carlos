@@ -131,7 +131,7 @@ function createLedger(name) {
   const entries = [];
   return {
     entries,
-    async probe(s, { label, path, params, snapshot, methods = ['GET', 'HEAD'], requireStatus = true, expect405 = false }) {
+    async probe(s, { label, path, params, snapshot, methods = ['GET', 'HEAD'], requireStatus = true, expect405 = false, expectAllow }) {
       const url = new URL(`${path}?${params.toString()}`, s.config.baseUrl.origin).toString();
       const entry = { label, path: path.replace(/^\/[^/]+/, ''), answers: [], changed: false, changedBy: [],
         blocked: false, errored: false, unverified: false };
@@ -155,7 +155,10 @@ function createLedger(name) {
         // expect405: the route's GET guard answers 405 (HttpMethodGuardFilter or the action's own requirePost), so a
         // 403 there is a privilege refusal that would hide a missing method guard.
         const refused = (status === 405 && !unverified405) || (!expect405 && status === 403 && !waf && fromApplication);
-        entry.answers.push(`${method} ${status}${waf ? ' (WAF page)' : ''}${unverified403 || unverified405 ? ' (unverified origin)' : ''}`);
+        const allow = response.headers().allow;
+        const wrongAllow = expectAllow !== undefined && allow !== expectAllow;
+        entry.answers.push(`${method} ${status}${waf ? ' (WAF page)' : ''}${unverified403 || unverified405 ? ' (unverified origin)' : ''}`
+          + `${wrongAllow ? ` (Allow: ${allow ?? '<missing>'}; expected ${expectAllow})` : ''}`);
         if (before !== after) { entry.changed = true; entry.changedBy.push(method); }
         // Whatever the include rules allow, a WAF block or a 5xx means the application never
         // answered the question: it must not read as "refused" just because the rows are unchanged.
@@ -164,7 +167,7 @@ function createLedger(name) {
         if (unverified403 || unverified405) entry.unverified = true;
         // requireStatus=false: an include()d gate cannot set a status (the container ignores
         // sendError inside an include), so only the absence of a write can be asserted.
-        if (!refused && requireStatus) entry.open = true;
+        if ((!refused && requireStatus) || wrongAllow) entry.open = true;
       }
       entries.push(entry);
       const flaws = [entry.blocked && 'WAF block', entry.errored && 'server error', entry.unverified && '403 or 405 of unverified origin']

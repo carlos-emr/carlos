@@ -97,6 +97,8 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
 
     private ScheduleService service;
     private LoggedInInfo loggedInInfo;
+    /** Headers of the request being served; these tests call the resource without a CXF message. */
+    private final java.util.Map<String, List<String>> requestHeaders = new java.util.HashMap<>();
 
     @BeforeEach
     void setUp() {
@@ -105,6 +107,11 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
             @Override
             protected LoggedInInfo getLoggedInInfo() {
                 return loggedInInfo;
+            }
+
+            @Override
+            protected List<String> getRequestHeader(String name) {
+                return requestHeaders.get(name);
             }
         };
 
@@ -116,6 +123,62 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         // Lenient: some tests exercise paths that short-circuit before the privilege check
         // (e.g. findUnknownFilter) or override the stub. Strict-by-default would fail those.
         lenient().when(securityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("w"), any())).thenReturn(true);
+    }
+
+    @Test
+    void shouldRejectMissingAppointmentIds_beforeCallingManager() {
+        assertThatThrownBy(() -> service.getAppointment(null)).isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        assertThatThrownBy(() -> service.getAppointment(new AppointmentTo1()))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(appointmentManager);
+    }
+
+    @Test
+    void shouldRequireAnAppointmentPayload_evenWithWriteAccess() {
+        assertThatThrownBy(() -> service.addAppointment(null))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(appointmentManager);
+    }
+
+    @Test
+    void shouldRejectInvalidDeleteIds_beforeCallingManager() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "d", null)).thenReturn(true);
+        AppointmentTo1 zeroId = new AppointmentTo1();
+        zeroId.setId(0);
+
+        assertThatThrownBy(() -> service.deleteAppointment(null)).isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        assertThatThrownBy(() -> service.deleteAppointment(new AppointmentTo1()))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        assertThatThrownBy(() -> service.deleteAppointment(zeroId)).isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(appointmentManager);
+    }
+
+    @Test
+    void shouldRefuseAppointmentHistory_whenTheCallerLacksModuleAccess() {
+        assertThatThrownBy(() -> service.findExistAppointments(123))
+                .isInstanceOf(jakarta.ws.rs.ForbiddenException.class);
+        verifyNoInteractions(appointmentManager, scheduleManager);
+    }
+
+    @Test
+    void shouldReturnNotFound_whenAppointmentDoesNotExist() {
+        AppointmentTo1 request = new AppointmentTo1();
+        request.setId(123);
+        assertThatThrownBy(() -> service.getAppointment(request))
+                .isInstanceOf(jakarta.ws.rs.NotFoundException.class);
+    }
+
+    @Test
+    void shouldReturnNotFound_whenSearchConfigurationDoesNotExist() {
+        assertThat(service.saveSearchConfig(123, new SearchConfigTo1()).getStatus()).isEqualTo(404);
+        verify(appointmentSearchDao, never()).persist(any());
+    }
+
+    @Test
+    void shouldRejectImpossibleDay_beforeQueryingAppointments() {
+        assertThatThrownBy(() -> service.getAppointmentsForDay("1", "2026-02-30"))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(scheduleManager);
     }
 
     @Test
@@ -387,18 +450,73 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(appointmentManager);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", "unknown", "guarded,legacy-echo"})
+    void shouldRejectUnknownWriteMode_beforeCallingTheUpdateManager(String mode) {
+        requestHeaders.put(ScheduleService.APPOINTMENT_WRITE_MODE_HEADER, List.of(mode));
+        var submitted = new AppointmentTo1();
+        submitted.setEditVersion("read-token");
+        assertThatThrownBy(() -> service.updateAppointmentUrgency(42, submitted))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(scheduleManager);
+    }
+
     @Test
-    void shouldReturnBadRequest_whenEditVersionIsMissing() {
+    void shouldRequireAToken_whenGuardedModeIsExplicit() {
+        requestHeaders.put(ScheduleService.APPOINTMENT_WRITE_MODE_HEADER, List.of("guarded"));
+        assertThatThrownBy(() -> service.updateAppointmentUrgency(42, new AppointmentTo1()))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(scheduleManager);
+    }
+
+    /** Two header lines, the same value twice included: the caller's intent is not one mode. */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"guarded,legacy-echo", "guarded,guarded", "legacy-echo,legacy-echo"})
+    void shouldRejectDuplicateWriteModes_withoutSilentlyDisablingProtection(String first, String second) {
+        requestHeaders.put(ScheduleService.APPOINTMENT_WRITE_MODE_HEADER, List.of(first, second));
+        var submitted = new AppointmentTo1();
+        submitted.setEditVersion("read-token");
+        assertThatThrownBy(() -> service.updateAppointmentUrgency(42, submitted))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(scheduleManager);
+    }
+
+    /**
+     * The header is read from CXF's current message. Without one, the resource must not carry on as
+     * if the caller had sent no write mode: that would silently drop a requested guard.
+     */
+    @Test
+    void shouldRefuseToGuessWriteMode_whenNoRestRequestIsBeingProcessed() {
+        ScheduleService unproxiedOutsideCxf = new ScheduleService() {
+            @Override
+            protected LoggedInInfo getLoggedInInfo() {
+                return loggedInInfo;
+            }
+        };
+        injectDependency(unproxiedOutsideCxf, "securityInfoManager", securityInfoManager);
+        injectDependency(unproxiedOutsideCxf, "scheduleManager", scheduleManager);
+        var submitted = new AppointmentTo1();
+        submitted.setEditVersion("read-token");
+
+        assertThatThrownBy(() -> unproxiedOutsideCxf.updateAppointmentUrgency(42, submitted))
+                .isInstanceOf(IllegalStateException.class);
+        verifyNoInteractions(scheduleManager);
+    }
+
+    /** Pins the response token returned to an unchanged legacy client after a successful write. */
+    @Test
+    void shouldReturnUpdatedAppointment_whenEditVersionIsMissing() {
         registerMock(DemographicDao.class, Mockito.mock(DemographicDao.class));
         registerMock(ProviderDao.class, Mockito.mock(ProviderDao.class));
         AppointmentTo1 to = new AppointmentTo1();
         to.setId(42);
+        Appointment updated = new Appointment();
+        updated.setId(42);
+        updated.setUpdateDateTime(new Date(2000));
         when(scheduleManager.updateAppointment(any(), eq(42), isNull(), any()))
-                .thenThrow(new io.github.carlos_emr.carlos.managers.AppointmentUpdateException(
-                        io.github.carlos_emr.carlos.managers.AppointmentUpdateException.Reason.MISSING_VERSION));
-        assertThatThrownBy(() -> service.updateAppointment(to))
-                .isInstanceOf(WebApplicationException.class)
-                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus()).isEqualTo(400));
+                .thenReturn(updated);
+        assertThat(service.updateAppointment(to).getAppointment().getEditVersion()).isEqualTo("2000");
+        verifyNoInteractions(appointmentManager);
     }
 
     @org.junit.jupiter.params.ParameterizedTest

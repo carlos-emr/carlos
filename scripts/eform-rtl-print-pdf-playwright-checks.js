@@ -155,9 +155,10 @@ async function typeLetter(page, text = LETTER_TEXT) {
   return html;
 }
 
-async function openNewLetter(context, recorder, fid, label) {
+async function openNewLetter(context, recorder, fid, label, onRequest) {
   const page = await context.newPage();
   wirePage(page, label, recorder);
+  if (onRequest) page.on('request', onRequest);
   await gotoApp(page, config.baseUrl, `/eform/efmformadd_data?fid=${encodeURIComponent(fid)}&demographic_no=${encodeURIComponent(config.demographicNo)}`);
   await assertNotErrorPage(page, label);
   await waitForEditor(page);
@@ -419,46 +420,76 @@ legacyHarness.runLegacyCheck('eform-rtl-print-pdf',async({cancellation})=>{
     await page.close();
     cancellation?.throwIfCancelled();
 
-    // ---------- 6. A clinic .rtl template loads unsandboxed and stays editable ----------
-    page = await openNewLetter(context, recorder, fid, 'rtl-template');
-    cancellation?.throwIfCancelled();
-    let templateName = config.templateName;
-    if (config.templateIsFixture && (await page.locator(`#template option[value="${templateName}"]`).count()) !== 1) {
-      // The operator named a template this install does not have: a missing fixture, not a defect.
-      // Waiting on selectOption() for it was the 30 s TimeoutError #4412 reported. The step still
-      // runs, against the seeded template, so the sandbox regression it guards stays covered.
-      missingTemplate = templateName;
-      templateName = SEEDED_TEMPLATE_NAME;
-      console.log(`[skip] RTL_TEMPLATE_NAME=${missingTemplate} is not in the template dropdown; `
-        + 'stage it in the eForm images directory (deb-install-validation.md fixture c). '
-        + `Testing the seeded ${SEEDED_TEMPLATE_NAME} instead.`);
-    }
-    const offered = (await page.locator(`#template option[value="${templateName}"]`).count()) === 1;
-    cancellation?.throwIfCancelled();
-    // The seeded template missing is a defect: EFormAssetDeployer did not run, or the
-    // template catalog (efmformrtl_templates) stopped listing the directory.
-    step(`template dropdown offers ${templateName}`, offered, templateName === SEEDED_TEMPLATE_NAME ? 'seeded by EFormAssetDeployer on every install' : '');
-    if (offered) {
-      const templateResponse = page.waitForResponse((r) => r.url().includes(`imagefile=${encodeURIComponent(templateName)}`) || r.url().includes(`imagefile=${templateName}`), { timeout: 30000 });
-      await page.locator('#template').selectOption(templateName);
-    cancellation?.throwIfCancelled();
-      const tr = await templateResponse;
-    cancellation?.throwIfCancelled();
-      const csp = tr.headers()['content-security-policy'] || '';
-      step('clinic template is served without the sandbox CSP', tr.status() === 200 && !/sandbox/.test(csp), `${tr.status()} csp="${csp}"`);
-      await page.waitForTimeout(1500);
-    cancellation?.throwIfCancelled();
-      const editable = await page.evaluate(() => {
-        try {
-          const d = document.getElementById('edit').contentWindow.document;
-          return { ok: true, designMode: d.designMode, length: d.body.innerHTML.length };
-        } catch (e) { return { ok: false, error: String(e) }; }
+    // ---------- 6. Every shipped template fills without false AP lookup warnings (#5625) ----------
+    const templates = [...new Set(['clinic_letter.rtl', 'patient_letter.rtl', 'consultation_letter.rtl', config.templateName])];
+    let templateLookupRequests = 0;
+    for (const requestedTemplate of templates) {
+      const lookupKeys = [];
+      // Observe before navigation: the configured default can warm the cache before selection.
+      page = await openNewLetter(context, recorder, fid, 'rtl-template-' + requestedTemplate, request => {
+        const query = new URL(request.url()).searchParams;
+        if (query.get('oscarAPCacheLookupType') === 'template') {
+          templateLookupRequests++;
+          lookupKeys.push(...query.getAll('key'));
+        }
       });
-    cancellation?.throwIfCancelled();
-      step('editor can read the clinic template frame (same-origin) with designMode on', editable.ok && editable.designMode === 'on' && editable.length > 0, JSON.stringify(editable));
+      cancellation?.throwIfCancelled();
+      let templateName = requestedTemplate;
+      if (config.templateIsFixture && requestedTemplate === config.templateName
+          && (await page.locator(`#template option[value="${templateName}"]`).count()) !== 1) {
+        missingTemplate = templateName;
+        templateName = SEEDED_TEMPLATE_NAME;
+        console.log(`[skip] RTL_TEMPLATE_NAME=${missingTemplate} is not in the template dropdown; `
+          + `testing the seeded ${SEEDED_TEMPLATE_NAME} instead.`);
+      }
+      const offered = (await page.locator(`#template option[value="${templateName}"]`).count()) === 1;
+      step(`template dropdown offers ${templateName}`, offered, '');
+      if (offered) {
+        const templateResponse = page.waitForResponse(r => new URL(r.url()).searchParams.get('imagefile') === templateName, {timeout: 30000});
+        await page.locator('#template').selectOption(templateName);
+        cancellation?.throwIfCancelled();
+        const tr = await templateResponse;
+        cancellation?.throwIfCancelled();
+        const csp = tr.headers()['content-security-policy'] || '';
+        step(`${templateName} is served without the sandbox CSP`, tr.status() === 200 && !/sandbox/.test(csp), `${tr.status()} csp="${csp}"`);
+        const ready = await page.waitForFunction(() => {
+          const frame = document.getElementById('edit');
+          return !measureInitialTemplateLoading && measureTemplateLookupsPending === 0
+            && frame?.contentDocument?.body && !frame.contentDocument.body.textContent.includes('##');
+        }, null, {timeout: 30000}).then(() => true, () => false);
+        cancellation?.throwIfCancelled();
+        const expanded = await page.evaluate(name => {
+          try {
+            const d = document.getElementById('edit').contentDocument;
+            const normalize = text => text.replace(/\s+/g, ' ').trim();
+            const fields = ['clinic_letter.rtl', 'patient_letter.rtl', 'consultation_letter.rtl'].includes(name)
+              ? ['letterhead', '_ClosingSalutation'] : [];
+            if (name === 'consultation_letter.rtl') fields.push('ageGender');
+            const filled = d.body.innerHTML.length > 0 && fields.every(key => {
+              if (!cache.contains(key) || !cache.get(key)) return false;
+              const field = document.createElement('template');
+              field.innerHTML = cache.get(key);
+              return normalize(d.body.textContent).includes(normalize(field.content.textContent));
+            });
+            return {ok: true, designMode: d.designMode, filled};
+          } catch (error) { return {ok: false, error: String(error)}; }
+        }, templateName);
+        cancellation?.throwIfCancelled();
+        step(`${templateName} stays editable with its composed fields filled`, ready && expanded.ok && expanded.designMode === 'on' && expanded.filled, JSON.stringify({...expanded, ready}));
+        step(`${templateName} shows no false autofill warning`, await page.locator('#carlos-apcache-lookup-failure').count() === 0, '');
+        const composites = ['letterhead', '_ClosingSalutation', '_age', 'gender', 'ageGender'];
+        // A configured default may already have warmed every field in this template.
+        step(`${templateName} requests no composite names from the server`, !lookupKeys.some(key => composites.includes(key)), lookupKeys.join(', '));
+        // Closing a template while its signature image is still streaming logs a
+        // client-abort ERROR on the server and obscures the lookup log assertion.
+        const imagesSettled = await page.waitForLoadState('networkidle', {timeout: 30000}).then(() => true, () => false);
+        cancellation?.throwIfCancelled();
+        if (!imagesSettled) step(`${templateName} image requests finish before close`, false, 'timed out after 30 seconds');
+      }
+      await page.close();
+      cancellation?.throwIfCancelled();
     }
-    await page.close();
-    cancellation?.throwIfCancelled();
+    step('template lookup requests were observed during initial load or selection', templateLookupRequests > 0, String(templateLookupRequests));
 
     // ---------- 7. No JS failures anywhere ----------
     assertNoPageErrors(recorder);

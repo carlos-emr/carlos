@@ -344,7 +344,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         action.setActiveText(new String[]{placeholder});
         action.setInactiveText(new String[]{placeholder});
 
-        assertThat(action.execute()).isEqualTo("close");
+        assertThat(action.updateTextSuggest()).isEqualTo("close");
         verifyNoInteractions(dao);
     }
 
@@ -355,7 +355,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         action.setActiveText(new String[]{"", "0", "  Active suggestion <follow-up>  "});
         action.setInactiveText(new String[]{" ", "0", "Inactive suggestion"});
 
-        assertThat(action.execute()).isEqualTo("close");
+        assertThat(action.updateTextSuggest()).isEqualTo("close");
         ArgumentCaptor<TicklerTextSuggest> saved = ArgumentCaptor.forClass(TicklerTextSuggest.class);
         verify(dao, org.mockito.Mockito.times(2)).persist(saved.capture());
         assertThat(saved.getAllValues()).extracting(TicklerTextSuggest::getSuggestedText)
@@ -389,7 +389,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         action.setActiveText(new String[]{"11", ""});
         action.setInactiveText(new String[]{"0", "12"});
 
-        assertThat(action.execute()).isEqualTo("close");
+        assertThat(action.updateTextSuggest()).isEqualTo("close");
         verify(dao).merge(active);
         verify(dao).merge(inactive);
         verify(dao, never()).persist(any());
@@ -411,7 +411,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         action.setActiveText(new String[]{"", "text:" + text});
         action.setInactiveText(new String[]{"text:" + text, "text: ", "text:"});
 
-        assertThat(action.execute()).isEqualTo("close");
+        assertThat(action.updateTextSuggest()).isEqualTo("close");
         ArgumentCaptor<TicklerTextSuggest> saved = ArgumentCaptor.forClass(TicklerTextSuggest.class);
         verify(dao, org.mockito.Mockito.times(2)).persist(saved.capture());
         assertThat(saved.getAllValues()).extracting(TicklerTextSuggest::getSuggestedText)
@@ -428,10 +428,97 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         action.setActiveText(new String[]{"text:literal"});
         action.setInactiveText(new String[]{""});
 
-        assertThat(action.execute()).isEqualTo("close");
+        assertThat(action.updateTextSuggest()).isEqualTo("close");
         ArgumentCaptor<TicklerTextSuggest> saved = ArgumentCaptor.forClass(TicklerTextSuggest.class);
         verify(dao).persist(saved.capture());
         assertThat(saved.getValue().getSuggestedText()).isEqualTo("text:literal");
     }
 
+
+    @Test
+    void shouldRejectSuggestedTextOperation_onTicklerRoute() {
+        request.setParameter("method", "updateTextSuggest");
+        assertThat(new TestableEditTickler2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(ticklerManager, ticklerAttachmentService);
+    }
+
+    @Test
+    void shouldRejectTicklerOperation_onSuggestedTextRoute() {
+        request.setParameter("method", "editTickler");
+        assertThat(new EditTicklerTextSuggest2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(ticklerManager, ticklerAttachmentService);
+    }
+
+    @Test
+    void shouldReturnBadRequest_forMissingSuggestedTextLists() {
+        request.setParameter("method", "updateTextSuggest");
+        assertThat(new EditTicklerTextSuggest2Action() {
+            @Override public String getText(String key) { return key; }
+        }.execute()).isEqualTo("failure");
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(ticklerManager, ticklerAttachmentService);
+    }
+    @Test
+    @DisplayName("should refuse a form rendered before another user completed the task, and write nothing")
+    void shouldRefuseStaleForm_whenAnotherUserCompletedTheTask() {
+        // The popup was rendered while the task was Active with Normal priority.
+        String renderedVersion = TicklerEditVersion.of(tickler);
+        // Another user has since completed it; the locked row now says so.
+        tickler.setStatus(Tickler.STATUS.C);
+        tickler.setUpdateDate(new Date(tickler.getUpdateDate().getTime() + 5000));
+        when(ticklerManager.getTicklerForUpdate(loggedInInfo, 42)).thenReturn(tickler);
+        unchangedEditParameters();
+        request.setParameter("priority", "High");
+        request.setParameter("newMessage", "typed on a stale form");
+        request.setParameter("attachmentsSubmitted", "1");
+        request.setParameter("docNo", "11");
+        request.setParameter(TicklerEditVersion.PARAMETER, renderedVersion);
+
+        var action = new TestableEditTickler2Action();
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("staleRefused");
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+        assertThat(action.getActionErrors()).containsExactly("tickler.ticklerEdit.stale.error");
+        // The completion stands and nothing of the stale form was applied.
+        assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.C);
+        assertThat(tickler.getPriority()).isEqualTo(Tickler.PRIORITY.Normal);
+        assertThat(tickler.getComments()).isEmpty();
+        assertThat(tickler.getUpdates()).isEmpty();
+        verify(ticklerManager, never()).updateTickler(any(), any());
+        verify(ticklerAttachmentService, never()).syncAttachments(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("should lock the task and save when the form's version is still current")
+    void shouldSaveUnderLock_whenFormVersionIsCurrent() {
+        when(ticklerManager.getTicklerForUpdate(loggedInInfo, 42)).thenReturn(tickler);
+        unchangedEditParameters();
+        request.setParameter("priority", "High");
+        request.setParameter(TicklerEditVersion.PARAMETER, TicklerEditVersion.of(tickler));
+
+        String result = new TestableEditTickler2Action().execute();
+
+        assertThat(result).isEqualTo("close");
+        assertThat(tickler.getPriority()).isEqualTo(Tickler.PRIORITY.High);
+        verify(ticklerManager).getTicklerForUpdate(loggedInInfo, 42);
+        verify(ticklerManager, never()).getTickler(any(LoggedInInfo.class), any(Integer.class));
+        verify(ticklerManager).updateTickler(loggedInInfo, tickler);
+    }
+
+    @Test
+    @DisplayName("should keep the unversioned behaviour for a form that carries no version")
+    void shouldSaveWithoutComparison_whenFormCarriesNoVersion() {
+        unchangedEditParameters();
+        request.setParameter("priority", "High");
+
+        String result = new TestableEditTickler2Action().execute();
+
+        assertThat(result).isEqualTo("close");
+        verify(ticklerManager, never()).getTicklerForUpdate(any(), any());
+        verify(ticklerManager).updateTickler(loggedInInfo, tickler);
+    }
 }

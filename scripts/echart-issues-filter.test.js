@@ -33,9 +33,8 @@ function harness({ searchData = [{ description: ' Safe & Sound ', code: 'A"B', i
   const cpp = element('form', { id: 'frmIssueNotes', elements: { issueChange: { value: '' } }, children: [list],
     querySelector: selector => selector === '#issueIdList' ? list : null });
   const note = element('form', { name: 'caseManagementEntryForm', elements: {
-    newIssueId: { value: '' }, newIssueName: { value: '' }, change_diagnosis_id: { value: '' },
+    newIssueId: { value: '' }, newIssueName: { value: '' }, changeDiagnosisIssueId: { value: '' },
   } });
-  note.change_diagnosis_id = note.elements.change_diagnosis_id;
   const input = element('input', { form: note });
   note.querySelector = selector => selector === '#issueAutocomplete' ? input : null;
   const cppInput = element('input', { form: cpp });
@@ -203,16 +202,19 @@ test('Assign rejects edited suggestions and ignores repeat clicks while an issue
   assert.equal(h.updates.length, 0);
 });
 
-test('Change uses the same current fragment for both resolved and unresolved issues', () => {
+test('Change carries the persisted patient-issue ID from either row to the current form', () => {
   const h = harness();
+  const issueList = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/casemgmt/noteIssueList.jsp'), 'utf8');
   h.input.focus = () => {};
-  for (const name of ['changeDiagnosisResolved', 'changeDiagnosisUnresolved']) {
-    h.context[name]('3');
+  for (const [name, id] of [['changeDiagnosisResolved', '91'], ['changeDiagnosisUnresolved', '92']]) {
+    assert.ok(issueList.includes('data-issue-id="${carlos:forHtmlAttribute(issueCheckList.issue.id)}"\n'
+      + `                        onclick="return ${name}(this.dataset.issueId);"`));
+    h.context[name](id);
     h.context.saveIssueId(h.input, { id: 12, textContent: 'Safety' });
     h.context.assignNoteIssue({});
     assert.equal(h.updates.at(-1).div, 'sig31');
     assert.equal(h.updates.at(-1).method, 'ajaxChangeDiagnosis');
-    assert.equal(h.note.change_diagnosis_id.value, '3');
+    assert.equal(h.note.elements.changeDiagnosisIssueId.value, id);
   }
 });
 
@@ -320,26 +322,34 @@ test('cancelling Exit after an assignment-only edit keeps the chart open', () =>
 
 test('toolbar Save retains the dirty editor and selected issues on a stale-revision 409', () => {
   const h = harness(); const requests = []; let restored = 0; let timers = 0; let replaced = 0;
+  vm.runInContext(block('function showAutosaveStatus(', 'function autosaveAcknowledged('), h.context);
   vm.runInContext(block('    function saveNoteAjax(', '    function savePage('), h.context);
   Object.assign(h.context, { caseNote: 'editor', caisiEnabled: false, deferNoteSaveUntilIssues: () => false,
     $F: () => 'dirty draft', clearAutoSaveTimer() {}, setTimer() { timers++; }, savingNoteError: 'Save failed',
+    noteLockLostError: 'Your note lock has been lost; copy your text and reopen the chart.', lostNoteLock: false,
+    draftSaveConflictMessage: 'Draft conflict',
     beginNoteSwitchSave: () => () => { restored++; }, Form: { serialize: () => 'note=dirty&issue=12' },
     CarlosAjax: { request: (url, options) => requests.push(options) } });
   h.fields.notCPP = { update() { replaced++; } };
+  h.fields.autosaveTime = { textContent: 'Draft saved', setAttribute(name, value) { this[name] = value; } };
   Object.assign(h.note, { method: {}, ajax: {}, chain: {}, includeIssue: {} });
   h.context.saveNoteAjax('save', 'list');
   assert.equal(replaced, 0, 'Editor must survive while Save is pending');
-  requests[0].onFailure({ status: 409, responseText: '<h1>Conflict</h1>' });
+  requests[0].onFailure({ status: 409, getResponseHeader: name => name === 'X-Carlos-Note-Lock-Lost' ? 'true' : null });
   requests[0].onComplete();
-  assert.equal(replaced, 0); assert.equal(restored, 1); assert.equal(timers, 1);
-  assert.deepEqual(h.alerts, ['Save failed 409']);
+  assert.equal(replaced, 0); assert.equal(restored, 1); assert.equal(timers, 0);
+  assert.equal(h.context.lostNoteLock, true);
+  assert.equal(h.fields.autosaveTime['data-autosave-state'], 'conflict');
+  assert.equal(h.fields.autosaveTime.textContent, h.context.draftSaveConflictMessage);
+  assert.deepEqual(h.alerts, [h.context.noteLockLostError]);
 });
 
 test('CPP save conflict reopens the filled dialog without replacing the saved row', () => {
   const h = harness(); const requests = []; let rowReplaced = false;
   vm.runInContext(block('function updateCPPNote()', '    function clickLoadDiv('), h.context);
   Object.assign(h.context, { sanitizeElementByPattern() {}, CONTROL_CHAR_PATTERN_2: '', caseNote: 'caseNote_note31',
-    savingNoteError: 'Save failed', CarlosAjax: { request: (url, options) => requests.push(options) } });
+    noteSwitchSavePending: false, beginIssueUpdate: () => () => {},
+    savingNoteError: 'Save failed', cppSaveError: 'Retry the CPP Save button', updateIssueError: 'Issues could not be updated', CarlosAjax: { request: (url, options) => requests.push(options) } });
   h.cpp.elements.noteEditTxt = { value: 'dirty CPP draft' };
   Object.assign(h.cpp, { action: '/CaseManagementEntry?method=issueNoteSave', serialize: () => 'noteEditTxt=dirty&issue_id=12' });
   Object.assign(h.fields, { frmIssueNotes: h.cpp, reloadUrl: { value: '/reload' }, containerDiv: { value: 'cppList' },
@@ -348,7 +358,7 @@ test('CPP save conflict reopens the filled dialog without replacing the saved ro
   requests[0].onFailure({ status: 409 });
   assert.equal(h.fields.showEditNote.style.display, 'block');
   assert.equal(h.cpp.elements.noteEditTxt.value, 'dirty CPP draft');
-  assert.equal(rowReplaced, false); assert.deepEqual(h.alerts, ['Save failed 409']);
+  assert.equal(rowReplaced, false); assert.deepEqual(h.alerts, ['Retry the CPP Save button 409']);
 });
 
 test('assignment controls stay disabled through the sidebar refresh and reenable on completion', () => {
@@ -420,7 +430,7 @@ function headingFilterHarness() {
   h.fields.observationDate = {value: 'same date'};
   Object.assign(h.context, {caseNote: 'editor', origCaseNote: '', origObservationDate: 'same date', noteIssuesChanged: true,
     noteSwitchSavePending: false, issueUpdateFailed: false, queuedNoteSave: null,
-    updateIssueError: 'Issue update failed', noteSavingMessage: 'Saving', unsavedNoteWarning: 'Save draft?',
+    updateIssueError: 'Issue update failed', issueSaveError: 'Retry Save', noteSavingMessage: 'Saving', unsavedNoteWarning: 'Save draft?',
     $F: id => h.fields[id].value, confirm: () => true,
     ajaxSaveNote: (sig, id, text, done) => saves.push(done),
     finishChangeToView: () => { delete h.fields.editor; h.context.noteIssuesChanged = false; },

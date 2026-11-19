@@ -8,9 +8,8 @@
  * Nothing leaves the host: the check starts a minimal SMTP sink (node net, 127.0.0.1, ephemeral
  * port) and the only sender account it offers is an owned LOCAL-provider emailConfig pointing at
  * that sink. Asserts the delivered message (envelope, subject, body, PDF attachment), the
- * emailLog/emailAttachment rows, that the patient's .invalid address is never sent to, that a send
- * with the sink closed is reported as NOT sent and logged FAILED, that Manage Emails lists and
- * filters exactly the owned log rows, and that Resolve persists RESOLVED.
+ * emailLog/emailAttachment rows, the held SMTP reply and both transport outcomes, and the
+ * status, Resolve and copy controls in Manage Emails for the owned log rows.
  * Fixtures: owned emailConfig, eForm template, patient email; cleanup removes the owned log,
  * attachment, eForm and config rows and asserts them gone. EXCLUSIVE=1: the owned sender is offered
  * clinic-wide while the check runs. Implements coverage plan §3.7 admin-email-config.
@@ -20,6 +19,7 @@ const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
+const {fillComposeMessage, prepareComposePassword, assertDeliveredComposeBody} = require('./lib/email-compose-probe');
 
 const TIMEOUT = 30000;
 const TEMPLATE_HTML = '<html><head><title>Email fixture</title></head><body>'
@@ -32,6 +32,7 @@ const TEMPLATE_HTML = '<html><head><title>Email fixture</title></head><body>'
 function startSmtpSink() {
   const messages = [];
   const sockets = new Set();
+  let pendingReply;
   const server = net.createServer(socket => {
     sockets.add(socket);
     socket.on('close', () => sockets.delete(socket));
@@ -53,7 +54,10 @@ function startSmtpSink() {
             inData = false;
             messages.push(current);
             current = {from: '', rcpt: [], data: ''};
-            reply('250 2.0.0 accepted by check sink');
+            const received = pendingReply;
+            pendingReply = undefined;
+            if (received) received(reply);
+            else reply('250 2.0.0 accepted by check sink');
           } else current.data += `${line.startsWith('..') ? line.slice(1) : line}\r\n`;
           continue;
         }
@@ -72,6 +76,14 @@ function startSmtpSink() {
   let closed = false;
   return {
     messages,
+    holdNextReply: () => new Promise((resolve, reject) => {
+      h.assert(!pendingReply, 'A held SMTP reply is already armed');
+      const timer = setTimeout(() => reject(new Error('The SMTP sink did not receive a full message')), TIMEOUT);
+      pendingReply = reply => {
+        clearTimeout(timer);
+        resolve(reply);
+      };
+    }),
     listen: () => new Promise((resolve, reject) => {
       server.once('error', reject);
       server.listen(0, '127.0.0.1', () => resolve(server.address().port));
@@ -217,22 +229,99 @@ async function workflow(s) {
     await modal.waitFor({state: 'hidden', timeout: TIMEOUT});
     await compose.locator('#senderEmailAddress').selectOption(configId);
     await compose.locator('#subjectEmail').fill(subject);
-    await compose.locator('#bodyEmail').fill(body);
-    await compose.locator('#emailPDFPassword').fill(`PW${hex}`);
-    await compose.locator('#emailPDFPasswordClue').fill(`${marker} clue`);
+    const contract = await fillComposeMessage(compose, body);
+    const protection = await prepareComposePassword(compose, `PW${hex}`, `${marker} clue`);
     await compose.locator('#doNotAddAsNoteOption').check();
     await Promise.all([compose.waitForURL(/\/email\/emailSendAction/, {timeout: TIMEOUT}), compose.locator('#btnSend').click()]);
+    return {...contract, ...protection, message: body};
   }
+
+  const manager = await openSection('Manage Emails', '/admin/ManageEmails');
+  const cards = () => manager.locator('#results .email-status-card');
+  async function fetchEmails(status) {
+    const [dates] = sql.rows(`SELECT DATE_FORMAT(COALESCE(MIN(timestamp),NOW()),'%Y-%m-%d'),
+      DATE_FORMAT(COALESCE(MAX(timestamp),NOW()),'%Y-%m-%d')
+      FROM emailLog WHERE demographicNo=${patient} AND configId=${configId}`);
+    for (const [index, selector] of ['#dateBegin', '#dateEnd'].entries()) {
+      await manager.locator(selector).fill(dates[index]);
+      await manager.locator(selector).press('Tab');
+    }
+    await manager.locator('#senderEmailAddress').selectOption(sender);
+    await manager.locator('#emailStatus').selectOption(status);
+    await manager.locator('#results').evaluate(results => { results.innerHTML = ''; });
+    const [response] = await Promise.all([
+      admin.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/admin/ManageEmails'), {timeout: TIMEOUT}),
+      manager.locator('#btnFetch').click(),
+    ]);
+    h.assert(response.status() === 200, `Fetch Emails answered HTTP ${response.status()}`);
+    await manager.waitForFunction(() => window.jQuery && window.jQuery.active === 0);
+    return response.request();
+  }
+
+  async function assertUnconfirmed(id) {
+    h.assert(sql.value('SELECT status FROM emailLog WHERE id=?', [id]) === 'UNCONFIRMED',
+      'The stored delivery result should still be unconfirmed');
+    await fetchEmails('FAILED');
+    h.assert(await manager.locator(`#emailStatus${id}`).count() === 0,
+      'An unconfirmed delivery appeared in the FAILED queue');
+    const search = await fetchEmails('UNCONFIRMED');
+    h.assert((await manager.locator(`#emailStatus${id}`).innerText()).trim() === 'UNCONFIRMED',
+      'Manage Emails did not display the retained unconfirmed result');
+    h.assert(await manager.locator(`#btnResolve${id}, #btnResend${id}`).count() === 0,
+      'An unconfirmed delivery offers Resolve or Copy');
+    h.assert(await cards().filter({hasText: 'Check the sending provider'}).count() === 1,
+      'The card did not explain how to reconcile an unconfirmed result');
+    const csrf = (await search.allHeaders())['csrf-token'] || new URLSearchParams(search.postData()).get('CSRF-TOKEN');
+    h.assert(csrf, 'The authenticated Manage Emails search did not carry a CSRF token');
+    const where = `id=${id} AND demographicNo=${patient} AND configId=${configId} AND status='UNCONFIRMED'`;
+    for (const [method, httpMethod] of [['setResolved', 'POST'], ['resendEmail', 'GET']]) {
+      const fields = {method, logId: id};
+      const params = httpMethod === 'POST'
+        ? {form: fields, headers: {'CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest'}}
+        : {params: fields};
+      const response = await context.request.fetch(search.url(), {
+        method: httpMethod, maxRedirects: 0, failOnStatusCode: false, timeout: TIMEOUT, ...params,
+      });
+      await h.assertRefused(s, {response, table: 'emailLog', where, before: '1', alsoRefusedBy: [409], label: method});
+      const body = await response.json();
+      h.assert(response.status() === 409 && /delivery is unconfirmed/i.test(body.errorMessage)
+        && !body.resolvedLogId, `${method} accepted an unconfirmed row or returned a stale acknowledgement`);
+    }
+    h.assert(sql.value('SELECT status FROM emailLog WHERE id=?', [id]) === 'UNCONFIRMED',
+      'A refused action changed the stored unconfirmed outcome');
+  }
+
+  async function sendWhileHeld(compose, subject, body, smtpResponse) {
+    const received = sink.holdNextReply();
+    const submitted = fillAndSend(compose, subject, body);
+    const requestFinished = submitted.catch(() => {});
+    let reply;
+    try {
+      reply = await received;
+      const id = sql.value(`SELECT id FROM emailLog WHERE demographicNo=${patient} AND subject=${h.sqlString(subject)}`);
+      h.assert(/^[1-9]\d*$/.test(id || ''), 'No owned log was committed before the SMTP response');
+      await assertUnconfirmed(id);
+    } finally {
+      if (reply) reply(smtpResponse);
+      else await sink.close();
+      await requestFinished;
+    }
+    return submitted;
+  }
+
+  await fetchEmails('UNCONFIRMED');
+  h.assert(await cards().count() === 0, 'The owned sender should initially have no unconfirmed deliveries');
 
   const subject = `${marker} sent`;
   let sentLog;
+  let sentCompose;
   await s.step('the eForm composer offers the owned sender and only the valid patient address', async () => {
     const compose = await composeFromChart(`${marker} note sent`);
     const recipients = await compose.locator('input[type="hidden"][name="receiverEmailAddress"]').evaluateAll(inputs => inputs.map(input => input.value));
     h.assert(JSON.stringify(recipients) === JSON.stringify([recipient]), 'The composer would send to an address other than the valid patient address');
     h.assert(await compose.locator(`#senderEmailAddress option[value="${configId}"]`).count() === 1, 'The owned sender account is not offered');
     h.assert(await compose.locator('.attachmentName').count() === 1, 'The saved eForm is not attached');
-    await fillAndSend(compose, subject, `${marker} body line`);
+    sentCompose = await sendWhileHeld(compose, subject, `${marker} body line`, '250 2.0.0 accepted by check sink');
     await compose.locator('#successMessage').waitFor({timeout: TIMEOUT});
     h.assert((await compose.locator('#successMessage').innerText()).includes(recipient), 'The confirmation does not name the recipient');
     await compose.waitForEvent('close', {timeout: TIMEOUT});
@@ -244,8 +333,7 @@ async function workflow(s) {
     h.assert(message.from === sender, 'The envelope sender is not the owned account');
     h.assert(JSON.stringify(message.rcpt) === JSON.stringify([recipient]), 'The envelope recipients are not exactly the valid patient address');
     h.assert(message.data.includes(`Subject: ${subject}`), 'The delivered subject differs from the composed subject');
-    h.assert(message.data.includes(`${marker} body line`) && message.data.includes(`${marker} clue`),
-      'The delivered body lacks the composed text or the password clue');
+    assertDeliveredComposeBody(message.data, sentCompose);
     h.assert(/Content-Type: application\/pdf/i.test(message.data), 'The delivered message carries no PDF attachment');
     h.assert(!message.data.includes(invalidRecipient), 'The invalid address appears in the delivered message');
   });
@@ -258,7 +346,7 @@ async function workflow(s) {
     sentLog = id;
     h.assert(config === configId && from === sender && to === recipient && status === 'SUCCESS' && type === 'EFORM'
       && logProvider === provider, 'The log row does not record the owned sender, recipient, SUCCESS and EFORM');
-    h.assert(encrypted === '1' && attachmentEncrypted === '1' && password === `PW${hex}`, 'The log row lost the encryption settings');
+    h.assert(encrypted === '1' && attachmentEncrypted === '1' && password === sentCompose.password, 'The log row lost the encryption settings');
     const fdid = sql.value(`SELECT fdid FROM eform_data WHERE demographic_no=${patient} AND fid=${fid} ORDER BY fdid LIMIT 1`);
     h.assert(/^[1-9]\d*$/.test(fdid || ''), 'Email did not save the eForm before composing');
     h.assert(sql.value(`SELECT CONCAT(documentType,'|',documentId) FROM emailAttachment WHERE logId=${id}`) === `EFORM|${fdid}`,
@@ -269,10 +357,9 @@ async function workflow(s) {
 
   const failedSubject = `${marker} refused`;
   let failedLog;
-  await s.step('with the sink closed the send is reported NOT sent and logged FAILED', async () => {
-    await sink.close();
+  await s.step('a held SMTP refusal is reported NOT sent and logged FAILED when released', async () => {
     const compose = await composeFromChart(`${marker} note refused`);
-    await fillAndSend(compose, failedSubject, `${marker} body refused`);
+    await sendWhileHeld(compose, failedSubject, `${marker} body refused`, '554 5.0.0 refused by check sink');
     const alert = compose.locator('.alert-danger').filter({hasText: 'was NOT sent'});
     await alert.waitFor({timeout: TIMEOUT});
     h.assert((await alert.innerText()).includes(recipient), 'The failure notice does not name the recipient');
@@ -281,31 +368,11 @@ async function workflow(s) {
     const row = sql.rows(`SELECT id,status,errorMessage FROM emailLog WHERE demographicNo=${patient} AND subject=${h.sqlString(failedSubject)}`);
     h.assert(row.length === 1 && row[0][1] === 'FAILED' && row[0][2] && row[0][2] !== 'NULL', 'The refused send is not logged FAILED with a reason');
     failedLog = row[0][0];
-    h.assert(sink.messages.length === 1, 'A message reached the sink after it was closed');
+    h.assert(sink.messages.length === 2, 'SMTP did not receive exactly the two synthetic attempts');
     await compose.close();
   });
 
-  let manager;
-  const cards = () => manager.locator('#results .email-status-card');
-  async function fetchEmails(status) {
-    const today = sql.value("SELECT DATE_FORMAT(CURDATE(),'%Y-%m-%d')");
-    for (const selector of ['#dateBegin', '#dateEnd']) {
-      await manager.locator(selector).fill(today);
-      await manager.locator(selector).press('Tab');
-    }
-    await manager.locator('#senderEmailAddress').selectOption(sender);
-    await manager.locator('#emailStatus').selectOption(status);
-    await manager.locator('#results').evaluate(results => { results.innerHTML = ''; });
-    const [response] = await Promise.all([
-      admin.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/admin/ManageEmails'), {timeout: TIMEOUT}),
-      manager.locator('#btnFetch').click(),
-    ]);
-    h.assert(response.status() === 200, `Fetch Emails answered HTTP ${response.status()}`);
-    await manager.locator('#results > *').first().waitFor({timeout: TIMEOUT});
-  }
-
   await s.step('Manage Emails lists exactly the owned sent and failed rows for the owned sender', async () => {
-    manager = await openSection('Manage Emails', '/admin/ManageEmails');
     h.assert(await manager.locator(`#senderEmailAddress option[value="${sender}"]`).count() === 1, 'Manage Emails does not offer the owned sender');
     await fetchEmails('-1');
     h.assert(await cards().count() === 2, `Expected the 2 owned log rows, Manage Emails listed ${await cards().count()}`);
@@ -319,6 +386,40 @@ async function workflow(s) {
     h.assert(await cards().count() === 1 && await manager.locator(`#emailStatus${failedLog}`).count() === 1, 'The FAILED filter did not isolate the failed row');
   });
 
+  await s.step('Resolve preserves the FAILED card when a timeout returns the application login HTML', async () => {
+    const anonymous = await h.newContext(context.browser(), s.config);
+    let loginHtml;
+    try {
+      const login = await anonymous.request.get(h.appUrl(s.config.baseUrl, '/logoutPage'));
+      h.assert(login.status() === 200 && /text\/html/i.test(login.headers()['content-type'] || ''),
+        'The application timeout page is unavailable');
+      loginHtml = await login.text();
+    } finally { await anonymous.close(); }
+    // Replay the real timeout-page body at this one response boundary. The separate
+    // LoginFilter inactivity probe verifies why an authenticated AJAX call can receive it.
+    const routePattern = '**/admin/ManageEmails';
+    const timeoutResponse = async route => {
+      const request = route.request();
+      if (request.method() === 'POST' && new URLSearchParams(request.postData() || '').get('method') === 'setResolved') {
+        await route.fulfill({status: 200, contentType: 'text/html;charset=UTF-8', body: loginHtml});
+      } else await route.continue();
+    };
+    await context.route(routePattern, timeoutResponse);
+    try {
+      const dialogs = await h.withExpectedDialogs(manager.page(), async () => {
+        await manager.locator(`#btnResolve${failedLog}`).click();
+        await manager.waitForFunction(() => window.jQuery && window.jQuery.active === 0);
+      });
+      h.assert(sql.value('SELECT status FROM emailLog WHERE id=?', [failedLog]) === 'FAILED',
+        'The timeout response changed the stored email status');
+      h.assert((await manager.locator(`#emailStatus${failedLog}`).innerText()).trim() === 'FAILED'
+        && await manager.locator(`#btnResolve${failedLog}`).count() === 1,
+      'Login HTML falsely marked the unresolved email RESOLVED');
+      h.assert(dialogs.length === 2 && dialogs[0].type === 'confirm' && dialogs[1].type === 'alert',
+        'The timeout did not report that resolution failed');
+    } finally { await context.unroute(routePattern, timeoutResponse); }
+  });
+
   await s.step('Resolve on the failed row stores RESOLVED', async () => {
     const dialogs = await h.withExpectedDialogs(manager.page(), async () => {
       const [response] = await Promise.all([
@@ -326,10 +427,36 @@ async function workflow(s) {
         manager.locator(`#btnResolve${failedLog}`).click(),
       ]);
       h.assert(response.status() === 200, `Resolve answered HTTP ${response.status()}`);
+      h.assert((await response.json()).resolvedLogId === failedLog,
+        'Resolve did not acknowledge the requested email row');
     });
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Resolve did not ask for confirmation');
     await expectValue(sql, `SELECT status FROM emailLog WHERE id=${failedLog}`, 'RESOLVED',
       'Resolve showed RESOLVED but the log row is still FAILED');
+  });
+
+  await s.step('Resolved email stays RESOLVED after reloading Manage Emails', async () => {
+    await manager.goto(manager.url(), {waitUntil: 'domcontentloaded'});
+    await fetchEmails('RESOLVED');
+    h.assert(await cards().count() === 1 && await manager.locator(`#emailStatus${failedLog}`).count() === 1,
+      'The RESOLVED filter did not isolate the resolved row after reload');
+    h.assert((await manager.locator(`#emailStatus${failedLog}`).innerText()).trim() === 'RESOLVED',
+      'The reloaded card does not show the stored RESOLVED status');
+    h.assert(await manager.locator(`#btnResolve${failedLog}`).count() === 0,
+      'The reloaded resolved row still offers Resolve');
+  });
+
+  await s.step('an interrupted attempt remains unconfirmed after reload', async () => {
+    const interruptedSubject = `${marker} interrupted`;
+    const id = sql.value(`INSERT INTO emailLog(configId,fromEmail,toEmail,subject,status,demographicNo,providerNo)
+      SELECT configId,fromEmail,toEmail,${h.sqlString(interruptedSubject)},'UNCONFIRMED',demographicNo,providerNo
+      FROM emailLog WHERE id=${sentLog} AND demographicNo=${patient}; SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(id || ''), 'The owned interrupted-attempt fixture was not created');
+    await manager.goto(manager.url(), {waitUntil: 'domcontentloaded'});
+    await assertUnconfirmed(id);
+    await fetchEmails('-1');
+    h.assert(await cards().filter({hasText: interruptedSubject}).count() === 1,
+      'The all-status view hid the interrupted attempt');
   });
 }
 

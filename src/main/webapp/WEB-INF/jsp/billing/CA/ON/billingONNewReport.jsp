@@ -26,7 +26,7 @@
   for dynamic output rendered by the page.
 --%>
 <!DOCTYPE html>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnNewReportViewModelAssembler" %>
+
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

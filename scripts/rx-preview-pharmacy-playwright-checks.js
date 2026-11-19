@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * Modifications by CARLOS Contributors, 2026.
  *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -240,7 +241,9 @@ async function cleanupRunOnce() {
 
 const signalHandlers = installCleanupSignalHandlers(cleanupRun);
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('rx-preview-pharmacy', async () => {
+  await (async () => {
   const recorder = createRecorder();
   try {
     initMysqlDefaults();
@@ -379,9 +382,9 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRun);
       `Preview2 unexpectedly received a pharmacy (pharmacyId=${JSON.stringify(emptyParam)} at ${emptyFrameUrl})`);
     await screenshot(rxPage, config.screenshotDir, 'rx-preview-pharmacy-empty');
 
-    // Branch 2: the literal string "null" clients can echo back. Name the
-    // patient just as the Reprint UI does; viewScript refuses patient-less
-    // requests rather than adopting another window's active patient (#5450).
+    // Branch 2: the literal string "null" clients can echo back, rendered as
+    // a top-level viewScript page. Name its patient explicitly: the foreign
+    // patient's window above can still own the active-session fallback.
     const nullPage = await context.newPage();
     wirePage(nullPage, 'rx-null-literal', recorder);
     const nullResponse = await gotoApp(nullPage, config.baseUrl,
@@ -512,3 +515,4 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRun);
     signalHandlers.dispose();
   }
 })();
+}, {existingSignalHandlers:true});

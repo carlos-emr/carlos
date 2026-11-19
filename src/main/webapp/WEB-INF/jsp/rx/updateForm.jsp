@@ -33,9 +33,9 @@
 <fmt:setBundle basename="oscarResources"/>
 
 
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -77,8 +77,12 @@
             <%
             if (updateRequested) {
             %>
-            window.opener.refresh();
-            window.close();
+            if (window.opener && !window.opener.closed) {
+                try {
+                    if (typeof window.opener.refresh === "function") window.opener.refresh();
+                } catch (unavailableOpener) { /* Saving succeeded; an inaccessible opener cannot undo it. */ }
+                window.close();
+            }
             <% } %>
         </script>
     </head>
@@ -91,9 +95,10 @@
         <h3>Current form is: <b><carlos:encode value='<%= drugForm %>'/>
         </b></h3>
         <br/>
-        <b>Select new drug form :</b>
+        <label for="drugForm"><b>Select new drug form :</b></label>
 
-        <select name="drugForm">
+        <select id="drugForm" name="drugForm" required>
+        <option value=""></option>
             <option value="Aerosol metered-dose">Aerosol metered-dose</option>
             <option value="Aerosol with propellants">Aerosol with propellants</option>
             <option value="Bar chewable">Bar chewable</option>
@@ -190,8 +195,22 @@
             <option value="Wipe">Wipe</option>
 
         </select>
+        <script type="text/javascript">
+            var formSelect = document.querySelector('select[name="drugForm"]');
+            var storedForm = '<carlos:encode value='<%= drugForm %>' context="javaScriptBlock"/>';
+            formSelect.value = '';
+            Array.from(formSelect.options).some(function (option) {
+                if (option.value.toLowerCase() === storedForm.toLowerCase()) { formSelect.value = option.value; return true; }
+                return false;
+            });
+        </script>
         <input type="hidden" name="id" value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="action" value="update"/>
+        <input type="hidden" name="originalVersion" value="<carlos:encode value='${requestScope.drugFormVersion}' context="htmlAttribute"/>"/>
+        <% if (Boolean.TRUE.equals(request.getAttribute("drugFormConflict"))) { %>
+        <p><fmt:message key="oscarRx.rejectedForm"/> <carlos:encode value="${requestScope.rejectedDrugForm}"/></p>
+        <p role="alert"><fmt:message key="oscarRx.sourceChanged"/> <a href="<%= request.getContextPath() %>/rx/ViewUpdateForm?id=<carlos:encode value='<%= id %>' context="uriComponent"/>"><fmt:message key="oscarRx.reloadCurrentForm"/></a></p>
+        <% } %>
         <input type="submit" class="btn btn-primary" value="submit">
     </form>
     </body>

@@ -8,14 +8,6 @@
     "optional" : false,
     "integrity" : "sha512:Z2GgqO/luomoEuSdj30qnhoQDU7dY+3nnumm0idYsuJRFlPqWWS0uaLlVn6gYjN6tYGWCsvnEKrKwFV3D7vO/Q=="
   }, {
-    "groupId" : "com.google.protobuf",
-    "artifactId" : "protobuf-java",
-    "version" : "4.26.1",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:E9xXE81IgosMvBUie9Sb3JqOxZADz3xkrePUocLO5yM4R9/ps38hAtzHPSjGQlhsx/o/y9lrrZkQIHC8vPnkgw=="
-  }, {
     "groupId" : "com.h2database",
     "artifactId" : "h2",
     "version" : "2.3.232",
@@ -23,14 +15,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:TBwAcxl08v61ZFq8B1O80tPVjG8Qr1L0+k5KVFWfd7zZTKm3yzT2q/so53if+o7XJ9MiEWrOT0RQxNURcFbbGw=="
-  }, {
-    "groupId" : "com.mysql",
-    "artifactId" : "mysql-connector-j",
-    "version" : "9.1.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:9rxFoL7t1R7kVhqlBD1WMRF0ZusDikAIg8wf2v45hQiRHhduA3NNcxsZeXb4+AWVc+7d6xTB1TPpHAqAecMqtw=="
   }, {
     "groupId" : "com.sun.istack",
     "artifactId" : "istack-commons-runtime",
@@ -335,6 +319,14 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:b1DoeP6+ZNFnYR5I22Uiva0gRAq0+XJD/AC8ynDUAOpu4+//CQZHmrgBe8xtBJIS1cK6uxfbERQCkABpNZ62WA=="
+  }, {
+    "groupId" : "org.mariadb.jdbc",
+    "artifactId" : "mariadb-java-client",
+    "version" : "3.5.11",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:CAPyPfF/kjzg2VKSrynP4esikpIao5uWzT8F5wfMBf9SHLbtB425rHoozCSDjpN3t6BLiAinVwvtKosKF5cvYg=="
   }, {
     "groupId" : "org.opentest4j",
     "artifactId" : "opentest4j",

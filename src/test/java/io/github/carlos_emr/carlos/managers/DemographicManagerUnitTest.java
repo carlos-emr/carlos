@@ -26,11 +26,16 @@ import io.github.carlos_emr.carlos.commn.Gender;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.utility.DemographicContactCreator;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchRequest;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -115,6 +120,8 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
     @BeforeEach
     void setUp() {
         when(mockSecurityInfoManager.hasDemographicReadPrivileges(any(), anyCollection())).thenReturn(true);
+        org.mockito.Mockito.lenient().when(mockSecurityInfoManager.getReadableDemographicIds(any(), anyCollection()))
+                .thenAnswer(call -> new java.util.LinkedHashSet<>(call.<java.util.Collection<Integer>>getArgument(1)));
         // Register mocks for SpringUtils BEFORE mocking any static classes
         // This order is critical - static initializers may call SpringUtils.getBean()
         registerMock(DemographicDao.class, mockDemographicDao);
@@ -169,11 +176,81 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
      * and restore original behavior. Failure to close can cause subsequent
      * tests to fail or behave unexpectedly.</p>
      */
+    @Test
+    void shouldIdentifyTheSavedExtensionKey_withoutRecordingItsValue() {
+        DemographicExt ext = createTestDemographicExt(TEST_DEMO_NO, "FAKE_KEY\r\nforged", "PRIVATE_EXTENSION_VALUE");
+        ext.setId(null);
+        org.mockito.Mockito.doAnswer(call -> { ext.setId(65); return null; }).when(mockDemographicExtDao).saveEntity(ext);
+        manager.createExtension(mockLoggedInInfo, ext);
+        var data = org.mockito.ArgumentCaptor.forClass(String.class);
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(
+                eq(mockLoggedInInfo), eq("DemographicManager.createExtension"), data.capture()));
+        assertThat(data.getValue()).contains("id=65", "key=FAKE_KEY").doesNotContain("PRIVATE_EXTENSION_VALUE", "\r", "\n");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"add", "update"})
+    void shouldIdentifyNewExtensionAudits_afterSavingTheDemographic(String operation) {
+        Demographic demographic = createTestDemographicWithId(TEST_DEMO_NO);
+        DemographicExt ext = createTestDemographicExt(TEST_DEMO_NO, "FAKE_KEY", "PRIVATE_EXTENSION_VALUE");
+        ext.setId(null);
+        demographic.setExtras(new DemographicExt[]{ext});
+        org.mockito.Mockito.doAnswer(call -> { ext.setId(65); return null; }).when(mockDemographicExtDao).saveEntity(ext);
+        if (operation.equals("update")) {
+            when(mockDemographicDao.getDemographicById(TEST_DEMO_NO)).thenReturn(createTestDemographicWithId(TEST_DEMO_NO));
+            manager.updateDemographic(mockLoggedInInfo, demographic);
+        } else {
+            manager.addDemographic(mockLoggedInInfo, demographic);
+        }
+        var data = org.mockito.ArgumentCaptor.forClass(String.class);
+        String action = "DemographicManager." + operation + "Demographic ext";
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(
+                eq(mockLoggedInInfo), eq(action), data.capture()));
+        assertThat(data.getValue()).contains("id=65", "key=FAKE_KEY").doesNotContain("PRIVATE_EXTENSION_VALUE", "null");
+    }
+
+    @Test
+    void shouldRetainTheRemovedExtensionKey_withoutRecordingItsValue() {
+        Demographic demographic = createTestDemographicWithId(TEST_DEMO_NO);
+        DemographicExt ext = createTestDemographicExt(TEST_DEMO_NO, "FAKE_REMOVED_KEY", "PRIVATE_EXTENSION_VALUE");
+        ext.setId(77);
+        when(mockDemographicExtDao.getDemographicExtByDemographicNo(TEST_DEMO_NO)).thenReturn(List.of(ext));
+        when(mockDemographicExtDao.find(ext.getId())).thenReturn(ext);
+        manager.deleteDemographic(mockLoggedInInfo, demographic);
+        var data = org.mockito.ArgumentCaptor.forClass(String.class);
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(
+                eq(mockLoggedInInfo), eq("DemographicManager.deleteDemographic ext"), data.capture()));
+        assertThat(data.getValue()).contains("id=77", "key=FAKE_REMOVED_KEY").doesNotContain("PRIVATE_EXTENSION_VALUE");
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(
+                eq(mockLoggedInInfo), eq("DemographicManager.removeDemographicExt"), data.capture()));
+        assertThat(data.getValue()).contains("id=77", "key=FAKE_REMOVED_KEY").doesNotContain("PRIVATE_EXTENSION_VALUE");
+    }
+
     @AfterEach
     void tearDown() {
         if (demographicContactCreatorMock != null) {
             demographicContactCreatorMock.close();
         }
+    }
+
+    @Test
+    void shouldReadOnlyPermittedNames_whenDiscoveringConsultations() {
+        when(mockSecurityInfoManager.getReadableDemographicIds(mockLoggedInInfo, Set.of(12, 13, 99)))
+                .thenReturn(Set.of(12, 99));
+        when(mockDemographicDao.getDemographicNames(Set.of(12, 99))).thenReturn(List.of(
+                new io.github.carlos_emr.carlos.commn.dao.projection.DemographicName(12, "Allowed", "Patient")));
+        assertThat(manager.getReadableDemographicFormattedNames(mockLoggedInInfo, List.of(12, 13, 99)))
+                .containsOnlyKeys(12, 99).containsEntry(99, "");
+        verify(mockSecurityInfoManager, never()).hasDemographicReadPrivileges(any(), any());
+    }
+
+    @Test
+    void shouldPropagateLookupFailure_whenDiscoveryPolicyCannotBeRead() {
+        when(mockSecurityInfoManager.getReadableDemographicIds(any(), any()))
+                .thenThrow(new IllegalStateException("policy unavailable"));
+        assertThatThrownBy(() -> manager.getReadableDemographicFormattedNames(mockLoggedInInfo, List.of(12)))
+                .isInstanceOf(IllegalStateException.class);
+        verify(mockDemographicDao, never()).getDemographicNames(any());
     }
 
     // ==================== SECURITY TESTS ====================
@@ -242,6 +319,71 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
         void shouldSkipPatientReads_whenOnlyBlankSlotsAreRequested() {
             assertThat(manager.getDemographicFormattedNames(mockLoggedInInfo, Arrays.asList(0, null))).isEmpty();
             assertThat(manager.getDemographicFormattedNames(mockLoggedInInfo, List.of())).isEmpty();
+            verifyNoInteractions(mockDemographicDao, mockSecurityInfoManager);
+        }
+    }
+
+    /**
+     * Names for a list that mixes patients (the team consultation list, issue #5775): one
+     * restricted patient must cost that patient's row, not the list.
+     */
+    @Nested
+    @DisplayName("Readable names for a mixed-patient list")
+    class ReadableNamesForMixedPatientLists {
+        @Test
+        void shouldNameOnlyReadablePatients_whenSomeAreRestricted() {
+            when(mockSecurityInfoManager.getReadableDemographicIds(mockLoggedInInfo, new LinkedHashSet<>(List.of(12, 13, 99))))
+                .thenReturn(new LinkedHashSet<>(List.of(12, 99)));
+            when(mockDemographicDao.getDemographicNames(new LinkedHashSet<>(List.of(12, 99)))).thenReturn(List.of(
+                new io.github.carlos_emr.carlos.commn.dao.projection.DemographicName(12, "Allowed", "Patient")));
+
+            var names = manager.getReadableDemographicFormattedNames(mockLoggedInInfo, Arrays.asList(12, 0, 13, 12, null, 99));
+
+            // 13 is restricted: no entry. 99 is readable but has no demographic record: no name.
+            assertThat(names).containsOnlyKeys(12, 99).containsEntry(12, "Allowed, Patient").containsEntry(99, "");
+            // Only the readable patients ever reach the name query.
+            verify(mockDemographicDao).getDemographicNames(new LinkedHashSet<>(List.of(12, 99)));
+            verifyNoMoreInteractions(mockDemographicDao);
+            // The all-or-nothing check, with its session side effect, is not the one used here.
+            verify(mockSecurityInfoManager, never()).hasDemographicReadPrivileges(any(), any());
+            verifyNoInteractions(mockProviderManager, mockAppointmentManager);
+        }
+
+        @Test
+        void shouldReadNoNames_whenEveryPatientIsRestricted() {
+            when(mockSecurityInfoManager.getReadableDemographicIds(mockLoggedInInfo, new LinkedHashSet<>(List.of(12, 13))))
+                .thenReturn(new LinkedHashSet<>());
+
+            assertThat(manager.getReadableDemographicFormattedNames(mockLoggedInInfo, List.of(12, 13))).isEmpty();
+            verifyNoInteractions(mockDemographicDao);
+        }
+
+        @Test
+        void shouldPropagateFailure_whenAccessPolicyCannotBeRead() {
+            var failure = new IllegalStateException("synthetic policy store failure");
+            when(mockSecurityInfoManager.getReadableDemographicIds(any(), any())).thenThrow(failure);
+
+            // Not an empty map: the caller must be able to tell a failure from "none readable".
+            assertThatThrownBy(() -> manager.getReadableDemographicFormattedNames(mockLoggedInInfo, List.of(12)))
+                .isSameAs(failure);
+            verifyNoInteractions(mockDemographicDao);
+        }
+
+        @Test
+        void shouldPropagateFailure_whenNamesCannotBeRead() {
+            var failure = new IllegalStateException("synthetic database failure");
+            when(mockSecurityInfoManager.getReadableDemographicIds(any(), any()))
+                .thenReturn(new LinkedHashSet<>(List.of(12)));
+            when(mockDemographicDao.getDemographicNames(anyCollection())).thenThrow(failure);
+
+            assertThatThrownBy(() -> manager.getReadableDemographicFormattedNames(mockLoggedInInfo, List.of(12)))
+                .isSameAs(failure);
+        }
+
+        @Test
+        void shouldSkipAccessChecks_whenOnlyBlankSlotsAreRequested() {
+            assertThat(manager.getReadableDemographicFormattedNames(mockLoggedInInfo, Arrays.asList(0, null))).isEmpty();
+            assertThat(manager.getReadableDemographicFormattedNames(mockLoggedInInfo, List.of())).isEmpty();
             verifyNoInteractions(mockDemographicDao, mockSecurityInfoManager);
         }
     }
@@ -684,7 +826,10 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
         @DisplayName("should return count from searchPatientsCount")
         void shouldReturnCount_fromSearchPatientsCount() {
             DemographicSearchRequest request = new DemographicSearchRequest();
-            when(mockDemographicDao.searchPatientCount(mockLoggedInInfo, request)).thenReturn(42);
+            List<DemographicSearchResult> rows = java.util.stream.IntStream.rangeClosed(1, 42).mapToObj(id -> {
+                DemographicSearchResult row = new DemographicSearchResult(); row.setDemographicNo(id); return row;
+            }).toList();
+            when(mockDemographicDao.searchPatients(mockLoggedInInfo, request, 0, 500)).thenReturn(rows);
 
             int result = manager.searchPatientsCount(mockLoggedInInfo, request);
 
@@ -977,6 +1122,40 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
 
             assertThatThrownBy(() -> manager.createDemographic(mockLoggedInInfo, demographic, TEST_PROGRAM_ID))
                 .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"create", "update", "add"})
+        void shouldOmitPatientData_fromInvalidBirthDateExceptions(String operation) {
+            Demographic demographic = createTestDemographic();
+            demographic.setFirstName("SYNTHETIC5322FIRST");
+            demographic.setLastName("SYNTHETIC5322LAST");
+            demographic.setYearOfBirth("SYNTHETIC5322DOB");
+            String callerLogger = getClass().getName() + ".validationCaller";
+            try (LogCapture managerLogs = LogCapture.forLogger(DemographicManagerImpl.class);
+                 LogCapture callerLogs = LogCapture.forLogger(callerLogger)) {
+                Throwable failure = catchThrowable(() -> {
+                    switch (operation) {
+                        case "create" -> manager.createDemographic(mockLoggedInInfo, demographic, TEST_PROGRAM_ID);
+                        case "update" -> manager.updateDemographic(mockLoggedInInfo, demographic);
+                        case "add" -> manager.addDemographic(mockLoggedInInfo, demographic);
+                        default -> throw new AssertionError(operation);
+                    }
+                });
+                assertThat(failure).isInstanceOf(IllegalArgumentException.class)
+                        .hasMessage("Invalid birth date.").hasNoCause();
+                // Model a caller logging the propagated exception, including its full stack trace.
+                LogManager.getLogger(callerLogger).error("Demographic validation rejected", failure);
+                PatternLayout layout = PatternLayout.newBuilder().withPattern("%m%n%ex").build();
+                String output = managerLogs.events().stream().map(layout::toSerializable)
+                        .collect(java.util.stream.Collectors.joining())
+                        + callerLogs.events().stream().map(layout::toSerializable)
+                        .collect(java.util.stream.Collectors.joining());
+                assertThat(output).contains("Invalid birth date.")
+                        .doesNotContain("SYNTHETIC5322FIRST", "SYNTHETIC5322LAST", "SYNTHETIC5322DOB");
+                verifyNoInteractions(mockDemographicDao, mockDemographicArchiveDao, mockAdmissionDao,
+                        mockDemographicExtDao);
+            }
         }
 
         @Test
@@ -1521,6 +1700,20 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
     @Tag("merge")
     class MergeOperationsTests {
 
+        @BeforeEach
+        void provideExistingMergeParticipants() {
+            org.mockito.Mockito.lenient().when(mockDemographicDao.lockForMerge(anyInt())).thenReturn(true);
+        }
+
+        @Test
+        void shouldPreserveExtensionDaoCompatibility_withTheDefaultMergeLock() {
+            var extension = mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class,
+                    org.mockito.Mockito.CALLS_REAL_METHODS);
+            when(extension.findForUpdate(1001)).thenReturn(new Demographic());
+            assertThat(extension.lockForMerge(1001)).isTrue();
+            assertThat(extension.lockForMerge(1002)).isFalse();
+        }
+
         @Test
         @DisplayName("should merge multiple children to parent")
         void shouldMergeMultipleChildren_toParent() {
@@ -1565,7 +1758,7 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             List<Integer> children = List.of(childId);
 
             DemographicMerged mergeRecord = createTestDemographicMergedWithId(1, childId, parentId);
-            when(mockDemographicMergedDao.findByParentAndChildIds(parentId, childId))
+            when(mockDemographicMergedDao.findActiveByParentAndChildIds(parentId, childId))
                 .thenReturn(List.of(mergeRecord));
 
             manager.unmergeDemographics(mockLoggedInInfo, parentId, children);
@@ -1580,12 +1773,78 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             Integer parentId = 1000;
             List<Integer> children = List.of(1001);
 
-            when(mockDemographicMergedDao.findByParentAndChildIds(parentId, 1001))
+            when(mockDemographicMergedDao.findActiveByParentAndChildIds(parentId, 1001))
                 .thenReturn(Collections.emptyList());
 
             assertThatThrownBy(() -> manager.unmergeDemographics(mockLoggedInInfo, parentId, children))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Unable to find merge record");
+                .isInstanceOf(DemographicMergeConflictException.class)
+                .hasMessage("No active demographic merge link exists");
+        }
+
+        @Test
+        void shouldAuthorizeEveryParticipant_beforeTakingMergeLocks() {
+            when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_demographic", "w", 1002)).thenReturn(false);
+            assertThatThrownBy(() -> manager.mergeDemographics(mockLoggedInInfo, 1000, List.of(1001, 1002)))
+                    .isInstanceOf(SecurityException.class);
+            assertThatThrownBy(() -> manager.unmergeDemographics(mockLoggedInInfo, 1000, List.of(1001, 1002)))
+                    .isInstanceOf(SecurityException.class);
+            verifyNoInteractions(mockDemographicMergedDao);
+            verify(mockDemographicDao, never()).lockForMerge(anyInt());
+        }
+
+        @Test
+        void shouldEnforceManagerWritePrivilege_beforeLookingUpMergeState() {
+            when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_demographic", "w", null)).thenReturn(false);
+            assertThatThrownBy(() -> manager.mergeDemographics(mockLoggedInInfo, 1000, List.of(1001)))
+                    .isInstanceOf(SecurityException.class);
+            assertThatThrownBy(() -> manager.unmergeDemographics(mockLoggedInInfo, 1000, List.of(1001)))
+                    .isInstanceOf(SecurityException.class);
+            verifyNoInteractions(mockDemographicMergedDao);
+            verify(mockDemographicDao, never()).lockForMerge(anyInt());
+        }
+
+        @Test
+        void shouldStampMergeActorAndDate_oncePerUniqueChild() {
+            Date before = new Date();
+            manager.mergeDemographics(mockLoggedInInfo, 1000, List.of(1001, 1001));
+            var saved = org.mockito.ArgumentCaptor.forClass(DemographicMerged.class);
+            verify(mockDemographicMergedDao).persist(saved.capture());
+            assertThat(saved.getValue().getLastUpdateUser()).isEqualTo(mockLoggedInInfo.getLoggedInProviderNo());
+            assertThat(saved.getValue().getLastUpdateDate().getTime()).isBetween(before.getTime(), System.currentTimeMillis());
+        }
+
+        @Test
+        void shouldChangeAndAuditOnlyActiveLinks_whenHistoryAndDuplicateChildrenExist() {
+            var current = createTestDemographicMergedWithId(2, 1001, 1000);
+            when(mockDemographicMergedDao.findActiveByParentAndChildIds(1000, 1001)).thenReturn(List.of(current));
+            Date before = new Date();
+            {
+                var audit = logActionMock;
+                manager.unmergeDemographics(mockLoggedInInfo, 1000, List.of(1001, 1001));
+                verify(mockDemographicMergedDao).findActiveByParentAndChildIds(1000, 1001);
+                verify(mockDemographicMergedDao).merge(current);
+                verify(mockDemographicMergedDao, never()).findByParentAndChildIds(anyInt(), anyInt());
+                assertThat(current.getDeleted()).isEqualTo(1);
+                assertThat(current.getLastUpdateUser()).isEqualTo(mockLoggedInInfo.getLoggedInProviderNo());
+                assertThat(current.getLastUpdateDate().getTime()).isBetween(before.getTime(), System.currentTimeMillis());
+                audit.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(mockLoggedInInfo,
+                        "DemographicManager.unmergeDemographics", null, null, "1001", "id=2"));
+                audit.verifyNoMoreInteractions();
+            }
+        }
+
+        @Test
+        void shouldRefuseWholeBatch_withoutWritesOrAuditWhenAnyPairIsStale() {
+            var current = createTestDemographicMergedWithId(2, 1001, 1000);
+            when(mockDemographicMergedDao.findActiveByParentAndChildIds(1000, 1001)).thenReturn(List.of(current));
+            {
+                var audit = logActionMock;
+                assertThatThrownBy(() -> manager.unmergeDemographics(mockLoggedInInfo, 1000, List.of(1001, 1002)))
+                        .isInstanceOf(DemographicMergeConflictException.class);
+                assertThat(current.getDeleted()).isZero();
+                verify(mockDemographicMergedDao, never()).merge(any());
+                audit.verifyNoInteractions();
+            }
         }
 
         @Test
@@ -1606,13 +1865,25 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
 
         @Test
         @DisplayName("should return merged demographic IDs")
-        void shouldReturnMergedDemographicIds() {
+        void shouldReturnMergedDemographicIds_withPatientIdentifiedAudit() {
             List<Integer> expected = List.of(1001, 1002);
             when(mockDemographicDao.getMergedDemographics(TEST_DEMO_NO)).thenReturn(expected);
 
             List<Integer> result = manager.getMergedDemographicIds(mockLoggedInInfo, TEST_DEMO_NO);
 
             assertThat(result).hasSize(2);
+            logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(
+                    mockLoggedInInfo, "DemographicManager.getMergedDemographics", null, null,
+                    Integer.toString(TEST_DEMO_NO), "demographicNo=" + TEST_DEMO_NO));
+        }
+
+        @Test
+        void shouldPreserveTheEmptyLegacyLookup_whenNoPatientIdentityWasSupplied() {
+            when(mockDemographicDao.getMergedDemographics(null)).thenReturn(List.of());
+            assertThat(manager.getMergedDemographicIds(mockLoggedInInfo, null)).isEmpty();
+            logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(
+                    mockLoggedInInfo, "DemographicManager.getMergedDemographics", null, null,
+                    null, "demographicNo=null"));
         }
 
         @Test
@@ -1793,24 +2064,85 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
     class ActiveDemographicsTests {
 
         @Test
+        void shouldPreserveIdScan_withLegacyDaoImplementations() {
+            var extension = mock(DemographicDao.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+            when(extension.getActiveDemographics(0, 10)).thenReturn(List.of(
+                    createTestDemographicWithId(1), createTestDemographicWithId(2)));
+            assertThat(extension.getActiveDemographicIds(0, 10)).containsExactly(1, 2);
+        }
+
+        @Test
         @DisplayName("should return active demographic count")
-        void shouldReturnActiveDemographicCount() {
-            when(mockDemographicDao.getActiveDemographicCount()).thenReturn(1000L);
+        void shouldReturnActiveDemographicCount_forReadablePatients() {
+            when(mockDemographicDao.getActiveDemographicIds(0, 500)).thenReturn(List.of(1, 2));
 
             Long result = manager.getActiveDemographicCount(mockLoggedInInfo);
 
-            assertThat(result).isEqualTo(1000L);
+            assertThat(result).isEqualTo(2L);
         }
 
         @Test
         @DisplayName("should return active demographics with pagination")
         void shouldReturnActiveDemographics_withPagination() {
             List<Demographic> expected = List.of(createTestDemographic());
-            when(mockDemographicDao.getActiveDemographics(0, 10)).thenReturn(expected);
+            when(mockDemographicDao.getActiveDemographics(0, 500)).thenReturn(expected);
 
             List<Demographic> result = manager.getActiveDemographics(mockLoggedInInfo, 0, 10);
 
             assertThat(result).hasSize(1);
+        }
+
+        @Test
+        void shouldPageAndCountOnlyReadablePatients_withRestrictedRows() {
+            var first = createTestDemographicWithId(1);
+            var blocked = createTestDemographicWithId(2);
+            var last = createTestDemographicWithId(3);
+            when(mockDemographicDao.getActiveDemographics(0, 500)).thenReturn(List.of(first, blocked, last));
+            when(mockDemographicDao.getActiveDemographicIds(0, 500)).thenReturn(List.of(1, 2, 3));
+            when(mockSecurityInfoManager.getReadableDemographicIds(any(), anyCollection()))
+                    .thenReturn(new java.util.LinkedHashSet<>(List.of(1, 3)));
+            assertThat(manager.getActiveDemographics(mockLoggedInInfo, 1, 1))
+                    .extracting(Demographic::getDemographicNo).containsExactly(3);
+            assertThat(manager.getActiveDemographicCount(mockLoggedInInfo)).isEqualTo(2L);
+        }
+
+        @Test
+        void shouldContinueScanning_whenFirstBatchContainsOnlyRestrictedPatients() {
+            List<Demographic> restricted = java.util.stream.IntStream.range(1, 501)
+                    .mapToObj(id -> createTestDemographicWithId(id)).toList();
+            when(mockDemographicDao.getActiveDemographics(0, 500)).thenReturn(restricted);
+            when(mockDemographicDao.getActiveDemographics(500, 500))
+                    .thenReturn(List.of(createTestDemographicWithId(501)));
+            when(mockSecurityInfoManager.getReadableDemographicIds(any(), anyCollection()))
+                    .thenAnswer(call -> {
+                        java.util.Collection<Integer> ids = call.getArgument(1);
+                        return ids.contains(501) ? java.util.Set.of(501) : java.util.Set.of();
+                    });
+            assertThat(manager.getActiveDemographics(mockLoggedInInfo, 0, 1))
+                    .extracting(Demographic::getDemographicNo).containsExactly(501);
+            when(mockDemographicDao.getActiveDemographicIds(0, 500))
+                    .thenReturn(java.util.stream.IntStream.range(1, 501).boxed().toList());
+            when(mockDemographicDao.getActiveDemographicIds(500, 500)).thenReturn(List.of(501));
+            assertThat(manager.getActiveDemographicCount(mockLoggedInInfo)).isEqualTo(1L);
+        }
+
+        @Test
+        void shouldExcludeLockedPatients_fromSoapIncrementalExports() {
+            Date after = new Date();
+            when(mockDemographicDao.getActiveDemographicAfter(after)).thenReturn(List.of(
+                    createTestDemographicWithId(1), createTestDemographicWithId(2)));
+            when(mockSecurityInfoManager.getReadableDemographicIds(any(), anyCollection())).thenReturn(Set.of(1));
+            assertThat(manager.getActiveDemographicAfter(mockLoggedInInfo, after))
+                    .extracting(Demographic::getDemographicNo).containsExactly(1);
+        }
+
+        @Test
+        void shouldDenyExplicitBulkRead_beforeFetchingRestrictedPatients() {
+            when(mockSecurityInfoManager.hasDemographicReadPrivileges(mockLoggedInInfo, List.of(1, 2)))
+                    .thenReturn(false);
+            assertThatThrownBy(() -> manager.getDemographics(mockLoggedInInfo, List.of(1, 2)))
+                    .isInstanceOf(SecurityException.class);
+            verify(mockDemographicDao, never()).getDemographics(anyList());
         }
 
         @Test

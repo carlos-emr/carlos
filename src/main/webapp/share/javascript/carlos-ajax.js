@@ -103,9 +103,11 @@ var CarlosAjax = (function () {
      * @param {number} status - HTTP status code
      * @param {string} responseText - Response body text
      * @param {string} [responseURL] - Final URL after redirects
+     * @param {string} [statusText] - HTTP status text
+     * @param {XMLHttpRequest} [xhr] - Request from which to read response headers
      * @returns {Object} Transport object with .status, .responseText, .responseURL
      */
-    function makeTransport(status, responseText, responseURL, statusText) {
+    function makeTransport(status, responseText, responseURL, statusText, xhr) {
         var transport = {
             status: status,
             statusText: statusText || '',
@@ -113,6 +115,24 @@ var CarlosAjax = (function () {
             responseURL: responseURL || '',
             responseJSON: null
         };
+        if (xhr && typeof xhr.getAllResponseHeaders === 'function') {
+            // Keep the response seen by every callback, even if an earlier callback aborts the XHR.
+            var responseHeaders = Object.create(null);
+            (xhr.getAllResponseHeaders() || '').split(/\r?\n/).forEach(function (line) {
+                var separator = line.indexOf(':');
+                if (separator <= 0) return;
+                var name = line.slice(0, separator).toLowerCase();
+                var value = line.slice(separator + 1).trim();
+                responseHeaders[name] = responseHeaders[name] === undefined ? value
+                    : responseHeaders[name] + ', ' + value;
+            });
+            transport.getResponseHeader = function (name) {
+                var value = responseHeaders[String(name).toLowerCase()];
+                return value === undefined ? null : value;
+            };
+        } else if (xhr && typeof xhr.getResponseHeader === 'function') {
+            transport.getResponseHeader = xhr.getResponseHeader.bind(xhr);
+        }
         if (responseText) {
             try { transport.responseJSON = JSON.parse(responseText); } catch (e) { /* not JSON */ }
         }
@@ -254,7 +274,7 @@ var CarlosAjax = (function () {
             return errorTransport;
         }
 
-        var transport = makeTransport(xhr.status, xhr.responseText, xhr.responseURL, xhr.statusText);
+        var transport = makeTransport(xhr.status, xhr.responseText, xhr.responseURL, xhr.statusText, xhr);
 
         // Check for CSRF redirect
         if (xhr.responseURL && xhr.responseURL.indexOf('errorpage') !== -1) {
@@ -300,7 +320,7 @@ var CarlosAjax = (function () {
         }
 
         xhr.onload = function () {
-            var transport = makeTransport(xhr.status, xhr.responseText, xhr.responseURL, xhr.statusText);
+            var transport = makeTransport(xhr.status, xhr.responseText, xhr.responseURL, xhr.statusText, xhr);
 
             // Detect CSRF rejection (redirect to error page)
             if (isCsrfRedirect(transport)) {
@@ -413,12 +433,16 @@ var CarlosAjax = (function () {
         }
 
         updaterOptions.onSuccess = function (transport) {
+            // A 2xx transport can still fail its callback or DOM installation.
+            // Consumers that must wait for rendered state can check this in onComplete.
+            transport.updateSucceeded = false;
             // 1. Fire original onSuccess first
             if (origOnSuccess) origOnSuccess(transport);
 
             // 2. Update DOM (between onSuccess and onComplete)
             if (successContainer && transport.responseText != null) {
                 insertContent(successContainer, transport.responseText, insertion, evalScripts);
+                transport.updateSucceeded = true;
             }
         };
 

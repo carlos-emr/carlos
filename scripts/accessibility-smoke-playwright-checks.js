@@ -3,9 +3,21 @@
 'use strict';
 const {runWorkflow}=require('./lib/workflow-session');
 const {eachUiQualitySurface}=require('./lib/ui-quality-surfaces');
+const h=require('./lib/playwright-harness');
+function requireAxeCore(resolve=require.resolve) {
+  try { return resolve('axe-core/axe.min.js'); }
+  catch(error) {
+    if(error.code==='MODULE_NOT_FOUND') throw new h.SkipCheck('accessibility-smoke requires axe-core@4.14.0; install the pinned dependency from the Debian validation runbook');
+    throw error;
+  }
+}
+function preflightConfig({resolve=require.resolve}={}) {
+  return requireAxeCore(resolve);
+}
 async function workflow(s) {
+  const axePath=requireAxeCore();
   await eachUiQualitySurface(s,async(label,page)=>s.step(`${label}: report accessibility rules`,async()=>{
-    await page.addScriptTag({path:require.resolve('axe-core/axe.min.js')});
+    await page.addScriptTag({path:axePath});
     const report=await page.evaluate(async()=>{
       const result=await window.axe.run(document,{resultTypes:['violations','incomplete'],preload:false});
       // Report rules and counts only. Axe's HTML and accessible-name fields can
@@ -16,5 +28,5 @@ async function workflow(s) {
     console.log(JSON.stringify({surface:label,...report}));
   }));
 }
-if(require.main===module)runWorkflow('accessibility-smoke',workflow,{openPatient:true});
-module.exports={workflow};
+if(require.main===module)runWorkflow('accessibility-smoke',workflow,{openPatient:true,preflightConfig});
+module.exports={workflow,preflightConfig,requireAxeCore};

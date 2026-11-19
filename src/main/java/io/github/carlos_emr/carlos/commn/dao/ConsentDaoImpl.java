@@ -59,10 +59,12 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
     @Override
     public Consent findByDemographicAndConsentTypeId(int demographic_no, int consentTypeId) {
         String sql = "select x from " + modelClass.getSimpleName()
-                + " x where x.demographicNo=?1 and x.consentTypeId=?2 AND x.deleted=false";
+                + " x where x.demographicNo=?1 and x.consentTypeId=?2 AND x.deleted=false"
+                + " ORDER BY x.optout DESC, x.explicit DESC, x.editDate DESC, x.id DESC";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demographic_no);
         query.setParameter(2, consentTypeId);
+        query.setMaxResults(1);
 
         Consent consent = getSingleResultOrNull(query);
         return consent;
@@ -71,10 +73,12 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
     @Override
     public Consent findByDemographicAndConsentType(int demographic_no, String consentType) {
         String sql = "select x from " + modelClass.getSimpleName()
-                + " x where x.demographicNo=?1 and x.consentType.type=?2";
+                + " x where x.demographicNo=?1 and x.consentType.type=?2 AND x.deleted=false"
+                + " ORDER BY x.optout DESC, x.explicit DESC, x.editDate DESC, x.id DESC";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demographic_no);
         query.setParameter(2, consentType);
+        query.setMaxResults(1);
 
         Consent consent = getSingleResultOrNull(query);
         return consent;

@@ -30,10 +30,10 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ page import="java.util.*,java.io.*,io.github.carlos_emr.carlos.lab.ca.all.util.KeyPairGen" %>
+<%@ page import="java.io.*, io.github.carlos_emr.carlos.lab.ca.all.util.KeyPairGen" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
@@ -73,7 +73,8 @@
             if (KeyPairGen.checkName(name)) {
                 message = "Failed: The oscar key pair has already been created";
                 error = "true";
-            } else if (KeyPairGen.createKeys(name, null).equals("success")) {
+            } else if ("success".equals(KeyPairGen.createKeys(name, null))) {
+                // Null-safe: createKeys answers null when it cannot generate or store the pair.
                 message = "CARLOS key pair created successfully";
             } else {
                 message = "Failed: Could not create the oscar key pair";
@@ -84,17 +85,23 @@
                 message = "Failed: Key pair has already been created for the service '" + name + "'";
                 error = "true";
             } else {
-                String clientKey = KeyPairGen.createKeys(name, type);
-                String oscarKey = KeyPairGen.getPublic();
+                // createClientKeys stores nothing unless the CARLOS key exists. A stored client key
+                // takes its service name, so a failed attempt could not be retried (#6009).
+                KeyPairGen.ClientKeys keys = KeyPairGen.createClientKeys(name, type);
 
-                if (clientKey == null) {
-                    message = "Failed: Could not create key pair";
+                if (keys.status() == KeyPairGen.ClientKeyStatus.CARLOS_KEY_MISSING) {
+                    message = "Failed: The CARLOS key pair has not been created yet. Create it first with the"
+                            + " service name 'oscar', then create the key pair for '" + name + "' again";
                     error = "true";
-                } else if (oscarKey == null) {
-                    message = "Failed: Could not retrieve public key from oscar";
+                } else if (keys.status() != KeyPairGen.ClientKeyStatus.CREATED) {
+                    // An unreadable or blank CARLOS key, or a failed save: the log says which.
+                    message = "Failed: Could not create key pair. The server log records the cause";
                     error = "true";
                 } else {
+                    String clientKey = keys.clientPrivateKey();
+                    String oscarKey = keys.carlosPublicKey();
 
+                    // The section titles are the key file format lab upload clients read: keep them.
                     String keyPairOut = "-------- Service Name --------\n" + name + "\n------------------------------\n" +
                             "----- Client Private Key -----\n" + clientKey + "\n------------------------------\n" +
                             "------ Oscar Public Key ------\n" + oscarKey + "\n------------------------------";
@@ -183,7 +190,7 @@
                                 <%
                                         } else {
                                 %>
-                                    <font color="red"><carlos:encode value='<%= message %>' context="html"/></font>
+                                    <span style="color: red;"><carlos:encode value='<%= message %>' context="html"/></span>
                                 <%
                                         }
                                     }
@@ -206,11 +213,11 @@
             <td>
                 <table>
                     <tr>
-                        <td>Your service name:</td>
+                        <td><label for="name">Your service name:</label></td>
                         <td><input type="text" id="name" name="name"></td>
                     </tr>
                     <tr>
-                        <td>Lab type:</td>
+                        <td><label for="selection">Lab type:</label></td>
                         <td><select name="type" id="selection" onClick="selectOther()">
                             <option value="ALPHA">ALPHA</option>
                             <option value="CML">CML</option>
@@ -239,7 +246,7 @@
                         </select></td>
                     </tr>
                     <tr id="OTHER" style="visibility: hidden;">
-                        <td>Please specify the other message type:</td>
+                        <td><label for="otherType">Please specify the other message type:</label></td>
                         <td><input type="text" id="otherType" name="otherType"></td>
                     </tr>
                 </table>

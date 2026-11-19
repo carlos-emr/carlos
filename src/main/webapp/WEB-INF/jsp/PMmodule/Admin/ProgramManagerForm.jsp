@@ -1,3 +1,4 @@
+<%@ page pageEncoding="UTF-8" contentType="text/html;charset=UTF-8" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%--
 
@@ -29,6 +30,13 @@
 
 --%>
 <%@ include file="/taglibs.jsp" %>
+<!doctype html>
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
+<head>
+    <meta charset="UTF-8">
+    <title>Program Management</title>
+</head>
+<body>
 <%@ include file="/WEB-INF/jsp/common/messages.jsp" %>
 <c:set var="selectedTab" value="${requestScope['view.tab']}"/>
 <c:if test="${empty selectedTab}">
@@ -93,6 +101,8 @@
     <input type="hidden" name="view.subtab" value="${carlos:forHtmlAttribute(param['view.subtab'])}"/>
     <input type="hidden" name="vacancyOrTemplateId" value="${carlos:forHtmlAttribute(requestScope.vacancyOrTemplateId)}"/>
 
+    <%-- Shared table assets once, ahead of whichever tab renders its fragment table. --%>
+    <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
     <c:choose>
         <c:when test="${selectedTab == 'Staff' && not empty requestScope.id}">
             <jsp:include page="/WEB-INF/jsp/PMmodule/Admin/ProgramEdit/staff.jsp"/>
@@ -129,3 +139,5 @@
         </c:otherwise>
     </c:choose>
 </form>
+</body>
+</html>

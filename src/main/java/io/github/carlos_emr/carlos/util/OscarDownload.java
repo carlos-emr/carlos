@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.util;
 import java.io.File;
 import java.io.IOException;
 import java.util.Set;
+import io.github.carlos_emr.CarlosProperties;
 
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,8 +39,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingFilenameImportDao;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingImportedFiles;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFileWriteException;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -52,6 +58,14 @@ public class OscarDownload extends GenericDownload {
             "homepath", "ohipdownload", "obecdownload"
     );
 
+    /**
+     * Serves a validated basename from an authenticated user's session-approved directory.
+     * Billing paths, including aliases to HOME_DIR, require reconciled import evidence
+     * before the response stream opens. Audited downloads serve a verified private
+     * snapshot so replacement of the billing pathname cannot change response bytes.
+     *
+     * @throws IOException if response or file IO fails
+     */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
@@ -65,7 +79,7 @@ public class OscarDownload extends GenericDownload {
                 return;
             }
             if (homepath == null || !ALLOWED_HOMEPATH_KEYS.contains(homepath)) {
-                log.warn("OscarDownload rejected invalid homepath key from {}", req.getRemoteAddr());
+                log.warn("OscarDownload rejected invalid homepath key from {}", LogSafe.sanitize(req.getRemoteAddr()));
                 res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download path key.");
                 return;
             }
@@ -80,19 +94,59 @@ public class OscarDownload extends GenericDownload {
             if (backupfilepath != null
                     && !backupfilepath.isEmpty()
                     && ((String) session.getAttribute("user")) != null) {
-                File downloadDir = new File(backupfilepath).getCanonicalFile();
+
+                File downloadDir;
+                try {
+                    downloadDir = new File(backupfilepath).getCanonicalFile(); // nosemgrep: semgrep.carlos.httpservlet-path-traversal -- Directory comes from an authenticated server-side session under one of three allowlisted keys; client filenames are strictly validated and contained separately below.
+                } catch (IOException unavailable) {
+                    res.sendError(HttpServletResponse.SC_NOT_FOUND, "Download file not found.");
+                    return;
+                }
                 if (!downloadDir.isDirectory()) {
-                    log.warn("OscarDownload rejected non-directory path from {}", req.getRemoteAddr());
+                    if (!downloadDir.exists()) {
+                        DownloadStorageWarnings.reportIfUnavailable(downloadDir);
+                        res.sendError(HttpServletResponse.SC_NOT_FOUND, "Download file not found.");
+                        return;
+                    }
+                    log.warn("OscarDownload rejected non-directory path from {}", LogSafe.sanitize(req.getRemoteAddr()));
                     res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download directory.");
                     return;
+                }
+                String billingHome = CarlosProperties.getInstance().getProperty("HOME_DIR");
+                boolean billingDirectory;
+                try {
+                    billingDirectory = billingHome != null && !billingHome.isBlank()
+                            && downloadDir.equals(new File(billingHome).getCanonicalFile());
+                } catch (IOException unavailable) {
+                    res.sendError(HttpServletResponse.SC_NOT_FOUND, "Download file not found.");
+                    return;
+                }
+                if ("ohipdownload".equals(homepath) || billingDirectory) {
+                    if (!filename.equals(rawFilename)) {
+                        requireBillingFile(rawFilename, PathValidationUtils.validatePath(rawFilename, downloadDir).toPath());
+                    }
+                    try (var reviewed = reviewedBillingFile(filename,
+                            PathValidationUtils.validatePath(filename, downloadDir).toPath())) {
+                        if (reviewed != null) {
+                            String headerFilename = filename.replaceAll("[\\r\\n\\p{Cntrl}]", "");
+                            res.setContentType("application/octet-stream");
+                            res.setHeader("X-Content-Type-Options", "nosniff");
+                            res.setHeader("Content-Disposition", "attachment;filename=\"" + headerFilename + "\"");
+                            res.setContentLengthLong(reviewed.size());
+                            reviewed.input().transferTo(res.getOutputStream()); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- verified binary response
+                            return;
+                        }
+                    }
                 }
                 ServletOutputStream stream = res.getOutputStream();
                 transferFile(res, stream, backupfilepath, filename);
             } else {
                 res.sendError(HttpServletResponse.SC_FORBIDDEN, "You have no right to download the file(s).");
             }
+        } catch (BillingFileWriteException e) {
+            sendErrorForCaughtException(res, HttpServletResponse.SC_CONFLICT, e.reason().publicMessage());
         } catch (FileValidationException e) {
-            log.warn("OscarDownload rejected invalid filename from {}", req.getRemoteAddr());
+            log.warn("OscarDownload rejected invalid filename from {}", LogSafe.sanitize(req.getRemoteAddr()));
             sendErrorForCaughtException(res, HttpServletResponse.SC_BAD_REQUEST, "Invalid filename parameter.");
         } catch (IOException e) {
             throw e;
@@ -103,6 +157,17 @@ public class OscarDownload extends GenericDownload {
                     "An internal error occurred. Please try again or contact your system administrator.");
             }
         }
+    }
+
+    protected void requireBillingFile(String filename, java.nio.file.Path path) {
+        BillingFilenameImportDao dao = SpringUtils.getBean(BillingFilenameImportDao.class);
+        BillingImportedFiles.requireResolved(dao.findFileReviews(filename), filename, path);
+    }
+
+    /** Opens the verified snapshot used for both validation and delivery of an audited file. */
+    protected BillingImportedFiles.ReviewedFile reviewedBillingFile(String filename, java.nio.file.Path path) {
+        BillingFilenameImportDao dao = SpringUtils.getBean(BillingFilenameImportDao.class);
+        return BillingImportedFiles.openReviewed(dao.findFileReviews(filename), filename, path);
     }
 
     private void sendErrorForCaughtException(HttpServletResponse res, int statusCode, String message) {

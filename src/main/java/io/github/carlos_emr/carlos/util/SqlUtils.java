@@ -34,103 +34,15 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.List;
 
-import io.github.carlos_emr.Misc;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 public class SqlUtils {
     private static Logger logger = MiscUtils.getLogger();
 
-
-    /**
-     * Returns a List of String[] which contain the results of the specified arbitrary query.
-     *
-     * @param qry String - The String SQL Query
-     * @return List - The List of String[] results or null if no results were yielded
-     */
-    public static List<String[]> getQueryResultsList(String qry) {
-        return getQueryResultsList(qry, new Object[0]);
-    }
-
-    /**
-     * Returns a List of String[] which contain the results of the specified parameterized query.
-     *
-     * @param qry    the SQL query with {@code ?} placeholders
-     * @param params the parameter values to bind
-     * @return the List of String[] results or null if no results were yielded
-     */
-    public static List<String[]> getQueryResultsList(String qry, Object... params) {
-        ArrayList<String[]> records = null;
-        ResultSet rs = null;
-
-        try {
-            records = new ArrayList<String[]>();
-
-            rs = LegacyJdbcQuery.getPreparedResultSet(
-                    LegacyJdbcQuery.trustedReportSelectSql(qry),
-                    params != null ? params : new Object[0]);
-            int cols = rs.getMetaData().getColumnCount();
-            while (rs.next()) {
-                String[] record = new String[cols];
-                for (int i = 0; i < cols; i++) {
-                    record[i] = Misc.getString(rs, i + 1);
-                }
-                records.add(record);
-            }
-        } catch (SQLException e) {
-            records = null;
-            MiscUtils.getLogger().error("Error", e);
-        }
-
-        if (rs != null) {
-            try {
-                rs.close();
-            } catch (SQLException ex1) {
-                MiscUtils.getLogger().error("Error", ex1);
-            }
-        }
-        if (records != null) {
-            records = records.isEmpty() ? null : records;
-        }
-        return records;
-    }
-
-    /**
-     * Returns a single row from a parameterized query result.
-     *
-     * @param qry    the SQL query with {@code ?} placeholders
-     * @param params the parameter values to bind
-     * @return String[] the first result row, or null if no results
-     */
-    public static String[] getRow(String qry, Object... params) {
-        String ret[] = null;
-        List<String[]> list = getQueryResultsList(qry, params);
-        if (list != null && !list.isEmpty()) {
-            ret = list.get(0);
-        }
-        return ret;
-    }
-
-    /**
-     * Returns a single row(the first row) from a quesry result Generally should only be used with queries that return a single result Returns null if there is no result
-     *
-     * @param qry String
-     * @return String[]
-     */
-    public static String[] getRow(String qry) {
-        String ret[] = null;
-        List<String[]> list = getQueryResultsList(qry);
-        if (list != null && !list.isEmpty()) {
-            ret = list.get(0);
-        }
-        return ret;
-    }
 
     /**
      * Creates an 'in' clause segment of an sql query. This is handy in cases where the criteria of a query is dynamic/unknown

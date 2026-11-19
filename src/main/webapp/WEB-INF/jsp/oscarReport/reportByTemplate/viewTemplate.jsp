@@ -32,13 +32,13 @@
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObject" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">
@@ -57,6 +57,7 @@
         <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
         <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
+        <link href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/reportByTemplateLayout.css" rel="stylesheet">
     </head>
     <%
         String templateid = request.getParameter("templateid");
@@ -69,7 +70,7 @@
         pageContext.setAttribute("curreport", curreport);
     %>
 
-    <body>
+    <body class="rbt-page">
 
     <%@ include file="rbtTopNav.jspf" %>
     <h3>

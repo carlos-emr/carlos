@@ -111,6 +111,7 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
         inject("dxresearchDao", mockDxresearchDao);
         inject("issueDao", mockIssueDao);
         inject("securityInfoManager", mockSecurityInfoManager);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), eq(123))).thenReturn(true);
     }
 
     private void inject(String fieldName, Object value) throws Exception {
@@ -213,6 +214,21 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldIdentifyThePersistedCodingSystem_withoutRecordingTheDiagnosisCode() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), any())).thenReturn(true);
+        IssueTo1 issue = new IssueTo1();
+        issue.setType("icd9");
+        issue.setCode("PRIVATE_DIAGNOSIS_CODE");
+        org.mockito.Mockito.doAnswer(call -> { ((Dxresearch) call.getArgument(0)).setDxresearchNo(81); return null; })
+                .when(mockDxresearchDao).persist(any(Dxresearch.class));
+        service.addToDiseaseRegistry(123, issue);
+        var data = org.mockito.ArgumentCaptor.forClass(String.class);
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(any(LoggedInInfo.class),
+                eq("Dxresearch.add"), eq("dxresearch"), eq("81"), eq("123"), data.capture()));
+        assertThat(data.getValue()).contains("dxresearchId=81", "codingSystem=icd9").doesNotContain("PRIVATE_DIAGNOSIS_CODE");
+    }
+
+    @Test
     @DisplayName("should not persist duplicate entry when an active entry already exists")
     @Tag("create")
     void shouldNotPersistDuplicate_whenActiveEntryAlreadyExists() {
@@ -235,8 +251,8 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> service.addToDiseaseRegistry(123, new IssueTo1()))
-            .isInstanceOf(SecurityException.class)
-            .hasMessage("missing required sec object (_newCasemgmt.DxRegistry)");
+            .isInstanceOf(jakarta.ws.rs.ForbiddenException.class)
+            .hasMessage("Patient module access denied");
 
         verify(mockDxresearchDao, never()).activeEntryExists(anyInt(), anyString(), anyString());
         verify(mockDxresearchDao, never()).persist(any());
@@ -262,8 +278,8 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> service.getDiseaseRegistry(123))
-            .isInstanceOf(SecurityException.class)
-            .hasMessage("missing required sec object (_newCasemgmt.DxRegistry)");
+            .isInstanceOf(jakarta.ws.rs.ForbiddenException.class)
+            .hasMessage("Patient module access denied");
 
         verify(mockDxresearchDao, never()).getByDemographicNo(anyInt());
     }

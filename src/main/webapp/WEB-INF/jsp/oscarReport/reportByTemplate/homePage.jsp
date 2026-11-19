@@ -33,10 +33,11 @@
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*,io.github.carlos_emr.carlos.managers.RBTGroupManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.RBTGroup" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObject" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -62,9 +63,10 @@
         <script src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
         <script src="${pageContext.servletContext.contextPath}/js/global.js"></script>
 
+        <link href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/reportByTemplateLayout.css" rel="stylesheet">
     </head>
 
-    <body>
+    <body class="rbt-page">
 
     <%@ include file="rbtTopNav.jspf" %>
 
@@ -93,7 +95,7 @@
                             }
                     %>
 
-                    <option value="<%=value%>"><%=templateGroups.get(i)%>
+                    <option value="<%=value%>"><%=SafeEncode.forHtmlContent(templateGroups.get(i))%>
                     </option>
                     <% }%>
                 </select>

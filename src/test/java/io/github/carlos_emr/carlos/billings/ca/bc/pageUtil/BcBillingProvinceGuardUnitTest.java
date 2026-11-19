@@ -154,6 +154,8 @@ class BcBillingProvinceGuardUnitTest extends CarlosUnitTestBase {
     @DisplayName("should preserve each route's view and billing privilege on a BC install")
     void shouldOpenPage_withBcSchemaAndPrivilege(Route route, String region) throws Exception {
         when(properties.getProperty("billregion", "")).thenReturn(region);
+        // The internal statement dispatch retains its prepared model; standalone bookmarks redirect.
+        if (route == Route.PRIVATE_STATEMENT) request.setAttribute("bills", java.util.List.of());
 
         assertThat(route.action.get().execute()).isEqualTo(route.result);
         assertThat(response.getStatus()).isEqualTo(200);

@@ -29,8 +29,8 @@
 
 --%>
 
-<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="java.util.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+
 <%@ page import="java.util.ResourceBundle" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -42,7 +42,7 @@
 <%@page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     EncounterTemplateDao encounterTemplateDao = SpringUtils.getBean(EncounterTemplateDao.class);

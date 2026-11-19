@@ -40,9 +40,17 @@ ran those updates they surface through preflight's unknown-table flow (B2,
 archive-by-default).
 """
 
-# Nullable Program flags no longer need primitive coercion during import.
+# Consent value expressions now retire undecided records and duplicate history.
 # Refuse resuming a partially applied import under the previous conversion rules.
-SCHEMA_MAP_VERSION = "o19map-5"
+SCHEMA_MAP_VERSION = "o19map-8"
+
+# Every colliding member receives a new name: an old shared file cannot be
+# assigned to a particular submission from its basename alone. CLI 1.3.2
+# builds and independently verifies these helpers and the live audit.
+BILLING_FILENAME_RULES = {
+    "billing_on_diskname": "o19-billing-v1",
+    "billing_on_filename": "o19-billing-v1",
+}
 
 #: Provinces the import verb will actually RUN, as opposed to provinces
 #: the package carries a profile for (generate_manifests.PROVINCES).
@@ -220,6 +228,15 @@ SEED_COUNT_DELETIONS = {
     "secObjPrivilege": 1,
 }
 
+# These literal SELECT seeds both add one row on a fresh Flyway installation,
+# whose admin role already has _admin=x. They are not VALUES tuples. The native
+# CDS permission contract verifies the real row count and evaluator behavior.
+# Existing installations retain every explicit grant or denial.
+SEED_COUNT_ADDITIONS = {
+    # Release V1.0.59.41 independent export, V1.0.59.43 independent import.
+    "secObjPrivilege": 2,
+}
+
 # Rows the CARLOS webapp creates on its FIRST START (ContextStartupListener:
 # the OSCAR program with a membership for the seeded clinician, and the
 # default site). A packaged host has booted before the import runs, so P0
@@ -287,7 +304,12 @@ CREDENTIAL_TABLES = ["ServiceClient", "ServiceAccessToken", "oscarKeys", "public
 # Later O19 clinics have it: include it in the manifest so effective_entry copies
 # their setting, rather than treating it as a vendor column to archive. The CLI
 # supplies -1 ONLY when this column is absent (the early O19 issuance behavior).
-SOURCE_OPTIONAL_COLUMNS = {"ServiceClient": {"lifetime"}}
+SOURCE_OPTIONAL_COLUMNS = {
+    "ServiceClient": {"lifetime"},
+    # The pinned early O19 baseline predates this column. Later clinics
+    # carry it; NULL and each known enum value must arrive unchanged.
+    "DigitalSignature": {"ModuleType"},
+}
 
 # The claim header P7 aggregates by fiscal year, per province. It is the
 # money check -- the one verification an operator's accountant will ask
@@ -334,6 +356,8 @@ CLAIM_HEADER_TABLE = {
 #   where the CARLOS schema has no such table and the clinic's rows must
 #   be preserved.
 PROVINCE_SCOPED = {
+    "billing_on_diskname": "on",
+    "billing_on_filename": "on",
     # live in the CARLOS BC schema; removed from the Ontario one
     "formBCAR2007": "on",
     # Ontario billing and lab stacks: no BC install carries them
@@ -696,9 +720,10 @@ NOT_RENAMES = {
     ("drugs", "dispensingUnits"): (
         "curated B3 drop; CARLOS's demographic_contact_id/protocol/"
         "priorRxProtocol/pharmacyId and CDS currentness, exact dose text and "
-        "projection-completeness metadata are additions, not dispensing units",
+        "projection-completeness metadata and the native optimistic-lock counter "
+        "are additions, not dispensing units",
         ("demographic_contact_id", "protocol", "priorRxProtocol",
-         "pharmacyId", "cds_currentness", "cds_dose_text", "cds_projection_incomplete")),
+         "pharmacyId", "cds_currentness", "cds_dose_text", "cds_projection_incomplete", "row_version")),
 
     # The eRx module CARLOS removed. CARLOS's defaultBillingLocation and
     # defaultSliCode are unrelated additions.
@@ -832,6 +857,12 @@ CARLOSDOC_SEED_DELETES = [
 # synthesizes for them (SQL over the staging row alias `s`). The ETL
 # pre-check aborts naming any such column that lacks an entry here.
 VALUE_EXPRS = {
+    "billing_on_diskname": {
+        "ohipfilename": "(SELECT f.`imported_filename` FROM {archive}.`billing_on_diskname__filenames` f WHERE f.`row_id` = s.`id`)",
+    },
+    "billing_on_filename": {
+        "htmlfilename": "(SELECT f.`imported_filename` FROM {archive}.`billing_on_filename__filenames` f WHERE f.`row_id` = s.`id`)",
+    },
     # uid groups pharmacy record revisions in CARLOS; each imported O19
     # pharmacy heads its own group.
     "pharmacyInfo": {"uid": "s.`recordID`"},
@@ -852,6 +883,21 @@ VALUE_EXPRS = {
     # property merges on (name, provider_no); O19 writes '' where CARLOS
     # writes NULL for a global key, so both spell the key the same way
     "property": {"provider_no": "NULLIF(s.`provider_no`, '')"},
+    # CARLOS keeps one LIVE Consent row per patient and consent type
+    # (uq_consent_live_type, #3845); an OSCAR 19 clinic can hold several,
+    # and NULL flags. `deleted` is read from the o19_archive helper the
+    # ETL builds before this copy (o19etl.consent_live_statements), which
+    # ranks the live rows by the application's own rule and retires the
+    # rest; `{archive}` is filled by o19etl.source_expr. A NULL optout is
+    # no recorded decision: the helper retires the row and it is stored
+    # as an opt-out, so a row restored by hand later fails safe. So does
+    # the lookup: a row the helper does not know arrives retired (the
+    # ETL refuses to copy at all when there is one).
+    "Consent": {
+        "optout": "COALESCE(s.`optout`, 1)",
+        "deleted": "COALESCE((SELECT r.`deleted` FROM "
+                   "{archive}.`Consent__live` r WHERE r.`id` = s.`id`), 1)",
+    },
 }
 
 SEED_PROVIDER_NO = "999998"

@@ -21,7 +21,9 @@
  */
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.dao.DemographicCustDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
@@ -32,6 +34,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -41,6 +45,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -58,6 +63,10 @@ class DemographicAddRecord2ActionTest extends CarlosWebTestBase {
 
     @Mock
     private DemographicDao mockDemographicDao;
+    @Mock
+    private DemographicCustDao mockDemographicCustDao;
+    @Mock
+    private WaitingListDao mockWaitingListDao;
 
     private AutoCloseable mockCloseable;
     private DemographicAddRecord2Action action;
@@ -82,6 +91,22 @@ class DemographicAddRecord2ActionTest extends CarlosWebTestBase {
         java.lang.reflect.Field demographicDaoField = DemographicAddRecord2Action.class.getDeclaredField("demographicDao");
         demographicDaoField.setAccessible(true);
         demographicDaoField.set(action, mockDemographicDao);
+
+        java.lang.reflect.Field custDaoField = DemographicAddRecord2Action.class.getDeclaredField("demographicCustDao");
+        custDaoField.setAccessible(true);
+        custDaoField.set(action, mockDemographicCustDao);
+
+        java.lang.reflect.Field waitingListDaoField = DemographicAddRecord2Action.class.getDeclaredField("waitingListDao");
+        waitingListDaoField.setAccessible(true);
+        waitingListDaoField.set(action, mockWaitingListDao);
+    }
+
+    private void postValidNewPatient() {
+        allowPrivilege("_demographic", "w");
+        mockRequest.setMethod("POST");
+        addRequestParameter("last_name", "FAKE-PATIENT");
+        addRequestParameter("first_name", "Check");
+        addRequestParameter("sex", "F");
     }
 
     @AfterEach
@@ -89,6 +114,72 @@ class DemographicAddRecord2ActionTest extends CarlosWebTestBase {
         if (mockCloseable != null) {
             mockCloseable.close();
         }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"pronouns,Pronouns,A", "gender,Gender,A", "pronouns,Pronouns,😀", "gender,Gender,😀"})
+    void shouldRejectOverlongFields_whenPostedWithoutBrowserValidation(String field, String label, String character) throws Exception {
+        allowPrivilege("_demographic", "w");
+        mockRequest.setMethod("POST");
+        addRequestParameter("last_name", "FAKE-PATIENT");
+        addRequestParameter("first_name", "Check");
+        addRequestParameter("sex", "F");
+        String invalid = character.repeat(26);
+        addRequestParameter(field, invalid);
+
+        assertThat(executeAction(action)).isEqualTo("validationError");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(mockRequest.getAttribute("fieldLengthValidationErrors"))
+                .isEqualTo(List.of(label + " exceeds maximum length of 25 characters."));
+        verify(mockDemographicDao, never()).save(any(Demographic.class));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"cust3,Alert,A", "cust1,Nurse,A", "cust2,Resident,A", "cust4,Midwife,A",
+            "cust3,Alert,😀", "cust4,Midwife,😀"})
+    void shouldRejectOverlongCustomFields_beforeAnyWrite(String field, String label, String character) throws Exception {
+        // Issue #5869: these VARCHAR(255) fields were cut silently under an empty sql_mode.
+        postValidNewPatient();
+        addRequestParameter(field, character.repeat(256));
+
+        assertThat(executeAction(action)).isEqualTo("validationError");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(mockRequest.getAttribute("fieldLengthValidationErrors"))
+                .isEqualTo(List.of(label + " exceeds maximum length of 255 characters."));
+        verify(mockDemographicDao, never()).save(any(Demographic.class));
+        verifyNoInteractions(mockDemographicCustDao, mockWaitingListDao);
+    }
+
+    @Test
+    @DisplayName("should refuse a waiting-list note over 255 characters when a list is chosen")
+    void shouldRejectOverlongWaitingListNote_whenAListIsChosen() throws Exception {
+        postValidNewPatient();
+        addRequestParameter("list_id", "12");
+        addRequestParameter("waiting_list_note", "😀".repeat(256));
+
+        assertThat(executeAction(action)).isEqualTo("validationError");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(mockRequest.getAttribute("fieldLengthValidationErrors"))
+                .isEqualTo(List.of("Waiting list note exceeds maximum length of 255 characters."));
+        verify(mockDemographicDao, never()).save(any(Demographic.class));
+        verifyNoInteractions(mockDemographicCustDao, mockWaitingListDao);
+    }
+
+    @ParameterizedTest
+    // An empty list_id is what the form posts when no list is picked: like "0", no note is checked.
+    @CsvSource({"12,255", "0,256", "'',256"})
+    void shouldNotReportTheNote_whenItFitsOrNoListIsChosen(String listId, int noteLength) throws Exception {
+        postValidNewPatient();
+        addRequestParameter("cust3", "😀".repeat(255));
+        addRequestParameter("list_id", listId);
+        addRequestParameter("waiting_list_note", "A".repeat(noteLength));
+        // An over-long year of birth stops the save at validation, before any write.
+        addRequestParameter("year_of_birth", "20255");
+
+        assertThat(executeAction(action)).isEqualTo("validationError");
+        assertThat(mockRequest.getAttribute("fieldLengthValidationErrors"))
+                .isEqualTo(List.of("Year of birth exceeds maximum length of 4 characters."));
+        verify(mockDemographicDao, never()).save(any(Demographic.class));
     }
 
     @Test

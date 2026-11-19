@@ -63,6 +63,42 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
     private PatientConsentManagerImpl manager;
     private LoggedInInfo loggedInInfo;
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"add", "edit", "optout", "byType", "all", "delete"})
+    void shouldPreserveLegacyDenialResponse_forConsentOperations(String operation) {
+        lenient().when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class),
+                eq("_demographic"), anyString(), anyInt())).thenReturn(false);
+        lenient().when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class),
+                eq("_demographic"), anyString(), nullable(String.class))).thenReturn(false);
+        Throwable denied = catchThrowable(() -> {
+            switch (operation) {
+                case "add" -> manager.addConsent(loggedInInfo, 100, 1, true, false);
+                case "edit" -> manager.addEditConsentRecord(loggedInInfo, 100, 1, true, false);
+                case "optout" -> manager.optoutConsent(loggedInInfo, 10);
+                case "byType" -> manager.getConsentByDemographicAndConsentType(loggedInInfo, 100, new ConsentType());
+                case "all" -> manager.getAllConsentsByDemographic(loggedInInfo, 100);
+                case "delete" -> manager.deleteConsent(loggedInInfo, 100, 1);
+                default -> throw new AssertionError("Unknown test operation");
+            }
+        });
+        assertThat(denied).isInstanceOf(RuntimeException.class)
+                .isNotInstanceOf(SecurityException.class).isNotInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Unauthorised Access. Object[_demographic]");
+        verifyNoInteractions(mockConsentDao, mockConsentTypeDao);
+        var mapper = new io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.GeneralExceptionMapper();
+        try (var actual = mapper.toResponse((Exception) denied);
+             var legacy = mapper.toResponse(new RuntimeException("Unauthorised Access. Object[_demographic]"))) {
+            assertThat(actual.getStatus()).isEqualTo(legacy.getStatus()).isEqualTo(500);
+            assertThat(actual.getMediaType()).isEqualTo(legacy.getMediaType());
+            assertThat(actual.getEntity()).usingRecursiveComparison().ignoringFields("timestamp")
+                    .isEqualTo(legacy.getEntity());
+            assertThat(actual.getEntity()).extracting("timestamp").asString()
+                    .matches("[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z");
+            assertThat(legacy.getEntity()).extracting("timestamp").asString()
+                    .matches("[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z");
+        }
+    }
+
     @BeforeEach
     void setUp() {
         registerMock(ConsentDao.class, mockConsentDao);
@@ -91,6 +127,49 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         ct.setType(type);
         ct.setActive(true);
         return ct;
+    }
+
+    @Test
+    void shouldRefuseAnEditedConsentQuery_whenTheConsentTypeIsAbsent() {
+        Date editedAfter = new Date(0);
+        assertThatThrownBy(() -> manager.getConsentsByTypeAndEditDate(loggedInInfo, null, editedAfter))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("consent type");
+        verifyNoInteractions(mockConsentDao, mockConsentTypeDao);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldPreserveTheEditedConsentQuery_whenTheSpecifiedTypeIsInactive() {
+        ConsentType type = createActiveConsentType(7, "FAKE historical consent");
+        type.setActive(false);
+        Date editedAfter = new Date(0);
+        List<Consent> consents = List.of(new Consent());
+        when(mockConsentDao.findLastEditedByConsentTypeId(7, editedAfter)).thenReturn(consents);
+
+        assertThat(manager.getConsentsByTypeAndEditDate(loggedInInfo, type, editedAfter)).isSameAs(consents);
+
+        verify(mockConsentDao).findLastEditedByConsentTypeId(7, editedAfter);
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(loggedInInfo,
+                "PatientConsentManager.getConsentsByTypeAndEditDate", " Demographic: " + type));
+    }
+
+    @Test
+    void shouldIdentifyThePatientInTheAudit_whenConsentListIsRead() {
+        when(mockConsentDao.findByDemographic(101)).thenReturn(List.of());
+        assertThat(manager.getAllConsentsByDemographic(loggedInInfo, 101)).isEmpty();
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(
+                loggedInInfo, "PatientConsentManager.getAllConsentsByDemographic", null, null,
+                "101", " Demographic: 101"));
+    }
+
+    @Test
+    void shouldWithholdConsentResults_whenAuditPersistenceFails() {
+        when(mockConsentDao.findByDemographic(101)).thenReturn(List.of());
+        RuntimeException failure = new IllegalStateException("audit unavailable");
+        logActionMock.when(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(
+                loggedInInfo, "PatientConsentManager.getAllConsentsByDemographic", null, null,
+                "101", " Demographic: 101")).thenThrow(failure);
+        assertThatThrownBy(() -> manager.getAllConsentsByDemographic(loggedInInfo, 101)).isSameAs(failure);
     }
 
     private void setConsentId(Consent consent, Integer id) {
@@ -337,6 +416,36 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
     @Nested
     @DisplayName("addConsentType")
     class AddConsentType {
+
+        @Test
+        void shouldAuditThePersistedConsentTypeId_afterIdentityAssignment() {
+            ConsentType consentType = new ConsentType();
+            consentType.setType("FAKE_AUDIT_TYPE");
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"),
+                    eq(SecurityInfoManager.WRITE), nullable(String.class))).thenReturn(true);
+            when(loggedInInfo.getLoggedInProviderNo()).thenReturn("900001");
+            doAnswer(call -> { consentType.setId(817); return null; }).when(mockConsentTypeDao).persist(consentType);
+
+            manager.addConsentType(loggedInInfo, consentType);
+
+            var data = org.mockito.ArgumentCaptor.forClass(String.class);
+            logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(eq("900001"),
+                    eq("PatientConsentManager.addConsentType"), eq("FAKE_AUDIT_TYPE"), data.capture()));
+            assertThat(data.getValue()).isEqualTo("consentTypeId=817");
+        }
+
+        @Test
+        void shouldWriteNoCreationAudit_whenConsentTypePersistenceFails() {
+            ConsentType consentType = new ConsentType();
+            consentType.setType("FAKE_AUDIT_TYPE");
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"),
+                    eq(SecurityInfoManager.WRITE), nullable(String.class))).thenReturn(true);
+            doThrow(new IllegalStateException("FAKE persistence failure")).when(mockConsentTypeDao).persist(consentType);
+
+            assertThatThrownBy(() -> manager.addConsentType(loggedInInfo, consentType))
+                    .isInstanceOf(IllegalStateException.class);
+            logActionMock.verifyNoInteractions();
+        }
 
         @Test
         @DisplayName("should persist consent type and return it")

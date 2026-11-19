@@ -44,7 +44,8 @@ function fixtureSql(name = 'schedule-links', property = [row(3, 'cpp_single_line
     execute(query) { writes.push(query); current = structuredClone(baseline); },
   };
   const fixture = providerNavigationFixture(sql, 'fixture', name);
-  return {fixture, writes, reads, entryMode() { current.property = [row(8, 'incoming_document_entry_mode', 'Normal')]; },
+  return {fixture, writes, reads, queueDefault(value = '1') { current.property = [row(8, 'incoming_document_default_queue', value)]; },
+    entryMode() { current.property = [row(8, 'incoming_document_entry_mode', 'Normal')]; },
     viewMode(value = 'Pdf') { current.property = [row(8, 'view_document_as', value)]; },
     tamper() { current.ProviderPreference[0][0] = hex('77'); },
     addForm() { current.ProviderPreferenceAppointmentScreenForm.push(['999998', 'unexpected form'].map(hex)); }, change(group = '123456') {
@@ -104,6 +105,32 @@ test('Inboxhub-only checks preserve only the queue property and do not inspect p
   assert.ok(f.reads.every(query => !query.includes('ProviderPreference')));
   assert.match(f.reads.find(query => query.startsWith('SELECT JSON_ARRAY')), /name IN \('incoming_document_default_queue'\)/);
 });
+
+for (const name of ['inboxhub-filters', 'inbox-document-dates', 'xss-poison-documents-inbox',
+  'inbox-file-forward', 'inbox-acknowledge-per-provider', 'document-viewer-review-actions', 'document-format-matrix']) {
+  test(`${name} removes only the owned queue preference initialized by its first Inbox visit`, () => {
+    const f = fixtureSql(name, []);
+    f.queueDefault(); f.fixture.cleanup();
+    assert.equal(f.writes.length, 1);
+    assert.match(f.writes[0], /DELETE FROM property[^;]*id=UNHEX\('38'\)/);
+    assert.match(f.writes[0], /WHERE BINARY `provider_no`=BINARY '999998' AND name IN \('incoming_document_default_queue'\)/);
+    assert.ok(f.reads.every(query => !query.includes('ProviderPreference')));
+    f.fixture.cleanup();
+    assert.equal(f.writes.length, 1, 'cleanup must remain idempotent');
+  });
+  test(`${name} restores a preexisting NULL queue preference without deleting its identity`, () => {
+    const f = fixtureSql(name, [row(8, 'incoming_document_default_queue', null)]);
+    f.queueDefault(); f.fixture.cleanup();
+    assert.match(f.writes[0], /UPDATE property SET value=NULL[^;]*id=UNHEX\('38'\)/);
+    assert.doesNotMatch(f.writes[0], /DELETE FROM property/);
+  });
+  test(`${name} refuses cleanup of an unexpected queue change`, () => {
+    const f = fixtureSql(name, []);
+    f.queueDefault('2');
+    assert.throws(() => f.fixture.cleanup(), /Unexpected navigation property change/);
+    assert.equal(f.writes.length, 0);
+  });
+}
 
 test('the MRP filing check removes a first-read Normal entry mode without touching other preferences', () => {
   const f = fixtureSql('incoming-docs-delete-pdf-mrp', []);

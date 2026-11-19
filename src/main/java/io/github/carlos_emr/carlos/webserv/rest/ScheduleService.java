@@ -107,6 +107,8 @@ import org.w3c.dom.Document;
 @Consumes(MediaType.APPLICATION_JSON)
 public class ScheduleService extends AbstractServiceImpl {
 
+    public static final String APPOINTMENT_WRITE_MODE_HEADER = "X-Carlos-Appointment-Write-Mode";
+
     private static final String MISSING_FILTER_DEFINITION_SENTINEL = "<missing filterDefinition>";
     private static final String MISSING_FILTER_KEY_SENTINEL = "<missing filterClassName>";
     private static final String MISSING_PROVIDER_SENTINEL = "<missing provider>";
@@ -155,14 +157,16 @@ public class ScheduleService extends AbstractServiceImpl {
             if ("today".equals(date)) {
                 dateObj = new Date();
             } else {
-                dateObj = IsoDates.parseIso8601Date(date);
+                dateObj = IsoDates.parseStrictDate(date);
             }
 
             if ("".equals(providerNo)) {
                 providerNo = loggedInInfo.getLoggedInProviderNo();
             }
 
+            if (!securityInfoManager.hasPrivilegeReadOnly(getLoggedInInfo(), "_appointment", "r", null)) throw new jakarta.ws.rs.ForbiddenException("Appointment access denied");
             List<Appointment> appts = scheduleManager.getDayAppointments(loggedInInfo, providerNo, dateObj);
+            appts = io.github.carlos_emr.carlos.managers.AppointmentPatientAccess.readable(loggedInInfo, securityInfoManager, appts, Appointment::getDemographicNo);
             List<Integer> demographicIds = new ArrayList<>();
             for (Appointment appt : appts) {
                 if (appt.getDemographicNo() != 0) {
@@ -189,7 +193,7 @@ public class ScheduleService extends AbstractServiceImpl {
                 response.getPatients().add(item);
             }
         } catch (ParseException e) {
-            throw new RuntimeException("Invalid Date sent, use yyyy-MM-dd format");
+            throw new jakarta.ws.rs.BadRequestException("Date must use yyyy-MM-dd");
         }
         return response.getPatients().toArray(new PatientListApptItemBean[response.getPatients().size()]);
     }
@@ -218,6 +222,8 @@ public class ScheduleService extends AbstractServiceImpl {
             throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         }
 
+        if (appointmentTo == null) throw new jakarta.ws.rs.BadRequestException("Appointment payload is required");
+        io.github.carlos_emr.carlos.managers.AppointmentPatientAccess.require(getLoggedInInfo(), securityInfoManager, appointmentTo.getDemographicNo(), "w");
         SchedulingResponse response = new SchedulingResponse();
 
         NewAppointmentConverter converter = new NewAppointmentConverter();
@@ -238,11 +244,16 @@ public class ScheduleService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public SchedulingResponse getAppointment(AppointmentTo1 appointmentTo) {
+        if (appointmentTo == null || appointmentTo.getId() == null) {
+            throw new jakarta.ws.rs.BadRequestException("Appointment id is required");
+        }
         SchedulingResponse response = new SchedulingResponse();
 
-        AppointmentConverter converter = new AppointmentConverter(true, true);
-
         Appointment appt = appointmentManager.getAppointment(getLoggedInInfo(), appointmentTo.getId());
+        if (appt == null) {
+            throw new jakarta.ws.rs.NotFoundException("Appointment not found");
+        }
+        AppointmentConverter converter = new AppointmentConverter(true, true);
 
         response.setAppointment(converter.getAsTransferObject(getLoggedInInfo(), appt));
 
@@ -258,6 +269,9 @@ public class ScheduleService extends AbstractServiceImpl {
             return Response.status(Response.Status.FORBIDDEN).build();
         }
 
+        if (appointmentTo == null || appointmentTo.getId() == null || appointmentTo.getId() <= 0) {
+            throw new jakarta.ws.rs.BadRequestException("Appointment id is required");
+        }
         appointmentManager.deleteAppointment(getLoggedInInfo(), appointmentTo.getId());
 
         return Response.status(Status.OK).build();
@@ -279,6 +293,7 @@ public class ScheduleService extends AbstractServiceImpl {
 
         SchedulingResponse response = new SchedulingResponse();
         AppointmentConverter converter = new AppointmentConverter();
+        io.github.carlos_emr.carlos.managers.AppointmentPatientAccess.require(getLoggedInInfo(), securityInfoManager, appointmentTo.getDemographicNo(), "w");
         Appointment appt = updateVersionedAppointment(appointmentTo.getId(), appointmentTo,
                 current -> converter.applyEditableProperties(appointmentTo, current));
 
@@ -293,7 +308,7 @@ public class ScheduleService extends AbstractServiceImpl {
         }
         try {
             // Validation and all mutations run under the shared manager's row lock.
-            return scheduleManager.updateAppointment(getLoggedInInfo(), id, submitted.getEditVersion(), edit);
+            return scheduleManager.updateAppointment(getLoggedInInfo(), id, appointmentWriteVersion(submitted), edit);
         } catch (AppointmentUpdateException e) {
             Status status = switch (e.getReason()) {
                 case MISSING_VERSION -> Status.BAD_REQUEST;
@@ -311,6 +326,12 @@ public class ScheduleService extends AbstractServiceImpl {
     @Consumes("application/json")
     @Produces("application/json")
     public SchedulingResponse findExistAppointments(@PathParam("demographicNo") Integer demographicNo) {
+        LoggedInInfo actor = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(actor, "_appointment", "r", (String) null)) {
+            throw new jakarta.ws.rs.ForbiddenException();
+        }
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.require(
+                actor, securityInfoManager, "_appointment", "r", demographicNo);
         SchedulingResponse response = new SchedulingResponse();
         List<AppointmentTo1> appts = getAppointmentHistoryWithoutDeleted(demographicNo);
 
@@ -327,6 +348,18 @@ public class ScheduleService extends AbstractServiceImpl {
     }
 
     private Map<Integer, BillingDetailTo1> getAppointmentIdToBillingDetailMap(Integer demographicNo) {
+        // The billing detail comes from billing_on_cheader1, which only the Ontario schema creates
+        // (migration/on). Elsewhere the read would fail on the missing table and take the whole
+        // appointment history down with it, so history is returned without billing detail (#3642).
+        if (!io.github.carlos_emr.CarlosProperties.getInstance().isOntarioBillingRegion()) {
+            return Map.of();
+        }
+        LoggedInInfo actor = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilegeReadOnly(actor, "_billing", "r", (String) null)
+                || !securityInfoManager.hasPrivilegeReadOnly(actor, "_billing", "r", demographicNo.toString())
+                || !securityInfoManager.isAllowedAccessToPatientRecord(actor, demographicNo)) {
+            return Map.of();
+        }
         // findByDemoNoWithItems eagerly fetches each header's billingItems —
         // BillingDetailConverter copies the collection into the REST DTO,
         // which would otherwise trip a LazyInitializationException now that
@@ -513,14 +546,19 @@ public class ScheduleService extends AbstractServiceImpl {
             Date sDate = null;
             Date eDate = null;
             try {
-                sDate = IsoDates.parseIso8601Date(sDateStr);
-                eDate = IsoDates.parseIso8601Date(eDateStr);
+                sDate = IsoDates.parseStrictDate(sDateStr);
+                eDate = IsoDates.parseStrictDate(eDateStr);
             } catch (Exception e) {
                 throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity("Path parameter has the wrong format").build());
             }
 
+            if (!securityInfoManager.hasPrivilegeReadOnly(getLoggedInInfo(), "_appointment", "r", null)) throw new jakarta.ws.rs.ForbiddenException("Appointment access denied");
             List<Object[]> items = scheduleManager.listAppointmentsByPeriodProvider(getLoggedInInfo(), sDate, eDate, providers);
 
+            items = io.github.carlos_emr.carlos.managers.AppointmentPatientAccess.readable(getLoggedInInfo(), securityInfoManager, items, row -> {
+                if (row.length <= 4 || !(row[4] instanceof Integer)) throw new IllegalStateException("Appointment row has no patient identity");
+                return (Integer) row[4];
+            });
             AppointmentExtResponse response = new AppointmentExtResponse();
             if (items != null && items.size() > 0) {
                 if (response.getContent() == null) response.setContent(new ArrayList<AppointmentExtTo>());
@@ -557,11 +595,34 @@ public class ScheduleService extends AbstractServiceImpl {
             }
 
             return response;
+        } catch (WebApplicationException e) {
+            throw e;
         } catch (Exception e) {
-            logger.error("ScheduleService.listAppointmentsByPeriodProvider error", e);
+            logger.error("ScheduleService.listAppointmentsByPeriodProvider failed trace={}", io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(e));
             throw new WebApplicationException(Response.status(Status.INTERNAL_SERVER_ERROR).entity("Internal server error").build());
         }
 
+    }
+
+    /**
+     * Explicit echo compatibility never silently opts a guarded caller out of conflict detection.
+     *
+     * <p>The header is read from the request being served, not from an injected {@code @Context}
+     * field: on the deployed, proxied resource such a field is never populated, and every request
+     * then looked as if it carried no header (see {@link AbstractServiceImpl#getRequestHeader}).</p>
+     */
+    private String appointmentWriteVersion(AppointmentTo1 submitted) {
+        List<String> modes = getRequestHeader(APPOINTMENT_WRITE_MODE_HEADER);
+        String version = submitted.getEditVersion();
+        if (modes == null) return version; // Preserve the existing token-aware/no-token behavior.
+        if (modes.size() != 1) throw new jakarta.ws.rs.BadRequestException("Invalid appointment write mode");
+        String mode = modes.getFirst();
+        if ("legacy-echo".equals(mode)) return null;
+        if (!"guarded".equals(mode)) throw new jakarta.ws.rs.BadRequestException("Invalid appointment write mode");
+        if (version == null || version.isBlank()) {
+            throw new jakarta.ws.rs.BadRequestException("Appointment editVersion is required for guarded writes");
+        }
+        return version;
     }
 
     /**
@@ -677,14 +738,16 @@ public class ScheduleService extends AbstractServiceImpl {
             Date sDate = null;
             Date eDate = null;
             try {
-                sDate = IsoDates.parseIso8601Date(sDateStr);
-                eDate = IsoDates.parseIso8601Date(eDateStr);
+                sDate = IsoDates.parseStrictDate(sDateStr);
+                eDate = IsoDates.parseStrictDate(eDateStr);
             } catch (Exception e) {
                 throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity("Path parameter has the wrong format").build());
             }
 
+            if (!securityInfoManager.hasPrivilegeReadOnly(getLoggedInInfo(), "_appointment", "r", null)) throw new jakarta.ws.rs.ForbiddenException("Appointment access denied");
             List<Appointment> appts = scheduleManager.getAppointmentsForDateRangeAndProvider(getLoggedInInfo(), sDate, eDate, providerNo);
 
+            appts = io.github.carlos_emr.carlos.managers.AppointmentPatientAccess.readable(getLoggedInInfo(), securityInfoManager, appts, Appointment::getDemographicNo);
             ProviderPeriodAppsResponse response = new ProviderPeriodAppsResponse();
             if (appts != null && appts.size() > 0) {
                 response.setContent(new ArrayList<ProviderPeriodAppsTo>());
@@ -694,8 +757,10 @@ public class ScheduleService extends AbstractServiceImpl {
                 }
             }
             return response;
+        } catch (WebApplicationException e) {
+            throw e;
         } catch (Exception e) {
-            logger.error("ScheduleService.listProviderApptsForPeriod error", e);
+            logger.error("ScheduleService.listProviderApptsForPeriod failed trace={}", io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(e));
             throw new WebApplicationException(Response.status(Status.INTERNAL_SERVER_ERROR).entity("Internal server error").build());
         }
     }
@@ -725,7 +790,10 @@ public class ScheduleService extends AbstractServiceImpl {
             AppointmentSearch appointmentSearch = new AppointmentSearch(); // new object to be returned
 
             currentAppointmentSearch = appointmentSearchDao.find(id);
-            if (currentAppointmentSearch == null || currentAppointmentSearch.getFileContents() == null) {
+            if (currentAppointmentSearch == null) {
+                return Response.status(Status.NOT_FOUND).entity("Search configuration not found").build();
+            }
+            if (currentAppointmentSearch.getFileContents() == null) {
                 oldConfig = new SearchConfig();
             } else {
                 Document doc = XmlUtils.toDocument(currentAppointmentSearch.getFileContents());

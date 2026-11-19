@@ -23,7 +23,9 @@ const { randomInt } = require('node:crypto');
 const { assert, gotoApp, pathOnly, sqlString } = require('./playwright-harness');
 const { settleOperations } = require('../graceful-signal-cancellation');
 
-const PROVIDER_LINKED_TABLES = ['provider_facility', 'program_provider', 'providersite', 'property', 'secUserRole'];
+// Native profile saves also create a billing-centre row. Reserve that namespace
+// before allocation and remove its owned rows before deleting the provider.
+const PROVIDER_LINKED_TABLES = ['provider_facility', 'program_provider', 'providersite', 'property', 'secUserRole', 'providerbillcenter'];
 // Logging in creates a ProviderPreference row (keyed providerNo, not provider_no),
 // and the preferences popup can add its appointment-screen children. Leaving them
 // behind accumulated orphan preference rows for providers that no longer exist.

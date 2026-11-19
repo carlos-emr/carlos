@@ -40,6 +40,9 @@ class CdsImportCoordinatorDaoUnitTest {
     private final Connection connection = mock(Connection.class);
     private final ResultSet acquisition = mock(ResultSet.class);
     private final CdsImportCoordinatorDao dao = new CdsImportCoordinatorDao(source);
+    /** The import's own waits, as its coordinator service supplies them. */
+    private static final io.github.carlos_emr.carlos.utility.CdsOwnedStatementWaits WAITS =
+            io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportStatementWaits.OWNED;
 
     @BeforeEach void physicalConnectionWithAvailableCoordinator() throws Exception {
         when(source.openUnpooledCdsMaintenanceConnection()).thenReturn(connection);
@@ -63,7 +66,7 @@ class CdsImportCoordinatorDaoUnitTest {
         when(releaseQuery.executeQuery()).thenReturn(released);
         when(released.next()).thenReturn(true, false);
         when(released.getLong(1)).thenReturn(1L);
-        var lease = dao.acquire();
+        var lease = dao.acquire(WAITS);
         assertThat(lease).isNotNull();
         verify(connection, never()).close();
         verify(connection).setAutoCommit(true);
@@ -75,7 +78,7 @@ class CdsImportCoordinatorDaoUnitTest {
 
     @Test void shouldRetirePhysicalConnectionExactlyOnce_whenCoordinatorIsBusy() throws Exception {
         when(acquisition.getLong(1)).thenReturn(0L);
-        assertThat(dao.acquire()).isNull();
+        assertThat(dao.acquire(WAITS)).isNull();
         verify(connection).close();
         verify(source, never()).getConnection();
     }
@@ -84,7 +87,7 @@ class CdsImportCoordinatorDaoUnitTest {
         when(acquisition.getLong(1)).thenReturn(0L);
         SQLException cleanup = new SQLException("synthetic cleanup", "08006");
         doThrow(cleanup).when(connection).close();
-        assertThat(catchThrowable(dao::acquire)).isSameAs(cleanup);
+        assertThat(catchThrowable(() -> dao.acquire(WAITS))).isSameAs(cleanup);
         verify(connection).close();
     }
 
@@ -93,7 +96,7 @@ class CdsImportCoordinatorDaoUnitTest {
         SQLException cleanup = new SQLException("synthetic cleanup", "08006");
         when(connection.prepareStatement("SELECT DATABASE()")).thenThrow(primary);
         doThrow(cleanup).when(connection).close();
-        assertThat(catchThrowable(dao::acquire)).isSameAs(primary);
+        assertThat(catchThrowable(() -> dao.acquire(WAITS))).isSameAs(primary);
         assertThat(primary.getSuppressed()).containsExactly(cleanup);
         verify(connection).close();
     }
@@ -103,7 +106,7 @@ class CdsImportCoordinatorDaoUnitTest {
         AssertionError cleanup = new AssertionError("synthetic cleanup");
         when(connection.prepareStatement("SELECT DATABASE()")).thenThrow(primary);
         doThrow(cleanup).when(connection).close();
-        assertThat(catchThrowable(dao::acquire)).isSameAs(primary);
+        assertThat(catchThrowable(() -> dao.acquire(WAITS))).isSameAs(primary);
         assertThat(primary.getSuppressed()).containsExactly(cleanup);
         verify(connection).close();
     }
@@ -112,14 +115,14 @@ class CdsImportCoordinatorDaoUnitTest {
         AssertionError primary = new AssertionError("synthetic acquisition");
         when(connection.prepareStatement("SELECT DATABASE()")).thenThrow(primary);
         doThrow(primary).when(connection).close();
-        assertThat(catchThrowable(dao::acquire)).isSameAs(primary);
+        assertThat(catchThrowable(() -> dao.acquire(WAITS))).isSameAs(primary);
         assertThat(primary.getSuppressed()).isEmpty();
         verify(connection).close();
     }
 
     @Test void shouldFailAndRetireConnection_whenAcquisitionResultIsMalformed() throws Exception {
         when(acquisition.getLong(1)).thenReturn(2L);
-        assertThat(catchThrowable(dao::acquire)).isInstanceOf(SQLException.class)
+        assertThat(catchThrowable(() -> dao.acquire(WAITS))).isInstanceOf(SQLException.class)
                 .hasMessage("Invalid coordinator acquisition result");
         verify(connection).close();
     }

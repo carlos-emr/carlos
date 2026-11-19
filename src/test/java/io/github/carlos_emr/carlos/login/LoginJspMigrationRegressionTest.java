@@ -57,6 +57,10 @@ class LoginJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/web.xml");
     private static final Path CSRF_GUARD =
             Path.of("src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties");
+    /**
+     * The struts-menu configuration nothing loaded (#5479). Its stale links used to be pinned
+     * here; the file is gone, and these tests now pin that it stays gone.
+     */
     private static final Path MENU_CONFIG =
             Path.of("src/main/webapp/WEB-INF/menu-config.xml");
     private static final Path PROVIDER_MAIN_MENU =
@@ -204,7 +208,6 @@ class LoginJspMigrationRegressionTest {
     @DisplayName("administration section home should keep the clean public route")
     void shouldKeepCleanPublicRoute_forAdministrationSectionHome() throws IOException {
         String integrationStruts = Files.readString(STRUTS_INTEGRATION_XML, StandardCharsets.UTF_8);
-        String menuConfig = Files.readString(MENU_CONFIG, StandardCharsets.UTF_8);
         String personaService = Files.readString(
                 Path.of("src/main/java/io/github/carlos_emr/carlos/webserv/rest/PersonaService.java"),
                 StandardCharsets.UTF_8);
@@ -219,7 +222,7 @@ class LoginJspMigrationRegressionTest {
         assertThat(actionBlock(integrationStruts, "administration"))
                 .contains("class=\"io.github.carlos_emr.carlos.administration.gate.ViewAdministrationIndex2Action\"")
                 .contains("<result name=\"success\">/WEB-INF/jsp/administration/index.jsp</result>");
-        assertThat(menuConfig).doesNotContain("/administration/index");
+        assertThat(MENU_CONFIG).doesNotExist();
         assertThat(personaService)
                 .contains("../administration")
                 .doesNotContain("../administration/")
@@ -340,7 +343,6 @@ class LoginJspMigrationRegressionTest {
     @DisplayName("representative public callers should use migrated login routes")
     void shouldUseMigratedLoginRoutes_forRepresentativePublicCallers() throws IOException {
         String csrfGuard = Files.readString(CSRF_GUARD, StandardCharsets.UTF_8);
-        String menuConfig = Files.readString(MENU_CONFIG, StandardCharsets.UTF_8);
 
         assertThat(csrfGuard).contains("CarlosCsrfGuardFilter owns invalid-token responses");
         assertThat(csrfGuard).doesNotContain("org.owasp.csrfguard.action.Redirect.Page=%servletContext%/errorpage");
@@ -349,7 +351,7 @@ class LoginJspMigrationRegressionTest {
         assertThat(csrfGuard).contains("%servletContext%/logoutPage");
         assertThat(csrfGuard).contains("%servletContext%/login");
         assertThat(csrfGuard).doesNotContain("%servletContext%/forcepasswordresetSubmit");
-        assertThat(menuConfig).doesNotContain("location=\"index.jsp\"");
+        assertThat(MENU_CONFIG).doesNotExist();
     }
 
     @Test

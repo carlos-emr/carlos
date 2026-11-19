@@ -41,42 +41,57 @@
 	</tr>
 </table>
 </div>
-<display:table class="simple" cellspacing="2" cellpadding="3"
-	id="access" name="accesses" export="false" pagesize="0"
-	requestURI="/PMmodule/ProgramManager">
-	<display:setProperty name="paging.banner.placement" value="bottom" />
-	<display:setProperty name="basic.msg.empty_list"
-		value="No access currently defined for this program." />
-	<display:column sortable="false" title="">
+<c:if test="${not empty accesses}">
+<table class="carlos-table-spaced simple" id="access" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
+
+
+    <th scope="col"></th>
+    <th scope="col"><span data-table-sort>Name</span></th>
+    <th scope="col"><span data-table-sort>Type</span></th>
+    <th scope="col"><span data-table-sort>All Roles</span></th>
+    <th scope="col"><span data-table-sort>Role(s)</span></th>
+</tr></thead>
+<tbody><c:forEach var="access" items="${accesses}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+
+    <td>
 		<a href="javascript:void(0);"
 			onclick="deleteAccess('${carlos:forJavaScript(access.id)}');return false;">
 		Delete </a>
-	</display:column>
-	<display:column property="accessType.name" sortable="true" title="Name" />
-	<display:column property="accessType.type" sortable="true" title="Type" />
-	<display:column property="allRoles" sortable="true" title="All Roles" />
-	<display:column sortable="true" title="Role(s)">
+    </td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(access.accessType.name))}" data-sort-type="${carlos:tableSortType(access.accessType.name)}">${carlos:forHtml(access.accessType.name)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(access.accessType.type))}" data-sort-type="${carlos:tableSortType(access.accessType.type)}">${carlos:forHtml(access.accessType.type)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(access.allRoles))}" data-sort-type="${carlos:tableSortType(access.allRoles)}">${carlos:forHtml(access.allRoles)}</td>
+    <td>
 		<ul>
 			<c:forEach var="role" items="${access.roles}">
 				<li>${carlos:forHtml(role.name)}</li>
 			</c:forEach>
 		</ul>
-	</display:column>
-</display:table>
+    </td>
+</tr></c:forEach></tbody>
+</table>
+</c:if>
+<c:if test="${empty accesses}">No access currently defined for this program.</c:if>
 <br />
 <br />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<tr class="b">
-		<td width="20%">Name :</td>
-		<td><html:select property="access.accessTypeId">
-			<html:options collection="accessTypes" property="id"
-				labelProperty="name" />
-		</html:select> <html:hidden property="access.id" /> <html:hidden
-			property="access.programId" /></td>
+		<td width="20%"><label for="program-access-type">Name:</label></td>
+		<td>
+			<select name="access.accessTypeId" id="program-access-type">
+				<c:forEach var="accessType" items="${accessTypes}">
+					<option value="${carlos:forHtmlAttribute(accessType.id)}" <c:if test="${accessType.id == access.accessTypeId}">selected</c:if>>${carlos:forHtmlContent(accessType.name)}</option>
+				</c:forEach>
+			</select>
+			<input type="hidden" name="access.id" value="${carlos:forHtmlAttribute(access.id)}" />
+			<input type="hidden" name="access.programId" value="${carlos:forHtmlAttribute(requestScope.id)}" />
+		</td>
 	</tr>
 	<tr class="b">
-		<td width="20%">All Roles:</td>
-		<td><html:checkbox property="access.allRoles" /></td>
+		<td style="width: 20%;"><label for="program-access-all-roles">All Roles:</label></td>
+		<td><input type="checkbox" name="access.allRoles" id="program-access-all-roles" value="true" <c:if test="${access.allRoles}">checked</c:if> /></td>
 	</tr>
 	<tr class="b">
 		<td width="20%">Roles:</td>
@@ -89,6 +104,7 @@
 	<tr>
 		<td colspan="2"><input type="button" value="Save"
 			onclick="this.form.elements['method'].value='save_access';this.form.submit()" />
-		<html:cancel /></td>
+			<a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${carlos:forUriComponent(requestScope.id)}&amp;view.tab=Access">Cancel</a>
+		</td>
 	</tr>
 </table>

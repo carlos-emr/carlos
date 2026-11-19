@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 2,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "seedEvidenceSha256": "357ba036e880387690350a01b687da38be49c3bc709c0a6c04852b85fdce2d1a",
+  "recordsDirectory": "floors",
+  "evidenceDirectory": "evidence"
+}

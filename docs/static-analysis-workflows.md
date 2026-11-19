@@ -412,6 +412,23 @@ to Java.
 
 ---
 
+## SonarCloud scanner heap
+
+`.github/workflows/sonarcloud.yml` runs `sonar-maven-plugin`, which starts the scanner engine in a
+separate JVM that it provisions itself. That JVM does not read `MAVEN_OPTS`. Without a setting it
+gets the JVM default heap, a quarter of the runner's memory. After the 2026.08 CDS import landed, the
+full-branch Java bug detection pass (`Sensor javabugs [dbd]`, 55,194 of 74,231 functions) ran out of
+heap (`java.lang.OutOfMemoryError: Java heap space`). It failed this way on every push analysis of
+`main`, `develop` and `release/2026.08`. Pull-request analyses are incremental and stayed green, so
+the failure appeared only after merge.
+
+`pom.xml` sets `sonar.scanner.javaOpts` (`-Xmx8g`). The plugin passes top-level POM properties to the
+engine launcher, so the setting applies to push and pull-request runs alike, and the workflow needs
+no change. If the branch analysis runs out of heap again, raise this value. The hosted runner has
+16 GB, and the Maven JVM that launches the scanner also needs memory.
+
+---
+
 ## SonarCloud path-traversal exclusions
 
 SonarCloud's taint rules for file paths (`javasecurity:S2083`, plus `S6549` and `S6096`) cannot be

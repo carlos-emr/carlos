@@ -33,8 +33,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *
  * <p>Delegates to {@link SafeEncode}, which coalesces {@code null} to {@code ""}
  * before calling {@link org.owasp.encoder.Encode}. Renders non-null input
- * bit-identically to {@code <e:forXxx>} from {@code owasp.encoder.jakarta.advanced};
- * renders {@code null} input as empty (matching JSTL {@code <c:out>}).
+ * bit-identically to {@code <e:forXxx>} from {@code owasp.encoder.jakarta.advanced}
+ * (the OWASP JSP taglib, which CARLOS no longer ships, #5477); renders {@code null}
+ * input as empty (matching JSTL {@code <c:out>}).
  *
  * <h2>Usage</h2>
  * <pre>
@@ -119,8 +120,7 @@ public class CarlosEncodeTag extends TagSupport {
     private static void encode(JspWriter out, String ctx, String val) throws IOException, JspException {
         // Lowercase compare makes "html", "Html", "HTML", "hTML" equivalent.
         switch (ctx.toLowerCase(Locale.ROOT)) {
-            case "html":
-            case "htmlcontent":
+            case "html", "htmlcontent":
                 SafeEncode.forHtmlContent(out, val);
                 return;
             case "htmlwithbreakmarkers":
@@ -135,8 +135,7 @@ public class CarlosEncodeTag extends TagSupport {
             case "htmlunquotedattribute":
                 SafeEncode.forHtmlUnquotedAttribute(out, val);
                 return;
-            case "javascript":
-            case "js":
+            case "javascript", "js":
                 SafeEncode.forJavaScript(out, val);
                 return;
             case "javascriptattribute":
@@ -154,8 +153,7 @@ public class CarlosEncodeTag extends TagSupport {
             case "uricomponent":
                 SafeEncode.forUriComponent(out, val);
                 return;
-            case "cssstring":
-            case "css":
+            case "cssstring", "css":
                 SafeEncode.forCssString(out, val);
                 return;
             case "cssurl":

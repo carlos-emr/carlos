@@ -459,7 +459,9 @@ async function runStampPrintPreview(context) {
   }
 }
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('consultation-signature-submit', async () => {
+  await (async () => {
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -567,5 +569,6 @@ async function runStampPrintPreview(context) {
   }
 })().catch((error) => {
   console.error(error.stack || error.message);
-  process.exit(1);
+  process.exitCode = 1;
 });
+}, {existingSignalHandlers:true});

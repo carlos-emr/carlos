@@ -51,10 +51,10 @@
     @since 2026-08-04
 --%>
 <%@page import="java.net.URLEncoder" %>
-<%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -385,6 +385,12 @@
                 });
 
                 $(".check").change(validate).keyup(validate);
+
+                // The Administration shell answers a failed "Add group" request and fires this; the name
+                // may have changed while the request was out, so the button follows it again (#5842).
+                $("#addGroupForm").on("carlos:admin-request-failed", function () {
+                    $(this).find(".check").each(validate);
+                });
 
             });
             }

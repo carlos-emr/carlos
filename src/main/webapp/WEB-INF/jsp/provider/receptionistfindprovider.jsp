@@ -35,8 +35,8 @@
 <fmt:setBundle basename="oscarResources"/>
 
 
-<%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 
@@ -49,7 +49,7 @@
     String month = request.getParameter("pmonth") != null ? request.getParameter("pmonth") : "5";
     String day = request.getParameter("pday") != null ? request.getParameter("pday") : "8";
 %>
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*"
+<%@ page import="java.util.*, java.lang.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>

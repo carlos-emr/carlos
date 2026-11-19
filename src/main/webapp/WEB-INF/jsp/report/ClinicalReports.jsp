@@ -48,7 +48,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@page import="io.github.carlos_emr.carlos.report.data.DemographicSets, io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.ClinicalReports.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
+<%@page import="io.github.carlos_emr.carlos.report.data.DemographicSets, io.github.carlos_emr.carlos.demographic.data.*, java.util.*, io.github.carlos_emr.carlos.providers.data.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.report.ClinicalReports.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
 <%@page import="org.apache.commons.csv.CSVFormat,org.apache.commons.csv.CSVPrinter,java.io.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
@@ -63,8 +63,8 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
@@ -98,10 +98,6 @@
     }
 
 
-    if (request.getParameter("clear") != null && request.getParameter("clear").equals("yes")) {
-        session.removeAttribute("ClinicalReports");
-    }
-
     EctMeasurementTypesBeanHandler hd = new EctMeasurementTypesBeanHandler();
     Vector<EctMeasurementTypesBean> vec = hd.getMeasurementTypeVector();
 
@@ -125,7 +121,7 @@
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="report.ClinicalReports.title"/></title>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+        <base href="<carlos:encode value='<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>' context="htmlAttribute"/>">
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
 
@@ -337,7 +333,7 @@
                 <table class="TopStatusBar">
                     <tr>
                         <td>
-                            <%=  request.getAttribute("name") != null ? request.getAttribute("name") : ""%>
+                            <carlos:encode value='<%= (String) request.getAttribute("name") %>'/>
                         </td>
                         <td>&nbsp;
 
@@ -358,15 +354,19 @@
                     ArrayList<ReportEvaluator> arrList = (ArrayList) session.getAttribute("ClinicalReports");
                     if (arrList != null) {
                 %>
-                <a href="<%= request.getContextPath() %>/report/RemoveClinicalReport?clear=yes"><fmt:message key="report.ClinicalReports.msgClear"/></a>
+                <%-- A form, not a link: the remove route accepts only the form post. --%>
+                <form method="post" action="<%= request.getContextPath() %>/report/RemoveClinicalReport" style="display:inline;">
+                    <input type="hidden" name="clear" value="yes"/>
+                    <a href="javascript:void(0);" onclick="this.closest('form').submit();"><fmt:message key="report.ClinicalReports.msgClear"/></a>
+                </form>
                 <ul style="list-style-type:square; margin-left:1px;padding-left:4px;padding-top:2px;margin-top:2px;">
                     <% for (int i = 0; i < arrList.size(); i++) {
                         ReportEvaluator re = arrList.get(i);
                     %>
-                    <li title="<%=re.getName()%>"><%=re.getNumeratorCount()%> / <%=re.getDenominatorCount()%>&nbsp;
+                    <li title="<carlos:encode value='<%= re.getName() %>' context="htmlAttribute"/>"><%=re.getNumeratorCount()%> / <%=re.getDenominatorCount()%>&nbsp;
                         <a style="text-decoration:none;" target="_blank" href="<%= request.getContextPath() %>/report/ViewReportExport?id=<%=i%>"><fmt:message key="report.ClinicalReports.msgCSV"/></a>&nbsp;
                         <form method="post" action="<%= request.getContextPath() %>/report/RemoveClinicalReport" style="display:inline;">
-                            <input type="hidden" name="id" value="<%=i%>"/>
+                            <input type="hidden" name="key" value="<carlos:encode value='<%= re.getKey() %>' context="htmlAttribute"/>"/>
                             <a style="text-decoration:none;" href="javascript:void(0);" onclick="this.closest('form').submit();"><fmt:message key="report.ClinicalReports.msgDel"/></a>
                         </form>
                     </li>
@@ -378,6 +378,10 @@
             </td>
             <td valign="top" class="MainTableRightColumn">
                 <div>
+                    <%-- A numerator or denominator that is not in the list: a stale page, or a changed report file. --%>
+                    <% if (Boolean.TRUE.equals(request.getAttribute("clinicalReportUnknown"))) { %>
+                    <p class="clinical-report-unknown" role="alert"><fmt:message key="report.ClinicalReports.unknownReport"/></p>
+                    <% } %>
                     <fieldset>
                         <form action="${pageContext.request.contextPath}/RunClinicalReport" method="post">
                             <!--
@@ -395,7 +399,7 @@
                                             }
 
                                     %>
-                                    <option value="<%=n.getId()%>"  <%=sel(numeratorId, n.getId())%> ><%=n.getNumeratorName()%>
+                                    <option value="<carlos:encode value='<%= n.getId() %>' context="htmlAttribute"/>"  <%=sel(numeratorId, n.getId())%> ><carlos:encode value='<%= n.getNumeratorName() %>'/>
                                     </option>
                                     <%}%>
                                 </select>
@@ -416,7 +420,7 @@
                                     %>
                                     <fmt:message key="report.ClinicalReports.msgValue"/> : <input type="text"
                                                                                                    name="numerator_value"
-                                                                                                   value="<%=numer_val[0]%>"><br>
+                                                                                                   value="<carlos:encode value='<%= String.valueOf(numer_val[0]) %>' context="htmlAttribute"/>"><br>
 
                                 </div>
                                 <div id="numerator_startDate">
@@ -427,7 +431,7 @@
                                         }
                                     %>
                                     Start Date : <input type="text" name="numerator_startDate"
-                                                        value="<%=numer_startDate[0]%>"><br>
+                                                        value="<carlos:encode value='<%= String.valueOf(numer_startDate[0]) %>' context="htmlAttribute"/>"><br>
 
                                 </div>
                                 <div id="numerator_endDate">
@@ -438,7 +442,7 @@
                                         }
                                     %>
                                     End Date : <input type="text" name="numerator_endDate"
-                                                      value="<%=numer_endDate[0]%>"><br>
+                                                      value="<carlos:encode value='<%= String.valueOf(numer_endDate[0]) %>' context="htmlAttribute"/>"><br>
 
                                 </div>
 
@@ -463,7 +467,7 @@
                                             }
 
                                     %>
-                                    <option value="<%=n.getId()%>"  <%=sel(arrNumeratorId[i], n.getId())%> ><%=n.getNumeratorName()%>
+                                    <option value="<carlos:encode value='<%= n.getId() %>' context="htmlAttribute"/>"  <%=sel(arrNumeratorId[i], n.getId())%> ><carlos:encode value='<%= n.getNumeratorName() %>'/>
                                     </option>
                                     <%}%>
                                 </select>
@@ -484,7 +488,7 @@
                                     %>
                                     <fmt:message key="report.ClinicalReports.msgValue"/> : <input type="text"
                                                                                                    name="numerator<%=i %>_value"
-                                                                                                   value="<%=numer_val[i]%>"><br>
+                                                                                                   value="<carlos:encode value='<%= String.valueOf(numer_val[i]) %>' context="htmlAttribute"/>"><br>
 
                                 </div>
                                 <div id="numerator<%=i %>_startDate">
@@ -495,7 +499,7 @@
                                         }
                                     %>
                                     Start Date : <input type="text" name="numerator<%=i %>_startDate"
-                                                        value="<%=numer_startDate[i]%>"><br>
+                                                        value="<carlos:encode value='<%= String.valueOf(numer_startDate[i]) %>' context="htmlAttribute"/>"><br>
 
                                 </div>
                                 <div id="numerator<%=i %>_endDate">
@@ -506,7 +510,7 @@
                                         }
                                     %>
                                     End Date : <input type="text" name="numerator<%=i %>_endDate"
-                                                      value="<%=numer_endDate[i]%>"><br>
+                                                      value="<carlos:encode value='<%= String.valueOf(numer_endDate[i]) %>' context="htmlAttribute"/>"><br>
 
                                 </div>
                                 <br/>
@@ -531,7 +535,7 @@
                                                 rep.put(d.getId(), d.getReplaceableKeys());
                                             }
                                     %>
-                                    <option value="<%=d.getId()%>" <%=sel(denominatorId, d.getId())%> ><%=d.getDenominatorName()%>
+                                    <option value="<carlos:encode value='<%= d.getId() %>' context="htmlAttribute"/>" <%=sel(denominatorId, d.getId())%> ><carlos:encode value='<%= d.getDenominatorName() %>'/>
                                     </option>
                                     <%}%>
                                 </select>
@@ -544,7 +548,7 @@
                                 %>
                                 <select id="denominator_provider_no" name="denominator_provider_no">
                                     <%for (Map<String, String> h : providers) {%>
-                                    <option value="<%= h.get("providerNo")%>" <%= (h.get("providerNo").equals(defaultDenominatorProviderNo) ? " selected" : "")%>><%= h.get("lastName")%> <%= h.get("firstName")%>
+                                    <option value="<carlos:encode value='<%= h.get("providerNo") %>' context="htmlAttribute"/>" <%= (h.get("providerNo").equals(defaultDenominatorProviderNo) ? " selected" : "")%>><carlos:encode value='<%= h.get("lastName") %>'/> <carlos:encode value='<%= h.get("firstName") %>'/>
                                     </option>
                                     <%}%>
                                 </select>
@@ -557,7 +561,7 @@
                                     %>
                                     <%for (String listName : demoSetList) {%>
                                     <input type="checkbox" name="denominator_patientSet"
-                                           value="<%=listName%>" <%=listName.equals(defaultDenominatorPatientSet) ? " checked=\"checked\" " : "" %>><%=listName%>
+                                           value="<carlos:encode value='<%= listName %>' context="htmlAttribute"/>" <%=listName.equals(defaultDenominatorPatientSet) ? " checked=\"checked\" " : "" %>><carlos:encode value='<%= listName %>'/>
                                     <br>
                                     <%}%>
                                 </div>
@@ -628,7 +632,7 @@
                         <li><fmt:message key="report.ClinicalReports.msgPercentage"/>:  <%=request.getAttribute("percentage")%> %
                         </li>
                     </ul>
-                    CSV:<input type="text" size="30" value="<%=request.getAttribute("csv")%>"/>
+                    CSV:<input type="text" size="30" value="<carlos:encode value='<%= (String) request.getAttribute("csv") %>' context="htmlAttribute"/>"/>
                 </div>
                 <%}%>
 
@@ -665,7 +669,7 @@
                             for (String heading : headings) {
                                 csvp.print(head(heading));
                         %>
-                        <th><%=head(heading)%>
+                        <th><carlos:encode value='<%= head(heading) %>'/>
                         </th>
                         <%}%>
 
@@ -673,7 +677,7 @@
                             for (int i = 0; i < outputfields.length; i++) {
                                 csvp.print(replaceHeading(outputfields[i], forView, measurementTitles));
                         %>
-                        <th><%=replaceHeading(outputfields[i], forView, measurementTitles)%>
+                        <th><carlos:encode value='<%= replaceHeading(outputfields[i], forView, measurementTitles) %>'/>
                         </th>
                         <%}%>
                     </tr>
@@ -703,7 +707,7 @@
                             for (String outputfield : outputfields) {
                                 csvp.print("" + display(h.get(outputfield)));
                         %>
-                        <td><%=display(h.get(outputfield))%>
+                        <td><carlos:encode value='<%= String.valueOf(display(h.get(outputfield))) %>'/>
                         </td>
                         <%}%>
                     </tr>

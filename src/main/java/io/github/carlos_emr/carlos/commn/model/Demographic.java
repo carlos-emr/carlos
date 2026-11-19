@@ -70,6 +70,14 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public static final int FIRST_NAME_MAX_LENGTH = 50;
     public static final int MIDDLE_NAMES_MAX_LENGTH = 100;
     public static final int ALIAS_MAX_LENGTH = 70;
+    public static final int PRONOUN_MAX_LENGTH = 25;
+    public static final int GENDER_MAX_LENGTH = 25;
+    public static final int TITLE_MAX_LENGTH = 10;
+    public static final int OFFICIAL_LANGUAGE_MAX_LENGTH = 60;
+    public static final int SPOKEN_LANGUAGE_MAX_LENGTH = 60;
+    public static final int COUNTRY_OF_ORIGIN_MAX_LENGTH = 4;
+    public static final int NEWSLETTER_MAX_LENGTH = 32;
+    public static final int ANONYMOUS_MAX_LENGTH = 32;
     /** The pref_name column ({@code varchar(30) NOT NULL}); see {@link #prefNameForNameUsed(String)}. */
     public static final int PREF_NAME_MAX_LENGTH = 30;
     public static final int ADDRESS_MAX_LENGTH = 60;
@@ -335,6 +343,14 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         addFieldLengthError(errors, "First name", firstName, FIRST_NAME_MAX_LENGTH);
         addFieldLengthError(errors, "Middle names", middleNames, MIDDLE_NAMES_MAX_LENGTH);
         addFieldLengthError(errors, "Preferred name", alias, ALIAS_MAX_LENGTH);
+        addFieldLengthError(errors, "Pronouns", pronoun, PRONOUN_MAX_LENGTH);
+        addFieldLengthError(errors, "Gender", gender, GENDER_MAX_LENGTH);
+        addFieldLengthError(errors, "Title", title, TITLE_MAX_LENGTH);
+        addFieldLengthError(errors, "Official language", officialLanguage, OFFICIAL_LANGUAGE_MAX_LENGTH);
+        addFieldLengthError(errors, "Spoken language", spokenLanguage, SPOKEN_LANGUAGE_MAX_LENGTH);
+        addFieldLengthError(errors, "Country of origin", countryOfOrigin, COUNTRY_OF_ORIGIN_MAX_LENGTH);
+        addFieldLengthError(errors, "Newsletter", newsletter, NEWSLETTER_MAX_LENGTH);
+        addFieldLengthError(errors, "Anonymous", anonymous, ANONYMOUS_MAX_LENGTH);
         addFieldLengthError(errors, "Address", address, ADDRESS_MAX_LENGTH);
         addFieldLengthError(errors, "City", city, CITY_MAX_LENGTH);
         addFieldLengthError(errors, "Province", province, PROVINCE_MAX_LENGTH);
@@ -370,7 +386,13 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         return errors;
     }
 
-    private static void addFieldLengthError(List<String> errors, String fieldName, String value, int maxLength) {
+    /**
+     * Adds "&lt;field&gt; exceeds maximum length of N characters." when {@code value} holds more than
+     * {@code maxLength} Unicode code points, the unit a utf8mb4 VARCHAR is measured in. The message
+     * names the field and the limit, never the value. Shared with {@link DemographicCust} and
+     * {@link WaitingList}, whose columns are written by the same add, edit and REST saves.
+     */
+    static void addFieldLengthError(List<String> errors, String fieldName, String value, int maxLength) {
         if (value != null && value.codePointCount(0, value.length()) > maxLength) {
             String unit = maxLength == 1 ? "character" : "characters";
             errors.add(fieldName + " exceeds maximum length of " + maxLength + " " + unit + ".");
@@ -1476,11 +1498,11 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         }
         return extraValue;
     }
+    /** Returns the recorded birth date in its calendar's zone, independent of cached formatter defaults. */
     @jakarta.persistence.Transient
-
     public String getFormattedDob() {
         Calendar cal = getBirthDay();
-        if (cal != null) return (DateFormatUtils.ISO_DATE_FORMAT.format(cal));
+        if (cal != null) return DateFormatUtils.format(cal, "yyyy-MM-dd", cal.getTimeZone());
         else return ("");
     }
 
@@ -1637,6 +1659,11 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     // and fail when it was absent. Live-caught as EclipseLink MOXy aborting the
     // whole JAXB context ("No JAXB context can be created") on any deployment
     // that exercised it. The instance returned is still a GregorianCalendar.
+    // Published main uses Glassfish and emits midnight with an offset for this xs:dateTime,
+    // even though the date-only calendar below has no explicitly assigned time/zone fields.
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.BirthdayXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Calendar getBirthDay() {
         GregorianCalendar cal = null;
         String day = getDateOfBirth();

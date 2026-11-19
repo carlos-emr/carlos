@@ -362,7 +362,9 @@ const signalHandlers = installCleanupSignalHandlers(async () => {
   }
 });
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('echart-new-patient-notes', async () => {
+  await (async () => {
   const recorder = createRecorder();
   // Before the browser starts: a filesystem failure here would otherwise leave a
   // launched Chromium with no finally to close it.
@@ -446,3 +448,4 @@ const signalHandlers = installCleanupSignalHandlers(async () => {
     signalHandlers.dispose();
   }
 })();
+}, {existingSignalHandlers:true});

@@ -20,3 +20,28 @@ test('signal audit keeps province and profile prerequisites explicit instead of 
 });
 
 test('configured-runtime audit blocks the persistent installer password-reset prerequisite',()=>{assert.match(unavailable({name:'deb-login',provinces:['all']},{}),/fresh package initial-login/);});
+
+test('signal audit counts real optional and ordinary checkpoint calls and excludes comments and strings',()=>{
+ const {checkpointSites}=require('./signal-cleanup-audit');
+ assert.equal(checkpointSites('// cancellation.throwIfCancelled()\nconst fake="cancellation?.throwIfCancelled()";'),0);
+ assert.equal(checkpointSites('cancellation?.throwIfCancelled();checkCancellation?.throwIfCancelled();cancellation.throwIfCancelled();'),3);
+ const interrupted={outcome:'FAIL',detail:'interrupted'};
+ assert.equal(verdict(143,interrupted,[],'SIGTERM'),'PASS');
+ assert.equal(verdict(130,interrupted,[],'SIGTERM'),'FAIL');
+ assert.equal(verdict(143,interrupted,[],'SIGINT'),'FAIL');
+});
+
+test('missing or ambiguous credential snapshots cannot silently certify an in-place password restoration',()=>{
+ const {ownedCredentialState}=require('./signal-cleanup-audit');
+ for(const rows of [[],[['invalid']],[[null]],[["a".repeat(64)],["b".repeat(64)]]]) {
+  assert.throws(()=>ownedCredentialState({rows:()=>rows},'FAKE-operator'),/independently readable/);
+ }
+ assert.equal(ownedCredentialState({rows:()=>[['a'.repeat(64)]]},'FAKE-operator'),'a'.repeat(64));
+});
+
+test('OS acceptance refuses an unawaited historical handler-injection entry point',()=>{
+ const {usesOsSignalCheckpoints}=require('./signal-cleanup-audit');
+ assert.equal(usesOsSignalCheckpoints('// realSignalCheckpoints:true\nh.runLegacyCheck("fake",main);'),false);
+ assert.equal(usesOsSignalCheckpoints('h.runLegacyCheck("fake",main,{realSignalCheckpoints:false});'),false);
+ assert.equal(usesOsSignalCheckpoints('h.runLegacyCheck("fake",main,{realSignalCheckpoints:true});'),true);
+});

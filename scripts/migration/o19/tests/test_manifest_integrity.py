@@ -62,10 +62,25 @@ class TestPackagedTargetSchemaColumns(unittest.TestCase):
         # The pinned upstream checkout is unavailable in normal CI. The target side
         # is local, so a new common/province migration must never leave the packaged
         # importer's destination-column metadata silently stale.
+        """Check all native columns independently, then the shipped copy inventory."""
         generator = load_generator()
         for province in generator.PROVINCES:
             with self.subTest(province=province):
                 schema = generator.load_schema(generator.carlos_schema_files(province))
+                physical = json.loads((generator.REPO_ROOT / "database/mysql/schema-contract" /
+                                       (province + ".json")).read_text())
+                physical_columns = {}
+                for row in physical["schema"]["columns"]:
+                    physical_columns.setdefault(row[0], set()).add(row[1])
+                discrepancies = {}
+                for table in set(schema.tables) | set(physical_columns):
+                    parsed = set(schema.tables.get(table, {}))
+                    actual = physical_columns.get(table, set())
+                    if parsed != actual:
+                        discrepancies[table] = {"missing": sorted(actual - parsed),
+                                                "unexpected": sorted(parsed - actual)}
+                self.assertFalse(discrepancies,
+                                 "Native schema inventory differs: " + repr(discrepancies))
                 profile = profile_data(province)
                 copied_tables = sorted(table for table, entry in profile["TABLES"].items()
                                        if entry["class"] in ("copy", "merge"))
@@ -532,13 +547,14 @@ class TestPreflightDriftLock(unittest.TestCase):
             self._assert_all_profiles(self._load_preflight(path), schema)
 
     def test_previous_program_and_token_policies_cannot_resume_an_import(self):
+        """Reject prior mappings whose program or credential decisions differ."""
         from carlos_ctl import o19import
         schema = o19manifest.load("o19map-schema")
         for profile in [schema] + list(schema["PROFILES"].values()):
             current = profile["SCHEMA_MAP_VERSION"]
             with self.subTest(province=profile["O19_PROFILE"]):
-                self.assertEqual(current.split("+", 1)[0], "o19map-5")
-                for previous_base in ("o19map-3", "o19map-4"):
+                self.assertEqual(current.split("+", 1)[0], "o19map-8")
+                for previous_base in ("o19map-3", "o19map-4", "o19map-5", "o19map-6", "o19map-7"):
                     previous = previous_base + "+" + current.split("+", 1)[1]
                     state = {"inputs": {"schema_map_version": previous},
                              "phases": {"etl": {"status": "done"}}}
@@ -967,6 +983,92 @@ class TestOverlayRulingsReachTheManifest(unittest.TestCase):
             self.stale("SCHEMA_MAP_VERSION"))
 
 
+@unittest.skipUnless(OVERRIDES.is_file(), "overlay not in this checkout")
+class TestTheConsentRulingIsInTheOverlay(unittest.TestCase):
+    """One live Consent row per patient and consent type (#3845).
+
+    Asserted on the OVERLAY, which the generator reads;
+    TestTheShippedManifestRanksConsent asserts that the manifest
+    generated from it carries the ruling. The ETL refuses an entry
+    without it before any write (o19etl.consent_live_ranked,
+    etl_precheck_problems)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.exprs = load_overrides().VALUE_EXPRS.get("Consent", {})
+
+    def test_a_null_optout_is_stored_as_an_opt_out(self):
+        self.assertEqual(self.exprs.get("optout"), "COALESCE(s.`optout`, 1)")
+
+    def test_a_row_the_helper_does_not_know_arrives_retired(self):
+        self.assertTrue(self.exprs["deleted"].startswith("COALESCE((SELECT"))
+        self.assertTrue(self.exprs["deleted"].endswith(", 1)"))
+
+    def test_deleted_is_read_from_the_helper_the_etl_builds(self):
+        self.assertEqual(
+            self.exprs.get("deleted"),
+            "COALESCE((SELECT r.`deleted` FROM {archive}.`Consent__live` r "
+            "WHERE r.`id` = s.`id`), 1)")
+        self.assertIn(o19etl.ARCHIVE_SLOT, self.exprs["deleted"])
+        self.assertIn(o19etl.ident(o19etl.consent_live_table()),
+                      self.exprs["deleted"])
+
+    def test_the_etl_recognises_the_entry_the_generator_would_emit(self):
+        entry = dict(o19map_schema.TABLES["Consent"],
+                     value_exprs=dict(self.exprs))
+        entry["cols"] = list(entry["cols"]) + [
+            c for c in sorted(self.exprs) if c not in entry["cols"]]
+        self.assertTrue(o19etl.consent_live_ranked(entry))
+
+    def test_both_targets_are_carlos_columns(self):
+        # the generator refuses an expression for a column CARLOS lacks
+        for column in self.exprs:
+            self.assertIn(column, o19map_schema.CARLOS_COLUMNS["Consent"])
+
+    def test_no_window_function_is_in_an_expression(self):
+        # P7 rebuilds them inside a WHERE
+        for column, expr in self.exprs.items():
+            self.assertNotIn("OVER", expr.upper().split(), column)
+
+
+class TestTheShippedManifestRanksConsent(unittest.TestCase):
+
+    """The ruling as the import runs it (#3845), in every profile.
+
+    A manifest without it is refused at import, before the first write
+    (o19etl.etl_precheck_problems): copied, it would store OSCAR 19's
+    deleted rows live and a NULL optout as 0, an opt-in. A merge that
+    took an older o19map_schema.py would pass every other test and fail
+    every clinic's import, so this one reads what shipped."""
+
+    #: the module-level default (Ontario) and every other profile
+    PROFILE_NAMES = sorted({o19map_schema._DEFAULT_PROFILE["O19_PROFILE"]}
+                           | set(o19map_schema.PROFILES))
+
+    def entries(self):
+        for province in self.PROFILE_NAMES:
+            yield province, profile_data(province)["TABLES"]["Consent"]
+
+    def test_both_provinces_are_covered(self):
+        self.assertEqual(self.PROFILE_NAMES, ["bc", "on"])
+
+    def test_every_profile_ranks_consent(self):
+        for name, entry in self.entries():
+            with self.subTest(profile=name):
+                # a copy: a merge never builds the helper
+                self.assertEqual(entry["class"], "copy")
+                self.assertTrue(o19etl.consent_live_ranked(entry))
+
+    @unittest.skipUnless(OVERRIDES.is_file(), "overlay not in this checkout")
+    def test_every_profile_carries_the_overlays_expressions(self):
+        exprs = load_overrides().VALUE_EXPRS["Consent"]
+        for name, entry in self.entries():
+            with self.subTest(profile=name):
+                self.assertEqual(entry.get("value_exprs"), exprs)
+                for column in exprs:
+                    self.assertIn(column, entry["cols"])
+
+
 class TestTheOntarioProfile(unittest.TestCase):
 
     """What is true of the Ontario profile ALONE.
@@ -992,12 +1094,10 @@ class TestTheOntarioProfile(unittest.TestCase):
         self.assertEqual(profile_data("bc")["SEED_ROW_COUNTS"]["encounterForm"], 54)
 
     def test_privilege_seed_floor_reflects_later_deletions(self):
-        # 514 baseline tuples + the V1.0.6 INSERT IGNORE row - the carlosdoc
-        # denial V1.0.9 deletes = 514, which is what a live target holds
-        self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjPrivilege"],
-                         514)
-        self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjectName"],
-                         133)
+        # Release baseline grants, its explicit deletion, and the two independent
+        # admin CDS SELECT seeds at 59.41/59.43. No develop-only portal/SMS seeds.
+        self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjPrivilege"], 516)
+        self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjectName"], 133)
 
 
 class TestTheBritishColumbiaProfile(unittest.TestCase):
@@ -1076,13 +1176,9 @@ class TestTheBritishColumbiaProfile(unittest.TestCase):
             self.assertTrue(self.tables[table].get("replace_seed"), table)
 
     def test_privilege_seed_floor_is_counted_from_the_bc_migrations(self):
-        # BC seeds two more privilege tuples and one more object than
-        # Ontario; a floor carried over from Ontario would refuse every
-        # BC host at P0
-        self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjPrivilege"],
-                         516)
-        self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjectName"],
-                         134)
+        # The release BC baseline seeds two more grants and one more object.
+        self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjPrivilege"], 518)
+        self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjectName"], 134)
 
     def test_no_ontario_only_table_leaks_into_the_bc_profile(self):
         # PROVINCE_SCOPED removals: these are Ontario CARLOS tables, and
@@ -1105,6 +1201,10 @@ for _province in sorted(o19map_schema.PROFILES):
              "__doc__": "{0} against the {1!r} profile."
                         .format(_base.__name__, _province)})
 
+
+# unittest discovers class aliases too, including underscored loop variables.
+# Keep each inherited ON/BC case once instead of rerunning the final base.
+del _base
 
 if __name__ == "__main__":
     unittest.main()

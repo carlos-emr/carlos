@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.Query;
 
@@ -47,6 +48,11 @@ import org.springframework.stereotype.Repository;
 public class QueueDaoImpl extends AbstractDaoImpl<Queue> implements QueueDao {
     public QueueDaoImpl() {
         super(Queue.class);
+    }
+
+    @Override
+    public boolean lockExistingQueue(int id) {
+        return entityManager.find(Queue.class, id, LockModeType.PESSIMISTIC_READ) != null;
     }
 
     @Override
@@ -122,13 +128,23 @@ public class QueueDaoImpl extends AbstractDaoImpl<Queue> implements QueueDao {
     @Override
     public boolean addNewQueue(String qn) {
         try {
-            Queue q = new Queue();
-            q.setName(qn);
-            entityManager.persist(q);
+            addNewQueueAndGetId(qn);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
             return false;
         }
         return true;
+    }
+
+    @Override
+    public Integer addNewQueueAndGetId(String qn) {
+        Queue q = new Queue();
+        q.setName(qn);
+        entityManager.persist(q);
+        entityManager.flush();
+        if (q.getId() == null) {
+            throw new IllegalStateException("Queue persistence did not assign an ID");
+        }
+        return q.getId();
     }
 }

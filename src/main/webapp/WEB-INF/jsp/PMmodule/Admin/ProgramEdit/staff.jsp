@@ -28,16 +28,6 @@
 .b th {color:black;}
 </style>
 <script>
-	function search_provider(name) {
-		var url = '<html:rewrite action="/PMmodule/ProviderSearch"/>';
-			url += '?q=' + name;
-			url += '&formName=programManagerForm';
-			url += '&formElementId=provider.providerNo';
-			url += '&formElementName=providerName';
-		
-		window.open(url, 'provider_search','width=500, height=400, scrollbars=yes');
-	}
-
 	function deleteProvider(id) {
 		if(!confirm("Are you sure you want to delete the staff entry?")) {
 			return;
@@ -81,12 +71,12 @@
 	}
 	
 	function add_provider(form) {
-		if(form.elements['provider.providerNo'].value == 0) {
+		if (!form.elements['provider.providerNo'].value) {
 			alert('You must choose a provider');
 			return false;
 		}
+		form.elements['provider.id'].value = '';
 		form.elements['method'].value='save_provider';
-		form.elements['provider.id'].value=0;
 		form.submit();
 	}
 </script>
@@ -99,15 +89,26 @@
 </table>
 </div>
 <!--  show current staff -->
-<display:table class="simple" cellspacing="2" cellpadding="3" id="provider" name="providers" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
-	<display:setProperty name="paging.banner.placement" value="bottom" />
-	<display:setProperty name="basic.msg.empty_list" value="No staff currently assigned to this program." />
-	<display:column sortable="false" title="">
+<c:if test="${not empty providers}">
+<table class="carlos-table-spaced simple" id="provider" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
+
+
+    <th scope="col"></th>
+    <th scope="col"><span data-table-sort>Name</span></th>
+    <th scope="col"><span data-table-sort>Phone</span></th>
+    <th scope="col">Team</th>
+    <th scope="col">Role</th>
+</tr></thead>
+<tbody><c:forEach var="provider" items="${providers}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+
+    <td>
 		<a href="javascript:void(0);" onclick="deleteProvider('${carlos:forJavaScript(provider.id)}');return false;"> Delete </a>
-	</display:column>
-	<display:column property="provider.formattedName" sortable="true" title="Name" />
-	<display:column property="provider.phone" sortable="true" title="Phone" />
-	<display:column sortable="false" title="Team">
+    </td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(provider.provider.formattedName))}" data-sort-type="${carlos:tableSortType(provider.provider.formattedName)}">${carlos:forHtml(provider.provider.formattedName)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(provider.provider.phone))}" data-sort-type="${carlos:tableSortType(provider.provider.phone)}">${carlos:forHtml(provider.provider.phone)}</td>
+    <td>
 		<table width="100%" cellspacing="2" cellpadding="2">
 			<c:forEach var="team" items="${provider.teams}">
 				<tr>
@@ -122,8 +123,8 @@
 				<option value="${carlos:forHtmlAttribute(team.id)}">${carlos:forHtml(team.name)}</option>
 			</c:forEach>
 		</select>
-	</display:column>
-	<display:column sortable="false" title="Role">
+    </td>
+    <td>
 		<select name="x" onchange="assignRole('${carlos:forJavaScript(provider.id)}',this);">
 			<option value="0">&nbsp;</option>
 			<c:forEach var="role" items="${roles}">
@@ -137,37 +138,39 @@
 				</c:choose>
 			</c:forEach>
 		</select>
-	</display:column>
-</display:table>
+    </td>
+</tr></c:forEach></tbody>
+</table>
+</c:if>
+<c:if test="${empty providers}">No staff currently assigned to this program.</c:if>
 <br />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<tr class="b">
-		<td width="20%">Provider:</td>
+		<td style="width: 20%;"><label for="program-staff-provider">Provider:</label></td>
 		<td>
-			<html:hidden property="provider.id" />
-			<html:hidden property="provider.providerNo" />
-			<%
- 			String providerName = (String) request.getAttribute("providerName");
-			if (providerName == null) {
-				providerName = "";
-			}
-			%>
-			<input type="text" name="providerName" size="30" value="<%=providerName%>" />
-			<input type="button" value="Search" onclick="search_provider(this.form.providerName.value);" />
+			<input type="hidden" name="provider.id" />
+			<select name="provider.providerNo" id="program-staff-provider">
+				<option value="">Select a provider</option>
+				<c:forEach var="candidate" items="${availableProviders}">
+					<option value="${carlos:forHtmlAttribute(candidate.providerNo)}" <c:if test="${candidate.providerNo == requestScope.staffProvider.providerNo}">selected</c:if>>${carlos:forHtmlContent(candidate.formattedName)}</option>
+				</c:forEach>
+			</select>
 		</td>
 	</tr>
 	<tr class="b">
-		<td width="20%">Role:</td>
+		<td style="width: 20%;"><label for="program-staff-role">Role:</label></td>
 		<td>
-			<html:select property="provider.roleId">
-				<html:options collection="roles" property="id" labelProperty="name" />
-			</html:select>
+			<select name="provider.roleId" id="program-staff-role">
+				<c:forEach var="role" items="${roles}">
+					<option value="${carlos:forHtmlAttribute(role.id)}" <c:if test="${role.id == requestScope.staffProvider.roleId}">selected</c:if>>${carlos:forHtmlContent(role.name)}</option>
+				</c:forEach>
+			</select>
 		</td>
 	</tr>
 	<tr>
 		<td colspan="2">
 			<input type="button" value="Save" onclick="add_provider(this.form)" />
-			<html:cancel />
+			<a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${carlos:forUriComponent(requestScope.id)}&amp;view.tab=Staff">Cancel</a>
 		</td>
 	</tr>
 </table>

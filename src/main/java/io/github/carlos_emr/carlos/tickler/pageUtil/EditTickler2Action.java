@@ -62,6 +62,10 @@ import java.util.Date;
  * ({@link TicklerAttachmentParameters#SUBMITTED_MARKER}); an edit that never opened the picker
  * leaves the stored set untouched. The form also echoes the stored rows it rendered
  * ({@link TicklerAttachmentParameters#RENDERED_MARKER}), and only those can be detached.</p>
+ *
+ * <p>The form carries the version of the tickler it was rendered from
+ * ({@link TicklerEditVersion}). A form opened before another user changed the task is refused
+ * with HTTP 409 and the {@code staleRefused} result, and nothing is written.</p>
  */
 public class EditTickler2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -69,6 +73,8 @@ public class EditTickler2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final String CLOSE_RESULT = "close";
+    /** HTTP 409: the form was rendered from an older version of the tickler ({@link TicklerEditVersion}). */
+    static final String STALE_RESULT = "staleRefused";
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private TicklerAttachmentService ticklerAttachmentService = SpringUtils.getBean(TicklerAttachmentService.class);
@@ -80,7 +86,8 @@ public class EditTickler2Action extends ActionSupport {
      *
      * @return String result: {@link #NONE} for a rejected method; otherwise the selected handler's
      *         result ({@code close} on success, {@code attachmentsRefused} for a refused
-     *         selection, or {@code failure}/{@code error} on other failures)
+     *         selection, {@code staleRefused} for a form another user's change has overtaken, or
+     *         {@code failure}/{@code error} on other failures)
      */
     @Override
     public String execute() {
@@ -91,17 +98,21 @@ public class EditTickler2Action extends ActionSupport {
             response.setHeader("Allow", "POST");
             return NONE;
         }
-        if ("editTickler".equals(request.getParameter("method"))) {
-            return editTickler();
-        }
-        return updateTextSuggest();
+        String method = request.getParameter("method");
+        if (suggestedTextRoute() && (method == null || "updateTextSuggest".equals(method))) return updateTextSuggest();
+        if (!suggestedTextRoute() && (method == null || "editTickler".equals(method))) return editTickler();
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        return NONE;
     }
+
+    /** Route identity comes from the mapped class, never from a request parameter. */
+    protected boolean suggestedTextRoute() { return false; }
 
     public String editTickler() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "u", null)) {
-            throw new RuntimeException("missing required sec object (_tickler)");
+            throw new SecurityException("missing required sec object (_tickler)");
         }
 
         if (!requirePost()) return NONE;
@@ -113,6 +124,8 @@ public class EditTickler2Action extends ActionSupport {
                         if (!CLOSE_RESULT.equals(result)) transaction.setRollbackOnly();
                         return result;
                     });
+        } catch (SecurityException denied) {
+            throw denied;
         } catch (RuntimeException e) {
             logger.error("Failed to commit tickler edit", e);
             addActionError(getText("tickler.ticklerEdit.arg.error"));
@@ -166,12 +179,29 @@ public class EditTickler2Action extends ActionSupport {
             return "failure";
         }
 
-        Tickler t = ticklerManager.getTickler(loggedInInfo, ticklerNo);
+        // The form names the version of the tickler it was rendered from. With one, the row is
+        // locked before it is read, so the comparison and every write below see the same tickler;
+        // without one (an older page, a hand-built request) the edit is applied as before.
+        String renderedVersion = request.getParameter(TicklerEditVersion.PARAMETER);
+        Tickler t = TicklerEditVersion.isPresent(renderedVersion)
+                ? ticklerManager.getTicklerForUpdate(loggedInInfo, ticklerNo)
+                : ticklerManager.getTickler(loggedInInfo, ticklerNo);
 
         if (t == null || t.getCreator() == null || t.getCreator().isBlank()
                 || t.getDemographicNo() == null || t.getDemographicNo() <= 0) {
             addActionError(getText("tickler.ticklerEdit.arg.error"));
             return "failure";
+        }
+
+        if (TicklerEditVersion.isPresent(renderedVersion) && !renderedVersion.trim().equals(TicklerEditVersion.of(t))) {
+            // Someone else completed, deleted, reassigned or commented on the task after this
+            // popup was opened. Its fields would overwrite that change (a completed task went back
+            // to Active), so nothing is written: no attachment, comment, field or history row.
+            logger.info("Refused a stale tickler edit: ticklerNo={}", LogSafe.sanitize(String.valueOf(ticklerNo)));
+            addActionError(getText("tickler.ticklerEdit.stale.error"));
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            response.setHeader("Cache-Control", "no-store");
+            return STALE_RESULT;
         }
 
         // A user may change only the attachments. Keep field, comment, history and attachment
@@ -286,6 +316,8 @@ public class EditTickler2Action extends ActionSupport {
                     addActionError(getText("tickler.ticklerEdit.arg.error"));
                     return "error";
                 }
+            } catch (SecurityException denied) {
+                throw denied;
             } catch (Exception e) {
                 logger.error("Tickler update failed: {}", e.getClass().getSimpleName());
                 addActionError(getText("tickler.ticklerEdit.arg.error"));
@@ -306,7 +338,7 @@ public class EditTickler2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "u", null)) {
-            throw new RuntimeException("missing required sec object (_tickler)");
+            throw new SecurityException("missing required sec object (_tickler)");
         }
 
         if (!requirePost()) {
@@ -316,11 +348,13 @@ public class EditTickler2Action extends ActionSupport {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         if (activeText == null) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             addActionError(getText("tickler.ticklerEdit.arg.error"));
             return "failure";
         }
 
         if (inactiveText == null) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             addActionError(getText("tickler.ticklerEdit.arg.error"));
 
             return "failure";

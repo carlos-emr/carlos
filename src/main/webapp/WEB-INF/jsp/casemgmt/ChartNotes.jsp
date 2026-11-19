@@ -54,45 +54,46 @@
 <% response.setBufferSize(1024 * 1024); %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@page import="io.github.carlos_emr.Misc" %>
-<%@page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
+
+
 <%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 <%@taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="java.util.Enumeration" %>
-<%@page import="io.github.carlos_emr.carlos.encounter.pageUtil.NavBarDisplayDAO" %>
-<%@page import="java.util.Arrays,java.util.Properties,java.util.List,java.util.Set,java.util.ArrayList,java.util.Enumeration,java.util.HashSet,java.util.Iterator,java.text.SimpleDateFormat,java.util.Calendar,java.util.Date,java.text.ParseException" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.model.*,io.github.carlos_emr.carlos.casemgmt.service.* " %>
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
+
+
+<%@page import="java.util.List, java.util.Set, java.util.Iterator, java.text.SimpleDateFormat, java.util.Date" %>
+
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.*" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.EFormDao" %>
-<%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
-<%@page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
-<%@page import="org.springframework.web.context.WebApplicationContext" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour" %>
-<%@page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="com.quatro.dao.security.*,io.github.carlos_emr.carlos.model.security.Secrole" %>
-<%@page import="io.github.carlos_emr.carlos.utility.EncounterUtil" %>
-<%@page import="org.apache.cxf.common.i18n.UncheckedException" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction" %>
+
+
+
+
+
+
+
+
+<%@page import="io.github.carlos_emr.carlos.model.security.Secrole" %>
+
+
+
+
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO" %>
+
+
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
+
+
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayNonNote" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao" %>
+
+
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.CheckBoxBean" %>
 <%@page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
@@ -326,8 +327,13 @@
                 </fieldset>
             </c:if>
         </div>        
+        <button type="button" id="quickChart" onclick="return viewFullChart(fullChart !== 'true');"><fmt:message key="encounter.fullChart.msg"/></button>
         <button type="button" id="notesFilterToggle" aria-controls="filter" aria-expanded="false"
                 onclick="return showFilter();"><fmt:message key="encounter.Filter.title"/></button>
+        <%-- CDS source links, for a patient with imported CDS clinical notes or additional categories
+             only; the tag emits no markup for anyone else. They share this row's free space, so the
+             notes below start at the same place for every patient. --%>
+        <source:cdsChartSourceLinks demographicNo="<%= demographicNo %>"/>
         <div id="filter" style="display:none;margin-top: 5px; margin-left: 5px;margin-right: 5px;">
             <input type="button" value="Hide" onclick="return filter(false);"/>
             <input type="button" value="<fmt:message key="encounter.resetFilter.title"/>"
@@ -551,12 +557,10 @@
     <input type="hidden" name="apptProvider" value="<carlos:encode value='<%= apptProv %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="providerview" value="<carlos:encode value='<%= provView %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="toBill" id="toBill" value="false">
-    <input type="hidden" name="deleteId" value="0">
-    <input type="hidden" name="lineId" value="0">
     <input type="hidden" name="from" value="casemgmt">
     <input type="hidden" name="method" value="save">
     <input type="hidden" name="change_diagnosis" value="${carlos:forHtmlAttribute(change_diagnosis)}">
-    <input type="hidden" name="change_diagnosis_id" value="${carlos:forHtmlAttribute(change_diagnosis_id)}">
+    <input type="hidden" name="changeDiagnosisIssueId" value="${carlos:forHtmlAttribute(changeDiagnosisIssueId)}">
     <input type="hidden" name="newIssueId" id="newIssueId">
     <input type="hidden" name="newIssueName" id="newIssueName">
     <input type="hidden" name="ajax" value="false">
@@ -603,7 +607,7 @@
         </table>
     </div>
     <div id="encMainDivWrapper">
-        <div id="encMainDiv">
+        <div id="encMainDiv" data-chart-patient="<carlos:encode value='<%= demographicNo %>' context='htmlAttribute'/>">
 
         </div>
     </div>

@@ -38,7 +38,7 @@
     if (request.getParameter("bNewForm") != null && request.getParameter("bNewForm").compareTo("0") == 0)
         bNew = false;
 %>
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*"
+<%@ page import="java.util.*, java.sql.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <HTML>
@@ -78,11 +78,11 @@
     <TR>
         <TD WIDTH="50%" VALIGN="TOP"><FONT FACE="Arial" SIZE="-1">
             <B>Alcohol/drug abuse (<I>WA, </I>CA)</B><BR>
-            �How many drinks of alcohol do you have per week?<BR>
-            �Are there times when you drink more than that?<BR>
-            �Do you or your partner use recreational drugs?<BR>
-            �Do you or your partner have a problem with alcohol or drugs?<BR>
-            �Consider CAGE (<B>C</B>ut down, <B>A</B>nnoyed, <B>G</B>uilty, <B>E</B>ye
+            &#8226;How many drinks of alcohol do you have per week?<BR>
+            &#8226;Are there times when you drink more than that?<BR>
+            &#8226;Do you or your partner use recreational drugs?<BR>
+            &#8226;Do you or your partner have a problem with alcohol or drugs?<BR>
+            &#8226;Consider CAGE (<B>C</B>ut down, <B>A</B>nnoyed, <B>G</B>uilty, <B>E</B>ye
             opener)</FONT></TD>
         <TD WIDTH="50%" VALIGN="TOP"><FONT FACE="Arial" SIZE="-1">&nbsp;</FONT></TD>
     </TR>
@@ -96,37 +96,37 @@
         <TD WIDTH="50%" VALIGN="TOP"><FONT FACE="Arial" SIZE="-1">
             <B>Woman or partner experienced or witnessed abuse
                 (physical,&nbsp;emotional, sexual) (<I>CA, </I>WA)</B><BR>
-            �What was your parents' relationship like?<BR>
-            �Did your father ever scare or hurt your mother?<BR>
-            �Did your parents ever scare or hurt you?<BR>
-            �Were you ever sexually abused as a child?</FONT></TD>
+            &#8226;What was your parents' relationship like?<BR>
+            &#8226;Did your father ever scare or hurt your mother?<BR>
+            &#8226;Did your parents ever scare or hurt you?<BR>
+            &#8226;Were you ever sexually abused as a child?</FONT></TD>
         <TD WIDTH="50%" VALIGN="TOP"><FONT FACE="Arial" SIZE="-1">&nbsp;</FONT></TD>
     </TR>
     <TR>
         <TD WIDTH="50%" VALIGN="TOP"><FONT FACE="Arial" SIZE="-1">
             <B>Current or past woman abuse (<I>WA</I>, CA, PD)</B><BR>
-            �How do you and your partner solve arguments?<BR>
-            �Do you ever feel frightened by what your partner says or does?<BR>
-            �Have you ever been hit/pushed/slapped by a partner?<BR>
-            �Has your partner ever humiliated you or psychologically abused you in
+            &#8226;How do you and your partner solve arguments?<BR>
+            &#8226;Do you ever feel frightened by what your partner says or does?<BR>
+            &#8226;Have you ever been hit/pushed/slapped by a partner?<BR>
+            &#8226;Has your partner ever humiliated you or psychologically abused you in
             other ways?<BR>
-            �Have you ever been forced to have sex against your will?</FONT></TD>
+            &#8226;Have you ever been forced to have sex against your will?</FONT></TD>
         <TD WIDTH="50%" VALIGN="TOP"><FONT FACE="Arial" SIZE="-1">&nbsp;</FONT></TD>
     </TR>
     <TR>
         <TD WIDTH="50%" VALIGN="TOP"><FONT FACE="Arial" SIZE="-1">
             <B>Previous child abuse by woman or partner (<I>CA</I>)</B><BR>
-            �Do you/your partner have children not living with you? If so, why?<BR>
-            �Have you ever had involvement with a child protection agency (i.e.,
+            &#8226;Do you/your partner have children not living with you? If so, why?<BR>
+            &#8226;Have you ever had involvement with a child protection agency (i.e.,
             Children's Aid Society)?</FONT></TD>
         <TD WIDTH="50%" VALIGN="TOP"><FONT FACE="Arial" SIZE="-1">&nbsp;</FONT></TD>
     </TR>
     <TR>
         <TD WIDTH="50%" VALIGN="TOP"><FONT FACE="Arial" SIZE="-1">
             <B>Child discipline (<I>CA</I>)</B><BR>
-            �How were you disciplined as a child?<BR>
-            �How do you think you will discipline your child?<BR>
-            �How do you deal with your kids at home when they misbehave?</FONT></TD>
+            &#8226;How were you disciplined as a child?<BR>
+            &#8226;How do you think you will discipline your child?<BR>
+            &#8226;How do you deal with your kids at home when they misbehave?</FONT></TD>
         <TD WIDTH="50%" VALIGN="TOP"><FONT FACE="Arial" SIZE="-1">&nbsp;</FONT></TD>
     </TR>
     <TR>

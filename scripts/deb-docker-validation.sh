@@ -50,10 +50,14 @@
 #   up            build the image, start the container, install the debs,
 #                 require `carlos-ctl check` to pass, stage the fixtures,
 #                 perform the first-login reset and write /root/suite-env.sh
-#   suite [ARGS]  run scripts/run-playwright-suite.js ARGS in the container,
-#                 limited to the installed province unless ARGS name one
-#                 (default: --tier smoke); fails if carlos-emr restarted
-#                 during the run; the JUnit report is copied to LOG_DIR
+#   suite [ARGS]  run strict, residue-audited qualification in the container
+#                 through the installed-error fault adapter (two extra restarts
+#                 and a temporary web.xml change); default: --tier smoke.
+#                 Adds --strict-release --residue-audit; --skip/--dry-run are
+#                 refused, and SKIP/known-fail/unexpected-pass fail the run.
+#                 Uses the installed province unless ARGS name one; copies
+#                 JUnit to LOG_DIR. Checks NRestarts except for managed profiles.
+#                 For diagnostics, invoke run-playwright-suite.js directly.
 #   audit [ARGS]  run scripts/deb-server-log-audit.sh ARGS in the container
 #   upgrade TAG   install the published TAG package set in a fresh container,
 #                 retain UI-created clinical canaries through the local package
@@ -81,8 +85,9 @@
 #   CONTAINER           container name (default carlos-deb-validation)
 #   IMAGE               image tag (default carlos-deb-validation:26.04)
 #   BASE_IMAGE          default ubuntu:26.04
-#   PLAYWRIGHT_VERSION  default 1.60.0 (runbook section 5; do not run
+#   PLAYWRIGHT_VERSION  default 1.61.1 (runbook section 5; do not run
 #                       `playwright install`: the package ships Chromium)
+#   AXE_CORE_VERSION    default 4.14.0 (accessibility-smoke prerequisite)
 #   BUILD_PROXY         optional http(s) proxy URL for apt and npm while
 #                       building the image and installing packages
 #   BUILD_CA_BUNDLE     optional PEM bundle to trust for that proxy
@@ -103,7 +108,11 @@ RESET_PASSWORD="${RESET_PASSWORD:-Carlos2026!Verify}"
 CONTAINER="${CONTAINER:-carlos-deb-validation}"
 IMAGE="${IMAGE:-carlos-deb-validation:26.04}"
 BASE_IMAGE="${BASE_IMAGE:-ubuntu:26.04}"
-PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:-1.60.0}"
+PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:-1.61.1}"
+# Match the repository's exact dependency; a floating install changes the audit rules.
+AXE_CORE_VERSION="4.14.0"
+ENTITIES_VERSION="4.5.0"
+PNGJS_VERSION="7.0.0"
 BUILD_PROXY="${BUILD_PROXY:-}"
 BUILD_CA_BUNDLE="${BUILD_CA_BUNDLE:-}"
 APT_FORCE_HTTPS="${APT_FORCE_HTTPS:-false}"
@@ -117,14 +126,23 @@ say() { echo "deb-docker-validation: $*"; }
 
 usage() { sed -n '/^# Usage:/,/^set -euo pipefail/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//'; }
 
-case "$CARLOS_PROVINCE" in on|bc|other) ;; *) die "CARLOS_PROVINCE must be on, bc or other (got '$CARLOS_PROVINCE')" ;; esac
-case "$INSTALL_DEMO_DATA" in true|false) ;; *) die "INSTALL_DEMO_DATA must be true or false" ;; esac
-case "$CONTAINER_NETWORK" in host|bridge) ;; *) die "CONTAINER_NETWORK must be host or bridge" ;; esac
+case "$CARLOS_PROVINCE" in
+  on|bc|other) ;;
+  *) die "CARLOS_PROVINCE must be on, bc or other (got '$CARLOS_PROVINCE')" ;;
+esac
+case "$INSTALL_DEMO_DATA" in
+  true|false) ;;
+  *) die "INSTALL_DEMO_DATA must be true or false" ;;
+esac
+case "$CONTAINER_NETWORK" in
+  host|bridge) ;;
+  *) die "CONTAINER_NETWORK must be host or bridge" ;;
+esac
 # Both values are written into shell text that runs as root in the container
 # (and RESET_PASSWORD into /root/suite-env.sh), so refuse anything that quoting
 # could not carry through unchanged.
 case "$RESET_PASSWORD" in
-  *[\'\"\$\`\\]*|'') die "RESET_PASSWORD must not be empty or contain quotes, \$, backticks or backslashes" ;;
+  *"'"*|*'"'*|*'$'*|*'`'*|*'\'*|'') die "RESET_PASSWORD must not be empty or contain quotes, \$, backticks or backslashes" ;;
 esac
 [ -z "$BUILD_PROXY" ] || [[ "$BUILD_PROXY" =~ ^https?://[A-Za-z0-9._:-]+/?$ ]] \
   || die "BUILD_PROXY must be a plain http(s)://host:port URL"
@@ -192,14 +210,28 @@ FROM ${BASE_IMAGE}
 ARG BUILD_PROXY=
 ARG APT_FORCE_HTTPS=false
 ARG PLAYWRIGHT_VERSION
+ARG AXE_CORE_VERSION
+ARG ENTITIES_VERSION
+ARG PNGJS_VERSION
 RUN --mount=type=secret,id=validation_ca,required=true,mode=0444 set -e; \
-    if [ "$APT_FORCE_HTTPS" = true ]; then sed -i 's#http://#https://#g' /etc/apt/sources.list.d/*.sources; fi; \
+    if [ "$APT_FORCE_HTTPS" = true ]; then \
+      sed -i -e 's#http://#https://#g' \
+        -e 's#https://security.ubuntu.com/ubuntu#https://archive.ubuntu.com/ubuntu#g' \
+        /etc/apt/sources.list.d/*.sources; \
+    fi; \
     if [ -n "$BUILD_PROXY" ]; then printf 'Acquire::http::Proxy "%s";\nAcquire::https::Proxy "%s";\n' "$BUILD_PROXY" "$BUILD_PROXY" > /etc/apt/apt.conf.d/99carlos-validation-proxy; fi; \
     printf 'Acquire::https::CaInfo "/run/secrets/validation_ca";\n' > /etc/apt/apt.conf.d/98carlos-validation-ca; \
-    apt-get update; \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      ca-certificates systemd systemd-sysv dbus iproute2 procps curl \
-      nodejs npm poppler-utils fonts-liberation gnupg libxml2-utils; \
+    for attempt in 1 2 3; do \
+      apt-get -o Acquire::https::No-Cache=true -o APT::Update::Error-Mode=any update \
+        && DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::https::No-Cache=true install -y --no-install-recommends \
+          ca-certificates systemd systemd-sysv dbus iproute2 procps curl \
+          nodejs npm poppler-utils tesseract-ocr tesseract-ocr-eng fonts-liberation gnupg libxml2-utils \
+          python3 python3-defusedxml openjdk-25-jdk-headless \
+        && break; \
+      test "$attempt" -lt 3 || exit 1; \
+      rm -rf /var/lib/apt/lists/*; \
+      sleep 2; \
+    done; \
     update-ca-certificates; \
     rm -f /etc/apt/apt.conf.d/98carlos-validation-ca; \
     rm -rf /var/lib/apt/lists/*; \
@@ -209,7 +241,7 @@ RUN --mount=type=secret,id=validation_ca,required=true,mode=0444 set -e; \
     cd /root && npm init -y >/dev/null; \
     if [ -n "$BUILD_PROXY" ]; then export HTTPS_PROXY="$BUILD_PROXY"; fi; \
     export NODE_EXTRA_CA_CERTS=/run/secrets/validation_ca; \
-    npm install --save-exact --no-audit --no-fund "playwright@${PLAYWRIGHT_VERSION}"
+    npm install --save-exact --no-audit --no-fund "playwright@${PLAYWRIGHT_VERSION}" "axe-core@${AXE_CORE_VERSION}" "entities@${ENTITIES_VERSION}" "pngjs@${PNGJS_VERSION}"
 ENV container=docker
 STOPSIGNAL SIGRTMIN+3
 CMD ["/sbin/init"]
@@ -217,7 +249,8 @@ EOF
   say "building image $IMAGE from $BASE_IMAGE"
   docker build --network host --secret "id=validation_ca,src=$ctx/extra-ca.crt" -t "$IMAGE" \
     --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg BUILD_PROXY="$BUILD_PROXY" \
-    --build-arg APT_FORCE_HTTPS="$APT_FORCE_HTTPS" --build-arg PLAYWRIGHT_VERSION="$PLAYWRIGHT_VERSION" \
+    --build-arg APT_FORCE_HTTPS="$APT_FORCE_HTTPS" --build-arg PLAYWRIGHT_VERSION="$PLAYWRIGHT_VERSION" --build-arg AXE_CORE_VERSION="$AXE_CORE_VERSION" \
+    --build-arg ENTITIES_VERSION="$ENTITIES_VERSION" --build-arg PNGJS_VERSION="$PNGJS_VERSION" \
     "$ctx" >"$LOG_DIR/image-build.log" 2>&1 || { rm -rf "$ctx"; die "image build failed; see $LOG_DIR/image-build.log"; }
   rm -rf "$ctx"
 }
@@ -269,10 +302,18 @@ cmd_up() {
   local state="" i
   for i in $(seq 1 60); do
     state=$(docker exec "$CONTAINER" systemctl is-system-running 2>/dev/null || true)
-    case "$state" in running|degraded) break ;; esac
+    case "$state" in
+      running|degraded) break ;;
+    esac
     sleep 2
   done
-  case "$state" in running|degraded) ;; *) die "systemd did not come up in $CONTAINER (state '${state:-none}')" ;; esac
+  case "$state" in
+    running|degraded) ;;
+    *) die "systemd did not come up in $CONTAINER (state '${state:-none}')" ;;
+  esac
+
+  docker exec -e CARLOS_DISPOSABLE_HOST=true "$CONTAINER" \
+    bash /root/carlos/scripts/ci/prepare-container-securityfs.sh
 
   preseed | docker exec -i "$CONTAINER" debconf-set-selections
   say "installing $emr, $drugref and $ctl (log: $LOG_DIR/install.log)"
@@ -283,7 +324,7 @@ cmd_up() {
         printf 'Acquire::http::Proxy \"%s\";\nAcquire::https::Proxy \"%s\";\n' '$BUILD_PROXY' '$BUILD_PROXY' > /etc/apt/apt.conf.d/99carlos-validation-proxy
       fi
       printf 'Acquire::https::CaInfo \"/run/carlos-validation-ca.pem\";\\n' > /etc/apt/apt.conf.d/98carlos-validation-ca
-      apt-get update
+      apt-get -o APT::Update::Error-Mode=any update
       apt-get install -y --no-remove /debs/$emr /debs/$drugref /debs/$ctl" >"$LOG_DIR/install.log" 2>&1; then
     die "apt-get install failed; see $LOG_DIR/install.log"
   fi
@@ -319,6 +360,15 @@ initialize_vascular_dictionary() {
     || die "the Vascular Tracker dictionary initialization failed; see $LOG_DIR/vascular-dictionary.log"
 }
 
+# Whether this install gets runbook fixture d, the three LOCAL_SEED_OBEC_REPORT appointments booked
+# against demo-dataset patients: an install with the demo dataset whose province is not BC.
+# stage_fixtures inserts the rows and write_suite_env names their fixture profile under this ONE
+# condition. Naming the profile where the rows were never inserted (a BC install did) makes
+# patient-list-by-appointment-export read rows that are not there instead of seeding its own.
+seeds_patient_list_fixture() {
+  [ "$CARLOS_PROVINCE" != bc ] && [ "$INSTALL_DEMO_DATA" = true ]
+}
+
 # Runbook section 4 fixtures b, c, d and the CDS export PGP recipient, plus
 # rx_fax_enabled for the Rx fax checks, CONSULTATION_AUTO_INCLUDE_MEDICATIONS
 # for the unique-medication-list check, and login_lock=true. Each is test-only
@@ -328,16 +378,22 @@ initialize_vascular_dictionary() {
 # lockout check (account-lockout-unlock) locks every later check out.
 stage_fixtures() {
   say "staging the runbook fixtures"
+  local seed_patient_list=false
+  if seeds_patient_list_fixture; then seed_patient_list=true; fi
   in_container "
     set -e
     P=/etc/carlos-emr/carlos.properties
+    # Browser/PDF fixtures snapshot a real renderer store before their first render.
+    # The production renderer creates this lazily; prepare the disposable fixture.
+    install -d -o carlos -g carlos -m 0750 /var/lib/carlos-emr/catalina/work/carlos
+    install -d -o carlos -g carlos -m 0700 /var/lib/carlos-emr/catalina/work/carlos/eform-browser-pdf-temp
     for d in /var/lib/carlos-emr/CarlosDocument/carlos/eform/images /var/lib/carlos-emr/CarlosDocument/eform/images; do
       install -d -o carlos -g carlos -m 0750 \"\$d\"
       install -o carlos -g carlos -m 0640 /root/carlos/release/4422-84v9-1.png \"\$d/consult_sig_999998.png\"
     done
     install -o carlos -g carlos -m 0640 /root/carlos/release/Document/carlos/eform/images/MissedAppointment.rtl \
       /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/MissedAppointment.rtl
-    if [ '$CARLOS_PROVINCE' != bc ] && [ '$INSTALL_DEMO_DATA' = true ]; then
+    if [ '$seed_patient_list' = true ]; then
       mariadb -u root carlos -e \"
         INSERT INTO appointment (provider_no, appointment_date, start_time, end_time, name, demographic_no,
             notes, reason, location, resources, type, style, billing, status, createdatetime, creator)
@@ -405,12 +461,19 @@ first_login_reset() {
 # (runbook section 2), so it takes the Ontario-compatible checks: leaving it empty would run every
 # province-specific check, the BC billing ones included, against a schema they cannot use.
 suite_province() {
-  case "$CARLOS_PROVINCE" in on|other) printf ON ;; bc) printf BC ;; esac
+  case "$CARLOS_PROVINCE" in
+    on|other) printf ON ;;
+    bc) printf BC ;;
+  esac
 }
 
 write_suite_env() {
-  local suite_province
+  local suite_province patient_list_fixture
   suite_province="$(suite_province)"
+  # Without the profile the check seeds and removes its own three appointments (or SKIPs, naming what the
+  # database lacks). The text goes into an unquoted heredoc, so it holds no quote, dollar or backtick.
+  patient_list_fixture='# PATIENT_LIST_FIXTURE_PROFILE is left unset: this install was not given the LOCAL_SEED_OBEC_REPORT rows.'
+  if seeds_patient_list_fixture; then patient_list_fixture='export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1'; fi
   in_container "
     set -e
     props=/usr/share/carlos-emr/webapp/carlos/WEB-INF/classes/carlos-build.properties
@@ -435,7 +498,7 @@ export LAB_ROLLBACK_FAULT_ARTIFACT_DIR=/tmp/carlos-lab-rollback-faults
 export PRESCRIPTION_SCRIPT_ID=45 PRESCRIPTION_DEMOGRAPHIC_NO=1
 export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1 CONSULT_STAMP_PROVIDER_NO=999998
 export CONSULT_APPLICATION_TEMP_DIR=/var/lib/carlos-emr/catalina/temp/carlos-temp
-export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1
+$patient_list_fixture
 export BILLING_APPOINTMENT_NO=11 BILLING_DEMOGRAPHIC_NO=1 BILLING_PROVIDER_NO=999998
 export BILLING_APPOINTMENT_DATE=2024-04-16 BILLING_START_TIME=12:00:00
 export RTL_TEMPLATE_NAME=MissedAppointment.rtl
@@ -493,13 +556,18 @@ cmd_suite() {
   require_disposable
   mkdir -p "$LOG_DIR"
   [ "$#" -gt 0 ] || set -- --tier smoke
+  # Packaged validation is qualification: missing prerequisites and known-fail
+  # pins must remain failures. Local diagnostics can invoke the runner directly.
+  set -- "$@" --strict-release --residue-audit
   # The run must match the configuration the install is in: an install left in a
-  # profile skips the checks that profile cannot run, and a skip passes.
+  # profile may skip checks it cannot run; strict qualification rejects those skips.
   local active requested='' prev='' arg
   active=$(active_profile)
   for arg in "$@"; do [ "$prev" = --profile ] && requested=$arg; prev=$arg; done
   local managed=false
-  case "$requested" in address-lock|no-pin|multisite|caisi-admin|legacy-contacts|private-consent|appointment-options) managed=true ;; esac
+  case "$requested" in
+    address-lock|no-pin|multisite|caisi-admin|legacy-contacts|consult-health-care-team|private-consent|appointment-options|appointment-lock-expiry|native-pathnet|first-nations|first-nations-encoding) managed=true ;;
+  esac
   if [ "$managed" = true ]; then
     [ -z "$active" ] || die "restore the manual profile before running an automatic profile"
   else
@@ -520,7 +588,10 @@ cmd_suite() {
   before=$(in_container 'systemctl show carlos-emr -p NRestarts --value')
   in_container ". /root/suite-env.sh; CARLOS_DISPOSABLE_HOST=true node scripts/run-playwright-suite.js $quoted --junit /root/suite-$stamp.xml" \
     2>&1 | tee "$LOG_DIR/suite-$stamp.log" || rc=$?
-  docker cp "$CONTAINER:/root/suite-$stamp.xml" "$LOG_DIR/" >/dev/null 2>&1 || true
+  docker cp "$CONTAINER:/root/suite-$stamp.xml" "$LOG_DIR/" >/dev/null 2>&1 || {
+    echo "FAIL required suite JUnit report could not be retained" >&2
+    rc=1
+  }
   after=$(in_container 'systemctl show carlos-emr -p NRestarts --value')
   # A browser failure can be the first symptom of the JVM being killed and
   # restarted; a run that tested two processes must not finish green.
@@ -608,7 +679,8 @@ PROFILE_WAS='#carlos-validation-profile-was: '
 # Sets PROFILE_KEY and PROFILE_VALUE to the one carlos.properties setting profile $1
 # replaces (none for default). Not in a subshell, so an unknown name stops the script.
 select_profile() {
-  PROFILE_KEY='' PROFILE_VALUE=''
+  PROFILE_KEY=''
+  PROFILE_VALUE=''
   case "$1" in
     legacy-teleplan) PROFILE_KEY=NEW_BC_TELEPLAN; PROFILE_VALUE=no ;;
     default) ;;

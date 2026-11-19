@@ -41,6 +41,7 @@ const { settleOperations } = require('./graceful-signal-cancellation');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 const { createBillingFixture, openAdministration, openAdminFrame } = require('./billing-on-ohip-simulation-report-playwright-checks');
+const { retireOwnedFile } = require('./lib/owned-file-retirement');
 
 const DEFAULT_DOCUMENT_DIR = '/var/lib/carlos-emr/CarlosDocument/carlos/document';
 const DEFAULT_EDT_INBOX = '/var/lib/carlos-emr/CarlosDocument/carlos/onEDTDocs/inbox';
@@ -128,7 +129,8 @@ async function uploadMohFile(s, admin, name, text, route) {
     admin.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith(route), { timeout: 60000 }),
     frame.locator('input[type="submit"][value="Create Report"]').click(),
   ]);
-  await frame.waitForLoadState('domcontentloaded');
+  await frame.waitForURL(url=>url.pathname.endsWith(route),{waitUntil:'load',timeout:60000});
+  await frame.waitForLoadState('networkidle');
   return { frame, status: response.status() };
 }
 
@@ -137,7 +139,15 @@ function raRow(frame, marker) {
   return frame.locator('tbody tr').filter({ hasText: marker });
 }
 
-async function workflow(s) {
+/** Refuse changed/NULL ownership before retiring any remittance child rows. */
+function assertOwnedRemittance(sql,{id,name,marker,claimIds,ohipNo}) {
+  h.assert(Number.isSafeInteger(id)&&id>0&&claimIds.every(value=>/^[1-9]\d*$/.test(String(value))),'Invalid RA cleanup identity');
+  h.assert(sql.value(`SELECT COUNT(*) FROM raheader WHERE raheader_no=${id} AND filename=${h.sqlString(name)} AND TRIM(payable)=${h.sqlString(marker)}`)==='1','RA ownership changed; retain its rows');
+  const claims=claimIds.length?claimIds.map(Number).join(','):'0';
+  h.assert(sql.value(`SELECT COUNT(*) FROM radetail WHERE raheader_no=${id} AND COALESCE((billing_no IN (${claims}) AND providerohip_no=${h.sqlString(ohipNo)}),0)=0`)==='0','RA has an unexpected claim/provider reference');
+}
+
+async function workflow(s, { beforeImport, afterSettlement } = {}) {
   // The supported upload path forwards to ViewGenRA; the retired duplicate
   // must not become a hidden dependency of any exercised UI operation.
   const legacyPath = '/billing/CA/ON/ImportOnRA';
@@ -151,12 +161,19 @@ async function workflow(s) {
   const hex = marker.slice('FAKE-PW'.length);
   const raName = `PPW${hex}.001`;
   const errorName = `EPW${hex.slice(0, 12)}.001`;
+  const fileBytes = new Map();
+  for (const dir of [documentDir, edtInbox]) for (const name of [raName, errorName]) {
+    h.assert(!fs.existsSync(path.join(dir,name)), 'MOH upload namespace already exists');
+  }
+  h.assert(sql.value(`SELECT COUNT(*) FROM raheader WHERE filename=${h.sqlString(raName)}`)==='0','RA header namespace already exists');
   const owned = createBillingFixture(s);
   const raIds = () => sql.rows(`SELECT raheader_no FROM raheader WHERE filename=${h.sqlString(raName)}`).map(row => Number(row[0]));
+  let raNo, settlementRequest;
 
   // Runs before the claim/provider cleanups registered by the fixture.
   s.cleanup(() => {
-    for (const id of raIds()) {
+    for (const id of new Set([...raIds(),...(raNo?[raNo]:[])])) {
+      assertOwnedRemittance(sql,{id,name:raName,marker,claimIds:owned.headerIds,ohipNo:owned.ohipNo});
       sql.execute(`DELETE FROM billing_on_premium WHERE raheader_no=${id};
         DELETE FROM radetail WHERE raheader_no=${id};
         DELETE FROM raheader WHERE raheader_no=${id} AND filename=${h.sqlString(raName)}`);
@@ -169,8 +186,8 @@ async function workflow(s) {
       for (const name of [raName, errorName]) {
         const file = path.join(dir, name);
         if (fs.existsSync(file)) {
-          h.assert(fs.lstatSync(file).isFile(), 'Refusing to remove a non-regular uploaded file');
-          fs.unlinkSync(file);
+          h.assert(fileBytes.has(name),'MOH file appeared without an owned upload intent');
+          retireOwnedFile(file,bytes=>bytes.equals(fileBytes.get(name)));
         }
         h.assert(!fs.existsSync(file), 'An uploaded MOH file was not removed');
       }
@@ -192,11 +209,13 @@ async function workflow(s) {
     { id: rejectedClaim.id, code: 'A001A', fee: fee.A001A, paid: '0.00', error: 'AD' },
   ];
   const remittance = buildRemittance({ owned, marker, claims: raClaims });
+  fileBytes.set(raName,Buffer.from(remittance.text,'latin1'));
+  fileBytes.set(errorName,Buffer.from(buildErrorReport({owned,claim:raClaims[1]}),'latin1'));
   const statuses = () => [paidClaim, rejectedClaim]
     .map(claim => sql.value(`SELECT status FROM billing_on_cheader1 WHERE id=${claim.id}`)).join('|');
+  const extensionState=beforeImport?await beforeImport({owned,paidClaim,rejectedClaim,raClaims,remittance,raName,errorName,documentDir,edtInbox,statuses}):undefined;
 
   const admin = await openAdministration(s);
-  let raNo;
 
   await s.step('Upload MOH files imports the synthetic RA into one raheader and a radetail per owned item', async () => {
     const { frame, status } = await uploadMohFile(s, admin, raName, remittance.text,
@@ -355,6 +374,7 @@ async function workflow(s) {
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm' && dialogs[0].text === RECONCILE_CONFIRM,
       'Settle must ask the reconcile confirmation exactly once');
     h.assert(response.status() === 200, `Settle answered HTTP ${response.status()}`);
+    settlementRequest={url:response.url(),method:response.request().method(),body:response.request().postData()};
     h.assert(statuses() === 'S|B', 'Settle did not settle exactly the paid claim');
     h.assert(sql.value(`SELECT status FROM raheader WHERE raheader_no=${raNo}`) === 'S', 'Settle did not mark the RA settled');
     const settled = raRow(frame, marker);
@@ -362,6 +382,8 @@ async function workflow(s) {
     h.assert(await settled.locator('a', { hasText: 'Settle' }).count() === 0
       && await settled.locator('a', { hasText: 'S35' }).count() === 1, 'The settled RA still offers Settle');
   });
+
+  if(afterSettlement)await afterSettlement({owned,paidClaim,rejectedClaim,raClaims,remittance,raName,errorName,documentDir,edtInbox,statuses,admin,frame,raNo,settlementRequest,extensionState});
 
   await s.step('unused ImportOnRA is absent for authenticated GET, HEAD and CSRF-valid POST', async () => {
     h.assert(legacyRequests.length === 0, 'The supported RA workflow still calls the retired import route');
@@ -382,4 +404,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('billing-on-ra-import', workflow, { openPatient: true, openMaster: false });
-module.exports = { workflow, buildRemittance, buildErrorReport };
+module.exports = { workflow, buildRemittance, buildErrorReport, uploadMohFile, raRow, assertOwnedRemittance };

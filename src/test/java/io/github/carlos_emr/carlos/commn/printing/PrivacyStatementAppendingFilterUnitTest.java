@@ -19,17 +19,30 @@ import jakarta.servlet.ServletOutputStream;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.io.Writer;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.mock.web.MockServletContext;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 /**
  * Regression tests for the legacy privacy statement response appender.
@@ -52,6 +65,516 @@ class PrivacyStatementAppendingFilterUnitTest {
 
         filter = new PrivacyStatementAppendingFilter();
         filter.init(config);
+    }
+
+    @Test
+    void shouldPreserveStreamCallbacksAndLifecycle_forNonHtmlResponses() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/binary");
+        MockHttpServletResponse response = spy(new MockHttpServletResponse());
+        int initialBuffer = response.getBufferSize();
+        ServletOutputStream delegate = mock(ServletOutputStream.class);
+        doReturn(delegate).when(response).getOutputStream();
+        when(delegate.isReady()).thenReturn(true);
+        var listener = mock(jakarta.servlet.WriteListener.class);
+        byte[] bytes = {1, 2, 3};
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("application/octet-stream");
+            ServletOutputStream stream = res.getOutputStream();
+            assertThat(stream.isReady()).isTrue();
+            stream.setWriteListener(listener);
+            stream.write(42);
+            stream.write(bytes, 0, bytes.length);
+            stream.write(bytes, 0, 0);
+            stream.flush();
+            stream.close();
+        });
+        verify(delegate).setWriteListener(listener);
+        verify(delegate).write(42);
+        verify(delegate).write(bytes, 0, bytes.length);
+        verify(delegate).write(bytes, 0, 0);
+        verify(delegate).flush();
+        verify(delegate).close();
+        assertThat(response.getBufferSize()).isEqualTo(initialBuffer);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldDelegateTheOriginalByteBuffer_withoutCopyingItsPayload(boolean empty) throws Exception {
+        MockHttpServletResponse response = spy(new MockHttpServletResponse());
+        ServletOutputStream delegate = mock(ServletOutputStream.class);
+        doReturn(delegate).when(response).getOutputStream();
+        when(delegate.isReady()).thenReturn(true);
+        ByteBuffer bytes = ByteBuffer.allocateDirect(6);
+        bytes.put(new byte[] {0, 1, 2, 3, 4, 5}).flip();
+        bytes.position(2).limit(empty ? 2 : 5);
+        doAnswer(invocation -> {
+            ByteBuffer original = invocation.getArgument(0);
+            assertThat(original).isSameAs(bytes);
+            byte[] payload = new byte[original.remaining()];
+            original.get(payload);
+            assertThat(payload).isEqualTo(empty ? new byte[0] : new byte[] {2, 3, 4});
+            return null;
+        }).when(delegate).write(same(bytes));
+        int initialBuffer = response.getBufferSize();
+        filter.doFilter(new MockHttpServletRequest("GET", "/binary"), response, (req, res) -> {
+            res.setContentType("application/octet-stream");
+            res.getOutputStream().write(bytes);
+        });
+        verify(delegate).write(same(bytes));
+        verifyNoMoreInteractions(delegate);
+        assertThat(bytes.position()).isEqualTo(bytes.limit());
+        assertThat(response.getBufferSize()).isEqualTo(initialBuffer);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"none", "buffer", "full"})
+    void shouldRetainNoticeAndResetRecovery_whenGrowthIsRefusedBeforeCommit(String reset) throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic recovery notice.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/print");
+            MockHttpServletResponse response = spy(new MockHttpServletResponse());
+            doThrow(new IllegalStateException("Container body already in use"))
+                    .doCallRealMethod().when(response).setBufferSize(APPEND_BUFFER_SIZE_BYTES);
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentType("text/html;charset=UTF-8");
+                res.setContentLength(4);
+                res.getWriter().write("body");
+                if (!"none".equals(reset)) {
+                    if ("buffer".equals(reset)) res.resetBuffer();
+                    else res.reset();
+                    res.setContentType("text/html;charset=UTF-8");
+                    res.setContentLength(5);
+                    res.getWriter().write("fresh");
+                }
+            });
+            if ("none".equals(reset)) {
+                assertThat(response.getContentAsString()).startsWith("body")
+                        .containsOnlyOnce("Synthetic recovery notice.");
+                assertThat(response.getHeader("Content-Length")).isNull();
+            } else {
+                assertThat(response.getContentAsString()).startsWith("fresh")
+                        .containsOnlyOnce("Synthetic recovery notice.");
+                assertThat(response.getHeader("Content-Length")).isNull();
+            }
+        } finally {
+            if (original == null) properties.remove("confidentiality_statement.v1");
+            else properties.put("confidentiality_statement.v1", original);
+        }
+    }
+
+    @Test
+    void shouldRetainCommittedBodyAndLength_whenItsBufferCannotGrow() throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic committed notice.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/print");
+            MockHttpServletResponse response = spy(new MockHttpServletResponse());
+            response.setContentType("text/html;charset=UTF-8");
+            response.setContentLength(4);
+            response.setCommitted(true);
+            doThrow(new IllegalStateException("Container response committed"))
+                    .when(response).setBufferSize(APPEND_BUFFER_SIZE_BYTES);
+            filter.doFilter(request, response, (req, res) -> res.getWriter().write("body"));
+            assertThat(response.getContentAsString()).isEqualTo("body");
+            assertThat(response.getContentLength()).isEqualTo(4);
+        } finally {
+            if (original == null) properties.remove("confidentiality_statement.v1");
+            else properties.put("confidentiality_statement.v1", original);
+        }
+    }
+
+    @Test
+    void shouldPublishNonHtmlWriterLength_beforeTheBodyCanCommit() throws Exception {
+        for (boolean typeFirst : new boolean[] {false, true}) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/text");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String body = "x".repeat(APPEND_BUFFER_SIZE_BYTES + 1);
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentLength(body.length());
+                if (typeFirst) {
+                    res.setContentType("text/plain;charset=UTF-8");
+                }
+                var writer = res.getWriter();
+                if (!typeFirst) {
+                    res.setContentType("text/plain;charset=UTF-8");
+                }
+                assertThat(response.getContentLength()).isEqualTo(body.length());
+                writer.write(body);
+            });
+            assertThat(response.getContentAsString()).isEqualTo(body);
+            assertThat(response.getContentLength()).isEqualTo(body.length());
+        }
+    }
+
+    @Test
+    void shouldKeepMetadataLength_whenHtmlHasNoBodyChannel() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("HEAD", "/print");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            res.setContentLength(12345);
+        });
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(response.getContentLength()).isEqualTo(12345);
+    }
+
+    @Test
+    void shouldEncodeStreamNotice_withTheDeclaredResponseCharset() throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic café notice.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/print");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentType("text/html;charset=ISO-8859-1");
+                res.getOutputStream().write("body".getBytes(StandardCharsets.ISO_8859_1));
+            });
+            assertThat(new String(response.getContentAsByteArray(), StandardCharsets.ISO_8859_1))
+                    .startsWith("body").contains("Synthetic café notice.");
+        } finally {
+            if (original == null) {
+                properties.remove("confidentiality_statement.v1");
+            } else {
+                properties.put("confidentiality_statement.v1", original);
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRetractPublishedLength_whenBufferResetDiscardsTheBody(boolean stream) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+        MockHttpServletResponse response = spy(new MockHttpServletResponse());
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentType(stream ? "application/octet-stream" : "text/plain;charset=UTF-8");
+            res.setContentLength(4);
+            if (stream) {
+                res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+            } else {
+                res.getWriter().write("abcd");
+            }
+            assertThat(response.getContentLength()).as("non-HTML length published before the body").isEqualTo(4);
+            res.resetBuffer();
+            // The published length described the discarded body; a pending one would be kept.
+            // Spring's mock ignores null values, so the removal call itself is asserted here.
+            verify(response).setHeader("Content-Length", null);
+        });
+        assertThat(response.getContentAsByteArray()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"x-carlos-unsupported-5495", "not a charset"})
+    void shouldEncodeStreamNoticeAsUtf8_whenDeclaredCharsetIsUnusable(String charset) throws Exception {
+        // Tomcat 11 keeps an unsupported charset name visible through getCharacterEncoding()
+        // after rejecting it, so the notice must not be the thing that fails the response.
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic café notice.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/print");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentType("text/html");
+                res.setCharacterEncoding(charset);
+                res.getOutputStream().write("body".getBytes(StandardCharsets.US_ASCII));
+            });
+            assertThat(new String(response.getContentAsByteArray(), StandardCharsets.UTF_8))
+                    .startsWith("body").contains("Synthetic café notice.");
+        } finally {
+            if (original == null) {
+                properties.remove("confidentiality_statement.v1");
+            } else {
+                properties.put("confidentiality_statement.v1", original);
+            }
+        }
+    }
+
+    @Test
+    void shouldDropPendingLength_onBufferResetAndOnFullReset() throws Exception {
+        for (boolean fullReset : new boolean[] {false, true}) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentLength(4);
+                if (fullReset) {
+                    res.reset();
+                } else {
+                    res.resetBuffer();
+                }
+                res.setContentType("application/octet-stream");
+                res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+            });
+            assertThat(response.getHeader("Content-Length")).as("fullReset=%s", fullReset).isNull();
+            assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+        }
+    }
+
+    @Test
+    void shouldIgnoreMalformedLengthHeader_andKeepTheBodyUnframed() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("application/octet-stream");
+            ((jakarta.servlet.http.HttpServletResponse) res).setHeader("Content-Length", "not-a-number");
+            res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+        });
+        assertThat(response.getHeader("Content-Length")).isNull();
+        assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+    }
+
+    @Test
+    void shouldAppendNotice_whenContentTypeIsUpperCaseHtml() throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic case notice.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/print");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentType("TEXT/HTML;charset=UTF-8");
+                res.getWriter().write("<p>upper</p>");
+            });
+            assertThat(response.getContentAsString()).contains("<p>upper</p>", "Synthetic case notice.");
+        } finally {
+            if (original == null) {
+                properties.remove("confidentiality_statement.v1");
+            } else {
+                properties.setProperty("confidentiality_statement.v1", (String) original);
+            }
+        }
+    }
+
+    @Test
+    void shouldAppendNoticeToBothPages_whenNestedRequestSharesTheSession() throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic race notice.");
+        try {
+            MockHttpSession session = new MockHttpSession();
+            MockHttpServletRequest outer = new MockHttpServletRequest("GET", "/print-a");
+            MockHttpServletRequest inner = new MockHttpServletRequest("GET", "/print-b");
+            outer.setSession(session);
+            inner.setSession(session);
+            MockHttpServletResponse outerResponse = new MockHttpServletResponse();
+            MockHttpServletResponse innerResponse = new MockHttpServletResponse();
+            filter.doFilter(outer, outerResponse, (req, res) -> {
+                res.setContentType("text/html;charset=UTF-8");
+                res.getWriter().write("<p>A</p>");
+                // A second request on the same session arrives while the first is still rendering.
+                filter.doFilter(inner, innerResponse, (req2, res2) -> {
+                    res2.setContentType("text/html;charset=UTF-8");
+                    res2.getWriter().write("<p>B</p>");
+                });
+            });
+            assertThat(outerResponse.getContentAsString()).contains("<p>A</p>", "Synthetic race notice.");
+            assertThat(innerResponse.getContentAsString()).contains("<p>B</p>", "Synthetic race notice.");
+        } finally {
+            if (original == null) {
+                properties.remove("confidentiality_statement.v1");
+            } else {
+                properties.setProperty("confidentiality_statement.v1", (String) original);
+            }
+        }
+    }
+
+    @Test
+    void shouldDeferOriginalLength_whenHtmlStreamGetsAPrivacyNotice() throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic length notice.");
+        try {
+            for (int form = 0; form < 6; form++) {
+                MockHttpServletRequest request = new MockHttpServletRequest("GET", "/print");
+                MockHttpServletResponse response = new MockHttpServletResponse();
+                int setter = form;
+                filter.doFilter(request, response, (req, res) -> {
+                    res.setContentType("text/html;charset=UTF-8");
+                    var http = (jakarta.servlet.http.HttpServletResponse) res;
+                    switch (setter) {
+                        case 0 -> http.setContentLength(4);
+                        case 1 -> http.setContentLengthLong(4);
+                        case 2 -> http.setHeader("Content-Length", "4");
+                        case 3 -> http.addHeader("Content-Length", "4");
+                        case 4 -> http.setIntHeader("Content-Length", 4);
+                        default -> http.addIntHeader("Content-Length", 4);
+                    }
+                    res.getOutputStream().write("body".getBytes(StandardCharsets.UTF_8));
+                    assertThat(response.getContentLength()).isZero();
+                });
+                assertThat(response.getContentAsString()).startsWith("body").contains("Synthetic length notice.");
+                assertThat(response.getHeader("Content-Length")).isNull();
+            }
+        } finally {
+            if (original == null) {
+                properties.remove("confidentiality_statement.v1");
+            } else {
+                properties.put("confidentiality_statement.v1", original);
+            }
+        }
+    }
+
+    @Test
+    void shouldKeepBinaryLength_whenItIsDeclaredBeforeContentType() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        byte[] payload = {0, 1, -1, 42};
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentLength(payload.length);
+            var stream = res.getOutputStream();
+            res.setContentType("application/octet-stream");
+            assertThat(response.getContentLength()).isEqualTo(payload.length);
+            stream.write(payload);
+        });
+        assertThat(response.getContentAsByteArray()).isEqualTo(payload);
+        assertThat(response.getContentLength()).isEqualTo(payload.length);
+    }
+
+    @Test
+    void shouldPublishStreamLength_whenContentTypeIsNeverSet() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        byte[] payload = {0, 1, -1, 42};
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentLength(payload.length);
+            var stream = res.getOutputStream();
+            // An untyped stream can never be decorated: the length must be out before any
+            // write or flush can commit the body, as it was before the wrapper deferred lengths.
+            assertThat(response.getContentLength()).isEqualTo(payload.length);
+            stream.write(payload);
+        });
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getContentAsByteArray()).isEqualTo(payload);
+        assertThat(response.getContentLength()).isEqualTo(payload.length);
+    }
+
+    @Test
+    void shouldPublishStreamLength_whenItIsDeclaredAfterTheStreamWithoutAType() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        byte[] payload = {0, 1, -1, 42};
+        filter.doFilter(request, response, (req, res) -> {
+            var stream = res.getOutputStream();
+            res.setContentLength(payload.length);
+            // Declared after the channel and still untyped: the same rule applies, so the
+            // length is out before the first write or flush can commit the body.
+            assertThat(response.getContentLength()).isEqualTo(payload.length);
+            stream.write(payload);
+        });
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getContentAsByteArray()).isEqualTo(payload);
+        assertThat(response.getContentLength()).isEqualTo(payload.length);
+    }
+
+    @Test
+    void shouldPublishReplacementLength_whenAnUntypedStreamRedeclaresIt() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        byte[] payload = {0, 1, 2, 3, 4, 5, 6, 7};
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentLength(4);
+            var stream = res.getOutputStream();
+            assertThat(response.getContentLength()).isEqualTo(4);
+            // The length published at acquisition is replaced before the body: the container
+            // would otherwise frame eight bytes with a length of four and cut the body short.
+            res.setContentLength(payload.length);
+            assertThat(response.getContentLength()).isEqualTo(payload.length);
+            stream.write(payload);
+        });
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getContentAsByteArray()).isEqualTo(payload);
+        assertThat(response.getContentLength()).isEqualTo(payload.length);
+    }
+
+    @Test
+    void shouldRetractUntypedStreamLength_whenTypeTurnsHtmlBeforeTheBody() throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic untyped notice.");
+        try {
+            MockHttpServletResponse response = spy(new MockHttpServletResponse());
+            filter.doFilter(new MockHttpServletRequest("GET", "/print"), response, (req, res) -> {
+                res.setContentLength(4);
+                var stream = res.getOutputStream();
+                assertThat(response.getContentLength()).isEqualTo(4);
+                // The type arrives after the channel: the published length no longer describes
+                // the decorated body, so it is retracted before anything is written.
+                res.setContentType("text/html;charset=UTF-8");
+                verify(response).setHeader("Content-Length", null);
+                stream.write("body".getBytes(StandardCharsets.UTF_8));
+            });
+            assertThat(response.getContentAsString()).startsWith("body").contains("Synthetic untyped notice.");
+        } finally {
+            if (original == null) {
+                properties.remove("confidentiality_statement.v1");
+            } else {
+                properties.put("confidentiality_statement.v1", original);
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"false,false", "false,true", "true,false", "true,true"})
+    void shouldPublishNonHtmlLength_whenTypeHeaderIsSetAfterChannelSelection(boolean add, boolean useWriter)
+            throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentLength(4);
+            var writer = useWriter ? res.getWriter() : null;
+            var stream = useWriter ? null : res.getOutputStream();
+            var http = (jakarta.servlet.http.HttpServletResponse) res;
+            if (add) {
+                http.addHeader("cOnTeNt-TyPe", "text/plain;charset=UTF-8");
+            } else {
+                http.setHeader("cOnTeNt-TyPe", "text/plain;charset=UTF-8");
+            }
+            assertThat(response.getContentLength()).isEqualTo(4);
+            if (useWriter) {
+                writer.write("body");
+            } else {
+                stream.write("body".getBytes(StandardCharsets.UTF_8));
+                stream.flush();
+            }
+        });
+        assertThat(response.getContentAsString()).isEqualTo("body");
+        assertThat(response.getContentLength()).isEqualTo(4);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"0,false", "1,false", "2,false", "0,true", "1,true", "2,true"})
+    void shouldClearPublishedLength_whenContentTypeChangesToHtml(int api, boolean useWriter) throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic switch notice.");
+        try {
+            MockHttpServletResponse response = spy(new MockHttpServletResponse());
+            filter.doFilter(new MockHttpServletRequest("GET", "/print"), response, (req, res) -> {
+                res.setContentType("text/plain;charset=UTF-8");
+                res.setContentLength(4);
+                if (useWriter) {
+                    res.getWriter();
+                } else {
+                    res.getOutputStream();
+                }
+                assertThat(response.getContentLength()).isEqualTo(4);
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                switch (api) {
+                    case 0 -> http.setContentType("text/html;charset=UTF-8");
+                    case 1 -> http.setHeader("Content-Type", "text/html;charset=UTF-8");
+                    default -> http.addHeader("Content-Type", "text/html;charset=UTF-8");
+                }
+                // Spring's mock ignores null values; real-Tomcat tests verify header removal.
+                verify(response).setHeader("Content-Length", null);
+                if (useWriter) {
+                    res.getWriter().write("body");
+                } else {
+                    res.getOutputStream().write("body".getBytes(StandardCharsets.UTF_8));
+                }
+            });
+            assertThat(response.getContentAsString()).startsWith("body").contains("Synthetic switch notice.");
+            verify(response).setHeader("Content-Length", null);
+        } finally {
+            if (original == null) {
+                properties.remove("confidentiality_statement.v1");
+            } else {
+                properties.put("confidentiality_statement.v1", original);
+            }
+        }
     }
 
     @Test
@@ -125,7 +648,7 @@ class PrivacyStatementAppendingFilterUnitTest {
         localFilter.doFilter(request, response, chain);
 
         assertThat(response.getContentAsString()).isEqualTo(body);
-        assertThat(response.getLastRequestedBufferSize()).isEqualTo(APPEND_BUFFER_SIZE_BYTES);
+        assertThat(response.getLastRequestedBufferSize()).isZero();
     }
 
     @Test
@@ -359,4 +882,254 @@ class PrivacyStatementAppendingFilterUnitTest {
             return flushed.toString();
         }
     }
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldKeepDynamicHeadMetadata_whenStaticResourceContextIsUnavailable(boolean missingPath) throws Exception {
+        try (var notice = configuredStatement("FAKE metadata-only notice")) {
+            var request = spy(new MockHttpServletRequest("HEAD", "/dynamic.html"));
+            if (missingPath) {
+                doReturn(null).when(request).getServletPath();
+                doReturn(null).when(request).getRequestURI();
+            } else {
+                doReturn(null).when(request).getServletContext();
+            }
+            var response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentType("text/html");
+                res.setContentLengthLong(12345);
+                ((jakarta.servlet.http.HttpServletResponse) res).setHeader("ETag", "FAKE-dynamic-version");
+            });
+            assertThat(response.getHeader("Content-Length")).isEqualTo("12345");
+            assertThat(response.getHeader("ETag")).isEqualTo("FAKE-dynamic-version");
+            assertThat(response.getContentAsByteArray()).isEmpty();
+        }
+    }
+
+    @Test void shouldWarnSafelyAndPreserveBytes_whenMalformedLengthContainsNewlines() throws Exception {
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(
+                PrivacyStatementAppendingFilter.class.getName() + "$DelegatingServletResponse")) {
+            var response = new MockHttpServletResponse();
+            filter.doFilter(new MockHttpServletRequest("GET", "/download"), response, (req, res) -> {
+                res.setContentType("application/octet-stream");
+                ((jakarta.servlet.http.HttpServletResponse) res).setHeader("Content-Length", "FAKE-invalid\r\nFAKE-forged");
+                res.getOutputStream().write(new byte[]{0, 1, 2, 3});
+            });
+            assertThat(response.getHeader("Content-Length")).isNull();
+            assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+            assertThat(logs.messages()).singleElement().asString()
+                    .contains("Ignoring malformed Content-Length", "FAKE-invalid", "FAKE-forged")
+                    .doesNotContain("\r", "\n");
+        }
+    }
+
+    private MockHttpServletRequest staticRequest() {
+        var context = new org.springframework.mock.web.MockServletContext();
+        context.addMimeType("html", org.springframework.http.MediaType.TEXT_HTML);
+        var request = new MockHttpServletRequest(context, "GET", "/fixture.html");
+        request.setServletPath("/fixture.html");
+        return request;
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void shouldKeepErrorMetadata_whenStaticResponseHasNoBodyChannel(String method) throws Exception {
+        try (var notice = configuredStatement("FAKE static metadata notice")) {
+            var request = staticRequest();
+            request.setMethod(method);
+            var response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                http.setStatus(412);
+                http.setContentType("text/html");
+                http.setContentLength(42);
+                http.setHeader("ETag", "FAKE-file-version");
+            });
+
+            assertThat(response.getStatus()).isEqualTo(412);
+            assertThat(response.getHeader("ETag")).isEqualTo("FAKE-file-version");
+            assertThat(response.getContentLength()).isEqualTo(42);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"Accept-Encoding", "*", "Origin, x-requested-with", "Origin, x-requested-w\u0131th", ""})
+    void shouldPreserveVaryTokensAndWildcard_beforeAndAfterDownstreamChanges(String vary) throws Exception {
+        try (var notice = configuredStatement("FAKE static metadata notice")) {
+            var response = new MockHttpServletResponse();
+            response.setHeader("Vary", vary);
+            filter.doFilter(staticRequest(), response, (req, res) -> {
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                assertThat(response.getHeaders("Vary")).contains(vary);
+                if ("*".equals(vary) || vary.endsWith("x-requested-with")) {
+                    assertThat(response.getHeaders("Vary")).containsExactly(vary);
+                } else {
+                    assertThat(String.join(",", response.getHeaders("Vary")).toLowerCase(java.util.Locale.ROOT))
+                            .contains("x-requested-with");
+                }
+                http.setHeader(null, "FAKE");
+                assertThat(response.getHeader(null)).isNull();
+                http.setHeader("vArY", "Accept-Encoding");
+                http.addHeader("VARY", "Origin");
+                assertThat(response.getHeaders("Vary")).containsExactly("Accept-Encoding", "X-Requested-With", "Origin");
+                http.setHeader("Vary", "*");
+                assertThat(response.getHeaders("Vary")).containsExactly("*");
+                http.setHeader("Vary", null);
+                assertThat(response.getHeaders("Vary")).containsExactly("X-Requested-With");
+                http.addHeader("X-FAKE", "kept");
+                assertThat(response.getHeader("X-FAKE")).isEqualTo("kept");
+            });
+        }
+    }
+
+    @ParameterizedTest @ValueSource(strings={"header", "date", "int"})
+    void shouldDeferEveryMetadataApi_andRestoreItForPartialAndNonHtmlResponses(String api) throws Exception {
+        try (var notice = configuredStatement("FAKE static metadata notice")) {
+            var response = new MockHttpServletResponse();
+            response.setHeader("ETag", "FAKE-original");
+            response.addHeader("ETag", "FAKE-original-second");
+            filter.doFilter(staticRequest(), response, (req, res) -> {
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                assertThat(response.getHeader("ETag")).isNull();
+                if ("header".equals(api)) {
+                    http.setHeader("eTAG", "FAKE-first"); http.addHeader("ETAG", "FAKE-second");
+                } else if ("date".equals(api)) {
+                    http.setDateHeader("ETag", 0); http.addDateHeader("ETag", 1000);
+                } else {
+                    http.setIntHeader("ETag", 10); http.addIntHeader("ETag", 20);
+                }
+                http.setDateHeader("Date", 0); http.addDateHeader("Date", 1000);
+                http.setIntHeader("X-FAKE-count", 1); http.addIntHeader("X-FAKE-count", 2);
+                assertThat(response.getHeaders("ETag")).isEmpty();
+                http.setStatus(206);
+                var bare = java.util.List.copyOf(response.getHeaders("ETag"));
+                assertThat(bare).hasSize(2).doesNotContain("FAKE-original", "FAKE-original-second");
+                if ("header".equals(api)) assertThat(bare).containsExactly("FAKE-first", "FAKE-second");
+                if ("int".equals(api)) assertThat(bare).containsExactly("10", "20");
+                http.addHeader("Last-Modified", "FAKE-partial-date");
+                assertThat(response.getHeader("Last-Modified")).isEqualTo("FAKE-partial-date");
+                http.setStatus(200);
+                assertThat(response.getHeaders("ETag")).isEmpty();
+                http.setContentType("text/plain");
+                assertThat(response.getHeaders("ETag")).containsExactlyElementsOf(bare);
+                http.setContentType("text/html");
+                assertThat(response.getHeaders("ETag")).isEmpty();
+                http.setHeader("Content-Type", "application/json");
+                assertThat(response.getHeaders("ETag")).containsExactlyElementsOf(bare);
+                http.setContentType("text/html");
+                http.addHeader("Content-Type", "text/plain");
+            });
+        }
+    }
+
+    @Test void shouldResetMetadataAndRetainVary_whenAStaticResponseIsReset() throws Exception {
+        try (var notice = configuredStatement("FAKE static metadata notice")) {
+            var response = new MockHttpServletResponse();
+            response.setHeader("ETag", "FAKE-before");
+            filter.doFilter(staticRequest(), response, (req, res) -> {
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                http.setHeader("ETag", "FAKE-held");
+                http.reset();
+                assertThat(response.getHeaders("Vary")).containsExactly("X-Requested-With");
+                http.setStatus(206);
+                assertThat(response.getHeader("ETag")).isNull();
+                http.addHeader("ETag", "FAKE-after");
+                assertThat(response.getHeader("ETag")).isEqualTo("FAKE-after");
+            });
+        }
+    }
+
+    @Test
+    void shouldRetainRevalidation_whenDownstreamReplacesCacheControl() throws Exception {
+        try (var notice = configuredStatement("FAKE static metadata notice")) {
+            var request = staticRequest();
+            request.addHeader("If-Match", "\"FAKE-bare-file\"");
+            var response = new MockHttpServletResponse();
+            response.setHeader("Cache-Control", "public, max-age=120");
+            filter.doFilter(request, response, (req, res) -> {
+                var httpRequest = (jakarta.servlet.http.HttpServletRequest) req;
+                var httpResponse = (jakarta.servlet.http.HttpServletResponse) res;
+                String tag = httpRequest.getHeader("if-match");
+                assertThat(tag).startsWith("W/\"");
+                assertThat(java.util.Collections.list(httpRequest.getHeaders("If-Match"))).containsExactly(tag);
+                assertThat(response.getHeaders("Cache-Control")).containsExactly("public, max-age=120", "no-cache");
+                httpResponse.setHeader("cAcHe-CoNtRoL", "private, max-age=30");
+                assertThat(response.getHeaders("Cache-Control")).containsExactly("private, max-age=30", "no-cache");
+                httpResponse.setHeader("Cache-Control", "private, No-Cache");
+                assertThat(response.getHeaders("Cache-Control")).containsExactly("private, No-Cache");
+                httpResponse.reset();
+                assertThat(response.getHeaders("Cache-Control")).containsExactly("no-cache");
+            });
+        }
+    }
+
+    @Test
+    void shouldKeepPreexistingMetadata_whenTheResponseIsNotOk() throws Exception {
+        try (var notice = configuredStatement("FAKE static metadata notice")) {
+            var response = new MockHttpServletResponse();
+            response.setHeader("ETag", "\"FAKE-original-tag\"");
+            filter.doFilter(staticRequest(), response, (req, res) -> {
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                http.setStatus(201);
+                http.setContentType("text/html");
+                http.getWriter().write("FAKE body");
+            });
+            assertThat(response.getHeader("ETag")).isEqualTo("\"FAKE-original-tag\"");
+            assertThat(response.getContentAsString()).contains("FAKE body", "FAKE static metadata notice");
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldKeepVaryAndUnrelatedHeaders_whenStaticHtmlUsesTypedHeaderCalls(boolean ajax) throws Exception {
+        try (var notice = configuredStatement("FAKE header fixture notice")) {
+            var context = new MockServletContext();
+            var request = new MockHttpServletRequest(context, "GET", "/fixture.html");
+            if (ajax) {
+                request.addHeader("X-Requested-With", "XMLHttpRequest");
+            }
+            var response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                http.reset();
+                assertThat(http.getHeaders("Vary")).containsExactly("X-Requested-With");
+                http.setHeader("Vary", "Accept-Language, *");
+                assertThat(http.getHeaders("Vary")).containsExactly("Accept-Language, *");
+                http.setHeader("Vary", "Accept-Language");
+                http.addHeader("Vary", "Accept-Encoding");
+                http.setIntHeader("X-Fixture-Count", 1);
+                http.addIntHeader("X-Fixture-Count", 2);
+                http.setDateHeader("Expires", 0);
+                http.addDateHeader("Expires", 2000);
+                http.setIntHeader("Accept-Ranges", 1);
+                http.addIntHeader("Accept-Ranges", 2);
+                http.setDateHeader("Last-Modified", 0);
+                http.addDateHeader("Last-Modified", 2000);
+                http.addHeader("ETag", "FAKE-version");
+                http.setHeader("Content-Length", null);
+                http.addHeader("Content-Length", null);
+                http.setHeader("Content-Length", "bad length");
+                http.setContentType("text/html");
+                http.getWriter().write("FAKE body");
+            });
+            assertThat(response.getHeaders("Vary")).containsExactlyInAnyOrder(
+                    "Accept-Language", "Accept-Encoding", "X-Requested-With");
+            assertThat(response.getHeaders("X-Fixture-Count")).containsExactly("1", "2");
+            assertThat(response.getHeaders("Expires")).hasSize(2);
+            assertThat(response.getContentAsString()).contains("FAKE body");
+            for (String header : new String[]{"Accept-Ranges", "Last-Modified", "ETag"}) {
+                assertThat(response.getHeaders(header).isEmpty()).as(header).isEqualTo(!ajax);
+            }
+        }
+    }
+
+    private AutoCloseable configuredStatement(String value) {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object previous = properties.setProperty("confidentiality_statement.v1", value);
+        return () -> {
+            if (previous == null) properties.remove("confidentiality_statement.v1");
+            else properties.put("confidentiality_statement.v1", previous);
+        };
+    }
+
 }

@@ -161,7 +161,7 @@ public final class IncomingDocUtil {
             PathValidationUtils.validateExistingPath(targetFile, baseDir);
             return true;
         } catch (SecurityException | IOException e) {
-            logger.error("Error validating path bounds", e);
+            logger.error("Error validating path bounds: {}", LogSafe.exceptionTrace(e));
             return false;
         }
     }
@@ -265,8 +265,7 @@ public final class IncomingDocUtil {
         IncomingDocumentScratch.cleanup(dir);
         File[] listOfFiles = dir.listFiles(pdfFilter);
         if (listOfFiles == null) {
-            logger.error("Unable to list incoming document directory: {}",
-                    LogSafe.sanitize(dir.getPath())); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.error("Unable to list incoming document directory"); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             throw new SecurityException("Unable to list incoming document directory");
         }
 
@@ -520,7 +519,7 @@ public final class IncomingDocUtil {
             if (!canonicalDir.isDirectory()
                     && !canonicalDir.mkdirs()
                     && !canonicalDir.isDirectory()) {
-                logger.error("Failed to create incoming document directory: {}", LogSafe.sanitize(canonicalDir.getPath())); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                logger.error("Failed to create incoming document directory"); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 throw new IllegalStateException("Failed to create incoming document directory");
             }
 

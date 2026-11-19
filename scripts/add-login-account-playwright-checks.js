@@ -605,7 +605,10 @@ async function run() {
   }
 }
 
-run().catch((error) => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('add-login-account', async () => {
+  await run().catch((error) => {
   console.error(error.stack || error.message || String(error));
-  process.exit(1);
+  process.exitCode = 1;
 });
+}, {existingSignalHandlers:true});

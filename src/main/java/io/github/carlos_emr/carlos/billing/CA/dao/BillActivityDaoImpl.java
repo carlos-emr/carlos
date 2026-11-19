@@ -44,6 +44,12 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class BillActivityDaoImpl extends AbstractDaoImpl<BillActivity> implements BillActivityDao {
 
+    @Override
+    public boolean isImportedFilenameReserved(String filename) {
+        return io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingFilenameImportDao.isReserved(
+                entityManager, filename);
+    }
+
     public BillActivityDaoImpl() {
         super(BillActivity.class);
     }

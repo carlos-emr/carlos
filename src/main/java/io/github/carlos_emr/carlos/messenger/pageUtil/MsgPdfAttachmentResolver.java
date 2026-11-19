@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.MissingResourceException;
 import java.util.Optional;
@@ -45,6 +46,12 @@ import io.github.carlos_emr.carlos.commn.model.EChart;
  * {@code RequestDispatcher.include}. Titles are computed here too, from the same message keys the
  * chooser displays, instead of being taken from the request.</p>
  *
+ * <p>There are two encounter items (#5856). The current encounter is the patient's notes and CPP
+ * from the modern chart, printed by the chart's own print ({@link MsgEncounterPdfComposer}); it has
+ * no route, because that print makes the PDF itself. The historical encounter renders the last
+ * retained legacy revision, which stopped changing when the modern chart took over; it is offered
+ * only when that revision has clinical content, and is labelled as historical.</p>
+ *
  * @since 2026-10-01
  */
 public class MsgPdfAttachmentResolver {
@@ -53,20 +60,24 @@ public class MsgPdfAttachmentResolver {
     public static final String BUNDLE = "oscarResources";
 
     /**
-     * One kind of chart item the chooser offers, with the security object its rendering route
-     * requires (checked before the route is included, so a refusal is never rendered as a PDF).
+     * One kind of chart item the chooser offers, with the security objects its rendering requires
+     * read on (checked before it is rendered, so a refusal is never rendered as a PDF). Declared in
+     * the chooser's order.
      */
     public enum Item {
         DEMOGRAPHIC("demographic", "_demographic"),
+        /** The current notes and CPP: what the chart's own print requires for the patient. */
+        CURRENT_ENCOUNTER("currentEncounter", "_eChart", "_demographic", "_casemgmt.notes"),
+        /** The last retained legacy revision. */
         ENCOUNTER("encounter", "_eChart"),
         PRESCRIPTIONS("prescriptions", "_rx");
 
         private final String key;
-        private final String securityObject;
+        private final List<String> securityObjects;
 
-        Item(String key, String securityObject) {
+        Item(String key, String... securityObjects) {
             this.key = key;
-            this.securityObject = securityObject;
+            this.securityObjects = List.of(securityObjects);
         }
 
         /** @return the value the chooser posts for this item */
@@ -74,9 +85,23 @@ public class MsgPdfAttachmentResolver {
             return key;
         }
 
-        /** @return the security object the item's rendering route requires read on */
+        /** @return the first security object the item requires read on */
         public String securityObject() {
-            return securityObject;
+            return securityObjects.get(0);
+        }
+
+        /** @return every security object the item requires read on, globally and for the patient */
+        public List<String> securityObjects() {
+            return securityObjects;
+        }
+
+        /**
+         * @return {@code true} for the item the action prints as a PDF itself
+         *         ({@link MsgEncounterPdfComposer}), rather than including a route and converting
+         *         its HTML
+         */
+        public boolean printsOwnPdf() {
+            return this == CURRENT_ENCOUNTER;
         }
 
         /**
@@ -97,7 +122,8 @@ public class MsgPdfAttachmentResolver {
      * A resolved attachment: what to render and what to call it.
      *
      * @param item the chart item
-     * @param route application-relative route that renders the item's HTML
+     * @param route application-relative route that renders the item's HTML, or {@code null} for an
+     *              item that {@linkplain Item#printsOwnPdf() prints its own PDF}
      * @param title attachment title stored with the PDF and shown to the recipient
      */
     public record Attachment(Item item, String route, String title) {
@@ -128,15 +154,20 @@ public class MsgPdfAttachmentResolver {
                         "/demographic/DemographicPdfLabel?demographic_no=" + demographicNo,
                         safeTitle(joinNonBlank(patientName,
                                 label(labels, "messenger.generatePreviewPDF.information", "Information")))));
+            case CURRENT_ENCOUNTER:
+                return Optional.of(new Attachment(item, null,
+                        safeTitle(label(labels, "messenger.generatePreviewPDF.currentEncounter",
+                                "All current chart notes and CPP"))));
             case ENCOUNTER:
                 EChart chart = eChartDao.getLatestChart(demographicNo);
-                if (chart == null || chart.getId() == null) {
+                if (chart == null || chart.getId() == null || chart.getDemographicNo() != demographicNo
+                        || !hasClinicalContent(chart)) {
                     return Optional.empty();
                 }
                 return Optional.of(new Attachment(item,
                         "/encounter/ViewEcharthistoryprint?echartid=" + chart.getId()
                                 + "&demographic_no=" + demographicNo,
-                        safeTitle(joinNonBlank(label(labels, "messenger.generatePreviewPDF.encounter", "Encounter"),
+                        safeTitle(joinNonBlank(label(labels, "messenger.generatePreviewPDF.historicalEncounter", "Historical encounter"),
                                 chart.getTimestamp() == null ? "" : chart.getTimestamp().toString()))));
             case PRESCRIPTIONS:
                 return Optional.of(new Attachment(item,
@@ -146,6 +177,14 @@ public class MsgPdfAttachmentResolver {
             default:
                 return Optional.empty();
         }
+    }
+
+    // Historical rows remain printable, but an empty row must not become a header-only PDF.
+    // This source is deliberately separate from current modern notes and CPP.
+    private static boolean hasClinicalContent(EChart chart) {
+        return java.util.stream.Stream.of(chart.getSocialHistory(), chart.getFamilyHistory(),
+                        chart.getMedicalHistory(), chart.getOngoingConcerns(), chart.getReminders(), chart.getEncounter())
+                .anyMatch(value -> value != null && !value.isBlank());
     }
 
     /**

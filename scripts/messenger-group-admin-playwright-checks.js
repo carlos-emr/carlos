@@ -412,7 +412,8 @@ async function main() {
     // Only the owned fixture memberships are reset. Verify a failed checkbox add
     // restores its unchecked state and shows an actionable error.
     sql.execute(`DELETE FROM groupMembers_tbl WHERE provider_No=${sqlString(state.activeProviderNo)}`);
-    await probe.reload({ waitUntil: 'domcontentloaded' });
+    // The checkbox rollback listener is installed by the page's loaded scripts.
+    await probe.reload({ waitUntil: 'load' });
     expectAddFailure(memberId, 0, 503);
     const addUrl = /\/messenger\?method=add&/;
     await probe.route(addUrl, route => route.fulfill({
@@ -437,7 +438,7 @@ async function main() {
       'concurrent duplicate adds did not return conflict');
     assert(memberRows(state.groupId) === 1, 'concurrent adds did not leave exactly one group membership');
     assert(memberRows(0) === 1, 'concurrent adds did not leave exactly one registry membership');
-    await probe.reload({ waitUntil: 'domcontentloaded' });
+    await probe.reload({ waitUntil: 'load' });
     expectFailure(`method=remove&member=${encodeURIComponent(memberId)}`, 503);
     expectFailure(`method=remove&member=${encodeURIComponent(memberId)}&group=${state.groupId}`, 503);
     expectFailure(`method=remove&group=${state.groupId}`, 503);

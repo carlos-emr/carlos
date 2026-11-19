@@ -28,6 +28,8 @@
  */
 package io.github.carlos_emr.carlos.integration.mchcv;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import ca.ontario.health.ebs.EbsFault;
 import ca.ontario.health.hcv.Faultexception;
 import ca.ontario.health.hcv.HCValidation;
@@ -43,6 +45,8 @@ import java.nio.file.Path;
 import jakarta.xml.soap.SOAPFault;
 import jakarta.xml.ws.soap.SOAPFaultException;
 
+import org.apache.cxf.endpoint.Client;
+import org.apache.cxf.frontend.ClientProxy;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilder;
 import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilderConfig;
@@ -55,8 +59,7 @@ import io.github.carlos_emr.CarlosProperties;
 public class OnlineHCValidator implements HCValidator {
     private static Logger logger = MiscUtils.getLogger();
 
-    private HCValidation validation;
-    private EdtClientBuilder builder;
+    private final EdtClientBuilder builder;
 
     public OnlineHCValidator() {
         CarlosProperties properties = CarlosProperties.getInstance();
@@ -70,10 +73,8 @@ public class OnlineHCValidator implements HCValidator {
         config.setConformanceKey(properties.getProperty("hcv.service.conformanceKey"));
         config.setServiceId(properties.getProperty("hcv.service.id"));
 
-        EdtClientBuilder hcvBuilder = new EdtClientBuilder(config);
-        setBuilder(hcvBuilder);
-        setExternalClientKeystoreFilename(hcvBuilder, properties.getProperty("hcv.service.clientKeystore.properties"));
-        validation = builder.build(HCValidation.class);
+        builder = new EdtClientBuilder(config);
+        setExternalClientKeystoreFilename(builder, properties.getProperty("hcv.service.clientKeystore.properties"));
     }
 
     @Override
@@ -109,25 +110,23 @@ public class OnlineHCValidator implements HCValidator {
 
     @Override
     public HcvResults validate(Requests requests, String local) throws Faultexception {
-        HcvResults results;
+        HCValidation validation = builder.build(HCValidation.class);
+        Client client = ClientProxy.getClient(validation);
         try {
-            results = validation.validate(requests, local);
+            return validation.validate(requests, local);
         } catch (SOAPFaultException sfx) {
             SOAPFault soapFault = sfx.getFault();
             EbsFault ebsFault = new EbsFault();
             ebsFault.setCode(soapFault.getFaultCode());
             ebsFault.setMessage(soapFault.getFaultString());
             throw new Faultexception("", ebsFault);
+        } finally {
+            client.destroy();
         }
-        return results;
     }
 
     public EdtClientBuilder getBuilder() {
         return builder;
-    }
-
-    private void setBuilder(EdtClientBuilder builder) {
-        this.builder = builder;
     }
 
     /**
@@ -153,7 +152,7 @@ public class OnlineHCValidator implements HCValidator {
             try {
                 builder.setClientKeystoreFilename(signatureFile.toURI().toURL().toString());
             } catch (MalformedURLException e) {
-                logger.error("Malformed URL: " + clientKeystorePropertiesPath, e);
+                logger.error("Malformed client keystore configuration URL: {}", LogSafe.exceptionTrace(e));
             }
         }
     }

@@ -4,17 +4,20 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const {EventEmitter}=require('node:events');
 const source = fs.readFileSync(path.join(__dirname, 'prescription-signature-playwright-checks.js'), 'utf8');
 
 for (const launchFails of [false, true]) {
   test(`signature check owns signal handling and releases it when ${launchFails ? 'launch' : 'context setup'} fails`, async () => {
     const events = [];
     let options;
+    const signalProcess=Object.assign(new EventEmitter(),{env:{PRESCRIPTION_SCRIPT_ID:'45'},exitCode:0});
     await vm.runInNewContext(source, {
       URL,
-      process: { env: { PRESCRIPTION_SCRIPT_ID: '45' }, exitCode: 0 },
+      process: signalProcess,
       console: { error() {}, log() {}, warn() {} },
       require(name) {
+        if (name === './lib/legacy-check') return {runLegacyCheck:(id,operation,options)=>require('./lib/legacy-check').runLegacyCheck(id,operation,{...options,processRef:signalProcess})};
     if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
         if (name === 'playwright') return { chromium: { async launch(value) {
           events.push('launch');

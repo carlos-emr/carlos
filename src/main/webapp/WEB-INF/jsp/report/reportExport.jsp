@@ -44,10 +44,12 @@
     }
 %>
 
-<%@page contentType="application/octet-stream" %>
+<%@page contentType="text/csv; charset=UTF-8" pageEncoding="UTF-8" trimDirectiveWhitespaces="true" %>
 <%@page
-        import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.ClinicalReports.*" %>
+        import="java.util.*, io.github.carlos_emr.carlos.report.ClinicalReports.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.ClinicalReports.ReportEvaluator" %>
+<%@ page import="java.nio.charset.StandardCharsets, org.springframework.http.ContentDisposition" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpreadsheetCsv" %>
 <%
 
 
@@ -59,20 +61,22 @@
             ReportEvaluator re = (ReportEvaluator) arrList.get(Integer.parseInt(id));
 
             String filename = re.getName().replaceAll("/", "---").replaceAll(" ", "_"); // "report.txt";
-            response.addHeader("Content-Disposition", "attachment;filename=" + filename);
+            response.setHeader("Content-Disposition", ContentDisposition.attachment()
+                    .filename(filename + ".csv", StandardCharsets.UTF_8).build().toString());
 
             out.write(re.getCSV());
         } else {
-            response.addHeader("Content-Disposition", "attachment;filename=report.txt");
+            response.setHeader("Content-Disposition", ContentDisposition.attachment().filename("report.csv").build().toString());
             for (int i = 0; i < arrList.size(); i++) {
                 ReportEvaluator re = (ReportEvaluator) arrList.get(i);
                 String filename = re.getName().replaceAll("/", "---").replaceAll(" ", "_"); // "report.txt";
 
-                out.write("'" + filename + "'," + re.getCSV() + '\n');
+                String reportNameCell = SpreadsheetCsv.sanitizeCell(filename);
+                out.write("\"" + reportNameCell.replace("\"", "\"\"") + "\"," + re.getCSV() + '\n');
             }
         }
     } else {
-        response.addHeader("Content-Disposition", "attachment;filename=error.txt");
+        response.setHeader("Content-Disposition", ContentDisposition.attachment().filename("error.csv").build().toString());
         out.write("ERROR:No report found.");
     }
 

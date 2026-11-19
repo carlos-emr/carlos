@@ -108,6 +108,14 @@ async function workflow(s) {
     });
     await s.step('retry through the same Save control writes the exact medications once',async()=>{
       const [response]=await Promise.all([rx.waitForResponse(saveMatch),button.click()]);h.assert(response.status()===200,'The retained draft could not be retried');await response.finished();
+      if(print) {
+        // The save response precedes the native preview's iframe/scripts. Settle that
+        // user-visible result before the next step deliberately reloads the Rx page.
+        const {viewScriptFrame}=require('./rx-drug-name-quotes-playwright-checks');
+        const view=await viewScriptFrame(rx);
+        for(const card of cards)await view.frameLocator('#preview').locator('body').filter({hasText:card.name}).waitFor({state:'visible',timeout:30000});
+        await rx.waitForLoadState('networkidle',{timeout:30000}).catch(()=>{});
+      }
     });
   } else {
     await s.step('a committed save with a lost response stays distinct from server rollback',async()=>{
@@ -130,20 +138,26 @@ async function workflow(s) {
       const urls=new Set(failures.map(row=>row.url));urls.add(h.appUrl(s.config.baseUrl,'/csrfguard'));s.recorder.requestFailures.splice(mark.failures,1);
       for(let index=s.recorder.consoleIssues.length-1;index>=mark.console;index--){const item=s.recorder.consoleIssues[index];if(urls.has(item.location?.url)&&/^Failed to load resource:.*ERR_FAILED/.test(item.text))s.recorder.consoleIssues.splice(index,1);}
       h.assert(await rx.locator('#carlosModal:visible').count()===0,'Lost response opened a false success preview');
+      // Check the automatic refresh before retry or reload can hide a broken
+      // callback. It must show the committed medications without discarding
+      // the clinician's still-rendered draft or changing the unrelated control.
+      for(const card of cards) {
+        await rx.locator('#drugProfile').getByText(card.name,{exact:false}).first().waitFor({state:'visible',timeout:30000});
+        h.assert(await rx.locator(`#instructions_${card.key}`).inputValue()===card.instructions,'Uncertain save lost an entered medication/direction');
+      }
+      h.assert(controls()===controlBefore,'Uncertain-save refresh changed its unrelated control');
       const persisted=snapshot(),retryMark=failureMark(s.recorder);let retry;
       const retryDialogs=await h.withExpectedDialogs(rx,async()=>{
         const alert=rx.waitForEvent('dialog',{predicate:dialog=>dialog.type()==='alert',timeout:30000});alert.catch(()=>{});
         [retry]=await Promise.all([rx.waitForResponse(saveMatch),button.click()]);await retry.finished();await alert;
       });
-      // An acknowledged Print keeps cards with advanced revisions (409); Save
-      // Only clears them and intentionally sends the application's HTML 400.
-      const retryStatus=print?409:400,body=await retry.text();
-      h.assert(retry.status()===retryStatus,'Consumed-card retry returned the wrong source contract');
-      if(print)h.assert((await retry.json()).error==='STALE_RX_STASH','Print retry was not a revision conflict');
-      else h.assert(/text\/html/.test(retry.headers()['content-type']||'')&&h.isApplicationErrorPage(body)&&!h.isWafPage(retry.status(),body),
-        'Consumed-card retry did not reach the source-qualified application 400');
-      h.assert(retryDialogs.length===1&&retryDialogs[0].type==='alert','Consumed-card retry did not report its refusal');
-      lostMessages.push(retryDialogs[0].text);consumeRxRefusal(s,retryMark,retryStatus);
+      // Durable receipts precede stale/empty-stash validation for either Save mode.
+      h.assert(retry.status()===409 && (await retry.json()).error==='RX_ALREADY_SAVED',
+        'A committed save retry did not return its durable already-saved receipt');
+      const expectedAlreadySaved=await rx.evaluate(()=>jsMsg.alreadySaved);
+      h.assert(retryDialogs.length===1 && retryDialogs[0].type==='alert'
+        && retryDialogs[0].text===expectedAlreadySaved,'Committed retry did not accurately say already saved');
+      lostMessages.push(retryDialogs[0].text);consumeRxRefusal(s,retryMark,409);
       h.assert(JSON.stringify(snapshot())===JSON.stringify(persisted),'Retry duplicated or changed a committed prescription');
     });
   }

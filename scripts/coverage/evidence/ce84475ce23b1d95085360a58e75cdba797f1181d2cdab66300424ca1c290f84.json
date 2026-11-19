@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "6910335469a496fcfb17a4debb69c532b6470056",
+  "comparisonSha256": "e656f9f37419e08b33388e29e2957bfb7478b6bdb58bba8b17fe392a99ed1305",
+  "baselineCommit": "24f4f59f7514cb020f14894c43bea68938d9dffb",
+  "baselineSourceTree": "6910335469a496fcfb17a4debb69c532b6470056",
+  "baselineReportSha256": "790abb49de0adba48c2433f7d8f7c0f3fa65d9abcf28f2531138833d17912f92",
+  "baselineLane": "Java 25 chart note save and revision contracts, request isolation, authorization and H2 transaction tests",
+  "baselineTestCounts": {
+    "tests": 987,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "4106ce074fcc7cc1dadb0d55258102c1ea7b6d34f7da9e3f65ace96c5998a82e",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementEntry2Action.java": {
+      "lines": 100.0,
+      "instructions": 98.57502095557419,
+      "branches": 88.38383838383838,
+      "sourceBlob": "75158a0a641da416699aa8a57ad38a7f825890ae"
+    }
+  }
+}

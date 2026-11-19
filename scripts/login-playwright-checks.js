@@ -38,17 +38,19 @@
 const { validateCredentialBaseUrl: validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium, request } = require('playwright');
 const h = require('./lib/playwright-harness');
+const legacyHarness = require('./lib/legacy-check');
+const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING } = require('./lib/playwright-harness');
+const { NO_PLAYWRIGHT_SIGNAL_HANDLING } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const appPath = baseUrl.pathname.replace(/\/$/, '') || '';
 const chromePath = process.env.CHROME_PATH || '';
-const testUser = process.env.TEST_USER || 'carlosdoc';
+let testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = requiredEnv('TEST_PASSWORD');
 const testPin = requiredEnv('TEST_PIN');
 const mysqlHost = require('./lib/playwright-harness').validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
@@ -242,11 +244,14 @@ async function record(name, fn) {
   recorder = h.createRecorder();
   diagnosticLabel = name;
   try {
+    await checkCancellation?.throwIfCancelled();
     await fn();
+    await checkCancellation?.throwIfCancelled();
     h.assertStrictPage(recorder);
     results.push({ name, ms: Date.now() - start });
     console.log(`PASS ${name}`);
   } catch (error) {
+    if (checkCancellation?.isCancellation(error)) throw error;
     failures.push({ name, error });
     console.log(`FAIL ${name}: ${error.message}`);
     console.error(JSON.stringify(h.buildFailureDetails(recorder), null, 2));
@@ -325,19 +330,20 @@ async function expectSchedulePage(page, label) {
   assert(/Schedule|appointment|provider/i.test(html), `${label} did not look like a schedule page`);
 }
 
-// This check rewrites the seeded test user's password row, so an interrupted run
-// would leave carlosdoc on a throwaway password (issue #3600). A finally does not
-// run when the process is killed; this does. restoreOriginal() is a no-op until the
-// original row has been captured, and the cleartext MySQL password file goes too.
-const signalHandlers = installCleanupSignalHandlers(() => {
-  try {
-    restoreOriginal();
-  } finally {
-    cleanupMysqlDefaultsFile();
-  }
-});
+let browser;
+let checkCancellation;
+let fixtureSql;
+let ownedLogin;
 
-(async () => {
+async function main({cancellation}) {
+  checkCancellation = cancellation;
+  fixtureSql = h.createSqlRunner({host: mysqlHost, user: mysqlUser, password: mysqlPassword, database: mysqlDatabase});
+  const provider = fixtureSql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
+  assert(/^[1-9]\d*$/.test(provider), 'Login check needs a single source provider');
+  ownedLogin = throwawayLoginFixture({sql: fixtureSql,
+    marker: 'FAKE-PW' + require('node:crypto').randomBytes(8).toString('hex'), provider, testUser});
+  ownedLogin.create();
+  testUser = ownedLogin.username;
   Object.assign(original, securityRow());
   if (!baselineHash) {
     throw new Error('TEST_PASSWORD_HASH is required so the script can seed a known-good password before mutating the database.');
@@ -353,9 +359,9 @@ const signalHandlers = installCleanupSignalHandlers(() => {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
+  browser = await chromium.launch(launchOptions);
 
-  try {
+  h.recordBrowserVersion(browser);
     await record('app root renders a nonblank login page', async () => {
       const context = await newBrowserContext(browser);
       const page = await context.newPage();
@@ -597,33 +603,20 @@ const signalHandlers = installCleanupSignalHandlers(() => {
         'legacy /login forced-reset POST changed DB state');
       await api.dispose();
     });
-  } finally {
-    await browser.close().catch(() => {});
-    try {
-      restoreOriginal();
-      console.log(`Restored ${testUser} security row`);
-    } finally {
-      cleanupMysqlDefaultsFile();
-      // Last, so a signal arriving during the restore still reaches the handler.
-      signalHandlers.dispose();
-    }
-    console.log(`Completed ${results.length} Playwright checks, ${failures.length} failures`);
-    if (failures.length) {
-      for (const failure of failures) {
-        console.log(`FAILED ${failure.name}: ${failure.error.stack || failure.error.message}`);
-      }
-      process.exitCode = 1;
-    }
+  console.log(`Completed ${results.length} Playwright checks, ${failures.length} failures`);
+  if (failures.length) {
+    for (const failure of failures) console.log(`FAILED ${failure.name}: ${failure.error.stack || failure.error.message}`);
+    process.exitCode = 1;
   }
-})().catch((error) => {
-  console.error(error && error.stack ? error.stack : error);
-  try {
-    restoreOriginal();
-  } catch (restoreError) {
-    console.error(`Restore failed: ${restoreError.stack || restoreError}`);
-  } finally {
-    signalHandlers.dispose();
-    cleanupMysqlDefaultsFile();
-  }
-  process.exit(1);
+}
+
+legacyHarness.runLegacyCheck('login', main, {
+  realSignalCheckpoints: true,
+  cleanup: () => legacyHarness.finishLegacyCleanup([
+    () => browser && browser.close(),
+    restoreOriginal,
+    () => ownedLogin && ownedLogin.cleanup(),
+    () => fixtureSql && fixtureSql.dispose(),
+    cleanupMysqlDefaultsFile,
+  ]),
 });

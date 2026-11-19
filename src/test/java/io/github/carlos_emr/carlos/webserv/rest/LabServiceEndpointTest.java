@@ -125,6 +125,20 @@ class LabServiceEndpointTest extends CarlosRestTestBase {
             assertThat(body.getMessages()).hasSize(1);
         }
 
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.CsvSource({"-1,10", "0,-1", "0,5001"})
+        @DisplayName("should answer 400 without reading labs for a negative or oversized page (#6038)")
+        void shouldReturnBadRequest_whenPagingIsInvalid(int offset, int limit) {
+            Response response = request().path("/labs/hl7LabsByDemographicNo")
+                .query("demographicNo", 456)
+                .query("offset", offset)
+                .query("limit", limit)
+                .get();
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            org.mockito.Mockito.verifyNoInteractions(mockLabManager);
+        }
+
         @Test
         @DisplayName("should return 200 with empty list when no labs exist")
         void shouldReturn200WithEmptyList_whenNoLabsExist() {
