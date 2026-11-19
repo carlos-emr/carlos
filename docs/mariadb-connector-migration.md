@@ -80,7 +80,11 @@ These Connector/J behaviours are not reproduced: `getBytes` on a numeric
 column (MariaDB refuses it), the deprecated
 `getBigDecimal(column, scale)` rounding, `getNString` on a non-national column
 (MariaDB returns the text), out-of-range `getLong` reads (MariaDB returns the
-type's limit), `getByte` on BIT columns wider than 8 bits, and some metadata details:
+type's limit), the SQL state of a refused out-of-range `getInt` (both drivers
+throw `SQLDataException`; Connector/J set `22003`, MariaDB sets none),
+`getByte` on BIT columns wider than 8 bits, Connector/J's
+`NegativeArraySizeException` when a server-prepared ZEROFILL FLOAT prints wider
+than its display width (the adapter returns the unpadded text), and some metadata details:
 FLOAT and DOUBLE scale, integer precision, the display size of DECIMAL and INT
 columns, and the `INT` type name, which MariaDB reports as `INTEGER`.
 
