@@ -301,13 +301,13 @@ the validators and execution points were re-read on the release branch.
 | Report by Template query | `report/reportByTemplate/SQLReporter` via `LegacyJdbcQuery` | `reportTemplates` row (`_report` write) | Validator A at save and again at run. |
 | Report by Template parameter query | `ReportManager` via `AbstractDaoImpl` `getResultList` | Same row | Validator A at save and at run. |
 | Clinical reports | `report/ClinicalReports` via `ConfiguredReportQuery` | Shipped XML or configured file | Validator A; row, size and time limits. |
-| Configured form reports, CSV download | `report/data/RptReportCreator` via `ConfiguredReportQuery` | Source-literal `select`, `reportConfig` rows, request filters | Validator A on the assembled text; identifier checks. |
+| Configured form reports, CSV download | `report/data/RptReportCreator` via `ConfiguredReportQuery` | Source-literal `select`, `reportConfig` rows, request filters | Validator A on the assembled text; identifier checks. Section 11. |
 | eForm database fields | `commn/dao/EFormValueDaoImpl` `executeQuery` | Shipped `apconfig.xml` or configured file | `EFormSqlSafety` (validator A, no unresolved `${`); read-only transaction. |
 | Document transfer export | `commn/dao/DocumentTransferDao` `executeQuery` | Shipped `DocXferConfig.xml` | Validator A. |
 | Legacy form records | `form/FrmRecordHelp`, `form/Frm*Record`, `login/DBHelp` | Source literals; form table name from the registry | Validator B in `saveFormRecord`, validator A in `DBHelp`; the remaining readers pass literals to an unvalidated helper. |
-| **Dashboard indicators, drill-down, export** | `dashboard/handler/AbstractQueryHandler` `getResultList` | `indicatorTemplate` rows (import or direct database write; no upload screen) | **None on the statement.** Comment stripping only; class-level read-only transaction. |
+| **Dashboard indicators, drill-down, export** | `dashboard/handler/AbstractQueryHandler` `getResultList` | `indicatorTemplate` rows (import or direct database write; no upload screen), plus the provider number | **None on the statement.** Comment stripping only; class-level read-only transaction. Section 11. |
 | **Jasper templates filled with a connection** | `demographic/DemographicLabelPdf`, `commn/web/PrintReferralLabel2Action`, `report/ConfiguredJasperTemplateRenderer`, `OscarDocumentCreator` | Template files in the Tomcat user's home directory or at configured paths; shipped templates otherwise | **None.** Documented in code as administrator-installed arbitrary SQL. |
-| Demographic Report Tool, saved demographic queries, prevention reports | `commn/dao/forms/FormsDao` `getResultList` | Source-literal `select` plus generated clauses | Source-literal prefix; no statement validator. |
+| Demographic Report Tool, saved demographic queries, prevention reports | `commn/dao/forms/FormsDao` `getResultList` | Source-literal `select` plus generated clauses | Source-literal prefix; no statement validator. Section 11. |
 | Demographic search | `commn/dao/DemographicDaoImpl` | Source literals plus the `inactive_statuses` property | Source-literal prefix. |
 | Lookup tables, encounter-form tables, eForm report tool, CDS import/export, provider name lookup | Several DAOs | Identifiers only (registry rows, shipped catalogues, `information_schema`) | Identifier validators; no free SQL text. |
 
@@ -404,6 +404,14 @@ never contains the statement text.
 - JSP scriptlets contain no live raw JDBC.
 - The CDS export source lock and the CDS ruleset fingerprint read the driver's
   configuration and classes; neither inspects `initSql` or `sessionVariables`.
+  CDS connections report a refused URL with their own fixed code, so the option
+  named for #5770 does not appear there.
+- Every connection validation query is `select 1` (application pool, packaged
+  and podman configuration, CDS command line); a pool validation query must
+  return a row, so the guard cannot refuse one.
+- Nothing runs its own SQL through the application data source besides
+  Hibernate, Spring `JdbcTemplate`, Flyway and JasperReports: no JDBC job
+  store, session store or token repository.
 
 ## 8. Session defaults the adapter must apply
 
@@ -456,8 +464,12 @@ is preferred to continuing silently in the other mode.
   URL text can reach the terminal. The option named for #5770 therefore
   appears when the application starts, not in `carlos-ctl db-migrate`. Draft
   PR #6133 leaves it the same way.
-- Observations about report code that are not caused by the driver switch were
-  reported to the maintainer separately.
+- The demographic report builders catch every exception from their query and
+  return an empty list, so a failed query shows as "no patients". That is older
+  than the switch and is left as it is; the refusals of section 11 happen before
+  that point and are shown as errors.
+- The cohort CSV of the demographic report has no page that requests it any
+  more; it stays reachable and is covered by section 11.
 
 ## 10. Prototype results
 
@@ -475,13 +487,35 @@ written.
 | Generated-schema MariaDB lane | 3,328 passed, none skipped. |
 | Flyway-schema lanes | Ontario 368 passed; British Columbia 266 passed. |
 | Lane with packaged `jdbc:mysql:` URLs | 29 passed. |
-| Repository report verifier, release-plan tests, plan validation | Passed with the required counts raised to 60 and 2. |
+| Repository report verifier, release-plan tests, plan validation | Passed with the required counts raised to 60 and 2 (before section 11 added two connector cases; the plan now raises them to 62 and 2). |
 | Packaged Flyway runner, compiled against the prototype, migrating empty schemas through the adapter | Ontario: 91 migrations applied. British Columbia: 90 applied. No statement refused. |
 | Packaged Flyway runner's own build-time tests | Passed, including a check that the launcher's class list carries the statement rule. |
 | Coverage of the adapter under those tests | Driver 96.30 / 95.06 / 88.33 percent (lines / instructions / branches) against retained floors of 94.00 / 92.18 / 85.04; configuration class 98.34 / 98.31 / 91.14 against 98.27 / 98.14 / 90.45. Whole-file figures; the floors are measured on changed lines. |
-| Coverage freshness gate | Fails until floor evidence is recorded for the six changed production sources, as the plan's last tasks provide. |
+| Section 11 corrections, unit and H2 tests | 364 passed across the 24 test classes of reports and dashboards, after adapting the CSV download tests to a logged-in session and stored filters (expected). |
+| Section 11 database pieces | The filter lookup on H2 and on MariaDB; `date_sub(?, interval ? month)` on MariaDB in both protocols (62 cases in the connector class in all). The MariaDB lanes were run before section 11 was added, not after. |
+| Coverage freshness gate | Fails until floor evidence is recorded for the nineteen changed production sources, as the plan's last tasks provide. |
 
-The dry run corrected the plan in four places: the statement rule must be a
+The first dry run corrected the plan in four places: the statement rule must be a
 nested class; `/*M!` comments must be skipped when finding the first word (the
 earlier rule would have sent `/*M!999999 SELECT 1 */ DELETE …`, which
 Connector/J refused); and two kinds of test snippet did not compile.
+
+## 11. Report and dashboard SQL taken from request or saved text
+
+The sink review of section 5 found four places where text that a signed-in user
+controls became part of SQL text. They are not caused by the driver switch.
+They are fixed in the same pull request at the maintainer's request. Each was
+confirmed by reading the code; none was exercised against a running system.
+This document and the pull request describe what each check now enforces.
+
+| Path | Text that reached the SQL | Correction |
+|---|---|---|
+| Demographic Report Tool, its saved queries, and the reports that run saved queries (prevention report, demographic export) | The selected column keys, written into the select list; an age typed in months, written after `interval`. Saved queries replay both. | Column keys must be one of the report's 29 columns (`RptDemographicColumnNames`), checked when a query is built and when it is saved. An age in months must be digits followed by `m`, and the number is bound. |
+| Prevention report (REST) | The same age in months, from the stored report definition. | The same bound number. |
+| Configured form reports, as HTML and as CSV | The filter SQL of each ticked filter, which the filter page sends back as a hidden field and the server used as sent. | The server takes each ticked filter's SQL and date format from the report's stored filter at that position; a position the report has no filter at is refused. |
+| Report CSV download (`/report/reportDownload`) | As above. The URL is its own servlet and checked only that a session existed. | It requires `_report` or `_admin.reporting` read, as the report pages do. |
+| Dashboard indicators, drill-downs and exports | The provider number chosen by a user who may switch providers, written into template SQL. | A chosen provider other than the user's own must exist, and the value written into the SQL must be letters, digits, `_` or `-`, at most six characters. |
+
+Left as they are, because their authors are trusted to write SQL: Report by
+Template, clinical report XML, eForm database fields, indicator templates and
+Jasper templates (section 5).

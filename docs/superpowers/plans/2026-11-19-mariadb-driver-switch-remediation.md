@@ -4,7 +4,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** One pull request on `release/2026.08` that closes the seven open driver-switch issues (#5922, #5968, #5969, #5770, #5863, #5744, #6088), does the driver part of the documentation work now tracked in #3053 (formerly #5768), and corrects the eight further differences (N1 to N8) found by the differential review.
+**Goal:** One pull request on `release/2026.08` that closes the seven open driver-switch issues (#5922, #5968, #5969, #5770, #5863, #5744, #6088), does the driver part of the documentation work now tracked in #3053 (formerly #5768), corrects the eight further differences (N1 to N8) found by the differential review, and closes the places where report and dashboard SQL was assembled from request or saved text (spec section 11).
 
 **Architecture:** The branch is based on the release head and merges the three open pull requests that already fix four of the issues. Everything else is small: three additions inside the existing JDBC adapter classes (a statement guard for `executeQuery`, session defaults, two value and exception parities), four call-site corrections, documentation, and the same adapter mirrored into DrugRef with a build check that keeps the two copies identical. Every new physical-MariaDB case goes into a test class the MariaDB CI lane already runs, so no workflow file changes.
 
@@ -12,7 +12,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-11-19-mariadb-driver-switch-findings.md` (read it first; section numbers below refer to it)
 
-**Dry run:** Tasks 2 to 8, the test of Task 9 and the counts of Task 11 were carried out once in a scratch clone, on top of the merges of Task 1, and run on MariaDB 11.8.8 (spec section 10). The test code below is the code that compiled and passed there. The production changes are described, not transcribed: the dry run shows they can be written from these descriptions. The documentation edits of Task 9, Task 10 and the coverage records of Task 11 were not dry-run.
+**Dry run:** Tasks 2 to 9, the test of Task 10 and the counts of Task 12 were carried out in a scratch clone, on top of the merges of Task 1, and run on MariaDB 11.8.8 (spec section 10). The test code below is the code that compiled and passed there. The production changes are described, not transcribed: the dry run shows they can be written from these descriptions. Not dry-run: the documentation edits of Task 10, Task 11, the coverage records of Task 12, the browser check of Task 9 Step 9 and the full MariaDB lanes after Task 9 (its database pieces were run on their own).
 
 ## Global Constraints
 
@@ -21,8 +21,9 @@
 - **The adapter is three source files and stays three:** `MariaDbCompatibilityDriver`, `MariaDbJdbcCompatibility`, `MariaDbPreferredTlsPlugin`. New adapter code goes inside them; a nested class is fine, a new top-level class is not. `debian/build-flyway-runner.sh`, `CdsRulesetFingerprint` and the DrugRef package check each name exactly these three and take their nested classes with them (spec section 6). The three files must be identical in `carlos` and `drugref2026` apart from the package name (`io.github.carlos_emr.carlos.utility` / `io.github.carlos_emr.drugref2026.util`).
 - MariaDB Connector/J stays at 3.5.11. MySQL Connector/J must not appear in `pom.xml`, a lock file or a package. The guard is written from spec section 6 and the recorded oracle; do not copy code from MySQL Connector/J.
 - No statement text, URL, credential or row value in any exception message or log line this work adds.
+- Task 9 is a security fix in a public repository. Its commit messages, code comments and the pull request describe what each check enforces, not how the missing check could have been used. No example input that would have worked goes into a test name, a comment or the pull request.
 - Exact values: refusal SQLState `S1009`, message `executeQuery() cannot run a statement that does not produce a result set`; session statement and its rules as in spec section 8 (`net_write_timeout=600`); lock-wait mapping error `1205` to SQLState `40001`; option message `Invalid database connection configuration: option <name>; <requirement>` with SQLState `08001`.
-- Tests: JUnit 5, AssertJ, names `should<Action>_<context>` with exactly one underscore, `@Tag("unit")` or `@Tag("integration")`. `java.sql.SQLException` is an `Iterable`, so `assertThat(sqlException)` does not compile: assert on `getMessage()`, `getSQLState()` and `getCause()`. New files carry the CARLOS copyright header (`docs/copyright-header-carlos.md`), no `@author`. New classes follow `docs/architecture/layer-names.md` (no `*Helper`, `*Utils`, `*Manager`).
+- Tests: JUnit 5, AssertJ, names `should<Action>_<context>` with exactly one underscore, `@Tag("unit")` or `@Tag("integration")`. `java.sql.SQLException` is an `Iterable`, so `assertThat(sqlException)` does not compile: assert on `getMessage()`, `getSQLState()` and `getCause()`. The build runs Checkstyle before compiling and fails on an unused import. New files carry the CARLOS copyright header (`docs/copyright-header-carlos.md`), no `@author`. New classes follow `docs/architecture/layer-names.md` (no `*Helper`, `*Utils`, `*Manager`).
 - Conventional Commits. End every commit message with the attribution trailers the session supplies. Commit after each task; push only when the maintainer asks; do not open the pull request until asked.
 
 ## Review Focus
@@ -32,6 +33,7 @@
 3. `db_name` with no `?`, with a `?` and nothing after it, blank, or missing. The application must start; only the audit purge may refuse, with a clear message. Pinned in Task 7.
 4. A Query by Example result whose binary cell holds bytes that are not text (an image in `client_image`). The page must render within its existing budget instead of failing. Pinned in Task 3.
 5. A server whose own default `sql_mode` contains `IGNORE_SPACE` or `ANSI`. The session must keep it, as it did under MySQL Connector/J. Pinned in Task 4.
+6. A configured report whose filter the user ticks, run as HTML or as CSV, including a filter on the deleted-report list, and a saved demographic query written before this change. Each must give the same rows as before; only a request that names a filter the report does not have, or a column the report does not offer, is refused. Pinned in Task 9.
 
 ## File Structure
 
@@ -43,13 +45,16 @@
 | `src/main/java/io/github/carlos_emr/carlos/report/data/RptResultStruct.java` | Reads binary cells as text. | 3 |
 | `src/main/java/io/github/carlos_emr/carlos/managers/AuditLogManager.java` | Reads the schema name safely. | 7 |
 | `src/main/java/io/github/carlos_emr/carlos/commn/dao/OscarAppointmentDaoImpl.java` | Recognises both product names. | 8 |
-| `src/test/java/io/github/carlos_emr/carlos/utility/JdbcConnectorMariaDbIntegrationTest.java` | All new physical JDBC cases (13). | 2, 3, 4, 5, 9 |
+| `src/main/java/io/github/carlos_emr/carlos/report/data/RptDemographicColumnNames.java`, `RptDemographicQuery2Builder.java`, `RptDemographicQueryBuilder.java`, `RptDemographicQuery2Saver.java`, `DemographicAgeMonths.java` (new); `prev/reports/ReportBuilder.java` | Demographic and prevention report columns and ages. | 9 |
+| `src/main/java/io/github/carlos_emr/carlos/report/data/ReportFilterResolver.java` (new), `commn/dao/ReportFilterDao.java`, `ReportFilterDaoImpl.java`, `report/pageUtil/RptFormQuery.java`, `report/pageUtil/RptDownloadCSVServlet.java` | Configured-report filters and the CSV download. | 9 |
+| `src/main/java/io/github/carlos_emr/carlos/managers/DashboardManagerImpl.java`, `dashboard/handler/IndicatorTemplateXML.java` | The dashboard provider number. | 9 |
+| `src/test/java/io/github/carlos_emr/carlos/utility/JdbcConnectorMariaDbIntegrationTest.java` | All new physical JDBC cases (15). | 2, 3, 4, 5, 9, 10 |
 | `src/test/java/io/github/carlos_emr/carlos/commn/dao/MariaDbDaoHarnessIntegrationTest.java` | One physical JPA case. | 2 |
 | `debian/assets/flyway-runner/src/test/java/io/github/carlos_emr/carlos/deb/FlywayRunnerJdbcTest.java` | Proves at package build that the launcher carries the statement rule. | 2 |
 | `src/test/resources/jdbc/connector-j-9.6.0-executequery-oracle.tsv`, `scripts/jdbc-connector-probe/` (already on the branch) | Oracle fixture (212 rows); the probe and reference model behind it. | 2 |
-| `docs/mariadb-connector-migration.md`, `docs/release-notes-2026.08.md`, packaging READMEs, `CLAUDE.md`, `GEMINI.md` | Documentation. | 9 |
-| `debian/check-drugref-adapter-sources.py` (new), `debian/rules`, `debian/drugref.pin` | DrugRef copy check and pin. | 10 |
-| `scripts/ci/verify-mariadb-dao-reports.py`, `scripts/ci/test_mariadb_report_evidence.py`, `scripts/ci/test_release_plan_5700.py`, `docs/testing/release-2026.08-verification.json`, `scripts/coverage/floors/**`, `docs/testing/coverage-floor-policy.md` | Required-case counts and coverage floors. | 11 |
+| `docs/mariadb-connector-migration.md`, `docs/release-notes-2026.08.md`, packaging READMEs, `CLAUDE.md`, `GEMINI.md` | Documentation. | 10 |
+| `debian/check-drugref-adapter-sources.py` (new), `debian/rules`, `debian/drugref.pin` | DrugRef copy check and pin. | 11 |
+| `scripts/ci/verify-mariadb-dao-reports.py`, `scripts/ci/test_mariadb_report_evidence.py`, `scripts/ci/test_release_plan_5700.py`, `docs/testing/release-2026.08-verification.json`, `scripts/coverage/floors/**`, `docs/testing/coverage-floor-policy.md` | Required-case counts and coverage floors. | 12 |
 
 Commands used throughout (JDK 25 is required; the build does not run on an older JDK):
 
@@ -119,7 +124,7 @@ Expected: `OK` twice, then `{"fresh": true, …, "problems": []}`, then `BUILD S
 - Uses (already on the branch): `src/test/resources/jdbc/connector-j-9.6.0-executequery-oracle.tsv`
 
 **Interfaces:**
-- Produces, nested in `MariaDbCompatibilityDriver` (DrugRef gets its copy in Task 10):
+- Produces, nested in `MariaDbCompatibilityDriver` (DrugRef gets its copy in Task 11):
 
 ```java
 static final class QueryStatementValidator {
@@ -1028,7 +1033,7 @@ Expected: compilation failure.
 - [ ] **Step 4: Run it and see it pass**
 
 Run: `mvn -B -ntp test -Dtest='OscarAppointmentDaoStreamingUnitTest,PatientListByApptExportUnitTest'`
-Expected: PASS. The MariaDB lane of Task 12 runs the export's DAO test on the physical server.
+Expected: PASS. The MariaDB lane of Task 13 runs the export's DAO test on the physical server.
 
 - [ ] **Step 5: Commit**
 
@@ -1038,7 +1043,407 @@ git add src/main/java/io/github/carlos_emr/carlos/commn/dao/OscarAppointmentDaoI
 git commit -m "fix(appointment): ask for a streamed export on MariaDB by name"
 ```
 
-### Task 9: Pin the documented differences and correct the documentation (#3053, spec section 4)
+### Task 9: Report and dashboard SQL taken from request or saved text (security, spec section 11)
+
+**Files:**
+- Modify: `src/main/java/io/github/carlos_emr/carlos/report/data/RptDemographicColumnNames.java`, `RptDemographicQuery2Builder.java`, `RptDemographicQueryBuilder.java`, `RptDemographicQuery2Saver.java`, `src/main/java/io/github/carlos_emr/carlos/prev/reports/ReportBuilder.java`
+- Create: `src/main/java/io/github/carlos_emr/carlos/report/data/DemographicAgeMonths.java`, `ReportFilterResolver.java`
+- Modify: `src/main/java/io/github/carlos_emr/carlos/commn/dao/ReportFilterDao.java`, `ReportFilterDaoImpl.java`, `src/main/java/io/github/carlos_emr/carlos/report/pageUtil/RptFormQuery.java`, `RptDownloadCSVServlet.java`
+- Modify: `src/main/java/io/github/carlos_emr/carlos/managers/DashboardManagerImpl.java`, `src/main/java/io/github/carlos_emr/carlos/dashboard/handler/IndicatorTemplateXML.java`
+- Create: `src/test/java/io/github/carlos_emr/carlos/report/data/DemographicAgeMonthsUnitTest.java`, `ReportFilterResolverUnitTest.java`, `RptDemographicQueryColumnsUnitTest.java`
+- Modify: `src/test/java/io/github/carlos_emr/carlos/report/pageUtil/RptDownloadCSVServletTest.java`, `RptDownloadCSVExtensionBudgetUnitTest.java`, `src/test/java/io/github/carlos_emr/carlos/managers/DashboardProviderContextUnitTest.java`, `src/test/java/io/github/carlos_emr/carlos/dashboard/handler/IndicatorTemplateXMLUnitTest.java`, `src/test/java/io/github/carlos_emr/carlos/commn/dao/ReportFilterDaoIntegrationTest.java`, `src/test/java/io/github/carlos_emr/carlos/utility/JdbcConnectorMariaDbIntegrationTest.java`, `scripts/report-typed-queries-playwright-checks.js`
+
+**Interfaces:**
+- Produces:
+
+```java
+// RptDemographicColumnNames: exactly the keys of its column-title table (the 29 columns the report page offers)
+public boolean isSelectable(String column);
+// DemographicAgeMonths (static, final, private constructor): "[0-9]{1,4}m" -> months, else
+// IllegalArgumentException("An age must be a whole number of years, or of months followed by m")
+public static int parse(String text);
+// ReportFilterDao / ReportFilterDaoImpl: report and position are unique together (UNIQUE KEY order_no)
+ReportFilter findByReportIdAndOrderNo(int reportId, int orderNo);   // either status; null when absent
+// ReportFilterResolver
+public ReportFilterResolver(ReportFilterDao dao);
+public List<ReportFilter> selected(String reportId, HttpServletRequest request);
+// IndicatorTemplateXML
+static String providerNumberForSql(String providerNo);   // "[A-Za-z0-9_-]{0,6}", else IllegalArgumentException
+```
+
+- [ ] **Step 1: Write the failing tests for the demographic and prevention reports**
+
+```java
+@Tag("unit")
+class DemographicAgeMonthsUnitTest {
+    @ParameterizedTest
+    @CsvSource({"0m,0", "6m,6", "18m,18", "06m,6", "9999m,9999"})
+    void shouldReadTheNumberOfMonths_forAgesWrittenInMonths(String text, int months) {
+        assertThat(DemographicAgeMonths.parse(text)).isEqualTo(months);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"m", "6", "6M", " 6m", "6m ", "-6m", "6.5m", "10000m", "6 month", "6m)"})
+    void shouldRefuseText_thatIsNotAWholeNumberOfMonths(String text) {
+        assertThatThrownBy(() -> DemographicAgeMonths.parse(text))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("An age must be a whole number of years, or of months followed by m");
+    }
+}
+```
+
+`RptDemographicQueryColumnsUnitTest` extends `CarlosUnitTestBase` and registers mocks of `FormsDao` (answering `runParameterizedNativeQuery(anyString(), anyMap())` with an empty list) and `DemographicQueryFavouritesDao`. Its form helper sets `select` and `ageStyle "1"`.
+
+```java
+@Test
+void shouldRefuseAColumnOutsideTheReportsList_beforeAnyQuery() {
+    assertThatThrownBy(() -> new RptDemographicQuery2Builder().buildQuery(mock(LoggedInInfo.class),
+            form("last_name", "last_name, (select 1)")))
+            .isInstanceOf(IllegalArgumentException.class).hasMessage("Unknown demographic report column");
+    assertThatThrownBy(() -> new RptDemographicQueryBuilder().buildQuery(mock(LoggedInInfo.class),
+            form("last_name", "LAST_NAME")))
+            .isInstanceOf(IllegalArgumentException.class).hasMessage("Unknown demographic report column");
+    verifyNoInteractions(forms);
+}
+
+@Test
+void shouldRefuseToSaveAQuery_withAColumnOutsideTheReportsList() {
+    assertThatThrownBy(() -> new RptDemographicQuery2Saver().saveQuery(form("hin", "hin from security")))
+            .isInstanceOf(IllegalArgumentException.class).hasMessage("Unknown demographic report column");
+    verifyNoInteractions(favourites);
+}
+
+@Test
+void shouldAcceptEveryColumnTheReportPageOffers() throws Exception {
+    String[] offered = {"address", "chart_no", "city", "date_joined", "date_of_birth", "demographic_no", "eff_date",
+            "email", "end_date", "family_doctor", "first_name", "hc_renew_date", "hc_type", "hin", "last_name",
+            "month_of_birth", "newsletter", "patient_status", "pcn_indicator", "phone", "phone2", "postal",
+            "provider_name", "provider_no", "province", "roster_status", "sex", "ver", "year_of_birth"};
+    assertThat(new RptDemographicQuery2Builder().buildQuery(mock(LoggedInInfo.class), form(offered))).isEmpty();
+    assertThat(new RptDemographicQueryBuilder().buildQuery(mock(LoggedInInfo.class), form(offered))).isEmpty();
+}
+
+@SuppressWarnings("unchecked")
+@Test
+void shouldBindAnAgeInMonths_insteadOfWritingItIntoTheQuery() {
+    var form = form("demographic_no");
+    form.setAge("4");
+    form.setStartYear("18m");
+    form.setEndYear("5");
+    new RptDemographicQuery2Builder().buildQuery(mock(LoggedInInfo.class), form);
+    ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<Map<String, Object>> params = ArgumentCaptor.forClass(Map.class);
+    verify(forms).runParameterizedNativeQuery(sql.capture(), params.capture());
+    assertThat(sql.getValue()).contains("interval :startMonths4 month").doesNotContain("18");
+    assertThat(params.getValue()).containsEntry("startMonths4", 18);
+}
+
+@Test
+void shouldRefuseAnAgeThatIsNeitherYearsNorMonths_beforeAnyQuery() {
+    var form = form("demographic_no");
+    form.setAge("4");
+    form.setStartYear("6 month");
+    form.setEndYear("5");
+    assertThatThrownBy(() -> new RptDemographicQuery2Builder().buildQuery(mock(LoggedInInfo.class), form))
+            .isInstanceOf(IllegalArgumentException.class);
+    verifyNoInteractions(forms);
+}
+```
+
+The list in `shouldAcceptEveryColumnTheReportPageOffers` is the `select` checkbox values of `WEB-INF/jsp/oscarReport/ReportDemographicReport.jsp`; check it against that page before writing it.
+
+- [ ] **Step 2: Run them and see them fail**
+
+Run: `mvn -B -ntp test -Dtest='DemographicAgeMonthsUnitTest,RptDemographicQueryColumnsUnitTest'`
+Expected: compilation failure, `DemographicAgeMonths` and `isSelectable` not found.
+
+- [ ] **Step 3: Implement the column list and the bound age**
+
+- `RptDemographicColumnNames.isSelectable(String)` as in Interfaces (exact, case-sensitive match).
+- In `RptDemographicQuery2Builder.buildQuery` and `RptDemographicQueryBuilder.buildQuery`, directly after `RptDemographicColumnNames demoCols = new RptDemographicColumnNames();`, refuse the request with `new IllegalArgumentException("Unknown demographic report column")` when any `select` entry is not selectable. This runs before the SQL is built; the builder's existing `try … catch (Exception)` around the query, which turns a failed query into an empty result, does not reach it.
+- `RptDemographicQuery2Saver.saveQuery` makes the same check before anything is stored.
+- In both builders and in `ReportBuilder` (age style 4, the months branch), replace `getInterval(startYear)` / `getInterval(endYear)` and the text spliced after `interval` with bound parameters: `params.put("startMonths4", DemographicAgeMonths.parse(startYear))` and `",interval :startMonths4 month"`, likewise `endMonths4`. Delete the three `getInterval` methods and their "cannot be parameterized" comments; MariaDB binds the quantity of an `INTERVAL` (Step 8 pins it).
+
+- [ ] **Step 4: Run them and see them pass**
+
+Run: `mvn -B -ntp test -Dtest='DemographicAgeMonthsUnitTest,RptDemographicQueryColumnsUnitTest,RptDemographicReport2ActionUnitTest,PreventionReport2ActionUnitTest,ReportingServiceUnitTest'`
+Expected: PASS (22 cases in the two new classes).
+
+- [ ] **Step 5: Write the failing tests for configured-report filters and the CSV download**
+
+```java
+@Tag("unit")
+class ReportFilterResolverUnitTest {
+    private final ReportFilterDao dao = mock(ReportFilterDao.class);
+    private final ReportFilterResolver resolver = new ReportFilterResolver(dao);
+
+    private ReportFilter stored(int position, String value, String dateFormat) {
+        ReportFilter filter = new ReportFilter();
+        filter.setId(100 + position);   // AbstractModel.equals needs an id
+        filter.setReportId(7);
+        filter.setOrderNo(position);
+        filter.setValue(value);
+        filter.setDateFormat(dateFormat);
+        when(dao.findByReportIdAndOrderNo(7, position)).thenReturn(filter);
+        return filter;
+    }
+
+    @Test
+    void shouldReturnTheStoredFilters_inPositionOrderAndIgnoringPostedSql() {
+        ReportFilter second = stored(2, "demographic.sex='${sex}'", "");
+        ReportFilter first = stored(1, "formBCAR.c_EDD>='${startDate1}'", "yyyy-MM-dd");
+        var request = new MockHttpServletRequest();
+        request.addParameter("filter_2", "on");
+        request.addParameter("filter_1", "on");
+        request.addParameter("value_1", "posted text that must not be used");
+        request.addParameter("dateFormat_1", "dd/MM/yyyy");
+        assertThat(resolver.selected("7", request)).containsExactly(first, second);
+    }
+
+    @Test
+    void shouldReturnNothing_whenTheRequestSelectsNoFilter() {
+        var request = new MockHttpServletRequest();
+        request.addParameter("value_1", "posted text");
+        assertThat(resolver.selected(null, request)).isEmpty();
+        verifyNoInteractions(dao);
+    }
+
+    @Test
+    void shouldRefuseTheReport_whenASelectedFilterIsNotStored() {
+        stored(1, "demographic.sex='${sex}'", "");
+        var request = new MockHttpServletRequest();
+        request.addParameter("filter_1", "on");
+        request.addParameter("filter_9", "on");
+        assertThatThrownBy(() -> resolver.selected("7", request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("The report filter is not one of this report's filters");
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"x", "-1", "7 ", "1234567890"})
+    void shouldRefuseTheReport_whenTheReportIdIsNotANumber(String reportId) {
+        var request = new MockHttpServletRequest();
+        request.addParameter("filter_1", "on");
+        assertThatThrownBy(() -> resolver.selected(reportId, request)).isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(dao);
+    }
+
+    @Test
+    void shouldRefuseTheReport_whenAFilterPositionIsNotANumber() {
+        var request = new MockHttpServletRequest();
+        request.addParameter("filter_x", "on");
+        assertThatThrownBy(() -> resolver.selected("7", request)).isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(dao);
+    }
+}
+```
+
+In `RptDownloadCSVServletTest` and `RptDownloadCSVExtensionBudgetUnitTest`:
+
+- add these members, and build every servlet with `servlet()` instead of `new RptDownloadCSVServlet()`:
+
+```java
+private final SecurityInfoManager security = permitting();
+private final ReportFilterDao filterDao = mock(ReportFilterDao.class);
+
+private static SecurityInfoManager permitting() {
+    SecurityInfoManager manager = mock(SecurityInfoManager.class);
+    when(manager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(true);
+    return manager;
+}
+
+private RptDownloadCSVServlet servlet() {
+    return new RptDownloadCSVServlet(security, filterDao);
+}
+
+/** Stores a filter of report 7 at a position, as the report configuration page would. */
+private void storeFilter(int position, String expression) {
+    ReportFilter filter = new ReportFilter();
+    filter.setReportId(7);
+    filter.setOrderNo(position);
+    filter.setValue(expression);
+    filter.setDateFormat("");
+    when(filterDao.findByReportIdAndOrderNo(7, position)).thenReturn(filter);
+}
+```
+
+- after every `request.getSession(true);`, put the user in the session: `LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());` (13 places in the first class, 1 in the second);
+- where a test posts `value_N` and `dateFormat_N`, post `id=7` and call `storeFilter(N, <the same expression>)` instead; in `addFilter` this replaces its two `value_`/`dateFormat_` lines.
+
+Then add:
+
+```java
+@Test
+void shouldRefuseTheDownload_withoutAReportPrivilege() throws Exception {
+    var request = baseRequest();
+    request.getSession(true);
+    LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+    request.setParameter("demoReport", "true");
+    request.setParameter("last_name", "on");
+    var response = new MockHttpServletResponse();
+    when(security.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
+    servlet().service(request, response);
+    assertThat(response.getStatus()).isEqualTo(403);
+    configuredQueryMock.verifyNoInteractions();
+}
+
+@Test
+void shouldRefuseTheDownload_withoutALoggedInUser() throws Exception {
+    var request = baseRequest();
+    request.getSession(true);
+    request.setParameter("demoReport", "true");
+    var response = new MockHttpServletResponse();
+    servlet().service(request, response);
+    assertThat(response.getStatus()).isEqualTo(403);
+    configuredQueryMock.verifyNoInteractions();
+}
+
+@Test
+void shouldUseTheStoredFilter_andIgnoreSqlPostedWithTheRequest() throws Exception {
+    MockHttpServletRequest request = baseRequest();
+    request.addParameter("last_name", "on");
+    addFilter(request, 1, "demographic.first_name='${name}'", "name", "FAKE");
+    request.addParameter("value_1", "demographic.first_name<>'' or demographic.hin is not null");
+    List<SqlCall> sqlCalls = invokeDemoReport(request);
+    assertThat(sqlCalls).isNotEmpty().allSatisfy(call -> assertThat(call.sql()).doesNotContain("hin is not null"));
+    assertThat(sqlCalls).anySatisfy(call -> assertThat(call.sql()).contains("demographic.first_name=?"));
+}
+
+@Test
+void shouldRefuseTheReport_whenASelectedFilterIsNotStoredForTheReport() {
+    MockHttpServletRequest request = baseRequest();
+    request.addParameter("last_name", "on");
+    request.addParameter("id", "7");
+    request.addParameter("filter_4", "on");
+    request.addParameter("value_4", "demographic.first_name='FAKE'");
+    assertThatThrownBy(() -> invokeDemoReport(request)).isInstanceOf(IllegalArgumentException.class);
+    configuredQueryMock.verifyNoInteractions();
+}
+```
+
+In `ReportFilterDaoIntegrationTest`, `QueryOperations`:
+
+```java
+@Test
+@Tag("query")
+@DisplayName("should find the filter at a report position of either status")
+void shouldFindTheFilterAtAReportPosition_ofEitherStatus() {
+    var active = reportFilter(55493, 1, 1);
+    var deleted = reportFilter(55493, 0, 2);
+    reportFilter(55494, 1, 1);
+    assertThat(reportFilterDao.findByReportIdAndOrderNo(55493, 1).getId()).isEqualTo(active.getId());
+    assertThat(reportFilterDao.findByReportIdAndOrderNo(55493, 2).getId()).isEqualTo(deleted.getId());
+    assertThat(reportFilterDao.findByReportIdAndOrderNo(55493, 3)).isNull();
+    assertThat(reportFilterDao.findByReportIdAndOrderNo(55495, 1)).isNull();
+}
+```
+
+- [ ] **Step 6: Run them and see them fail**
+
+Run: `mvn -B -ntp test -Dtest='ReportFilterResolverUnitTest,RptDownloadCSVServletTest,RptDownloadCSVExtensionBudgetUnitTest,ReportFilterDaoIntegrationTest'`
+Expected: compilation failure (`ReportFilterResolver`, `findByReportIdAndOrderNo`, the servlet's two-argument constructor).
+
+- [ ] **Step 7: Implement the stored filters and the download's privilege check**
+
+- `ReportFilterDaoImpl.findByReportIdAndOrderNo`: JPQL on `reportId` and `orderNo`, both bound, `getResultStream().findFirst().orElse(null)`.
+- `ReportFilterResolver.selected`: for every request parameter named `filter_<position>` (position: 1 to 9 digits), the stored filter of the report at that position, of either status (the filter page also lists deleted reports), in position order. No `filter_` parameter: an empty list and no lookup. A report id or position that is not 1 to 9 digits, or a position the report has no filter at: `new IllegalArgumentException("The report filter is not one of this report's filters")`. The request's `value_N` and `dateFormat_N` are never read.
+- `RptFormQuery`: a public no-argument constructor that calls `this(new ReportFilterResolver(SpringUtils.getBean(ReportFilterDao.class)))`, and a package-private constructor taking the resolver. `getValueParam(String reportId, HttpServletRequest request)` takes each selected filter's `getValue()` and `getDateFormat()`. Remove the now unused `java.util.Enumeration` import (Checkstyle).
+- `RptDownloadCSVServlet`:
+  - fields `SecurityInfoManager securityInfoManager` and `ReportFilterDao reportFilterDao`; the public no-argument constructor leaves them null and they are looked up through `SpringUtils` on first use, not in `init()` (the servlet loads at startup, possibly before the application context); a package-private constructor sets both.
+  - `service`, right after its session check: `LoggedInInfo.getLoggedInInfoFromSession(request)` must be non-null and hold `_report` or `_admin.reporting` read (the same objects `reportResult.jsp` checks); otherwise `response.sendError(403)` and return, before any query.
+  - `formReport` builds `new RptFormQuery(new ReportFilterResolver(dao))`.
+  - `DemographicCsvReport` receives the resolver and takes its filters from `selected(request.getParameter("id"), request)`. A demographic CSV that ticks a filter without naming a report is refused, not run unfiltered.
+
+- [ ] **Step 8: Run them and see them pass, and pin the interval on MariaDB**
+
+Run: `mvn -B -ntp test -Dtest='ReportFilterResolverUnitTest,RptDownloadCSVServletTest,RptDownloadCSVExtensionBudgetUnitTest,RptFormQueryTest,RptReportCreatorUnitTest,ReportActionSecurityMigrationUnitTest,ReportFilterDaoIntegrationTest'`
+Expected: PASS (the servlet class has 45 cases).
+
+H2 has no `date_sub`, so the age-in-months query has never run in the H2 suite. Add to `JdbcConnectorMariaDbIntegrationTest`:
+
+```java
+@ParameterizedTest
+@ValueSource(booleans = {false, true})
+void shouldSubtractABoundNumberOfMonths_inTheReportAgeFilter(boolean legacy) throws Exception {
+    for (String options : java.util.List.of("jdbcCompliantTruncation=false", "jdbcCompliantTruncation=false&useServerPrepStmts=true")) {
+        try (var source = source(legacy, options); Connection connection = source.getConnection();
+             java.sql.PreparedStatement query = connection.prepareStatement(
+                     "SELECT date_sub(?, interval ? month), date_sub(?, interval ? month)")) {
+            query.setDate(1, Date.valueOf("2026-11-19"));
+            query.setInt(2, 18);
+            query.setDate(3, Date.valueOf("2026-03-31"));
+            query.setInt(4, 1);
+            try (ResultSet rows = query.executeQuery()) {
+                assertThat(rows.next()).isTrue();
+                assertThat(rows.getString(1)).isEqualTo("2025-05-19");
+                assertThat(rows.getString(2)).isEqualTo("2026-02-28");
+            }
+        }
+    }
+}
+```
+
+Run the physical command and, with `CARLOS_TEST_MARIADB_DAO=true CARLOS_TEST_MARIADB_SCHEMA=generated`, `ReportFilterDaoIntegrationTest`. Expected: PASS.
+
+- [ ] **Step 9: Restrict the dashboard provider number**
+
+Tests first. In `DashboardProviderContextUnitTest.prepare()`, give the manager a `PMmodule.dao.ProviderDao` mock whose `providerExists(anyString())` is true (`ReflectionTestUtils.setField(manager, "providerDao", …)`), so the existing cases keep passing, and add:
+
+```java
+@Test void shouldRefuseAnotherProvider_whenNoSuchProviderExists() {
+    var providers = mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class);
+    when(providers.providerExists("FAKE-provider-A")).thenReturn(false);
+    ReflectionTestUtils.setField(manager, "providerDao", providers);
+    var request = new MockHttpServletRequest(); request.setParameter("dashboardProviderNo", "FAKE-provider-A"); request(request);
+    IllegalArgumentException refused = assertThrows(IllegalArgumentException.class, () -> manager.getRequestedProviderNo(actor));
+    assertEquals("The requested provider does not exist", refused.getMessage());
+}
+```
+
+In `IndicatorTemplateXMLUnitTest`:
+
+```java
+@ParameterizedTest
+@ValueSource(strings = {"999998", "-1", "ab_12", "A1-B2", ""})
+void shouldAcceptPlainProviderNumbers_forTemplateSubstitution(String providerNo) {
+    assertThat(IndicatorTemplateXML.providerNumberForSql(providerNo)).isEqualTo(providerNo);
+}
+
+@ParameterizedTest
+@NullSource
+@ValueSource(strings = {"1234567", "1' or", "1 1", "(1)", "a.b", "1;", "%"})
+void shouldRefuseProviderNumbersOfAnyOtherForm_beforeSubstitution(String providerNo) {
+    assertThatThrownBy(() -> IndicatorTemplateXML.providerNumberForSql(providerNo))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("A dashboard provider number has an unexpected form");
+}
+```
+
+Then implement:
+
+- `DashboardManagerImpl`: `@Autowired private io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao providerDao;` (the bean `DisplayDrilldown2Action` already uses; there is exactly one). In `getRequestedProviderNo`, after the `_dashboardChgUser` check, a provider other than the actor's own must exist: otherwise `new IllegalArgumentException("The requested provider does not exist")`.
+- `IndicatorTemplateXML.setParameterAliasWithValue`: the requested provider (`providerNo != null`) and the `loggedinprovider` alias pass through `providerNumberForSql` before they are returned. The empty value is accepted: a template built without a logged-in user substitutes it, as the existing unit tests show.
+
+Run: `mvn -B -ntp test -Dtest='DashboardProviderContextUnitTest,DashboardManagerEncryptionUnitTest,IndicatorTemplateXMLUnitTest,ShippedIndicatorTemplateSubstitutionUnitTest,DashboardBeanFactoryUnitTest,DrilldownQueryHandlerUnitTest,ExportQueryHandlerUnitTest,IndicatorQueryHandlerUnitTest,AbstractQueryHandlerSubstitutionUnitTest,ExcludeDemographicHandlerUnitTest,DashboardQueryHandlerScopeUnitTest,IndicatorTemplateHandlerUnitTest,IndicatorNativeQueryTypesUnitTest'`
+Expected: PASS.
+
+- [ ] **Step 10: Update the browser check that posts report filters**
+
+`scripts/report-typed-queries-playwright-checks.js` posts `value_1` filter text to `/report/ViewReportResult` four times; after Step 7 that text is ignored. Before those steps, insert the filters into `reportFilter` with its `sql.execute` helper (a synthetic report id such as 55490, positions 1 and 2, `status` 1, `date_format` ''), post `id` and `filter_<position>` instead of `value_`/`dateFormat_`, and delete the rows when the check ends. Keep its assertions; the failing-query case stores its unknown column as the filter at position 2. Add one assertion: a request that also posts `value_1` with other text returns the same CSV. Run it with `npm run test:report-typed-queries-playwright` where a deployed CARLOS and its database are available; otherwise list it under "Not verified" in the pull request body.
+
+- [ ] **Step 11: Commit**
+
+```bash
+git add src/main/java/io/github/carlos_emr/carlos/report src/main/java/io/github/carlos_emr/carlos/prev/reports/ReportBuilder.java \
+  src/main/java/io/github/carlos_emr/carlos/commn/dao/ReportFilterDao.java src/main/java/io/github/carlos_emr/carlos/commn/dao/ReportFilterDaoImpl.java \
+  src/main/java/io/github/carlos_emr/carlos/managers/DashboardManagerImpl.java src/main/java/io/github/carlos_emr/carlos/dashboard/handler/IndicatorTemplateXML.java \
+  src/test/java scripts/report-typed-queries-playwright-checks.js
+git commit -m "fix(report): take report columns, ages, filters and dashboard providers only from their checked sources"
+```
+
+### Task 10: Pin the documented differences and correct the documentation (#3053, spec section 4)
 
 **Files:**
 - Modify: `src/test/java/io/github/carlos_emr/carlos/utility/JdbcConnectorMariaDbIntegrationTest.java`
@@ -1143,7 +1548,7 @@ void shouldKeepTheDocumentedDifferencesFromConnectorJ_forDeterministicCases(bool
 }
 ```
 
-Run the physical command. Expected: 60 cases pass. This case uses the default text protocol; do not add `useServerPrepStmts=true` to it (an extra parameter corrupts the binary protocol's values, spec section 4). A row that fails is a finding: record what was observed in the pull request body and correct spec section 4 and the migration document rather than the assertion's meaning.
+Run the physical command. Expected: 62 cases pass. This case uses the default text protocol; do not add `useServerPrepStmts=true` to it (an extra parameter corrupts the binary protocol's values, spec section 4). A row that fails is a finding: record what was observed in the pull request body and correct spec section 4 and the migration document rather than the assertion's meaning.
 
 - [ ] **Step 2: Extend `docs/mariadb-connector-migration.md`**
 
@@ -1158,7 +1563,7 @@ Add these sections, in plain operator-facing prose, from the spec:
 
 - [ ] **Step 3: Update `docs/release-notes-2026.08.md`**
 
-Under "JDBC and packaged installation" add one entry each for: the `executeQuery` refusal; the session defaults and the note about a space before a function's parenthesis in saved report text; named refused options (#5770 asks for these in the release notes); Query by Example on binary columns, and that accented text in binary columns now reads correctly in report cells where the previous driver showed it garbled; lock-wait timeouts answered as "retry"; `db_name` without options. Correct the `carlos-ctl` version there as in Step 2.
+Under "JDBC and packaged installation" add one entry each for: the `executeQuery` refusal; the session defaults and the note about a space before a function's parenthesis in saved report text; named refused options (#5770 asks for these in the release notes); Query by Example on binary columns, and that accented text in binary columns now reads correctly in report cells where the previous driver showed it garbled; lock-wait timeouts answered as "retry"; `db_name` without options. Correct the `carlos-ctl` version there as in Step 2. Under "Reports, charts and local customizations", one entry each, in the neutral terms of Global Constraints, for: a configured report runs only the filters stored for it (a bookmarked or scripted request that carried its own filter text gets the stored filter, and a request naming a filter the report does not have is refused); the report CSV download requires the report privilege; demographic report and saved-query columns are limited to the report's own list; an age in months is a number followed by `m`; a dashboard provider chosen by someone allowed to switch providers must exist. Add that this release changes the CDS ruleset fingerprint, so imports and exports in progress are finished or cancelled before upgrading (`docs/cds-import-operator-guide.md`).
 
 - [ ] **Step 4: Correct the packaging documentation**
 
@@ -1186,7 +1591,7 @@ git add src/test/java/io/github/carlos_emr/carlos/utility/JdbcConnectorMariaDbIn
 git commit -m "docs: describe the MariaDB connector as shipped and pin its known differences"
 ```
 
-### Task 10: DrugRef carries the same adapter and a reviewed pin (#5744, N8)
+### Task 11: DrugRef carries the same adapter and a reviewed pin (#5744, N8)
 
 **Files (drugref2026, branch `claude/brave-ptolemy-yfxbw5` created from `origin/claude/jolly-albattani-aotrv2`, the head of its PR #19):**
 - Modify: `src/main/java/io/github/carlos_emr/drugref2026/util/MariaDbCompatibilityDriver.java`, `MariaDbJdbcCompatibility.java`
@@ -1224,7 +1629,7 @@ Expected: `OK`.
 
 - [ ] **Step 3: Mirror the adapter into drugref2026**
 
-Copy the three sources from `carlos`, changing only the package line. This brings the DATE-write correction of #6275 that DrugRef's copy lacks (spec N8) as well as Tasks 2, 4, 5 and 6. Copy `MariaDbQueryStatementValidatorUnitTest` and the oracle fixture the same way. DrugRef's own `MariaDbJdbcCompatibilityUnitTest` then fails in the four methods of Task 6 Step 4; change those expectations the same way. The mirror adds no dependency, so `debian/drugref-dependencies-lock.json` in `carlos` does not change.
+Copy the three sources from `carlos`, changing only the package line. This brings the DATE-write correction of #6275 that DrugRef's copy lacks (spec N8) as well as Tasks 2, 4, 5 and 6. Copy `MariaDbQueryStatementValidatorUnitTest` and the oracle fixture the same way. Then run DrugRef's tests: an assertion there of the bare option message for one of the five refusals of Task 6 changes to that refusal's new message, and an assertion that lists every property `settings()` returns gains `initSql`; any other failure is a defect in the mirror. The mirror adds no dependency, so `debian/drugref-dependencies-lock.json` in `carlos` does not change.
 
 ```bash
 python3 ../carlos/debian/check-drugref-adapter-sources.py . ../carlos   # expected: exit 0
@@ -1260,14 +1665,14 @@ git add debian/check-drugref-adapter-sources.py debian/assets/tests/test_drugref
 git commit -m "fix(deb): keep the DrugRef adapter copy identical and pin its mirrored revision"
 ```
 
-### Task 11: Required-case counts and coverage floors
+### Task 12: Required-case counts and coverage floors
 
 **Files:**
 - Modify: `scripts/ci/verify-mariadb-dao-reports.py`, `scripts/ci/test_mariadb_report_evidence.py`, `scripts/ci/test_release_plan_5700.py`, `docs/testing/release-2026.08-verification.json`
 - Create or modify: `scripts/coverage/floors/src/main/java/io/github/carlos_emr/carlos/**/<Source>.java.json`, their `scripts/coverage/evidence/` run document, `docs/testing/coverage-floor-policy.md`
 
 **Interfaces:**
-- Consumes: the thirteen cases added to `JdbcConnectorMariaDbIntegrationTest` and the one added to `MariaDbDaoHarnessIntegrationTest`:
+- Consumes: the fifteen cases added to `JdbcConnectorMariaDbIntegrationTest` and the one added to `MariaDbDaoHarnessIntegrationTest`:
 
 | Method | Cases |
 |---|---|
@@ -1277,15 +1682,16 @@ git commit -m "fix(deb): keep the DrugRef adapter copy identical and pin its mir
 | `shouldKeepIgnoreSpace_whenTheServerDefaultHasIt` | 1 |
 | `shouldReturnIntegerObjects_forSmallIntColumns(boolean)` | 2 |
 | `shouldReportLockWaitTimeoutsAsTransactionRollbacks_forWaitingAndNowaitLocks(boolean)` | 2 |
+| `shouldSubtractABoundNumberOfMonths_inTheReportAgeFilter(boolean)` | 2 |
 | `shouldKeepTheDocumentedDifferencesFromConnectorJ_forDeterministicCases(boolean)` | 2 |
 | `MariaDbDaoHarnessIntegrationTest.shouldRefuseANativeWrite_whenItIsRunAsAQuery` | 1 |
 
 - [ ] **Step 1: Raise the counts**
 
-- `scripts/ci/verify-mariadb-dao-reports.py`: in `CRITICAL`, `"MariaDbDaoHarnessIntegrationTest": 1` becomes `2` (it applies to the generated and the Flyway lane; the new case runs in both). In `REQUIRED["generated"]`, `"JdbcConnectorMariaDbIntegrationTest": 47` becomes `60`. `REQUIRED_CASES["JdbcConnectorMariaDbIntegrationTest"]` gains the thirteen names: `name(boolean)[1]` and `name(boolean)[2]` for each parameterized method, the bare name for the plain one.
-- `scripts/ci/test_mariadb_report_evidence.py`: `JDBC_REQUIRED_CASES` gains the same thirteen names.
-- `scripts/ci/test_release_plan_5700.py`, in `test_jdbc_parameterized_routes_require_both_native_invocations`: `23` becomes `29`, `47` becomes `60`, and the expected plain list becomes the existing name followed by `shouldKeepIgnoreSpace_whenTheServerDefaultHasIt`.
-- `docs/testing/release-2026.08-verification.json`, three checks. `java-all`: in `routedSkips`, the `JdbcConnectorMariaDbIntegrationTest` entry gains the six parameterized methods (each with its two `destinations`, in the shape of its neighbours) and then the plain one (`{"name": …, "container": ""}`), and the `MariaDbDaoHarnessIntegrationTest` entry gains the new case. `java-native-generated`: `minimumCases` rises by 14, `requiredFamilies` becomes 60 and 2 for the two classes. `java-native-flyway`: `minimumCases` rises by 1, the harness family becomes 2.
+- `scripts/ci/verify-mariadb-dao-reports.py`: in `CRITICAL`, `"MariaDbDaoHarnessIntegrationTest": 1` becomes `2` (it applies to the generated and the Flyway lane; the new case runs in both). In `REQUIRED["generated"]`, `"JdbcConnectorMariaDbIntegrationTest": 47` becomes `62`. `REQUIRED_CASES["JdbcConnectorMariaDbIntegrationTest"]` gains the fifteen names: `name(boolean)[1]` and `name(boolean)[2]` for each parameterized method, the bare name for the plain one.
+- `scripts/ci/test_mariadb_report_evidence.py`: `JDBC_REQUIRED_CASES` gains the same fifteen names.
+- `scripts/ci/test_release_plan_5700.py`, in `test_jdbc_parameterized_routes_require_both_native_invocations`: `23` becomes `30`, `47` becomes `62`, and the expected plain list becomes the existing name followed by `shouldKeepIgnoreSpace_whenTheServerDefaultHasIt`.
+- `docs/testing/release-2026.08-verification.json`, three checks. `java-all`: in `routedSkips`, the `JdbcConnectorMariaDbIntegrationTest` entry gains the seven parameterized methods (each with its two `destinations`, in the shape of its neighbours) and then the plain one (`{"name": …, "container": ""}`), and the `MariaDbDaoHarnessIntegrationTest` entry gains the new case. `java-native-generated`: `minimumCases` rises by 17 (the 15 and 1 above, and the new `ReportFilterDaoIntegrationTest` case, which this lane also runs), `requiredFamilies` becomes 62 and 2 for the two classes. `java-all` runs the H2 cases of Task 9; its `minimumCases` is a floor and needs no change. `java-native-flyway`: `minimumCases` rises by 1, the harness family becomes 2.
 
 - [ ] **Step 2: Run the gates that CI runs on every pull request**
 
@@ -1299,11 +1705,11 @@ Expected: `Python release tests: … readiness PASS` twice, then `Validated 40 w
 
 - [ ] **Step 3: Record coverage floor evidence, last**
 
-Do this after every source change is final: a floor record is bound to the exact bytes of its source. On pull requests to the release branch CI runs the freshness check of Task 1 Step 4, and it fails until this step is done. In the dry run it listed exactly these six sources: `MariaDbCompatibilityDriver`, `MariaDbJdbcCompatibility`, `OscarTrackingBasicDataSource`, `AuditLogManager`, `OscarAppointmentDaoImpl` (records whose source changed) and `RptResultStruct` (no record yet).
+Do this after every source change is final: a floor record is bound to the exact bytes of its source. On pull requests to the release branch CI runs the freshness check of Task 1 Step 4, and it fails until this step is done. In the dry run, with Task 9 included, it listed these nineteen sources. Records whose source changed: `MariaDbCompatibilityDriver`, `MariaDbJdbcCompatibility`, `OscarTrackingBasicDataSource`, `AuditLogManager`, `OscarAppointmentDaoImpl`, `ReportFilterDao`, `ReportFilterDaoImpl`, `IndicatorTemplateXML`, `DashboardManagerImpl`, `ReportBuilder`, `RptDownloadCSVServlet`. No record yet: `RptResultStruct`, `RptFormQuery`, `RptDemographicColumnNames`, `RptDemographicQuery2Builder`, `RptDemographicQueryBuilder`, `RptDemographicQuery2Saver`, `DemographicAgeMonths`, `ReportFilterResolver`. Run the freshness check yourself for the exact list on the final tree.
 
 Follow `docs/testing/coverage-floor-policy.md`, "To update floors after a measured run", in the way that document records for PR #6113:
 
-1. Measure with JaCoCo on the final sources. For the two adapter files use the focused union PR #6113 used: every H2 test class that names either adapter, plus `JdbcConnectorMariaDbIntegrationTest` on MariaDB 11.8.8, written to one execution file. For the other four files use the lane that covers them (the full H2 `tests` job of CI, or its JaCoCo artifact for this branch's head).
+1. Measure with JaCoCo on the final sources. For the two adapter files use the focused union PR #6113 used: every H2 test class that names either adapter, plus `JdbcConnectorMariaDbIntegrationTest` on MariaDB 11.8.8, written to one execution file. For the other files use the lane that covers them (the full H2 `tests` job of CI, or its JaCoCo artifact for this branch's head).
 2. Each metric takes the highest of the retained floor and the new measurement; never lower one. The retained floors are 94.00 / 92.18 / 85.04 (lines / instructions / branches) for the driver and 98.27 / 98.14 / 90.45 for the configuration class. The dry run measured 96.30 / 95.06 / 88.33 and 98.34 / 98.31 / 91.14 over the whole files with this plan's tests; the configuration class has little margin. If a metric on the changed lines falls below its floor, add the unit case that covers the missed branch; do not add a waiver.
 3. Write the run document in the shape of the existing ones in `scripts/coverage/evidence/`, then import it and check freshness:
 
@@ -1322,7 +1728,7 @@ git add scripts/ci docs/testing scripts/coverage
 git commit -m "test(ci): require the new MariaDB connector cases and refresh coverage floors"
 ```
 
-### Task 12: Whole-branch verification and the pull request text
+### Task 13: Whole-branch verification and the pull request text
 
 **Files:** none changed unless a check fails.
 
@@ -1343,7 +1749,7 @@ Against MariaDB 11.8.8, with `CARLOS_TEST_MARIADB_DAO=true` and the user and pas
 | Packaged legacy URLs | `CARLOS_TEST_MARIADB_SCHEMA=flyway`, URL `jdbc:mysql://…/` | `-Dcarlos.test.schema.expected=flyway -Dtest.reportsDirectory=target/surefire-mariadb-legacy-url` | 29 passed |
 
 Then `python3 scripts/ci/verify-mariadb-dao-reports.py` (it reads `target/surefire-reports`).
-Expected: no failure, error or skip in any lane; the verifier exits 0 and reports 60 and 2 for the two classes; the `S1009` search of Step 1 finds nothing unexpected.
+Expected: no failure, error or skip in any lane; the verifier exits 0 and reports 62 and 2 for the two classes; the `S1009` search of Step 1 finds nothing unexpected.
 
 - [ ] **Step 3: Run the packaged Flyway runner through the adapter**
 
@@ -1377,9 +1783,10 @@ Expected: `OK`, then `rows=212 recorded=181 deviations-from-connectorj=5 model-d
 
 Follow the repository's pull request template. It must state:
 
-- Closes #5922, #5968, #5969, #5770, #5863, #6088. Refs #3053 (the documentation work that was #5768). #5744: "Closes" only if Task 10 Step 5 printed `reachable`, otherwise "Refs" with what remains.
+- Closes #5922, #5968, #5969, #5770, #5863, #6088. Refs #3053 (the documentation work that was #5768). #5744: "Closes" only if Task 11 Step 5 printed `reachable`, otherwise "Refs" with what remains.
 - That it contains pull requests #6113, #6238 and #6295, which can be closed in its favour, and takes the #5770 and #5863 corrections from draft #6133 in their narrow form.
 - The eight findings N1 to N8 with one line each and the spec path.
-- What users will notice: saved report text with a space before a function's parenthesis stops parsing; accented text from binary columns reads correctly in report cells; the appointment export reads row by row.
+- What users will notice: saved report text with a space before a function's parenthesis stops parsing; accented text from binary columns reads correctly in report cells; the appointment export reads row by row; a configured report runs only filters stored for it; the CSV download needs the report privilege; an age in months must be written as a number followed by `m`.
+- Task 9 in neutral terms (Global Constraints): which inputs each report and dashboard path now takes only from its checked source. No issue number exists for it; say it was found during this review.
 - What was verified and how (the commands of Steps 1 to 4 and their results), and what was not: no browser run; the report-budget table if it was not re-measured; anything a failing pin row changed.
 - Left for maintainers: the files under `.github/` named in #3053; the drugref2026 merges; follow-ups in `carlos-ctl` and `carlos-podman` (spec section 9).
