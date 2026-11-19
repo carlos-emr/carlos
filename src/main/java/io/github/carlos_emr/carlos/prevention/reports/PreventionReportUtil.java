@@ -30,9 +30,12 @@
 
 package io.github.carlos_emr.carlos.prevention.reports;
 
+import java.util.Comparator;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao;
@@ -120,25 +123,47 @@ public final class PreventionReportUtil {
             return false;
         }
 
-        Demographic demographic = demographicManager().getDemographic(loggedInInfo, demographicId);
-
-        String currentProvider = demographic.getProviderNo();
-        if (currentProvider != null && providerNumbers.contains(currentProvider)
-                && rosteredDuringThisTimeDemographic(onThisDate, demographic.getRosterDate(), demographic.getRosterTerminationDate())) {
-            return (true);
+        Demographic current = demographicManager().getDemographic(loggedInInfo, demographicId);
+        Date currentRevision = current.getLastUpdateDate();
+        if (currentRevision != null && !currentRevision.after(onThisDate)) {
+            return matchesRoster(providerNumbers, current.getProviderNo(), onThisDate,
+                    current.getRosterDate(), current.getRosterTerminationDate());
         }
 
-        // As above: the archived period's provider, not today's (#5877).
+        // A demographic save archives the previous version with its original lastUpdateDate.
+        // Reassigning the MRP starts a new version even when the roster dates stay the same.
         List<DemographicArchive> archives = demographicArchiveDao().findByDemographicNo(demographicId);
-        for (DemographicArchive archive : archives) {
-            String archivedProvider = archive.getProviderNo();
-            if (archivedProvider != null && providerNumbers.contains(archivedProvider)
-                    && rosteredDuringThisTimeDemographicArchive(onThisDate, archive.getRosterDate(), archive.getRosterTerminationDate())) {
-                return true;
-            }
+        var asOfVersion = archives.stream()
+                .filter(archive -> archive.getLastUpdateDate() != null && !archive.getLastUpdateDate().after(onThisDate))
+                .max(Comparator.comparing(DemographicArchive::getLastUpdateDate)
+                        .thenComparing(DemographicArchive::getId, Comparator.nullsFirst(Comparator.naturalOrder())));
+        if (asOfVersion.isPresent()) {
+            DemographicArchive archive = asOfVersion.get();
+            return matchesRoster(providerNumbers, archive.getProviderNo(), onThisDate,
+                    archive.getRosterDate(), archive.getRosterTerminationDate());
         }
 
-        return (false);
+        // Legacy history can establish a closed period from roster dates alone. An undated
+        // archive can also precede a newer dated current version. Require agreement when more
+        // than one legacy snapshot covers the date.
+        Set<String> historicalProviders = archives.stream()
+                .filter(archive -> archive.getRosterTerminationDate() != null
+                        || (currentRevision != null && archive.getLastUpdateDate() == null))
+                .filter(archive -> rosteredDuringThisTimeDemographic(onThisDate, archive.getRosterDate(),
+                        archive.getRosterTerminationDate()))
+                .map(DemographicArchive::getProviderNo)
+                .collect(Collectors.toCollection(HashSet::new));
+        if (!historicalProviders.isEmpty()) {
+            return historicalProviders.size() == 1
+                    && historicalProviders.stream().anyMatch(provider -> provider != null && providerNumbers.contains(provider));
+        }
+        return (currentRevision == null || archives.isEmpty())
+                && matchesRoster(providerNumbers, current.getProviderNo(), onThisDate,
+                        current.getRosterDate(), current.getRosterTerminationDate());
+    }
+
+    private static boolean matchesRoster(Set<String> providers, String provider, Date date, Date start, Date end) {
+        return provider != null && providers.contains(provider) && rosteredDuringThisTimeDemographic(date, start, end);
     }
 
     private static boolean rosteredDuringThisTimeDemographic(Date onThisDate, Date rosterStart, Date rosterEnd) {

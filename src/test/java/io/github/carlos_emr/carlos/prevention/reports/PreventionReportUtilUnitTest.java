@@ -65,6 +65,7 @@ class PreventionReportUtilUnitTest extends CarlosUnitTestBase {
     private static final Date IN_CURRENT_PERIOD = day(2025, 6, 15);
 
     private final LoggedInInfo loggedInInfo = new LoggedInInfo();
+    private DemographicArchiveDao archiveDao;
     private Demographic current;
     private DemographicArchive archived;
 
@@ -73,7 +74,7 @@ class PreventionReportUtilUnitTest extends CarlosUnitTestBase {
         // PreventionReportUtil looks both up through SpringUtils on each use, so the base class's
         // per-test SpringUtils mock answers with these and nothing outlives the test.
         DemographicManager demographicManager = createAndRegisterMock(DemographicManager.class);
-        DemographicArchiveDao archiveDao = createAndRegisterMock(DemographicArchiveDao.class);
+        archiveDao = createAndRegisterMock(DemographicArchiveDao.class);
 
         current = new Demographic();
         current.setRosterDate(day(2025, 2, 1));
@@ -137,6 +138,78 @@ class PreventionReportUtilUnitTest extends CarlosUnitTestBase {
                 loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, Set.of(ARCHIVED_PROVIDER))).isFalse();
         assertThat(PreventionReportUtil.wasRosteredToThisProvider(
                 loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, null)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should use the assigned provider on either side of an MRP change without a roster termination")
+    void shouldUseTheProviderVersionEffectiveOnTheReportDate() {
+        Date change = day(2025, 2, 1);
+        current.setRosterDate(archived.getRosterDate());
+        current.setLastUpdateDate(change);
+        archived.setLastUpdateDate(day(2023, 1, 1));
+        archived.setRosterTerminationDate(null);
+
+        assertThat(PreventionReportUtil.wasRosteredToAnyProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, Set.of(ARCHIVED_PROVIDER))).isTrue();
+        assertThat(PreventionReportUtil.wasRosteredToAnyProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, Set.of(CURRENT_PROVIDER))).isFalse();
+        assertThat(PreventionReportUtil.wasRosteredToAnyProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, change, Set.of(CURRENT_PROVIDER))).isTrue();
+        assertThat(PreventionReportUtil.wasRosteredToAnyProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, change, Set.of(ARCHIVED_PROVIDER))).isFalse();
+    }
+
+    @Test
+    @DisplayName("should choose the later archive ID when provider revisions share a timestamp")
+    void shouldUseLatestArchive_whenVersionsShareTheSameTimestamp() {
+        current.setLastUpdateDate(day(2025, 2, 1));
+        archived.setId(4L);
+        archived.setLastUpdateDate(day(2023, 2, 1));
+        var replacement = new DemographicArchive();
+        replacement.setId(5L);
+        replacement.setLastUpdateDate(archived.getLastUpdateDate());
+        replacement.setRosterDate(archived.getRosterDate());
+        replacement.setProviderNo(CURRENT_PROVIDER);
+        when(archiveDao.findByDemographicNo(DEMOGRAPHIC_NO)).thenReturn(List.of(replacement, archived));
+
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, CURRENT_PROVIDER)).isTrue();
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, ARCHIVED_PROVIDER)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should use an unambiguous undated open archive before a dated current revision")
+    void shouldUseLegacyOpenArchive_whenItIdentifiesOnePriorProvider() {
+        current.setLastUpdateDate(day(2025, 2, 1));
+        archived.setRosterTerminationDate(null);
+
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, ARCHIVED_PROVIDER)).isTrue();
+
+        var another = new DemographicArchive();
+        another.setRosterDate(archived.getRosterDate());
+        another.setProviderNo(CURRENT_PROVIDER);
+        when(archiveDao.findByDemographicNo(DEMOGRAPHIC_NO)).thenReturn(List.of(archived, another));
+        assertThat(PreventionReportUtil.wasRosteredToAnyProvider(loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD,
+                Set.of(CURRENT_PROVIDER, ARCHIVED_PROVIDER))).isFalse();
+    }
+
+    @Test
+    @DisplayName("should use the recorded roster when there is no prior version history")
+    void shouldUseCurrentRoster_whenNoArchivesExist() {
+        current.setRosterDate(archived.getRosterDate());
+        current.setLastUpdateDate(day(2025, 2, 1));
+        when(archiveDao.findByDemographicNo(DEMOGRAPHIC_NO)).thenReturn(List.of());
+
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, CURRENT_PROVIDER)).isTrue();
+
+        archived.setLastUpdateDate(day(2024, 9, 1));
+        archived.setRosterTerminationDate(null);
+        when(archiveDao.findByDemographicNo(DEMOGRAPHIC_NO)).thenReturn(List.of(archived));
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, CURRENT_PROVIDER)).isFalse();
     }
 
     @Test
