@@ -19,7 +19,7 @@ import io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource;
 final class ReportQueryDeadline implements AutoCloseable {
     private final Connection connection;
     private final CompletableFuture<Void> cancellation = new CompletableFuture<>();
-    private CompletableFuture<Void> aborted;
+    private CompletableFuture<Boolean> aborted;
     private boolean closed;
     private volatile boolean expired;
 
@@ -48,13 +48,15 @@ final class ReportQueryDeadline implements AutoCloseable {
             // The asynchronous cleanup owns this lease until abort and cursor close finish.
             // Request cleanup must not return it to the pool while the old abort is running.
             OscarTrackingBasicDataSource.detachFromRequestCleanup(connection);
-            aborted = CompletableFuture.runAsync(() -> {
+            aborted = CompletableFuture.supplyAsync(() -> {
                 try {
                     // Connector/J Statement.cancel() is a no-op after executeQuery().
                     // abort closes its socket without waiting for the streaming read lock.
                     connection.abort(Runnable::run);
+                    return true;
                 } catch (SQLException | RuntimeException e) {
                     MiscUtils.getLogger().warn("Could not abort report connection", e);
+                    return false;
                 }
             }, Thread::startVirtualThread);
         }
@@ -64,7 +66,7 @@ final class ReportQueryDeadline implements AutoCloseable {
         return expired;
     }
 
-    private synchronized CompletableFuture<Void> stop(boolean discard) {
+    private synchronized CompletableFuture<Boolean> stop(boolean discard) {
         if (!closed && discard) {
             abort();
         }
@@ -107,21 +109,27 @@ final class ReportQueryDeadline implements AutoCloseable {
 
     private static void closeOwned(ResultSet owned, ReportQueryDeadline deadline, boolean exhausted)
             throws SQLException {
-        CompletableFuture<Void> abort = deadline.stop(!exhausted);
+        CompletableFuture<Boolean> abort = deadline.stop(!exhausted);
         if (abort == null) {
             owned.close();
         } else {
             // Never drain unread rows or return the connection to its pool before abort
             // finishes. Slow driver cleanup cannot stall the report refusal response.
-            abort.thenRunAsync(() -> closeAborted(owned), Thread::startVirtualThread);
+            abort.thenAcceptAsync(abortSucceeded -> closeAborted(owned, abortSucceeded), Thread::startVirtualThread);
         }
     }
 
-    private static void closeAborted(ResultSet owned) {
+    private static void closeAborted(ResultSet owned, boolean abortSucceeded) {
         try {
             owned.close();
         } catch (SQLException | RuntimeException e) {
-            MiscUtils.getLogger().warn("Could not close aborted report resources", e);
+            // Connector/J can still try to read unread packets while closing the cursor after an abort.
+            if (abortSucceeded && e instanceof SQLException sqlException && sqlException.getSQLState() != null
+                    && sqlException.getSQLState().startsWith("08")) {
+                MiscUtils.getLogger().debug("Could not close aborted report resources", e);
+            } else {
+                MiscUtils.getLogger().warn("Could not close aborted report resources", e);
+            }
         }
     }
 

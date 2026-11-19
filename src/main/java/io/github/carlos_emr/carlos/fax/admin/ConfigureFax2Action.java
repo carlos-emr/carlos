@@ -52,6 +52,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.MissingResourceException;
+import java.util.Objects;
 import java.util.ResourceBundle;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -154,6 +155,7 @@ public class ConfigureFax2Action extends ActionSupport {
             FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
             List<FaxConfig> savedFaxConfigList = faxConfigDao.findAll(null, null);
             List<FaxConfig> faxConfigList = new ArrayList<FaxConfig>();
+            List<Integer> failedBackoffResets = new ArrayList<>();
 
             String faxUrl = request.getParameter("faxUrl");
             String siteUser = request.getParameter("siteUser");
@@ -274,6 +276,14 @@ public class ConfigureFax2Action extends ActionSupport {
 
                 for (FaxConfig faxConfig1 : faxConfigList) {
                     faxConfigDao.saveEntity(faxConfig1);
+                    Integer accountId = faxConfig1.getId();
+                    try {
+                        resetPollingBackoff(accountId);
+                    } catch (RuntimeException failure) {
+                        failedBackoffResets.add(accountId);
+                        MiscUtils.getLogger().warn("Fax polling retry reset failed for account {} ({})",
+                                accountId, failure.getClass().getSimpleName());
+                    }
                 }
 
                 for (FaxConfig faxConfig2 : savedFaxConfigList) {
@@ -307,7 +317,9 @@ public class ConfigureFax2Action extends ActionSupport {
 
             jsonObject = objectMapper.createObjectNode();
             jsonObject.put("success", true);
-            jsonObject.put("message", "Configuration saved!");
+            String backoffWarning = failedBackoffResets.isEmpty() ? ""
+                    : " Fax polling retry reset failed for account IDs " + failedBackoffResets + ".";
+            jsonObject.put("message", "Configuration saved!" + backoffWarning);
 
             // Auto-start scheduler if any active config exists and scheduler isn't running
             try {
@@ -318,7 +330,7 @@ public class ConfigureFax2Action extends ActionSupport {
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Failed to auto-start fax scheduler after config save ({})", e.getClass().getSimpleName());
                 jsonObject.put("message", "Configuration saved, but fax scheduler failed to start. "
-                        + "Use the Restart button to start it manually.");
+                        + "Use the Restart button to start it manually." + backoffWarning);
             }
         } catch (ConfigurationValidationException ex) {
             // Only messages authored by this action's validators are safe to expose.
@@ -364,11 +376,11 @@ public class ConfigureFax2Action extends ActionSupport {
     public String testConnection() {
         requireLoggedInWithPrivilege("_admin.fax", "w");
 
-        try {
+        Integer configId = parseConfigId(request.getParameter("id"));
+        try (var backoffProbe = beginPollingBackoffProbe(configId)) {
             String faxUser = StringUtils.trimToEmpty(request.getParameter("faxUser"));
             String faxPassword = request.getParameter("faxPassword");
             String[] providerTypes = request.getParameterValues("providerType");
-            Integer configId = parseConfigId(request.getParameter("id"));
 
             if (faxUser.isEmpty()) {
                 sendJsonError(text("admin.configureFax.test.missingAccountNumber",
@@ -416,6 +428,7 @@ public class ConfigureFax2Action extends ActionSupport {
             }
             FaxProviderClient client = SpringUtils.getBean(FaxProviderClientFactory.class).getClient(probe);
             client.verifyConnection(probe);
+            resetVerifiedAccountBackoff(configId, probe, backoffProbe);
             sendJsonSuccess(text("admin.configureFax.test.success",
                     "Connection successful. SRFax accepted the account number and password."));
         } catch (ConfigurationValidationException e) {
@@ -789,6 +802,43 @@ public class ConfigureFax2Action extends ActionSupport {
         jsonObject.put("success", false);
         jsonObject.put("message", message);
         JSONUtil.jsonResponse(response, jsonObject);
+    }
+
+    private void resetPollingBackoff(Integer accountId) {
+        if (accountId != null) {
+            SpringUtils.getBean(FaxImporter.class).resetPollingBackoff(accountId);
+        }
+    }
+
+    private FaxImporter.PollingBackoffProbe beginPollingBackoffProbe(Integer accountId) {
+        if (accountId == null) {
+            return null;
+        }
+        try {
+            return SpringUtils.getBean(FaxImporter.class).beginPollingBackoffProbe(accountId);
+        } catch (RuntimeException failure) {
+            MiscUtils.getLogger().warn("Could not check fax polling backoff before verification ({})",
+                    failure.getClass().getSimpleName());
+            return null;
+        }
+    }
+
+    private void resetVerifiedAccountBackoff(Integer accountId, FaxConfig probe,
+            FaxImporter.PollingBackoffProbe backoffProbe) {
+        if (backoffProbe == null) {
+            return;
+        }
+        try {
+            FaxConfig persisted = SpringUtils.getBean(FaxConfigDao.class).find(accountId.intValue());
+            if (persisted != null && persisted.getProviderType() == probe.getProviderType()
+                    && Objects.equals(persisted.getFaxUser(), probe.getFaxUser())
+                    && Objects.equals(persisted.getFaxPasswd(), probe.getFaxPasswd())) {
+                backoffProbe.resetIfCurrent();
+            }
+        } catch (RuntimeException failure) {
+            MiscUtils.getLogger().warn("Could not check fax polling backoff after verification ({})",
+                    failure.getClass().getSimpleName());
+        }
     }
 
 }

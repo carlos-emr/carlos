@@ -4843,7 +4843,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Two owned synthetic patients merged and unmerged through Administration > Merge Patient Records; demographic_merged, secObjPrivilege and recyclebin rows removed."
+      "fixtures": "Owned synthetic patients merged and unmerged through Administration > Merge Patient Records; forged form provider must not override authenticated recycle/audit attribution (#6004); demographic_merged, secObjPrivilege and recyclebin rows removed."
     },
     {
       "name": "patient-set-cohort",
@@ -14748,7 +14748,7 @@
       ],
       "timeoutSec": 180,
       "env": [],
-      "notes": "Messenger Reply ▸ Send and Archive (CreateMessage.jsp #sendArchive): the background POST to messenger/DisplayMessages archives exactly the message replied to (btnDelete=archive, its messageNo, taken from the validated server-rendered compose identity) and is accepted, then the reply is sent: one reply from the test login, delivered to the sender only. The message replied to is 'del' for the test login only (the other recipient's row is unchanged); the inbox no longer lists it and the archive box (boxType=2) does. The original message identity is carried by a validated encoded compose field rather than the browser referrer. A labeled negative fixture disables only the owned checked recipient control for one native ordinary Send, observes the actual server redisplay with no stored reply or changed source rows, then enables the real recipient and uses native Send & Archive. The retry retains the original message ID, raw fields and attachment key; only the original owned recipient row is archived, and the entire other-recipient row remains exact.",
+      "notes": "Messenger Reply ▸ Send and Archive (CreateMessage.jsp #sendArchive): one compose POST carries archiveAfterSend=1 and the original message ID (a validated encoded compose field, not the browser referrer), with no background archive POST; the server archives the message replied to only after the reply is sent (#6042). A labeled negative fixture disables only the owned checked recipient control: an ordinary Send and then a Send and Archive each reach the server's real redisplay with no stored reply, no changed source rows and the message replied to still not archived. With the real recipient enabled, Send and Archive sends one reply from the test login, delivered to the sender only, and the message replied to is 'del' for the test login only (the other recipient's row is unchanged); the inbox no longer lists it and the archive box (boxType=2) does. The retry retains the original message ID, raw fields and attachment key.",
       "fixtures": "One message seeded by SQL the way a local send writes it (sender messenger contact 1; recipients the test login and contact 2; subject and lines carry the run marker). SKIP when the messenger contacts are not 1 and 2 plus the test login. Cleanup deletes every message whose subject carries the marker, with its delivery and patient-link rows, and asserts they are gone."
     },
     {
@@ -18123,11 +18123,7 @@
       "timeoutSec": 300,
       "profile": "appointment-options",
       "env": [],
-      "expectedFailure": {
-        "finding": 329,
-        "step": "requested reminder has an implemented and visible persisted outcome"
-      },
-      "notes": "Issue 5268: checked/unchecked real Add requests and cancellation; emailApptReminder=yes exposes an unimplemented emailPt option. Finding 329 keeps reminder outcome distinct from booking success."
+      "notes": "Issue 5887. With emailApptReminder=yes, the native Add and Edit forms omit the unsupported reminder option. Booking, cancellation and saving an edit preserve the ordinary appointment workflow."
     },
     {
       "name": "document-public-visibility",
@@ -19507,6 +19503,25 @@
       "fixtures": "Read-only packaged /usr/share/carlos-emr/webapp/carlos/gpl.htm and a configured confidentiality statement. No clinical fixtures or configuration changes."
     },
     {
+      "name": "fax-configuration-save",
+      "script": "scripts/fax-configuration-save-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON",
+        "BC"
+      ],
+      "timeoutSec": 180,
+      "manual": true,
+      "mutates": [
+        "fax_config"
+      ],
+      "fixtures": "Requires a disposable host with no active fax account. Snapshots and byte-exactly restores the complete inactive fax_config table; the owned account and inbound polling stay disabled. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5783: verifies actual admin save/reset wiring and masked-credential roundtrip without contacting SRFax. Capped backoff and next-poll behavior are independently covered by real importer/action regressions."
+    },
+    {
       "name": "admin-facility-disable",
       "script": "scripts/admin-facility-disable-playwright-checks.js",
       "tiers": [
@@ -19563,6 +19578,23 @@
       ],
       "fixtures": "Owns the runWorkflow patient and one marker-named REST-created patient and admission; removes exact owned custom-field/archive/admission rows and verifies cleanup. Disposable exclusive host only. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#5999: six converted field lengths refuse REST create/update before side effects; exact schema limits and supplementary Unicode boundary values persist without truncation."
+    },
+    {
+      "name": "report-daysheet-selection",
+      "script": "scripts/report-daysheet-selection-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "MYSQL_PASSWORD"
+      ],
+      "notes": "#5956: a preview stays read-only; acknowledgment excludes newly booked and subsequently edited appointments; replay cannot acquire later appointments or duplicate archives.",
+      "fixtures": "Owns one patient, one reader-role/login/provider and site memberships, and three marker-reason appointments. Removes only their exact archives, appointments and fixture identities. Disposable exclusive host only."
     },
     {
       "name": "eform-large-html-roundtrip",

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "1e9948b29e14de0b3a51024c036565af9bd04113",
+  "comparisonSha256": "3295156ce7971b395028c1154642fdc8fbe1930b3cab93e59aee5522db1a7686",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/integration/mchcv/OnlineHCValidator.java": {
+      "lines": 85.71428571428571,
+      "instructions": 85.71428571428571,
+      "branches": 100.0,
+      "sourceBlob": "e6e73cc3e07589fc70b2c1bace867b3119459d65"
+    }
+  },
+  "baselineCommit": "b848d200d9b7d200949d963f86cc7e6dd0895218",
+  "baselineSourceTree": "1e9948b29e14de0b3a51024c036565af9bd04113",
+  "baselineReportSha256": "bcfb3866f45c5cf08e6980537e8e663141ae0cf80b7744532a90932a23775596",
+  "baselineLane": "Focused JDK 25 HCV lifecycle regression. OnlineHCValidator and its tests were freshly compiled against the exact release production classes and locked CXF dependency set.",
+  "baselineTestCounts": {
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "04508c015cf3e1c0991ac75ec9579d77c59cc551e1065ea9483bc6d8bfd26ef6",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}
