@@ -57,7 +57,7 @@ JSP_ROOT = REPO_ROOT / "src" / "main" / "webapp"
 JSP_SUFFIXES = (".jsp", ".jspf", ".jspx", ".tag", ".tagf", ".tagx")
 
 JSP_COMMENT_RE = re.compile(r"<%--.*?--%>", re.DOTALL)
-XML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+XML_CDATA_OR_COMMENT_RE = re.compile(r"(?P<cdata><!\[CDATA\[.*?\]\]>)|<!--.*?-->", re.DOTALL)
 XML_JSP_SUFFIXES = (".jspx", ".tagx")
 TAG_RE = re.compile(r"<e:for[A-Za-z]+(?:\s|/>)")
 # Immediate and deferred expression starts. The scanner checks backslash parity.
@@ -230,10 +230,11 @@ def main() -> int:
             violations += 1
             continue
 
-        # XML comments are inert in JSP documents. Classic JSP evaluates their contents.
-        text = JSP_COMMENT_RE.sub("", raw)
+        # Jasper evaluates EL in CDATA, including text that looks like an XML comment.
         if path.suffix in XML_JSP_SUFFIXES:
-            text = XML_COMMENT_RE.sub(" ", text)
+            text = XML_CDATA_OR_COMMENT_RE.sub(lambda match: match["cdata"] or " ", raw)
+        else:
+            text = JSP_COMMENT_RE.sub("", raw)
 
         # Class D: the OWASP encoder JSP taglib is declared. Checked before
         # the allowlist: the library is not shipped (#5477), so no exception

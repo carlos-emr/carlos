@@ -175,6 +175,13 @@ stage_and_run \
   "XML comments do not declare taglibs or execute EL" \
   "billingONFixture.jspx"
 
+stage_and_run \
+  "encoder-taglib-xml-cdata.jspx" \
+  "1" \
+  "Class B — \${e:forXxx} EL function]: src/main/webapp/billingONFixture.jspx (1 site(s))" \
+  "EL in JSP document CDATA is checked" \
+  "billingONFixture.jspx"
+
 if ! python3 - "$SCRIPT_DIR/../../.claude/hooks/validate-owasp-encoding.py" <<'PY'
 import json
 import subprocess
