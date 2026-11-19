@@ -1097,6 +1097,8 @@ OAUTH_ACCESS_DEFAULTS
         # default cannot disagree. Match the stock line as bytes under the same
         # POSIX record lock as CarlosProperties. Update the opened inode so
         # managed links, metadata, and writers waiting on the lock stay attached.
+        # Persist recovery data before rewriting the inode so an interrupted
+        # update can restore the previous contents under the lock on retry.
         # scripts/deb-upgrade-verify.sh holds the old line's digest
         # (LAB_FILTER_OLD_SHA); scripts/deb-upgrade-snapshot.test.js and
         # debian/assets/tests/test_lab_filter_migration.py hold them together.
@@ -1104,14 +1106,36 @@ OAUTH_ACCESS_DEFAULTS
             python3 - "$1" "$2" "$3" "$4" <<'PY'
 import errno
 import fcntl
+import json
 import os
 import re
 import stat
 import sys
+import tempfile
 
 path, old, new, marker = map(os.fsencode, sys.argv[1:])
+recovery = path + b".lab-filter-recovery"
+directory = os.path.dirname(path) or b"."
 # Properties accepts an indented key and '=', ':' or whitespace as separators.
 definition = re.compile(rb"^\s*HL7_LAB_MEASUREMENT_FILTER(?:[\s=:]|$)")
+
+def logical_definitions(content):
+    definitions = []
+    logical = b""
+    continued = False
+    for physical in content.splitlines():
+        line = physical.lstrip(b" \t\f")
+        if not continued and (not line or line.startswith((b"#", b"!"))):
+            continue
+        continued = (len(line) - len(line.rstrip(b"\\"))) % 2 != 0
+        logical += line[:-1] if continued else line
+        if not continued:
+            if definition.match(logical):
+                definitions.append(logical)
+            logical = b""
+    if logical and definition.match(logical):
+        definitions.append(logical)
+    return definitions
 
 def open_configuration():
     try:
@@ -1128,11 +1152,64 @@ def write_configuration(configuration, content):
     configuration.truncate(len(content))
     os.fsync(configuration.fileno())
 
+def sync_directory():
+    fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+def save_recovery(opened, original, updated):
+    fd, staged = tempfile.mkstemp(prefix=b".lab-filter-recovery-", dir=directory)
+    try:
+        with os.fdopen(fd, "w", encoding="ascii") as backup:
+            json.dump([opened.st_dev, opened.st_ino, original.hex(), updated.hex()], backup)
+            backup.flush()
+            os.fsync(backup.fileno())
+        os.replace(staged, recovery)
+        sync_directory()
+    finally:
+        if os.path.exists(staged):
+            os.unlink(staged)
+
+def clear_recovery():
+    os.unlink(recovery)
+    sync_directory()
+
+def recover_configuration(configuration, opened, writable, content):
+    try:
+        fd = os.open(recovery, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except FileNotFoundError:
+        return content
+    with os.fdopen(fd, "r", encoding="ascii") as backup:
+        info = os.fstat(fd)
+        if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
+                or info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) & 0o077):
+            raise OSError("the lab filter recovery file is not a private regular file")
+        try:
+            device, inode, before, after = json.load(backup)
+            original, updated = bytes.fromhex(before), bytes.fromhex(after)
+        except (TypeError, ValueError):
+            raise OSError("the lab filter recovery file is invalid") from None
+    if (device, inode) != (opened.st_dev, opened.st_ino) or not writable:
+        raise OSError("the lab filter recovery file describes another or read-only configuration")
+    # An interrupted rewrite or rollback can leave bytes from either version.
+    # Refuse to overwrite a separate change made while the process was down.
+    if (not min(len(original), len(updated)) <= len(content) <= max(len(original), len(updated))
+            or any((index >= len(original) or original[index] != byte)
+                   and (index >= len(updated) or updated[index] != byte)
+                   for index, byte in enumerate(content))):
+        raise OSError("the configuration was edited after an interrupted lab filter migration")
+    if content != original:
+        write_configuration(configuration, original)
+    clear_recovery()
+    return original
+
 def migrate():
     try:
         fd, mode = open_configuration()
     except FileNotFoundError:
-        if os.path.lexists(path):
+        if os.path.lexists(path) or os.path.lexists(recovery):
             raise
         return "unchanged"
     with os.fdopen(fd, mode) as configuration:
@@ -1143,25 +1220,29 @@ def migrate():
         fcntl.lockf(configuration, fcntl.LOCK_EX if writable else fcntl.LOCK_SH)
         if not os.path.samestat(opened, os.stat(path)):
             raise OSError("the configuration target changed while waiting for its lock")
-        original = configuration.read()
+        original = recover_configuration(configuration, opened, writable, configuration.read())
         lines = original.split(b"\n")
         definitions = [index for index, line in enumerate(lines) if definition.match(line)]
-        if old != new and len(definitions) == 1 and lines[definitions[0]] == old:
+        logical = logical_definitions(original)
+        if old != new and logical == [old] and len(definitions) == 1 and lines[definitions[0]] == old:
             if not writable:
                 raise OSError("the configuration target is read-only")
             lines[definitions[0]] = new
             updated = b"\n".join(lines)
             if not updated.endswith(b"\n"):
                 updated += b"\n"
+            save_recovery(opened, original, updated)
             try:
                 write_configuration(configuration, updated)
                 if not os.path.samestat(opened, os.stat(path)):
                     raise OSError("the configuration target changed during the update")
             except (OSError, KeyboardInterrupt):
                 write_configuration(configuration, original)
+                clear_recovery()
                 raise
+            clear_recovery()
             return "updated"
-        return "custom" if definitions and marker in lines[definitions[-1]] else "unchanged"
+        return "custom" if logical and marker in logical[-1] else "unchanged"
 
 try:
     print(migrate())

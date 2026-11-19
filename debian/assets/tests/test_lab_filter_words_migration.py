@@ -229,15 +229,30 @@ class TestLabFilterWordsMigration(unittest.TestCase):
         self.assertIn("still matches its words at the start of a result", result.stderr)
         self.assertTrue((self.state / SENTINEL).exists())
 
+    def test_warns_about_a_word_alternative_on_a_continued_property(self):
+        self.write_properties("before=1", "HL7_LAB_MEASUREMENT_FILTER=^([0-9]+)$|\\",
+                              r"    ^\\b(negative)\\b", "after=2")
+        before = self.properties.read_bytes()
+
+        result = self.run_block()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.properties.read_bytes(), before)
+        self.assertIn("still matches its words at the start of a result", result.stderr)
+        self.assertTrue((self.state / SENTINEL).exists())
+
     def test_restores_the_inode_contents_when_sync_fails(self):
         fixture = Path(self.tmp.name) / "python-fixture"
         fixture.mkdir()
         (fixture / "sitecustomize.py").write_text(
             "import os\n"
+            "configuration = os.stat(os.environ['PROPERTIES'])\n"
             "native_fsync = os.fsync\n"
             "def fail_once(fd):\n"
-            "    os.fsync = native_fsync\n"
-            "    raise OSError('synthetic sync failure')\n"
+            "    if os.path.samestat(configuration, os.fstat(fd)):\n"
+            "        os.fsync = native_fsync\n"
+            "        raise OSError('synthetic sync failure')\n"
+            "    return native_fsync(fd)\n"
             "os.fsync = fail_once\n",
             encoding="utf-8",
         )
@@ -255,6 +270,55 @@ class TestLabFilterWordsMigration(unittest.TestCase):
         self.assertEqual(list(self.etc.iterdir()), [self.properties],
                          "the temporary file is left behind")
         self.assertFalse((self.state / SENTINEL).exists())
+
+    def test_recovers_a_partial_write_after_the_process_is_killed(self):
+        self.write_properties("before=1", old_line(), "after=retain-this-setting")
+        before = self.properties.read_bytes()
+        alias = self.etc / "hardlinked.properties"
+        os.link(self.properties, alias)
+        opened = self.properties.stat()
+        fixture = Path(self.tmp.name) / "kill-fixture"
+        fixture.mkdir()
+        (fixture / "sitecustomize.py").write_text(
+            "import os\n"
+            "import signal\n"
+            "configuration = os.stat(os.environ['PROPERTIES'])\n"
+            "native_fdopen = os.fdopen\n"
+            "class InterruptedWrite:\n"
+            "    def __init__(self, stream): self.stream = stream\n"
+            "    def __enter__(self): return self\n"
+            "    def __exit__(self, *args): return self.stream.__exit__(*args)\n"
+            "    def __getattr__(self, name): return getattr(self.stream, name)\n"
+            "    def write(self, content):\n"
+            "        self.stream.write(content[:len(content) // 2])\n"
+            "        self.stream.flush()\n"
+            "        os.fsync(self.stream.fileno())\n"
+            "        os.kill(os.getpid(), signal.SIGKILL)\n"
+            "def interrupt_target(fd, *args, **kwargs):\n"
+            "    stream = native_fdopen(fd, *args, **kwargs)\n"
+            "    if os.path.samestat(configuration, os.fstat(fd)):\n"
+            "        return InterruptedWrite(stream)\n"
+            "    return stream\n"
+            "os.fdopen = interrupt_target\n",
+            encoding="utf-8",
+        )
+
+        interrupted = self.run_block(extra_env={"PYTHONPATH": str(fixture)})
+
+        self.assertEqual(interrupted.returncode, 1, interrupted.stderr)
+        self.assertNotEqual(self.properties.read_bytes(), before)
+        self.assertFalse((self.state / SENTINEL).exists())
+        recovery = self.properties.with_suffix(".properties.lab-filter-recovery")
+        self.assertEqual(recovery.stat().st_mode & 0o777, 0o600)
+
+        result = self.run_block()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(alias.read_text(encoding="utf-8"),
+                         f"before=1\n{shipped_line()}\nafter=retain-this-setting\n")
+        self.assertTrue(os.path.samestat(opened, self.properties.stat()))
+        self.assertTrue((self.state / SENTINEL).exists())
+        self.assertFalse(recovery.exists())
 
     def test_updates_the_target_of_a_managed_symlink(self):
         self.write_properties(old_line())
