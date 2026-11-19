@@ -23,6 +23,16 @@ package io.github.carlos_emr.carlos.schedule.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+
+import java.util.Hashtable;
+import java.util.ResourceBundle;
+
+import io.github.carlos_emr.HScheduleDate;
+import io.github.carlos_emr.MyDateFormat;
+import io.github.carlos_emr.RscheduleBean;
+import io.github.carlos_emr.carlos.commn.model.ScheduleDate;
+import io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideService;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -33,15 +43,33 @@ import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * Gate action for the schedule date save endpoint.
- * Enforces appointment write privilege and POST-only access before forwarding.
- * This action is the target of the scheduledatepopup.jsp form; it always requires POST.
+ * Saves or deletes a provider's schedule override for one date: the target of the
+ * scheduledatepopup.jsp form. Enforces appointment write privilege and POST-only access.
+ *
+ * <p>The whole command is validated before anything is written, and the current override is
+ * retired and its replacement inserted in one transaction ({@link ScheduleDateOverrideService}).
+ * The session's schedule caches are updated only after that commits. The JSP used to retire the
+ * override first and then validate, so a malformed or failed Save left the date with no override
+ * (#5297). The result JSP now only refreshes the calendar and closes the popup.</p>
  *
  * @since 2026-04-05
  */
 public final class ScheduleDateSave2Action extends ActionSupport {
 
+    /** Session attribute of the JSP {@code scheduleDateBean} (date to HScheduleDate) cache. */
+    static final String SCHEDULE_DATE_CACHE = "scheduleDateBean";
+    /** Session attribute of the JSP {@code scheduleRscheduleBean} (provider rule schedule). */
+    static final String RULE_SCHEDULE = "scheduleRscheduleBean";
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private ScheduleDateOverrideService overrideService;
+
+    private ScheduleDateOverrideService overrideService() {
+        if (overrideService == null) {
+            overrideService = SpringUtils.getBean(ScheduleDateOverrideService.class);
+        }
+        return overrideService;
+    }
 
     /**
      * Validates appointment write privilege and enforces POST-only access for the save endpoint.
@@ -67,6 +95,86 @@ public final class ScheduleDateSave2Action extends ActionSupport {
             return NONE;
         }
 
+        // Validate the whole command before anything is written.
+        String providerNo = request.getParameter("provider_no");
+        String dateParam = request.getParameter("date");
+        java.sql.Date date = MyDateFormat.getSysDate(dateParam);
+        if (providerNo == null || providerNo.isBlank() || date == null) {
+            return badRequest(request, "error.refusal.scheduleDateIncomplete", "The schedule date or provider is missing.");
+        }
+        ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
+        String submit = request.getParameter("Submit");
+        boolean save = bundle.getString("schedule.scheduledatepopup.btnSave").equals(submit);
+        boolean delete = bundle.getString("schedule.scheduledatepopup.btnDelete").equals(submit);
+        if (!save && !delete) {
+            // The popup always names Save or Delete; anything else (an empty Submit from a stray
+            // Enter key, or a hand-built request) used to delete the override without asking.
+            return badRequest(request, "error.refusal.scheduleSaveOrDelete", "Choose Save or Delete.");
+        }
+
+        HttpSession session = request.getSession();
+        String creator = session.getAttribute("userlastname") + "," + session.getAttribute("userfirstname");
+        RscheduleBean ruleSchedule = sessionBean(session, RULE_SCHEDULE, RscheduleBean.class, RscheduleBean::new);
+        ScheduleDate replacement = null;
+        HScheduleDate cached = null;
+        if (save) {
+            String available = request.getParameter("available");
+            if (available == null || available.isEmpty()) {
+                return badRequest(request, "error.refusal.scheduleAvailability",
+                        "Choose whether the provider is available on this date.");
+            }
+            String priority = "c";
+            String reason = request.getParameter("reason");
+            String hour = request.getParameter("hour");
+            replacement = override(date, providerNo, available.charAt(0), priority.charAt(0), reason, hour, creator,
+                    ruleSchedule.active.charAt(0));
+            cached = new HScheduleDate(available, priority, reason, hour, creator);
+        } else if (ruleSchedule.getDateAvail(dateParam)) {
+            // Delete falls back to the provider's rule schedule for the date, when it has one.
+            replacement = override(date, providerNo, '1', 'b', "", ruleSchedule.getDateAvailHour(dateParam), creator,
+                    ruleSchedule.active.charAt(0));
+        }
+
+        overrideService().replaceOverride(providerNo, date, replacement);
+
+        // The transaction has committed: only now update the session's calendar cache.
+        @SuppressWarnings("unchecked")
+        Hashtable<String, Object> dateCache = sessionBean(session, SCHEDULE_DATE_CACHE, Hashtable.class, Hashtable::new);
+        dateCache.remove(dateParam);
+        if (cached != null) {
+            dateCache.put(dateParam, cached);
+        }
         return SUCCESS;
+    }
+
+    private static ScheduleDate override(java.sql.Date date, String providerNo, char available, char priority,
+                                         String reason, String hour, String creator, char status) {
+        ScheduleDate replacement = new ScheduleDate();
+        replacement.setDate(date);
+        replacement.setProviderNo(providerNo);
+        replacement.setAvailable(available);
+        replacement.setPriority(priority);
+        replacement.setReason(reason);
+        replacement.setHour(hour);
+        replacement.setCreator(creator);
+        replacement.setStatus(status);
+        return replacement;
+    }
+
+    /** The session bean the JSP declared with {@code jsp:useBean scope="session"}, created the same way when absent. */
+    private static <T> T sessionBean(HttpSession session, String name, Class<T> type, java.util.function.Supplier<T> create) {
+        Object bean = session.getAttribute(name);
+        if (type.isInstance(bean)) {
+            return type.cast(bean);
+        }
+        T created = create.get();
+        session.setAttribute(name, created);
+        return created;
+    }
+
+    private String badRequest(HttpServletRequest request, String messageKey, String message) throws java.io.IOException {
+        io.github.carlos_emr.carlos.utility.RefusalNotice.send(request, ServletActionContext.getResponse(),
+                HttpServletResponse.SC_BAD_REQUEST, messageKey, message);
+        return NONE;
     }
 }

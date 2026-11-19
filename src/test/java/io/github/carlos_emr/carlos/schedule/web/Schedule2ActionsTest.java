@@ -240,12 +240,83 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
             assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         }
 
-        @Test
-        void shouldSucceedOnPost() throws Exception {
+        private io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideService overrides;
+
+        /** An authorized POST of the popup form, with the override service mocked. */
+        private ScheduleDateSave2Action postedSave(String submit) throws Exception {
             allowPrivilege("_appointment", "w");
             mockRequest.setMethod("POST");
-            assertThat(executeAction(inject(new ScheduleDateSave2Action())))
-                    .isEqualTo(ActionSupport.SUCCESS);
+            addRequestParameter("provider_no", "999998");
+            addRequestParameter("date", "2031-05-14");
+            addRequestParameter("Submit", submit);
+            overrides = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideService.class);
+            ScheduleDateSave2Action action = inject(new ScheduleDateSave2Action());
+            injectField(action, "overrideService", overrides);
+            return action;
+        }
+
+        @Test
+        @DisplayName("should replace the override and then refresh the session cache on Save (#5297)")
+        void shouldReplaceOverride_thenUpdateCache_onSave() throws Exception {
+            ScheduleDateSave2Action action = postedSave("Save");
+            addRequestParameter("available", "1");
+            addRequestParameter("reason", "Half day");
+            addRequestParameter("hour", "0800");
+            java.util.Hashtable<String, Object> cache = new java.util.Hashtable<>();
+            cache.put("2031-05-14", new io.github.carlos_emr.HScheduleDate("0", "c", "stale", "", "FAKE"));
+            setSessionAttribute("scheduleDateBean", cache);
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+            var replacement = org.mockito.ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.ScheduleDate.class);
+            org.mockito.Mockito.verify(overrides).replaceOverride(org.mockito.ArgumentMatchers.eq("999998"),
+                    org.mockito.ArgumentMatchers.eq(java.sql.Date.valueOf("2031-05-14")), replacement.capture());
+            assertThat(replacement.getValue().getReason()).isEqualTo("Half day");
+            assertThat(replacement.getValue().getAvailable()).isEqualTo('1');
+            assertThat(replacement.getValue().getPriority()).isEqualTo('c');
+            assertThat(((io.github.carlos_emr.HScheduleDate) cache.get("2031-05-14")).reason).isEqualTo("Half day");
+        }
+
+        @Test
+        @DisplayName("should reject a Save without availability before anything is written (#5297)")
+        void shouldRejectSaveWithoutAvailability_beforeAnyWrite() throws Exception {
+            ScheduleDateSave2Action action = postedSave("Save");
+            java.util.Hashtable<String, Object> cache = new java.util.Hashtable<>();
+            cache.put("2031-05-14", "cached");
+            setSessionAttribute("scheduleDateBean", cache);
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            org.mockito.Mockito.verifyNoInteractions(overrides);
+            assertThat(cache).containsEntry("2031-05-14", "cached");
+        }
+
+        @Test
+        @DisplayName("should reject an unnamed submit instead of deleting the override (#5297)")
+        void shouldRejectUnnamedSubmit_insteadOfDeleting() throws Exception {
+            ScheduleDateSave2Action action = postedSave("");
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            org.mockito.Mockito.verifyNoInteractions(overrides);
+        }
+
+        @Test
+        @DisplayName("should keep the session cache when the replacement fails (#5297)")
+        void shouldKeepSessionCache_whenReplacementFails() throws Exception {
+            ScheduleDateSave2Action action = postedSave("Delete");
+            org.mockito.Mockito.doThrow(new IllegalStateException("synthetic failure")).when(overrides)
+                    .replaceOverride(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                            org.mockito.ArgumentMatchers.any());
+            java.util.Hashtable<String, Object> cache = new java.util.Hashtable<>();
+            cache.put("2031-05-14", "cached");
+            setSessionAttribute("scheduleDateBean", cache);
+
+            assertThatThrownBy(() -> executeAction(action)).hasMessage("synthetic failure");
+
+            assertThat(cache).containsEntry("2031-05-14", "cached");
         }
     }
 
