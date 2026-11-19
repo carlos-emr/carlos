@@ -119,6 +119,10 @@ public class RptDemographicQueryBuilder {
         String[] rosterStatus = frm.getRosterStatus();
         String[] patientStatus = frm.getPatientStatus();
         String[] providers = frm.getProviderNo();
+        // An "as of" roster report (#5877) widens its candidates to archived provider periods and
+        // then checks each row against the roster history. The check needs the patient number
+        // whatever columns were selected, and a row limit must count only the rows it keeps.
+        boolean historicalRoster = asofRosterDate != null && providers != null && providers.length > 0;
 
         String firstName = frm.getFirstName();
         String lastName = frm.getLastName();
@@ -187,6 +191,10 @@ public class RptDemographicQueryBuilder {
 
         }
 
+        if (historicalRoster) {
+            // Hidden last column for the roster-history check; never copied into a result row.
+            stringBuffer.append(", d.demographic_no ");
+        }
         stringBuffer.append(" from demographic d ");
         if (getprovider) {
             stringBuffer.append(", provider p");
@@ -347,7 +355,7 @@ public class RptDemographicQueryBuilder {
                 String paramName = "provider" + i;
                 params.put(paramName, providers[i]);
                 String providerPredicate = " d.provider_no = :" + paramName;
-                if (asofRosterDate != null) {
+                if (historicalRoster) {
                     // An "as of" report asks who was rostered to the provider on that date, which
                     // the per-row history check below decides. Filtering on the patient's current
                     // provider here dropped patients who were the provider's then but have since
@@ -441,12 +449,20 @@ public class RptDemographicQueryBuilder {
             }
         }
 
+        Integer keptRowLimit = null;
         if (limit != null && limit.length() != 0) {
             if (!limit.equals("0")) {
                 try {
                     int limitInt = Integer.parseInt(limit);
-                    params.put("limitValue", limitInt);
-                    stringBuffer.append(" limit :limitValue ");
+                    if (historicalRoster) {
+                        // A SQL LIMIT would let rows the history check then drops use up the limit.
+                        if (limitInt > 0) {
+                            keptRowLimit = limitInt;
+                        }
+                    } else {
+                        params.put("limitValue", limitInt);
+                        stringBuffer.append(" limit :limitValue ");
+                    }
                 } catch (Exception u) {
                     MiscUtils.getLogger().debug("limit was not numeric >" + limit + "<");
                 }
@@ -479,7 +495,13 @@ public class RptDemographicQueryBuilder {
                 }
 
                 // need to check if they were rostered at this point to this providers  (asofRosterDate is only set if this is being called from prevention reports)
-                if (demoNo != null && asofRosterDate != null && providers != null && providers.length > 0) {
+                if (historicalRoster) {
+                    Object rosterDemographicNo = o[select.length];
+                    demoNo = rosterDemographicNo == null ? null : String.valueOf(rosterDemographicNo);
+                    if (demoNo == null) {
+                        // A row whose roster history cannot be checked is not reported for the date.
+                        continue;
+                    }
                     //Only checking the first doc.  Only one should be included for finding the cumulative bonus
                     try {
                         if (!PreventionReportUtil.wasRosteredToThisProvider(loggedInInfo, Integer.parseInt(demoNo), DateUtils.parseDate(asofRosterDate, null), providers[0])) {
@@ -497,6 +519,9 @@ public class RptDemographicQueryBuilder {
                 }
 
                 searchedArray.add(tempArr);
+                if (keptRowLimit != null && searchedArray.size() >= keptRowLimit) {
+                    break;
+                }
 
             }
         } catch (Exception e) {

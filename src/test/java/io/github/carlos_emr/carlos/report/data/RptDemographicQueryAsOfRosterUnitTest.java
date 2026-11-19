@@ -116,21 +116,84 @@ class RptDemographicQueryAsOfRosterUnitTest extends CarlosUnitTestBase {
             String name, BiFunction<RptDemographicReport2Form, String, List<?>> build) {
         // 11: Dr A's on the as-of date, now with Dr B (admitted by the archive predicate).
         // 12: Dr A's now, but with someone else on the as-of date.
+        // Each row ends with the hidden demographic_no the history check reads.
         List<Object[]> rows = new ArrayList<>();
-        rows.add(new Object[] {"11"});
-        rows.add(new Object[] {"12"});
+        rows.add(new Object[] {"11", 11});
+        rows.add(new Object[] {"12", 12});
         when(formsDao.runParameterizedNativeQuery(anyString(), anyMap())).thenReturn(rows);
-        history.when(() -> PreventionReportUtil.wasRosteredToThisProvider(
-                        any(), eq(11), any(Date.class), eq(DR_A)))
-                .thenReturn(true);
-        history.when(() -> PreventionReportUtil.wasRosteredToThisProvider(
-                        any(), eq(12), any(Date.class), eq(DR_A)))
-                .thenReturn(false);
+        rosteredToDrA(11);
 
         List<?> result = build.apply(form(), AS_OF);
 
         assertThat(result).hasSize(1);
         assertThat(new ArrayList<Object>((List<?>) result.get(0))).containsExactly("11");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("builders")
+    @DisplayName("should check roster history even when the patient number is not a selected column")
+    void shouldCheckHistoryWithHiddenPatientNumber_whenDemographicNoIsNotSelected(
+            String name, BiFunction<RptDemographicReport2Form, String, List<?>> build) {
+        List<Object[]> rows = new ArrayList<>();
+        rows.add(new Object[] {"FAKE-KEPT", 11});
+        rows.add(new Object[] {"FAKE-DROPPED", 12});
+        when(formsDao.runParameterizedNativeQuery(anyString(), anyMap())).thenReturn(rows);
+        rosteredToDrA(11);
+        RptDemographicReport2Form frm = form();
+        frm.setSelect(new String[] {"last_name"});
+
+        List<?> result = build.apply(frm, AS_OF);
+
+        assertThat(capturedSql()).contains(" d.last_name , d.demographic_no  from demographic d ");
+        assertThat(result).hasSize(1);
+        assertThat(new ArrayList<Object>((List<?>) result.get(0)))
+                .as("the hidden patient number is not part of the returned row")
+                .containsExactly("FAKE-KEPT");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("builders")
+    @DisplayName("should count only kept rows against the row limit of an as-of query")
+    void shouldLimitKeptRowsOnly_whenAsOfDateIsSet(
+            String name, BiFunction<RptDemographicReport2Form, String, List<?>> build) {
+        // 12 is rejected by the history check; a SQL LIMIT 1 would have returned nothing.
+        List<Object[]> rows = new ArrayList<>();
+        rows.add(new Object[] {"12", 12});
+        rows.add(new Object[] {"11", 11});
+        rows.add(new Object[] {"13", 13});
+        when(formsDao.runParameterizedNativeQuery(anyString(), anyMap())).thenReturn(rows);
+        rosteredToDrA(11);
+        rosteredToDrA(13);
+        RptDemographicReport2Form frm = form();
+        frm.setResultNum("1");
+
+        List<?> result = build.apply(frm, AS_OF);
+
+        assertThat(capturedSql()).doesNotContain("limit :limitValue");
+        assertThat(capturedParams()).doesNotContainKey("limitValue");
+        assertThat(result).hasSize(1);
+        assertThat(new ArrayList<Object>((List<?>) result.get(0))).containsExactly("11");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("builders")
+    @DisplayName("should keep the SQL limit and the selected columns alone without an as-of date")
+    void shouldKeepSqlLimit_whenNoAsOfDate(
+            String name, BiFunction<RptDemographicReport2Form, String, List<?>> build) {
+        when(formsDao.runParameterizedNativeQuery(anyString(), anyMap())).thenReturn(new ArrayList<>());
+        RptDemographicReport2Form frm = form();
+        frm.setResultNum("5");
+
+        build.apply(frm, null);
+
+        assertThat(capturedSql()).contains("limit :limitValue").doesNotContain(", d.demographic_no ");
+        assertThat(capturedParams()).containsEntry("limitValue", 5);
+    }
+
+    private void rosteredToDrA(int demographicNo) {
+        history.when(() -> PreventionReportUtil.wasRosteredToThisProvider(
+                        any(), eq(demographicNo), any(Date.class), eq(DR_A)))
+                .thenReturn(true);
     }
 
     private RptDemographicReport2Form form() {
