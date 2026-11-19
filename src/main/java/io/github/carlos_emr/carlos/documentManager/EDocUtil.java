@@ -1109,32 +1109,15 @@ public final class EDocUtil {
 
     public static byte[] getFile(String fpath) {
         byte[] fdata = null;
-        FileInputStream fis = null;
-        try {
-            File file = validateResolvedDocumentOrTempFile(fpath);
+        try (var fis = new FileInputStream(validateResolvedDocumentOrTempFile(fpath))) {
             // Read to end of file: a single read(byte[]) into a length-sized buffer may stop short
             // and leave the tail zero-filled (#3027).
-            fis = new FileInputStream(file);
             fdata = fis.readAllBytes();
-
-        } catch (NullPointerException ex) {
+        } catch (IOException | NullPointerException | SecurityException ex) {
+            // An unreadable or rejected document leaves the result empty. A failure during
+            // close leaves any complete bytes already read available to the caller.
             logger.error("Error: {}", LogSafe.exceptionTrace(ex));
-        } catch (FileNotFoundException ex) {
-            logger.error("Error: {}", LogSafe.exceptionTrace(ex));
-        } catch (IOException ex) {
-            logger.error("Error: {}", LogSafe.exceptionTrace(ex));
-        } catch (SecurityException ex) {
-            // PathValidationUtils rejecting a malformed document path leaves fdata null, matching the
-            // existing return-null contract instead of throwing an unchecked exception at the caller.
-            logger.error("Error: {}", LogSafe.exceptionTrace(ex));
-        } finally {
-            try {
-                if (fis != null) fis.close();
-            } catch (IOException e) {
-                logger.error("error: {}", LogSafe.exceptionTrace(e));
-            }
         }
-
         return fdata;
     }
 
