@@ -1,5 +1,21 @@
 # CARLOS 2026.08 release notes
 
+## Demographic updates save together or not at all
+
+A patient update through the demographic manager is now one transaction: the archive
+copy of the previous record, the patient record and its extensions are saved together.
+A failure partway through, such as an extension the database refuses, no longer leaves
+an archive row or a changed patient behind. The same applies to saving a patient's
+custom fields (alert, notes, nurse, resident, midwife) with their archive copy.
+
+`PUT /ws/rs/demographics` has run as one transaction since 2026.08.0-beta8, including
+the custom fields and the waiting-list entry it changes. Inside that transaction the
+previous alert and notes were overwritten without an archive row; they are archived
+again. A request that fails returns an error and changes nothing; reload the patient
+before resubmitting. An update whose audit row cannot be written is not saved.
+Existing records are unchanged. Custom fields overwritten through this endpoint on
+2026.08.0-beta8 were not archived and cannot be reconstructed.
+
 ## Note lock recovery
 
 When another window takes a note lock, a refused toolbar save now explains that

@@ -5162,7 +5162,8 @@
         "RxRestPrescriptionRollbackIntegrationTest": 1,
         "RxStrictAuditIntegrationTest": 1,
         "DemographicWebUnmergeIntegrationTest": 19,
-        "SiteRenameClockMariaDbIntegrationTest": 8
+        "SiteRenameClockMariaDbIntegrationTest": 8,
+        "DemographicUpdateDaoTransactionIntegrationTest": 15
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -5192,7 +5193,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest",
+        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest,DemographicUpdateDaoTransactionIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -5233,7 +5234,8 @@
         "ReportingPatientListAuditMariaDbIntegrationTest": 4,
         "DemographicWebUnmergeIntegrationTest": 19,
         "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
-        "SiteRenameClockMariaDbIntegrationTest": 8
+        "SiteRenameClockMariaDbIntegrationTest": 8,
+        "DemographicUpdateDaoTransactionIntegrationTest": 15
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -5263,7 +5265,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,LegacyBcTeleplanExportMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest",
+        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,LegacyBcTeleplanExportMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest,DemographicUpdateDaoTransactionIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -5302,7 +5304,8 @@
         "ReportingPatientListAuditMariaDbIntegrationTest": 4,
         "DemographicWebUnmergeIntegrationTest": 19,
         "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
-        "SiteRenameClockMariaDbIntegrationTest": 8
+        "SiteRenameClockMariaDbIntegrationTest": 8,
+        "DemographicUpdateDaoTransactionIntegrationTest": 15
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -9057,16 +9060,22 @@
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/managers/DemographicManagerImpl.java": {
-      "reason": "Merged-demographic read audit identifies the requested patient; installed chart reads verify the patient-filtered access audit. Other manager acceptance and source-scope gaps are not waived.",
+      "reason": "Merged-demographic read audit identifies the requested patient; installed chart reads verify the patient-filtered access audit. A demographic update and its custom-field save are single transactions (#5298): database-raised failures at the patient, extension, custom-field and audit rows leave nothing behind on H2 and physical MariaDB, and the installed REST update is checked end to end. Other manager acceptance and source-scope gaps are not waived.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/managers/DemographicManagerUnitTest.java",
-        "scripts/audit-log-chart-read-playwright-checks.js"
+        "scripts/audit-log-chart-read-playwright-checks.js",
+        "src/test/java/io/github/carlos_emr/carlos/managers/DemographicUpdateDaoTransactionIntegrationTest.java",
+        "scripts/demographic-rest-update-atomicity-playwright-checks.js"
       ],
       "checks": [
         "java-all",
-        "packaged-full"
+        "packaged-full",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
       ],
       "workstreams": [
+        "T04",
         "T23",
         "T39"
       ]

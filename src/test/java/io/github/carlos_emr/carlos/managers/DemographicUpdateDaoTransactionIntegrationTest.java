@@ -144,6 +144,12 @@ class DemographicUpdateDaoTransactionIntegrationTest {
             this.actor = actor;
         }
 
+        /** Built without a DAO, as legacy callers do: the resource then asks the application for it. */
+        Resource(LoggedInInfo actor) {
+            super(mock(CdsLegacyProjectionService.class));
+            this.actor = actor;
+        }
+
         @Override
         protected LoggedInInfo getLoggedInInfo() {
             return actor;
@@ -216,10 +222,7 @@ class DemographicUpdateDaoTransactionIntegrationTest {
         ReflectionTestUtils.setField(managerTarget, "securityInfoManager", privileges);
         manager = transactional(DemographicManager.class, managerTarget);
 
-        Resource resource = new Resource(patients, actor);
-        ReflectionTestUtils.setField(resource, "securityInfoManager", privileges);
-        ReflectionTestUtils.setField(resource, "demographicManager", manager);
-        api = transactional(Writes.class, resource);
+        api = restApi(new Resource(patients, actor));
     }
 
     @AfterEach
@@ -247,11 +250,11 @@ class DemographicUpdateDaoTransactionIntegrationTest {
 
         manager.updateDemographic(actor, changed);
 
-        assertThat(patientColumn("first_name")).isEqualTo("Changed");
-        assertThat(patientColumn("lastUpdateUser")).as("the update is attributed to the signed-in user").isEqualTo(ACTOR);
+        assertThat(patientFirstName()).isEqualTo("Changed");
+        assertThat(patientUpdatedBy()).as("the update is attributed to the signed-in user").isEqualTo(ACTOR);
         assertThat(archivedPatientRows()).isEqualTo(1);
-        assertThat(archivedPatientColumn("first_name")).as("the archive holds the row as it was").isEqualTo("Original");
-        assertThat(archivedPatientColumn("lastUpdateUser")).isEqualTo(SEEDING_USER);
+        assertThat(archivedFirstName()).as("the archive holds the row as it was").isEqualTo("Original");
+        assertThat(archivedUpdatedBy()).isEqualTo(SEEDING_USER);
         assertThat(extensionValues()).containsExactlyInAnyOrder("demo_cell=555-0199", "hPhoneExt=42");
         assertThat(archivedExtensionValues()).containsExactly("demo_cell=555-0100");
         assertThat(audits(UPDATE_AUDIT)).isEqualTo(auditsBefore + 1);
@@ -366,14 +369,14 @@ class DemographicUpdateDaoTransactionIntegrationTest {
 
         put(data);
 
-        assertThat(patientColumn("first_name")).isEqualTo("Changed");
-        assertThat(patientColumn("lastUpdateUser")).as("the update is attributed to the signed-in user").isEqualTo(ACTOR);
+        assertThat(patientFirstName()).isEqualTo("Changed");
+        assertThat(patientUpdatedBy()).as("the update is attributed to the signed-in user").isEqualTo(ACTOR);
         assertThat(archivedPatientRows()).isEqualTo(1);
-        assertThat(archivedPatientColumn("first_name")).as("the archive holds the row as it was").isEqualTo("Original");
+        assertThat(archivedFirstName()).as("the archive holds the row as it was").isEqualTo("Original");
         assertThat(extensionValues()).containsExactlyInAnyOrder("demo_cell=555-0199", "hPhoneExt=42");
         assertThat(archivedExtensionValues()).containsExactly("demo_cell=555-0100");
-        assertThat(customFieldColumn("cust3")).isEqualTo("Changed alert");
-        assertThat(customFieldColumn("content")).isEqualTo("Changed notes");
+        assertThat(customFieldAlert()).isEqualTo("Changed alert");
+        assertThat(customFieldNotes()).isEqualTo("Changed notes");
         assertThat(archivedCustomFieldAlerts()).as("the previous custom fields are archived, not the new ones")
                 .containsExactly("Original alert");
         assertThat(waitingListNotes("N")).containsExactly("Changed note");
@@ -446,6 +449,57 @@ class DemographicUpdateDaoTransactionIntegrationTest {
 
         assertNothingOfTheUpdateRemains(auditsBefore);
         assertNoCompanionWriteRemains(customFieldAuditsBefore);
+    }
+
+    @Test
+    @DisplayName("should answer 404 and write nothing when the patient does not exist")
+    void shouldAnswerNotFound_whenThePatientDoesNotExist() {
+        long auditsBefore = audits(UPDATE_AUDIT);
+        long customFieldAuditsBefore = audits(CUSTOM_FIELD_AUDIT);
+        int missing = mergedChildId + 1_000_000;
+        when(privileges.hasPrivilege(actor, "_demographic", "u", missing)).thenReturn(true);
+        DemographicTo1 data = restPayload("Changed");
+        data.setDemographicNo(missing);
+
+        assertThatThrownBy(() -> put(data)).isInstanceOfSatisfying(WebApplicationException.class,
+                refusal -> assertThat(refusal.getResponse().getStatus()).isEqualTo(404));
+
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM demographiccust WHERE demographic_no=?", Long.class, missing))
+                .as("custom fields of the missing patient").isZero();
+        assertNothingOfTheUpdateRemains(auditsBefore);
+        assertNoCompanionWriteRemains(customFieldAuditsBefore);
+    }
+
+    @Test
+    @DisplayName("should pass on a failure to lock the patient, before any write")
+    void shouldPropagateALockFailure_beforeAnyWrite() {
+        long auditsBefore = audits(UPDATE_AUDIT);
+        long customFieldAuditsBefore = audits(CUSTOM_FIELD_AUDIT);
+        IllegalStateException storageFailure = new IllegalStateException("Synthetic storage failure");
+        DemographicDao failingRecords = mock(DemographicDao.class);
+        when(failingRecords.findFreshForUpdate(patientId)).thenThrow(storageFailure);
+        Writes failing = restApi(new Resource(failingRecords, actor));
+
+        // Not a concurrency conflict, so it is not turned into a 409: the caller sees the failure itself.
+        assertThatThrownBy(() -> put(failing, restPayload("Changed"))).isSameAs(storageFailure);
+
+        assertNothingOfTheUpdateRemains(auditsBefore);
+        assertNoCompanionWriteRemains(customFieldAuditsBefore);
+    }
+
+    @Test
+    @DisplayName("should lock through the application's DAO when the resource was built without one")
+    void shouldCommitTheUpdate_whenTheResourceWasBuiltWithoutADao() {
+        Writes legacy = restApi(new Resource(actor));
+        DemographicTo1 data = restPayload("Changed");
+        data.getExtras().add(extensionPayload(extensionId, "demo_cell", "555-0199"));
+
+        put(legacy, data);
+
+        assertThat(patientFirstName()).isEqualTo("Changed");
+        assertThat(archivedPatientRows()).isEqualTo(1);
+        assertThat(archivedCustomFieldAlerts()).containsExactly("Original alert");
+        assertThat(extensionValues()).containsExactly("demo_cell=555-0199");
     }
 
     // ------------------------------------------------------------------ fixtures
@@ -534,6 +588,13 @@ class DemographicUpdateDaoTransactionIntegrationTest {
         return contract.cast(factory.getProxy());
     }
 
+    /** The REST resource with this test's manager and privileges, behind its own transaction advice. */
+    private Writes restApi(Resource resource) {
+        ReflectionTestUtils.setField(resource, "securityInfoManager", privileges);
+        ReflectionTestUtils.setField(resource, "demographicManager", manager);
+        return transactional(Writes.class, resource);
+    }
+
     /** The patient as a caller outside any transaction holds it: a detached copy of the stored row. */
     private Demographic storedPatient() {
         return patients.getDemographicById(patientId);
@@ -575,11 +636,16 @@ class DemographicUpdateDaoTransactionIntegrationTest {
         return extension;
     }
 
-    /** Sends the REST update with the waiting-list utility bound to this test's database. */
+    /** Sends the REST update with the application's static bean lookups bound to this test's database. */
     private DemographicTo1 put(DemographicTo1 data) {
+        return put(api, data);
+    }
+
+    private DemographicTo1 put(Writes resource, DemographicTo1 data) {
         try (MockedStatic<SpringUtils> beans = mockStatic(SpringUtils.class)) {
             beans.when(() -> SpringUtils.getBean(WaitingListDao.class)).thenReturn(waitingLists);
-            return api.updateDemographicData(data);
+            beans.when(() -> SpringUtils.getBean(DemographicDao.class)).thenReturn(patients);
+            return resource.updateDemographicData(data);
         }
     }
 
@@ -596,8 +662,8 @@ class DemographicUpdateDaoTransactionIntegrationTest {
     // ------------------------------------------------------------------ committed state
 
     private void assertNothingOfTheUpdateRemains(long auditsBefore) {
-        assertThat(patientColumn("first_name")).as("patient row").isEqualTo("Original");
-        assertThat(patientColumn("lastUpdateUser")).as("patient row attribution").isEqualTo(SEEDING_USER);
+        assertThat(patientFirstName()).as("patient row").isEqualTo("Original");
+        assertThat(patientUpdatedBy()).as("patient row attribution").isEqualTo(SEEDING_USER);
         assertThat(archivedPatientRows()).as("demographicArchive rows").isZero();
         assertThat(extensionValues()).as("demographicExt rows").containsExactly("demo_cell=555-0100");
         assertThat(archivedExtensionValues()).as("demographicExtArchive rows").isEmpty();
@@ -606,30 +672,42 @@ class DemographicUpdateDaoTransactionIntegrationTest {
     }
 
     private void assertNoCompanionWriteRemains(long customFieldAuditsBefore) {
-        assertThat(customFieldColumn("cust3")).as("demographiccust alert").isEqualTo("Original alert");
-        assertThat(customFieldColumn("content")).as("demographiccust notes").isEqualTo("Original notes");
+        assertThat(customFieldAlert()).as("demographiccust alert").isEqualTo("Original alert");
+        assertThat(customFieldNotes()).as("demographiccust notes").isEqualTo("Original notes");
         assertThat(archivedCustomFieldAlerts()).as("demographiccustArchive rows").isEmpty();
         assertThat(waitingListNotes("N")).as("current waiting-list entries").containsExactly("Original note");
         assertThat(waitingListNotes("Y")).as("historical waiting-list entries").isEmpty();
         assertThat(audits(CUSTOM_FIELD_AUDIT)).as("custom-field audit rows").isEqualTo(customFieldAuditsBefore);
     }
 
-    private String patientColumn(String column) {
-        return jdbc.queryForObject("SELECT " + column + " FROM demographic WHERE demographic_no=?", String.class, patientId);
+    private String patientFirstName() {
+        return jdbc.queryForObject("SELECT first_name FROM demographic WHERE demographic_no=?", String.class, patientId);
+    }
+
+    private String patientUpdatedBy() {
+        return jdbc.queryForObject("SELECT lastUpdateUser FROM demographic WHERE demographic_no=?", String.class, patientId);
     }
 
     private long archivedPatientRows() {
         return jdbc.queryForObject("SELECT COUNT(*) FROM demographicArchive WHERE demographic_no=?", Long.class, patientId);
     }
 
-    private String archivedPatientColumn(String column) {
-        return jdbc.queryForObject("SELECT " + column + " FROM demographicArchive WHERE demographic_no=?",
+    private String archivedFirstName() {
+        return jdbc.queryForObject("SELECT first_name FROM demographicArchive WHERE demographic_no=?",
                 String.class, patientId);
     }
 
-    private String customFieldColumn(String column) {
-        return jdbc.queryForObject("SELECT " + column + " FROM demographiccust WHERE demographic_no=?",
+    private String archivedUpdatedBy() {
+        return jdbc.queryForObject("SELECT lastUpdateUser FROM demographicArchive WHERE demographic_no=?",
                 String.class, patientId);
+    }
+
+    private String customFieldAlert() {
+        return jdbc.queryForObject("SELECT cust3 FROM demographiccust WHERE demographic_no=?", String.class, patientId);
+    }
+
+    private String customFieldNotes() {
+        return jdbc.queryForObject("SELECT content FROM demographiccust WHERE demographic_no=?", String.class, patientId);
     }
 
     private List<String> archivedCustomFieldAlerts() {

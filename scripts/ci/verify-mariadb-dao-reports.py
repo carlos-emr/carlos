@@ -145,6 +145,25 @@ REQUIRED_CASES = {
     "DemographicMergeMariaDbIntegrationTest": {
         "shouldRefuseDeniedParticipants_beforeAnyDatabaseOrAuditChange",
     },
+    # Issue #5298: every write of a demographic update, and of the REST update around it, commits
+    # or rolls back together. Each fault and each authorization refusal is a named requirement.
+    "DemographicUpdateDaoTransactionIntegrationTest": {
+        "shouldCommitArchivePatientAndExtensions_whenEveryWriteSucceeds",
+        "shouldLeaveNoArchiveRow_whenThePatientWriteFailsAfterTheArchive",
+        "shouldLeaveNoPartialUpdate_whenALaterExtensionWriteFails",
+        "shouldWriteNothing_whenTheActorMayNotUpdateDemographics",
+        "shouldNotCommitTheUpdate_whenItsAuditRowCannotBeWritten",
+        "shouldLeaveNoCustomFieldArchive_whenTheCustomFieldWriteFails",
+        "shouldRefuseTheStoredRow_whenCustomFieldsWereChangedInPlace",
+        "shouldCommitEveryCompanionWrite_whenTheRestUpdateSucceeds",
+        "shouldRollBackCompanionWrites_whenThePatientWriteFails",
+        "shouldRollBackCompanionWrites_whenALaterExtensionWriteFails",
+        "shouldWriteNothing_whenTheActorMayNotUpdateThisPatient",
+        "shouldWriteNothing_whenTheActorMayNotReadDemographics",
+        "shouldAnswerNotFound_whenThePatientDoesNotExist",
+        "shouldPropagateALockFailure_beforeAnyWrite",
+        "shouldCommitTheUpdate_whenTheResourceWasBuiltWithoutADao",
+    },
     "Growth0To36FormPersistenceIntegrationTest": {
         f"{method}(boolean)[{index}]"
         for method in (
@@ -171,6 +190,8 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 18,**CRITICAL, 
                           "RxFavoriteCopyIntegrationTest": 1,
                           "RxRestPrescriptionRollbackIntegrationTest": 1,
                           "DemographicMergeMariaDbIntegrationTest": 9,
+                          # Selected by the *Dao*IntegrationTest pattern of the generated lane.
+                          "DemographicUpdateDaoTransactionIntegrationTest": 15,
                           UNMERGE_FAMILY: 19,
                           "SiteRenameClockMariaDbIntegrationTest": 8,
                           "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
