@@ -113,6 +113,31 @@ class HttpMethodGuardFilterUnitTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void shouldBlockEditorSave_forSafeMethods(String method) throws Exception {
+        when(request.getMethod()).thenReturn(method);
+        when(request.getRequestURI()).thenReturn("/carlos/eform/editForm");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response).sendError(eq(HttpServletResponse.SC_METHOD_NOT_ALLOWED), anyString());
+        verify(chain, never()).doFilter(request, response);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "POST"})
+    void shouldPreserveEditorAccess_forViewAndPost(String method) throws Exception {
+        when(request.getMethod()).thenReturn(method);
+        when(request.getRequestURI()).thenReturn("POST".equals(method)
+                ? "/carlos/eform/editForm" : "/carlos/eform/efmformmanageredit");
+
+        filter.doFilter(request, response, chain);
+
+        verify(chain).doFilter(request, response);
+        verify(response, never()).sendError(anyInt(), anyString());
+    }
+
     @Nested
     @DisplayName("GET requests to read-only actions")
     class ReadOnlyActions {
@@ -942,6 +967,21 @@ class HttpMethodGuardFilterUnitTest {
         }
 
         @Test
+        @DisplayName("should pass through GET to the Report by Template download, a read of a kept result")
+        void shouldPassThrough_forGetToReportByTemplateDownload() throws Exception {
+            // GenerateOutFiles2Action only reads the result kept for the session (registered as a read gate in
+            // MutatorActionGetRejectionContractUnitTest); it answers 405 itself to methods other than GET/POST.
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/oscarReport/reportByTemplate/generateOutFilesAction");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @Test
         @DisplayName("should pass through HEAD to read-only action")
         void shouldPassThrough_forHeadToReadOnlyAction() throws Exception {
             when(request.getMethod()).thenReturn("HEAD");
@@ -1291,6 +1331,41 @@ class HttpMethodGuardFilterUnitTest {
             verify(chain, never()).doFilter(any(), any());
         }
 
+        @ParameterizedTest
+        @ValueSource(strings = {"GET", "HEAD"})
+        @DisplayName("should block an appointment location change that is not posted")
+        void shouldBlock_forAppointmentLocationDispatch(String httpMethod) throws Exception {
+            // #3982: the Locations tab opens without a dispatch; every dispatch is a change.
+            MockHttpServletResponse res = doFilter(httpMethod, "/appointment/apptLocationSetting", "dispatch", "view");
+
+            assertThat(res.getStatus()).isEqualTo(405);
+            assertThat(res.getHeader("Allow")).isEqualTo("POST");
+            verify(chain, never()).doFilter(any(), any());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"GET", "HEAD"})
+        @DisplayName("should block a key pair creation that is not posted")
+        void shouldBlock_forKeygenCreateKeyName(String httpMethod) throws Exception {
+            // #6055: a cross-site GET naming a service stored a key pair; only the page's form, a POST, may.
+            MockHttpServletResponse res = doFilter(httpMethod, "/admin/ViewKeygenCreateKey",
+                    "name", "FAKE-service", "type", "FAKEPW");
+
+            assertThat(res.getStatus()).isEqualTo(405);
+            assertThat(res.getHeader("Allow")).isEqualTo("POST");
+            verify(chain, never()).doFilter(any(), any());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"view", "modify"})
+        @DisplayName("should pass the Statuses tab opened by its menu link or an old bookmark")
+        void shouldPassThrough_forAppointmentStatusViewDispatch(String dispatch) throws Exception {
+            MockHttpServletResponse res = doFilter("GET", "/appointment/apptStatusSetting", "dispatch", dispatch);
+
+            assertThat(res.getStatus()).isEqualTo(200);
+            verify(chain).doFilter(any(), any());
+        }
+
         @Test
         @DisplayName("should pass the Teleplan Activity List's year archive, which writes nothing")
         void shouldPassThrough_forGenerateTeleplanFileYearArchive() throws Exception {
@@ -1327,7 +1402,8 @@ class HttpMethodGuardFilterUnitTest {
 
         @ParameterizedTest
         @ValueSource(strings = {"/admin/ProviderPrivilege", "/admin/ProviderRole", "/messenger/HandleMessages",
-                "/billing/CA/BC/GenerateTeleplanFile"})
+                "/billing/CA/BC/GenerateTeleplanFile", "/appointment/apptLocationSetting",
+                "/admin/ViewKeygenCreateKey"})
         @DisplayName("should pass a bare GET that only opens the page")
         void shouldPassThrough_forBareGet(String route) throws Exception {
             MockHttpServletResponse res = doFilter("GET", route);

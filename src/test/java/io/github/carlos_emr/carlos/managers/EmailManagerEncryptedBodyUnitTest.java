@@ -5,7 +5,9 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.pdfbox.Loader;
@@ -19,10 +21,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 
+import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
+import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
+import io.github.carlos_emr.carlos.email.core.PdfAttachmentSigningService;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -127,8 +133,86 @@ class EmailManagerEncryptedBodyUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    @DisplayName("should remove the encrypted copy and keep the original when the working directory cannot adopt it")
+    void shouldRemoveEncryptedCopyAndKeepOriginal_whenWorkingDirectoryCannotAdoptIt() throws Exception {
+        Path original = tempDir.resolve("lab-result.pdf");
+        try (PDDocument document = new PDDocument()) {
+            document.addPage(new PDPage());
+            document.save(original.toFile());
+        }
+        byte[] originalBytes = Files.readAllBytes(original);
+
+        EmailData emailData = new EmailData();
+        emailData.setBody("SECURE_NOTICE");
+        emailData.setPassword("FAKE-encryption-passphrase");
+        emailData.setEncryptedMessage("");
+        emailData.setIsAttachmentEncrypted(true);
+        emailData.setAttachments(new ArrayList<>(List.of(
+                new EmailAttachment("lab-result.pdf", original.toString(), DocumentType.DOC, 1))));
+        // A directory that can no longer adopt anything: encryption succeeds, adoption fails.
+        EmailComposeWorkingDirectory closedDirectory = EmailComposeWorkingDirectory.create();
+        closedDirectory.close();
+        emailData.setWorkingDirectory(closedDirectory);
+
+        // Pin where the encrypted copy is written, so the test can see whether it is left behind.
+        Path encryptedCopy = tempDir.resolve("encrypted-copy.pdf");
+        try (MockedStatic<PathValidationUtils> pathValidation =
+                mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
+            pathValidation.when(() -> PathValidationUtils.createSecureTempFile(anyString(), eq(".pdf")))
+                    .thenReturn(encryptedCopy.toFile());
+
+            assertThatThrownBy(() -> createEmailManager().encryptEmail(emailData))
+                    .isInstanceOf(EmailSendingException.class)
+                    .hasMessage("Failed to create encrypted email attachments");
+            pathValidation.verify(() -> PathValidationUtils.createSecureTempFile(anyString(), eq(".pdf")));
+        }
+
+        // The encrypted copy holds the patient's document and nothing adopted it: it must be gone.
+        assertThat(encryptedCopy).doesNotExist();
+        // The source attachment is never touched, and the attachment still names it.
+        assertThat(original).exists();
+        assertThat(Files.readAllBytes(original)).isEqualTo(originalBytes);
+        assertThat(emailData.getAttachments()).singleElement()
+                .satisfies(attachment -> assertThat(attachment.getFilePath()).isEqualTo(original.toString()));
+    }
+
+    @Test
+    @DisplayName("should remove the rendered message body when the working directory cannot adopt it")
+    void shouldRemoveRenderedMessageBody_whenWorkingDirectoryCannotAdoptIt() throws Exception {
+        // The rendered body is the secure message in plain text, written before encryption.
+        Path renderedMessage = tempDir.resolve("emailbody.pdf");
+        try (PDDocument document = new PDDocument()) {
+            document.addPage(new PDPage());
+            document.save(renderedMessage.toFile());
+        }
+
+        EmailData emailData = new EmailData();
+        emailData.setBody("SECURE_NOTICE");
+        emailData.setPassword("FAKE-encryption-passphrase");
+        emailData.setEncryptedMessage("FAKE confidential clinical message");
+        emailData.setAttachments(List.of());
+        // A directory that can no longer adopt anything: rendering succeeds, adoption fails.
+        EmailComposeWorkingDirectory closedDirectory = EmailComposeWorkingDirectory.create();
+        closedDirectory.close();
+        emailData.setWorkingDirectory(closedDirectory);
+
+        try (MockedStatic<ConvertToEdoc> converter = mockStatic(ConvertToEdoc.class)) {
+            converter.when(() -> ConvertToEdoc.saveAsTempPDF(emailData)).thenReturn(renderedMessage);
+
+            assertThatThrownBy(() -> createEmailManager().encryptEmail(emailData))
+                    .isInstanceOf(EmailSendingException.class)
+                    .hasMessage("Failed to create encrypted email message");
+            converter.verify(() -> ConvertToEdoc.saveAsTempPDF(emailData));
+        }
+
+        assertThat(renderedMessage).doesNotExist();
+        assertThat(emailData.getAttachments()).isEmpty();
+    }
+
     private EmailManager createEmailManager() {
         return new EmailManager(
-                mock(EmailConsentResolver.class), mock(EmailSenderFactory.class), mock(SecurityInfoManager.class), mock(OutboundEmailArchiveService.class));
+                mock(EmailConsentResolver.class), mock(EmailSenderFactory.class), mock(SecurityInfoManager.class), mock(OutboundEmailArchiveService.class),
+                mock(PdfAttachmentSigningService.class));
     }
 }

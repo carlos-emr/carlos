@@ -35,6 +35,27 @@
         import="io.github.carlos_emr.carlos.appt.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.AppointmentClipboardValidationException" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.ErrorPageMessage" %>
+<%
+    try {
+        ApptUtil.copyAppointmentIntoSession(request);
+    } catch (AppointmentClipboardValidationException e) {
+        ErrorPageMessage.sendError(request, response, jakarta.servlet.http.HttpServletResponse.SC_CONFLICT,
+                AppointmentClipboardValidationException.MESSAGE_KEY);
+        return;
+    } catch (AppointmentLocationUnavailableException e) {
+        ErrorPageMessage.sendError(request, response, jakarta.servlet.http.HttpServletResponse.SC_CONFLICT,
+                AppointmentLocationUnavailableException.MESSAGE_KEY);
+        return;
+    } catch (IllegalArgumentException e) {
+        // Resolve before writing the success page; an unavailable selection leaves the clipboard alone.
+        ErrorPageMessage.sendError(request, response, jakarta.servlet.http.HttpServletResponse.SC_CONFLICT,
+                "appointment.clipboard.sourceUnavailable");
+        return;
+    }
+%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -54,7 +75,6 @@
             </tr>
         </table>
         <%
-            ApptUtil.copyAppointmentIntoSession(request);
             if (true) {
         %>
         <p>

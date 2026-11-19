@@ -26,7 +26,7 @@ public final class AppointmentEditVersion {
                     appointment.getCreateDateTime(), appointment.getUpdateDateTime(), appointment.getCreator(),
                     appointment.getLastUpdateUser(), appointment.getRemarks(), appointment.getUrgency(),
                     appointment.getReasonCode(), appointment.getCreatorSecurityId(), appointment.getBookingSource(),
-                    mcNumber};
+                    appointment.getLocationCode(), mcNumber};
             for (Object value : values) {
                 if (value == null) {
                     digest.update(ByteBuffer.allocate(Integer.BYTES).putInt(-1).array());

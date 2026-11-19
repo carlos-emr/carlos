@@ -13,7 +13,9 @@
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import java.util.List;
+import java.util.Map;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.commn.dao.OtherIdDAO;
@@ -65,6 +67,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -154,6 +157,10 @@ class DemographicAddRecord2ActionSubmissionUnitTest extends CarlosUnitTestBase {
 
     /** One POST of the Add Demographic form, as the browser sends it (or replays it on reload). */
     private String submit(String token, String lastName) {
+        return submit(token, lastName, Map.of());
+    }
+
+    private String submit(String token, String lastName, Map<String, String> parameters) {
         request = new MockHttpServletRequest();
         request.setSession(session);
         request.setMethod("POST");
@@ -170,12 +177,61 @@ class DemographicAddRecord2ActionSubmissionUnitTest extends CarlosUnitTestBase {
         if (token != null) {
             request.setParameter(FormSubmissionGuard.PARAMETER, token);
         }
+        parameters.forEach(request::setParameter);
         response = new MockHttpServletResponse();
         return new DemographicAddRecord2Action().execute();
     }
 
     private String rendering() {
         return FormSubmissionGuard.issue(session, FormSubmissionGuard.Scope.DEMOGRAPHIC_ADD, null);
+    }
+
+    @Test
+    void shouldSanitizeWaitingListWarning_whenSubmittedIdContainsLineBreaks() {
+        WaitingListDao waitingListDao = mock(WaitingListDao.class);
+        registerMock(WaitingListDao.class, waitingListDao);
+        WaitingList available = mock(WaitingList.class);
+        when(available.getFound()).thenReturn(true);
+        waitingLists.when(WaitingList::getInstance).thenReturn(available);
+        CarlosProperties properties = CarlosProperties.getInstance();
+        String previous = properties.getProperty("DEMOGRAPHIC_WAITING_LIST");
+        properties.setProperty("DEMOGRAPHIC_WAITING_LIST", "true");
+        try (LogCapture logs = LogCapture.forLogger(DemographicAddRecord2Action.class)) {
+            assertThat(submit(rendering(), "FAKE-PW-LOG", Map.of("list_id", "bad\r\nforged")))
+                    .isEqualTo(ActionSupport.SUCCESS);
+            assertThat(logs.events()).filteredOn(event -> event.getLevel() == Level.WARN)
+                    .singleElement().satisfies(event -> {
+                        assertThat(event.getMessage().getFormattedMessage())
+                                .contains("invalid list_id=", "skipping waiting list entry")
+                                .doesNotContain("\r", "\n");
+                        assertThat(event.getThrown()).isNull();
+                    });
+            verifyNoInteractions(waitingListDao);
+        } finally {
+            if (previous == null) {
+                properties.remove("DEMOGRAPHIC_WAITING_LIST");
+            } else {
+                properties.setProperty("DEMOGRAPHIC_WAITING_LIST", previous);
+            }
+        }
+    }
+
+    @Test
+    void shouldSanitizeAdmissionWarning_whenSubmittedProgramContainsLineBreaks() {
+        AdmissionDao admissions = mock(AdmissionDao.class);
+        registerMock(AdmissionDao.class, admissions);
+        try (LogCapture logs = LogCapture.forLogger(DemographicAddRecord2Action.class)) {
+            assertThat(submit(rendering(), "FAKE-PW-LOG", Map.of("rps", "bad\r\nforged")))
+                    .isEqualTo(ActionSupport.SUCCESS);
+            assertThat(logs.events()).filteredOn(event -> event.getLevel() == Level.WARN)
+                    .singleElement().satisfies(event -> {
+                        assertThat(event.getMessage().getFormattedMessage())
+                                .contains("invalid rps=", "skipping admission for demographic 321")
+                                .doesNotContain("\r", "\n");
+                        assertThat(event.getThrown()).isNull();
+                    });
+            verifyNoInteractions(admissions);
+        }
     }
 
     @Test

@@ -77,6 +77,7 @@ class AllergyWsSecurityUnitTest {
             }
         };
 
+        ReflectionTestUtils.setField(service, "projections", org.mockito.Mockito.mock(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class));
         ReflectionTestUtils.setField(service, "allergyManager", allergyManager);
         ReflectionTestUtils.setField(service, "securityInfoManager", securityInfoManager);
     }

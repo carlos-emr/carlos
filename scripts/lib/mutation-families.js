@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+// Modifications by CARLOS Contributors, 2026.
 'use strict';
 /*
  * The mutation families of authz-write-role-matrix and csrf-negative-matrix: for each, how the
@@ -19,8 +20,9 @@
  *                       { overrides, query } that point a replay at `tag`: a new marker text, or
  *                       for a delete another owned appointment. It may open UI first when the
  *                       write needs fresh server state the page would also have (an eForm's
- *                       one-time submission id, a freshly staged Rx card when `write` says the
- *                       replay is the positive control that must write).
+ *                       one-time submission id, a freshly staged Rx card or a new chart note
+ *                       editor when `write` says the replay is the positive control that must
+ *                       write).
  *   cleanup()           removes every owned row and asserts it is gone; the check registers it
  *                       with s.cleanup() before the family writes anything
  *
@@ -51,11 +53,11 @@ const pathIs = (route) => (url) => route.test(url.pathname);
 const assertId = (id, what) => h.assert(/^[1-9]\d*$/.test(String(id)), `${what} is not an owned numeric id`);
 
 /** Insert an owned appointment for the patient (reason/notes carry the text); returns its number. */
-function ownedAppointment(s, { date, start, text }) {
+function ownedAppointment(s, { date, start, text, location = '' }) {
   const no = s.sql.value(`INSERT INTO appointment (provider_no, appointment_date, start_time, end_time, name, demographic_no,
     program_id, notes, reason, location, resources, type, style, billing, status, createdatetime, updatedatetime, creator, remarks, urgency)
     VALUES (${q(s.provider)}, ${q(date)}, ${q(start)}, ADDTIME(${q(start)}, '00:14:00'), ${q(`${s.marker},Workflow`)}, ${s.patient}, 0,
-    ${q(text)}, ${q(text)}, '', '', '', '', '', 't', NOW(), NOW(), ${q(s.provider)}, '', ''); SELECT LAST_INSERT_ID()`);
+    ${q(text)}, ${q(text)}, ${q(location)}, '', '', '', '', 't', NOW(), NOW(), ${q(s.provider)}, '', ''); SELECT LAST_INSERT_ID()`);
   assertId(no, 'The appointment fixture');
   return no;
 }
@@ -147,7 +149,9 @@ function appointmentUpdate(s) {
       if (!popup.isClosed()) await popup.close().catch(() => {});
       return captured;
     },
-    aim: (captured, tag) => ({ overrides: { reason: prefix + tag } }),
+    // The edit form names the appointment version it was rendered from; the UI's own save changed that version, so a replay
+    // carrying it would be refused as stale (HTTP 409). Replays drop it and take the unversioned path, as for demographicVersion.
+    aim: (captured, tag) => ({ overrides: { reason: prefix + tag, appointmentVersion: null } }),
   };
 }
 
@@ -179,7 +183,8 @@ function appointmentDelete(s) {
       if (!popup.isClosed()) await popup.close().catch(() => {});
       return captured;
     },
-    aim: (captured, tag) => ({ overrides: { appointment_no: target(tag) }, query: captured.query.has('appointment_no') ? { appointment_no: target(tag) } : {} }),
+    // A replay is aimed at another owned appointment, whose version the captured form does not hold: drop appointmentVersion.
+    aim: (captured, tag) => ({ overrides: { appointment_no: target(tag), appointmentVersion: null }, query: captured.query.has('appointment_no') ? { appointment_no: target(tag) } : {} }),
   };
 }
 
@@ -243,17 +248,34 @@ function demographicAdd(s) {
   };
 }
 
+/** Delete replay-created support rows only while the workflow still owns its patient. */
+function cleanupReplayPatientSupport(s, tables) {
+  assertId(s.patient, 'The replay patient');
+  const owner = 'demographic_no=? AND last_name=? AND first_name=?';
+  const ownerValues = [s.patient, s.marker, 'Workflow'];
+  // The table/column pairs are literals supplied by the two mutation families below.
+  for (const [table, column] of tables) {
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM demographic WHERE ${owner}`, ownerValues) === '1',
+      'Replay patient ownership changed; retain support rows');
+    s.sql.execute(`DELETE FROM ${table} WHERE ${column}=?
+      AND EXISTS (SELECT 1 FROM demographic WHERE ${owner})`, [s.patient, ...ownerValues]);
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM ${table} WHERE ${column}=?`, [s.patient]) === '0',
+      `Owned replay support rows remain in ${table}`);
+  }
+}
+
 function demographicUpdate(s) {
   const prefix = `${s.marker}-DU-`;
   return {
     key: 'demographic-update', label: 'demographic update (demographic/DemographicUpdate)', route: /\/demographic\/DemographicUpdate$/, kind: 'update',
     table: 'demographic', where: (tag) => `demographic_no=${s.patient} AND city=${q(prefix + tag)}`,
     cleanup() {
-      // runWorkflow removes the owned patient's demographicExt and demographicArchive rows; the
-      // update also archives the extension rows it replaces.
-      s.sql.execute(`DELETE FROM demographicExtArchive WHERE demographic_no=${s.patient}`);
-      h.assert(s.sql.value(`SELECT COUNT(*) FROM demographicExtArchive WHERE demographic_no=${s.patient}`) === '0',
-        'Owned demographicExtArchive rows were not removed');
+      // These rows are created by this family's native update, not by every
+      // workflow. Keep their guarded cleanup local to the replay fixture.
+      cleanupReplayPatientSupport(s, [
+        ['demographicExtArchive', 'demographic_no'], ['demographiccustArchive', 'demographic_no'],
+        ['demographiccust', 'demographic_no'],
+      ]);
     },
     async perform(tag) {
       const master = s.master;
@@ -292,7 +314,7 @@ function demographicUpdate(s) {
 // ---------------------------------------------------------------------------------------------
 // Ontario bill save (both)
 
-function billingOnSave(s) {
+function billingOnSave(s, {configureForm, appointmentLocation = ''} = {}) {
   const prefix = `${s.marker}-BS-`;
   const date = process.env.BILLING_SUBMIT_DATE || '2024-05-06';
   const code = process.env.BILLING_OHIP_CODE || 'A007A';
@@ -301,7 +323,7 @@ function billingOnSave(s) {
   let hour = 8;
   const target = (tag) => {
     if (!targets[tag]) {
-      targets[tag] = ownedAppointment(s, { date, start: `${String(hour).padStart(2, '0')}:30:00`, text: prefix + tag });
+      targets[tag] = ownedAppointment(s, { date, start: `${String(hour).padStart(2, '0')}:30:00`, text: prefix + tag, location: appointmentLocation });
       hour += 1;
     }
     return targets[tag];
@@ -348,6 +370,7 @@ function billingOnSave(s) {
       await page.locator(`input[name="xml_${code}"]:visible`).first().check();
       await page.locator('input[name="dxCode"]').fill(process.env.BILLING_DX_CODE || '250');
       await page.locator('input[name="dxCode"]').dispatchEvent('change');
+      if (configureForm) await configureForm(page);
       await Promise.all([page.waitForURL(/ViewBillingONReview/, { timeout: TIMEOUT }),
         page.locator('#titlesearch input[type="submit"][name="submit"]').click()]);
       await page.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
@@ -409,6 +432,15 @@ function ticklerAdd(s) {
   };
 }
 
+/**
+ * Chart note Save (CaseManagementEntry method=save). The save posts the note form, but WHICH note
+ * it writes is the session's editor (the form bean the last `edit` stored), and the form must name
+ * that editor (noteId) or the action refuses it as a stale form. The UI's own save turns the new
+ * note into a saved one, so a replay that is meant to write first opens a new note editor in the
+ * same chart, as the New Note button does, and carries that editor's identity. A replay that is
+ * meant to be refused is sent as captured with only the note text set to the tag: the note-write
+ * privilege check runs before the editor is read.
+ */
 function chartNoteSave(s) {
   const prefix = `${s.marker}-NS-`;
   const like = q(`%${prefix}%`);
@@ -417,6 +449,7 @@ function chartNoteSave(s) {
     key: 'note-save', label: 'chart note save (CaseManagementEntry)', route: /\/CaseManagementEntry$/, kind: 'create',
     table: 'casemgmt_note', where: (tag) => `demographic_no=${s.patient} AND note LIKE ${q(`%${prefix}${tag}%`)}`,
     cleanup() {
+      cleanupReplayPatientSupport(s, [['eChart', 'demographicNo']]);
       const ids = noteIds();
       ids.forEach(id => assertId(id, 'An owned note'));
       if (ids.length) {
@@ -427,19 +460,51 @@ function chartNoteSave(s) {
       s.sql.execute(`DELETE FROM casemgmt_tmpsave WHERE demographic_no=${s.patient}; DELETE FROM casemgmt_note_lock WHERE demographic_no=${s.patient}`);
       h.assert(noteIds().length === 0, 'Owned chart notes were not removed');
     },
-    async perform(tag) {
+    async perform(tag, {text = `${prefix}${tag} note text`} = {}) {
       const chart = await s.chart();
       const note = chart.locator('textarea[name="caseNote_note"]').first();
       await note.waitFor({ state: 'visible', timeout: TIMEOUT });
       await note.click();
-      await note.fill(`${prefix}${tag} note text`);
+      await note.fill(text);
       return captureInContext(s.context,
-        (url) => this.route.test(url.pathname), () => chart.locator('#saveImg').first().click());
+        (url) => this.route.test(url.pathname), () => chart.locator('#saveImg').first().click(), {
+          acceptRequest:request=>{
+            const form=new URLSearchParams(request.postData()||'');
+            return ['save','ajaxsave'].includes(form.get('method'))
+              && (form.get('caseNote_note')||form.get('noteTxt')||'').replace(/\r\n?/g,'\n')===text.replace(/\r\n?/g,'\n');
+          },
+        });
     },
-    aim(captured, tag) {
+    async aim(captured, tag, { write } = {}) {
       const field = ['caseNote_note', 'noteTxt', 'value'].find(name => captured.body.has(name));
       h.assert(field, 'The captured note save carries no note text field');
-      return { overrides: { [field]: `${prefix}${tag} note text` } };
+      const overrides = { [field]: `${prefix}${tag} note text` };
+      // A refused replay goes as captured: the note-write privilege check answers before the
+      // session's editor is read (CaseManagementEntry2Action.noteSave, requireNoteWriteAccess).
+      if (!write) return { overrides };
+      // A replay that must write needs the editor the form names. The UI's own save made the saved
+      // note the session's editor, so the captured form (rendered while that note was new) is now
+      // a stale form, which the action answers 409 (fullFormNoteLock). The page gets a new editor
+      // from the New Note button, so the replay does too, and names the editor as that page does.
+      const chart = await s.chart();
+      await chart.locator('textarea[name="caseNote_note"]').first().waitFor({ state: 'visible', timeout: TIMEOUT });
+      await chart.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
+      const opened = await captureInContext(s.context, pathIs(this.route), () => chart.locator('#newNoteImg').first().click(), {
+        acceptRequest: (request) => {
+          const form = new URLSearchParams(request.postData() || '');
+          return form.get('method') === 'edit' && form.get('note_edit') === 'new';
+        },
+      });
+      h.assert(opened.status === 200, `Opening a new note editor for the write control answered HTTP ${opened.status}`);
+      for (const name of ['noteId', 'note_edit', 'newNoteIdx']) {
+        if (!captured.body.has(name)) continue;
+        h.assert(opened.body.has(name), `The new note editor's request carries no ${name} to point the replay at`);
+        // nosemgrep: javascript.express.security.audit.remote-property-injection.remote-property-injection -- name iterates a fixed list of form-field names; overrides is a local map read only by this check's replay
+        overrides[name] = opened.body.get(name);
+      }
+      h.assert(/^0\d*$/.test(String(overrides.noteId ?? captured.body.get('noteId') ?? '0')),
+        'The new note editor does not name an unsaved note, so the replay would edit a saved one');
+      return { overrides };
     },
   };
 }
@@ -494,6 +559,7 @@ function rxSave(s) {
       if (notes.length) {
         s.sql.execute(`DELETE FROM casemgmt_note_link WHERE note_id IN (${notes.join(',')});
           DELETE FROM casemgmt_issue_notes WHERE note_id IN (${notes.join(',')});
+          DELETE FROM casemgmt_note_ext WHERE note_id IN (${notes.join(',')});
           DELETE FROM casemgmt_note WHERE demographic_no=${s.patient} AND note_id IN (${notes.join(',')})`);
       }
       s.sql.execute(`DELETE FROM drugReason WHERE demographicNo=${s.patient};
@@ -575,7 +641,7 @@ function allergyAdd(s) {
     aim(captured, tag) {
       const field = ['reactionDescription', 'reaction'].find(name => captured.body.has(name));
       h.assert(field, 'The captured allergy add carries no reaction field');
-      return { overrides: { [field]: prefix + tag } };
+      return { overrides: { [field]: prefix + tag, saveToken: null } };
     },
   };
 }
@@ -584,7 +650,7 @@ function allergyAdd(s) {
  * Provider update (admin/ProviderUpdate) of a provider the check owns: the target is a second
  * throwaway login of the authz fixture (`target` = {providerNo}), so no real provider is edited.
  */
-function providerUpdate(s, { target }) {
+function providerUpdate(s, { target, configureForm }) {
   // provider.team is varchar(20): the run marker's last eight hex digits keep the tag unique.
   const prefix = `PW${s.marker.slice(-8)}`;
   const no = () => q(target.providerNo);
@@ -622,6 +688,7 @@ function providerUpdate(s, { target }) {
       const form = frame.locator('form[name="updatearecord"]');
       h.assert(await form.locator('input[name="provider_no"]').inputValue() === target.providerNo, 'The edit form holds another provider');
       await form.locator('input[name="team"]').fill(prefix + tag);
+      if(configureForm)await configureForm(form);
       const captured = await captureInContext(s.context, pathIs(this.route), () => navigate(form.locator('input[name="subbutton"]')));
       if (admin !== s.schedule && !admin.isClosed()) await admin.close().catch(() => {});
       else await h.gotoApp(s.schedule, s.config.baseUrl, '/provider/providercontrol?displaymode=day&dboperation=searchappointmentday&viewall=1');
@@ -739,7 +806,9 @@ function messengerSend(s) {
       else await h.gotoApp(s.schedule, s.config.baseUrl, '/provider/providercontrol?displaymode=day&dboperation=searchappointmentday&viewall=1');
       return captured;
     },
-    aim: (captured, tag) => ({ overrides: { subject: prefix + tag } }),
+    // The compose form carries a one-send token (FormSubmissionGuard); the UI's own send spent it, so a replay carrying it
+    // would be answered from that first send and write nothing. Replays drop it and take the unguarded path.
+    aim: (captured, tag) => ({ overrides: { subject: prefix + tag, carlosFormSubmission: null } }),
   };
 }
 
@@ -813,7 +882,10 @@ function preventionAdd(s) {
       for (const page of [editor, list]) if (!page.isClosed()) await page.close().catch(() => {});
       return captured;
     },
-    aim: (captured, tag) => ({ overrides: { comments: prefix + tag } }),
+    // AddPrevention2Action only enters PreventionSubmissionGuard when this optional
+    // parameter is present. Omit it for independent replays (the legacy Rh path);
+    // the replay builder still adds/removes the session's separate CSRF token.
+    aim: (captured, tag) => ({ overrides: { comments: prefix + tag, carlosPreventionSubmission: null } }),
   };
 }
 
@@ -851,7 +923,7 @@ function measurementSave(s) {
   };
 }
 
-module.exports = {
+module.exports = { openDaySheet,
   allergyAdd, appointmentAdd, appointmentDelete, appointmentUpdate, billingOnSave, captureInContext, chartNoteSave,
   consultationRequest, demographicAdd, demographicUpdate, eformAdd, futureDate, measurementSave, messengerSend,
   ownedAppointment, preventionAdd, providerUpdate, removeAppointments, rxSave, ticklerAdd,

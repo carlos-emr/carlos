@@ -12,13 +12,20 @@
  * manager returns the owned service's private key (no-store JSON) as base64 PKCS#8 that
  * pairs with the stored public key, and audits the read. Last (fails today): its two
  * buttons must reach routes inside the application context and save/open.
- * Last (pinned to app-findings-log.md finding 163): a GET of admin/ViewKeygenCreateKey that names a
- * service must be refused and register no key pair; the page's own form posts, and the sibling
- * update action refuses GET, but createKey.jsp creates the pair for any request that carries a name.
- * Fixtures: the client is created through the UI; the publicKeys row is seeded with a
- * fresh RSA-2048 pair (Create New Key has no working entry). Cleanup deletes only the
- * marker rows (ServiceClient, publicKeys incl. the one a GET may create, their audit rows) and asserts they are gone.
+ * Key Pair Creation (app-findings-log.md finding 163, #6055): a GET of admin/ViewKeygenCreateKey that
+ * names a service is refused and registers no key pair; a POST without the CSRF token is refused too.
+ * Through the page's own form, the server pair ('oscar') is created once (or refused when the install
+ * already has one), and a service pair is created and downloaded as keyPair.key: the file's private
+ * key pairs with the stored public key, its server public key is the stored one, and the response is
+ * no-store. Creating the same service again is refused on the page and keeps the stored pair. Before
+ * #6055 the page streamed the file and then kept rendering (IllegalStateException on every success),
+ * and its form had an empty action, so CSRFGuard never gave it a token.
+ * Fixtures: the client is created through the UI; the publicKeys row read by the key manager is
+ * seeded with a fresh RSA-2048 pair. Cleanup deletes only the marker rows (ServiceClient, publicKeys
+ * incl. the ones the creation steps and any refused probe may create, their audit rows) and the
+ * server pair only when this run created it and it is unchanged, and asserts they are gone.
  */
+const fs = require('node:fs');
 const crypto = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
@@ -36,19 +43,31 @@ const isClientManage = method => response => {
 
 async function workflow(s) {
   const {sql, marker, provider} = s;
+  const creationOnly = process.env.API_KEYGEN_CREATION_ONLY === 'true';
   const contextPath = new URL(s.config.baseUrl).pathname.replace(/\/+$/, '');
   const clientName = `${marker}-client O'Neil "A&B"`;
   const clientUri = `https://localhost/${marker}/callback`;
   const clientHigh = Number(sql.value('SELECT COALESCE(MAX(id),0) FROM ServiceClient'));
   const ownedClient = `id>${clientHigh} AND name LIKE ${h.sqlString(marker + '%')}`;
   const service = marker;
-  // The service name the GET probe of finding 163 sends; createKey.jsp accepts letters, digits, . _ -
+  // The service names the creation steps send; Key Pair Creation accepts letters, digits, . _ -
   const probeService = `${marker}-get`;
-  const ownedServices = `service IN (${h.sqlString(service)},${h.sqlString(probeService)})`;
-  const keyAudit = `action='read' AND content='PublicKey' AND contentId=${h.sqlString(service)}`;
+  const uiService = `${marker}-ui`;
+  const createdService = uiService;
+  const noCsrfService = `${marker}-nocsrf`;
+  h.assert(/^[a-zA-Z0-9._-]{1,100}$/.test(uiService), 'The run marker does not make a valid service name');
+  const ownedServices = `service IN (${[service, probeService, uiService, noCsrfService].map(h.sqlString).join(',')})`;
+  // The server pair, only when this run created it through the page (its private half, never logged).
+  let createdServerKey = null;
+  const keyAudit = `action='read' AND content='PublicKey' AND contentId IN (${h.sqlString(service)},${h.sqlString(uiService)})`;
   s.cleanup(() => {
     sql.execute(`DELETE FROM ServiceClient WHERE ${ownedClient}; DELETE FROM publicKeys WHERE ${ownedServices};
       DELETE FROM log WHERE ${keyAudit}`);
+    if (createdServerKey) {
+      sql.execute(`DELETE FROM oscarKeys WHERE name='oscar' AND privKey=${h.sqlString(createdServerKey)}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM oscarKeys WHERE name='oscar' AND privKey=${h.sqlString(createdServerKey)}`) === '0',
+        'The server key pair this run created was not removed');
+    }
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM ServiceClient WHERE ${ownedClient})
       + (SELECT COUNT(*) FROM publicKeys WHERE ${ownedServices}) + (SELECT COUNT(*) FROM log WHERE ${keyAudit})`) === '0',
     'Owned REST client, key or audit rows were not removed');
@@ -74,6 +93,7 @@ async function workflow(s) {
   }
   const idle = frame => frame.waitForFunction(() => !window.jQuery || window.jQuery.active === 0, null, {timeout: TIMEOUT});
 
+  async function defaultClientSteps() {
   // ---- REST Clients --------------------------------------------------------
   let clients;
   let clientId;
@@ -153,6 +173,10 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM ServiceClient WHERE id<>${clientId}`) === before, 'Delete removed other clients');
   });
 
+  }
+
+  let keys;
+  async function prepareKeyManager() {
   // ---- Key Pair Generator --------------------------------------------------
   // Seeded the way KeyPairGen stores a pair (unchunked base64 X.509 / PKCS#8 DER):
   // the Create New Key button does not reach its route (asserted last).
@@ -163,7 +187,6 @@ async function workflow(s) {
   sql.execute(`INSERT INTO publicKeys(service,type,pubKey,privateKey) VALUES(${h.sqlString(service)},'FAKEPW',
     ${h.sqlString(publicB64)},${h.sqlString(privateB64)})`);
   h.assert(sql.value(`SELECT COUNT(*) FROM publicKeys WHERE service=${h.sqlString(service)}`) === '1', 'The key fixture was not created');
-  let keys;
   await s.step('choosing the owned service shows its private key as base64 PKCS#8 matching its public key', async () => {
     const fetched = [];
     const listener = response => {
@@ -205,6 +228,81 @@ async function workflow(s) {
     await expectValue(sql, `SELECT COUNT(*)>0 FROM log WHERE ${keyAudit} AND provider_no=${h.sqlString(provider)}`, '1',
       'Reading the private key was not audited');
   });
+  }
+
+  async function creationOnlySteps() {
+    await prepareKeyManager();
+    await s.step('Create Key Pair submits through the native form and the reopened manager returns the generated pair', async () => {
+      await keys.getByRole('button', {name:'Create New Key', exact:true}).click();
+      await keys.locator('#name').waitFor({timeout:TIMEOUT});
+      const unrelated = sql.rows(`SELECT service,type,SHA2(pubKey,256),SHA2(privateKey,256),COALESCE(matchingProfessionalSpecialistId,'')
+        FROM publicKeys WHERE service<>${h.sqlString(createdService)} ORDER BY service`);
+      await keys.locator('#name').fill(createdService);
+      await keys.locator('#selection').selectOption('ALPHA');
+      const [download] = await Promise.all([
+        admin.waitForEvent('download', {timeout: TIMEOUT}),
+        keys.getByRole('button', {name: 'Create Key Pair', exact: true}).click(),
+      ]);
+      h.assert(await download.failure() === null, 'Key creation download failed');
+      const stream = await download.createReadStream();
+      h.assert(stream, 'Key creation produced no readable download');
+      const chunks = [];
+      let length = 0;
+      for await (const chunk of stream) {
+        length += chunk.length;
+        h.assert(length <= 16384, 'Key download exceeded its bounded format');
+        chunks.push(chunk);
+      }
+      const downloaded = Buffer.concat(chunks).toString('utf8');
+      const privateMatch = downloaded.match(/----- Client Private Key -----\s+([A-Za-z0-9+/=]+)\s+------------------------------/);
+      h.assert(downloaded.includes(`-------- Service Name --------\n${createdService}\n`) && privateMatch,
+        'Key creation did not download the owned service and private key');
+      const rows = sql.rows(`SELECT type,pubKey,privateKey FROM publicKeys WHERE service=${h.sqlString(createdService)}`);
+      h.assert(rows.length === 1 && rows[0][0] === 'ALPHA' && rows[0][2] === privateMatch[1],
+        'The creation did not store exactly the downloaded owned key pair');
+      const privateKey = crypto.createPrivateKey({key:Buffer.from(privateMatch[1], 'base64'),format:'der',type:'pkcs8'});
+      const publicKey = crypto.createPublicKey({key:Buffer.from(rows[0][1], 'base64'),format:'der',type:'spki'});
+      h.assert(privateKey.asymmetricKeyType === 'rsa' && privateKey.asymmetricKeyDetails.modulusLength === 2048,
+        'The generated pair does not meet the RSA-2048 contract');
+      const challenge = Buffer.from('FAKE-key-pair-creation-5707');
+      const signature = crypto.sign('sha256', challenge, privateKey);
+      h.assert(crypto.verify('sha256', challenge, publicKey, signature)
+        && !crypto.verify('sha256', Buffer.from('FAKE-tampered-challenge'), publicKey, signature),
+      'Generated public and private keys do not sign and verify the independent challenge');
+      keys = await openSection('Key Pair Generator', '/admin/ViewKeygenKeyManager');
+      await keys.locator('#selectKeyList').waitFor({timeout:TIMEOUT});
+      await idle(keys);
+      await keys.locator('#selectKeyList').selectOption(createdService);
+      await idle(keys);
+      h.assert((await keys.locator('#privateKey').innerText()).trim() === privateMatch[1],
+        'The reopened manager did not return the newly created key');
+      h.assert(JSON.stringify(sql.rows(`SELECT service,type,SHA2(pubKey,256),SHA2(privateKey,256),COALESCE(matchingProfessionalSpecialistId,'')
+        FROM publicKeys WHERE service<>${h.sqlString(createdService)} ORDER BY service`)) === JSON.stringify(unrelated),
+      'Key creation changed an unrelated service');
+    });
+
+    await s.step('repeating the owned service name refuses replacement and preserves every key', async () => {
+      const snapshot = () => JSON.stringify(sql.rows('SELECT service,type,SHA2(pubKey,256),SHA2(privateKey,256) FROM publicKeys ORDER BY service'));
+      const before = snapshot();
+      await keys.getByRole('button', {name:'Create New Key', exact:true}).click();
+      await keys.locator('#name').waitFor({timeout:TIMEOUT});
+      await keys.locator('#name').fill(createdService);
+      await keys.locator('#selection').selectOption('ALPHA');
+      await Promise.all([
+        admin.waitForEvent('framenavigated', {predicate:frame => frame === keys, timeout:TIMEOUT}),
+        keys.getByRole('button', {name:'Create Key Pair', exact:true}).click(),
+      ]);
+      await keys.waitForLoadState('domcontentloaded', {timeout:TIMEOUT});
+      h.assert((await keys.locator('body').innerText()).includes('Key pair has already been created for the service'),
+        'Duplicate key creation did not explain the existing-service refusal');
+      h.assert(snapshot() === before, 'Duplicate key creation replaced or changed stored keys');
+    });
+  }
+
+
+  async function defaultSteps() {
+    await defaultClientSteps();
+    await prepareKeyManager();
   await s.step('the key manager buttons save the matching specialist and open Create New Key in the application', async () => {
     const problems = [];
     const option = keys.locator('#selectProfessionalSpecialistList option:not([value=""])').first();
@@ -263,11 +361,10 @@ async function workflow(s) {
       'A key pair is already registered under the probe service name');
   });
 
-  // Pinned: holds only the assertion finding 163 breaks. The route is the one the Create New Key
-  // button opened in the step above (so it exists and is served by the application); the request is
-  // the same address with a name, sent as a GET. assertRefused requires the application's 403/405 and
-  // an unchanged publicKeys row count together, and never echoes the body (a created key's private
-  // half is in it).
+  // Finding 163 / #6055. The route is the one the Create New Key button opened in the step above (so
+  // it exists and is served by the application); the request is the same address with a name, sent as
+  // a GET. assertRefused requires the application's 403/405 and an unchanged publicKeys row count
+  // together, and never echoes the body (a created key's private half would be in it).
   await s.step('a GET of Create Key that names a service is refused and registers no key pair', async () => {
     const owned = `service=${h.sqlString(probeService)}`;
     const before = sql.value(`SELECT COUNT(*) FROM publicKeys WHERE ${owned}`);
@@ -276,7 +373,123 @@ async function workflow(s) {
     await h.assertRefused(s, {response, table: 'publicKeys', where: owned, before,
       label: 'GET admin/ViewKeygenCreateKey?name='});
   });
+
+  // ---- Key Pair Creation through its form (#6055) ---------------------------
+  const createRoute = h.appUrl(s.config.baseUrl, '/admin/ViewKeygenCreateKey');
+  const isCreatePost = response => response.request().method() === 'POST'
+    && new URL(response.url()).pathname === `${contextPath}/admin/ViewKeygenCreateKey`;
+  async function openCreatePage() {
+    if (new URL(keys.url()).pathname !== `${contextPath}/admin/ViewKeygenCreateKey`) {
+      await keys.goto(createRoute, {timeout: TIMEOUT});
+    }
+    await keys.locator('#name').waitFor({timeout: TIMEOUT});
+  }
+  // Fills the form as an administrator does; `other` picks Other and types it, which reveals its row.
+  async function fillCreateForm(name, {type, other}) {
+    await openCreatePage();
+    await keys.locator('#name').fill(name);
+    if (other !== undefined) {
+      await keys.locator('#selection').selectOption('OTHER');
+      await keys.locator('#OTHER').waitFor({state: 'visible', timeout: TIMEOUT});
+      await keys.locator('#otherType').fill(other);
+    } else {
+      await keys.locator('#selection').selectOption(type);
+    }
+  }
+  // Submits a form whose answer is the page again (a refusal or the server pair's message).
+  async function submitForPage() {
+    const [response] = await Promise.all([
+      admin.waitForResponse(isCreatePost, {timeout: TIMEOUT}),
+      keys.getByRole('button', {name: 'Create Key Pair', exact: true}).click(),
+    ]);
+    h.assert(response.status() === 200, `Create Key Pair answered HTTP ${response.status()}`);
+    await keys.waitForLoadState('domcontentloaded', {timeout: TIMEOUT});
+    await keys.locator('#fail').waitFor({state: 'visible', timeout: TIMEOUT});
+    return {
+      text: (await keys.locator('#fail').innerText()).trim(),
+      red: await keys.locator('#fail .keygen-error').count() === 1,
+    };
+  }
+  const serverKey = () => sql.value(`SELECT COALESCE(MAX(privKey),'') FROM oscarKeys WHERE name='oscar'`);
+
+  await s.step('the server key pair is created once through Key Pair Creation', async () => {
+    const before = serverKey();
+    await fillCreateForm('oscar', {type: 'ALPHA'});
+    const shown = await submitForPage();
+    const after = serverKey();
+    if (before === '') {
+      if (after !== '') createdServerKey = after;
+      h.assert(after !== '' && shown.text === 'CARLOS key pair created successfully' && !shown.red,
+        `Creating the server key pair did not store it and say so (page: ${shown.text})`);
+    } else {
+      h.assert(shown.red && shown.text === 'Failed: The oscar key pair has already been created',
+        `A second server key pair was not refused on the page (page: ${shown.text})`);
+      h.assert(after === before, 'The refused request changed the server key pair');
+    }
+  });
+
+  await s.step('Create Key Pair stores a service pair and downloads it, rendering nothing after the file', async () => {
+    const owned = `service=${h.sqlString(uiService)}`;
+    h.assert(sql.value(`SELECT COUNT(*) FROM publicKeys WHERE ${owned}`) === '0', 'The UI service name is already taken');
+    await fillCreateForm(uiService, {other: 'FAKEPW'});
+    const pageUrl = keys.url();
+    const [download, response] = await Promise.all([
+      admin.waitForEvent('download', {timeout: TIMEOUT}),
+      admin.waitForResponse(isCreatePost, {timeout: TIMEOUT}),
+      keys.getByRole('button', {name: 'Create Key Pair', exact: true}).click(),
+    ]);
+    const headers = response.headers();
+    h.assert(response.status() === 200, `Create Key Pair answered HTTP ${response.status()}`);
+    h.assert(headers['content-disposition'] === 'attachment; filename=keyPair.key'
+      && /no-store/.test(headers['cache-control'] || '') && /^text\/plain/.test(headers['content-type'] || '')
+      && headers['x-content-type-options'] === 'nosniff', 'The key file is not a no-store text/plain attachment');
+    h.assert(download.suggestedFilename() === 'keyPair.key', `The download is named ${download.suggestedFilename()}`);
+    const file = fs.readFileSync(await download.path(), 'utf8');
+    await download.delete();
+    // The whole body is the file: a page rendered after it (the #6055 defect) would follow the last rule.
+    const match = /^-------- Service Name --------\n(.+)\n-{30}\n----- Client Private Key -----\n([A-Za-z0-9+/]+={0,2})\n-{30}\n------ Oscar Public Key ------\n([A-Za-z0-9+/]+={0,2})\n-{30}$/.exec(file);
+    h.assert(match, 'The downloaded key file does not have exactly the three key-file sections');
+    const [, fileService, filePrivate, fileServerPublic] = match;
+    h.assert(fileService === uiService, 'The key file names another service');
+    const rows = sql.rows(`SELECT type,pubKey,privateKey FROM publicKeys WHERE ${owned}`);
+    h.assert(rows.length === 1, 'Exactly one key pair was not stored for the service');
+    const [type, storedPublic, storedPrivate] = rows[0];
+    h.assert(type === 'FAKEPW', 'The typed Other message type was not stored');
+    h.assert(filePrivate === storedPrivate, 'The key file does not carry the stored private key');
+    const privateKey = crypto.createPrivateKey({key: Buffer.from(filePrivate, 'base64'), format: 'der', type: 'pkcs8'});
+    h.assert(privateKey.asymmetricKeyType === 'rsa' && privateKey.asymmetricKeyDetails.modulusLength === 2048,
+      'The created private key is not RSA-2048');
+    h.assert(crypto.createPublicKey(privateKey).export({type: 'spki', format: 'der'}).toString('base64') === storedPublic,
+      'The created private key does not pair with the stored public key');
+    h.assert(fileServerPublic === sql.value(`SELECT pubKey FROM oscarKeys WHERE name='oscar'`),
+      'The key file does not carry the server public key');
+    h.assert(keys.url() === pageUrl && await keys.title() === 'CARLOS - Key Pair Creation',
+      'The download navigated the Key Pair Creation page');
+  });
+
+  await s.step('creating the same service again is refused on the page and keeps the stored pair', async () => {
+    const owned = `service=${h.sqlString(uiService)}`;
+    const before = sql.value(`SELECT privateKey FROM publicKeys WHERE ${owned}`);
+    await fillCreateForm(uiService, {type: 'CML'});
+    const shown = await submitForPage();
+    h.assert(shown.red && shown.text === `Failed: Key pair has already been created for the service '${uiService}'`,
+      `The repeated service was not refused on the page (page: ${shown.text})`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM publicKeys WHERE ${owned}`) === '1'
+      && sql.value(`SELECT privateKey FROM publicKeys WHERE ${owned}`) === before
+      && sql.value(`SELECT type FROM publicKeys WHERE ${owned}`) === 'FAKEPW', 'The refused request changed the stored pair');
+  });
+
+  await s.step('a Create Key Pair POST without the CSRF token is refused and registers no key pair', async () => {
+    const owned = `service=${h.sqlString(noCsrfService)}`;
+    const before = sql.value(`SELECT COUNT(*) FROM publicKeys WHERE ${owned}`);
+    const response = await s.context.request.post(createRoute,
+      {form: {name: noCsrfService, type: 'FAKEPW'}, maxRedirects: 0, failOnStatusCode: false});
+    await h.assertRefused(s, {response, table: 'publicKeys', where: owned, before,
+      label: 'POST admin/ViewKeygenCreateKey without CSRF-TOKEN'});
+  });
+  }
+  await (creationOnly ? creationOnlySteps : defaultSteps)();
 }
 
-if (require.main === module) runWorkflow('admin-api-keygen', workflow, {openPatient: false});
+if (require.main === module) runWorkflow(process.env.API_KEYGEN_CREATION_ONLY === 'true' ? 'admin-keygen-creation' : 'admin-api-keygen', workflow, {openPatient: false});
 module.exports = {workflow};

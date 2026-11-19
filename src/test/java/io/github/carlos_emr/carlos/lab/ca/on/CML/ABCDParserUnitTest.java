@@ -25,8 +25,6 @@ import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import java.io.BufferedReader;
 import java.io.StringReader;
-import java.sql.Connection;
-import java.sql.SQLException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -66,18 +64,54 @@ class ABCDParserUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldPropagateProviderLookupFailure_whenDatabaseUnavailable() throws Exception {
-        Connection connection = mock(Connection.class);
-        when(connection.prepareStatement(anyString())).thenThrow(new SQLException("synthetic failure"));
-        assertThatThrownBy(() -> new ABCDParser().save(connection)).isInstanceOf(SQLException.class);
+        LabRoutingLookupDao lookup = mock(LabRoutingLookupDao.class);
+        registerMock(LabRoutingLookupDao.class, lookup);
+        when(lookup.findCmlProviderIdentifiers()).thenThrow(new jakarta.persistence.PersistenceException("synthetic failure"));
+        assertThatThrownBy(() -> new ABCDParser().save()).isInstanceOf(jakarta.persistence.PersistenceException.class);
         verifyNoInteractions(routing);
     }
 
     @Test
     void shouldAvoidUnmatchedPatientRouting_whenPatientLookupFails() throws Exception {
-        Connection connection = mock(Connection.class);
-        when(connection.prepareStatement(anyString())).thenThrow(new SQLException("synthetic failure"));
-        assertThatThrownBy(() -> new ABCDParser().patientRouteReport("1", "Synthetic", "Test", "F", "20000101", "", connection))
-                .isInstanceOf(IllegalStateException.class).hasCauseInstanceOf(SQLException.class);
+        LabRoutingLookupDao lookup = mock(LabRoutingLookupDao.class);
+        registerMock(LabRoutingLookupDao.class, lookup);
+        when(lookup.findCmlPatients(anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyBoolean()))
+                .thenThrow(new jakarta.persistence.PersistenceException("synthetic failure"));
+        assertThatThrownBy(() -> new ABCDParser().patientRouteReport("1", "Synthetic", "Test", "F", "20000101", "1234567890"))
+                .isInstanceOf(jakarta.persistence.PersistenceException.class);
+        verifyNoInteractions(routing);
+    }
+
+    @Test
+    void shouldLeaveMissingHinUnmatched_withoutCandidateLookup() {
+        LabRoutingLookupDao lookup = mock(LabRoutingLookupDao.class);
+        registerMock(LabRoutingLookupDao.class, lookup);
+        for (String hin : new String[] {null, "", "  ", "UNKNOWN", "unknown"}) {
+            new ABCDParser().patientRouteReport("1", "Synthetic", "Test", "F", "20000101", hin);
+        }
+        verifyNoInteractions(lookup);
+        verify(routing, times(5)).persist(argThat(row -> row instanceof io.github.carlos_emr.carlos.commn.model.PatientLabRouting route && route.getDemographicNo() == 0));
+    }
+
+    @Test
+    void shouldResolveShortDoctorIdentifiers_withoutDroppingExactMatches() {
+        java.util.HashMap<String, String> providers = new java.util.HashMap<>();
+        providers.put("A", "123");
+        providers.put("1234", "456");
+        for (String doctor : new String[] {null, "", "B", "UNKNOWN"}) {
+            assertThat(ABCDParser.resolveProvider(doctor, providers)).isEqualTo("0");
+        }
+        assertThat(ABCDParser.resolveProvider("A", providers)).isEqualTo("123");
+        assertThat(ABCDParser.resolveProvider("1234", providers)).isEqualTo("456");
+        assertThat(ABCDParser.resolveProvider("1234X", providers)).isEqualTo("456");
+    }
+
+    @Test
+    void shouldRejectMalformedPatientRecord_beforeAnyPersistence() {
+        assertThatThrownBy(() -> new ABCDParser().parse(new BufferedReader(
+                new StringReader("A^1^20260925^12:00^1^0^0^\nB^truncated^"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("CML B record must contain exactly 22 fields");
         verifyNoInteractions(routing);
     }
 }

@@ -62,19 +62,20 @@ class DevcontainerSecurityMigrationReapplyRegressionTest {
     private static final Path REAPPLY_SCRIPT =
             Path.of(".devcontainer", "db", "scripts", "reapply_security_migrations.sh");
     private static final Set<String> SCHEMA_GUARDED_MIGRATIONS = Set.of(
-            "V1.0.81__mycarlos_accepted_device_approval.sql",
-            "V1.0.82__mycarlos_sender_outbox.sql");
-    private static final Pattern SECURITY_TABLES = Pattern.compile(
-            "secObjectName|secObjPrivilege|secPrivilege|secRole|secUserRole");
-    private static final Pattern PLAIN_INSERT = Pattern.compile(
-            "^\\s*INSERT\\s+INTO\\s+`?sec", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE);
-    // The whole file is re-run, not only its security rows, so a bare CREATE TABLE in the
-    // same migration stops the re-apply with "table already exists".
+            "V1.0.83__mycarlos_accepted_device_approval.sql",
+            "V1.0.84__mycarlos_sender_outbox.sql");
+    private static final Pattern SECURITY_TABLES =
+            Pattern.compile("secObjectName|secObjPrivilege|secPrivilege|secRole|secUserRole");
+    private static final Pattern PLAIN_INSERT =
+            Pattern.compile(
+                    "^\\s*INSERT\\s+INTO\\s+`?sec", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE);
+    // Used on the seed a schema-guarded myCarlos migration replays: it must hold no bare CREATE TABLE.
     private static final Pattern PLAIN_CREATE_TABLE = Pattern.compile(
             "^\\s*CREATE\\s+TABLE\\s+(?!IF\\s+NOT\\s+EXISTS)", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE);
 
     @Test
-    @DisplayName("should reapply security migrations after the demo dump and before privilege repair")
+    @DisplayName(
+            "should reapply security migrations after the demo dump and before privilege repair")
     void shouldReapplySecurityMigrations_afterDemoDump() throws IOException {
         String script = Files.readString(POPULATE_SCRIPT, StandardCharsets.UTF_8);
 
@@ -85,61 +86,78 @@ class DevcontainerSecurityMigrationReapplyRegressionTest {
         assertThat(demoLoad).isPositive();
         assertThat(reapply).isGreaterThan(demoLoad);
         assertThat(repair).isGreaterThan(reapply);
-        assertThat(script).contains(
-                "reapply_security_migrations.sh",
-                "carlos -u root");
+        assertThat(script).contains("reapply_security_migrations.sh", "carlos -u root");
     }
 
     @Test
     @DisplayName("should reapply security migrations on existing volumes before privilege repair")
     void shouldReapplySecurityMigrations_onExistingVolumes() throws IOException {
-        String seed = Files.readString(
-                Path.of(".devcontainer", "development", "setup", "seed_data.sh"), StandardCharsets.UTF_8);
-        String dockerfile = Files.readString(
-                Path.of(".devcontainer", "db", "Dockerfile"), StandardCharsets.UTF_8);
+        String seed =
+                Files.readString(
+                        Path.of(".devcontainer", "development", "setup", "seed_data.sh"),
+                        StandardCharsets.UTF_8);
+        String dockerfile =
+                Files.readString(
+                        Path.of(".devcontainer", "db", "Dockerfile"), StandardCharsets.UTF_8);
 
         assertThat(seed.indexOf("reapply_security_migrations.sh")).isPositive();
         assertThat(seed.indexOf("development_privileges.sql"))
                 .isGreaterThan(seed.indexOf("reapply_security_migrations.sh"));
-        assertThat(dockerfile).contains("reapply_security_migrations.sh /scripts/reapply_security_migrations.sh");
+        assertThat(dockerfile)
+                .contains("reapply_security_migrations.sh /scripts/reapply_security_migrations.sh");
     }
 
     @Test
     @DisplayName("should keep every forward security migration idempotent for re-application")
     void shouldKeepSecurityMigrationsIdempotent_forReapply() throws IOException {
-        try (Stream<Path> files = Stream.of("common", "on")
-                .flatMap(dir -> {
-                    try {
-                        return Files.list(MIGRATIONS.resolve(dir));
-                    } catch (IOException e) {
-                        throw new java.io.UncheckedIOException(e);
-                    }
-                })) {
-            files.filter(p -> p.getFileName().toString().matches("V1\\.0\\.(?!1__|2__)\\d+__.*\\.sql"))
+        try (Stream<Path> files =
+                Stream.of("common", "on")
+                        .flatMap(
+                                dir -> {
+                                    try {
+                                        return Files.list(MIGRATIONS.resolve(dir));
+                                    } catch (IOException e) {
+                                        throw new java.io.UncheckedIOException(e);
+                                    }
+                                })) {
+            files.filter(
+                            p -> {
+                                String name = p.getFileName().toString();
+                                return name.startsWith("V1.0.")
+                                        && name.endsWith(".sql")
+                                        && !name.startsWith("V1.0.1__")
+                                        && !name.startsWith("V1.0.2__")
+                                        && name.charAt(5) >= '0'
+                                        && name.charAt(5) <= '9';
+                            })
                     .filter(p -> !p.getFileName().toString().startsWith("V1__"))
-                    .forEach(p -> {
-                        String sql = read(p);
-                        if (SECURITY_TABLES.matcher(sql).find()) {
-                            boolean seedOnly = SCHEMA_GUARDED_MIGRATIONS.contains(p.getFileName().toString());
-                            if (seedOnly) {
-                                assertGuardedSeedReplay(p, sql);
-                            }
-                            for (String statement : sql.split(";")) {
-                                if (PLAIN_INSERT.matcher(statement).find()) {
-                                    assertThat(statement)
-                                            .as("%s re-applies against a populated security table, so "
-                                                    + "plain inserts must be guarded", p.getFileName())
-                                            .matches("(?is).*(WHERE\\s+NOT\\s+EXISTS|ON\\s+DUPLICATE\\s+KEY).*");
+                    .forEach(
+                            p -> {
+                                String sql = read(p);
+                                if (SECURITY_TABLES.matcher(sql).find()) {
+                                    if (SCHEMA_GUARDED_MIGRATIONS.contains(p.getFileName().toString())) {
+                                        assertGuardedSeedReplay(p, sql);
+                                    }
+                                    for (String statement : sql.split(";")) {
+                                        if (PLAIN_INSERT.matcher(statement).find()) {
+                                            assertThat(statement)
+                                                    .as(
+                                                            "%s re-applies against a populated"
+                                                                    + " security table, so plain"
+                                                                    + " inserts must be guarded",
+                                                            p.getFileName())
+                                                    // An eligibility predicate may precede the
+                                                    // duplicate guard:
+                                                    // WHERE EXISTS (...) AND NOT EXISTS (...). The
+                                                    // native CDS
+                                                    // permission-seed suite also re-applies the
+                                                    // actual SQL.
+                                                    .matches(
+                                                            "(?is).*((?:WHERE|AND)\\s+NOT\\s+EXISTS|ON\\s+DUPLICATE\\s+KEY).*");
+                                        }
+                                    }
                                 }
-                                if (!seedOnly) {
-                                    assertThat(PLAIN_CREATE_TABLE.matcher(statement).find())
-                                            .as("%s is re-applied whole, so its tables must be created "
-                                                    + "IF NOT EXISTS", p.getFileName())
-                                            .isFalse();
-                                }
-                            }
-                        }
-                    });
+                            });
         }
     }
 

@@ -59,6 +59,8 @@
  * including after a failure.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
@@ -413,7 +415,7 @@ async function searchAndClear(page, messageId, controlId) {
   await messageCheckbox(page, messageId).waitFor({ state: 'visible', timeout: 30000 });
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('messenger-inbox-actions',async({cancellation})=>{
   initMysqlDefaults();
   let browser = null;
   let context = null;
@@ -423,43 +425,57 @@ async function searchAndClear(page, messageId, controlId) {
   try {
     cleanupRows();
 
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+    cancellation?.throwIfCancelled();
 
     await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await ensureMessengerContact(context);
+    cancellation?.throwIfCancelled();
     pass(`provider ${providerNo} is enrolled as a local messenger contact`
       + `${enrolledContactByCheck ? ' (enrolled by this check)' : ' (already enrolled)'}`);
 
     const inbox = await openInboxFromSchedule(context);
+    cancellation?.throwIfCancelled();
     pass('the schedule Msg link opens the messenger inbox');
 
     const messageId = await sendSelfMessage(inbox);
+    cancellation?.throwIfCancelled();
     pass(`message ${messageId} composed from the inbox and delivered as unread`);
 
     const controlId = await sendSelfMessage(inbox, controlSubject, controlBodyText);
+    cancellation?.throwIfCancelled();
     pass(`control message ${controlId} seeded in the same box to scope every bulk action`);
 
     await runBulkAction(inbox, BOX_INBOX, messageId, 'btnRead', STATUS_READ, controlId);
+    cancellation?.throwIfCancelled();
     pass('mark-read applies to the selected message only');
 
     await runBulkAction(inbox, BOX_INBOX, messageId, 'btnUnread', STATUS_NEW, controlId);
+    cancellation?.throwIfCancelled();
     pass('mark-unread returns the selected message to unread');
 
     await searchAndClear(inbox, messageId, controlId);
+    cancellation?.throwIfCancelled();
     pass('inbox search narrows to the message by subject and a fresh load shows the filter cleared');
 
     await runBulkAction(inbox, BOX_INBOX, messageId, 'btnDelete', STATUS_DELETED, controlId);
+    cancellation?.throwIfCancelled();
     pass('archive moves the selected message to the archived status');
 
     await assertArchivedPlacement(inbox, messageId);
+    cancellation?.throwIfCancelled();
     pass('the archived message leaves the inbox and appears in the archived box');
 
     assert(await messageCheckbox(inbox, controlId).count() === 0,
       `the control message ${controlId} followed the archive into the archived box`);
+    cancellation?.throwIfCancelled();
     pass('the unselected control message stayed out of the archived box');
 
     await runBulkAction(inbox, BOX_ARCHIVED, messageId, 'btnUnarchive', STATUS_READ, controlId);
+    cancellation?.throwIfCancelled();
     pass('unarchive restores the message to a readable status');
 
     assertNoPageErrors(recorder);
@@ -481,4 +497,4 @@ async function searchAndClear(page, messageId, controlId) {
       cleanupMysqlDefaults();
     }
   }
-})();
+});

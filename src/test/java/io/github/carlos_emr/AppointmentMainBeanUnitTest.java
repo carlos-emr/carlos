@@ -42,38 +42,10 @@ import static org.mockito.Mockito.mockStatic;
 @Tag("unit")
 @DisplayName("Appointment main bean report query parameters")
 class AppointmentMainBeanUnitTest {
-    private final AppointmentMainBean bean = new AppointmentMainBean();
-
     @Test
-    void shouldRunUnfilteredQuery_whenParametersAreEmpty() throws Exception {
-        assertBoundQuery(new String[0], "SELECT provider_no FROM provider");
-    }
-
-    @Test
-    void shouldBindParameters_whenProviderIsSpecified() throws Exception {
-        assertBoundQuery(new String[]{"999998"}, "SELECT provider_no FROM provider WHERE provider_no=?");
-    }
-
-    private void assertBoundQuery(String[] parameters, String query) throws Exception {
-        bean.doConfigure(new String[][]{{"providers", query}});
-        ResultSet result = mock(ResultSet.class);
-        try (MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
-            jdbc.when(() -> LegacyJdbcQuery.queryResults(query, parameters)).thenReturn(result);
-            assertThat(bean.queryResults(parameters, "providers")).isSameAs(result);
-            jdbc.verify(() -> LegacyJdbcQuery.queryResults(query, parameters));
-        }
-    }
-
-    @Test
-    void shouldUseWildcardQuery_whenFirstParameterIsAsterisk() throws Exception {
-        String query = "SELECT provider_no FROM provider";
-        bean.doConfigure(new String[][]{{"search*", query}, {"providers", "unused"}});
-        ResultSet result = mock(ResultSet.class);
-        try (MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
-            jdbc.when(() -> LegacyJdbcQuery.queryResults(eq(query), any(DBPreparedHandlerParam[].class)))
-                    .thenReturn(result);
-            assertThat(bean.queryResults(new String[]{"*"}, "providers")).isSameAs(result);
-            jdbc.verify(() -> LegacyJdbcQuery.queryResults(query, new DBPreparedHandlerParam[0]));
-        }
+    void shouldExposeNoClinicalCursorApi_forLegacyConfiguration() {
+        assertThat(java.util.Arrays.stream(AppointmentMainBean.class.getMethods())
+                .map(java.lang.reflect.Method::getReturnType).map(Class::getName))
+                .noneMatch(name -> name.startsWith("java.sql.") || name.contains("CaisiResult"));
     }
 }

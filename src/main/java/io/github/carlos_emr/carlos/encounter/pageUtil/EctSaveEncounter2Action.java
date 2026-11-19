@@ -71,9 +71,9 @@ import org.springframework.transaction.PlatformTransactionManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * Saves the legacy encounter editor ({@code encounter/Index2.jsp}, rendered only with the CAISI
- * module and {@code casetoEncounter}) as a new {@code eChart} revision of the submitting chart's
- * patient.
+ * Retired legacy encounter boundary ({@code encounter/Index2.jsp}). The mandatory modern-chart
+ * policy (#4793) refuses non-Exit writes with HTTP 410 before clinical or layout changes. Exit
+ * keeps its layout-only behavior. The historical save implementation below awaits removal in #5599.
  *
  * <p>Issue #4673: this action used to take the patient, the entry metadata and the revision the
  * editor was opened from out of the login-wide {@code EctSessionBean} and the session's
@@ -153,6 +153,15 @@ public class EctSaveEncounter2Action extends ActionSupport {
         return defaultValue;
     }
 
+    /**
+     * Validates the submitted patient and permissions before enforcing legacy-editor retirement.
+     * Non-Exit requests receive HTTP 410 without clinical or layout writes; Exit may persist only
+     * the authenticated provider's layout. Historical revision printing uses separate read routes.
+     *
+     * @return {@code NONE} for a direct refusal, or {@code close} for an accepted Exit
+     * @throws IOException if the servlet response cannot be written
+     * @throws ServletException if forwarding a retained historical response fails
+     */
     @Override
     public String execute() throws IOException, ServletException {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -205,44 +214,70 @@ public class EctSaveEncounter2Action extends ActionSupport {
         // This chart's own entry metadata (provider, user name, visit date), never another window's.
         EctSessionBean entry = EncounterPatientContext.entryOrLoggedIn(request, loggedInInfo, demographicNo);
 
-        Result saved = null;
-        if (!EXIT.equals(button)) {
-            EChart revision = submittedRevision(request, entry, button);
-            if (revisionField == null) {
-                // An editor rendered without its revision (before issue #4673, or a hand-built
-                // request) cannot show that it is current, so it must not overwrite the chart.
+        if (EXIT.equals(button)) {
+            saveLayout(request, entry.providerNo);
+            return "close";
+        }
+        // The modern chart is mandatory (#4793): every legacy write is refused here, after the
+        // authorization, method and identifier checks above and before any clinical or layout
+        // change. The historical write below is unreachable until its removal in #5599.
+        if (CarlosProperties.getInstance().isPropertyActive("AbandonOldChart")) {
+            response.sendError(HttpServletResponse.SC_GONE,
+                    "The legacy encounter editor is retired. Use the modern chart to save notes.");
+            return NONE;
+        }
+        return writeHistoricalRevision(request, response, loggedInInfo, entry,
+                new Submission(demographicNo, button, revisionField, baseRevision, appointmentNo));
+    }
+
+    /** The validated identities of one legacy editor post, parsed before the retirement gate. */
+    private record Submission(String demographicNo, String button, String revisionField, Integer baseRevision,
+                              Integer appointmentNo) { }
+
+    /**
+     * The pre-#4793 revision write: stores the posted text as a new revision of the submitting
+     * patient and answers with the pressed button's page. Kept intact, behind the retirement gate,
+     * for the removal tracked in #5599.
+     */
+    private String writeHistoricalRevision(HttpServletRequest request, HttpServletResponse response,
+                                           LoggedInInfo loggedInInfo, EctSessionBean entry, Submission submission)
+            throws IOException {
+        String button = submission.button();
+        EChart revision = submittedRevision(request, entry, button);
+        if (submission.revisionField() == null) {
+            // An editor rendered without its revision (before issue #4673, or a hand-built
+            // request) cannot show that it is current, so it must not overwrite the chart.
+            return conflict(request, response, revision);
+        }
+        Result saved = revisions.save(Integer.parseInt(submission.demographicNo()), submission.baseRevision(),
+                submission.appointmentNo(), appointmentChange(button), revision, entry.providerNo);
+        switch (saved.outcome()) {
+            case SAVED -> {
+                // The revision is written; the button's result below shows or closes it.
+            }
+            case PATIENT_NOT_FOUND -> {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Patient not found");
+                return NONE;
+            }
+            case FOREIGN_REVISION -> {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "The encounter revision belongs to another chart");
+                return NONE;
+            }
+            case STALE_REVISION, FOREIGN_APPOINTMENT -> {
                 return conflict(request, response, revision);
             }
-            saved = revisions.save(Integer.parseInt(demographicNo), baseRevision, appointmentNo,
-                    appointmentChange(button), revision, entry.providerNo);
-            switch (saved.outcome()) {
-                case SAVED -> {
-                    // The revision is written; the button's result below shows or closes it.
-                }
-                case PATIENT_NOT_FOUND -> {
-                    response.sendError(HttpServletResponse.SC_NOT_FOUND, "Patient not found");
-                    return NONE;
-                }
-                case FOREIGN_REVISION -> {
-                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "The encounter revision belongs to another chart");
-                    return NONE;
-                }
-                case STALE_REVISION, FOREIGN_APPOINTMENT -> {
-                    return conflict(request, response, revision);
-                }
-                default -> throw new IllegalStateException("Unhandled encounter save outcome " + saved.outcome());
-            }
-            LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_ECHART, demographicNo,
-                    request.getRemoteAddr());
-            keepSubmittedVisit(entry, saved, request.getParameter("subject"));
-            // TimeOut.jsp refreshes the schedule that opened the chart when a visit status changed.
-            request.setAttribute("refreshOpener", saved.appointmentUpdated());
+            default -> throw new IllegalStateException("Unhandled encounter save outcome " + saved.outcome());
         }
+        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_ECHART,
+                submission.demographicNo(), request.getRemoteAddr());
+        keepSubmittedVisit(entry, saved, request.getParameter("subject"));
+        // TimeOut.jsp refreshes the schedule that opened the chart when a visit status changed.
+        request.setAttribute("refreshOpener", saved.appointmentUpdated());
 
         saveLayout(request, entry.providerNo);
 
         return switch (button) {
-            case SIGN_SAVE_BILL -> bill(request, loggedInInfo, entry, demographicNo, saved);
+            case SIGN_SAVE_BILL -> bill(request, loggedInInfo, entry, submission.demographicNo(), saved);
             case SIGN_SAVE_EXIT, VERIFY_SIGN -> "success";
             case SAVE, AUTO_SAVE -> {
                 showSavedRevision(request, loggedInInfo, entry, saved.revision(), false);
@@ -252,7 +287,7 @@ public class EctSaveEncounter2Action extends ActionSupport {
                 showSavedRevision(request, loggedInInfo, entry, saved.revision(), true);
                 yield "splitchart";
             }
-            default -> "close";
+            default -> throw new IllegalStateException("Unhandled encounter button " + button);
         };
     }
 

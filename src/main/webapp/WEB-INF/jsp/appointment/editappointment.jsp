@@ -33,6 +33,7 @@
 --%>
 <!DOCTYPE html>
 
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -91,8 +92,11 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentEditConflict" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptData" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationList" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
@@ -114,10 +118,11 @@
 
 <fmt:message key="report.appointmentReceipt.title" var="appointmentReceiptTitle"/>
 <fmt:message key="appointment.editappointment.msgReceiptPending" var="appointmentReceiptPending"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib tagdir="/WEB-INF/tags/appointment" prefix="appt" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%
 
@@ -215,6 +220,11 @@
     boolean caisiEnabled = moduleNames != null && org.apache.commons.lang3.StringUtils.containsIgnoreCase(moduleNames, "Caisi");
     boolean locationEnabled = caisiEnabled && (useProgramLocation != null && useProgramLocation.equals("true"));
 
+    // The Location List replaces the free-text location only while it has an active item and no
+    // site setup (multisite, scheduleSiteID, CAISI programs) is configured; those keep their controls.
+    AppointmentLocationList appointmentLocations = SpringUtils.getBean(AppointmentLocationResolver.class).load();
+    boolean locationMode = appointmentLocations.isLocationMode();
+
     CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
 
 
@@ -288,12 +298,16 @@
         <script src="${pageContext.request.contextPath}/js/checkDate.js"></script>
         <script src="${pageContext.request.contextPath}/js/appointmentPatientLink.js"></script>
         <script src="${pageContext.request.contextPath}/js/appointmentTextBounds.js"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/appointmentLocationSelect.js"></script>
 
         <style>
 
+    html {
+        overscroll-behavior: none;
+    }
+
     :root *:not(h2):not(h4):not(.input-group > .btn) {
         font-size: 12px;
-        overscroll-behavior: none;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         line-height: 1 !important;
@@ -651,7 +665,22 @@
                 CarlosAppointmentPatientLink.rebase(document.EDITAPPT.keyword);
                 document.forms[0].reason.value = "<carlos:encode value='<%= apptObj.getReason() %>' context="javaScriptBlock"/>";
                 document.forms[0].notes.value = "<carlos:encode value='<%= apptObj.getNotes() %>' context="javaScriptBlock"/>";
+                <% if (locationMode) {
+                    // As on the add page: a pasted location is selected by code or by name, and one the
+                    // dropdown cannot select (an item disabled since) is offered as a legacy option.
+                    AppointmentLocationList.Choice pasted = appointmentLocations.pastedChoice(apptObj.getLocationCode(), apptObj.getLocation());
+                %>
+                selectAppointmentLocationCode(document.EDITAPPT.locationCode, "<carlos:encode value='<%= pasted.value() %>' context="javaScriptBlock"/>");
+                <% if (pasted.legacy() != null) { %>
+                <%-- Raw on purpose: the label is encoded for JavaScript below and set as option text, never parsed as HTML. --%>
+                <fmt:message key="appointment.location.legacyOption" var="pastedLegacyLabel"><fmt:param value="<%= pasted.legacy().trim() %>"/></fmt:message>
+                offerLegacyAppointmentLocation(document.EDITAPPT.locationCode, document.EDITAPPT.location,
+                    "<carlos:encode value='<%= pasted.legacy() %>' context="javaScriptBlock"/>",
+                    "<carlos:encode value="${pastedLegacyLabel}" context="javaScriptBlock"/>");
+                <% } %>
+                <% } else { %>
                 document.EDITAPPT.location.value = "<carlos:encode value='<%= apptObj.getLocation() %>' context="javaScriptBlock"/>";
+                <% } %>
                 document.EDITAPPT.resources.value = "<carlos:encode value='<%= apptObj.getResources() %>' context="javaScriptBlock"/>";
                 document.EDITAPPT.type.value = "<carlos:encode value='<%= apptObj.getType() %>' context="javaScriptBlock"/>";
                 if ('<%=apptObj.getUrgency()%>' === 'critical') {
@@ -685,7 +714,9 @@
                 document.forms['EDITAPPT'].duration.value = durSel;
                 document.forms['EDITAPPT'].resources.value = resSel;
                 var loc = document.forms['EDITAPPT'].location;
-                if (loc.nodeName.toUpperCase() === 'SELECT') {
+                if (document.forms['EDITAPPT'].locationCode) {
+                    selectAppointmentLocationByName(document.forms['EDITAPPT'].locationCode, locSel);
+                } else if (loc.nodeName.toUpperCase() === 'SELECT') {
                     for (c = 0; c < loc.length; c++) {
                         if (loc.options[c].innerHTML === locSel) {
                             loc.selectedIndex = c;
@@ -898,6 +929,7 @@
             </div>
         </c:if>
 
+    <div><source:cdsSourceFields demographicNo="${not empty pageScope.appointment ? pageScope.appointment.demographicNo : param.demographic_no}" category="Appointments"/></div>
 
 <div id="editAppointment" >
     <div class="container" >
@@ -1140,15 +1172,16 @@
                 </tr>
                 <tr>
             <td></td><td>
-				<textarea id="reason" class="form-control" name="reason" data-code-point-maxlength="80" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getReason()) %>' context="htmlAttribute"/>" maxlength="80" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getReason():request.getParameter("reason")) %>' context="html"/></textarea>
+				<label for="reason" class="visually-hidden"><fmt:message key="Appointment.formReason"/></label>
+				<textarea id="reason" class="form-control" name="reason" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getReason()) %>' context="htmlAttribute"/>" maxlength="80" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getReason():request.getParameter("reason")) %>' context="html"/></textarea>
 
                     </td>
                 </tr>
                 <tr>
                     <td>
-                        <%-- Only one of the three location controls below is rendered. Each has its own id and
+                        <%-- Only one of the location controls below is rendered. Each has its own id and
                              hidden label so the ids stay unique in this source too; the caption is shared. --%>
-                        <label><fmt:message key="Appointment.formLocation"/>:</label>
+                        <span><fmt:message key="Appointment.formLocation"/>:</span>
                     </td>
                     <td>
                         <%
@@ -1185,7 +1218,7 @@
 		<label for="locationProgram" class="visually-hidden"><fmt:message key="Appointment.formLocation"/></label>
 		<select name="location" id="locationProgram" class="form-select">
                             <%
-                                String location = SafeEncode.forJava(bFirstDisp ? (appt.getLocation()) : (request.getParameter("location") != null ? request.getParameter("location") : ""));
+                                String location = StringUtils.defaultString(bFirstDisp ? appt.getLocation() : request.getParameter("location"));
                                 if (programs != null && !programs.isEmpty()) {
                                     for (Program program : programs) {
                                         String description = StringUtils.isBlank(program.getLocation()) ? program.getName() : program.getLocation();
@@ -1194,9 +1227,23 @@
                             </option>
 
                             <% }
-                            }
-                            %>
+                            } else { %>
+                            <%-- An empty select posts no location. Retain the saved value so an
+                                 empty program setup cannot make Copy/Cut omit or clear it. --%>
+                            <option value="<carlos:encode value='<%= location %>' context="htmlAttribute"/>" selected><% if (location.isEmpty()) { %><fmt:message key="appointment.location.notSpecified"/><% } else { %><carlos:encode value='<%= location %>'/><% } %></option>
+                            <% } %>
                         </select>
+                        <% } else if (locationMode) {
+                            // First display starts from the saved booking; a re-render (patient search,
+                            // refused save) keeps what the form posted, with its legacy text still offered.
+                            AppointmentLocationList.Choice locationChoice = bFirstDisp
+                                    ? appointmentLocations.choiceFor(appt.getLocationCode(), appt.getLocation())
+                                    : AppointmentLocationList.Choice.posted(request.getParameter("locationCode"), request.getParameter("location"));
+                        %>
+		<label for="locationCode" class="visually-hidden"><fmt:message key="Appointment.formLocation"/></label>
+		<appt:locationSelect choices="<%= appointmentLocations.getChoices(locationChoice.code()) %>"
+		                     selected="<%= locationChoice.value() %>" legacy="<%= locationChoice.legacy() %>"
+		                     selectId="locationCode" cssClass="form-select"/>
                         <% } else { %>
 		        <label for="locationText" class="visually-hidden"><fmt:message key="Appointment.formLocation"/></label>
 		        <input type="text" class="form-control" name="location" id="locationText"
@@ -1368,7 +1415,7 @@
                         <label for="notes"><fmt:message key="Appointment.formNotes"/>:</label>
                     </td>
                     <td>
-				<textarea id="notes" name="notes" data-code-point-maxlength="255" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getNotes()) %>' context="htmlAttribute"/>" class="form-control" maxlength="255" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getNotes():request.getParameter("notes")) %>' context="html"/></textarea>
+				<textarea id="notes" name="notes" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getNotes()) %>' context="htmlAttribute"/>" class="form-control" maxlength="65536" data-max-codepoints="32768" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getNotes():request.getParameter("notes")) %>' context="html"/></textarea>
                     </td>
                 </tr>
                 <tr>
@@ -1417,6 +1464,12 @@
                                value="<carlos:encode value='<%= userlastname+", "+userfirstname %>' context="htmlAttribute"/>">
                         <input type="hidden" name="remarks" value="<carlos:encode value='<%= remarks %>' context="htmlAttribute"/>">
                         <input type="hidden" name="appointment_no" value="<carlos:encode value='<%= appointment_no %>' context="htmlAttribute"/>">
+                        <%-- The version of the appointment this form was rendered from. Every write route the form
+                             posts to compares it with the locked row and refuses a form another user's change has
+                             overtaken (AppointmentEditConflict). A redisplay (patient search, a text-length retry)
+                             shows the posted fields again, so it must keep the version those fields came from. --%>
+                        <input type="hidden" name="<%= AppointmentEditConflict.PARAMETER %>"
+                               value="<carlos:encode value='<%= bFirstDisp ? appt.getEditVersion() : StringUtils.defaultString(request.getParameter(AppointmentEditConflict.PARAMETER)) %>' context="htmlAttribute"/>">
                     </div>
                 </div>
                     </td>

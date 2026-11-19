@@ -25,10 +25,12 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: preflight imported medication reconciliation.
  */
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationCompatibilityException;
 import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
 
 import java.io.IOException;
@@ -145,13 +147,15 @@ public final class RxRePrescribe2Action extends ActionSupport {
             return NONE;
         }
         RxPrescriptionData.Prescription p = null;
-        StringBuilder auditStr = new StringBuilder();
+        // The reprint is audited by the script and its medication row ids; the drug names and
+        // instructions it prints are clinical text and are not copied into the audit log.
+        StringBuilder auditStr = new StringBuilder("drugIds=");
         for (int idx = 0; idx < list.size(); ++idx) {
             p = list.get(idx);
             // Preserve every persisted line, including the same drug with different instructions.
             beanRX.getStashList().add(p);
             beanRX.setStashIndex(beanRX.getStashSize() - 1);
-            auditStr.append(p.getAuditString() + "\n");
+            auditStr.append(idx == 0 ? "" : ",").append(p.getDrugId());
         }
 
         // save print date/time to prescription table
@@ -224,13 +228,15 @@ public final class RxRePrescribe2Action extends ActionSupport {
             return NONE;
         }
         RxPrescriptionData.Prescription p = null;
-        StringBuilder auditStr = new StringBuilder();
+        // The reprint is audited by the script and its medication row ids; the drug names and
+        // instructions it prints are clinical text and are not copied into the audit log.
+        StringBuilder auditStr = new StringBuilder("drugIds=");
         for (int idx = 0; idx < list.size(); ++idx) {
             p = list.get(idx);
             // Preserve every persisted line, including the same drug with different instructions.
             beanRX.getStashList().add(p);
             beanRX.setStashIndex(beanRX.getStashSize() - 1);
-            auditStr.append(p.getAuditString() + "\n");
+            auditStr.append(idx == 0 ? "" : ",").append(p.getDrugId());
         }
         // p("auditStr "+auditStr.toString());
         // save print date/time
@@ -282,6 +288,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
         try {
             RxPrescriptionData rxData = new RxPrescriptionData();
 
+            List<Prescription> reviewedSources = new ArrayList<>();
             for (String rawDrugId : drugList.split(",")) {
                 int drugId = parseLegacyDrugId(rawDrugId);
                 if (drugId < 0) {
@@ -290,13 +297,22 @@ public final class RxRePrescribe2Action extends ActionSupport {
                 // get original drug
                 RxPrescriptionData.Prescription oldRx = rxData.getPrescription(drugId);
                 if (isOwnedByBeanPatient(oldRx, beanRX)) {
-                    auditStr.append(stageLegacyCopy(loggedInInfo, beanRX, rxData, drugId, oldRx));
+                    oldRx.requireSafeImportedRenewal();
+                    reviewedSources.add(oldRx);
                 } else {
                     logger.warn("Skipped re-prescribe of a drug that does not belong to the Rx window's patient");
                 }
             }
+            for (Prescription source : reviewedSources) {
+                auditStr.append(stageLegacyCopy(loggedInInfo, beanRX, rxData, source.getDrugId(), source));
+            }
+        } catch (CdsMedicationCompatibilityException review) {
+            response.sendError(HttpServletResponse.SC_CONFLICT, review.getMessage());
+            return NONE;
         } catch (Exception e) {
             logger.error("Unexpected error occurred. ({})", e.getClass().getSimpleName());
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
         }
 
         return SUCCESS;
@@ -576,6 +592,9 @@ public String saveDigitalSignature() throws IOException {
             rx.setDiscontinuedLatest(RxUtil.checkDiscontinuedBefore(rx));
             stageReRxCopy(loggedInInfo, bean, rx, drugId, new ArrayList<>());
 
+        } catch (CdsMedicationCompatibilityException review) {
+            response.sendError(HttpServletResponse.SC_CONFLICT, review.getMessage());
+            return NONE;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error staging prescription ({})", e.getClass().getSimpleName());
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
@@ -656,6 +675,9 @@ public String saveDigitalSignature() throws IOException {
 
             // RxUtil.printStashContent(beanRX);
             request.setAttribute("listRxDrugs", listReRx);
+        } catch (CdsMedicationCompatibilityException review) {
+            response.sendError(HttpServletResponse.SC_CONFLICT, review.getMessage());
+            return NONE;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error staging prescription ({})", e.getClass().getSimpleName());
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
@@ -713,16 +735,31 @@ public String saveDigitalSignature() throws IOException {
         List<Integer> listLongTermMed = longTermDrugIds(caseManagementManager, loggedInInfo, demoNo, showall);
 
 
+        RxPrescriptionData rxData = new RxPrescriptionData();
+        List<Prescription> reviewedLongTermSources = new ArrayList<>();
+        try {
+            for (Integer sourceId : listLongTermMed) {
+                Prescription source = rxData.getPrescription(sourceId);
+                if (!isOwnedByBeanPatient(source, beanRX)) {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                    return NONE;
+                }
+                source.requireSafeImportedRenewal();
+                reviewedLongTermSources.add(source);
+            }
+        } catch (CdsMedicationCompatibilityException review) {
+            response.sendError(HttpServletResponse.SC_CONFLICT, review.getMessage());
+            return NONE;
+        }
         List<RxPrescriptionData.Prescription> listLongTerm = new ArrayList<Prescription>();
-        for (int i = 0; i < listLongTermMed.size(); i++) {
+        for (int i = 0; i < reviewedLongTermSources.size(); i++) {
             Long rand = RxStashIds.nextUnique(beanRX, RxStashIds.DEFAULT_BOUND);
 
             // loop this
             int drugId = listLongTermMed.get(i);
 
             // get original drug
-            RxPrescriptionData rxData = new RxPrescriptionData();
-            RxPrescriptionData.Prescription oldRx = rxData.getPrescription(drugId);
+            RxPrescriptionData.Prescription oldRx = reviewedLongTermSources.get(i);
 
             // create copy of Prescription
             RxPrescriptionData.Prescription rx = rxData.newPrescription(beanRX.getProviderNo(), beanRX.getDemographicNo(), oldRx);
@@ -820,11 +857,15 @@ public String saveDigitalSignature() throws IOException {
             for (String drugId : reRxDrugList) {
                 Prescription source = rxData.getPrescriptionIfPresent(Integer.parseInt(drugId));
                 if (isOwnedByBeanPatient(source, bean)) {
+                    source.requireSafeImportedRenewal();
                     sources.add(source);
                 } else {
                     logger.warn("Skipped re-prescribe of a missing drug or one not owned by the Rx window's patient");
                 }
             }
+        } catch (CdsMedicationCompatibilityException review) {
+            response.sendError(HttpServletResponse.SC_CONFLICT, review.getMessage());
+            return NONE;
         } catch (RuntimeException e) {
             logger.error("Unable to load the re-prescribe selection ({})", e.getClass().getSimpleName());
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);

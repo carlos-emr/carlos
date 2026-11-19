@@ -28,13 +28,27 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%
+    String[] patientParameters = request.getParameterValues("demographic_no");
+    String demographic_no = patientParameters != null && patientParameters.length == 1 ? patientParameters[0] : null;
+    try {
+        if (demographic_no == null || !demographic_no.matches("[1-9][0-9]{0,9}")
+                || Integer.parseInt(demographic_no) < 1) {
+            response.sendError(400);
+            return;
+        }
+    } catch (NumberFormatException invalidPatient) {
+        response.sendError(400);
+        return;
+    }
+%>
 <!DOCTYPE html>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <% long startTime = System.currentTimeMillis(); %>
 <%@ page
-        import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*,java.net.*" %>
-<%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@ page import="org.springframework.web.context.WebApplicationContext" %>
+        import="java.util.*, io.github.carlos_emr.carlos.prevention.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*, java.net.*" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao,io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetDrugDao,io.github.carlos_emr.carlos.commn.model.FlowSheetDrug" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
@@ -49,17 +63,18 @@
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.Prevention" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -84,7 +99,6 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
 
 <%
-    String demographic_no = request.getParameter("demographic_no");
     String providerNo = (String) session.getAttribute("user");
     boolean printView = false;
     String date = UtilDateUtilities.getToday("yyyy-MM-dd");
@@ -752,10 +766,20 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
                     String prevType = (String) h2.get("prevention_type");
                     long startPrevType = System.currentTimeMillis();
-                    ArrayList<Map<String, Object>> alist = PreventionData.getPreventionData(LoggedInInfo.getLoggedInInfoFromSession(request), prevType, Integer.valueOf(demographic_no));
-                    // Reverse to display newest first (matching measurements/drugs display order)
-                    // The query returns ASC order for Prevention page compatibility
-                    Collections.reverse(alist);
+                    // A failed read is stated in this section, on the selection page and on the
+                    // printout. A section printed with no rows would go on paper as "never had it".
+                    ArrayList<Map<String, Object>> alist;
+                    boolean preventionUnreadable = false;
+                    try {
+                        alist = PreventionData.getPreventionData(LoggedInInfo.getLoggedInInfoFromSession(request), prevType, Integer.valueOf(demographic_no));
+                        // Reverse to display newest first (matching measurements/drugs display order)
+                        // The query returns ASC order for Prevention page compatibility
+                        Collections.reverse(alist);
+                    } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException unavailable) {
+                        alist = new ArrayList<Map<String, Object>>();
+                        preventionUnreadable = true;
+                        PreventionData.logUnreadable("flowsheet print", Integer.valueOf(demographic_no));
+                    }
                 %>
 
                 <div class="preventionSection" style="<%=hidden%>">
@@ -772,6 +796,11 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                             <span title="<carlos:encode value='<%= String.valueOf(h2.get("guideline")) %>' context="htmlAttribute"/>"><carlos:encode value='<%= String.valueOf(h2.get("display_name")) %>' context="html"/></span>
                         </p>
                     </div><!--headPrevention-->
+                    <% if (preventionUnreadable) { %>
+                    <div class="prevention-unreadable" role="alert" style="color:#842029; font-weight:bold; padding:2px 4px;">
+                        <p><fmt:setBundle basename="oscarResources"/><fmt:message key="prevention.unreadable.message"/></p>
+                    </div>
+                    <% } %>
                     <%
                         out.flush();
                         for (int k = 0; k < alist.size(); k++) {
@@ -807,8 +836,8 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                                     Hashtable dates = (Hashtable) oj;
                                     Date sdate = (Date) dates.get("sdate");
                                     Date edate = (Date) dates.get("edate");
-                                    Date itDate = UtilDateUtilities.StringToDate((String) hdata.get("prevention_date"));
-                                    if (itDate.before(sdate) || itDate.after(edate)) {
+                                    Date itDate = (Date) hdata.get("prevention_date_asDate");
+                                    if (itDate != null && (itDate.before(sdate) || itDate.after(edate))) {
                                         hider = "style=\"display:none\"";
                                     }
                                 }
@@ -817,6 +846,9 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                             if (k > num) {
                                 hider = "style=\"display:none;\"";
                             }
+                            Object preventionDateInfo = hdata.get("prevention_date_info");
+                            if (preventionDateInfo instanceof io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO
+                                    && !((io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO) preventionDateInfo).isExact()) hider = "";
 
                             //////PREV END
                     %>

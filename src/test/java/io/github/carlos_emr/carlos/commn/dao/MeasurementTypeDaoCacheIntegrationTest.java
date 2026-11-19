@@ -38,16 +38,26 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Cache invalidation regression tests for {@link MeasurementTypeDao}. Verifies writes
- * evict the {@code measurementTypes} cache populated by {@code findAll*} read methods.
+ * Cache invalidation and isolation regression tests for {@link MeasurementTypeDao}. Verifies
+ * writes evict the {@code measurementTypes} cache populated by {@code findAll*} read methods,
+ * and that every read returns its own detached copies (issue #5304): changing a returned type,
+ * including its creation date, must not reach another reader, the cached snapshot or the
+ * database.
  */
-@DisplayName("MeasurementTypeDao cache invalidation")
+@DisplayName("MeasurementTypeDao cache invalidation and isolation")
 @Tag("integration")
 @Tag("dao")
 @Tag("cache")
@@ -227,6 +237,81 @@ class MeasurementTypeDaoCacheIntegrationTest extends CarlosTestBase {
                 .isZero();
     }
 
+    @Test
+    @DisplayName("should return independent copies for each findAll variant when served from the cache")
+    void shouldReturnIndependentCopies_forEachFindAllVariantServedFromCache() {
+        MeasurementType seeded = persistSeed();
+        Map<String, Supplier<List<MeasurementType>>> readsByCacheKey = new LinkedHashMap<>();
+        readsByCacheKey.put("allByType", measurementTypeDao::findAll);
+        readsByCacheKey.put("allByName", measurementTypeDao::findAllOrderByName);
+        readsByCacheKey.put("allById", measurementTypeDao::findAllOrderById);
+
+        for (Map.Entry<String, Supplier<List<MeasurementType>>> read : readsByCacheKey.entrySet()) {
+            String key = read.getKey();
+            List<MeasurementType> first = transactionTemplate.execute(status -> read.getValue().get());
+            List<MeasurementType> second = transactionTemplate.execute(status -> read.getValue().get());
+
+            assertThat(second).as(key).isNotSameAs(first);
+            assertThat(findById(second, seeded.getId())).as(key).isNotSameAs(findById(first, seeded.getId()));
+            assertNoSharedInstances(second, cachedList(key));
+            assertThatThrownBy(() -> first.remove(0))
+                    .as("%s must stay unmodifiable", key)
+                    .isInstanceOf(UnsupportedOperationException.class);
+
+            MeasurementType changed = findById(first, seeded.getId());
+            changed.setTypeDescription("mutated-copy");
+            changed.getCreateDate().setTime(0L);
+
+            List<MeasurementType> third = transactionTemplate.execute(status -> read.getValue().get());
+            MeasurementType reread = findById(third, seeded.getId());
+            assertThat(reread.getTypeDescription())
+                    .as("%s: changing one returned type must not change the next read", key)
+                    .isEqualTo("cache-test");
+            assertThat(reread.getCreateDate().getTime())
+                    .as("%s: the creation date is copied, not shared", key)
+                    .isNotZero();
+            MeasurementType snapshot = findById(cachedList(key), seeded.getId());
+            assertThat(snapshot.getTypeDescription()).as(key).isEqualTo("cache-test");
+            assertThat(snapshot.getCreateDate().getTime()).as(key).isNotZero();
+        }
+    }
+
+    @Test
+    @DisplayName("should neither write nor cache a change made to a cache-miss result inside a transaction")
+    void shouldNotWriteOrCacheChange_whenCacheMissResultChangedInsideTransaction() {
+        MeasurementType seeded = persistSeed();
+
+        // Before #5304 a cache miss returned managed entities: this change was flushed to the
+        // database when the transaction committed, and the same instance became the cached value.
+        transactionTemplate.executeWithoutResult(status -> {
+            List<MeasurementType> loaded = measurementTypeDao.findAll();
+            findById(loaded, seeded.getId()).setTypeDescription("changed-in-tx");
+        });
+
+        MeasurementType stored = transactionTemplate.execute(status -> measurementTypeDao.find(seeded.getId()));
+        assertThat(stored.getTypeDescription())
+                .as("a returned type is a detached copy: changing it must not write to the database")
+                .isEqualTo("cache-test");
+        assertThat(findById(cachedList("allByType"), seeded.getId()).getTypeDescription())
+                .as("the cached snapshot must hold what was read, not the caller's later change")
+                .isEqualTo("cache-test");
+    }
+
+    @Test
+    @DisplayName("should not populate the cache when the reading transaction rolls back")
+    void shouldNotPopulateCache_whenReadingTransactionRollsBack() {
+        transactionTemplate.executeWithoutResult(status -> {
+            measurementTypeDao.findAll();
+            measurementTypeDao.findAllOrderByName();
+            measurementTypeDao.findAllOrderById();
+            status.setRollbackOnly();
+        });
+
+        assertThat(cacheEntryCount())
+                .as("cache puts are transaction-aware: a rolled-back read must leave the cache empty")
+                .isZero();
+    }
+
     private MeasurementType persistSeed() {
         MeasurementType seeded = buildMeasurementType();
         transactionTemplate.executeWithoutResult(status -> {
@@ -245,6 +330,42 @@ class MeasurementTypeDaoCacheIntegrationTest extends CarlosTestBase {
         entity.setMeasuringInstruction("test");
         entity.setValidation("numeric");
         return entity;
+    }
+
+    private MeasurementType findById(List<MeasurementType> types, Integer id) {
+        for (MeasurementType type : types) {
+            if (id.equals(type.getId())) {
+                return type;
+            }
+        }
+        throw new AssertionError("Expected measurement type id " + id + " in result list");
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<MeasurementType> cachedList(String key) {
+        org.springframework.cache.Cache cache = cacheManager.getCache(CACHE_NAME);
+        assertThat(cache).isNotNull();
+        org.springframework.cache.Cache.ValueWrapper wrapper = cache.get(key);
+        assertThat(wrapper).as("cache entry %s should be populated", key).isNotNull();
+        return (List<MeasurementType>) wrapper.get();
+    }
+
+    private void assertNoSharedInstances(List<MeasurementType> returned, List<MeasurementType> cached) {
+        Set<Object> cachedInstances = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (MeasurementType cachedType : cached) {
+            cachedInstances.add(cachedType);
+            if (cachedType.getCreateDate() != null) {
+                cachedInstances.add(cachedType.getCreateDate());
+            }
+        }
+        for (MeasurementType returnedType : returned) {
+            assertThat(cachedInstances.contains(returnedType))
+                    .as("returned type %s must not be the cached instance", returnedType.getId())
+                    .isFalse();
+            assertThat(returnedType.getCreateDate() != null && cachedInstances.contains(returnedType.getCreateDate()))
+                    .as("returned type %s must not share the cached creation date", returnedType.getId())
+                    .isFalse();
+        }
     }
 
     private void clearCache() {

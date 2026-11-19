@@ -52,11 +52,11 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="java.sql.*, java.util.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -150,6 +150,8 @@
                 // Only proceed with saves if there were no validation errors
                 if (errorDetails == null) {
                     // Save all preferences atomically - if any fail, all fail
+                    io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod.validate(
+                            request.getParameter("consultation_time_period_warning"));
                     providerPreference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
                     ProviderPropertyAction.updateOrCreateProviderProperties(request);
 

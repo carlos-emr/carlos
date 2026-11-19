@@ -21,7 +21,9 @@
  */
 package io.github.carlos_emr.carlos.documentManager.annotation;
 
+import io.github.carlos_emr.carlos.utility.ContentDigests;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.documentManager.DocumentDescription;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
@@ -180,7 +182,7 @@ public class AnnotatedDocumentService {
                 // The digest is what authorizes this save against the bytes the provider
                 // actually reviewed, so it is compared in constant time rather than with
                 // String.equals, whose early exit leaks how much of a guess matched.
-                String actualDigest = org.apache.commons.codec.digest.DigestUtils.sha256Hex(input);
+                String actualDigest = ContentDigests.sha256Hex(input);
                 if (expectedDigest == null || !MessageDigest.isEqual(
                         actualDigest.getBytes(StandardCharsets.UTF_8),
                         expectedDigest.getBytes(StandardCharsets.UTF_8))) {
@@ -313,7 +315,7 @@ public class AnnotatedDocumentService {
             throw new IllegalArgumentException("This document is too large to annotate.");
         }
         try (var input = Files.newInputStream(file.toPath())) {
-            return org.apache.commons.codec.digest.DigestUtils.sha256Hex(input);
+            return ContentDigests.sha256Hex(input);
         }
     }
 
@@ -415,6 +417,16 @@ public class AnnotatedDocumentService {
     }
 
     /**
+     * The annotated copy's description: the source's description followed by " (annotated)". A
+     * source description that fills {@code document.docdesc} would push the suffix past the column,
+     * where the database cuts it off without a word and the copy reads exactly like its source, so
+     * the source part is shortened to leave the suffix whole.
+     */
+    static String annotatedDescription(String sourceDescription) {
+        return DocumentDescription.fitWithSuffix(StringUtils.trimToEmpty(sourceDescription), ANNOTATED_SUFFIX);
+    }
+
+    /**
      * Copies the filing attributes of the source so the annotated version lands in the same
      * place in the chart. The observation date is carried over deliberately: the clinical
      * date of the underlying report has not changed just because a provider marked it up.
@@ -423,7 +435,7 @@ public class AnnotatedDocumentService {
     private EDoc buildCopy(EDoc source, String fileName, String providerNo, int sourceDocNo, int pageCount) {
         EDoc copy = new EDoc();
         copy.setFileName(fileName);
-        copy.setDescription(StringUtils.trimToEmpty(source.getDescription()) + ANNOTATED_SUFFIX);
+        copy.setDescription(annotatedDescription(source.getDescription()));
         copy.setType(source.getType());
         copy.setDocClass(source.getDocClass());
         copy.setDocSubClass(source.getDocSubClass());

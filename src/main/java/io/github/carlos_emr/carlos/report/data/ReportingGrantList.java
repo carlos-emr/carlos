@@ -63,7 +63,7 @@ final class ReportingGrantList {
     private static final String HEADER =
             "INSERT INTO carlos_report_tables (table_name, access, excluded_columns, reason) VALUES";
     private static final Pattern ROW = Pattern.compile(
-            "^\\('(?<table>[A-Za-z0-9_]+)', '(?<access>reportable|restricted)', "
+            "^\\('(?<table>\\w+)', '(?<access>reportable|restricted)', "
                     + "(?:NULL|'(?<columns>[A-Za-z0-9_,]+)'), "
                     + "(?:NULL|'(?<reason>[^']+)')\\)(?<end>[,;])$");
 

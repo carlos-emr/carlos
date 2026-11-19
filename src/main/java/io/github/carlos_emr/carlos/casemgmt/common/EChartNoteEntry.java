@@ -33,8 +33,6 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 
-import io.github.carlos_emr.carlos.utility.MiscUtils;
-
 public class EChartNoteEntry {
 
     private Object id;
@@ -105,34 +103,17 @@ public class EChartNoteEntry {
     }
 
     public static Comparator<EChartNoteEntry> getDateComparator() {
-        return new Comparator<EChartNoteEntry>() {
-            public int compare(EChartNoteEntry note1, EChartNoteEntry note2) {
-                if (note1 == null || note2 == null) {
-                    return 0;
-                }
-
-                if (note1.getDate() == null || note2.getDate() == null) {
-                    MiscUtils.getLogger().warn("note date is null during compare" + note1.getId() + ":" + note2.getId());
-                    return 0;
-                }
-
-                return note1.getDate().compareTo(note2.getDate());
-            }
-        };
-
+        return dateComparator(true);
     }
 
     public static Comparator<EChartNoteEntry> getDateComparatorDesc() {
-        return new Comparator<EChartNoteEntry>() {
-            public int compare(EChartNoteEntry note1, EChartNoteEntry note2) {
-                if (note1 == null || note2 == null) {
-                    return 0;
-                }
+        return dateComparator(false);
+    }
 
-                return note2.getDate().compareTo(note1.getDate());
-            }
-        };
-
+    /** Unknown source dates remain last in either direction; equal dates retain the input order. */
+    private static Comparator<EChartNoteEntry> dateComparator(boolean ascending) {
+        Comparator<Date> dates = ascending ? Comparator.naturalOrder() : Comparator.reverseOrder();
+        return Comparator.nullsLast(Comparator.comparing(EChartNoteEntry::getDate, Comparator.nullsLast(dates)));
     }
 
     public String toString() {

@@ -58,6 +58,16 @@ import io.github.carlos_emr.carlos.PMmodule.model.Program;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * A tickler search filter. Most callers build one in memory as query criteria for
+ * {@code TicklerDao}; a saved filter is a {@code custom_filter} row with its creator and
+ * assignee provider sets in {@code custom_filter_providers} / {@code custom_filter_assignees}.
+ *
+ * <p><b>Fetch plan (issue #5307).</b> The provider and assignee sets are {@code LAZY}.
+ * Every read {@link io.github.carlos_emr.carlos.commn.dao.CustomFilterDaoImpl} exposes
+ * fetches both sets and the program in a single statement. Load saved filters through that
+ * DAO; a filter loaded any other way and detached has uninitialized sets.</p>
+ */
 @Entity
 @Table(name = "custom_filter")
 public class CustomFilter extends AbstractModel<Integer> {
@@ -98,7 +108,10 @@ public class CustomFilter extends AbstractModel<Integer> {
     @Column(length = 255)
     private String message;
 
-    @OneToMany(fetch = FetchType.EAGER)
+    // LAZY (issue #5307): when these sets were EAGER, every filter row cost two more SELECTs.
+    // CustomFilterDaoImpl join-fetches both sets in every read it exposes, so a filter handed to a
+    // caller outside the DAO transaction is still fully initialized.
+    @OneToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "custom_filter_providers",
             joinColumns =
             @JoinColumn(name = "filter_id", referencedColumnName = "id"),
@@ -108,7 +121,7 @@ public class CustomFilter extends AbstractModel<Integer> {
     private Set<Provider> providers = new HashSet<Provider>();
 
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "custom_filter_assignees",
             joinColumns =
             @JoinColumn(name = "filter_id", referencedColumnName = "id"),
@@ -118,6 +131,11 @@ public class CustomFilter extends AbstractModel<Integer> {
     private Set<Provider> assignees = new HashSet<Provider>();
 
 
+    // Deliberately left EAGER. programId is free text with no foreign key, so it can name a
+    // program that no longer exists; @NotFound(IGNORE) turns that into a null program.
+    // Hibernate always loads such an association eagerly, and as LAZY without @NotFound a
+    // join fetch of a missing program throws FetchNotFoundException. CustomFilterDaoImpl
+    // joins it in the same statement, so it no longer costs a separate SELECT.
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "programId", referencedColumnName = "id", insertable = false, updatable = false)
     @NotFound(action = NotFoundAction.IGNORE)
@@ -145,7 +163,7 @@ public class CustomFilter extends AbstractModel<Integer> {
 
     public void setExcludedDemographicNos(Set<Integer> patientIds) {
         Set<Integer> copy = Set.copyOf(patientIds);
-        if (copy.stream().anyMatch(id -> id <= 0)) throw new IllegalArgumentException("Positive patient exclusions required");
+        if (copy.stream().anyMatch(patientId -> patientId <= 0)) throw new IllegalArgumentException("Positive patient exclusions required");
         this.excludedDemographicNos = copy;
     }
 

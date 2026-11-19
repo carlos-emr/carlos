@@ -40,19 +40,19 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
+
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DrugDao" %>
+
 <%@page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate" %>
-<%@page import="java.util.List" %>
+
 <%@page import="io.github.carlos_emr.carlos.commn.model.Drug" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+
 <%@page import="io.github.carlos_emr.carlos.rx.StaticScriptBean" %>
-<%@page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
+
 
 <%@page import="java.util.ArrayList" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
@@ -339,7 +339,14 @@
                                         </a>
                                         <%}%>
 
-                                        <% if (drug.nonAuthoritative) { %>
+                                        <% if (drug.cdsCurrentness != null) { %>
+                                        <br/>Imported medication state: <carlos:encode value='<%= drug.cdsCurrentness %>' context="html"/>
+                                        <br/>Source non-authoritative indicator: <carlos:encode value='<%= drug.cdsNonAuthoritative == null ? "Unknown" : drug.cdsNonAuthoritative.toString() %>' context="html"/>
+                                        <br/>Source substitution not allowed: <carlos:encode value='<%= drug.cdsSubstitutionNotAllowed == null ? "Unknown" : drug.cdsSubstitutionNotAllowed.toString() %>' context="html"/>
+                                        <% if (!Boolean.FALSE.equals(drug.cdsProjectionIncomplete)) { %>
+                                        <br/>Clinical reconciliation required before renewal; review complete imported medication details.
+                                        <% } %>
+                                        <% } else if (drug.nonAuthoritative) { %>
                                         &nbsp;
                                         <fmt:message key="WriteScript.msgNonAuthoritative"/>
                                         <% } %>

@@ -453,6 +453,36 @@ lock in the JOIN FETCH behaviour against H2. They use
 `entityManager.clear()` after persisting test data to prove that the
 returned entity's collection survives session detachment.
 
+### 6.4 Percentage limits are read by code, never through `BillingService`
+
+`BillingService` (one dated `billingservice` fee row) maps no association.
+Until issue #5307 it carried an EAGER `billingPercLimit` collection with
+`mappedBy = "service_code"`. Because `service_code` is a plain string on
+`BillingPercLimit`, Hibernate joined `billingperclimit.service_code` to the
+fee row's numeric `billingservice_no`. Two things followed:
+
+- every list of fee rows ran one extra `billingperclimit` query per row
+  (21 statements for 20 rows; 1 now);
+- the collection never held the code's limits, so the batch-bill total in
+  `BillingOnHeaderCreationService` never applied a configured min/max.
+
+Percentage limits belong to a service code and are effective-dated. Read the
+limit in effect on the bill's service date with
+`BillingPercLimitDao.findByServiceCodeAndLatestDate(code, serviceDate)`. That
+is what `BillingOnClaimLoader` does for the interactive bill, and what the
+batch-bill total now does. A configured limit the batch cannot apply (a blank,
+non-numeric or negative bound, or a minimum above the maximum) refuses the
+batch with a `BillingValidationException` naming the code, rather than billing
+the percentage unclamped or outside its range. Write them through `ServiceCodePersister`. Do not
+re-map them onto `BillingService`: a limit row is shared by every dated fee
+row of its code, so a cascade from one fee row would be wrong in both
+directions.
+
+Tests: `BillingServiceDaoIntegrationTest$FetchPlan` (statement count, reads
+with limit rows present, detached JSON serialization),
+`BillingOnHeaderCreationServiceIntegrationTest` (clamp by code and service
+date against the real tables), and `FetchPlanMappingUnitTest`.
+
 ## 7 — Services / Loaders / Persisters reference
 
 The service classes cover loaders, parsers/importers, persisters, calculators,

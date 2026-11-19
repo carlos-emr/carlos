@@ -147,7 +147,7 @@ public class DemographicArchive extends AbstractModel<Long> implements Serializa
     @Column(name = "lastUpdateUser")
     private String lastUpdateUser = null;
     @Column(name = "lastUpdateDate")
-    @Temporal(TemporalType.DATE)
+    @Temporal(TemporalType.TIMESTAMP)
     private Date lastUpdateDate = null;
     @Column(name = "middleNames")
     private String middleNames;
@@ -174,6 +174,7 @@ public class DemographicArchive extends AbstractModel<Long> implements Serializa
     }
 
     public DemographicArchive(Demographic demographic) {
+        java.util.Objects.requireNonNull(demographic, "DEMOGRAPHIC_REQUIRED");
         this.address = demographic.getAddress();
         this.alias = demographic.getAlias();
         this.anonymous = demographic.getAnonymous();

@@ -129,6 +129,8 @@ Ontario, Canada
 <%@ page import="io.github.carlos_emr.carlos.appt.JdbcApptImpl" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptData" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationList" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
@@ -141,11 +143,12 @@ Ontario, Canada
 <fmt:message key="Appointment.formNotes" var="appointmentTextNotes"/>
 <fmt:message key="Appointment.formResources" var="appointmentTextResources"/>
 
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib tagdir="/WEB-INF/tags/appointment" prefix="appt" %>
 
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
@@ -227,12 +230,18 @@ Ontario, Canada
     boolean locationEnabled = caisiEnabled && (useProgramLocation != null && useProgramLocation.equals("true"));
 
     ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
+
+    // The Location List replaces the free-text location only while it has an active item and no
+    // site setup (multisite, scheduleSiteID, CAISI programs) is configured; those keep their controls.
+    AppointmentLocationList appointmentLocations = SpringUtils.getBean(AppointmentLocationResolver.class).load();
+    boolean locationMode = appointmentLocations.isLocationMode();
 %>
 
 <html>
     <head>
         <fmt:message key="appointment.type.reason.length.error" var="typeReasonLengthError"/>
         <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/appointmentTypeReason.js"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/appointmentLocationSelect.js"></script>
         <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/dobSearchKeyword.js"></script>
         <fmt:message key="demographic.zdemographicfulltitlesearch.msgDobFormat" var="dobFormatMessage"/>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
@@ -536,7 +545,23 @@ Ontario, Canada
                 document.forms[0].type.value = "<carlos:encode value='<%= apptObj.getType() %>' context="javaScriptBlock"/>";
                 document.forms[0].type.dataset.previousReason = document.forms[0].type.selectedOptions[0]?.dataset.reason || '';
                 document.forms[0].type.dataset.previousType = document.forms[0].type.value;
+                <% if (locationMode) {
+                    // A pasted appointment keeps its location (a cut is a move): its item when the
+                    // dropdown offers it, the active item its typed text names, or otherwise its name
+                    // as a legacy option (an item disabled since), which saves the name without a code.
+                    AppointmentLocationList.Choice pasted = appointmentLocations.pastedChoice(apptObj.getLocationCode(), apptObj.getLocation());
+                %>
+                selectAppointmentLocationCode(document.forms[0].locationCode, "<carlos:encode value='<%= pasted.value() %>' context="javaScriptBlock"/>");
+                <% if (pasted.legacy() != null) { %>
+                <%-- Raw on purpose: the label is encoded for JavaScript below and set as option text, never parsed as HTML. --%>
+                <fmt:message key="appointment.location.legacyOption" var="pastedLegacyLabel"><fmt:param value="<%= pasted.legacy().trim() %>"/></fmt:message>
+                offerLegacyAppointmentLocation(document.forms[0].locationCode, document.forms[0].location,
+                    "<carlos:encode value='<%= pasted.legacy() %>' context="javaScriptBlock"/>",
+                    "<carlos:encode value="${pastedLegacyLabel}" context="javaScriptBlock"/>");
+                <% } %>
+                <% } else { %>
                 document.forms[0].location.value = "<carlos:encode value='<%= apptObj.getLocation() %>' context="javaScriptBlock"/>";
+                <% } %>
                 if ('<carlos:encode value='<%= apptObj.getUrgency() %>' context="javaScriptBlock"/>' == 'critical') {
                     document.forms[0].urgency.checked = "checked";
                 }
@@ -546,7 +571,7 @@ Ontario, Canada
                 statusCode = statusCode.substring(0, 1); //the selector only supports setting the first status
                 document.forms[0].status.value = statusCode;
                 <%}%>
-                <%if("true".equals(pros.getProperty("appointment.paste.location","false"))) {%>
+                <%if(!locationMode && "true".equals(pros.getProperty("appointment.paste.location","false"))) {%>
                 document.forms[0].location.value = "<carlos:encode value='<%= apptObj.getLocation() %>' context="javaScriptBlock"/>";
                 <%}%>
 
@@ -577,7 +602,9 @@ Ontario, Canada
                 document.forms['ADDAPPT'].duration.value = durSel;
                 document.forms['ADDAPPT'].resources.value = resSel;
                 var loc = document.forms['ADDAPPT'].location;
-                if (loc.nodeName === 'SELECT') {
+                if (document.forms['ADDAPPT'].locationCode) {
+                    selectAppointmentLocationByName(document.forms['ADDAPPT'].locationCode, locSel);
+                } else if (loc.nodeName === 'SELECT') {
                     for (c = 0; c < loc.length; c++) {
                         if (loc.options[c].innerHTML == locSel) {
                             loc.selectedIndex = c;
@@ -1207,23 +1234,23 @@ Ontario, Canada
                     <%-- Left column: Date, Time, Duration, Patient, Reason, Location, Creator --%>
                     <div class="col-md-6">
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formDate"/>&nbsp;<span style="color:brown;">(<%=dateString1%>)</span>:</label>
+                            <label class="col-sm-4 col-form-label" for="appointment_date"><fmt:message key="Appointment.formDate"/>&nbsp;<span style="color:brown;">(<%=dateString1%>)</span>:</label>
                             <div class="col-sm-8">
-                                <input type="date" class="form-control form-control-sm" name="appointment_date"
+                                <input type="date" class="form-control form-control-sm" name="appointment_date" id="appointment_date"
                                        value="<%=dateString2%>"
                                        onChange="checkDateTypeIn(this);checkPageLock()">
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formStartTime"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="start_time"><fmt:message key="Appointment.formStartTime"/>:</label>
                             <div class="col-sm-8">
-                                <input type="time" name="start_time" class="form-control form-control-sm"
+                                <input type="time" name="start_time" id="start_time" class="form-control form-control-sm"
                                        value='<carlos:encode value='<%= request.getParameter("start_time") == null ? "" : request.getParameter("start_time") %>' context="htmlAttribute"/>'<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                                        onChange="checkTimeTypeIn(this);checkPageLock();updateTime()">
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formDuration"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="duration"><fmt:message key="Appointment.formDuration"/>:</label>
                             <div class="col-sm-8">
                                 <input type="number" name="duration" id="duration" class="form-control form-control-sm"
                                        value="<carlos:encode value='<%= duration %>' context="htmlAttribute"/>" onChange="checkPageLock()" onblur="calculateEndTime();">
@@ -1290,7 +1317,7 @@ Ontario, Canada
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label" for="reasonCode"><fmt:message key="Appointment.formReason"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="reasonCode" id="apptReasonLabel"><fmt:message key="Appointment.formReason"/>:</label>
                             <div class="col-sm-8">
                                 <select name="reasonCode" id="reasonCode" class="form-select form-select-sm">
                                     <c:choose>
@@ -1328,7 +1355,9 @@ Ontario, Canada
                                     : bMoreAddr ? ApptUtil.getColorFromLocation(props.getProperty("scheduleSiteID", ""), props.getProperty("scheduleSiteColor", ""), loc) : "white";
                         %>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label" for="location" id="apptLocationLabel"><fmt:message key="Appointment.formLocation"/>:</label>
+                            <%-- The label names whichever location control this clinic's setup shows. --%>
+                            <label class="col-sm-4 col-form-label" for="<%= bMultisites ? "location" : locationEnabled ? "locationSite" : locationMode ? "locationCode" : "locationText" %>"
+                                   id="apptLocationLabel"><fmt:message key="Appointment.formLocation"/>:</label>
                             <div class="col-sm-8">
                                 <% if (bMultisites) { %>
                                 <%
@@ -1336,7 +1365,7 @@ Ontario, Canada
                                     java.util.regex.Pattern cssColorPattern = java.util.regex.Pattern.compile("^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$|^[a-zA-Z]+$");
                                     String safeColoAttr = (colo != null && cssColorPattern.matcher(colo).matches()) ? SafeEncode.forHtmlAttribute(colo) : "";
                                 %>
-                                <select id="location" class="form-select form-select-sm" name="location"
+                                <select id="location" class="form-select form-select-sm" name="location" aria-labelledby="apptLocationLabel"
                                         style="background-color: <%=safeColoAttr%>"
                                         onchange='locale()'>
                                     <% for (Site s : sites) {
@@ -1366,6 +1395,19 @@ Ontario, Canada
                                     }
                                     %>
                                 </select>
+                                <% } else if (locationMode) {
+                                    // A re-render (patient search) starts on what the form posted, as an option value.
+                                    // The hidden location field carries a pasted legacy name, which stays offered.
+                                    // The posted item stays offered even if it was disabled meanwhile (marked inactive),
+                                    // so the choice is kept and the save is refused visibly, not dropped silently.
+                                    AppointmentLocationList.Choice postedLocation = AppointmentLocationList.Choice.posted(
+                                            bFirstDisp ? null : request.getParameter("locationCode"),
+                                            bFirstDisp ? null : request.getParameter("location"));
+                                %>
+                                <appt:locationSelect choices="<%= appointmentLocations.getChoices(postedLocation.code()) %>"
+                                                     selected="<%= postedLocation.value() %>" legacy="<%= postedLocation.legacy() %>"
+                                                     selectId="locationCode" labelledBy="apptLocationLabel"
+                                                     cssClass="form-select form-select-sm"/>
                                 <% } else { %>
                                 <input type="text" id="locationText" aria-labelledby="apptLocationLabel" name="location" value="<carlos:encode value='<%= loc != null ? loc : "" %>' context="htmlAttribute"/>" class="form-control form-control-sm">
                                 <% } %>
@@ -1442,9 +1484,9 @@ Ontario, Canada
                             <label class="col-sm-4 col-form-label" for="notes"><fmt:message key="Appointment.formNotes"/>:</label>
                             <div class="col-sm-8">
                                 <fmt:message key="Appointment.formNotes" var="formNotesMsg"/>
-                                <textarea id="notes" class="form-control form-control-sm" name="notes" data-code-point-maxlength="255" rows="2" style="resize:none;"
+                                <textarea id="notes" class="form-control form-control-sm" name="notes" rows="2" style="resize:none;"
                                           placeholder="${carlos:forHtmlAttribute(formNotesMsg)}"
-                                          maxlength="510"><%=bFirstDisp ? "" : SafeEncode.forHtmlContent(StringUtils.defaultString(request.getParameter("notes")))%></textarea>
+                                          maxlength="65536" data-max-codepoints="32768"><%=bFirstDisp ? "" : SafeEncode.forHtmlContent(StringUtils.defaultString(request.getParameter("notes")))%></textarea>
                             </div>
                         </div>
                         <div class="mb-2 row">
@@ -1455,7 +1497,7 @@ Ontario, Canada
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formDateTime"/>:</label>
+                            <span class="col-sm-4 col-form-label"><fmt:message key="Appointment.formDateTime"/>:</span>
                             <div class="col-sm-8">
                                 <%
                                     GregorianCalendar now = new GregorianCalendar();
@@ -1492,10 +1534,10 @@ Ontario, Canada
                         <% String emailReminder = pros.getProperty("emailApptReminder");
                             if ((emailReminder != null) && emailReminder.equalsIgnoreCase("yes")) { %>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formEmailReminder"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="emailPt"><fmt:message key="Appointment.formEmailReminder"/>:</label>
                             <div class="col-sm-8">
                                 <div class="form-check mt-1">
-                                    <input type="checkbox" class="form-check-input" name="emailPt" value="email reminder">
+                                    <input type="checkbox" class="form-check-input" name="emailPt" id="emailPt" value="email reminder">
                                 </div>
                             </div>
                         </div>

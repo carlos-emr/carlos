@@ -34,7 +34,7 @@
 <%@ page import="java.util.Properties" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c"%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
@@ -470,6 +470,9 @@ Properties oscarVariables = CarlosProperties.getInstance();
 							class="xlink" rel='${ctx}/appointment/apptStatusSetting?dispatch=view'
 							title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:message key="admin.admin.appointmentStatusSetting"/></a></li>
 					<% } %>
+					<li><a href="javascript:void(0);"
+						class="xlink" rel='${carlos:forHtmlAttribute(ctx)}/appointment/apptLocationSetting'
+						title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:message key="admin.admin.appointmentLocationSetting"/></a></li>
 		
 					<li><a href="javascript:void(0);" class="xlink" rel='${ctx}/appointment/appointmentTypeAction'><fmt:message key="admin.admin.appointmentTypeList"/></a></li>
 								

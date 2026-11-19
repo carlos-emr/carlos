@@ -25,9 +25,9 @@ import org.apache.xml.security.utils.resolver.ResourceResolverSpi;
  * 
  * <h3>Implementation notes</h3>
  * 
- * - Please note that this resolver is not thread safe and it depends on
- *   {@link AttachmentCachingInterceptor} for initialization of 
- *   attachments within current thread context.
+ * - The globally registered resolver retains no response state. It depends on
+ *   {@link AttachmentCachingInterceptor} for attachments belonging to the current
+ *   response thread; a prior response's collection must never be reused.
  * - It resolves URIs that start with a specific prefix (`cid:urn`), extracting the relevant attachment 
  *   and returning its data stream in an {@link XMLSignatureInput} object for further processing.
  *
@@ -48,8 +48,6 @@ public class AttachmentResolverSpi extends ResourceResolverSpi {
 
 	private static final Logger logger = LoggerFactory.getLogger(AttachmentResolverSpi.class);
 	
-	private Collection<Attachment> attachments;
-
 	/**
 	 * Indicates whether this resource resolver is thread-safe.
 	 * 
@@ -83,33 +81,38 @@ public class AttachmentResolverSpi extends ResourceResolverSpi {
 	@Override
 	public XMLSignatureInput engineResolveURI(ResourceResolverContext context)
 			throws ResourceResolverException {
-		String resourceId = getResourceId(context);
-		
-		if (logger.isInfoEnabled()) {
-			logger.info("Looking up: " + resourceId);
+		String resourceId;
+		try {
+			resourceId = getResourceId(context);
+		} catch (IllegalArgumentException _) {
+			logger.error("EBS attachment URI could not be decoded");
+			throw resolutionFailure(context, "EBS attachment URI could not be decoded");
 		}
 		
 		Attachment attachment = getAttachment(resourceId);
 		
 		if (attachment == null) {
-			logger.error("Unable to resolve attachment for " + resourceId);
-
-			throw new ResourceResolverException(context.uriToResolve, context.attr.getName(), context.baseUri);
+			logger.error("EBS attachment could not be resolved");
+			throw resolutionFailure(context, "EBS attachment could not be resolved");
 		}
 		
-		if (logger.isInfoEnabled()) {
-			logger.info("Found attachment: " + attachment);
-		}
+		logger.debug("EBS attachment resolved");
 		
 		XMLSignatureInput result;
 		try {
 			result = new XMLSignatureStreamInput(attachment.getDataHandler().getInputStream());
-		} catch (IOException e) {
-			logger.error("Unable to create xml signature input", e);
-			
-			throw new ResourceResolverException(context.uriToResolve, context.attr.getName(), context.baseUri);
+		} catch (IOException _) {
+			// Provider I/O messages can contain content IDs, filenames or credentials.
+			logger.error("EBS attachment signature input could not be opened");
+			throw resolutionFailure(context, "EBS attachment signature input could not be opened");
 		}
 		return result;
+	}
+
+	/** Keeps resolver context metadata available without copying it into a logged exception message. */
+	private static ResourceResolverException resolutionFailure(ResourceResolverContext context, String message) {
+		return new ResourceResolverException("generic.EmptyMessage", new Object[]{message},
+				context.uriToResolve, context.baseUri);
 	}
 
 	/**
@@ -121,7 +124,8 @@ public class AttachmentResolverSpi extends ResourceResolverSpi {
 	private String getResourceId(ResourceResolverContext context) {
 		String resourceId = context.uriToResolve;
 		try {
-			resourceId = URLDecoder.decode(resourceId, "UTF-8");
+			// A cid URI is not form data: a literal '+' is part of the Content-ID.
+			resourceId = URLDecoder.decode(resourceId.replace("+", "%2B"), "UTF-8");
 		} catch (UnsupportedEncodingException e1) {
 			throw new RuntimeException("Unable to decode", e1);
 		}
@@ -144,10 +148,6 @@ public class AttachmentResolverSpi extends ResourceResolverSpi {
 		}
 		
 		for (Attachment a : attachments) {
-			if (logger.isDebugEnabled()) {
-				logger.debug("Comparing " + a.getId() + " with " + resourceId);
-			}
-			
 			if (a.getId().equals(resourceId)) {
 				return a;
 			}
@@ -161,10 +161,7 @@ public class AttachmentResolverSpi extends ResourceResolverSpi {
 	 * @return A collection of Attachment objects, or null if none are available.
 	 */
 	protected Collection<Attachment> getAttachments() {
-		if (attachments == null) {
-			attachments = AttachmentCachingInterceptor.getAttachments();
-		}
-		return attachments;
+		return AttachmentCachingInterceptor.getAttachments();
 	}
 
 }

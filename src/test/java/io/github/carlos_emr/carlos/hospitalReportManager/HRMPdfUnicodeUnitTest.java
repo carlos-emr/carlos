@@ -14,6 +14,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 class HRMPdfUnicodeUnitTest extends CarlosUnitTestBase {
+    /** The creator decides patient access before it reads a report; these are filed to no patient. */
+    @org.junit.jupiter.api.BeforeEach
+    void registerAccessCollaborators() {
+        registerMock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class,
+                mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class));
+        registerMock(io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao.class,
+                mock(io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao.class));
+    }
+
     @Test
     void shouldPreserveUnicodeReport_whenPrintingTextHrm() throws Exception {
         var dao = mock(HRMDocumentDao.class);

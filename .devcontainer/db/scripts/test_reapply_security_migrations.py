@@ -24,8 +24,8 @@ import uuid
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = Path(__file__).with_name("reapply_security_migrations.sh")
 MIGRATIONS = (
-    "V1.0.81__mycarlos_accepted_device_approval.sql",
-    "V1.0.82__mycarlos_sender_outbox.sql",
+    "V1.0.83__mycarlos_accepted_device_approval.sql",
+    "V1.0.84__mycarlos_sender_outbox.sql",
 )
 OBJECTS = "('_portal.mycarlos.device_approval','_mycarlos_delivery')"
 

@@ -18,8 +18,10 @@ function session(responses) {
   return {
     config: { baseUrl: new URL('https://localhost/carlos/') },
     context: {
+      cookies: async () => [{ name: 'JSESSIONID', value: 'synthetic', domain: 'localhost', path: '/carlos', expires: -1 }],
       request: {
-        fetch: async () => {
+        fetch: async (url) => {
+          if(new URL(url).pathname.endsWith('/status/SessionHeartbeat'))return {status:()=>200,json:async()=>({valid:true}),dispose:async()=>{}};
           const next = queue.shift();
           return { status: () => next.status, headers: () => next.headers || {}, text: async () => next.body || '' };
         },
@@ -71,6 +73,24 @@ test('shouldAcceptMethodRefusal_when405IsRequiredAndBothVerbsHaveApplicationEvid
     { expect405: true });
   assert.equal(ledger.assertAllRefused(), 1);
 });
+
+test('shouldAcceptMethodRefusal_whenBothVerbsAdvertiseTheRequiredPostMethod', async () => {
+  const headers = { ...APP, allow: 'POST' };
+  const ledger = await run([{ status: 405, headers }, { status: 405, headers }],
+    { expect405: true, expectAllow: 'POST' });
+  assert.equal(ledger.assertAllRefused(), 1);
+});
+
+for (const verb of [0, 1]) {
+  for (const allow of [undefined, 'GET', 'GET, POST']) {
+    test(`shouldRejectMethodRefusal_when${verb === 0 ? 'Get' : 'Head'}Advertises${allow ?? 'NoAllowHeader'}`, async () => {
+      const responses = [0, 1].map(() => ({ status: 405, headers: { ...APP, allow: 'POST' } }));
+      responses[verb].headers.allow = allow;
+      const ledger = await run(responses, { expect405: true, expectAllow: 'POST' });
+      assert.throws(() => ledger.assertAllRefused(), /Allow: .*; expected POST/);
+    });
+  }
+}
 
 test('shouldRejectChangedRows_evenWhenBothVerbsAnswerTheRequired405', async () => {
   let reads = 0;

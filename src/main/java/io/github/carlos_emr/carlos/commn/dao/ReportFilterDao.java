@@ -34,4 +34,6 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.commn.model.ReportFilter;
 
 public interface ReportFilterDao extends AbstractDao<ReportFilter> {
+    /** Filters with the requested status, ordered for the editor. Null reportId means all reports. */
+    java.util.List<ReportFilter> findByReportIdAndStatus(Integer reportId, int status);
 }

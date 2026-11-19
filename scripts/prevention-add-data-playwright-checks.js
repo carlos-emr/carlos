@@ -58,6 +58,8 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const {
   assert,
   assertNotErrorPage,
@@ -248,18 +250,25 @@ async function checkResolvedType(context, recorder) {
   await page.close();
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('prevention-add-data',async({cancellation})=>{
   const recorder = createRecorder();
   let browser;
   try {
     browser = await launchBrowser(config);
+    cancellation?.throwIfCancelled();
     const context = await newContext(browser, config);
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await landingPage.close();
+    cancellation?.throwIfCancelled();
 
     await checkUnresolvedType(context, recorder);
+    cancellation?.throwIfCancelled();
     await checkResolvedType(context, recorder);
+    cancellation?.throwIfCancelled();
     await context.close();
+    cancellation?.throwIfCancelled();
 
     assert(failures.length === 0, `add prevention popup checks failed:\n  - ${failures.join('\n  - ')}`);
     console.log(`PASS add prevention popup loads clean for ${unresolvedType} (unresolved, no controls) `
@@ -274,4 +283,4 @@ async function checkResolvedType(context, recorder) {
       await browser.close().catch(() => {});
     }
   }
-})();
+});

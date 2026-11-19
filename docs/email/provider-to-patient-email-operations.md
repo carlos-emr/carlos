@@ -259,7 +259,7 @@ WARN, so that warning appears at the default level; enforcement is then off.
 
 By default every new CARLOS email requires the current clinic footer. An administrator sets its text on **Admin > Emails > Configure Email**; staff cannot edit or remove that clinic text from an individual email. While the footer is required, an empty clinic setting refuses preparation before any outbox row, archive, or transport action; compose disables Send and says where to set it, and a Patient Portal invitation is refused before the portal prepares any code (`clinic_footer_missing`). Before enabling production mail, configure a real clinic footer and verify it with the clinic. This change supplies no invented contact details.
 
-**Edit footer** opens one window holding the text, whether the clinic footer is **Required** (the default, and the behaviour before this choice existed) or **Off**, and **Add a logo to emails**; its **Save footer** saves all three in one step, with no second Save button on the page (My Email Footer's window saves the personal footer the same way). The window's choices are as follows. Off means emails sent from CARLOS carry no clinic footer and no logo and may be sent without one; personal footers are still added, and compose and My Email Footer say the footer is turned off. Off covers CARLOS's own emails only: the Patient Portal's emails still need the saved clinic footer (see below). The text and both choices are saved in one transaction under the footer lock, and each change is audited (`emailFooterClinicDefault`, `emailFooterClinicMode`, `emailFooterLogoShown`). Changing it, like changing the text, refuses a draft prepared before the change until staff review the new preview.
+**Edit footer** opens one window holding the text, whether the clinic footer is **Required** (the default, and the behaviour before this choice existed) or **Off**, and **Add a logo to emails**; its **Save footer** saves all three in one step, with no second Save button on the page (My Email Footer's window saves the personal footer the same way). The window's choices are as follows. Off means emails sent from CARLOS carry no clinic footer and no logo and may be sent without one; personal footers are still added, and compose and My Email Footer say the footer is turned off. Off covers CARLOS's own emails only: the Patient Portal's emails still need the saved clinic footer, apart from sign-in codes and password resets while the footer is unavailable (see below). The text and both choices are saved in one transaction under the footer lock, and each change is audited (`emailFooterClinicDefault`, `emailFooterClinicMode`, `emailFooterLogoShown`). Changing it, like changing the text, refuses a draft prepared before the change until staff review the new preview.
 
 A refused save (too long, or saved over a footer another administrator changed meanwhile) keeps what was typed: the text, and the choices made with it, come back in the window, marked not saved, for one view; a logo upload after that carries them through its own reload. After another administrator's change, the current footer is in the editor and the typed text is shown beside it to copy from.
 
@@ -277,7 +277,7 @@ An administrator may upload a PNG/JPEG clinic logo, at most 100 KiB and 600 × 2
 
 Until a clinic uploads its own logo, emails carry the CARLOS logo (the 96 × 96 "birdman", shipped as `email/carlos-default-email-logo.png`); **Remove logo** takes the clinic's own away and the CARLOS logo takes its place. **Add a logo to emails**, in the Edit footer window (on by default), is the one way to send without a logo; off, no logo goes into emails, previews or the Patient Portal footer snapshot. *Upgrade note:* clinics that never uploaded a logo start sending the CARLOS logo with every patient email after this change.
 
-**Patient Portal own mail.** Portal verification/MFA, password resets, contact changes and booking notices also require the current clinic footer, even when an administrator turned the footer **Off** for CARLOS's own emails (a Portal follow-up may change this). Its new read-only CARLOS endpoint `/ws/portal/email-footer` accepts only a clinic-scoped derived bearer and returns a nonce-bound Ed25519 signed snapshot under a distinct audience. Provision the endpoint's HMAC-derived read credential and public keyring to web/worker; the worker must not receive the full internal service token or a private signing key. Missing/invalid/unreachable configuration refuses SMTP without cached or footerless fallback. Each new worker transport attempt fetches current settings once; an already prepared attempt stays frozen. Portal footer-only attempt artifacts require a durable private shared volume before SMTP, with prepared snapshot separate from accepted/failed/unknown outcome. In Configure Email, staff with `_admin` READ can expand Patient Portal email footer history for a UTC date. Each attempt starts collapsed and displays the saved plain footer text and its separately recorded prepared/accepted/failed/unknown outcome. The viewer signs an audit-read request to the existing private Portal API; it never substitutes current clinic text for missing or unavailable history. Older results use an exclusive cursor. An unavailable audit service leaves clinic configuration visible and shows a localized error; it does not display an empty-history success.
+**Patient Portal own mail.** Portal contact changes, email changes and booking notices also require the current clinic footer, even when an administrator turned the footer **Off** for CARLOS's own emails. Sign-in (MFA) codes and password resets are the exception (Ben's decision D138, carlos-portal #27): while the Portal cannot get a valid footer they go out without it, so an outage of the footer alone does not stop them, and the Portal records which of its fixed reasons applied. An unwritable footer audit volume (`clinic_footer_audit`) or an email that cannot be assembled (`clinic_footer_message`) still stops them too. Its new read-only CARLOS endpoint `/ws/portal/email-footer` accepts only a clinic-scoped derived bearer and returns a nonce-bound Ed25519 signed snapshot under a distinct audience. Provision the endpoint's HMAC-derived read credential and public keyring to web/worker; the worker must not receive the full internal service token or a private signing key. For every other Portal email, missing/invalid/unreachable configuration refuses SMTP without cached or footerless fallback. Each new worker transport attempt fetches current settings once; an already prepared attempt stays frozen. Portal footer-only attempt artifacts require a durable private shared volume before SMTP, with prepared snapshot separate from accepted/failed/unknown outcome. In Configure Email, staff with `_admin` READ can expand Patient Portal email footer history for a UTC date. Each attempt starts collapsed and displays the saved plain footer text (or, for a sign-in code or password reset prepared without the footer, why the footer was unavailable) and its separately recorded prepared/accepted/failed/unknown outcome. The collapsed line of an attempt prepared without the footer ends with "Without the clinic footer", so those attempts can be found without opening each one. The viewer signs an audit-read request to the existing private Portal API; it never substitutes current clinic text for missing or unavailable history. Older results use an exclusive cursor. An unavailable audit service leaves clinic configuration visible and shows a localized error; it does not display an empty-history success.
 
 **Portal footer read credential.** The Portal's web and outbox processes need
 `PATIENT_PORTAL_EMAIL_FOOTER_READ_TOKEN`: a credential derived from CARLOS's `patient_portal.service_token`
@@ -381,7 +381,7 @@ else about signing changes. RSA and EC keys both work. For myCarlos to show a
 PDF as verified, the key must be ECDSA P-256 (carlos-emr/carlos#4691).
 
 To enable it, provision a PKCS#12 or JKS keystore holding the private key and
-its certificate chain, readable only by the Tomcat user, and set in
+its certificate chain, readable only by the account that runs CARLOS, and set in
 `carlos.properties`:
 
 ```
@@ -391,6 +391,33 @@ pdf.signing.keystore.type=PKCS12
 pdf.signing.keystore.password=...
 pdf.signing.key.alias=...
 ```
+
+**Embedded document manifest (optional).** With `pdf.signing.document_id.secret` set, each
+signed PDF also carries a small JSON file, `carlos-document-manifest.json`. It names:
+- the issuing clinic (and its portal clinic ID when the patient portal is on) and the sending
+  provider;
+- the patient, as on the chart;
+- the document's title, type and date of service, read from the document's own record;
+- a document ID.
+
+The email's own message, when it is sent as an encrypted `message.pdf`, gets no manifest: it
+is not a chart document.
+
+myCarlos reads it after checking the signature, to file the document under the right person
+(carlos-emr/carlos#4691, carlos-emr/mycarlos#55).
+
+The file is added in the same update as the signature. That has two effects:
+- the signature covers it;
+- in a password-protected PDF, it is encrypted with the rest of the file.
+
+The document ID is an HMAC of the record under that secret. It stays the same for a document
+across sends and does not reveal the record's number. The secret is set once:
+- generate it at setup, for example with `openssl rand -base64 32` (at least 32 bytes);
+- never change it after documents are issued, because a new secret gives every document a new
+  ID.
+
+Left unset, PDFs are signed exactly as before, without a manifest. A value that is set but is
+not valid base64 of at least 32 bytes stops sends, like any other signing error.
 
 `pdf.signing.key.password` defaults to the keystore password. The signer name,
 reason, location and contact shown in the reader are optional. Passwords are
@@ -411,7 +438,10 @@ signature panel.
 
 Two situations stop sends once signing is on, and both show in **Admin > Manage
 Emails** as "Failed to sign email PDF attachment", with the cause in the server
-log:
+log. The log entry comes from `PdfAttachmentSigningService`; before
+carlos-emr/carlos#3851 the same entries came from `EmailManager`, so a log search
+or alert keyed on that class name needs updating. The audit action name,
+`EmailManager.signAttachment`, is unchanged.
 
 - **The certificate expires, or is not yet valid.** Validity is checked on
   every send, so from the expiry date until the keystore is replaced every
@@ -423,6 +453,97 @@ log:
   it cannot open, so that document cannot be emailed while signing is enabled.
   A document that is only restricted (it opens without a password but limits
   printing or editing) is signed normally.
+
+### Clinic signing key: create, rotate, revoke
+
+The signing key is the clinic's identity in myCarlos (carlos-emr/carlos#4691).
+myCarlos remembers the key a clinic signed with, by its key ID (`kid`). It
+shows a PDF as verified only when it comes from that key. Handle the key the way
+you would a TLS private key.
+
+**Create.** Use an ECDSA P-256 key in a PKCS#12 file that only the account running CARLOS
+can read. A self-signed certificate is enough for myCarlos. A certificate already
+trusted by the recipient's PDF reader can avoid unknown-signer warnings; a
+CA-issued certificate alone does not guarantee reader trust. See
+[Adobe's trusted identities guidance](https://helpx.adobe.com/acrobat/using/trusted-identities.html).
+
+```
+keytool -genkeypair -alias carlos-pdf-signing -keyalg EC -groupname secp256r1 \
+  -sigalg SHA256withECDSA -validity 1825 \
+  -dname "CN=<Clinic name> document signing, O=<Clinic name>" \
+  -storetype PKCS12 -keystore /etc/carlos-emr/pdf-signing.p12
+chown carlos:carlos /etc/carlos-emr/pdf-signing.p12 && chmod 600 /etc/carlos-emr/pdf-signing.p12
+```
+
+A packaged install runs CARLOS as the `carlos` account, so the key belongs to it, as
+the email archive keyring does. Do not make it group-readable: the `carlos-backup`
+account is a member of the `carlos` group. CARLOS itself cannot change the file, since
+its service sees `/etc` read-only. The nightly backup still carries the key, which a
+restore needs so that myCarlos keeps recognizing the clinic's key ID: like the
+keyring, the backup service reads it through its `CAP_DAC_READ_SEARCH` capability.
+So treat the backup repository, which also holds `carlos.properties` and the keystore
+password, as able to sign as the clinic. Where CARLOS runs in a plain Tomcat, give
+the file to that service's account instead (for example `chown tomcat:tomcat`).
+
+Then set the `pdf.signing.*` properties above, restart, and send a test message
+with no patient information in it. Note the certificate's expiry date. The key
+ID shows in the audit entry of each signed document (below). To compute it from
+the certificate:
+
+```
+keytool -exportcert -rfc -alias carlos-pdf-signing -keystore /etc/carlos-emr/pdf-signing.p12 \
+  | openssl x509 -pubkey -noout | openssl pkey -pubin -outform DER \
+  | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '='
+```
+
+**Rotate** before the certificate expires, or whenever the key should change:
+1. Create a new keystore as above, at a new path.
+2. Keep the old keystore file. It is not used for signing any more, but keep it
+   offline until the portal hands out key replacements (below).
+3. Point `pdf.signing.keystore.path` (and the passwords and alias) at the new
+   file, restart, and send a test message.
+
+PDFs already sent stay valid: each carries the certificate it was signed with.
+New PDFs carry the new key ID.
+
+**Revoke** when the private key may have been exposed:
+1. Stop signing with it at once: switch to a new key as in **Rotate**, or set
+   `pdf.signing.enabled=false` until one is ready.
+2. Record the old key ID and the time it stopped being trusted, and tell your
+   CARLOS support contact.
+3. Use the audit entries to list the documents signed with that key.
+4. Treat any document signed with it after the exposure as untrusted.
+
+Rotating or revoking does not yet reach a myCarlos link by itself:
+- **What has landed:** with Send to myCarlos on, CARLOS publishes the clinic's
+  provisioned public-key catalogue to the patient portal
+  (`PortalMyCarlosKeyPublicationService`).
+- **Still open:** myCarlos does not yet take a replaced key up for an existing
+  link, and replacements signed by the old key and revocations are not sent yet
+  (carlos-emr/carlos-portal#41). Until then, documents signed with a new key show
+  in myCarlos as signed, but not verified, for patients whose link pinned the
+  old key.
+
+`pdf.signing.document_id.secret` is not part of the signing key. Rotating the key
+does not change it, and it must never change.
+
+**Audit.** With signing on, every signed attachment adds an
+`EmailManager.signAttachment` entry to the audit log. The entry is filed under
+the patient's chart number and holds:
+- the email log ID;
+- the record the PDF came from (its source and record ID);
+- the signing key ID;
+- the embedded document ID and version, if the PDF carries a manifest;
+- whether the PDF was password-protected.
+
+The indexed `log.contentId` holds the email log ID. The complete tracing fields
+are stored in `log.data`, so they are not cut off by `contentId`'s 80-character limit.
+Like other audit entries, it is written in the background: if it cannot be
+stored, that is logged and the send still goes out.
+
+There are no names and no document content. The document ID cannot be turned
+back into a record on its own, so the audit entry is how a document ID that
+myCarlos shows is traced back to its record.
 
 ## Running More Than One Application Server
 

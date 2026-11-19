@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: preserve imported clinical uncertainty.
  */
 package io.github.carlos_emr.carlos.webserv.transfer_objects;
 
@@ -33,9 +34,11 @@ import java.util.Date;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationCompatibilityException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 
+@jakarta.xml.bind.annotation.XmlAccessorOrder(jakarta.xml.bind.annotation.XmlAccessOrder.ALPHABETICAL)
 public class DrugTransfer {
 
     private Integer id;
@@ -121,6 +124,8 @@ public class DrugTransfer {
         this.demographicId = demographicId;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getRxDate() {
         return (rxDate);
     }
@@ -129,6 +134,8 @@ public class DrugTransfer {
         this.rxDate = rxDate;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getEndDate() {
         return (endDate);
     }
@@ -137,6 +144,8 @@ public class DrugTransfer {
         this.endDate = endDate;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getWrittenDate() {
         return (writtenDate);
     }
@@ -225,6 +234,8 @@ public class DrugTransfer {
         this.repeat = repeat;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getLastRefillDate() {
         return (lastRefillDate);
     }
@@ -281,6 +292,8 @@ public class DrugTransfer {
         this.archivedReason = archivedReason;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getArchivedDate() {
         return (archivedDate);
     }
@@ -353,6 +366,8 @@ public class DrugTransfer {
         this.drugForm = drugForm;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getCreateDate() {
         return (createDate);
     }
@@ -449,6 +464,8 @@ public class DrugTransfer {
         this.nonAuthoritative = nonAuthoritative;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getPickupDateTime() {
         return (pickupDateTime);
     }
@@ -545,6 +562,8 @@ public class DrugTransfer {
         this.priorRxProtocol = priorRxProtocol;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getLastUpdateDate() {
         return (lastUpdateDate);
     }
@@ -561,13 +580,15 @@ public class DrugTransfer {
     public static DrugTransfer toTransfer(Drug drug) {
         if (drug == null) return (null);
 
+        CdsMedicationCompatibilityException.requireLegacyCompatible(drug);
         DrugTransfer transfer = new DrugTransfer();
 
         // Drug.pastMed is a nullable Boolean (default null) while DrugTransfer.pastMed is a
         // primitive boolean; copying it directly faults when unboxing null. Skip it here and set
         // it via Drug.isPastMed(), which coalesces null to false.
-        BeanUtils.copyProperties(drug, transfer, "pastMed");
+        BeanUtils.copyProperties(drug, transfer, "pastMed", "noSubs");
         transfer.setPastMed(drug.isPastMed());
+        transfer.setNoSubs(drug.isNoSubs());
 
         return (transfer);
     }

@@ -40,6 +40,7 @@
  * billingservice fee on or before the bill date.
  */
 
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
@@ -241,13 +242,13 @@ async function workflow(s) {
 
   await s.step('GET against the correction and unbill mutators is refused and writes nothing', async () => {
     const before = { header: headerSnapshot(), item: itemSnapshot(), audits: headerAudits() + itemAudits() };
-    const correction = await s.context.request.get(h.appUrl(s.config.baseUrl, '/billing/CA/ON/UpdateBillingONCorrection'), {
+    const correction = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, '/billing/CA/ON/UpdateBillingONCorrection'), {
       params: { xml_billing_no: headerId, status: 'S', payProgram: 'HCP', submit: 'Save', oldStatus: '' },
       maxRedirects: 0,
     });
     h.assert(correction.status() === 405 && correction.headers().allow === 'POST',
       'UpdateBillingONCorrection must reject GET with Allow: POST');
-    const unbill = await s.context.request.get(h.appUrl(s.config.baseUrl, '/billing/CA/ON/BillingDeleteNoAppt'), {
+    const unbill = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, '/billing/CA/ON/BillingDeleteNoAppt'), {
       params: { billing_no: headerId, billCode: 'W', dboperation: 'delete_bill', hotclick: '0' },
       maxRedirects: 0,
     });

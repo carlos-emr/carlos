@@ -24,6 +24,8 @@
 
 --%>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FormsManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -39,6 +41,7 @@
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType" %>
 <%@ page import="java.util.ArrayList" %>
+<%@ page import="java.util.Arrays" %>
 <%@ page import="java.util.Collections" %>
 <%@ page import="java.util.HashMap" %>
 <%@ page import="java.util.HashSet" %>
@@ -87,7 +90,7 @@
             ? EDocUtil.listDocs(loggedInInfo, "demographic", demoNo, null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE)
             : new ArrayList<>();
     ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null)
-            ? HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demoNo, false)
+            ? HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demoNo, true)
             : new ArrayList<>();
     List<AttachmentLabResultData> allLabsSortedByVersions = securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "r", null)
             ? attachmentManager.getAllLabsSortedByVersions(loggedInInfo, demoNo)
@@ -234,7 +237,27 @@
                     </span>
                     <span class="muted" id="<%= SafeEncode.forHtmlAttribute(hrmDateId) %>"><carlos:encode value='<%= String.valueOf(hrm.get("report_date")) %>' context="html"/></span>
                 </div>
-                <% } } %>
+                <% if (hrm.get("duplicateLabIds") != null && !String.valueOf(hrm.get("duplicateLabIds")).isEmpty()) {
+                       String[] hrmVersionIds = String.valueOf(hrm.get("duplicateLabIds")).split(",");
+                       boolean hasAttachedHrmVersion = Arrays.stream(hrmVersionIds).anyMatch(attachedHrmIds::contains); %>
+                <details <%= hasAttachedHrmVersion ? "open" : "" %>>
+                    <summary><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.earlierVersions"/></summary>
+                    <% for (int versionIndex = 0; versionIndex < hrmVersionIds.length; versionIndex++) {
+                           String hrmVersionId = hrmVersionIds[versionIndex];
+                           String hrmVersionCheckboxId = buildDomId("hrmNo", hrmVersionId); %>
+                    <div class="item" style="padding-left: 18px;">
+                        <label for="<%= SafeEncode.forHtmlAttribute(hrmVersionCheckboxId) %>">
+                            <input type="checkbox" id="<%= SafeEncode.forHtmlAttribute(hrmVersionCheckboxId) %>" name="hrmNo"
+                                   value="<%= SafeEncode.forHtmlAttribute(hrmVersionId) %>" <%= attachedHrmIds.contains(hrmVersionId) ? "checked" : "" %>>
+                            <fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.earlierVersionOf">
+                                <fmt:param value="<%= versionIndex + 1 %>"/>
+                                <fmt:param value="<%= hrmVersionIds.length + 1 %>"/>
+                            </fmt:message>
+                        </label>
+                    </div>
+                    <% } %>
+                </details>
+                <% } } } %>
             </div>
         </div>
 

@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 
 package io.github.carlos_emr.carlos.webserv;
@@ -42,15 +43,26 @@ import io.github.carlos_emr.carlos.commn.model.PreventionExt;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.PreventionTransfer;
-import org.springframework.beans.factory.annotation.Autowired;
+import io.github.carlos_emr.carlos.prevention.PreventionDateService;
 import org.springframework.stereotype.Component;
 
+/**
+ * Legacy Date-only SOAP reads. Uncertain imported dates fault the operation;
+ * native records retain their established Date payloads.
+ */
 @WebService(targetNamespace = "http://ws.oscarehr.org/")
 @Component
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)
 public class PreventionWs extends AbstractWs {
-    @Autowired
-    private PreventionManager preventionManager;
+    private final PreventionManager preventionManager;
+    private final PreventionDateService dateService;
+    private final io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
+
+    public PreventionWs(PreventionManager preventionManager, PreventionDateService dateService, io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections) {
+        this.preventionManager = preventionManager;
+        this.dateService = dateService;
+        this.projections = projections;
+    }
 
     public PreventionTransfer getPrevention(Integer preventionId) {
         LoggedInInfo loggedInInfo = getLoggedInInfo();
@@ -58,8 +70,9 @@ public class PreventionWs extends AbstractWs {
         Prevention prevention = preventionManager.getPrevention(loggedInInfo, preventionId);
 
         if (prevention != null) {
+            projections.requireSoapSupported(prevention.getDemographicId(), java.util.Set.of("Immunizations"));
             List<PreventionExt> preventionExts = preventionManager.getPreventionExtByPrevention(loggedInInfo, prevention.getId());
-            return (PreventionTransfer.toTransfer(prevention, preventionExts));
+            return (PreventionTransfer.toTransfer(prevention, preventionExts, dateService.getDate(prevention)));
         }
 
         return (null);
@@ -68,19 +81,23 @@ public class PreventionWs extends AbstractWs {
     public PreventionTransfer[] getPreventionsUpdatedAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Prevention> preventions = preventionManager.getUpdatedAfterDate(loggedInInfo, updatedAfterThisDateExclusive, itemsToReturn);
-        return (PreventionTransfer.getTransfers(loggedInInfo, preventions));
+        projections.requireSoapFeedSupported(java.util.Set.of("Immunizations"));
+        return (PreventionTransfer.getTransfers(loggedInInfo, preventions, preventionManager, dateService));
     }
 
     public PreventionTransfer[] getPreventionsByProgramProviderDemographicDate(Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateExclusive, int itemsToReturn) {
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Prevention> preventions = preventionManager.getPreventionsByProgramProviderDemographicDate(getLoggedInInfo(), programId, providerNo, demographicId, updatedAfterThisDateExclusive, itemsToReturn);
-        return (PreventionTransfer.getTransfers(loggedInInfo, preventions));
+        if (demographicId==null) projections.requireSoapFeedSupported(java.util.Set.of("Immunizations"));
+        else projections.requireSoapSupported(demographicId, java.util.Set.of("Immunizations"));
+        return (PreventionTransfer.getTransfers(loggedInInfo, preventions, preventionManager, dateService));
     }
 
     public PreventionTransfer[] getPreventionsByDemographicIdAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "demographicId") Integer demographicId) {
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Prevention> preventions = preventionManager.getByDemographicIdUpdatedAfterDate(loggedInInfo, demographicId, lastUpdate.getTime());
-        return (PreventionTransfer.getTransfers(loggedInInfo, preventions));
+        projections.requireSoapSupported(demographicId, java.util.Set.of("Immunizations"));
+        return (PreventionTransfer.getTransfers(loggedInInfo, preventions, preventionManager, dateService));
     }
 
 }

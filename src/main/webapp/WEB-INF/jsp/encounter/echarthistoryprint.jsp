@@ -47,7 +47,7 @@
 
 
 <%@page
-        import="io.github.carlos_emr.carlos.encounter.data.*,io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean, java.net.*" %>
+        import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <jsp:useBean id="providerBean" class="java.util.Properties"
              scope="session"/>
 <%
@@ -101,6 +101,11 @@
         </ul>
     </div>
 <% } %>
+
+    <p><strong><fmt:message key="encounter.historicalChart.title"/></strong><br/>
+        <fmt:message key="encounter.historicalChart.notice"/>
+        <carlos:encode value='<%= bean.eChartTimeStamp == null ? "" : bean.eChartTimeStamp.toString() %>'/>
+    </p>
 
     <table class="Header">
         <tr>

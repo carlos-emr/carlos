@@ -50,12 +50,6 @@ public interface EformDataManager {
 
     public Integer saveEformData(LoggedInInfo loggedInInfo, EForm eform);
 
-    /**
-     * Saves an form as PDF EDoc.
-     * Returns the Eform id that was saved.
-     */
-    public Integer saveEformDataAsEDoc(LoggedInInfo loggedInInfo, String fdid);
-
     public Integer saveEFormWithAttachmentsAsEDoc(LoggedInInfo loggedInInfo, String fdid, String demographicId, Path eFormPDFPath) throws PDFGenerationException;
 
     public EFormData findByFdid(LoggedInInfo loggedInInfo, Integer fdid);

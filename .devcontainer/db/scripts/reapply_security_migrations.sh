@@ -18,13 +18,13 @@ MIG="$1"; DB="$2"; shift 2
 # the complete tail before invoking MariaDB so a changed layout cannot replay DDL.
 mycarlos_security_seed() {
   case "$(basename "$1")" in
-    V1.0.81__mycarlos_accepted_device_approval.sql)
+    V1.0.83__mycarlos_accepted_device_approval.sql)
       object='_portal.mycarlos.device_approval'
       description='Approve and remove myCarlos devices'
       privilege='x'
       provider="'999998'"
       ;;
-    V1.0.82__mycarlos_sender_outbox.sql)
+    V1.0.84__mycarlos_sender_outbox.sql)
       object='_mycarlos_delivery'
       description='Send documents to approved myCarlos devices'
       privilege='w'
@@ -60,10 +60,10 @@ for f in "${MIG}/common/"V*.sql "${MIG}/on/"V*.sql; do
   printf '%s\n' "$f"
 done \
   | awk -F'/V1\\.0\\.' '{ n=$2; sub(/__.*/,"",n); print n "\t" $0 }' \
-  | sort -n | cut -f2 \
+  | LC_ALL=C sort -V | cut -f2 \
   | while IFS= read -r f; do
       case "$f" in
-        */V1.0.81__mycarlos_accepted_device_approval.sql|*/V1.0.82__mycarlos_sender_outbox.sql)
+        */V1.0.83__mycarlos_accepted_device_approval.sql|*/V1.0.84__mycarlos_sender_outbox.sql)
           echo "  re-applying $(basename "$f")"
           if ! seed_sql="$(mycarlos_security_seed "$f")"; then
             echo "Refusing changed myCarlos security seed layout: $(basename "$f")" >&2

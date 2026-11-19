@@ -825,10 +825,10 @@ class OutboundEmailArchiveKeyringServiceUnitTest {
 
         @Test
         void shouldRefuseToStart_whenTheKeyringCannotBeRead() throws Exception {
-            assumeThat(System.getProperty("user.name")).as("root reads any file").isNotEqualTo("root");
             assumeThat(keyringFile.getFileSystem().supportedFileAttributeViews()).contains("posix");
             writeKeyring(keyring(1, 1));
             Files.setPosixFilePermissions(keyringFile, PosixFilePermissions.fromString("---------"));
+            assumeThat(Files.isReadable(keyringFile)).as("process must not bypass file permissions").isFalse();
             OutboundEmailArchiveKeyringService service = service(settings(false, null));
 
             assertThatThrownBy(service::resolveKeyring)

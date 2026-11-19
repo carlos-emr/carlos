@@ -21,12 +21,15 @@
  */
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.managers.MessengerDemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
 import io.github.carlos_emr.carlos.messenger.data.MsgMessageData;
 import io.github.carlos_emr.carlos.messenger.data.MsgProviderData;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
+import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
@@ -208,6 +211,7 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
         private static final String RECIPIENT = "FAKE-recipient";
         private final AtomicReference<String> sentItems = new AtomicReference<>();
         private final AtomicReference<String> sentPdfs = new AtomicReference<>();
+        private final AtomicReference<String> sentSubject = new AtomicReference<>();
         private final java.util.concurrent.atomic.AtomicInteger sends = new java.util.concurrent.atomic.AtomicInteger();
         private Runnable duringSend = () -> { };
         private String sentMessageId = "77";
@@ -242,6 +246,7 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
                 when(data.sendMessage2(any(), any(), any(), any(), any(), any(), any(), any(), any()))
                         .thenAnswer(invocation -> {
                             sends.incrementAndGet();
+                            sentSubject.set(invocation.getArgument(1));
                             sentItems.set(invocation.getArgument(6));
                             sentPdfs.set(invocation.getArgument(7));
                             duringSend.run();
@@ -253,6 +258,61 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
             })) {
                 return executeAction(action);
             }
+        }
+
+        /**
+         * messagetbl.thesubject is a utf8mb4 VARCHAR(128) and the packaged database cuts a longer
+         * value off without an error, so the action refuses it. The column
+         * counts code points: an emoji is one character, two Java chars.
+         */
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"S", "\uD83D\uDE00"})
+        @DisplayName("should send a subject that fills messagetbl.thesubject exactly, an emoji counting as one character")
+        void shouldSendTheWholeSubject_whenItFillsTheColumnExactly(String character) throws Exception {
+            String subject = character.repeat(MessageTbl.SUBJECT_MAX_LENGTH);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            action.setSubject(subject);
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(sentSubject.get()).isEqualTo(subject);
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"S", "\uD83D\uDE00"})
+        @DisplayName("should refuse a subject one character longer than the column, send nothing and keep what was written")
+        void shouldRefuseTheSubject_whenItIsOneCharacterLongerThanTheColumn(String character) throws Exception {
+            String subject = character.repeat(MessageTbl.SUBJECT_MAX_LENGTH + 1);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            action.setSubject(subject);
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(sends.get()).isZero();
+            verifyNoInteractions(mockDemoManager);
+            assertThat((String) getMockRequest().getAttribute("createMessageError"))
+                    .isEqualTo(LocaleUtils.getMessage(getMockRequest(), "messenger.CreateMessage.msgSubjectTooLong"))
+                    .contains(Integer.toString(MessageTbl.SUBJECT_MAX_LENGTH));
+            assertThat(getMockRequest().getAttribute("ReSubject")).isEqualTo(subject);
+            assertThat(getMockRequest().getAttribute("ReText")).isEqualTo("FAKE body");
+            assertThat(getMockRequest().getAttribute("demographic_no")).isEqualTo("101");
+            assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment())
+                    .isEqualTo("<PDF>FAKE patient 101 chart</PDF>");
+        }
+
+        @Test
+        @DisplayName("should measure the subject as it is stored, after its surrounding spaces are trimmed")
+        void shouldSendTheTrimmedSubject_whenOnlyItsSurroundingSpacesPassTheColumn() throws Exception {
+            String subject = "S".repeat(MessageTbl.SUBJECT_MAX_LENGTH);
+            action.setSubject("  " + subject + "  ");
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sentSubject.get()).isEqualTo(subject);
         }
 
         @org.junit.jupiter.params.ParameterizedTest
@@ -358,6 +418,135 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
             verify(mockDemoManager).attachDemographicToMessage(any(), eq(77), eq(101));
         }
 
+        /** The next HTTP request of the same rendered form: a new action, the same posted fields and token. */
+        private void repeatSubmission(String token) {
+            mockRequest = new org.springframework.mock.web.MockHttpServletRequest("POST", "/messenger/CreateMessage");
+            mockRequest.setSession(getMockSession());
+            mockResponse = new org.springframework.mock.web.MockHttpServletResponse();
+            if (token != null) {
+                mockRequest.setParameter(MessengerSubmissionGuard.PARAMETER, token);
+            }
+            setUpActionContext();
+            action = new MsgCreateMessage2Action();
+            injectField("securityInfoManager", mockSecurityInfoManager);
+            injectField("messengerDemographicManager", mockDemoManager);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            action.setSubject("FAKE subject");
+            action.setMessage("FAKE body");
+            action.setProvider(new String[]{RECIPIENT});
+        }
+
+        @Test
+        @DisplayName("should send one message when one rendered compose form is submitted twice")
+        void shouldSendOnce_whenTheSameRenderedFormIsSubmittedTwice() throws Exception {
+            String token = MessengerSubmissionGuard.issue(getMockSession(), TEST_PROVIDER);
+            repeatSubmission(token);
+
+            assertThat(send()).isEqualTo("success");
+            assertThat(getMockRequest().getAttribute("SentMessageProvs")).isEqualTo(RECIPIENT);
+
+            // A double click, a re-click during a slow send or a reload of the result page.
+            repeatSubmission(token);
+            assertThat(send()).isEqualTo("conflict");
+
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(getMockRequest().getAttribute("SentMessageProvs")).isNull();
+            assertThat(getMockResponse().getStatus()).isEqualTo(409);
+            verify(mockDemoManager, times(1)).attachDemographicToMessage(any(), eq(77), eq(101));
+            // The repeat neither takes nor restores this window's attachments.
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
+        }
+
+        @Test
+        @DisplayName("should not confirm a changed message as sent when the already used form is submitted again")
+        void shouldRedisplayUnsentChange_whenTheUsedFormIsResubmittedWithDifferentContent() throws Exception {
+            String token = MessengerSubmissionGuard.issue(getMockSession(), TEST_PROVIDER);
+            repeatSubmission(token);
+            assertThat(send()).isEqualTo("success");
+
+            // The user went back to the page that had sent, changed the message and sent again.
+            repeatSubmission(token);
+            action.setSubject("FAKE corrected subject");
+            action.setMessage("FAKE corrected body");
+            String result = send();
+
+            // A consumed identity cannot confirm or send the changed message.
+            assertThat(result).isEqualTo("conflict");
+            assertThat(getMockResponse().getStatus()).isEqualTo(409);
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(getMockRequest().getAttribute("SentMessageProvs")).isNull();
+            assertThat(getMockRequest().getAttribute("messageSubmissionErrorKey"))
+                    .isEqualTo("messenger.SubmissionConflict.msgUnavailable");
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
+
+            // Opening a fresh compose form issues its own identity for the correction.
+            String fresh = MessengerSubmissionGuard.issue(getMockSession(), TEST_PROVIDER);
+            repeatSubmission(fresh);
+            action.setSubject("FAKE corrected subject");
+            action.setMessage("FAKE corrected body");
+            assertThat(send()).isEqualTo("success");
+            assertThat(sends.get()).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("should not confirm the first send when the used form is submitted again for other recipients")
+        void shouldRedisplayUnsentChange_whenTheUsedFormIsResubmittedForOtherRecipients() throws Exception {
+            String token = MessengerSubmissionGuard.issue(getMockSession(), TEST_PROVIDER);
+            repeatSubmission(token);
+            assertThat(send()).isEqualTo("success");
+
+            repeatSubmission(token);
+            action.setProvider(new String[]{"999997-0-1"});
+
+            assertThat(send()).isEqualTo("conflict");
+            assertThat(getMockResponse().getStatus()).isEqualTo(409);
+            assertThat(sends.get()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("should keep the token usable when the first submission was refused before anything was stored")
+        void shouldSendOnRetry_whenTheFirstSubmissionWasRefusedBeforeStorage() throws Exception {
+            String token = MessengerSubmissionGuard.issue(getMockSession(), TEST_PROVIDER);
+            repeatSubmission(token);
+            noRecipients = true;
+            assertThat(send()).isEqualTo("error");
+            assertThat(sends.get()).isZero();
+
+            // The same rendering submitted again (the second click of a double click) may still send.
+            repeatSubmission(token);
+            noRecipients = false;
+            assertThat(send()).isEqualTo("success");
+            assertThat(sends.get()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("should refuse a token this session did not issue for the compose form, and send nothing")
+        void shouldRefuseWithConflict_whenTheTokenWasNotIssuedForThisForm() throws Exception {
+            String foreign = FormSubmissionGuard.issue(getMockSession(), FormSubmissionGuard.Scope.APPOINTMENT_ADD, null);
+            repeatSubmission(foreign);
+
+            assertThat(send()).isEqualTo("conflict");
+
+            assertThat(getMockResponse().getStatus()).isEqualTo(409);
+            assertThat(sends.get()).isZero();
+            // Nothing was taken from this window: it can still be sent from a freshly opened form.
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNotNull();
+            verifyNoInteractions(mockDemoManager);
+        }
+
+        @Test
+        @DisplayName("should refuse missing submission identities and retain attachments")
+        void shouldRefuseSubmission_whenNoTokenIsPosted() throws Exception {
+            repeatSubmission(null);
+            assertThat(send()).isEqualTo("conflict");
+            assertThat(getMockResponse().getStatus()).isEqualTo(409);
+            assertThat(sends.get()).isZero();
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment())
+                    .isEqualTo("<PDF>FAKE patient 101 chart</PDF>");
+            verifyNoInteractions(mockDemoManager);
+        }
+
         @Test
         @DisplayName("should send this window's chart PDFs only, and only once")
         void shouldSendOnlyThisWindowsAttachments_whenAnotherWindowHasAttachments() throws Exception {
@@ -418,6 +607,71 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
             assertThat(getMockRequest().getAttribute("ReSubject")).isEqualTo("FAKE subject");
             assertThat(getMockRequest().getAttribute("ReText")).isEqualTo("FAKE body");
             assertThat(getMockRequest().getAttribute("demographic_no")).isEqualTo("202");
+        }
+
+        @Test
+        @DisplayName("should refuse chart PDFs larger than a message can hold, which the database would cut in two, and keep everything")
+        void shouldRefuseChartPdfs_whenLargerThanAMessageCanHold() throws Exception {
+            String tooLarge = "<PDF>" + "A".repeat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES) + "</PDF>";
+            MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 101, tooLarge);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(sends.get()).isZero();
+            assertThat((String) getMockRequest().getAttribute("createMessageError"))
+                    .isEqualTo(MsgAttachPDF2Action.PDFS_TOO_LARGE);
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment()).isEqualTo(tooLarge);
+            assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
+        }
+
+        @Test
+        @DisplayName("should refuse chart PDFs that fit only until the send doubles a backslash of a title, and keep everything")
+        void shouldRefuseChartPdfs_whenTheyOnlyOverflowOnceQuoted() throws Exception {
+            // As staged this is exactly the column's size; the send stores it one byte over.
+            String record = "<PDF>" + "A".repeat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES - "<PDF></PDF>".length() - 1) + "\\" + "</PDF>";
+            assertThat(record).hasSize(MessageTbl.PDF_ATTACHMENT_MAX_BYTES);
+            MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 101, record);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(sends.get()).isZero();
+            assertThat((String) getMockRequest().getAttribute("createMessageError"))
+                    .isEqualTo(MsgAttachPDF2Action.PDFS_TOO_LARGE);
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment()).isEqualTo(record);
+            assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
+        }
+
+        @Test
+        @DisplayName("should send chart PDFs that fill a message exactly once a backslash of a title is doubled")
+        void shouldSendChartPdfs_whenTheyFillAMessageExactlyOnceQuoted() throws Exception {
+            String record = "<PDF>" + "A".repeat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES - "<PDF></PDF>".length() - 2) + "\\" + "</PDF>";
+            MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 101, record);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(sentPdfs.get()).isEqualTo(record);
+        }
+
+        @Test
+        @DisplayName("should send chart PDFs that fill a message exactly")
+        void shouldSendChartPdfs_whenTheyFillAMessageExactly() throws Exception {
+            String exact = "<PDF>" + "A".repeat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES - "<PDF></PDF>".length()) + "</PDF>";
+            assertThat(exact).hasSize(MessageTbl.PDF_ATTACHMENT_MAX_BYTES);
+            MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 101, exact);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(sentPdfs.get()).isEqualTo(exact);
         }
 
         @Test

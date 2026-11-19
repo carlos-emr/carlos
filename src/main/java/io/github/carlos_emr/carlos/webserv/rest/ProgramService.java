@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
@@ -42,7 +43,7 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
-import org.apache.tools.ant.util.DateUtils;
+import io.github.carlos_emr.carlos.utility.IsoDates;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
@@ -80,6 +81,9 @@ public class ProgramService extends AbstractServiceImpl {
     @GET
     @Path("/patientList")
     @Produces("application/json")
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class,
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public AbstractSearchResponse<AdmissionTo1> getPatientList(@QueryParam("programNo") String programNo, @QueryParam("day") String day, @QueryParam("startIndex") Integer startIndex, @QueryParam("numToReturn") Integer numToReturn) throws Exception {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECURITY_OBJECT, "r", null)) {
@@ -89,10 +93,10 @@ public class ProgramService extends AbstractServiceImpl {
         AbstractSearchResponse<AdmissionTo1> response = new AbstractSearchResponse<AdmissionTo1>();
 
         if (day == null) {
-            day = DateFormatUtils.format(Calendar.getInstance(), DateUtils.ISO8601_DATE_PATTERN);
+            day = DateFormatUtils.format(Calendar.getInstance(), IsoDates.ISO8601_DATE_PATTERN);
         }
 
-        Date d = new SimpleDateFormat(DateUtils.ISO8601_DATE_PATTERN).parse(day);
+        Date d = new SimpleDateFormat(IsoDates.ISO8601_DATE_PATTERN).parse(day);
 
         if (programNo == null) {
             //get default
@@ -115,10 +119,20 @@ public class ProgramService extends AbstractServiceImpl {
             throw new Exception("Can't get a program for this provider to use as default");
         }
 
-        List<AdmissionTo1> transfers = new AdmissionConverter().includeDemographic(true).getAllAsTransferObjects(getLoggedInInfo(), admissionManager.findAdmissionsByProgramAndDate(getLoggedInInfo(), Integer.parseInt(programNo), d, startIndex, numToReturn));
-
+        int program = Integer.parseInt(programNo);
+        int offset = startIndex == null ? 0 : startIndex;
+        int limit = numToReturn == null ? 50 : numToReturn;
+        if (limit < 0) throw new jakarta.ws.rs.BadRequestException("Invalid page size");
+        var permitted = io.github.carlos_emr.carlos.webserv.rest.util.PatientApiPages.read(
+                getLoggedInInfo(), securityInfoManager, SECURITY_OBJECT, offset, limit == 0 ? 1 : limit,
+                (rawOffset, batch) -> admissionManager.findAdmissionsByProgramAndDate(
+                        getLoggedInInfo(), program, d, rawOffset, batch),
+                io.github.carlos_emr.carlos.commn.model.Admission::getClientId,
+                io.github.carlos_emr.carlos.commn.model.Admission::getId, "_demographic");
+        List<AdmissionTo1> transfers = new AdmissionConverter().includeDemographic(true).getAllAsTransferObjects(
+                getLoggedInInfo(), limit == 0 ? java.util.List.of() : permitted.rows());
         response.setContent(transfers);
-        response.setTotal(admissionManager.findAdmissionsByProgramAndDateAsCount(getLoggedInInfo(), Integer.parseInt(programNo), d));
+        response.setTotal(permitted.total());
 
         return response;
     }
