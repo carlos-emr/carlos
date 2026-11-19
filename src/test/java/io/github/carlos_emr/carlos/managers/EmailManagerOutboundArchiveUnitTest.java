@@ -682,6 +682,36 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should fail the send before any sender exists when an attachment cannot be encrypted")
+    void shouldFailSendBeforeAnySenderExists_whenAttachmentEncryptionFailsUnchecked() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        doAnswer(invocation -> {
+            injectDependency(invocation.getArgument(0), "id", 73);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        EmailData emailData = emailData();
+        // A path the trusted-path check cannot canonicalize: resolveTrustedPath reports it as an
+        // unchecked SecurityException, which used to escape and strand the log at PENDING.
+        emailData.setAttachments(new ArrayList<>(List.of(
+                new EmailAttachment("document.pdf", "unreadable\0document.pdf", DocumentType.DOC, 1))));
+        emailData.setIsEncrypted(true);
+        emailData.setIsAttachmentEncrypted(true);
+        emailData.setPassword("FAKE-encryption-passphrase");
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders((smtpSender, context) -> { })) {
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+            // The same definite failure as a signing fault (carlos-emr/carlos#3851): nothing was
+            // archived, signed or dispatched.
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+            assertThat(emailLog.getErrorMessage()).isEqualTo("Failed to create encrypted email attachments");
+            assertThat(smtpSenders.constructed()).isEmpty();
+            verifyNoInteractions(outboundEmailArchiveService, javaMailSender);
+            verify(pdfSignatureService, never()).sign(any(), any(), any(), any());
+        }
+    }
+
+    @Test
     @DisplayName("should archive SendGrid payload before sending the prepared request")
     void shouldArchiveSendGridPayload_beforeSendingPreparedRequest() throws Exception {
         EmailConfig emailConfig = sendGridEmailConfig();

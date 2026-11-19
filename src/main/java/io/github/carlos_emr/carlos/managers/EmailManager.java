@@ -1719,7 +1719,7 @@ public class EmailManager {
      *
      * @param encryptableAttachments List&lt;EmailAttachment&gt; the attachments to encrypt
      * @param emailData transient passphrase and working directory used to protect the PDFs
-     * @throws EmailSendingException if PDF encryption fails for any attachment
+     * @throws EmailSendingException if PDF encryption fails for any attachment, checked or not
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
@@ -1733,7 +1733,10 @@ public class EmailManager {
                 attachmentPDFPath = PDFEncryptionUtil.encryptPDF(attachmentPDFPath, emailData.getPassword());
                 attachmentPDFPath = emailData.getWorkingDirectory().adoptGeneratedPdf(attachmentPDFPath);
                 attachment.setFilePath(attachmentPDFPath.toString());
-            } catch (IOException e) {
+            } catch (IOException | RuntimeException e) {
+                // The same convention as PdfAttachmentSigningService (carlos-emr/carlos#3851): an
+                // unchecked fault (an unreadable path, a malformed PDF) that escaped would skip
+                // completeFailedSend and strand the EmailLog at PENDING behind a 500.
                 logger.error("Failed to create encrypted email attachments", e);
                 throw new EmailSendingException("Failed to create encrypted email attachments", e);
             }
