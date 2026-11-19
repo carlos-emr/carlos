@@ -201,8 +201,10 @@ async function workflow(s) {
       sql.execute(`DELETE FROM eform_values WHERE fdid IN (${fdids.join(',')});
         DELETE FROM eform_data WHERE fdid IN (${fdids.join(',')}) AND demographic_no=${patient}`);
     }
-    if (fid) sql.execute(`DELETE FROM eform WHERE fid=${fid} AND form_name=${q(formName)}`);
-    if (configId) sql.execute(`DELETE FROM emailConfig WHERE id=${configId} AND senderEmail=${q(sender)}`);
+    // By the run's own markers, not the returned ids: an insert can commit after its reply is
+    // lost (the SQL client dies, the step times out), and that row must still be removed.
+    sql.execute(`DELETE FROM eform WHERE form_name=${q(formName)} AND form_creator=${q(provider)};
+      DELETE FROM emailConfig WHERE senderEmail=${q(sender)} AND senderFirstName=${q(marker)}`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM emailLog WHERE demographicNo=${patient})
       + (SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM eform WHERE form_name=${q(formName)})
