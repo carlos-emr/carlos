@@ -2,6 +2,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 'use strict';
 const h = require('./lib/playwright-harness');
+const {createRecoverablePatientFixture} = require('./lib/owned-patient');
 const {runWorkflow} = require('./lib/workflow-session');
 
 function preflightConfig() {
@@ -58,5 +59,5 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('forms-default-heading', workflow,
-  {openMaster: false, preflightConfig});
+  {openMaster: false, preflightConfig, patientFixtureFactory: createRecoverablePatientFixture});
 module.exports = {preflightConfig, workflow};
