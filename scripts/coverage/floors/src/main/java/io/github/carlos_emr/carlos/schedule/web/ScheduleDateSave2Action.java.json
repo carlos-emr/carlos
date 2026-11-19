@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/schedule/web/ScheduleDateSave2Action.java",
   "kind": "floor",
   "floor": {
-    "lines": 97.05882352941177,
-    "instructions": 96.5625,
-    "branches": 82.3529411764706,
-    "sourceBlob": "f9b659cea881e88be6b0ca936bf9add1d9c016b4"
+    "lines": 98.24561403508773,
+    "instructions": 98.25783972125436,
+    "branches": 97.22222222222223,
+    "sourceBlob": "7a406935759d343c23c6b371ed294dbc455517cf"
   },
-  "evidenceSha256": "803634141cbabec4c080791efd3691708f6b3e6e7a8a489a618183e4a3c37a7c"
+  "evidenceSha256": "c3514e867b90c11aff206b7aff4f2105619bfc0bcacaafe41b485703bd4133b3"
 }
