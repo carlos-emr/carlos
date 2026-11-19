@@ -280,8 +280,9 @@ class DocumentReviewPersistenceIntegrationTest extends CarlosTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("POST");
         request.setParameter("contentRevision", revision());
-        request.setParameter("metadataRevision", transaction().execute(status ->
-                io.github.carlos_emr.carlos.documentManager.DocumentEditRevision.metadata(documents.find(id))));
+        String metadataRevision = transaction().execute(status ->
+                io.github.carlos_emr.carlos.documentManager.DocumentEditRevision.metadata(documents.find(id)));
+        request.setParameter("metadataRevision", metadataRevision);
         requestOut[0] = request;
         Provider provider = new Provider();
         provider.setProviderNo(providerNo);
