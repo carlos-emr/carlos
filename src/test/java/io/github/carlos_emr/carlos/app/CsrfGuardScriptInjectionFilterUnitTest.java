@@ -311,9 +311,10 @@ class CsrfGuardScriptInjectionFilterUnitTest {
         assertThat(response.getContentAsString()).isEqualTo(page);
     }
 
-    @Test
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     @DisplayName("should encode a large streamed page onto the output stream when the writer is unavailable")
-    void shouldStreamOntoTheOutputStream_whenTheResponseWriterIsUnavailable() throws Exception {
+    void shouldStreamOntoTheOutputStream_whenTheResponseWriterIsUnavailable(boolean downstreamCloses) throws Exception {
         MockHttpServletResponse response = new MockHttpServletResponse();
         response.getOutputStream();
         String body = "é".repeat(CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS);
@@ -325,6 +326,9 @@ class CsrfGuardScriptInjectionFilterUnitTest {
                 writer.write("<html><head></head><body>");
                 writer.write(body);
                 writer.write("</body></html>");
+                if (downstreamCloses) {
+                    writer.close();
+                }
             }));
 
             assertThat(capture.events()).anySatisfy(event -> assertThat(event.getMessage().getFormattedMessage())

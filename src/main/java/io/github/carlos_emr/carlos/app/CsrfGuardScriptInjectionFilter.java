@@ -1092,15 +1092,21 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             @Override
             public void close() throws IOException {
                 if (overflow != null) {
-                    releaseHeld();
-                    overflow.close();
+                    try {
+                        releaseHeld();
+                        overflow.close();
+                    } finally {
+                        overflow = null;
+                    }
                 }
             }
 
             /** The filter is completing a streamed response: write any held partial tag and flush. */
             void finish() throws IOException {
-                releaseHeld();
-                overflow.flush();
+                if (overflow != null) {
+                    releaseHeld();
+                    overflow.flush();
+                }
             }
         }
 
