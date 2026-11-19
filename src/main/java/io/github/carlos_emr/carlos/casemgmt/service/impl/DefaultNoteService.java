@@ -176,12 +176,7 @@ public class DefaultNoteService implements NoteService {
         for (PatientForm patientForm : allPatientForms) {
             EChartNoteEntry e = new EChartNoteEntry();
             e.setId(new String[]{patientForm.getFormName(), patientForm.getFormId()});
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-            try {
-                e.setDate(sdf.parse(patientForm.getEdited()));
-            } catch (ParseException e1) {
-                logger.error("Unable to parse date" + patientForm.getEdited(), e1);
-            }
+            e.setDate(patientForm.edited != null ? patientForm.edited : patientForm.created);
             e.setType("encounter_form");
             entries.add(e);
         }
@@ -492,23 +487,15 @@ public class DefaultNoteService implements NoteService {
     }
 
     private List<EChartNoteEntry> applyDateRangeFilter1(List<EChartNoteEntry> notes, Date startDate, Date endDate) {
-        List<EChartNoteEntry> filteredNotes = new ArrayList<EChartNoteEntry>();
+        if (startDate == null && endDate == null) {
+            return notes;
+        }
 
+        List<EChartNoteEntry> filteredNotes = new ArrayList<>();
         for (EChartNoteEntry note : notes) {
-            if (startDate == null && endDate == null) {
+            Date date = note.getDate();
+            if (date != null && (startDate == null || date.after(startDate)) && (endDate == null || date.before(endDate))) {
                 filteredNotes.add(note);
-            } else if (startDate != null && endDate == null) {
-                if (note.getDate().after(startDate)) {
-                    filteredNotes.add(note);
-                }
-            } else if (startDate == null && endDate != null) {
-                if (note.getDate().before(endDate)) {
-                    filteredNotes.add(note);
-                }
-            } else {
-                if (note.getDate().after(startDate) && note.getDate().before(endDate)) {
-                    filteredNotes.add(note);
-                }
             }
         }
         return filteredNotes;

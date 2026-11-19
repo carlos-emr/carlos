@@ -1,20 +1,23 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.test.base;
 
+import io.github.carlos_emr.carlos.utility.MariaDbCompatibilityDriver;
 import java.sql.DriverManager;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
+import org.springframework.jdbc.datasource.AbstractDriverBasedDataSource;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 
 /** Owns one randomly named test schema; never adopts or drops an existing database. */
 public final class IsolatedJpaTestDatabase implements AutoCloseable {
     private final String database;
     private final String server;
     private final Properties credentials = new Properties();
-    private final DriverManagerDataSource dataSource;
+    private final AbstractDriverBasedDataSource dataSource;
     private final boolean migrated;
     private boolean closed;
 
@@ -30,8 +33,8 @@ public final class IsolatedJpaTestDatabase implements AutoCloseable {
             throw new IllegalArgumentException("Invalid test database label");
         }
         boolean nativeMode = "true".equals(environment.get("CARLOS_TEST_MARIADB_DAO"));
-        server = environment.get("CARLOS_TEST_MARIADB_URL");
-        if (!nativeMode && server != null) {
+        String configuredServer = environment.get("CARLOS_TEST_MARIADB_URL");
+        if (!nativeMode && configuredServer != null) {
             throw new IllegalArgumentException("A MariaDB URL requires the explicit native-test opt-in");
         }
         String mode = environment.getOrDefault("CARLOS_TEST_MARIADB_SCHEMA", "generated");
@@ -43,9 +46,7 @@ public final class IsolatedJpaTestDatabase implements AutoCloseable {
                 || !java.util.List.of("on", "bc").contains(province)) {
             throw new IllegalArgumentException("Unknown native test schema or province");
         }
-        if (nativeMode && (server == null || !server.matches("jdbc:mariadb://[^/@?#;\\s]+/"))) {
-            throw new IllegalArgumentException("Native tests require a server URL without a database or query");
-        }
+        server = nativeMode ? MariaDbTestUrl.toNativeUrl(MariaDbTestUrl.requireServerUrl(configuredServer)) : null;
         migrated = nativeMode && "flyway".equals(mode);
         database = "carlos_test_" + label + "_" + UUID.randomUUID().toString().replace("-", "");
         if (!nativeMode) {
@@ -62,10 +63,14 @@ public final class IsolatedJpaTestDatabase implements AutoCloseable {
             }
             statement.executeUpdate("CREATE DATABASE " + database + " CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci");
         }
-        dataSource = new DriverManagerDataSource(server + database
+        String jdbcUrl = configuredServer + database
                 + "?connectionCollation=utf8mb4_general_ci&zeroDateTimeBehavior=CONVERT_TO_NULL"
-                + "&jdbcCompliantTruncation=false&useInformationSchema=false",
-                credentials.getProperty("user"), credentials.getProperty("password"));
+                + "&jdbcCompliantTruncation=false&useInformationSchema=false";
+        String user = credentials.getProperty("user");
+        String password = credentials.getProperty("password");
+        dataSource = MariaDbTestUrl.usesLegacyScheme(configuredServer)
+                ? new SimpleDriverDataSource(new MariaDbCompatibilityDriver(), jdbcUrl, user, password)
+                : new DriverManagerDataSource(jdbcUrl, user, password);
         Properties settings = new Properties();
         settings.setProperty("sessionVariables", "sql_mode='',innodb_strict_mode=0");
         dataSource.setConnectionProperties(settings);

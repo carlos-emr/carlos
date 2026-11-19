@@ -8,6 +8,9 @@ import sys
 
 from junit_evidence import EvidenceError, read_surefire
 
+UNMERGE_FAMILY = "DemographicWebUnmergeIntegrationTest"
+UNMERGE_CLASS = "io.github.carlos_emr.carlos.demographic.pageUtil." + UNMERGE_FAMILY
+
 CRITICAL = {
     "MariaDbDaoHarnessIntegrationTest": 1,
     "MeasurementDaoIntegrationTest": 1,
@@ -37,6 +40,7 @@ REQUIRED_CASES = {
         'shouldRollbackEarlierNameAudits_whenLaterPatientEnrichmentFails',
     },
     "AppointmentUpdateDaoIntegrationTest": {
+        "shouldReuseReturnedVersion_whenEditEntersTheRepeatedHour",
         "shouldRefuseStoredPatient_beforeArchivalOrMutation",
         "shouldRollbackArchiveAndEdit_whenReplacementPatientIsDenied",
         "shouldAllowAssignedPatientWrite_withoutReadPermission",
@@ -95,6 +99,27 @@ REQUIRED_CASES = {
         "shouldRetainExplicitEmptyStringClears_inTheNativeTransaction",
         "shouldReportConflict_withoutOverwritingAnOlderTransactionSnapshot",
     },
+    UNMERGE_FAMILY: {
+        'shouldRefuseARepeatedUnmerge_withoutAnotherAuditOrRecycleWrite',
+        'shouldPreserveEarlierUnmergeAttribution_whenAnActiveLinkIsRemoved',
+        'shouldRefuseTheEntireSelection_whenALaterPatientIsNoLongerMerged',
+        "shouldRollbackEveryParticipant_whenALaterStorageValueIsMalformed",
+        'shouldCanonicalizeAndDeduplicate_whenSelectedIdsHaveEquivalentSpellings',
+        'shouldCommitOnlySelectedParticipants_whenTheBatchSucceeds',
+        'shouldKeepTheFailureOutcome_whenTheSelectionIsEmpty',
+        'shouldRefuseBeforeWrites_whenTheCallerLacksWritePrivilege',
+        'shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String)[1]',
+        'shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String)[2]',
+        'shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String)[3]',
+        'shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String)[4]',
+        'shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String)[5]',
+        'shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String)[6]',
+        'shouldRefuseTheWholeSelection_whenAnyIdIsInvalid(String)[7]',
+        'shouldRefuseTheWholeSelection_whenAnyPatientIsMissing',
+        'shouldRollbackEveryParticipant_whenTheLaterAuditWriteFails',
+        'shouldRollbackEveryParticipant_whenTheLaterRecycleWriteFails',
+        'shouldUseAuthenticatedAttribution_whenTheRequestSuppliesAnotherProvider',
+    },
     "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": {
         f"{method}(Boolean, Integer, boolean, int)[{index}]"
         for method in (
@@ -132,7 +157,7 @@ REQUIRED_CASES = {
 # AbstractDaoFindAllOrderingIntegrationTest pins issue #5308 where it matters: MariaDB returns an
 # unordered page in secondary-index order, so its paging cases must execute on the physical server.
 # CaseManagementIssueDAO adds one duplicate-link case on the legacy Flyway schema only.
-REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
+REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 18,**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
                           "JdbcConnectorMariaDbIntegrationTest": 32,
                           "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1,
                           "AbstractDaoFindAllOrderingIntegrationTest": 6,
@@ -146,6 +171,7 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, 
                           "RxFavoriteCopyIntegrationTest": 1,
                           "RxRestPrescriptionRollbackIntegrationTest": 1,
                           "DemographicMergeMariaDbIntegrationTest": 9,
+                          UNMERGE_FAMILY: 19,
                           "SiteRenameClockMariaDbIntegrationTest": 8,
                           "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
                           "ScheduleSyncMariaDbIntegrationTest": 9,
@@ -164,6 +190,7 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, 
                        "ConsultationListProjectionIntegrationTest": 17,
                        "RxCorrectionSaveRollbackIntegrationTest": 2,
                        "DemographicMergeMariaDbIntegrationTest": 9,
+                       UNMERGE_FAMILY: 19,
                           "SiteRenameClockMariaDbIntegrationTest": 8,
                           "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
                           "ScheduleSyncMariaDbIntegrationTest": 9,
@@ -182,13 +209,14 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, 
                            "BcBillingNativeMariaDbIntegrationTest": 22,
                            "FormXmlImportServiceIntegrationTest": 7,
                            "EFormApColumnLookupIntegrationTest": 2,
-                           "AppointmentDaySheetServiceIntegrationTest": 4,
+                           "AppointmentDaySheetServiceIntegrationTest": 5,
                            "AntenatalReportDaoIntegrationTest": 5,
                            "EFormGroupDaoIntegrationTest": 9,
                            "BcBillingDaoTransactionIntegrationTest": 4,
                            "LegacyBcTeleplanExportMariaDbIntegrationTest": 29,
                            "BCAR2020FormSaveTransactionIntegrationTest": 15,
                            "DemographicMergeMariaDbIntegrationTest": 9,
+                           UNMERGE_FAMILY: 19,
                           "SiteRenameClockMariaDbIntegrationTest": 8,
                           "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
                           "ScheduleSyncMariaDbIntegrationTest": 9,
@@ -208,7 +236,8 @@ INBOX_CASES = (
 INBOX_CLASS = 'io.github.carlos_emr.carlos.commn.dao.LegacyLabNativeMariaDbIntegrationTest'
 BC_PHYSICAL_CASES = {
     'io.github.carlos_emr.carlos.appointment.service.AppointmentDaySheetServiceIntegrationTest': (
-        'shouldReadPhysicalIdsAndEditVersions_beforeAcknowledgingNativeDaySheetRows',),
+        'shouldReadPhysicalIdsAndEditVersions_beforeAcknowledgingNativeDaySheetRows',
+        'shouldAcknowledgeOnlyRenderedVersions_whenRowsAreBookedOrEditedAfterPreview',),
     'io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingNativeMariaDbIntegrationTest': (
         'shouldRetainNumericTimeRules_fromPhysicalTinyintFlags',
         'shouldPreserveCharacterStatusAndCallerWrites_whenReadingCurrentBillState'),
@@ -254,7 +283,8 @@ def verify(reports: Path, output: Path) -> dict:
                 inbox_cases[mode].add(case.name)
             if mode == 'bc-flyway' and case.classname == suite and not case.container and case.outcome == 'pass':
                 bc_physical_cases.add((case.classname, case.name))
-            if family in families[mode] and case.outcome == "pass":
+            if (family in families[mode] and case.outcome == "pass"
+                    and (family != UNMERGE_FAMILY or suite == case.classname == UNMERGE_CLASS)):
                 families[mode][family] += 1
                 if family in REQUIRED_CASES and case.classname == suite:
                     passed_cases[mode][family].add(case.name)

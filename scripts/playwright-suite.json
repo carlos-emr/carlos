@@ -2295,11 +2295,19 @@
     {
       "name": "login-legacy-intake",
       "script": "scripts/login-legacy-intake-playwright-checks.js",
-      "tiers": ["core"],
+      "tiers": [
+        "core"
+      ],
       "assertsDatabase": true,
-      "provinces": ["all"],
+      "provinces": [
+        "all"
+      ],
       "timeoutSec": 180,
-      "env": ["TEST_PASSWORD", "TEST_PIN", "MYSQL_PASSWORD"],
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
       "notes": "Issue 4562: a retained Patient Intake assignment uses the supported landing page after password login and forced reset; the replacement password remains usable.",
       "fixtures": "One owned throwaway login retains its copied privileges plus the legacy assignment. Cleanup removes its credentials, assignments, preferences and audit rows; no shared role or account is edited."
     },
@@ -4835,7 +4843,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Two owned synthetic patients merged and unmerged through Administration > Merge Patient Records; demographic_merged, secObjPrivilege and recyclebin rows removed."
+      "fixtures": "Owned synthetic patients merged and unmerged through Administration > Merge Patient Records; forged form provider must not override authenticated recycle/audit attribution (#6004); demographic_merged, secObjPrivilege and recyclebin rows removed."
     },
     {
       "name": "patient-set-cohort",
@@ -18115,11 +18123,7 @@
       "timeoutSec": 300,
       "profile": "appointment-options",
       "env": [],
-      "expectedFailure": {
-        "finding": 329,
-        "step": "requested reminder has an implemented and visible persisted outcome"
-      },
-      "notes": "Issue 5268: checked/unchecked real Add requests and cancellation; emailApptReminder=yes exposes an unimplemented emailPt option. Finding 329 keeps reminder outcome distinct from booking success."
+      "notes": "Issue 5887. With emailApptReminder=yes, the native Add and Edit forms omit the unsupported reminder option. Booking, cancellation and saving an edit preserve the ordinary appointment workflow."
     },
     {
       "name": "document-public-visibility",
@@ -19538,6 +19542,23 @@
       ],
       "fixtures": "Owns the runWorkflow patient and one marker-named REST-created patient and admission; removes exact owned custom-field/archive/admission rows and verifies cleanup. Disposable exclusive host only. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#5999: six converted field lengths refuse REST create/update before side effects; exact schema limits and supplementary Unicode boundary values persist without truncation."
+    },
+    {
+      "name": "report-daysheet-selection",
+      "script": "scripts/report-daysheet-selection-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "MYSQL_PASSWORD"
+      ],
+      "notes": "#5956: a preview stays read-only; acknowledgment excludes newly booked and subsequently edited appointments; replay cannot acquire later appointments or duplicate archives.",
+      "fixtures": "Owns one patient, one reader-role/login/provider and site memberships, and three marker-reason appointments. Removes only their exact archives, appointments and fixture identities. Disposable exclusive host only."
     },
     {
       "name": "eform-large-html-roundtrip",
