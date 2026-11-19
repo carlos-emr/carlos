@@ -8,7 +8,9 @@ import io.github.carlos_emr.carlos.managers.AppointmentUpdateException;
 import io.github.carlos_emr.carlos.managers.ScheduleManager;
 import io.github.carlos_emr.carlos.managers.ScheduleManagerImpl;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.base.MariaDbTestUrl;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MariaDbCompatibilityDriver;
 import jakarta.persistence.EntityManager;
 import java.sql.DriverManager;
 import java.util.Date;
@@ -39,7 +41,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Uses a database-free {@code jdbc:mariadb://host:port/} server URL from
+ * Uses a database-free MariaDB or legacy MySQL server URL from
  * {@code CARLOS_TEST_MARIADB_URL}, or H2 when the variable is absent.
  */
 @Tag("integration")
@@ -62,24 +64,23 @@ class AppointmentUpdateDaoIntegrationTest {
     @BeforeEach
     void setup() throws Exception {
         String configuredServer = System.getenv("CARLOS_TEST_MARIADB_URL");
-        if (configuredServer != null && !configuredServer.matches("jdbc:mariadb://[^/@?#;\\s]+/")) {
-            throw new IllegalArgumentException("Appointment DAO tests require a jdbc:mariadb server URL ending in / without a database or query");
-        }
-        // Assign only after validation so failure cleanup cannot connect to a rejected URL.
-        server = configuredServer;
+        // Validate before setting server so failure cleanup cannot connect to a rejected URL.
+        server = configuredServer == null ? null : MariaDbTestUrl.requireServerUrl(configuredServer);
         database = "carlos_test_5300_" + UUID.randomUUID().toString().replace("-", "");
         String url = "jdbc:h2:mem:" + database + ";MODE=MySQL;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=5000";
         credentials.setProperty("user", System.getenv().getOrDefault("CARLOS_TEST_MARIADB_USER", "root"));
         credentials.setProperty("password", System.getenv().getOrDefault("CARLOS_TEST_MARIADB_PASSWORD", ""));
         if (server != null) {
-            try (var connection = DriverManager.getConnection(server, credentials); var statement = connection.createStatement()) {
+            try (var connection = DriverManager.getConnection(MariaDbTestUrl.toNativeUrl(server), credentials);
+                 var statement = connection.createStatement()) {
                 assertThat(connection.getMetaData().getDatabaseProductVersion()).contains("MariaDB");
                 statement.executeUpdate("CREATE DATABASE " + database);
             }
             url = server + database;
         }
         var configuration = new Configuration().addAnnotatedClass(Appointment.class).addAnnotatedClass(AppointmentArchive.class)
-                .setProperty("hibernate.connection.driver_class", server == null ? "org.h2.Driver" : "org.mariadb.jdbc.Driver")
+                .setProperty("hibernate.connection.driver_class", server == null ? "org.h2.Driver"
+                        : MariaDbCompatibilityDriver.class.getName())
                 .setProperty("hibernate.connection.url", url)
                 .setProperty("hibernate.dialect", server == null ? "org.hibernate.dialect.H2Dialect"
                         : "io.github.carlos_emr.carlos.util.persistence.OscarMySQL5Dialect")
@@ -93,7 +94,8 @@ class AppointmentUpdateDaoIntegrationTest {
         factory = configuration.buildSessionFactory();
         if (server != null) {
             // Match the production column, rather than Hibernate's fractional TIMESTAMP default.
-            try (var connection = DriverManager.getConnection(url, credentials); var statement = connection.createStatement()) {
+            try (var connection = DriverManager.getConnection(MariaDbTestUrl.toNativeUrl(server + database), credentials);
+                 var statement = connection.createStatement()) {
                 statement.executeUpdate("ALTER TABLE appointment MODIFY updatedatetime DATETIME NULL");
             }
         }
@@ -134,7 +136,8 @@ class AppointmentUpdateDaoIntegrationTest {
             if (factory != null) factory.close();
         } finally {
             if (server != null && database != null) {
-                try (var connection = DriverManager.getConnection(server, credentials); var statement = connection.createStatement()) {
+                try (var connection = DriverManager.getConnection(MariaDbTestUrl.toNativeUrl(server), credentials);
+                     var statement = connection.createStatement()) {
                     statement.executeUpdate("DROP DATABASE IF EXISTS " + database);
                 }
             }
