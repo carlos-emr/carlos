@@ -2,9 +2,10 @@
 # postinst for carlos-emr.
 # Modifications by CARLOS Contributors, 2026.
 #
-# THIS IS THE ONLY PLACE THE PACKAGE USES ROOT. It creates the three system
+# This script performs privileged provisioning. It creates the three system
 # accounts, lays out the directories, provisions the database, renders the
-# configuration and wires nginx. Everything it installs then runs unprivileged:
+# configuration and wires nginx. The service's narrowly scoped pre-start guards
+# also run as root; the application and its other workhorses run unprivileged:
 # the application as `carlos`, backups as `carlos-backup`, the eForm render
 # browser as `carlos-render`, the front door as `www-data`, the database as
 # `mysql`.
@@ -247,6 +248,45 @@ log_action() {
 # step below honours that -- and so does whatever they put on 80/443 in its
 # place: stopping it would only swap their choice for an nginx this run then
 # starts. A first install, or an nginx that failed to start, is not that case.
+retire_nginx_default_site() {
+    python3 - <<'NGINX_DEFAULT_SITE'
+import hashlib
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+link = Path('/etc/nginx/sites-enabled/default')
+stock = Path('/etc/nginx/sites-available/default')
+if not link.is_symlink():
+    sys.exit(0)
+try:
+    before = link.lstat()
+    if link.resolve() != stock or not stock.is_file():
+        print('carlos-emr: preserving the operator-owned nginx default-site target', file=sys.stderr)
+        sys.exit(0)
+    query = subprocess.run(['dpkg-query', '-W', '-f=${Conffiles}\\n', 'nginx-common'],
+                           capture_output=True, text=True, timeout=10, check=False)
+    recorded = [line.split()[1] for line in query.stdout.splitlines()
+                if len(line.split()) == 2 and line.split()[0] == str(stock)]
+    # This is dpkg's existing conffile identity, not a security checksum.
+    actual = hashlib.md5(stock.read_bytes(), usedforsecurity=False).hexdigest()
+    if query.returncode or recorded != [actual]:
+        print('carlos-emr: preserving a customized or unverified nginx default site; '
+              'resolve any listener conflict explicitly', file=sys.stderr)
+        sys.exit(0)
+    after = link.lstat()
+    if (before.st_dev, before.st_ino) != (after.st_dev, after.st_ino) or link.resolve() != stock:
+        raise OSError('default-site link changed during inspection')
+    link.unlink()
+    print('carlos-emr: retired the unchanged packaged nginx default-site symlink', file=sys.stderr)
+except (OSError, subprocess.TimeoutExpired):
+    print('carlos-emr: could not verify/retire the nginx default-site symlink; '
+          'the installation remains incomplete', file=sys.stderr)
+    sys.exit(1)
+NGINX_DEFAULT_SITE
+}
+
 free_front_door() {
     FRONT_DOOR_FREED=""
     [ -d /run/systemd/system ] || return 0
@@ -262,7 +302,10 @@ free_front_door() {
     # Asked on every configure that finds a conflict, not once: a service
     # installed after CARLOS is a new decision.
     db_fset carlos-emr/stop-port-conflicts seen false || true
-    db_input high carlos-emr/stop-port-conflicts || true
+    front_door_question_shown=0
+    if db_input high carlos-emr/stop-port-conflicts; then
+        front_door_question_shown=1
+    fi
     db_go || true
     RET=false
     db_get carlos-emr/stop-port-conflicts || true
@@ -272,6 +315,12 @@ free_front_door() {
             log_action "front door: declined to stop ${planned_line}"
         done
         return 0
+    fi
+    if [ "${front_door_question_shown}" = 0 ]; then
+        # debconf stores an inherited old default exactly like an explicit
+        # preseed. Never guess provenance from 'seen' and reset operator consent.
+        echo "carlos-emr: using saved/preseeded stop-port-conflicts=true; the new default does not reset saved answers. The listed services may be stopped and disabled." >&2
+        log_action "front door: using saved/preseeded stop-port-conflicts=true; saved answers are retained"
     fi
     FRONT_DOOR_FREED="$(host_conflicts front-door "${front_door_ip}" | sed -n 's/^stopped: //p')"
     [ -n "${FRONT_DOOR_FREED}" ] || return 0
@@ -1598,20 +1647,17 @@ OAUTH_ACCESS_DEFAULTS
         # another run holds the provisioning lock: this configure then defers
         # init-config and provisioning, and taking another service down for a
         # front door it is not about to configure would be all cost.
+        # Retire only an unchanged distribution default, even when provisioning
+        # defers. The unchanged CLI's later nginx test must not inherit its
+        # unusable IPv6 listener, and custom default sites must survive (#5979).
+        if ! retire_nginx_default_site; then
+            mark_incomplete "the stock nginx default site could not be retired"
+        fi
         if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
             free_front_door "${2:-}"
         fi
         [ -e /etc/nginx/sites-enabled/carlos-emr ] || export CARLOS_CONFIGURE_FIRST_RUN=1
         if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
-            # Retire Ubuntu's default site BEFORE init-config refreshes the
-            # certificate or tests nginx. Its unconditional [::]:80 listener
-            # fails on IPv6-less hosts even though our rendered listeners are
-            # IPv4-only. Remove only the symlink, never nginx's conffile or an
-            # operator's regular file. The CARLOS site is enabled below once
-            # its generated includes and certificate are in place.
-            if [ -L /etc/nginx/sites-enabled/default ]; then
-                rm -f /etc/nginx/sites-enabled/default
-            fi
             carlos-ctl init-config || {
                 echo "carlos-emr: WARNING: init-config reported a problem applying the front-door" >&2
                 echo "carlos-emr: WARNING: configuration (see above). The install continues; fix the" >&2
@@ -2004,44 +2050,14 @@ OAUTH_ACCESS_DEFAULTS
         fi
 
         # BEGIN MODERN_CHART_CUTOVER
-        # init-config and database-user provisioning may rewrite this file. Persist the mandatory setting
-        # afterwards, as root: the normal root:carlos 0640 configuration cannot
-        # be changed by Tomcat. This is not an optional default or a one-time
-        # sentinel: every configure must leave rollback binaries in modern mode.
-        # Use the same POSIX record lock as Java's FileChannel, not flock(1).
-        # Append in place rather than rename: an encryption-key initializer
-        # already waiting on this inode must not write its key to an unlinked file.
-        if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
-            if ! python3 - "${PROPERTIES}" <<'MODERN_CHART_CUTOVER'
-import fcntl
-import os
-import stat
-import sys
-
-path = sys.argv[1]
-entry = (b"\n\n# Mandatory modern-chart cutover; retain this on rollback (#4793).\n"
-         b"AbandonOldChart=true\n")
-try:
-    # Never create a stub if init-config failed or the operator file disappeared.
-    with open(path, "r+b") as configuration:
-        if not stat.S_ISREG(os.fstat(configuration.fileno()).st_mode):
-            raise OSError("the configuration source is not a regular file")
-        fcntl.lockf(configuration, fcntl.LOCK_EX)
-        if not configuration.read().endswith(entry):
-            configuration.seek(0, os.SEEK_END)
-            configuration.write(entry)
-            configuration.flush()
-            os.fsync(configuration.fileno())
-except OSError as error:
-    print("carlos-emr: ERROR: could not persist AbandonOldChart=true in "
-          + path + ": " + str(error), file=sys.stderr)
-    sys.exit(1)
-MODERN_CHART_CUTOVER
-            then
-                echo "carlos-emr: ERROR: modern-chart cutover failed; the application will not be started." >&2
-                echo "carlos-emr: ERROR: fix ${PROPERTIES}, then run: sudo dpkg --configure -a" >&2
-                exit 1
-            fi
+        # A deferred configure still needs a durable flag (#5761). The helper
+        # holds a POSIX record lock on the file, not the provisioning flock,
+        # and rechecks atomic replacements made by the unchanged CLI. The
+        # service runs it again after finish-install/restore (#5764).
+        if ! /usr/lib/carlos-emr/carlos-emr-config-preflight reconcile; then
+            echo "carlos-emr: ERROR: could not persist AbandonOldChart=true; the application will not be started." >&2
+            echo "carlos-emr: ERROR: fix ${PROPERTIES}, then run: sudo dpkg --configure -a" >&2
+            exit 1
         fi
         # END MODERN_CHART_CUTOVER
         ;;
