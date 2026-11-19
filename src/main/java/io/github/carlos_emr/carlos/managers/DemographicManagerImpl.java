@@ -361,13 +361,14 @@ public class DemographicManagerImpl implements DemographicManager {
     public void createUpdateDemographicCust(LoggedInInfo loggedInInfo, DemographicCust demoCust) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.WRITE);
         if (demoCust != null) {
-            // Archive previous demoCust
-            DemographicCust prevCust = demographicCustDao.find(demoCust.getId());
-            if (prevCust == demoCust) {
-                // Fail loudly: comparing the stored row with itself always finds it unchanged, so the
-                // previous values would be overwritten without an archive row and without an error.
+            if (demographicCustDao.contains(demoCust)) {
+                // Fail loudly: a managed row is the very object the lookup below returns, so comparing
+                // it with itself always finds it unchanged and the previous values would be
+                // overwritten without an archive row and without an error.
                 throw new IllegalArgumentException("Custom fields must be saved from a copy, not from the stored row.");
             }
+            // Archive previous demoCust
+            DemographicCust prevCust = demographicCustDao.find(demoCust.getId());
             if (prevCust != null) {
                 if (!(Objects.equals(prevCust.getAlert(), demoCust.getAlert())
                         && Objects.equals(prevCust.getMidwife(), demoCust.getMidwife())
