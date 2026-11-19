@@ -57,8 +57,10 @@ import io.github.carlos_emr.carlos.report.data.RptReportCreator;
 import io.github.carlos_emr.carlos.report.data.RptReportFilter;
 import io.github.carlos_emr.carlos.report.data.RptReportItem;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.AntenatalReportDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import org.apache.logging.log4j.Level;
 
@@ -132,6 +134,26 @@ class RptDownloadCSVServletTest {
     }
 
     @Test
+    void shouldUseTheCurrentSecurityManager_forEachContainerRequest() throws Exception {
+        RptDownloadCSVServlet containerServlet = new RptDownloadCSVServlet();
+        SecurityInfoManager firstManager = mock(SecurityInfoManager.class);
+        SecurityInfoManager secondManager = mock(SecurityInfoManager.class);
+        var firstResponse = mock(jakarta.servlet.http.HttpServletResponse.class);
+        var secondResponse = mock(jakarta.servlet.http.HttpServletResponse.class);
+
+        try (var spring = mockStatic(SpringUtils.class)) {
+            spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(firstManager, secondManager);
+            containerServlet.service(baseRequest(), firstResponse);
+            containerServlet.service(baseRequest(), secondResponse);
+        }
+
+        verify(firstManager).hasPrivilege(user, "_report", "r", null);
+        verify(secondManager).hasPrivilege(user, "_report", "r", null);
+        verify(firstResponse).sendError(eq(403), anyString());
+        verify(secondResponse).sendError(eq(403), anyString());
+    }
+
+    @Test
     @DisplayName("should avoid stray conjunctions for demographicExt filter only when demographic filter is empty")
     void shouldAvoidStrayConjunctions_forDemographicExtFilterOnly() throws Exception {
         MockHttpServletRequest request = baseRequest();
@@ -165,6 +187,25 @@ class RptDownloadCSVServletTest {
 
         assertSqlShape(subQuery);
         assertThat(subQuery.params()).containsExactly("2026-01-01");
+    }
+
+    @Test
+    void shouldUseTheBirthSummaryPatientIds_forAnAntenatalFilter() throws Exception {
+        var request = baseRequest();
+        request.addParameter("last_name", "on");
+        request.addParameter("c_EDD", "on");
+        addFilter(request, 1, "formBCAR.demographic_no in (select demographic_no from formBCBirthSumMo where demographic_no='${patient}')",
+                "patient", "17");
+        AntenatalReportDao summaries = mock(AntenatalReportDao.class);
+        when(summaries.birthSummaryDemographics()).thenReturn(List.of(17, 42));
+
+        try (var spring = mockStatic(SpringUtils.class)) {
+            spring.when(() -> SpringUtils.getBean(AntenatalReportDao.class)).thenReturn(summaries);
+            SqlCall subQuery = findCallContaining(invokeDemoReport(request), "select max(ID) from formBCAR");
+
+            assertThat(subQuery.sql()).contains("formBCAR.demographic_no in (17,42)").doesNotContain("formBCBirthSumMo");
+            assertThat(subQuery.params()).isEmpty();
+        }
     }
 
     @Test

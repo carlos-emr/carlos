@@ -87,10 +87,11 @@ public class RptDownloadCSVServlet extends HttpServlet {
 
     String DELIMETER = "\t";
 
-    private SecurityInfoManager securityInfoManager;
+    private final transient SecurityInfoManager securityInfoManager;
 
-    /** Container constructor; the security manager is read from Spring on first use. */
+    /** Container constructor; authorization uses the security manager from the current Spring context. */
     public RptDownloadCSVServlet() {
+        this(null);
     }
 
     /** Test constructor. */
@@ -98,16 +99,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
         this.securityInfoManager = securityInfoManager;
     }
 
-    private SecurityInfoManager securityInfoManager() {
-        if (securityInfoManager == null) {
-            securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-        }
-        return securityInfoManager;
-    }
-
     /** The report filter page's own rule: {@code _report} or {@code _admin.reporting} read. */
     private boolean mayReadReports(LoggedInInfo loggedInInfo) {
-        SecurityInfoManager security = securityInfoManager();
+        SecurityInfoManager security = securityInfoManager == null
+                ? SpringUtils.getBean(SecurityInfoManager.class) : securityInfoManager;
         return security.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)
                 || security.hasPrivilege(loggedInInfo, "_admin.reporting", SecurityInfoManager.READ, null);
     }
