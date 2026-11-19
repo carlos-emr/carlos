@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "2527f76ed7c55bc7793184a2ad46449d0c4039a2",
+  "comparisonSha256": "4da268862973fc11c531e3d40e6c7d934240dfa8b6c06d47c905d658b5967845",
+  "baselineCommit": "205a629c2c3e2935120366c7f7c8a17797b9864e",
+  "baselineSourceTree": "2527f76ed7c55bc7793184a2ad46449d0c4039a2",
+  "baselineReportSha256": "4ad3b39aef570737fcdbb62a9b81880520066b49ad6d306a6bc8ac7cc9bfebbc",
+  "baselineLane": "Java 25 focused waiting-list monitor, note handling and H2 demographic transaction tests",
+  "baselineTestCounts": {
+    "tests": 42,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "b74a05a953f2437ebf8fea1385f2fc5752a1ede32d6f2ec0147fa7dbebc2b583",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/waitinglist/util/WLWaitingListUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "9731d9f34788f07367c39cd371ec91d45ed612ad"
+    }
+  },
+  "exclusions": {}
+}
