@@ -1121,4 +1121,51 @@ public class SecurityInfoManagerUnitTest extends CarlosUnitTestBase {
                     .isSameAs(directive);
         }
     }
+
+    /**
+     * Issue #5890: Merge Records leaves a merged-away chart readable but not writable through an
+     * {@code _all / _eChart$<chart> / |or|} row, which the modern chart's {@code _eChart} checks now honour.
+     */
+    @Nested
+    @DisplayName("Merged-away chart read-only row")
+    class MergedChartReadOnly {
+
+        private void stubRows(SecObjPrivilege... rows) {
+            when(mockSecObjPrivilegeDao.findByObjectNames(any())).thenAnswer(invocation -> {
+                java.util.Collection<String> names = invocation.getArgument(0);
+                return java.util.Arrays.stream(rows).filter(row -> names.contains(row.getId().getObjectName())).toList();
+            });
+        }
+
+        @Test
+        void shouldRefuseChartWrite_whenEveryoneIsReadOnlyOnThatChart() {
+            stubRows(createPrivilege(ROLE_DOCTOR, "_eChart", "x", 0), createPrivilege("_all", "_eChart$42", "|or|", 0));
+
+            assertThat(securityInfoManager.hasPrivilege(mockLoggedInInfo, "_eChart", "w", "42")).isFalse();
+            assertThat(securityInfoManager.hasPrivilege(mockLoggedInInfo, "_eChart", "u", "42")).isFalse();
+            assertThat(securityInfoManager.hasPrivilegeReadOnly(mockLoggedInInfo, "_eChart", "w", "42")).isFalse();
+        }
+
+        @Test
+        void shouldKeepChartReadable_whenEveryoneIsReadOnlyOnThatChart() {
+            stubRows(createPrivilege(ROLE_DOCTOR, "_eChart", "x", 0), createPrivilege("_all", "_eChart$42", "|or|", 0));
+
+            assertThat(securityInfoManager.hasPrivilege(mockLoggedInInfo, "_eChart", "r", "42")).isTrue();
+        }
+
+        @Test
+        void shouldLeaveOtherChartsWritable_whenOneChartIsReadOnly() {
+            stubRows(createPrivilege(ROLE_DOCTOR, "_eChart", "x", 0), createPrivilege("_all", "_eChart$42", "|or|", 0));
+
+            assertThat(securityInfoManager.hasPrivilege(mockLoggedInInfo, "_eChart", "w", "43")).isTrue();
+            assertThat(securityInfoManager.hasPrivilege(mockLoggedInInfo, "_eChart", "w", null)).isTrue();
+        }
+
+        @Test
+        void shouldNotGrantAnything_whenEveryoneRowAllowsWrite() {
+            stubRows(createPrivilege(ROLE_DOCTOR, "_eChart", "r", 0), createPrivilege("_all", "_eChart$42", "|w|", 0));
+
+            assertThat(securityInfoManager.hasPrivilege(mockLoggedInInfo, "_eChart", "w", "42")).isFalse();
+        }
+    }
 }
