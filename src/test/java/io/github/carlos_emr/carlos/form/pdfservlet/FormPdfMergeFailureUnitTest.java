@@ -10,6 +10,7 @@ import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.junit.jupiter.api.Tag;
@@ -38,17 +39,6 @@ class FormPdfMergeFailureUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest(name = "{0} export reports a failed merge")
     @ValueSource(strings = {"form", "eform"})
     void shouldFailTheResponse_whenTheSecondPageCannotBeStaged(String module) throws Exception {
-        HttpServlet servlet = servletWithValidPages(module);
-        servlet.init(new MockServletConfig());
-        var request = new MockHttpServletRequest("POST", "/" + module + "/createpdf");
-        var response = new MockHttpServletResponse();
-        var actor = new LoggedInInfo();
-        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), actor);
-        request.setParameter("demographic_no", "123");
-        request.setParameter("multiple", "2");
-        SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
-        when(security.hasPrivilege(actor, "_" + module, "r", "123")).thenReturn(true);
-
         Path firstStage = Files.createTempFile(tempDir, "page-", ".pdf");
         AtomicInteger stagingAttempts = new AtomicInteger();
         try (var paths = mockStatic(PathValidationUtils.class, call -> {
@@ -61,7 +51,7 @@ class FormPdfMergeFailureUnitTest extends CarlosUnitTestBase {
             }
             return call.callRealMethod();
         })) {
-            servlet.service(request, response);
+            var response = exportTwoPages(module, false);
 
             assertThat(stagingAttempts).hasValue(2);
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
@@ -72,13 +62,52 @@ class FormPdfMergeFailureUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    private static HttpServlet servletWithValidPages(String module) {
+    @ParameterizedTest(name = "{0} rejects an unreadable required page")
+    @ValueSource(strings = {"form", "eform"})
+    void shouldFailTheResponse_whenTheSecondPageIsUnreadable(String module) throws Exception {
+        var response = exportTwoPages(module, true);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        logActionMock.verifyNoInteractions();
+    }
+
+    @ParameterizedTest(name = "{0} includes both valid pages")
+    @ValueSource(strings = {"form", "eform"})
+    void shouldIncludeAllRequestedPages_whenBothPagesAreReadable(String module) throws Exception {
+        var response = exportTwoPages(module, false);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(response.getContentType()).isEqualTo("application/pdf");
+        try (PDDocument document = Loader.loadPDF(response.getContentAsByteArray())) {
+            assertThat(document.getNumberOfPages()).isEqualTo(2);
+        }
+    }
+
+    private MockHttpServletResponse exportTwoPages(String module, boolean unreadableSecondPage) throws Exception {
+        HttpServlet servlet = servletWithPages(module, unreadableSecondPage);
+        servlet.init(new MockServletConfig());
+        var request = new MockHttpServletRequest("POST", "/" + module + "/createpdf");
+        var response = new MockHttpServletResponse();
+        var actor = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), actor);
+        request.setParameter("demographic_no", "123");
+        request.setParameter("multiple", "2");
+        SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
+        when(security.hasPrivilege(actor, "_" + module, "r", "123")).thenReturn(true);
+
+        servlet.service(request, response);
+        return response;
+    }
+
+    private static HttpServlet servletWithPages(String module, boolean unreadableSecondPage) {
         if (module.equals("form")) {
             return new FrmPDFServlet() {
                 @Override
                 protected ByteArrayOutputStream generatePDFDocumentBytes(HttpServletRequest request,
                         ServletContext context, ByteArrayOutputStream output, int page) throws IOException {
-                    return validPage();
+                    return pageBytes(page, unreadableSecondPage);
                 }
             };
         }
@@ -86,13 +115,14 @@ class FormPdfMergeFailureUnitTest extends CarlosUnitTestBase {
             @Override
             protected ByteArrayOutputStream generatePDFDocumentBytes(HttpServletRequest request,
                     ServletContext context, int page) throws IOException {
-                return validPage();
+                return pageBytes(page, unreadableSecondPage);
             }
         };
     }
 
-    private static ByteArrayOutputStream validPage() throws IOException {
+    private static ByteArrayOutputStream pageBytes(int page, boolean unreadableSecondPage) throws IOException {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
+        if (unreadableSecondPage && page == 1) return output;
         try (PDDocument document = new PDDocument()) {
             document.addPage(new PDPage());
             document.save(output);

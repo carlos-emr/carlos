@@ -74,12 +74,24 @@ public class ConcatPDF {
      *
      * @throws IOException if the destination cannot be opened or closed
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static void concat(ArrayList<Object> inputs, String filename) throws IOException {
+        concatToFile(inputs, filename, false);
+    }
+
+    /**
+     * Writes a complete PDF to a file. An unreadable input aborts the merge.
+     *
+     * @throws IOException if the destination cannot be opened or closed
+     */
+    public static void concatRequired(List<Object> inputs, String filename) throws IOException {
+        concatToFile(inputs, filename, true);
+    }
+
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "The destination uses the existing trusted-path validation")
+    private static void concatToFile(List<Object> inputs, String filename, boolean requireAll) throws IOException {
         File outputFile = PathValidationUtils.resolveTrustedPath(new File(filename));
         try (OutputStream output = new FileOutputStream(outputFile)) {
-            concat(inputs, output);
+            concat(inputs, output, requireAll);
         }
     }
 
