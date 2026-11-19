@@ -70,8 +70,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li>405 — non-POST method</li>
  *   <li>400 — missing/non-alphanumeric {@code signatureKey}, or malformed
  *       {@code demographicNo} when {@code saveToDB=true}</li>
- *   <li>403 — {@code signatureKey} was not issued to this session by the page
- *       that opened the pad ({@link DigitalSignatureUtils#isIssued})</li>
+ *   <li>403 — {@code signatureKey} is unknown to this session or its pad has expired
+ *       ({@link DigitalSignatureUtils#isIssued})</li>
  *   <li>400 — malformed {@code data:} URI or non-Base64 {@code signatureImage}
  *       on the IPAD branch</li>
  *   <li>413 — raw-stream upload exceeds {@value #MAX_UPLOAD_BYTES} bytes</li>
@@ -148,9 +148,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
         // capture is written for, and read back by, that page alone.
         HttpSession session = request.getSession(false);
         if (!DigitalSignatureUtils.isIssued(session, signatureKey)) {
-            MiscUtils.getLogger().warn("Refused a signature upload whose key was not issued to this session");
-            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Unknown signature request");
-            return NONE;
+            return refuseInvalidPad(response);
         }
 
         var receipts = DigitalSignatureUtils.uploadReceipts(session);
@@ -270,9 +268,13 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             var facility = loggedInInfo.getCurrentFacility();
             var identity = new DigitalSignatureUtils.UploadIdentity(signatureKey, demographicNo,
                     loggedInInfo.getLoggedInProviderNo(), facility == null ? null : facility.getId(), moduleType, digest);
-            Integer savedId = receipts.savedId(identity);
-            if (savedId != null) {
-                return acknowledgeCapture(response, savedId.toString());
+            var previous = receipts.lookup(request.getSession(false), identity);
+            if (!previous.issued()) {
+                deleteQuietly(safeTarget);
+                return refuseInvalidPad(response);
+            }
+            if (previous.signatureId() != null) {
+                return acknowledgeCapture(response, previous.signatureId().toString());
             }
             DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
             DigitalSignature signature;
@@ -307,6 +309,12 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
         }
 
         return acknowledgeCapture(response, signatureId);
+    }
+
+    private String refuseInvalidPad(HttpServletResponse response) throws IOException {
+        MiscUtils.getLogger().warn("Refused a signature upload with an unknown or expired pad");
+        response.sendError(HttpServletResponse.SC_FORBIDDEN, "Unknown or expired signature pad. Reopen the pad.");
+        return NONE;
     }
 
     private String acknowledgeCapture(HttpServletResponse response, String signatureId) throws IOException {

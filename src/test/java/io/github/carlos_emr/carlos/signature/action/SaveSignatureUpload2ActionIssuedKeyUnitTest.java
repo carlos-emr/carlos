@@ -192,6 +192,55 @@ class SaveSignatureUpload2ActionIssuedKeyUnitTest extends CarlosUnitTestBase {
         verify(mockDigitalSignatureManager, times(2)).processAndSaveDigitalSignature(mockLoggedInInfo, issuedKey, 1, null);
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRefuseTheRetry_whenThePadLosesItsReceipt(boolean retireDuringUpload) throws Exception {
+        DigitalSignature first = mock(DigitalSignature.class);
+        DigitalSignature duplicate = mock(DigitalSignature.class);
+        when(first.getId()).thenReturn(101);
+        when(duplicate.getId()).thenReturn(102);
+        when(mockDigitalSignatureManager.processAndSaveDigitalSignature(mockLoggedInInfo, issuedKey, 1, null))
+                .thenReturn(first, duplicate);
+        configureCapture(mockRequest);
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getContentAsString()).contains("value=\"101\"");
+
+        var session = mockRequest.getSession(false);
+        var receipts = DigitalSignatureUtils.uploadReceipts(session);
+        String lastPad = DigitalSignatureUtils.generateSignatureRequestId(session);
+        for (int index = 0; index < 199; index++) {
+            String pad = index == 0 ? lastPad : DigitalSignatureUtils.generateSignatureRequestId(session);
+            var capture = new DigitalSignatureUtils.UploadIdentity(pad, 2, "test-provider", null, null, "original");
+            receipts.remember(session, capture, 200 + index);
+        }
+        var redraw = new DigitalSignatureUtils.UploadIdentity(lastPad, 2, "test-provider", null, null, "redrawn");
+        assertThat(DigitalSignatureUtils.isIssued(session, issuedKey)).isTrue();
+
+        var retry = new MockHttpServletRequest("POST", "/signature_pad/SaveSignatureUpload") {
+            @Override
+            public String getParameter(String name) {
+                if (retireDuringUpload && "ModuleType".equals(name)) {
+                    receipts.remember(session, redraw, 400);
+                }
+                return super.getParameter(name);
+            }
+        };
+        if (!retireDuringUpload) {
+            receipts.remember(session, redraw, 400);
+        }
+        retry.setSession(session);
+        configureCapture(retry);
+        var retryResponse = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(retry);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(retryResponse);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(retryResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(DigitalSignatureUtils.isIssued(session, issuedKey)).isFalse();
+        verify(mockDigitalSignatureManager).processAndSaveDigitalSignature(mockLoggedInInfo, issuedKey, 1, null);
+    }
+
     @Test
     void shouldReturnAnErrorAndRemoveTheUpload_whenTheCaptureCannotBeReadForPersistence() throws Exception {
         configureCapture(mockRequest);

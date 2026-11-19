@@ -93,10 +93,14 @@ class DigitalSignatureUtilsUnitTest extends CarlosUnitTestBase {
         var next = new DigitalSignatureUtils.UploadIdentity(nextPad, DEMOGRAPHIC_ID, "999998", 1, null, "digest");
         receipts.remember(uploads, next, 777);
 
-        assertThat(receipts.savedId(identities.getFirst())).isNull();
-        assertThat(receipts.savedId(latest)).isEqualTo(DigitalSignatureUtils.MAX_ISSUED_REQUEST_IDS);
-        assertThat(DigitalSignatureUtils.uploadReceipts(uploads).savedId(next)).isEqualTo(777);
-        assertThat(DigitalSignatureUtils.uploadReceipts(new MockHttpSession()).savedId(next)).isNull();
+        assertThat(receipts.lookup(uploads, identities.getFirst())).isEqualTo(new DigitalSignatureUtils.UploadLookup(false, null));
+        assertThat(receipts.lookup(uploads, latest).signatureId()).isEqualTo(DigitalSignatureUtils.MAX_ISSUED_REQUEST_IDS);
+        assertThat(DigitalSignatureUtils.uploadReceipts(uploads).lookup(uploads, next).signatureId()).isEqualTo(777);
+        var otherSession = new MockHttpSession();
+        assertThat(DigitalSignatureUtils.uploadReceipts(otherSession).lookup(otherSession, next))
+                .isEqualTo(new DigitalSignatureUtils.UploadLookup(false, null));
+        receipts.remember(uploads, identities.getFirst(), 888);
+        assertThat(receipts.lookup(uploads, latest).signatureId()).isEqualTo(DigitalSignatureUtils.MAX_ISSUED_REQUEST_IDS);
     }
 
     @BeforeEach

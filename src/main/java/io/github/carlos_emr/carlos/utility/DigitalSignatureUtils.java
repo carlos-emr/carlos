@@ -74,6 +74,8 @@ public class DigitalSignatureUtils {
     public record UploadIdentity(String requestId, Integer patientId, String providerNo,
                                  Integer facilityId, ModuleType module, String imageDigest) implements Serializable {}
 
+    public record UploadLookup(boolean issued, Integer signatureId) {}
+
     /** Bounded session data for signature uploads whose acknowledgement may have been lost. */
     public static final class UploadReceipts implements Serializable {
         private static final long serialVersionUID = 1L;
@@ -93,15 +95,24 @@ public class DigitalSignatureUtils {
             return locks.computeIfAbsent(id, _ -> new UploadLock());
         }
 
-        public synchronized Integer savedId(UploadIdentity identity) {
-            return saved.get(identity);
+        /** Read validity and the receipt together so expiry cannot look like a new capture. */
+        public synchronized UploadLookup lookup(HttpSession session, UploadIdentity identity) {
+            boolean issued = isIssued(session, identity.requestId());
+            return new UploadLookup(issued, issued ? saved.get(identity) : null);
         }
 
         /** Record the committed ID before the action starts writing its HTTP acknowledgement. */
         public synchronized void remember(HttpSession session, UploadIdentity identity, int id) {
+            if (!isIssued(session, identity.requestId())) return;
             saved.put(identity, id);
-            while (saved.size() > MAX_ISSUED_REQUEST_IDS) {
-                saved.pollFirstEntry();
+            if (saved.size() > MAX_ISSUED_REQUEST_IDS) {
+                saved.keySet().removeIf(capture -> !isIssued(session, capture.requestId()));
+                if (saved.size() > MAX_ISSUED_REQUEST_IDS) {
+                    // The oldest pad can no longer promise to replay every capture it saved.
+                    String expiredPad = saved.firstEntry().getKey().requestId();
+                    expireRequestId(session, expiredPad);
+                    saved.keySet().removeIf(capture -> expiredPad.equals(capture.requestId()));
+                }
             }
             session.setAttribute(UPLOAD_RECEIPTS_ATTRIBUTE, this);
         }
@@ -182,6 +193,14 @@ public class DigitalSignatureUtils {
         LinkedHashSet<String> issued = new LinkedHashSet<>();
         session.setAttribute(ISSUED_REQUEST_IDS_ATTRIBUTE, issued);
         return issued;
+    }
+
+    private static void expireRequestId(HttpSession session, String requestId) {
+        synchronized (ISSUED_IDS_LOCK) {
+            LinkedHashSet<String> issued = issuedIds(session);
+            issued.remove(requestId);
+            session.setAttribute(ISSUED_REQUEST_IDS_ATTRIBUTE, issued);
+        }
     }
 
     public static String getTempFilePath(String signatureRequestId) {
