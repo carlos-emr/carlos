@@ -29,21 +29,38 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
+import io.github.carlos_emr.carlos.commn.dao.ValidationsDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
+import io.github.carlos_emr.carlos.commn.model.MeasurementType;
+import io.github.carlos_emr.carlos.commn.model.Validations;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctValidation;
 import io.github.carlos_emr.carlos.managers.MeasurementManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.MeasurementResponse;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
-import jakarta.ws.rs.*;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.ForbiddenException;
+import jakarta.ws.rs.InternalServerErrorException;
+import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
 /**
  * RESTful web service for measurement data operations in CARLOS EMR.
@@ -53,6 +70,7 @@ import java.util.List;
  * <p>The service follows REST conventions and provides JSON-based endpoints for:</p>
  * <ul>
  *   <li><strong>Data retrieval</strong>: Getting measurements by type, patient, and date ranges</li>
+ *   <li><strong>Data recording</strong>: Adding a new measurement without changing existing clinical history</li>
  *   <li><strong>Security enforcement</strong>: Session/OAuth authentication and patient-scoped authorization</li>
  *   <li><strong>Data transformation</strong>: Converting internal models to API-friendly formats</li>
  *   <li><strong>Type filtering</strong>: Selective measurement retrieval by clinical type</li>
@@ -62,13 +80,14 @@ import java.util.List;
  * <ul>
  *   <li>All endpoints require an authenticated UI session or OAuth 1.0a authentication</li>
  *   <li>Users must have "_measurement" read privileges</li>
+ *   <li>New measurements require "_measurement" write privileges and patient-record access</li>
  *   <li>Patient demographic access is validated per request</li>
  *   <li>Audit logging tracks all API access</li>
  * </ul>
  * 
  * <p>Data formats:</p>
  * <ul>
- *   <li>Input: JSON with measurement type arrays</li>
+ *   <li>Input: JSON with measurement type arrays for reads, or measurement data for writes</li>
  *   <li>Output: {@link MeasurementResponse} objects with measurement collections</li>
  *   <li>All responses include metadata and status information</li>
  * </ul>
@@ -100,7 +119,21 @@ public class MeasurementService extends AbstractServiceImpl {
     /** Business logic manager for measurement operations. */
     @Autowired
     private MeasurementManager measurementManager;
+
+    @Autowired
+    private DemographicDao demographicDao;
+
+    @Autowired
+    private MeasurementTypeDao measurementTypeDao;
+
+    @Autowired
+    private ValidationsDao validationsDao;
+
     private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
+    private final EctValidation ectValidation = new EctValidation();
+
+    private static final long MIN_DATETIME_MILLIS = -30610224000000L;
+    private static final long MAX_DATETIME_MILLIS = 253402300799000L;
 
     /** Keeps the framework's public no-argument endpoint lifecycle and requires its projection guard. */
     @Autowired
@@ -169,5 +202,147 @@ public class MeasurementService extends AbstractServiceImpl {
         List<Measurement> measurements = measurementManager.getMeasurementByType(loggedInInfo, demoId, new ArrayList<String>(Arrays.asList(types)));
         response.addMeasurements(measurements);
         return response;
+    }
+
+    /**
+     * Records a new measurement for a patient without changing any existing measurement.
+     *
+     * @param json measurement fields: required {@code type} and {@code dataField}, and optional
+     *             {@code comments}, {@code measuringInstruction}, and epoch-millisecond
+     *             {@code dateObserved}
+     * @param demoId patient identifier
+     * @return the newly recorded measurement
+     * @throws BadRequestException if identifiers or measurement fields are invalid
+     * @throws ForbiddenException if the caller lacks measurement write or patient access
+     */
+    @POST
+    @Path("/{demographicNo}/new")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Measurement addMeasurement(ObjectNode json, @PathParam("demographicNo") Integer demoId) {
+        if (demoId == null || demoId <= 0) {
+            throw new BadRequestException("Invalid demographic identifier");
+        }
+        if (json == null || !json.isObject()) {
+            throw new BadRequestException("Measurement data is required");
+        }
+        for (var field = json.fieldNames(); field.hasNext();) {
+            String name = field.next();
+            if (!List.of("type", "dataField", "comments", "measuringInstruction", "dateObserved").contains(name)) {
+                throw new BadRequestException("Unsupported measurement field");
+            }
+        }
+        if (!json.has("type") || !json.get("type").isTextual()
+                || json.get("type").textValue().isBlank() || json.get("type").textValue().length() > 50) {
+            throw new BadRequestException("A valid measurement type is required");
+        }
+        if (!json.has("dataField") || !json.get("dataField").isTextual()
+                || json.get("dataField").textValue().isBlank()
+                || json.get("dataField").textValue().length() > Measurement.DATA_FIELD_MAX_LENGTH) {
+            throw new BadRequestException("A valid measurement dataField is required");
+        }
+        String comments = optionalText(json, "comments", 255);
+        String instruction = optionalText(json, "measuringInstruction", 255);
+        if (json.has("dateObserved")) {
+            if (!json.get("dateObserved").isIntegralNumber()
+                    || !json.get("dateObserved").canConvertToLong()) {
+                throw new BadRequestException("dateObserved must be epoch milliseconds");
+            }
+
+            long timestamp = json.get("dateObserved").longValue();
+            if (timestamp < MIN_DATETIME_MILLIS || timestamp > MAX_DATETIME_MILLIS) {
+                throw new BadRequestException("dateObserved is outside the supported database DATETIME range");
+            }
+        }
+
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "w", demoId.toString())
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demoId)) {
+            throw new ForbiddenException("Access Denied: measurement or patient-record access is restricted");
+        }
+        if (demographicDao.getDemographicById(demoId) == null) {
+            throw new NotFoundException("Patient not found");
+        }
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+        if (providerNo == null || providerNo.isBlank()) {
+            throw new ForbiddenException("A provider identity is required to record a measurement");
+        }
+
+        projections.requireRestSupported(demoId, java.util.Set.of("CareElements"));
+        validateMeasurementValue(
+            json.get("type").textValue(),
+            instruction == null ? "" : instruction,
+            json.get("dataField").textValue()
+        );
+
+        Measurement measurement = new Measurement();
+        measurement.setType(json.get("type").textValue());
+        measurement.setDemographicId(demoId);
+        measurement.setProviderNo(providerNo);
+        measurement.setDataField(json.get("dataField").textValue());
+        measurement.setComments(comments == null ? "" : comments);
+        measurement.setMeasuringInstruction(instruction == null ? "" : instruction);
+        if (json.has("dateObserved")) {
+            measurement.setDateObserved(new Date(json.get("dateObserved").longValue()));
+        }
+        return measurementManager.addMeasurement(loggedInInfo, measurement);
+    }
+
+    private String optionalText(ObjectNode json, String field, int maxLength) {
+        if (!json.has(field)) {
+            return null;
+        }
+        if (!json.get(field).isTextual() || json.get(field).textValue().length() > maxLength) {
+            throw new BadRequestException("Invalid measurement " + field);
+        }
+        return json.get(field).textValue();
+    }
+
+    private void validateMeasurementValue(String type, String instruction, String value) {
+        List<MeasurementType> types =
+            measurementTypeDao.findByTypeAndMeasuringInstruction(type, instruction);
+
+        if (types == null || types.size() != 1) {
+            throw new BadRequestException("Unknown or ambiguously configured measurement type");
+        }
+
+        String validationId = types.get(0).getValidation();
+
+        // A configured type without a validation rule is permitted.
+        if (validationId == null || validationId.isBlank()) {
+            return;
+        }
+
+        final int id;
+        try {
+            id = Integer.parseInt(validationId);
+        } catch (NumberFormatException e) {
+            throw new InternalServerErrorException("Invalid measurement validation configuration");
+        }
+
+        Validations rule = validationsDao.find(id);
+        if (rule == null) {
+            throw new InternalServerErrorException("Measurement validation rule not found");
+        }
+
+        Double maxValue = rule.getMaxValue() == null ? 0.0 : rule.getMaxValue();
+        Double minValue = rule.getMinValue() == null ? 0.0 : rule.getMinValue();
+        Integer maxLength = rule.getMaxLength() == null ? 0 : rule.getMaxLength();
+        Integer minLength = rule.getMinLength() == null ? 0 : rule.getMinLength();
+        String regex = rule.getRegularExp();
+        Boolean numeric = rule.isNumeric();
+
+        try {
+            if (!ectValidation.isInRange(maxValue, minValue, value)
+                    || !ectValidation.maxLength(maxLength, value)
+                    || !ectValidation.minLength(minLength, value)
+                    || !ectValidation.matchRegExp(regex, value)
+                    || !ectValidation.isValidBloodPressure(regex, value)
+                    || !ectValidation.isNumeric(numeric, value)) {
+                throw new BadRequestException("Measurement value violates its configured validation rules");
+            }
+        } catch (java.util.regex.PatternSyntaxException e) {
+            throw new InternalServerErrorException("Invalid measurement validation configuration");
+        }
     }
 }

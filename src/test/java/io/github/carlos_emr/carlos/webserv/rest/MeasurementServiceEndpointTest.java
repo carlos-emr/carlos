@@ -23,10 +23,11 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import java.util.Calendar;
 import java.util.Collections;
@@ -46,7 +47,13 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
+import io.github.carlos_emr.carlos.commn.dao.ValidationsDao;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
+import io.github.carlos_emr.carlos.commn.model.Validations;
 import io.github.carlos_emr.carlos.managers.MeasurementManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
@@ -72,6 +79,15 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
     @Mock
     private MeasurementManager mockMeasurementManager;
 
+    @Mock
+    private MeasurementTypeDao mockMeasurementTypeDao;
+
+    @Mock
+    private ValidationsDao mockValidationsDao;
+
+    @Mock
+    private DemographicDao mockDemographicDao;
+
     @Test
     void shouldReturnConflictInsteadOfEmptySubset_whenStructuredCareCannotBeProjected() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class),eq("_measurement"),eq("r"),eq("123"))).thenReturn(true);
@@ -90,6 +106,9 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
         injectDependency(service,"projections",projections);
         injectDependency(service, "securityInfoManager", mockSecurityInfoManager);
         injectDependency(service, "measurementManager", mockMeasurementManager);
+        injectDependency(service, "measurementTypeDao", mockMeasurementTypeDao);
+        injectDependency(service, "validationsDao", mockValidationsDao);
+        injectDependency(service, "demographicDao", mockDemographicDao);
         return service;
     }
 
@@ -236,6 +255,197 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
 
             assertThat(response.getStatus()).isEqualTo(400);
             verifyNoInteractions(mockSecurityInfoManager, mockMeasurementManager);
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /measurements/{demographicNo}/new")
+    class AddMeasurement {
+
+        private void allowMeasurementWrite() {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("w"), eq("123")))
+                .thenReturn(true);
+            when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(123)))
+                .thenReturn(true);
+            when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("123456");
+        }
+
+        private void allowConfiguredBloodPressure() {
+            MeasurementType type = new MeasurementType();
+            type.setType("BP");
+            type.setMeasuringInstruction("Standing");
+
+            when(mockMeasurementTypeDao.findByTypeAndMeasuringInstruction("BP", "Standing"))
+                .thenReturn(List.of(type));
+        }
+
+        @Test
+        @DisplayName("should record a new measurement for an authorized patient")
+        void shouldRecordMeasurement_whenAuthorizedForPatient() {
+            allowMeasurementWrite();
+            when(mockDemographicDao.getDemographicById(123)).thenReturn(new Demographic());
+            allowConfiguredBloodPressure();
+            when(mockMeasurementManager.addMeasurement(any(LoggedInInfo.class), any(Measurement.class)))
+                .thenAnswer(invocation -> invocation.getArgument(1));
+
+            Response response = request().path("/measurements/123/new")
+                .post(Entity.json("{\"type\":\"BP\",\"dataField\":\"122/80\",\"comments\":\"New reading\","
+                    + "\"measuringInstruction\":\"Standing\",\"dateObserved\":1770000000000}"));
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            var wireJson = responseJson(response);
+            assertThat(wireJson.at("/type").textValue()).isEqualTo("BP");
+            assertThat(wireJson.at("/demographicId").intValue()).isEqualTo(123);
+            assertThat(wireJson.at("/providerNo").textValue()).isEqualTo("123456");
+            assertThat(wireJson.at("/dataField").textValue()).isEqualTo("122/80");
+            assertThat(wireJson.at("/comments").textValue()).isEqualTo("New reading");
+            assertThat(wireJson.at("/measuringInstruction").textValue()).isEqualTo("Standing");
+            assertThat(wireJson.at("/dateObserved").longValue()).isEqualTo(1770000000000L);
+            verify(mockMeasurementManager).addMeasurement(any(LoggedInInfo.class), argThat(measurement ->
+                measurement.getDemographicId().equals(123)
+                    && measurement.getType().equals("BP")
+                    && measurement.getDataField().equals("122/80")
+                    && measurement.getProviderNo().equals("123456")
+                    && measurement.getComments().equals("New reading")
+                    && measurement.getMeasuringInstruction().equals("Standing")));
+        }
+
+        @Test
+        @DisplayName("should reject a new measurement without a type")
+        void shouldReturn400_whenTypeIsMissing() {
+            Response response = request().path("/measurements/123/new")
+                .post(Entity.json("{\"dataField\":\"122/80\"}"));
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockSecurityInfoManager, mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should reject a new measurement without a value")
+        void shouldReturn400_whenDataFieldIsMissing() {
+            Response response = request().path("/measurements/123/new")
+                .post(Entity.json("{\"type\":\"BP\"}"));
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockSecurityInfoManager, mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should reject timestamps outside the epoch-millisecond range")
+        void shouldReturn400_whenObservedTimestampExceedsLongRange() {
+            Response response = request().path("/measurements/123/new")
+                .post(Entity.json("{\"type\":\"BP\",\"dataField\":\"122/80\","
+                    + "\"dateObserved\":9223372036854775808}"));
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockSecurityInfoManager, mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should refuse writes without patient-scoped measurement privilege")
+        void shouldReturn403_whenWritePrivilegeIsMissing() {
+            Response response = request().path("/measurements/123/new")
+                .post(Entity.json("{\"type\":\"BP\",\"dataField\":\"122/80\"}"));
+
+            assertThat(response.getStatus()).isEqualTo(403);
+            verify(mockSecurityInfoManager)
+                .hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("w"), eq("123"));
+            verifyNoInteractions(mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should refuse new measurements when patient record access is blocked")
+        void shouldReturn403_whenPatientRecordAccessIsDenied() {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("w"), eq("123")))
+                .thenReturn(true);
+
+            Response response = request().path("/measurements/123/new")
+                .post(Entity.json("{\"type\":\"BP\",\"dataField\":\"122/80\"}"));
+
+            assertThat(response.getStatus()).isEqualTo(403);
+            verify(mockSecurityInfoManager).isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(123));
+            verifyNoInteractions(mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should not accept caller-controlled measurement identity fields")
+        void shouldReturn400_whenRequestAttemptsToChangeOwnership() {
+            allowMeasurementWrite();
+
+            Response response = request().path("/measurements/123/new")
+                .post(Entity.json("{\"type\":\"BP\",\"dataField\":\"122/80\",\"demographicId\":789}"));
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should reject a measurement when the patient does not exist")
+        void shouldReturn404_whenPatientDoesNotExist() {
+            allowMeasurementWrite();
+
+            Response response = request().path("/measurements/123/new")
+                .post(Entity.json("{\"type\":\"BP\",\"dataField\":\"122/80\"}"));
+
+            assertThat(response.getStatus()).isEqualTo(404);
+            verify(mockDemographicDao).getDemographicById(123);
+            verifyNoInteractions(mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should reject a measurement type that is not configured")
+        void shouldReturn400_whenMeasurementTypeIsUnknown() {
+            allowMeasurementWrite();
+            when(mockDemographicDao.getDemographicById(123)).thenReturn(new Demographic());
+
+            Response response = request().path("/measurements/123/new")
+                .post(Entity.json("{\"type\":\"UNKNOWN\",\"dataField\":\"123\"}"));
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verify(mockMeasurementTypeDao)
+                .findByTypeAndMeasuringInstruction("UNKNOWN", "");
+            verifyNoInteractions(mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should reject a nonnumeric value when the configured type requires numeric input")
+        void shouldReturn400_whenNumericValidationFails() {
+            allowMeasurementWrite();
+            when(mockDemographicDao.getDemographicById(123)).thenReturn(new Demographic());
+
+            MeasurementType type = new MeasurementType();
+            type.setType("WT");
+            type.setMeasuringInstruction("");
+            type.setValidation("1");
+
+            when(mockMeasurementTypeDao.findByTypeAndMeasuringInstruction("WT", ""))
+                .thenReturn(List.of(type));
+
+            Validations rule = new Validations();
+            rule.setNumeric(true);
+            when(mockValidationsDao.find(1)).thenReturn(rule);
+
+            Response response = request().path("/measurements/123/new")
+                .post(Entity.json("{\"type\":\"WT\",\"dataField\":\"not-a-number\"}"));
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verify(mockValidationsDao).find(1);
+            verifyNoInteractions(mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should reject dateObserved outside the database DATETIME range")
+        void shouldReturn400_whenDateObservedIsOutsideDatabaseRange() {
+            allowMeasurementWrite();
+            when(mockDemographicDao.getDemographicById(123)).thenReturn(new Demographic());
+            allowConfiguredBloodPressure();
+
+            Response response = request().path("/measurements/123/new")
+                .post(Entity.json("{\"type\":\"BP\",\"dataField\":\"122/80\","
+                    + "\"dateObserved\":253402300800000}"));
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockMeasurementManager);
         }
     }
 }
