@@ -33,6 +33,8 @@ import java.io.PrintWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Stream;
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.BeforeEach;
@@ -369,6 +371,93 @@ class CsrfGuardScriptInjectionFilterUnitTest {
         assertThat(beforeClose[0]).endsWith("xtail");
         assertThat(response.getContentAsString())
                 .isEqualTo("<html><body>" + "x".repeat(filler) + "tail" + SCRIPT + "</body>more");
+    }
+
+    @Test
+    @DisplayName("should hold a partial closing tag across a flush so the script lands before the whole tag")
+    void shouldInjectBeforeAClosingTag_whenAFlushSplitsIt() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        int filler = CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS + 1;
+        String[] afterFlush = new String[1];
+
+        withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            var writer = res.getWriter();
+            writer.write("<html><body>");
+            writeFillerChunks(writer, filler);
+            writer.write("ab</bo");
+            writer.flush();
+            afterFlush[0] = ((MockHttpServletResponse) response).getContentAsString();
+            writer.write("dy></html>");
+        }));
+
+        assertThat(afterFlush[0]).endsWith("xab");
+        assertThat(response.getContentAsString())
+                .isEqualTo("<html><body>" + "x".repeat(filler) + "ab" + SCRIPT + "</body></html>");
+    }
+
+    @Test
+    @DisplayName("should write a held partial tag when the streamed response ends without completing it")
+    void shouldWriteTheHeldPartialTag_whenTheResponseEndsWithoutCompletingIt() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        int filler = CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS + 100;
+
+        try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+                res.setContentType("text/html;charset=UTF-8");
+                var writer = res.getWriter();
+                writer.write("<tr>");
+                writeFillerChunks(writer, filler);
+                writer.write("</b");
+            }));
+
+            assertThat(capture.events()).filteredOn(event -> event.getLevel() == Level.WARN)
+                    .singleElement().satisfies(event -> assertThat(event.getMessage().getFormattedMessage())
+                            .contains("no </head> or </body>"));
+        }
+        assertThat(response.getContentAsString()).isEqualTo("<tr>" + "x".repeat(filler) + "</b");
+    }
+
+    @Test
+    @DisplayName("should stream one large write from the caller's array when its closing tag lies past the bound")
+    void shouldStreamFromTheCallersArray_whenOneWriteCarriesTheClosingTagPastTheBound() throws Exception {
+        ArrayRecordingResponse response = new ArrayRecordingResponse();
+        String filler = "x".repeat(CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS + 50_000);
+        char[] page = ("<html><body>" + filler + "</body></html>").toCharArray();
+
+        withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            res.getWriter().write(page, 0, page.length);
+        }));
+
+        assertThat(response.getContentAsString()).isEqualTo("<html><body>" + filler + SCRIPT + "</body></html>");
+        // The part past the bound reached the response straight from the JSP's own array.
+        assertThat(response.arrays).anySatisfy(array -> assertThat(array).isSameAs(page));
+    }
+
+    @Test
+    @DisplayName("should forget a streamed page's held tag, pending script and length rule after a full reset")
+    void shouldForgetTheStreamedPage_whenTheResponseIsFullyReset() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        response.setBufferSize(8 * CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS);
+
+        try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+                res.setContentType("text/html;charset=UTF-8");
+                var streamed = res.getWriter();
+                streamed.write("<html><body>");
+                writeFillerChunks(streamed, CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS);
+                streamed.write("</bo");
+                res.reset();
+                res.setContentType("text/plain;charset=UTF-8");
+                res.setContentLength(5);
+                res.getWriter().write("plain");
+            }));
+
+            assertThat(capture.events()).noneSatisfy(event -> assertThat(event.getLevel()).isEqualTo(Level.WARN));
+        }
+        assertThat(response.getContentAsString()).isEqualTo("plain");
+        assertThat(response.getContentLength()).isEqualTo(5);
     }
 
     @Test
@@ -1276,6 +1365,45 @@ class CsrfGuardScriptInjectionFilterUnitTest {
 
         int getResetBufferCalls() {
             return resetBufferCalls;
+        }
+    }
+
+    /** Records the arrays its writer receives, so a test can tell a streamed write was not copied. */
+    private static class ArrayRecordingResponse extends MockHttpServletResponse {
+
+        private final StringBuilder content = new StringBuilder();
+        private final List<char[]> arrays = new ArrayList<>();
+        private final PrintWriter recordingWriter = new PrintWriter(new Writer() {
+            @Override
+            public void write(char[] cbuf, int off, int len) {
+                arrays.add(cbuf);
+                content.append(cbuf, off, len);
+            }
+
+            @Override
+            public void write(String str, int off, int len) {
+                content.append(str, off, off + len);
+            }
+
+            @Override
+            public void flush() {
+                // Nothing is buffered.
+            }
+
+            @Override
+            public void close() {
+                // Nothing to release.
+            }
+        });
+
+        @Override
+        public PrintWriter getWriter() {
+            return recordingWriter;
+        }
+
+        @Override
+        public String getContentAsString() {
+            return content.toString();
         }
     }
 

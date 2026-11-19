@@ -48,6 +48,7 @@ import java.io.PrintWriter;
 import java.io.Writer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
@@ -521,6 +522,9 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             usingOutputStream = false;
             usingWriter = false;
             writerPassthrough = false;
+            // A full reset discards a streamed page too, with its held characters and pending script.
+            captureOverflowed = false;
+            boundedWriter = null;
             committed = false;
             contentLength.onReset();
         }
@@ -677,10 +681,15 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
          * Completes non-HTML writer passthrough responses before returning from the FORWARD
          * filter. JSP writers can hold up to the servlet buffer size; without this explicit
          * flush, JavaScript and JSON forwards may reach the browser with only the first buffer.
+         * A streamed large page also writes the partial closing tag it held back across flushes.
          */
-        void flushPassthroughWriter() {
+        void flushPassthroughWriter() throws IOException {
             if (writer != null) {
                 writer.flush();
+            }
+            if (captureOverflowed) {
+                // The response is complete, so a partial closing tag held back can no longer finish.
+                boundedWriter.finish();
             }
         }
 
@@ -845,17 +854,19 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
          *
          * <p>When a write would cross the bound, only the remaining allowance is captured. The
          * captured prefix is then written to the response with the CSRFGuard script injected
-         * before its {@code </head>} (or {@code </body>}) when it is HTML, and the rest of that
-         * write and every later write stream straight through. Memory therefore stays bounded
-         * whatever the size of a single write, and the capture buffer is released at the
-         * switch.</p>
+         * before its {@code </head>} (or {@code </body>}) when it is HTML. The rest of that write
+         * and every later write stream straight from the caller's own string or array, so memory
+         * stays bounded whatever the size of a single write. The capture buffer is released at
+         * the switch.</p>
          *
          * <p>When the prefix holds no closing tag, the streamed writes are searched for the first
          * {@code </head>} or {@code </body>} and the script is written just before it, as the
-         * replay path would have. The last {@link #HELD_CHARACTERS} streamed characters are held
-         * back until the next write, flush or close, so a tag split across two writes is still
-         * found. A page that ends with no closing tag (an HTML fragment) streams unchanged and is
-         * logged once by the filter.</p>
+         * replay path would have. A streamed write that ends part-way into a closing tag (such as
+         * {@code </bo}, at most {@link #HELD_CHARACTERS} characters) keeps those characters back,
+         * across a flush too, so a tag split by a write or a flush is still found. Nothing else is
+         * held. The held characters are written at close, or when the filter completes the
+         * response. A page that ends with no closing tag (an HTML fragment) streams unchanged and
+         * is logged once by the filter.</p>
          *
          * <p>The stream goes to the response's writer, or, when the response beneath already
          * handed out its output stream (a nested forward or an outer filter), to that stream
@@ -865,7 +876,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
          * and any Content-Length is dropped because the injection changed the body.</p>
          */
         private class BoundedCaptureWriter extends Writer {
-            /** One less than the length of {@code </head>} and {@code </body>}. */
+            /** One less than the length of {@code </head>} and {@code </body>}: the longest partial tag. */
             private static final int HELD_CHARACTERS = 6;
             private static final String[] CLOSING_TAGS = {"</head>", "</body>"};
 
@@ -873,7 +884,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             private Writer overflow;
             /** Streamed HTML whose script still waits for a closing tag. */
             private boolean injectionPending;
-            /** Streamed characters not yet written, so a closing tag split across writes is found. */
+            /** The partial closing tag that ended the streamed text so far, not yet written. */
             private final StringBuilder held = new StringBuilder();
 
             BoundedCaptureWriter(CharArrayWriter buffer) {
@@ -887,27 +898,30 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
             @Override
             public void write(char[] chars, int offset, int length) throws IOException {
-                write(CharBuffer.wrap(chars, offset, length));
+                Objects.checkFromIndexSize(offset, length, chars.length);
+                // The whole array is wrapped, so positions below are the array's own indexes.
+                accept(CharBuffer.wrap(chars), offset, offset + length);
             }
 
             @Override
             public void write(String string, int offset, int length) throws IOException {
-                write(CharBuffer.wrap(string, offset, offset + length));
+                Objects.checkFromIndexSize(offset, length, string.length());
+                accept(string, offset, offset + length);
             }
 
-            /** Captures within the allowance; past it, streams without copying the rest of the write. */
-            private void write(CharBuffer chunk) throws IOException {
+            /** Captures within the allowance; past it, streams positions {@code start..end} of the write. */
+            private void accept(CharSequence source, int start, int end) throws IOException {
                 if (overflow == null) {
                     int room = MAX_CAPTURE_CHARS - buffer.size();
-                    if (chunk.length() <= room) {
-                        buffer.append(chunk);
+                    if (end - start <= room) {
+                        copy(buffer, source, start, end);
                         return;
                     }
-                    buffer.append(chunk, 0, room);
+                    copy(buffer, source, start, start + room);
                     startStreaming();
-                    chunk = chunk.subSequence(room, chunk.length());
+                    start += room;
                 }
-                stream(chunk);
+                stream(source, start, end);
             }
 
             private void startStreaming() throws IOException {
@@ -935,7 +949,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                         && !CSRFGUARD_SCRIPT_PATTERN.matcher(prefix).find();
                 String content = needsScript ? injectScript(prefix, scriptTag) : prefix;
                 injectionPending = needsScript && content.length() == prefix.length();
-                stream(content);
+                stream(content, 0, content.length());
             }
 
             /** The response's writer, or its already-selected output stream encoded in its charset. */
@@ -951,73 +965,103 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                 }
             }
 
-            /** Writes streamed text, injecting the script before the first closing tag while one is awaited. */
-            private void stream(CharSequence chunk) throws IOException {
+            /**
+             * Writes positions {@code start..end} of a streamed write, injecting the script before the
+             * first closing tag while one is awaited.
+             *
+             * <p>While the script waits, the search runs over the held partial tag followed by this
+             * write, read in place: the two are never joined into a new string.</p>
+             */
+            private void stream(CharSequence source, int start, int end) throws IOException {
                 if (!injectionPending) {
-                    writeRange(chunk, held.length(), held.length() + chunk.length());
+                    copy(overflow, source, start, end);
                     return;
                 }
-                int tag = closingTag(held, chunk);
-                int total = held.length() + chunk.length();
+                int total = held.length() + end - start;
+                int tag = closingTag(source, start, total);
                 if (tag >= 0) {
-                    writeRange(chunk, 0, tag);
+                    writeJoined(source, start, 0, tag);
                     overflow.write(scriptTag + "\n");
-                    writeRange(chunk, tag, total);
+                    writeJoined(source, start, tag, total);
                     held.setLength(0);
                     injectionPending = false;
                     return;
                 }
-                int keep = Math.min(HELD_CHARACTERS, total);
-                writeRange(chunk, 0, total - keep);
-                // Copy the tail now: a writer may reuse the array behind chunk after write returns.
-                String tail = rangeOf(chunk, total - keep, total).toString();
+                int keep = partialTagLength(source, start, total);
+                writeJoined(source, start, 0, total - keep);
+                // Copy the partial tag now: a writer may reuse its array once write returns.
+                StringBuilder partial = new StringBuilder(keep);
+                for (int position = total - keep; position < total; position++) {
+                    partial.append(joinedCharAt(source, start, position));
+                }
                 held.setLength(0);
-                held.append(tail);
+                held.append(partial);
             }
 
-            /** Writes positions {@code from..to} of the held characters followed by {@code chunk}. */
-            private void writeRange(CharSequence chunk, int from, int to) throws IOException {
-                CharSequence range = rangeOf(chunk, from, to);
-                if (range instanceof CharBuffer view && view.hasArray()) {
-                    // A char[] write (the JSP writer's case) streams from its own array, uncopied.
-                    overflow.write(view.array(), view.arrayOffset() + view.position(), view.remaining());
-                } else {
-                    overflow.append(range);
-                }
-            }
-
-            private CharSequence rangeOf(CharSequence chunk, int from, int to) {
+            /** Character {@code position} of the held partial tag followed by the write from {@code start}. */
+            private char joinedCharAt(CharSequence source, int start, int position) {
                 int split = held.length();
-                if (to <= split) {
-                    return held.substring(from, to);
-                }
-                if (from >= split) {
-                    return chunk.subSequence(from - split, to - split);
-                }
-                return held.substring(from) + chunk.subSequence(0, to - split);
+                return position < split ? held.charAt(position) : source.charAt(start + position - split);
             }
 
-            /** First position of a closing tag in the held characters followed by {@code chunk}, or -1. */
-            private int closingTag(CharSequence first, CharSequence second) {
-                int split = first.length();
-                int total = split + second.length();
-                for (int i = 0; i + HELD_CHARACTERS < total; i++) {
+            /** Whether the joined text at {@code position} begins with {@code length} characters of {@code tag}. */
+            private boolean joinedMatches(CharSequence source, int start, int position, String tag, int length) {
+                for (int k = 0; k < length; k++) {
+                    if (Character.toLowerCase(joinedCharAt(source, start, position + k)) != tag.charAt(k)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            /** First position of a closing tag in the {@code total} joined characters, or -1. */
+            private int closingTag(CharSequence source, int start, int total) {
+                for (int position = 0; position + HELD_CHARACTERS < total; position++) {
+                    if (joinedCharAt(source, start, position) != '<') {
+                        continue;
+                    }
                     for (String tag : CLOSING_TAGS) {
-                        int k = 0;
-                        while (k < tag.length()) {
-                            int at = i + k;
-                            char ch = at < split ? first.charAt(at) : second.charAt(at - split);
-                            if (Character.toLowerCase(ch) != tag.charAt(k)) {
-                                break;
-                            }
-                            k++;
-                        }
-                        if (k == tag.length()) {
-                            return i;
+                        if (joinedMatches(source, start, position, tag, tag.length())) {
+                            return position;
                         }
                     }
                 }
                 return -1;
+            }
+
+            /** Length of the longest end of the joined characters that a closing tag starts with. */
+            private int partialTagLength(CharSequence source, int start, int total) {
+                for (int length = Math.min(HELD_CHARACTERS, total); length > 0; length--) {
+                    for (String tag : CLOSING_TAGS) {
+                        if (joinedMatches(source, start, total - length, tag, length)) {
+                            return length;
+                        }
+                    }
+                }
+                return 0;
+            }
+
+            /** Writes joined positions {@code from..to}: held characters, then the write, each from its own storage. */
+            private void writeJoined(CharSequence source, int start, int from, int to) throws IOException {
+                int split = held.length();
+                if (from < split) {
+                    overflow.append(held, from, Math.min(to, split));
+                }
+                if (to > split) {
+                    copy(overflow, source, start + Math.max(from, split) - split, start + to - split);
+                }
+            }
+
+            /**
+             * Writes positions {@code from..to} of a write's own storage: a wrapped caller array (the
+             * JSP writer's case) or the caller's string. Neither is copied on the way.
+             */
+            private static void copy(Writer target, CharSequence source, int from, int to) throws IOException {
+                if (source instanceof CharBuffer wrappedArray) {
+                    target.write(wrappedArray.array(), from, to - from);
+                } else {
+                    target.write((String) source, from, to - from);
+                }
             }
 
             /** After an accepted reset discarded the streamed prefix: capture the next document again. */
@@ -1029,15 +1073,16 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                 held.setLength(0);
             }
 
+            /** Writes a held partial tag, which can no longer complete. */
             private void releaseHeld() throws IOException {
                 overflow.append(held);
                 held.setLength(0);
             }
 
+            /** Flushes the stream; a held partial tag stays back so a tag split by the flush is found. */
             @Override
             public void flush() throws IOException {
                 if (overflow != null) {
-                    releaseHeld();
                     overflow.flush();
                 }
             }
@@ -1048,6 +1093,12 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                     releaseHeld();
                     overflow.close();
                 }
+            }
+
+            /** The filter is completing a streamed response: write any held partial tag and flush. */
+            void finish() throws IOException {
+                releaseHeld();
+                overflow.flush();
             }
         }
 

@@ -67,15 +67,29 @@ retracted. This is the existing bounded-capture guarantee, not whole-response
 buffering.
 
 The CSRF FORWARD capture is bounded at the same 512 Ki characters (#5937). A page
-that crosses it is not replayed: the captured prefix, together with the write that
-crossed the limit, gets the CSRF script injected before `</head>` (or `</body>`)
-and is written through, and every later write streams straight to the response.
-The page keeps CSRF protection because its head lies within the prefix; a page
-with neither closing tag in its first 512 Ki characters is streamed without the
-script and logged at WARN. After the switch the wrapper is in writer pass-through,
-so `isCommitted()` and `flushBuffer()` reach the real response, and any
-Content-Length, deferred or set later, is dropped because the injection changed
-the body.
+that crosses it is not replayed. Only the remaining allowance of the write that
+crosses the limit is captured. That 512 Ki prefix gets the CSRF script injected
+before `</head>` (or `</body>`) and is written through, and the rest of that write
+and every later write stream straight from the caller's own array or string, with
+no copy.
+
+- **No closing tag in the prefix:** the streamed writes are searched for the first
+  `</head>` or `</body>`, and the script is written just before it.
+- **Split tags:** a write that ends part-way into a closing tag (`</bo`) holds
+  those few characters back, across a flush too, so a tag split by a write or a
+  flush is still found. They are written at close or when the filter completes the
+  response.
+- **Fragments:** a fragment that never closes either tag streams unchanged and is
+  logged once at WARN.
+- **Destination:** the response's writer, or, when the response beneath already
+  handed out its output stream, that stream encoded in the response charset, as
+  the replay path does.
+- **After the switch:** the wrapper is in writer pass-through, so `isCommitted()`
+  and `flushBuffer()` reach the real response, and any Content-Length, deferred or
+  set later, is dropped because the injection changed the body.
+- **Resets:** an accepted `resetBuffer()` re-arms the capture for the replacement
+  page, and a full `reset()` forgets the streamed page, including its held
+  characters and its pending script.
 
 ## Proven corrections
 
