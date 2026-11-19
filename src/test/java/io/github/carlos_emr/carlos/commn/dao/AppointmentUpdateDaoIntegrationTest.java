@@ -13,8 +13,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MariaDbCompatibilityDriver;
 import jakarta.persistence.EntityManager;
 import java.sql.DriverManager;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.Properties;
+import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -24,10 +29,13 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.SharedEntityManagerCreator;
@@ -47,7 +55,11 @@ import static org.mockito.Mockito.*;
 @Tag("integration")
 @Tag("dao")
 @Tag("mariadb-native")
+@Isolated("Temporarily sets the JVM timezone for JDBC timestamp conversion")
 class AppointmentUpdateDaoIntegrationTest {
+    private static final ZoneId TORONTO = ZoneId.of("America/Toronto");
+    private static TimeZone previousTimeZone;
+
     private SessionFactory factory;
     private JpaTransactionManager transactions;
     private ScheduleManager manager;
@@ -60,6 +72,17 @@ class AppointmentUpdateDaoIntegrationTest {
     private final LoggedInInfo clientB = mock(LoggedInInfo.class);
     private int id;
     private SecurityInfoManager security;
+
+    @BeforeAll
+    static void setTorontoTimeZone() {
+        previousTimeZone = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone(TORONTO));
+    }
+
+    @AfterAll
+    static void restoreTimeZone() {
+        TimeZone.setDefault(previousTimeZone);
+    }
 
     @BeforeEach
     void setup() throws Exception {
@@ -76,7 +99,7 @@ class AppointmentUpdateDaoIntegrationTest {
                 assertThat(connection.getMetaData().getDatabaseProductVersion()).contains("MariaDB");
                 statement.executeUpdate("CREATE DATABASE " + database);
             }
-            url = server + database;
+            url = server + database + "?connectionTimeZone=" + TORONTO.getId();
         }
         var configuration = new Configuration().addAnnotatedClass(Appointment.class).addAnnotatedClass(AppointmentArchive.class)
                 .setProperty("hibernate.connection.driver_class", server == null ? "org.h2.Driver"
@@ -289,12 +312,9 @@ class AppointmentUpdateDaoIntegrationTest {
 
     @Test
     void shouldAdvanceStoredVersion_whenWritesShareAClockSecond() {
-        Date future = new Date((System.currentTimeMillis() / 1000 + 60) * 1000);
-        tx(em -> {
-            em.createNativeQuery("update appointment set updatedatetime=:version where appointment_no=:id")
-                    .setParameter("version", future).setParameter("id", id).executeUpdate();
-            return null;
-        });
+        // Midnight UTC is an unambiguous evening time in Toronto, including on clock-change days.
+        Date future = Date.from(Instant.now().truncatedTo(ChronoUnit.DAYS).plus(Duration.ofDays(2)));
+        setStoredUpdateTime(future);
         String version = read().getEditVersion();
         Appointment first = save(clientA, version, row -> {
             row.setReason("FAKE-first");
@@ -305,6 +325,39 @@ class AppointmentUpdateDaoIntegrationTest {
         assertThat(Long.parseLong(second.getEditVersion())).isEqualTo(future.getTime() + 2000);
         assertThat(read().getEditVersion()).isEqualTo(second.getEditVersion());
         assertState("FAKE-second", 2);
+    }
+
+    @Test
+    void shouldReuseReturnedVersion_whenEditEntersTheRepeatedHour() {
+        var rules = TORONTO.getRules();
+        var transition = rules.nextTransition(Instant.now().plus(Duration.ofDays(1)));
+        if (!transition.isOverlap()) {
+            transition = rules.nextTransition(transition.getInstant());
+        }
+        // Seed one second before the first occurrence of the repeated hour. The update
+        // advances the version by a second, reaching a DATETIME with two possible instants.
+        var firstOccurrence = transition.getDateTimeAfter().toInstant(transition.getOffsetBefore());
+        setStoredUpdateTime(Date.from(firstOccurrence.minusSeconds(1)));
+        String original = read().getEditVersion();
+        assertThat(original).isEqualTo(Long.toString(firstOccurrence.minusSeconds(1).toEpochMilli()));
+
+        Appointment first = save(clientA, original, row -> row.setReason("FAKE-first"));
+        assertThat(first.getEditVersion()).isNotEqualTo(original).isEqualTo(read().getEditVersion());
+
+        Appointment second = save(clientB, first.getEditVersion(), row -> row.setReason("FAKE-second"));
+        assertThat(second.getEditVersion()).isNotEqualTo(first.getEditVersion()).isEqualTo(read().getEditVersion());
+        assertThatThrownBy(() -> save(clientA, original, row -> row.setReason("FAKE-stale")))
+                .isInstanceOfSatisfying(AppointmentUpdateException.class,
+                        error -> assertThat(error.getReason()).isEqualTo(AppointmentUpdateException.Reason.STALE_VERSION));
+        assertState("FAKE-second", 2);
+    }
+
+    private void setStoredUpdateTime(Date value) {
+        tx(em -> {
+            em.createNativeQuery("update appointment set updatedatetime=:version where appointment_no=:id")
+                    .setParameter("version", value).setParameter("id", id).executeUpdate();
+            return null;
+        });
     }
 
     @Test
