@@ -576,7 +576,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                 if (documentNo == null) { omittedRows++; continue; }
                 DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);
                 Document document = documentDao.find(documentNo.intValue());
-                if (document == null) { omittedRows++; continue; }
+                if (document == null || document.getStatus() == 'D') { omittedRows++; continue; }
                 LabResultData lbData = new LabResultData(LabResultData.DOCUMENT);
                 lbData.labType = LabResultData.DOCUMENT;
 

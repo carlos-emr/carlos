@@ -77,8 +77,10 @@ public class DocumentReviewService {
             boolean contentChanged = replacement || (htmlEditor && !Objects.equals(edit.getHtml(), stored.getDocxml()));
             if (review || contentChanged) requireContent(stored, observedContent);
             String submitted = DocumentEditRevision.metadata(edit, htmlEditor, stored);
-            if (StoredDocumentRevision.valid(observedMetadata)
-                    && !observedMetadata.equals(DocumentEditRevision.metadata(stored))) {
+            String current = DocumentEditRevision.metadata(stored);
+            if (!StoredDocumentRevision.valid(observedMetadata)) {
+                if (!current.equals(submitted)) throw new Conflict();
+            } else if (!observedMetadata.equals(current)) {
                 if (!observedMetadata.equals(submitted)) throw new Conflict();
                 copyMetadata(stored, edit);
             }

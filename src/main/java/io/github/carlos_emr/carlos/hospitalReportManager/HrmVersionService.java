@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 /** Validated history rows; a display order never changes HRM's current-version selection rule. */
 @Service
 public class HrmVersionService {
+    private static final int MAX_HISTORY_IDS = 100;
     private final HRMDocumentDao documents;
     private final HRMDocumentToDemographicDao patients;
     private final SecurityInfoManager security;
@@ -39,8 +40,7 @@ public class HrmVersionService {
         List<HRMDocument> rows = new ArrayList<>();
         for (Integer id : new LinkedHashSet<>(ids)) {
             HRMDocument row = documents.find(id.intValue());
-            if (row == null) throw new IllegalStateException("An HRM version is no longer available; refresh the list");
-            rows.add(row);
+            if (row != null) rows.add(row);
         }
         return format(rows, locale);
     }
@@ -50,18 +50,21 @@ public class HrmVersionService {
         if (!security.hasPrivilege(info, "_hrm", "r", (String) null)) throw new SecurityException("missing required sec object (_hrm)");
         if (requested == null || requested.isBlank()) return new History(List.of(), false);
         if (requested.length() > 16384) return new History(List.of(), true);
+        String[] candidates = requested.split(",", MAX_HISTORY_IDS + 1);
+        if (candidates.length > MAX_HISTORY_IDS) return new History(List.of(), true);
         Set<Integer> scope = patientIds(displayed.getId());
+        if (scope.isEmpty() || !canRead(info, scope)) return new History(List.of(), true);
         List<HRMDocument> rows = new ArrayList<>();
         Set<Integer> seen = new HashSet<>();
         boolean incomplete = false;
-        for (String value : requested.split(",", -1)) {
+        for (String value : candidates) {
             int id;
             try { id = Integer.parseInt(value.trim()); }
             catch (NumberFormatException invalid) { incomplete = true; continue; }
             if (id <= 0) { incomplete = true; continue; }
             if (!seen.add(id) || id == displayed.getId()) continue;
             HRMDocument candidate = documents.find(id);
-            if (candidate == null || !scope.equals(patientIds(id)) || !canRead(info, scope)) {
+            if (candidate == null || !scope.equals(patientIds(id))) {
                 incomplete = true; continue;
             }
             HRMReport other = HRMReportParser.parseReport(info, candidate.getReportFile());
@@ -72,13 +75,16 @@ public class HrmVersionService {
     }
 
     private boolean canRead(LoggedInInfo info, Set<Integer> scope) {
-        for (int id : scope) if (id > 0 && !security.isAllowedAccessToPatientRecord(info, id)) return false;
+        for (int id : scope) if (!security.isAllowedAccessToPatientRecord(info, id)) return false;
         return true;
     }
 
     private Set<Integer> patientIds(int document) {
         Set<Integer> ids = new HashSet<>();
-        for (var link : patients.findByHrmDocumentId(document)) ids.add(link.getDemographicNo());
+        for (var link : patients.findByHrmDocumentId(document)) {
+            Integer patient = link.getDemographicNo();
+            if (patient != null && patient > 0) ids.add(patient);
+        }
         return ids;
     }
 

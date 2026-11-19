@@ -5,6 +5,7 @@
 package io.github.carlos_emr.carlos.documentManager.actions;
 
 import io.github.carlos_emr.carlos.documentManager.UnavailableHrmAttachmentService;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
@@ -17,11 +18,15 @@ public class RemoveUnavailableHrm2Action extends ActionSupport {
     public String execute() throws IOException {
         var request = ServletActionContext.getRequest();
         var response = ServletActionContext.getResponse();
+        var info = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (info == null || !SpringUtils.getBean(SecurityInfoManager.class)
+                .hasPrivilege(info, "_con", "w", (String) null)) {
+            response.sendError(403);
+            return NONE;
+        }
         if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST"); response.sendError(405); return NONE;
         }
-        var info = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (info == null) { response.sendError(403); return NONE; }
         try {
             SpringUtils.getBean(UnavailableHrmAttachmentService.class).remove(info,
                     request.getParameter("selection"), request.getSession(false));

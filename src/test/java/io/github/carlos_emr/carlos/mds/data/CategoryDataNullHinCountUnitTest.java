@@ -1,6 +1,8 @@
 /* Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.mds.data;
 
+import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
+
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import jakarta.persistence.EntityManagerFactory;

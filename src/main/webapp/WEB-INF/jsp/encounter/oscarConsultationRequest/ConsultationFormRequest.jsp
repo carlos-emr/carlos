@@ -3723,7 +3723,9 @@ function removeUnavailableHrmAttachments(button) {
     if (!window.confirm('<carlos:encode value="${removeHrmConfirm}" context="javaScript"/>')) { return; }
     button.disabled = true;
     var data = new URLSearchParams({selection: button.dataset.selection, 'CSRF-TOKEN': csrf.value});
-    fetch('${carlos:forJavaScript(pageContext.request.contextPath)}/documentManager/removeUnavailableHrm', {method:'POST', body:data, credentials:'same-origin'})
+    fetch('${carlos:forJavaScript(pageContext.request.contextPath)}/documentManager/removeUnavailableHrm', {
+        method:'POST', body:data, credentials:'same-origin', headers:{'CSRF-TOKEN':csrf.value}
+    })
         .then(function(response) { if (!response.ok) throw new Error('unconfirmed'); return response.json(); })
         .then(function(result) {
             if (!result.success) throw new Error('unconfirmed');

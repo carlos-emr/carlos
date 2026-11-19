@@ -4,6 +4,8 @@
  */
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
 import io.github.carlos_emr.carlos.documentManager.UnavailableHrmAttachmentService;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -19,6 +21,7 @@ class RemoveUnavailableHrm2ActionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private UnavailableHrmAttachmentService service;
+    private SecurityInfoManager security;
     private LoggedInInfo actor;
     private MockedStatic<ServletActionContext> servlet;
     private MockedStatic<LoggedInInfo> login;
@@ -28,6 +31,9 @@ class RemoveUnavailableHrm2ActionUnitTest extends CarlosUnitTestBase {
         response = new MockHttpServletResponse(); service = mock(UnavailableHrmAttachmentService.class);
         registerMock(UnavailableHrmAttachmentService.class, service);
         actor = mock(LoggedInInfo.class);
+        security = mock(SecurityInfoManager.class);
+        registerMock(SecurityInfoManager.class, security);
+        when(security.hasPrivilege(actor, "_con", "w", (String) null)).thenReturn(true);
         servlet = mockStatic(ServletActionContext.class);
         servlet.when(ServletActionContext::getRequest).thenReturn(request);
         servlet.when(ServletActionContext::getResponse).thenReturn(response);
@@ -35,6 +41,13 @@ class RemoveUnavailableHrm2ActionUnitTest extends CarlosUnitTestBase {
         login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(actor);
     }
     @AfterEach void close() { login.close(); servlet.close(); }
+    @Test void shouldRefuseUnauthorizedRequest_beforeHandlingTheMethod() throws Exception {
+        request.setMethod("GET");
+        when(security.hasPrivilege(actor, "_con", "w", (String) null)).thenReturn(false);
+        new RemoveUnavailableHrm2Action().execute();
+        assertThat(response.getStatus()).isEqualTo(403);
+        verifyNoInteractions(service);
+    }
     @Test void shouldRejectGetAndHead_beforeCallingTheService() throws Exception {
         for (String method : new String[]{"GET", "HEAD"}) {
             request.setMethod(method); response = new MockHttpServletResponse();

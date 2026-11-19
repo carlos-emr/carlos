@@ -149,12 +149,11 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      * @throws SecurityException if the user lacks _edoc write privilege
      */
     public String html5MultiUpload() throws Exception {
-        if (rejectNonPost()) return NONE;
-        ResourceBundle props = ResourceBundle.getBundle("oscarResources");
-
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
         }
+        if (rejectNonPost()) return NONE;
+        ResourceBundle props = ResourceBundle.getBundle("oscarResources");
 
         File uploadedDocFile = this.getDocFile();
         if (uploadedDocFile == null) {

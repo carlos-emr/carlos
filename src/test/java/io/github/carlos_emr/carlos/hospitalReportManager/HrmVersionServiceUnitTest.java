@@ -30,6 +30,7 @@ class HrmVersionServiceUnitTest extends CarlosUnitTestBase {
         var security = mock(SecurityInfoManager.class); var info = mock(LoggedInInfo.class);
         when(security.hasPrivilege(info, "_hrm", "r", (String) null)).thenReturn(true);
         HRMDocument shown = new HRMDocument(); org.springframework.test.util.ReflectionTestUtils.setField(shown, "id", 1);
+        authorizeDisplayedPatient(links, security, info);
         var service = new HrmVersionService(docs, links, security);
         var result = service.history(info, shown, mock(HRMReport.class), "2,bad,-3,2", Locale.ENGLISH);
         assertThat(result.incomplete()).isTrue(); assertThat(result.versions()).isEmpty();
@@ -41,6 +42,7 @@ class HrmVersionServiceUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(info, "_hrm", "r", (String) null)).thenReturn(true);
         when(docs.find(2)).thenThrow(new IllegalStateException("synthetic query failure"));
         HRMDocument shown = new HRMDocument(); org.springframework.test.util.ReflectionTestUtils.setField(shown, "id", 1);
+        authorizeDisplayedPatient(links, security, info);
         var service = new HrmVersionService(docs, links, security);
         assertThatThrownBy(() -> service.history(info, shown, mock(HRMReport.class), "2", Locale.ENGLISH))
                 .isInstanceOf(IllegalStateException.class).hasMessage("synthetic query failure");
@@ -75,12 +77,33 @@ class HrmVersionServiceUnitTest extends CarlosUnitTestBase {
         var row = new HRMDocument(); org.springframework.test.util.ReflectionTestUtils.setField(row, "id", id);
         row.setReportFile(id + ".xml"); return row;
     }
+
+    private static void authorizeDisplayedPatient(HRMDocumentToDemographicDao links,
+            SecurityInfoManager security, LoggedInInfo info) {
+        var patient = new io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic();
+        patient.setDemographicNo(5);
+        when(links.findByHrmDocumentId(1)).thenReturn(List.of(patient));
+        when(security.isAllowedAccessToPatientRecord(info, 5)).thenReturn(true);
+    }
+
+    @Test void shouldSkipDeletedVersions_andRefuseHistoryWithoutAPatient() {
+        var docs = mock(HRMDocumentDao.class); var links = mock(HRMDocumentToDemographicDao.class);
+        var security = mock(SecurityInfoManager.class); var info = mock(LoggedInInfo.class);
+        when(security.hasPrivilege(info, "_hrm", "r", (String) null)).thenReturn(true);
+        var service = new HrmVersionService(docs, links, security);
+        assertThat(service.history(info, document(1), mock(HRMReport.class), "2", Locale.ENGLISH).incomplete())
+                .isTrue();
+        verifyNoInteractions(docs);
+        when(docs.find(2)).thenReturn(document(2));
+        assertThat(service.describe(List.of(2, 3), Locale.ENGLISH)).extracting(HrmVersionService.Version::id)
+                .containsExactly(2);
+    }
     @Test void shouldMarkExcessiveHistoryHintsIncomplete_withoutLookingUpReports() {
         var docs = mock(HRMDocumentDao.class); var links = mock(HRMDocumentToDemographicDao.class);
         var security = mock(SecurityInfoManager.class); var info = mock(LoggedInInfo.class);
         when(security.hasPrivilege(info, "_hrm", "r", (String) null)).thenReturn(true);
         var result = new HrmVersionService(docs, links, security).history(info, document(1), mock(HRMReport.class),
-                "2,".repeat(9000), Locale.ENGLISH);
+                "2,".repeat(100) + "2", Locale.ENGLISH);
         assertThat(result.incomplete()).isTrue(); assertThat(result.versions()).isEmpty();
         verifyNoInteractions(docs, links);
     }
