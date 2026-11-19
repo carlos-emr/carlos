@@ -503,6 +503,40 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
             return rule;
         }
 
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.CsvSource({"provider_no, ABSENT", "provider_no, '  '", "date, ABSENT", "date, ''"})
+        @DisplayName("should refuse a missing or blank provider or date before anything is written (#5297)")
+        void shouldRefuseMissingProviderOrDate_beforeAnyWrite(String parameter, String value) throws Exception {
+            ScheduleDateSave2Action action = postedSave("Save");
+            addRequestParameter("available", "1");
+            if ("ABSENT".equals(value)) {
+                mockRequest.removeParameter(parameter);
+            } else {
+                addRequestParameter(parameter, value);
+            }
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(mockRequest.getAttribute(io.github.carlos_emr.carlos.utility.RefusalNotice.KEY_ATTRIBUTE))
+                    .isEqualTo("error.refusal.scheduleDateIncomplete");
+            org.mockito.Mockito.verifyNoInteractions(overrides);
+        }
+
+        @Test
+        @DisplayName("should reject a Save with an empty availability before anything is written (#5297)")
+        void shouldRejectSaveWithEmptyAvailability_beforeAnyWrite() throws Exception {
+            ScheduleDateSave2Action action = postedSave("Save");
+            addRequestParameter("available", "");
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(mockRequest.getAttribute(io.github.carlos_emr.carlos.utility.RefusalNotice.KEY_ATTRIBUTE))
+                    .isEqualTo("error.refusal.scheduleAvailability");
+            org.mockito.Mockito.verifyNoInteractions(overrides);
+        }
+
         @Test
         @DisplayName("should refuse Delete before writing when another provider's calendar is open (#5297)")
         void shouldRefuseDelete_whenAnotherProvidersCalendarIsOpen() throws Exception {
