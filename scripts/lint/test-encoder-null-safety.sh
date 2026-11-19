@@ -7,10 +7,21 @@
 # Invokes the lint script as an actual subprocess (not via importlib) so a
 # regression in argv handling, main() flow, or exit-code logic gets caught.
 #
-# Tests two fixtures:
-#   - encoder-class-c-positive.jsp  : MUST be flagged (lint exits non-zero)
-#   - encoder-class-c-tag-positive.jsp : MUST be flagged (lint exits non-zero)
-#   - encoder-class-c-negative.jsp  : MUST NOT be flagged (lint exits zero)
+# Fixtures:
+#   - encoder-class-c-positive.jsp      : MUST be flagged (lint exits non-zero)
+#   - encoder-class-c-tag-positive.jsp  : MUST be flagged (lint exits non-zero)
+#   - encoder-class-c-negative.jsp      : MUST NOT be flagged (lint exits zero)
+#   - encoder-el-nested-positive.jsp    : four e:forXxx calls the old
+#                                         expression-leading pattern missed
+#                                         (#5477); MUST be flagged, Class B only
+#   - encoder-el-nested-negative.jsp    : near misses (wrapper nested in a
+#                                         wrapper, escaped EL, comments);
+#                                         MUST NOT be flagged
+#   - encoder-taglib-positive.jsp       : OWASP encoder taglib declared; MUST
+#                                         be flagged as Class D even when the
+#                                         file is on the allowlist
+#   - encoder-taglib-xml-positive.jspx  : XML-syntax and legacy-URI
+#                                         declarations; MUST be flagged
 #
 # Each fixture is staged into a fresh temp `src/main/webapp/WEB-INF/...`
 # layout so the lint's hard-coded JSP_ROOT walk picks it up. We can't
@@ -37,8 +48,14 @@ fails=0
 stage_and_run() {
   local fixture_name="$1"           # e.g. "encoder-class-c-positive.jsp"
   local expected_exit="$2"          # "0" or "1"
-  local expected_stdout_match="$3"  # text that must appear in stdout (empty = no check)
+  # Text that must appear in stdout (empty = no check). Several required
+  # snippets may be given, one per line.
+  local expected_stdout_match="$3"
   local label="$4"
+  # Optional: path the fixture is staged at, relative to src/main/webapp,
+  # and an allowlist glob (relative to the staged repository root).
+  local staged_name="${5:-billingONFixture.jsp}"
+  local allowlist_entry="${6:-}"
 
   local stage_root
   stage_root="$(mktemp -d)"
@@ -48,7 +65,7 @@ stage_and_run() {
   # walk hits the fixture file. The lint also reads the allowlist relative
   # to its own directory, so we run with cwd somewhere harmless and the
   # default allowlist (we don't want to change CI behavior).
-  local jsp_target="$stage_root/src/main/webapp/billingONFixture.jsp"
+  local jsp_target="$stage_root/src/main/webapp/$staged_name"
   mkdir -p "$(dirname "$jsp_target")"
   cp "$FIXTURE_DIR/$fixture_name" "$jsp_target"
 
@@ -58,8 +75,9 @@ stage_and_run() {
   # parent-walking lands on $stage_root.
   mkdir -p "$stage_root/scripts/lint"
   cp "$LINT_SCRIPT" "$stage_root/scripts/lint/check-encoder-null-safety.py"
-  # Empty allowlist so no fixture is silently exempted.
-  : > "$stage_root/scripts/lint/encode-null-safety-allowlist.txt"
+  # Empty allowlist so no fixture is silently exempted, unless the case
+  # deliberately allowlists its fixture.
+  printf '%s\n' "$allowlist_entry" > "$stage_root/scripts/lint/encode-null-safety-allowlist.txt"
 
   local out
   local rc
@@ -71,9 +89,14 @@ stage_and_run() {
   if [[ "$rc" != "$expected_exit" ]]; then
     pass_label="FAIL"
     mode="exit_mismatch"
-  elif [[ -n "$expected_stdout_match" && "$out" != *"$expected_stdout_match"* ]]; then
-    pass_label="FAIL"
-    mode="output_mismatch"
+  elif [[ -n "$expected_stdout_match" ]]; then
+    local needle
+    while IFS= read -r needle; do
+      if [[ -n "$needle" && "$out" != *"$needle"* ]]; then
+        pass_label="FAIL"
+        mode="output_mismatch"
+      fi
+    done <<< "$expected_stdout_match"
   fi
 
   if [[ "$pass_label" == "PASS" ]]; then
@@ -110,6 +133,40 @@ stage_and_run \
   "0" \
   "" \
   "negative fixture not flagged"
+
+# Regression for #5477: ${carlos:forJavaScript(e:forUriComponent(x))} in
+# DisplayWaitingList.jsp passed the old expression-leading EL pattern.
+stage_and_run \
+  "encoder-el-nested-positive.jsp" \
+  "1" \
+  "Class B — \${e:forXxx} EL function]: src/main/webapp/billingONFixture.jsp (4 site(s))
+Total violating files                      : 1" \
+  "nested and deferred e:forXxx EL calls flagged as Class B only"
+
+stage_and_run \
+  "encoder-el-nested-negative.jsp" \
+  "0" \
+  "" \
+  "nested-call near misses not flagged"
+
+# Class D ignores the allowlist: the jar is gone, so the page cannot translate.
+stage_and_run \
+  "encoder-taglib-positive.jsp" \
+  "1" \
+  "Class D — OWASP encoder taglib declared]: src/main/webapp/WEB-INF/jsp/legacy/allowlisted.jsp
+Declares owasp.encoder.jakarta.
+Total violating files                      : 1" \
+  "OWASP taglib declaration flagged on an allowlisted path" \
+  "WEB-INF/jsp/legacy/allowlisted.jsp" \
+  "src/main/webapp/WEB-INF/jsp/legacy/*.jsp"
+
+stage_and_run \
+  "encoder-taglib-xml-positive.jspx" \
+  "1" \
+  "Class D — OWASP encoder taglib declared]: src/main/webapp/billingONFixture.jspx
+Declares https://www.owasp.org/index.php/OWASP_Java_Encoder_Project, urn:jsptld:owasp.encoder.jakarta.advanced." \
+  "XML-syntax and legacy-URI OWASP taglib declarations flagged in a .jspx" \
+  "billingONFixture.jspx"
 
 if [[ $fails -eq 0 ]]; then
   echo "All encoder-null-safety lint fixtures pass."
