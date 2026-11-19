@@ -69,15 +69,17 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ConcatPDF {
 
-
+    /**
+     * Writes the merged PDF to a file and propagates failures so the caller can discard the output.
+     *
+     * @throws IOException if the destination cannot be opened or closed
+     */
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
-    public static void concat(ArrayList<Object> alist, String filename) {
+    public static void concat(ArrayList<Object> inputs, String filename) throws IOException {
         File outputFile = PathValidationUtils.resolveTrustedPath(new File(filename));
-        try (OutputStream os = new FileOutputStream(outputFile)) {
-            concat(alist, os);
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to concatenate {} PDF documents to file: {}", alist.size(), filename, e);
+        try (OutputStream output = new FileOutputStream(outputFile)) {
+            concat(inputs, output);
         }
     }
 
