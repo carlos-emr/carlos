@@ -50,6 +50,44 @@ const EXPECTED = {
   receivedCreated: { documents: ['received'], labs: ['received1', 'received2'] },
 };
 
+/**
+ * Snapshots the clinic-wide inboxDateSearchType rows and registers a cleanup that puts them back exactly:
+ * every row the check added is deleted (restoring the original absence when there was no row) and every
+ * original row gets its original bytes or NULL back. The cleanup reconciles by preference name rather than
+ * by a captured id, because an INSERT can commit while the SQL client loses its reply and never returns the
+ * new id; the run is exclusive (EXCLUSIVE=1), so any row the snapshot did not hold was added by this run.
+ * It then asserts that the rows equal the snapshot, so a restore that silently failed fails the check.
+ * @param {object} s workflow session with `sql` and `cleanup`
+ * @returns {(value: string) => void} sets the preference for every inboxDateSearchType row
+ */
+function guardDatePreference(s) {
+  const { sql } = s;
+  // sql.rows() reads the text 'NULL' as JavaScript null, so a SQL NULL value is carried by a separate
+  // `value IS NULL` flag rather than a 'NULL' sentinel in the hex column.
+  const snapshot = () => sql.rows(`SELECT id, IFNULL(HEX(value),''), value IS NULL FROM SystemPreferences
+    WHERE ${PREFERENCE} ORDER BY id`);
+  const previous = snapshot();
+  for (const [id, hex, isNull] of previous) {
+    h.assert(/^\d+$/.test(id) && /^[0-9A-F]*$/i.test(hex || '') && (isNull === '0' || isNull === '1'),
+      'Unexpected preference snapshot');
+  }
+  s.cleanup(() => {
+    const kept = previous.map(([id]) => id);
+    sql.execute(`DELETE FROM SystemPreferences WHERE ${PREFERENCE}${kept.length ? ` AND id NOT IN (${kept.join(',')})` : ''}`);
+    for (const [id, hex, isNull] of previous) {
+      sql.execute(`UPDATE SystemPreferences SET value=${isNull === '1' ? 'NULL' : `UNHEX('${hex || ''}')`} WHERE id=${id} AND ${PREFERENCE}`);
+    }
+    h.assert(JSON.stringify(snapshot()) === JSON.stringify(previous),
+      'inboxDateSearchType was not restored to its state before the check');
+  });
+  if (!previous.length) {
+    const inserted = sql.value(`INSERT INTO SystemPreferences (name,value,updateDate)
+      VALUES ('inboxDateSearchType','serviceObservation',NOW()); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(inserted), 'Date preference fixture was not inserted');
+  }
+  return value => sql.execute(`UPDATE SystemPreferences SET value=${h.sqlString(value)} WHERE ${PREFERENCE}`);
+}
+
 async function workflow(s) {
   const { sql, marker, patient, provider } = s;
   const q = h.sqlString;
@@ -57,24 +95,7 @@ async function workflow(s) {
   const docs = {};
   const labs = {};
 
-  // Snapshot the global preference BEFORE touching it; restore the exact bytes (or delete our insert).
-  // sql.rows() reads the text 'NULL' as JavaScript null, so a SQL NULL value is carried by a separate
-  // `value IS NULL` flag rather than a 'NULL' sentinel in the hex column.
-  const previous = sql.rows(`SELECT id, IFNULL(HEX(value),''), value IS NULL FROM SystemPreferences WHERE ${PREFERENCE}`);
-  let insertedPreference;
-  s.cleanup(() => {
-    if (insertedPreference) sql.execute(`DELETE FROM SystemPreferences WHERE id=${insertedPreference} AND ${PREFERENCE}`);
-    for (const [id, hex, isNull] of previous) {
-      h.assert(/^\d+$/.test(id) && /^[0-9A-F]*$/i.test(hex || '') && (isNull === '0' || isNull === '1'), 'Unexpected preference snapshot');
-      sql.execute(`UPDATE SystemPreferences SET value=${isNull === '1' ? 'NULL' : `UNHEX('${hex || ''}')`} WHERE id=${id} AND ${PREFERENCE}`);
-    }
-  });
-  if (!previous.length) {
-    insertedPreference = sql.value(`INSERT INTO SystemPreferences (name,value,updateDate)
-      VALUES ('inboxDateSearchType','serviceObservation',NOW()); SELECT LAST_INSERT_ID()`);
-    h.assert(/^[1-9]\d*$/.test(insertedPreference), 'Date preference fixture was not inserted');
-  }
-  const setPreference = value => sql.execute(`UPDATE SystemPreferences SET value=${q(value)} WHERE ${PREFERENCE}`);
+  const setPreference = guardDatePreference(s);
 
   s.cleanup(() => {
     // Captured ids plus every row carrying this run's marker: a timed-out mysql call can commit an INSERT
@@ -180,4 +201,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('inbox-date-mode-counts', workflow, { openMaster: false });
-module.exports = { workflow };
+module.exports = { workflow, guardDatePreference };
