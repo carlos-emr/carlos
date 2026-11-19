@@ -43,8 +43,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
 import java.io.CharArrayWriter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.Writer;
+import java.nio.CharBuffer;
+import java.nio.charset.Charset;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
@@ -225,6 +228,10 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             LOGGER.debug("CsrfGuard: writer passthrough for {} contentType={}",
                     safeRequestUri, wrapper.getContentType());
             wrapper.flushPassthroughWriter();
+            if (wrapper.isScriptStillPending()) {
+                LOGGER.warn("CSRF script not injected into a large HTML response: it has no </head> or "
+                        + "</body>; uri={}", safeRequestUri);
+            }
             return;
         }
 
@@ -429,6 +436,8 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         private boolean writerPassthrough;
         /** The capture passed MAX_CAPTURE_CHARS and is streaming; its injected prefix changed the length. */
         private boolean captureOverflowed;
+        /** The capture writer of this response, once created; it owns the overflow state. */
+        private BoundedCaptureWriter boundedWriter;
         private boolean committed;
         /** The shared defer/publish/retract rules; its two delegate calls are its only access to the response. */
         private final DeferredContentLength contentLength = new DeferredContentLength(
@@ -492,6 +501,13 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             super.resetBuffer();
             if (captureWriter != null) {
                 captureWriter.reset();
+            }
+            if (captureOverflowed) {
+                // The container accepted the reset, so the streamed prefix was still in its buffer
+                // and is gone: capture the replacement document again so it gets its script.
+                boundedWriter.rearm();
+                captureOverflowed = false;
+                writerPassthrough = false;
             }
             contentLength.onBufferReset();
         }
@@ -668,6 +684,11 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             }
         }
 
+        /** A streamed HTML page that ended without the closing tag its script waits for. */
+        boolean isScriptStillPending() {
+            return boundedWriter != null && boundedWriter.injectionPending;
+        }
+
         /**
          * Returns true only when Content-Type is known and not HTML.
          */
@@ -814,23 +835,46 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                     return CaptureResponseWrapper.super.getWriter();
                 }
                 captureWriter = new CharArrayWriter();
-                return new BoundedCaptureWriter(captureWriter);
+                boundedWriter = new BoundedCaptureWriter(captureWriter);
+                return boundedWriter;
             }
         }
 
         /**
-         * Captures writer output up to {@link #MAX_CAPTURE_CHARS}; past that, writes the captured
-         * prefix (with the CSRFGuard script injected when it is HTML and holds {@code </head>} or
-         * {@code </body>}) and every later write straight to the response (#5937).
+         * Captures writer output up to {@link #MAX_CAPTURE_CHARS}, then streams (#5937).
          *
-         * <p>After the switch the wrapper is in writer passthrough: {@code isCommitted()} and
-         * {@code flushBuffer()} reach the real response, and the filter flushes instead of
-         * replaying a capture. A Content-Length deferred before the writer opened is not
-         * published, exactly as on the captured path, because the injection changes the length.</p>
+         * <p>When a write would cross the bound, only the remaining allowance is captured. The
+         * captured prefix is then written to the response with the CSRFGuard script injected
+         * before its {@code </head>} (or {@code </body>}) when it is HTML, and the rest of that
+         * write and every later write stream straight through. Memory therefore stays bounded
+         * whatever the size of a single write, and the capture buffer is released at the
+         * switch.</p>
+         *
+         * <p>When the prefix holds no closing tag, the streamed writes are searched for the first
+         * {@code </head>} or {@code </body>} and the script is written just before it, as the
+         * replay path would have. The last {@link #HELD_CHARACTERS} streamed characters are held
+         * back until the next write, flush or close, so a tag split across two writes is still
+         * found. A page that ends with no closing tag (an HTML fragment) streams unchanged and is
+         * logged once by the filter.</p>
+         *
+         * <p>The stream goes to the response's writer, or, when the response beneath already
+         * handed out its output stream (a nested forward or an outer filter), to that stream
+         * encoded in the response charset, as the replay path does. The destination is acquired
+         * before the captured prefix is released. After the switch the wrapper is in writer
+         * passthrough: {@code isCommitted()} and {@code flushBuffer()} reach the real response,
+         * and any Content-Length is dropped because the injection changed the body.</p>
          */
         private class BoundedCaptureWriter extends Writer {
-            private final CharArrayWriter buffer;
+            /** One less than the length of {@code </head>} and {@code </body>}. */
+            private static final int HELD_CHARACTERS = 6;
+            private static final String[] CLOSING_TAGS = {"</head>", "</body>"};
+
+            private CharArrayWriter buffer;
             private Writer overflow;
+            /** Streamed HTML whose script still waits for a closing tag. */
+            private boolean injectionPending;
+            /** Streamed characters not yet written, so a closing tag split across writes is found. */
+            private final StringBuilder held = new StringBuilder();
 
             BoundedCaptureWriter(CharArrayWriter buffer) {
                 this.buffer = buffer;
@@ -838,51 +882,40 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
             @Override
             public void write(int character) throws IOException {
-                write(new char[]{(char) character}, 0, 1);
+                write(String.valueOf((char) character), 0, 1);
             }
 
             @Override
             public void write(char[] chars, int offset, int length) throws IOException {
-                if (overflow == null && (long) buffer.size() + length <= MAX_CAPTURE_CHARS) {
-                    buffer.write(chars, offset, length);
-                    return;
-                }
-                if (overflow == null) {
-                    // Inspect the prefix together with the write that crossed the bound, so a page
-                    // written in one large chunk still gets the script in its head.
-                    buffer.write(chars, offset, length);
-                    startStreaming();
-                    return;
-                }
-                overflow.write(chars, offset, length);
+                write(CharBuffer.wrap(chars, offset, length));
             }
 
             @Override
             public void write(String string, int offset, int length) throws IOException {
-                if (overflow == null && (long) buffer.size() + length <= MAX_CAPTURE_CHARS) {
-                    buffer.write(string, offset, length);
-                    return;
-                }
+                write(CharBuffer.wrap(string, offset, offset + length));
+            }
+
+            /** Captures within the allowance; past it, streams without copying the rest of the write. */
+            private void write(CharBuffer chunk) throws IOException {
                 if (overflow == null) {
-                    buffer.write(string, offset, length);
+                    int room = MAX_CAPTURE_CHARS - buffer.size();
+                    if (chunk.length() <= room) {
+                        buffer.append(chunk);
+                        return;
+                    }
+                    buffer.append(chunk, 0, room);
                     startStreaming();
-                    return;
+                    chunk = chunk.subSequence(room, chunk.length());
                 }
-                overflow.write(string, offset, length);
+                stream(chunk);
             }
 
             private void startStreaming() throws IOException {
+                Writer destination = streamingChannel();
                 String prefix = buffer.toString();
-                buffer.reset();
-                String content = prefix;
-                if (RequestNegotiation.isHtmlContentType(getContentType())
-                        && !CSRFGUARD_SCRIPT_PATTERN.matcher(prefix).find()) {
-                    content = injectScript(prefix, scriptTag);
-                    if (content.equals(prefix)) {
-                        LOGGER.warn("CSRF script not injected into a large HTML response: no </head> or </body> "
-                                + "in its first {} characters; uri={}", prefix.length(), requestUri);
-                    }
-                }
+                // Release the capture: only the bounded prefix copy above outlives the switch.
+                buffer = null;
+                captureWriter = null;
                 LOGGER.debug("CsrfGuard: capture limit reached for {}; streaming the rest", requestUri);
                 // The capture's own buffer is all the body there is; clear any container buffer as
                 // the replay path does, while the response can still accept it.
@@ -895,13 +928,116 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                 }
                 writerPassthrough = true;
                 captureOverflowed = true;
-                overflow = CaptureResponseWrapper.super.getWriter();
-                overflow.write(content);
+                overflow = destination;
+                // The prefix is injected exactly as a replayed page would be (</head> preferred over
+                // </body>); only when it holds neither does the search continue into the stream.
+                boolean needsScript = RequestNegotiation.isHtmlContentType(getContentType())
+                        && !CSRFGUARD_SCRIPT_PATTERN.matcher(prefix).find();
+                String content = needsScript ? injectScript(prefix, scriptTag) : prefix;
+                injectionPending = needsScript && content.length() == prefix.length();
+                stream(content);
+            }
+
+            /** The response's writer, or its already-selected output stream encoded in its charset. */
+            private Writer streamingChannel() throws IOException {
+                try {
+                    return CaptureResponseWrapper.super.getWriter();
+                } catch (IllegalStateException streamSelected) {
+                    Charset charset = RequestNegotiation.responseCharset(CaptureResponseWrapper.this);
+                    LOGGER.warn("CsrfGuard: response writer unavailable while streaming a large page; "
+                            + "encoding it onto the output stream as {}: uri={}", charset.name(), requestUri);
+                    CaptureResponseWrapper.super.setCharacterEncoding(charset.name());
+                    return new OutputStreamWriter(CaptureResponseWrapper.super.getOutputStream(), charset);
+                }
+            }
+
+            /** Writes streamed text, injecting the script before the first closing tag while one is awaited. */
+            private void stream(CharSequence chunk) throws IOException {
+                if (!injectionPending) {
+                    writeRange(chunk, held.length(), held.length() + chunk.length());
+                    return;
+                }
+                int tag = closingTag(held, chunk);
+                int total = held.length() + chunk.length();
+                if (tag >= 0) {
+                    writeRange(chunk, 0, tag);
+                    overflow.write(scriptTag + "\n");
+                    writeRange(chunk, tag, total);
+                    held.setLength(0);
+                    injectionPending = false;
+                    return;
+                }
+                int keep = Math.min(HELD_CHARACTERS, total);
+                writeRange(chunk, 0, total - keep);
+                // Copy the tail now: a writer may reuse the array behind chunk after write returns.
+                String tail = rangeOf(chunk, total - keep, total).toString();
+                held.setLength(0);
+                held.append(tail);
+            }
+
+            /** Writes positions {@code from..to} of the held characters followed by {@code chunk}. */
+            private void writeRange(CharSequence chunk, int from, int to) throws IOException {
+                CharSequence range = rangeOf(chunk, from, to);
+                if (range instanceof CharBuffer view && view.hasArray()) {
+                    // A char[] write (the JSP writer's case) streams from its own array, uncopied.
+                    overflow.write(view.array(), view.arrayOffset() + view.position(), view.remaining());
+                } else {
+                    overflow.append(range);
+                }
+            }
+
+            private CharSequence rangeOf(CharSequence chunk, int from, int to) {
+                int split = held.length();
+                if (to <= split) {
+                    return held.substring(from, to);
+                }
+                if (from >= split) {
+                    return chunk.subSequence(from - split, to - split);
+                }
+                return held.substring(from) + chunk.subSequence(0, to - split);
+            }
+
+            /** First position of a closing tag in the held characters followed by {@code chunk}, or -1. */
+            private int closingTag(CharSequence first, CharSequence second) {
+                int split = first.length();
+                int total = split + second.length();
+                for (int i = 0; i + HELD_CHARACTERS < total; i++) {
+                    for (String tag : CLOSING_TAGS) {
+                        int k = 0;
+                        while (k < tag.length()) {
+                            int at = i + k;
+                            char ch = at < split ? first.charAt(at) : second.charAt(at - split);
+                            if (Character.toLowerCase(ch) != tag.charAt(k)) {
+                                break;
+                            }
+                            k++;
+                        }
+                        if (k == tag.length()) {
+                            return i;
+                        }
+                    }
+                }
+                return -1;
+            }
+
+            /** After an accepted reset discarded the streamed prefix: capture the next document again. */
+            void rearm() {
+                buffer = new CharArrayWriter();
+                captureWriter = buffer;
+                overflow = null;
+                injectionPending = false;
+                held.setLength(0);
+            }
+
+            private void releaseHeld() throws IOException {
+                overflow.append(held);
+                held.setLength(0);
             }
 
             @Override
             public void flush() throws IOException {
                 if (overflow != null) {
+                    releaseHeld();
                     overflow.flush();
                 }
             }
@@ -909,6 +1045,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             @Override
             public void close() throws IOException {
                 if (overflow != null) {
+                    releaseHeld();
                     overflow.close();
                 }
             }

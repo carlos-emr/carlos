@@ -303,6 +303,58 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
             org.mockito.Mockito.verifyNoInteractions(overrides);
         }
 
+        /** A rule schedule that does or does not cover every date, with fixed hours. */
+        private io.github.carlos_emr.RscheduleBean ruleSchedule(boolean coversDate) {
+            return new io.github.carlos_emr.RscheduleBean() {
+                @Override
+                public boolean getDateAvail(String date) {
+                    return coversDate;
+                }
+
+                @Override
+                public String getDateAvailHour(String date) {
+                    return "0900-1700";
+                }
+            };
+        }
+
+        @Test
+        @DisplayName("should restore the rule schedule's day and clear the cache on Delete (#5297)")
+        void shouldReplaceWithRuleSchedule_onDeleteWhenTheRuleCoversTheDate() throws Exception {
+            ScheduleDateSave2Action action = postedSave("Delete");
+            setSessionAttribute("scheduleRscheduleBean", ruleSchedule(true));
+            java.util.Hashtable<String, Object> cache = new java.util.Hashtable<>();
+            cache.put("2031-05-14", "cached");
+            setSessionAttribute("scheduleDateBean", cache);
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+            var replacement = org.mockito.ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.ScheduleDate.class);
+            org.mockito.Mockito.verify(overrides).replaceOverride(org.mockito.ArgumentMatchers.eq("999998"),
+                    org.mockito.ArgumentMatchers.eq(java.sql.Date.valueOf("2031-05-14")), replacement.capture());
+            assertThat(replacement.getValue().getPriority()).isEqualTo('b');
+            assertThat(replacement.getValue().getAvailable()).isEqualTo('1');
+            assertThat(replacement.getValue().getHour()).isEqualTo("0900-1700");
+            assertThat(cache).doesNotContainKey("2031-05-14");
+        }
+
+        @Test
+        @DisplayName("should leave the date without an override and clear the cache on Delete with no rule day (#5297)")
+        void shouldRetireOverrideWithoutReplacement_onDeleteWhenNoRuleCoversTheDate() throws Exception {
+            ScheduleDateSave2Action action = postedSave("Delete");
+            setSessionAttribute("scheduleRscheduleBean", ruleSchedule(false));
+            java.util.Hashtable<String, Object> cache = new java.util.Hashtable<>();
+            cache.put("2031-05-14", "cached");
+            setSessionAttribute("scheduleDateBean", cache);
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+            org.mockito.Mockito.verify(overrides).replaceOverride(org.mockito.ArgumentMatchers.eq("999998"),
+                    org.mockito.ArgumentMatchers.eq(java.sql.Date.valueOf("2031-05-14")),
+                    org.mockito.ArgumentMatchers.isNull());
+            assertThat(cache).doesNotContainKey("2031-05-14");
+        }
+
         @Test
         @DisplayName("should keep the session cache when the replacement fails (#5297)")
         void shouldKeepSessionCache_whenReplacementFails() throws Exception {

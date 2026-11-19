@@ -211,6 +211,183 @@ class CsrfGuardScriptInjectionFilterUnitTest {
                 "<html><head><script src=\"/carlos/csrfguard\"></script>\n</head><body>" + body + followingWrite);
     }
 
+    /** A forwarded request for one of the large-page streaming cases below. */
+    private static MockHttpServletRequest largeForward() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/WEB-INF/jsp/big.jsp");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        return request;
+    }
+
+    /** Writes {@code count} characters of filler as JSP-sized char[] chunks, as JspWriter does. */
+    private static void writeFillerChunks(Writer writer, int count) throws IOException {
+        char[] chunk = "x".repeat(8192).toCharArray();
+        for (int written = 0; written < count; written += chunk.length) {
+            writer.write(chunk, 0, Math.min(chunk.length, count - written));
+        }
+    }
+
+    private static final String SCRIPT = "<script src=\"/carlos/csrfguard\"></script>\n";
+
+    @Test
+    @DisplayName("should inject before a </body> streamed after the capture bound when the head holds none")
+    void shouldInjectIntoStreamedBody_whenThePrefixHasNoClosingTag() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        int filler = CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS + 20_000;
+
+        withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            var writer = res.getWriter();
+            writer.write("<html><body>".toCharArray());
+            writeFillerChunks(writer, filler);
+            writer.write("</body></html>".toCharArray());
+        }));
+
+        assertThat(response.getContentAsString())
+                .isEqualTo("<html><body>" + "x".repeat(filler) + SCRIPT + "</body></html>");
+    }
+
+    @Test
+    @DisplayName("should find a closing tag split across two streamed writes")
+    void shouldInjectBeforeAClosingTag_whenItIsSplitAcrossStreamedWrites() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        int filler = CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS + 10;
+
+        withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            var writer = res.getWriter();
+            writer.write("<html><body>".toCharArray());
+            writeFillerChunks(writer, filler);
+            writer.write("ab</BO".toCharArray());
+            writer.write("DY></html>".toCharArray());
+        }));
+
+        assertThat(response.getContentAsString())
+                .isEqualTo("<html><body>" + "x".repeat(filler) + "ab" + SCRIPT + "</BODY></html>");
+    }
+
+    @Test
+    @DisplayName("should stream a large fragment unchanged and warn once when it has no closing tag")
+    void shouldStreamFragmentUnchanged_whenNoClosingTagEverArrives() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        int filler = CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS + 100;
+
+        try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+                res.setContentType("text/html;charset=UTF-8");
+                var writer = res.getWriter();
+                writer.write("<tr>");
+                writeFillerChunks(writer, filler);
+                writer.write("</tr>");
+            }));
+
+            assertThat(capture.events()).filteredOn(event -> event.getLevel() == Level.WARN)
+                    .singleElement().satisfies(event -> assertThat(event.getMessage().getFormattedMessage())
+                            .contains("no </head> or </body>").contains("uri=/WEB-INF/jsp/big.jsp"));
+        }
+        assertThat(response.getContentAsString()).isEqualTo("<tr>" + "x".repeat(filler) + "</tr>");
+    }
+
+    @Test
+    @DisplayName("should stream a large response that turned out not to be HTML without injecting")
+    void shouldStreamUnchanged_whenTheLargeResponseIsNotHtml() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        String page = "<html><head></head><body>" + "x".repeat(CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS)
+                + "</body></html>";
+
+        withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+            var writer = res.getWriter();
+            writer.write("");
+            res.setContentType("text/plain;charset=UTF-8");
+            writer.write(page);
+        }));
+
+        assertThat(response.getContentAsString()).isEqualTo(page);
+    }
+
+    @Test
+    @DisplayName("should encode a large streamed page onto the output stream when the writer is unavailable")
+    void shouldStreamOntoTheOutputStream_whenTheResponseWriterIsUnavailable() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        response.getOutputStream();
+        String body = "é".repeat(CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS);
+
+        try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+                res.setContentType("text/html;charset=UTF-8");
+                var writer = res.getWriter();
+                writer.write("<html><head></head><body>");
+                writer.write(body);
+                writer.write("</body></html>");
+            }));
+
+            assertThat(capture.events()).anySatisfy(event -> assertThat(event.getMessage().getFormattedMessage())
+                    .contains("encoding it onto the output stream as UTF-8"));
+        }
+        assertThat(response.getContentAsString(StandardCharsets.UTF_8))
+                .isEqualTo("<html><head>" + SCRIPT + "</head><body>" + body + "</body></html>");
+    }
+
+    @Test
+    @DisplayName("should capture the replacement page again after an accepted reset of a streamed page")
+    void shouldInjectIntoTheReplacementPage_whenAStreamedPageIsReset() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        response.setBufferSize(8 * CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS);
+
+        withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            var writer = res.getWriter();
+            writer.write("<html><head></head><body>");
+            writeFillerChunks(writer, CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS);
+            res.resetBuffer();
+            writer.write("<html><head></head><body>replacement</body></html>");
+        }));
+
+        assertThat(response.getContentAsString())
+                .isEqualTo("<html><head>" + SCRIPT + "</head><body>replacement</body></html>");
+    }
+
+    @Test
+    @DisplayName("should release held characters on flush and close while waiting for a closing tag")
+    void shouldReleaseHeldCharacters_whenFlushedOrClosedWhileWaiting() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        int filler = CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS + 1;
+        String[] beforeClose = new String[1];
+
+        withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            var writer = res.getWriter();
+            writer.write("<html><body>");
+            writeFillerChunks(writer, filler);
+            writer.write("tail");
+            writer.flush();
+            beforeClose[0] = ((MockHttpServletResponse) response).getContentAsString();
+            writer.write("</body>more");
+            writer.close();
+        }));
+
+        assertThat(beforeClose[0]).endsWith("xtail");
+        assertThat(response.getContentAsString())
+                .isEqualTo("<html><body>" + "x".repeat(filler) + "tail" + SCRIPT + "</body>more");
+    }
+
+    @Test
+    @DisplayName("should stream a large page without a buffer reset when the response is already committed")
+    void shouldStreamWithoutReset_whenTheResponseIsAlreadyCommitted() throws Exception {
+        MockHttpServletResponse response = spy(new MockHttpServletResponse());
+        response.setCommitted(true);
+        String page = "<html><head></head><body>" + "x".repeat(CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS)
+                + "</body></html>";
+
+        withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            res.getWriter().write(page);
+        }));
+
+        verify(response, never()).resetBuffer();
+        assertThat(response.getContentAsString()).isEqualTo(page.replace("</head>", SCRIPT + "</head>"));
+    }
+
     @Test
     @DisplayName("should keep replaying a page within the capture bound as one injected document")
     void shouldReplayCapturedPage_whenWithinTheBound() throws Exception {
