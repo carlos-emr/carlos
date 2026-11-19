@@ -530,10 +530,10 @@
     <%--
 	// Read the Health Care Team from the pageScope into a Javascript globalScope;
  --%>
+    <script type="text/javascript">
+        var consultationServices = [];
+    </script>
     <c:if test="${ not empty consultationServices }">
-        <script type="text/javascript">
-            var consultationServices = [];
-        </script>
         <c:forEach items="${ consultationServices }" var="consultationService" varStatus="loop">
             <script type="text/javascript">
                 //<!--
@@ -602,12 +602,10 @@
 
                 var service = healthCareTeam[specialistIndex].service;
 
-                if (!service) {
-
-                    form.service.value = '57';
-
-                } else {
-                    form.service.value = "";
+                // This variant has no service picker and posts 0 until a role maps
+                // to a service, matching the rendered hctService field's default.
+                form.service.value = "0";
+                if (service) {
                     for (var i = 0; i < consultationServices.length; i++) {
                         var specialistService = consultationServices[i];
                         if (specialistService.description === service) {
