@@ -774,6 +774,21 @@ class RptDownloadCSVServletTest {
     }
 
     @Test
+    @DisplayName("should preserve date conversion for the report's stored date filter")
+    void shouldBindNormalizedDates_forStoredReportDateFilters() throws Exception {
+        MockHttpServletRequest request = baseRequest();
+        request.addParameter("last_name", "on");
+        addFilter(request, 1, "demographic.roster_date >= '${startDate1}'", "startDate1", "11/18/2026");
+        storedFilters.getFirst()[5] = "MM/dd/yyyy";
+        request.setParameter("dateFormat_1", "yyyy-MM-dd");
+
+        SqlCall query = findCallContaining(invokeDemoReport(request), "from demographic where");
+
+        assertThat(query.sql()).contains("demographic.roster_date >= ?");
+        assertThat(query.params()).containsExactly("2026-11-18");
+    }
+
+    @Test
     @DisplayName("should answer 400 and run no query when a ticked filter is not one of the report's filters")
     void shouldAnswerBadRequest_whenTickedFilterIsUnknown() throws Exception {
         var request = baseRequest();

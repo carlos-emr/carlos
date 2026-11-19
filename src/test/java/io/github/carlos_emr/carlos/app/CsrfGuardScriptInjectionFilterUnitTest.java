@@ -184,6 +184,34 @@ class CsrfGuardScriptInjectionFilterUnitTest {
     }
 
     @Test
+    void shouldStreamCharacterWrites_whenTheContainerRejectsBufferReset() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/WEB-INF/jsp/big.jsp");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse() {
+            @Override
+            public void resetBuffer() {
+                throw new IllegalStateException("The container cannot reset this buffer");
+            }
+        };
+        String body = "a".repeat(CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS);
+        String followingWrite = "</body></html>";
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            var writer = res.getWriter();
+            writer.write('<');
+            writer.write("html><head></head><body>".toCharArray());
+            writer.write(body.toCharArray());
+            writer.write(followingWrite.toCharArray());
+            writer.close();
+        }));
+
+        assertThat(response.getContentAsString()).isEqualTo(
+                "<html><head><script src=\"/carlos/csrfguard\"></script>\n</head><body>" + body + followingWrite);
+    }
+
+    @Test
     @DisplayName("should keep replaying a page within the capture bound as one injected document")
     void shouldReplayCapturedPage_whenWithinTheBound() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/WEB-INF/jsp/small.jsp");
@@ -196,6 +224,7 @@ class CsrfGuardScriptInjectionFilterUnitTest {
             writeLargePage(res, "<html><head></head><body>", CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS / 2);
             res.flushBuffer();
             committedWhileWriting[0] = res.isCommitted();
+            res.getWriter().close();
         }));
 
         assertThat(committedWhileWriting[0]).isFalse();

@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/managers/SecurityInfoManagerImpl.java",
   "kind": "floor",
   "floor": {
-    "sourceBlob": "851efbf941fa94eac907ed2b0455153c077bcdba",
     "lines": 100.0,
     "instructions": 100.0,
-    "branches": 100.0
+    "branches": 100.0,
+    "sourceBlob": "851efbf941fa94eac907ed2b0455153c077bcdba"
   },
-  "evidenceSha256": "e899ecfb32e3881c56bb3277fa710b661a1ba480b90fcecf672b3f5e3af8fead"
+  "evidenceSha256": "25f4b5217510732ddb89adde948c86a57e95d0ff8ec14e108eca6f6163e424ca"
 }

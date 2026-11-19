@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/webserv/rest/util/PatientApiPages.java",
   "kind": "floor",
   "floor": {
-    "sourceBlob": "6c2f157eed611a3ef45f330e96138f40457d7846",
     "lines": 100.0,
-    "instructions": 93.21266968325791,
-    "branches": 78.26086956521739
+    "instructions": 95.55555555555556,
+    "branches": 84.78260869565217,
+    "sourceBlob": "6c2f157eed611a3ef45f330e96138f40457d7846"
   },
-  "evidenceSha256": "e899ecfb32e3881c56bb3277fa710b661a1ba480b90fcecf672b3f5e3af8fead"
+  "evidenceSha256": "25f4b5217510732ddb89adde948c86a57e95d0ff8ec14e108eca6f6163e424ca"
 }

@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.daos.security.SecuserroleDao;
 import io.github.carlos_emr.carlos.model.security.Secobjprivilege;
 import io.github.carlos_emr.carlos.model.security.Secuserrole;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
@@ -1104,6 +1105,7 @@ public class SecurityInfoManagerUnitTest extends CarlosUnitTestBase {
         @Test
         void shouldSkipAllReads_forEmptyPatientList() {
             assertThat(securityInfoManager.hasDemographicReadPrivileges(mockLoggedInInfo, List.of())).isTrue();
+            assertThat(securityInfoManager.getReadableDemographicIds(mockLoggedInInfo, List.of())).isEmpty();
             verifyNoInteractions(mockSecuserroleDao, mockSecObjPrivilegeDao);
         }
 
@@ -1131,10 +1133,10 @@ public class SecurityInfoManagerUnitTest extends CarlosUnitTestBase {
     class MergedChartReadOnly {
 
         private void stubRows(SecObjPrivilege... rows) {
-            when(mockSecObjPrivilegeDao.findByObjectNames(any())).thenAnswer(invocation -> {
+            doAnswer(invocation -> {
                 java.util.Collection<String> names = invocation.getArgument(0);
                 return java.util.Arrays.stream(rows).filter(row -> names.contains(row.getId().getObjectName())).toList();
-            });
+            }).when(mockSecObjPrivilegeDao).findByObjectNames(any());
         }
 
         @Test
@@ -1166,6 +1168,31 @@ public class SecurityInfoManagerUnitTest extends CarlosUnitTestBase {
             stubRows(createPrivilege(ROLE_DOCTOR, "_eChart", "r", 0), createPrivilege("_all", "_eChart$42", "|w|", 0));
 
             assertThat(securityInfoManager.hasPrivilege(mockLoggedInInfo, "_eChart", "w", "42")).isFalse();
+        }
+
+        @Test
+        void shouldKeepExistingAccess_whenEveryoneHasAdditionalRights() {
+            stubRows(createPrivilege(ROLE_DOCTOR, "_eChart", "x", 0), createPrivilege("_all", "_eChart$42", "|ow|", 0));
+            assertThat(securityInfoManager.hasPrivilegeReadOnly(mockLoggedInInfo, "_eChart", "w", "42")).isTrue();
+
+            stubRows(createPrivilege(ROLE_DOCTOR, "_eChart", "x", 0), createPrivilege("_all", "_eChart$42", "|ou|", 0));
+            assertThat(securityInfoManager.hasPrivilegeReadOnly(mockLoggedInInfo, "_eChart", "u", "42")).isTrue();
+
+            stubRows(createPrivilege(ROLE_DOCTOR, "_eChart", "x", 0), createPrivilege("_all", "_eChart$42", "|d|", 0));
+            assertThat(securityInfoManager.hasPrivilegeReadOnly(mockLoggedInInfo, "_eChart", "w", "42")).isTrue();
+        }
+
+        @Test
+        void shouldDenyChartMutation_whenThePatientPrivilegeReaderReturnsIncompleteRows() {
+            try (var policy = mockStatic(OscarRoleObjectPrivilege.class)) {
+                policy.when(() -> OscarRoleObjectPrivilege.getPrivilegeProp("_eChart$42"))
+                        .thenReturn(null)
+                        .thenReturn(new Vector<>());
+
+                assertThat(securityInfoManager.hasPrivilegeReadOnly(mockLoggedInInfo, "_eChart", "w", "42")).isFalse();
+                assertThat(securityInfoManager.hasPrivilegeReadOnly(mockLoggedInInfo, "_eChart", "u", "42")).isFalse();
+                policy.verify(() -> OscarRoleObjectPrivilege.getPrivilegeProp("_eChart"), never());
+            }
         }
     }
 }
