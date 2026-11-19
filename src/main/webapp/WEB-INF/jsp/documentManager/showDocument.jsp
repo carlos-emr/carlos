@@ -1132,11 +1132,13 @@
         var url = '<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>' + '/oscarMDS/RunMacro?name=' + encodeURIComponent(name) + (demographicNo.length > 0 ? '&demographicNo=' + encodeURIComponent(demographicNo) : '');
         var formEl = document.getElementById(formid);
         var params = new URLSearchParams(new FormData(formEl));
-        if (!params.has('CSRF-TOKEN')) { params.append('CSRF-TOKEN', getCsrfToken()); }
-        fetch(url, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: params.toString()
+        // The form's CSRF-TOKEN input can still be empty here; never post an empty token (#1408).
+        carlosEnsureCsrfParam(params, '<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>').then(function () {
+            return fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: params.toString()
+            });
         })
         .then(function(response) {
             if (!response.ok) {

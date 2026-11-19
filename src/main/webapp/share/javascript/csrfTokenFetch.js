@@ -85,3 +85,53 @@ function fetchCsrfToken(contextPath) {
             throw err;
         });
 }
+
+/**
+ * Returns the first non-empty CSRF-TOKEN input value on the page, or '' when none
+ * has a token yet. A page can hold several such inputs (the csrf-token.jspf
+ * bootstrap input and the ones CSRFGuard adds to forms); the first one in the
+ * document is often an empty placeholder, so reading only that one misses a
+ * token another input already carries.
+ *
+ * @returns {string} the CSRF token, or '' if no input carries one
+ */
+function carlosFirstCsrfToken() {
+    var inputs = document.querySelectorAll('input[name="CSRF-TOKEN"]');
+    for (var i = 0; i < inputs.length; i++) {
+        if (inputs[i].value) {
+            return inputs[i].value;
+        }
+    }
+    return '';
+}
+
+/**
+ * Puts a usable CSRF token into a fetch() POST body before it is sent (#1408).
+ *
+ * Bodies built with {@code new URLSearchParams(new FormData(form))} carry the
+ * form's hidden CSRF-TOKEN input even while it is still empty, so a
+ * {@code params.has('CSRF-TOKEN')} fallback never ran and a click made before
+ * the page's token fetch finished posted an empty token, which CSRFGuard
+ * rejects. This uses the body's own token when it has one, else the first
+ * token on the page, and otherwise fetches the token first.
+ *
+ * @param {URLSearchParams} params - the request body; its CSRF-TOKEN is set in place
+ * @param {string} contextPath - the application context path (e.g. "/carlos")
+ * @returns {Promise<URLSearchParams>} resolves with params once it carries a token;
+ *                                     rejects when no token can be obtained
+ */
+function carlosEnsureCsrfParam(params, contextPath) {
+    var token = params.get('CSRF-TOKEN') || carlosFirstCsrfToken();
+    if (token) {
+        params.set('CSRF-TOKEN', token);
+        return Promise.resolve(params);
+    }
+    return fetchCsrfToken(contextPath).then(function () {
+        var fetched = carlosFirstCsrfToken();
+        if (!fetched) {
+            throw new Error('CSRF token unavailable after fetch');
+        }
+        params.set('CSRF-TOKEN', fetched);
+        return params;
+    });
+}
