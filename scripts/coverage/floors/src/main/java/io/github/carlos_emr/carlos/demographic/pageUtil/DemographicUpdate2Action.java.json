@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/demographic/pageUtil/DemographicUpdate2Action.java",
   "kind": "floor",
   "floor": {
-    "lines": 27.272727272727273,
-    "instructions": 29.166666666666668,
-    "branches": 37.5,
-    "sourceBlob": "4187adfc51d6cf455388f42905f8ebe029f5a5e7"
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "f2024ae55f07863ddffe36a574ce7f3ec326ece0"
   },
-  "evidenceSha256": "552a5b7d69e3df133c28638a51b2effd9df5b162350d9a54fa419c66c37a6376"
+  "evidenceSha256": "544b227788f770a39399213b5c0959f385b9b9fcefc7f200fd5a473b51048d65"
 }

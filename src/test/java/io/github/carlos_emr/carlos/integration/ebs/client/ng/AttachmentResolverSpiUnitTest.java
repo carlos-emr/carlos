@@ -11,11 +11,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.cxf.message.Attachment;
+import org.apache.cxf.attachment.AttachmentUtil;
 import org.apache.cxf.message.MessageImpl;
 import org.apache.xml.security.signature.XMLSignatureStreamInput;
 import org.apache.xml.security.utils.resolver.ResourceResolverContext;
@@ -57,22 +59,56 @@ class AttachmentResolverSpiUnitTest extends CarlosUnitTestBase {
 
     static Stream<Arguments> contentIdUris() {
         return resolvers().flatMap(resolver -> Stream.of(
-                Arguments.of(resolver, "urn:FAKE_EBS+ATTACHMENT_ID", "cid:urn%3AFAKE_EBS+ATTACHMENT_ID"),
-                Arguments.of(resolver, "urn:FAKE_EBS+ATTACHMENT_ID", "cid:urn%3AFAKE_EBS%2BATTACHMENT_ID"),
-                Arguments.of(resolver, "urn:FAKE_EBS ATTACHMENT_ID", "cid:urn%3AFAKE_EBS%20ATTACHMENT_ID")));
+                Arguments.of(resolver, "urn:FAKE_EBS+ATTACHMENT_ID", "urn:FAKE_EBS ATTACHMENT_ID", "cid:urn%3AFAKE_EBS+ATTACHMENT_ID"),
+                Arguments.of(resolver, "urn:FAKE_EBS%2BATTACHMENT_ID", "urn:FAKE_EBS+ATTACHMENT_ID", "cid:urn%3AFAKE_EBS%2BATTACHMENT_ID"),
+                Arguments.of(resolver, "urn:FAKE_EBS%20ATTACHMENT_ID", "urn:FAKE_EBS ATTACHMENT_ID", "cid:urn%3AFAKE_EBS%20ATTACHMENT_ID"),
+                Arguments.of(resolver, "urn:FAKE_EBS%2B+ID", "urn:FAKE_EBS+ ID", "cid:urn%3AFAKE_EBS%2B+ID"),
+                Arguments.of(resolver, "urn:FAKE_EBS%C3%A9%2BID", "urn:FAKE_EBSé+ID", "cid:urn%3AFAKE_EBS%C3%A9%2BID"),
+                Arguments.of(resolver, "urn:FAKE_EBS%252BID", "urn:FAKE_EBS%2BID", "cid:urn%3AFAKE_EBS%252BID")));
     }
 
     @ParameterizedTest
     @MethodSource("contentIdUris")
-    void shouldPreserveContentIdCharacters_whenUriContainsLiteralPlusOrPercentEscapes(
-            ResourceResolverSpi resolver, String id, String uri) throws Exception {
+    void shouldResolveTheIdsProducedByCxf_whenHeadersContainPlusOrPercentEscapes(
+            ResourceResolverSpi resolver, String headerId, String parsedId, String uri) throws Exception {
         String payload = "FAKE_CONTENT_ID_PAYLOAD";
-        cache(attachment(id, bytes(payload)));
+        var attachment = parsedAttachment(headerId, payload);
+        assertThat(attachment.getId()).isEqualTo(parsedId);
+        cache(attachment);
         assertThat(resolver.engineCanResolveURI(context(uri))).isTrue();
         try (var result = (XMLSignatureStreamInput) resolver.engineResolveURI(context(uri))) {
             assertThat(new String(result.getUnprocessedInput().readAllBytes(), StandardCharsets.UTF_8))
                     .isEqualTo(payload);
         }
+    }
+
+    static Stream<Arguments> contentIdPairs() {
+        return resolvers().flatMap(resolver -> Stream.of(Arguments.of(resolver, false), Arguments.of(resolver, true)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("contentIdPairs")
+    void shouldSelectTheExactParsedAttachment_whenLiteralAndEncodedPlusHeadersCoexist(
+            ResourceResolverSpi resolver, boolean reverse) throws Exception {
+        var literal = parsedAttachment("urn:FAKE+ID", "FAKE_LITERAL_PLUS_PAYLOAD");
+        var encoded = parsedAttachment("urn:FAKE%2BID", "FAKE_ENCODED_PLUS_PAYLOAD");
+        assertThat(literal.getId()).isEqualTo("urn:FAKE ID");
+        assertThat(encoded.getId()).isEqualTo("urn:FAKE+ID");
+        if (reverse) cache(encoded, literal); else cache(literal, encoded);
+        try (var result = (XMLSignatureStreamInput) resolver.engineResolveURI(context("cid:urn:FAKE+ID"))) {
+            assertThat(new String(result.getUnprocessedInput().readAllBytes(), StandardCharsets.UTF_8))
+                    .isEqualTo("FAKE_LITERAL_PLUS_PAYLOAD");
+        }
+        try (var result = (XMLSignatureStreamInput) resolver.engineResolveURI(context("cid:urn:FAKE%2BID"))) {
+            assertThat(new String(result.getUnprocessedInput().readAllBytes(), StandardCharsets.UTF_8))
+                    .isEqualTo("FAKE_ENCODED_PLUS_PAYLOAD");
+        }
+    }
+
+    private static Attachment parsedAttachment(String headerId, String payload) throws IOException {
+        return AttachmentUtil.createAttachment(bytes(payload), Map.of(
+                "Content-ID", List.of("<" + headerId + ">"),
+                "Content-Type", List.of("application/octet-stream")));
     }
 
     @ParameterizedTest

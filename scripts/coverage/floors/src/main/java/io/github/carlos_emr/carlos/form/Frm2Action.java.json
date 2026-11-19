@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/form/Frm2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "40cb7bdbbdea57660d3b46c168c51e73d08d87eb"
+  },
+  "evidenceSha256": "48bf66a689383e2842061e44554efbd7e37e258d0f5f355e975bcead23a214bc"
+}

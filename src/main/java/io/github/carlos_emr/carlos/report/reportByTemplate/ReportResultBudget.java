@@ -21,6 +21,7 @@ import org.apache.commons.csv.CSVPrinter;
 import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.carlos.report.data.ReportLimitSetting;
+import io.github.carlos_emr.carlos.report.data.ReportJdbcTextReader;
 import io.github.carlos_emr.carlos.utility.SpreadsheetCsv;
 
 /**
@@ -272,7 +273,7 @@ final class ReportResultBudget {
         if (scalar) {
             return checkedCell(rs.getString(column));
         }
-        try (Reader reader = rs.getCharacterStream(column)) {
+        try (Reader reader = ReportJdbcTextReader.open(rs, column, type)) {
             if (reader == null) {
                 return "";
             }

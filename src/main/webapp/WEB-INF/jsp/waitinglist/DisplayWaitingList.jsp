@@ -70,7 +70,6 @@
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="admin.securityupdate.msgMaximumCharacters" var="waitingListNoteLimitMessage"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String wlid = (String) request.getAttribute("WLId");
@@ -89,6 +88,19 @@
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
               href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1">
+
+        <style>
+            .master-record-button {
+                background: none;
+                border: 0;
+                padding: 0;
+                color: LinkText;
+                cursor: pointer;
+                font: inherit;
+                text-align: inherit;
+                text-decoration: underline;
+            }
+        </style>
 
         <!-- main calendar program -->
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
@@ -209,9 +221,9 @@
                                             ${carlos:forHtml(waitingListBean.position)}
                                         </td>
                                         <td class="${styleClass}">
-                                            <a href="#" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=${carlos:forJavaScript(e:forUriComponent(waitingListBean.demographicNo))}'); return false;">
+                                            <button type="button" class="master-record-button" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=${carlos:forJavaScript(carlos:forUriComponent(waitingListBean.demographicNo))}'); return false;">
                                                 ${carlos:forHtml(waitingListBean.patientName)}
-                                            </a>
+                                            </button>
                                             <input type="button" value="<fmt:message key='oscarwaitinglist.displayWaitingList.update'/>" name="update_${ctr.index}" style="font-size: 7pt;"
                                                    onClick="updateWaitingList('${carlos:forJavaScript(waitingListBean.waitingListID)}', ${ctr.index});"/>
                                         </td>
@@ -223,7 +235,12 @@
                                                  shows the message above the list only). --%>
                                             <c:set var="noteRowSelector" value="waitingListBean[${ctr.index}].note"/>
                                             <c:set var="noteRefusedHere" value="${not empty waitingListNoteErrors and param.wlNoteSelected eq noteRowSelector and param[param.demographicNumSelected] eq waitingListBean.demographicNo}"/>
-                                            <textarea cols="45" name="waitingListBean[${ctr.index}].note" id="waitingListNote_${ctr.index}" aria-label="${carlos:forHtmlAttribute(waitingListNoteLabel)}"<c:if test="${noteRefusedHere}"> aria-invalid="true" aria-describedby="waitingListNoteError_${ctr.index}"</c:if> class="data3" onblur="setParameters(this);">${carlos:forHtmlContent(waitingListBean.note)}</textarea>
+                                            <%-- #6139: on that refused row the box shows the note the user posted (the action's
+                                                 waitingListSubmittedNote request attribute, encoded for the text-area body), not
+                                                 the saved note, so a refusal does not cost them what they typed. Any other row,
+                                                 or a row whose patient no longer matches, shows its saved note as before. --%>
+                                            <textarea cols="45" name="waitingListBean[${ctr.index}].note" id="waitingListNote_${ctr.index}" aria-label="${carlos:forHtmlAttribute(waitingListNoteLabel)}"<c:if test="${noteRefusedHere}"> aria-invalid="true" aria-describedby="waitingListNoteError_${ctr.index}"</c:if> class="data3" onblur="setParameters(this);">
+${noteRefusedHere ? carlos:forHtmlContent(waitingListSubmittedNote) : carlos:forHtmlContent(waitingListBean.note)}</textarea>
                                             <c:if test="${noteRefusedHere}">
                                                 <div role="alert" id="waitingListNoteError_${ctr.index}" data-carlos-waiting-list-note-row-error="true" style="color: #b00020; font-weight: bold;">
                                                     <c:forEach var="noteError" items="${waitingListNoteErrors}">
@@ -234,7 +251,7 @@
                                         </td>
                                         <td class="${styleClass}">
                                             <fmt:message key="oscarwaitinglist.displayWaitingList.dateOfRequest" var="waitingListDateLabel"/>
-                                            <input type="text" name="waitingListBean[${ctr.index}].onListSince" value="${carlos:forHtmlAttribute(waitingListBean.onListSince)}" id="waitingListOnListSince_${ctr.index}" aria-label="${carlos:forHtmlAttribute(waitingListDateLabel)}" class="data3" onblur="setParameters(this);" onchange="setParameters(this);"/>
+                                            <input type="text" name="waitingListBean[${ctr.index}].onListSince" value="${carlos:forHtmlAttribute(noteRefusedHere ? waitingListSubmittedDate : waitingListBean.onListSince)}" id="waitingListOnListSince_${ctr.index}" aria-label="${carlos:forHtmlAttribute(waitingListDateLabel)}" class="data3" onblur="setParameters(this);" onchange="setParameters(this);"/>
                                             <img src="<%= request.getContextPath() %>/images/cal.gif" id="referral_date_cal_${ctr.index}">
                                             <script type="text/javascript">
                                                 Calendar.setup({

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "be2b467c90b84ba956a4a9674af09087b7c25942",
+  "comparisonSha256": "84e4b2c8abc8bd76b5ac96825543f7b4cd85f6c85cae248c94da81b541e1d8ee",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/eform/EFormExportZip.java": {
+      "lines": 99.4535519125683,
+      "instructions": 99.6437054631829,
+      "branches": 94.89795918367346,
+      "sourceBlob": "dcb9514348823e262886bf3a2be8e7242210d8df"
+    }
+  },
+  "baselineCommit": "26fdfb6b86161a39dfe9e490887454f4b10c96d8",
+  "baselineSourceTree": "be2b467c90b84ba956a4a9674af09087b7c25942",
+  "baselineReportSha256": "90f20dd42638f270177f782b997938a404c0f8d7119b97be442768e4d4afadbf",
+  "baselineLane": "eForm and administrator-upload suite with Ontario Flyway MariaDB and focused asset rollback retest; three opt-in browser smoke cases skipped",
+  "baselineTestCounts": {
+    "tests": 1133,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 3
+  },
+  "baselineTestReportsSha256": "90ed4e1ec02d5d5a95fe11d9153ef72dcfb7a4f438866b7e18430363e8c4dbcd",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

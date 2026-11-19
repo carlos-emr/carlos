@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/form/pdfservlet/FrmPDFServlet.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 17.647058823529413,
+    "instructions": 19.047619047619047,
+    "branches": 100.0,
+    "sourceBlob": "85f09ff326951d627867ab14b52e8b1f3e22cceb"
+  },
+  "evidenceSha256": "08bf119dec4f8910f7205ab2a4e55fd33174c68e49705bfe4397375d70df7090"
+}

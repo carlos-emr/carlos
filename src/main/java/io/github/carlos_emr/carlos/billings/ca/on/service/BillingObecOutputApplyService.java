@@ -195,7 +195,7 @@ public class BillingObecOutputApplyService {
 
     /** The text as a textarea submits it: every line break as CR LF. */
     static String asFormSubmits(String text) {
-        return text.replace("\r\n", "\n").replace("\n", "\r\n");
+        return text.replace("\r\n", "\n").replace('\r', '\n').replace("\n", "\r\n");
     }
 
     private static String rowLabel(int zeroBasedIndex) {

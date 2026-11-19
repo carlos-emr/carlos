@@ -49,13 +49,18 @@ package io.github.carlos_emr.carlos.util;
  * @author Mark Thompson
  */
 
-import java.io.*;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.io.RandomAccessReadBuffer;
+import org.apache.pdfbox.io.IOUtils;
 import org.apache.pdfbox.multipdf.PDFMergerUtility;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -64,21 +69,36 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ConcatPDF {
 
+    /**
+     * Writes the merged PDF to a file and propagates failures so the caller can discard the output.
+     *
+     * @throws IOException if the destination cannot be opened or closed
+     */
+    public static void concat(ArrayList<Object> inputs, String filename) throws IOException {
+        concatToFile(inputs, filename, false);
+    }
 
-    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
-    public static void concat(ArrayList<Object> alist, String filename) {
+    /**
+     * Writes a complete PDF to a file. An unreadable input aborts the merge.
+     *
+     * @throws IOException if the destination cannot be opened or closed
+     */
+    public static void concatRequired(List<Object> inputs, String filename) throws IOException {
+        concatToFile(inputs, filename, true);
+    }
+
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "The destination uses the existing trusted-path validation")
+    private static void concatToFile(List<Object> inputs, String filename, boolean requireAll) throws IOException {
         File outputFile = PathValidationUtils.resolveTrustedPath(new File(filename));
-        try (OutputStream os = new FileOutputStream(outputFile)) {
-            concat(alist, os);
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to concatenate {} PDF documents to file: {}", alist.size(), filename, e);
+        try (OutputStream output = new FileOutputStream(outputFile)) {
+            concat(inputs, output, requireAll);
         }
     }
 
     /**
      * Concatenates the given PDF inputs (file paths or InputStreams) into {@code outputStream}.
      * Inputs that cannot be opened/read are skipped rather than aborting the whole merge.
+     * Failures preparing a merge-owned staging file abort before the destination is written.
      * (This was an example known as PdfCopy.java)
      *
      * @return the number of inputs that were skipped; {@code 0} means every input was included
@@ -90,7 +110,7 @@ public class ConcatPDF {
     }
 
     /**
-     * Merges required clinical sections. Any unreadable input fails before writing the destination,
+     * Merges required clinical sections. Any unreadable or zero-page input fails before writing the destination,
      * so a chart or lab report cannot look complete while omitting a requested attachment.
      */
     public static void concatRequired(List<Object> inputs, OutputStream outputStream) {
@@ -100,68 +120,110 @@ public class ConcatPDF {
     private static int concat(List<Object> fileOrInputStreamPdfList, OutputStream outputStream,
                               boolean requireAll) {
         PDFMergerUtility pdfMerger = new PDFMergerUtility();
-        PDDocument documentReader;
+        List<File> stagedSources = new ArrayList<>();
         int totalFiles = fileOrInputStreamPdfList.size();
         int skippedFiles = 0;
 
-        for (Object o : fileOrInputStreamPdfList) {
-            //load pdf file
-            try {
-                if (o instanceof InputStream) {
-                    documentReader = Loader.loadPDF(((InputStream) o).readAllBytes());
-                } else {
-                    Path fileName = PathValidationUtils.resolveTrustedPath(new File((String) o)).toPath();
-                    documentReader = Loader.loadPDF(fileName.toFile());
-                }
-
-                // remove encryption
-                if (documentReader != null && documentReader.isEncrypted()) {
-                    documentReader.setAllSecurityToBeRemoved(true);
-                }
-            } catch (IOException | SecurityException e) {
-                // SecurityException covers PathValidationUtils rejecting a malformed entry path; skip that
-                // entry and continue merging the rest rather than aborting the whole concatenation.
-                skippedFiles++;
-                MiscUtils.getLogger().error("Failed to open PDF input ({})", e.getClass().getSimpleName());
-                continue;
-            }
-
-            // save document to output stream and add resulting data to merger
-            try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-                if (documentReader != null) {
-                    documentReader.save(baos);
-                    try (InputStream inputStream = new ByteArrayInputStream(baos.toByteArray())) {
-                        pdfMerger.addSource(new RandomAccessReadBuffer(inputStream));
-                        documentReader.close();
-                    }
-                }
-            } catch (IOException e) {
-                skippedFiles++;
-                MiscUtils.getLogger().error("PDF input could not be added to merge ({})", e.getClass().getSimpleName());
-            }
-        }
-
-        if (skippedFiles > 0) {
-            MiscUtils.getLogger().error("PDF merge: {} of {} documents could not be included in the merged output",
-                    skippedFiles, totalFiles);
-        }
-
-        if (requireAll && skippedFiles > 0) {
-            // No response bytes have been written. Callers can still return a real error.
-            throw new IllegalStateException("Required PDF inputs could not be included");
-        }
-
         try {
+            for (Object input : fileOrInputStreamPdfList) {
+                File staged = PathValidationUtils.createSecureTempFile("pdf-merge-source-", ".pdf");
+                stagedSources.add(staged);
+                if (stageSource(input, staged, requireAll)) {
+                    pdfMerger.addSource(staged);
+                } else {
+                    skippedFiles++;
+                }
+            }
+
+            if (skippedFiles > 0) {
+                MiscUtils.getLogger().error("PDF merge: {} of {} documents could not be included in the merged output",
+                        skippedFiles, totalFiles);
+            }
+            if (requireAll && skippedFiles > 0) {
+                throw new IllegalStateException("Required PDF inputs could not be included");
+            }
+
             pdfMerger.setDestinationStream(outputStream);
-            pdfMerger.mergeDocuments(null);
+            pdfMerger.mergeDocuments(IOUtils.createTempFileOnlyStreamCache());
         } catch (IOException e) {
             MiscUtils.getLogger().error("Document merge failed ({})", e.getClass().getSimpleName());
             throw new RuntimeException("PDF merge failed after processing " + totalFiles + " documents");
+        } finally {
+            for (File staged : stagedSources) {
+                deleteStagedSource(staged.toPath());
+            }
         }
 
-        // Return how many inputs were skipped (bad path / unreadable / corrupt) so direct-response
-        // callers can surface "N document(s) could not be included" instead of a silently truncated PDF.
         return skippedFiles;
+    }
+
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "file inputs use the existing trusted-path validation")
+    private static boolean stageSource(Object input, File staged, boolean requireAll) throws IOException {
+        if (input instanceof InputStream stream) {
+            File source = PathValidationUtils.createSecureTempFile("pdf-merge-input-", ".pdf");
+            try {
+                return spoolSource(stream, source.toPath()) && normalizeSource(source, staged, requireAll);
+            } finally {
+                deleteStagedSource(source.toPath());
+            }
+        }
+        File source;
+        try {
+            source = PathValidationUtils.resolveTrustedPath(new File((String) input));
+        } catch (SecurityException refused) {
+            return skipUnreadableSource(refused);
+        }
+        return normalizeSource(source, staged, requireAll);
+    }
+
+    private static boolean spoolSource(InputStream stream, Path source) throws IOException {
+        byte[] buffer = new byte[8192];
+        try (OutputStream spool = Files.newOutputStream(source)) {
+            while (true) {
+                int read;
+                try {
+                    read = stream.read(buffer);
+                } catch (IOException | SecurityException unreadable) {
+                    return skipUnreadableSource(unreadable);
+                }
+                if (read < 0) return true;
+                spool.write(buffer, 0, read);
+            }
+        }
+    }
+
+    private static boolean normalizeSource(File source, File staged, boolean requireAll) throws IOException {
+        PDDocument document;
+        try {
+            document = Loader.loadPDF(source, IOUtils.createTempFileOnlyStreamCache());
+        } catch (IOException | SecurityException unreadable) {
+            return skipUnreadableSource(unreadable);
+        }
+        try (document) {
+            if (requireAll && document.getNumberOfPages() == 0) {
+                MiscUtils.getLogger().error("A required PDF input contains no pages");
+                return false;
+            }
+            if (document.isEncrypted()) {
+                document.setAllSecurityToBeRemoved(true);
+            }
+            document.save(staged);
+        }
+        return true;
+    }
+
+    private static boolean skipUnreadableSource(Exception unreadable) {
+        MiscUtils.getLogger().error("PDF input could not be added to merge ({})", unreadable.getClass().getSimpleName());
+        return false;
+    }
+
+    private static void deleteStagedSource(Path staged) {
+        try {
+            Files.deleteIfExists(staged);
+        } catch (IOException | SecurityException failure) {
+            MiscUtils.getLogger().warn("Could not delete a temporary PDF merge source ({})",
+                    failure.getClass().getSimpleName());
+        }
     }
 
 }

@@ -177,6 +177,20 @@ class WLWaitingListNoteLengthActionUnitTest extends CarlosWebTestBase {
         }
 
         @Test
+        void shouldHandTheSubmittedNoteAndDateToThePage_whenTheNoteIsRefused() throws Exception {
+            String draft = "\r\n" + TOO_LONG;
+            String date = "2026-01-02";
+            postRowEdit(draft);
+            getMockRequest().setParameter("waitingListBean[0].onListSince", date);
+
+            runPage();
+
+            assertThat(getMockRequest().getAttribute(WLSetupDisplayWaitingList2Action.NOTE_SUBMITTED))
+                    .isEqualTo(draft);
+            assertThat(getMockRequest().getAttribute(WLSetupDisplayWaitingList2Action.DATE_SUBMITTED)).isEqualTo(date);
+        }
+
+        @Test
         void shouldSaveTheNoteWhole_whenItFillsTheColumn() throws Exception {
             WaitingList current = new WaitingList();
             current.setPosition(3);
@@ -187,9 +201,34 @@ class WLWaitingListNoteLengthActionUnitTest extends CarlosWebTestBase {
 
             assertThat(result).isEqualTo("continue");
             assertThat(getMockRequest().getAttribute(WLSetupDisplayWaitingList2Action.NOTE_ERRORS)).isNull();
+            assertThat(getMockRequest().getAttribute(WLSetupDisplayWaitingList2Action.NOTE_SUBMITTED)).isNull();
+            assertThat(getMockRequest().getAttribute(WLSetupDisplayWaitingList2Action.DATE_SUBMITTED)).isNull();
             ArgumentCaptor<WaitingList> saved = ArgumentCaptor.forClass(WaitingList.class);
             verify(mockWaitingListDao).saveEntity(saved.capture());
             assertThat(saved.getValue().getNote()).isEqualTo(LONGEST);
+        }
+
+        @Test
+        void shouldKeepTheRepositionAction_whenNoRowWasEdited() throws Exception {
+            addRequestParameter("update", "Y");
+            addRequestParameter("waitingListId", "7");
+            WaitingList row = new WaitingList();
+            row.setPosition(3);
+            when(mockWaitingListDao.findByWaitingListId(7)).thenReturn(List.of(row));
+
+            assertThat(runPage()).isEqualTo("continue");
+
+            assertThat(row.getPosition()).isEqualTo(1);
+            verify(mockWaitingListDao).merge(row);
+        }
+
+        @Test
+        void shouldReportFailure_whenTheSelectedRowCannotBeRead() throws Exception {
+            postRowEdit("");
+            when(mockWaitingListDao.findByWaitingListIdAndDemographicId(7, 42))
+                    .thenThrow(new IllegalStateException("Unavailable"));
+
+            assertThat(runPage()).isEqualTo("failure");
         }
     }
 }

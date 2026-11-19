@@ -17,6 +17,8 @@
  */
 package io.github.carlos_emr.carlos.eform;
 
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -34,7 +36,6 @@ import java.util.zip.ZipOutputStream;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
-import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -110,9 +111,64 @@ class EFormExportZipArchiverMetadataImportUnitTest {
                 saved.add(invocation.getArgument(0));
                 return "1";
             });
-            List<String> errors = new EFormExportZip().importForm(new ByteArrayInputStream(zip));
+            List<String> errors = new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(zip));
             return new Result(errors, saved);
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"nameless", "missing-filename", "existing", "valid"})
+    void shouldRetainFormValidationAndPublicationContracts_withOperationalLoggingEnabled(String variant) throws Exception {
+        String properties = "form.name=" + (variant.equals("nameless") ? "" : "FAKE metadata control") + "\n"
+                + (variant.equals("missing-filename") ? "" : "form.htmlFilename=form.html\n");
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        entries.put(".DS_Store", utf8("FAKE metadata"));
+        entries.put("eform.properties", utf8(properties));
+        if (!variant.equals("missing-filename")) entries.put("form.html", utf8(HTML));
+        List<EForm> saved = new ArrayList<>();
+        try (var capture = LogCapture.forLogger(EFormExportZip.class);
+             MockedStatic<ImageUpload2Action> images = mockStatic(ImageUpload2Action.class);
+             MockedStatic<EFormUtil> forms = mockStatic(EFormUtil.class)) {
+            images.when(ImageUpload2Action::getImageFolder).thenReturn(imageFolder.toFile());
+            forms.when(() -> EFormUtil.formExistsInDB(any())).thenReturn(variant.equals("existing"));
+            forms.when(() -> EFormUtil.saveEForm(any(EForm.class))).thenAnswer(call -> {saved.add(call.getArgument(0)); return "FAKE";});
+            var errors = new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(zip(entries)));
+            if (variant.equals("valid")) {
+                assertThat(errors).isEmpty();
+                assertThat(saved).singleElement().satisfies(form -> assertThat(form.getFormHtml()).isEqualTo(HTML));
+            } else {
+                assertThat(errors).singleElement().asString().contains("Skipped form");
+                assertThat(saved).isEmpty();
+            }
+            assertThat(publishedNames()).isEmpty();
+            assertThat(capture.messages()).noneSatisfy(message -> assertThat(message).contains(HTML));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"<img src=\"${oscar_image_path}kept.png?v=1#section\">",
+            "<img src=\"kept.png\">", "<img src='kept.png'>", "<img src=kept.png>"})
+    void shouldKeepReferencedAndDedicatedAssets_andDropDuplicateFormOrphans(String html) throws Exception {
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        entries.put("kept/eform.properties", utf8("form.name=FAKE kept\nform.htmlFilename=kept.html\n"));
+        entries.put("kept/kept.html", utf8(html + "<img src='missing.png'>"));
+        entries.put("kept/indirect.css", utf8("FAKE indirect stylesheet"));
+        entries.put("refused/eform.properties", utf8("form.name=FAKE existing\nform.htmlFilename=refused.html\n"));
+        entries.put("refused/refused.html", utf8("FAKE refused HTML"));
+        entries.put("refused/orphan.png", utf8("FAKE orphan"));
+        entries.put("kept.png", utf8("FAKE shared referenced image"));
+        entries.put("unassigned.png", utf8("FAKE image from a shared location"));
+        var saved = new ArrayList<EForm>();
+        try (var images = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
+            images.when(ImageUpload2Action::getImageFolder).thenReturn(imageFolder.toFile());
+            forms.when(() -> EFormUtil.formExistsInDB(any())).thenAnswer(call -> "FAKE existing".equals(call.getArgument(0)));
+            forms.when(() -> EFormUtil.saveEForm(any(EForm.class))).thenAnswer(call -> { saved.add(call.getArgument(0)); return "1"; });
+            assertThat(new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(zip(entries))))
+                    .singleElement().asString().contains("FAKE existing", "already exists");
+        }
+        assertThat(saved).singleElement().satisfies(form -> assertThat(form.getFormHtml()).contains(html));
+        assertThat(publishedNames()).containsExactly("indirect.css", "kept.png", "unassigned.png");
+        assertThat(Files.readString(imageFolder.resolve("kept.png"))).isEqualTo("FAKE shared referenced image");
     }
 
     /** Everything the import left in the image folder, except its own staging parent. */

@@ -401,10 +401,27 @@ def browser_results(path: Path, check, root=ROOT):
                 and c.get("profile", "") == check.get("propertyProfile", "")
                 and any(p.lower() in ("all", profile.lower()) for p in c["provinces"])}
     names = [c.get("name") for c in cases]
-    if not expected or len(set(names)) != len(names) or set(names) != expected:
-        raise EvidenceError("Browser selection is empty, duplicated, or incomplete")
-    failed = sum(any(c.find(tag) is not None for tag in ("failure", "error", "skipped")) for c in cases)
-    return {"tests": len(cases), "failed": failed, "ready": not failed}
+    # The runner adds these failed cases after (or instead of) a selected check.
+    # Preserve their names as readiness failures, while keeping potentially private
+    # diagnostic messages in the retained browser.xml rather than public summaries.
+    runner_names = {"application-identity", "residue-audit"} | {
+        name + suffix for name in expected
+        for suffix in ("-navigation-fixture", "-navigation-cleanup")}
+    def unsuccessful(case):
+        return any(case.find(tag) is not None for tag in ("failure", "error", "skipped"))
+
+    runner_failures = [case.get("name") for case in cases
+                       if case.get("name") in runner_names - expected and unsuccessful(case)]
+    product_names = [name for name in names if name in expected]
+    if (not expected or len(set(names)) != len(names) or set(product_names) != expected
+            or set(names) - expected - set(runner_failures)):
+        details = "; runner failures: " + ", ".join(runner_failures) if runner_failures else ""
+        raise EvidenceError("Browser selection is empty, duplicated, or incomplete" + details)
+    failed = sum(unsuccessful(case) for case in cases)
+    result = {"tests": len(cases), "failed": failed, "ready": not failed}
+    if runner_failures:
+        result["runnerFailures"] = runner_failures
+    return result
 
 
 def summarize(check, run_dir: Path, exit_code, root=ROOT):

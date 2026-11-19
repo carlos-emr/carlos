@@ -48,7 +48,10 @@ itself, so each rendering has its own. `MsgCreateMessage2Action` claims it befor
 anything or takes the compose window's attachments, and stores the message and its delivery rows
 in the one observed transaction. What it records for a repeat is the message id, who the message
 was sent to, and a SHA-256 of what was submitted (recipients, subject, body, linked patient).
-A repeat with the same digest is answered with the "message sent" page of the first send. A
+A repeat with the same digest is answered with the "message sent" page of the first send,
+including the warnings that send raised after delivery (the patient link or the saved
+attachments' cleanup failed, or Send and Archive could not archive the message replied to); the
+repeat retries none of those steps. A
 submission of the same rendering with a different digest is not a repeat: the user went back to
 the page that had sent, changed the message and sent again. Answering it with the first send's
 confirmation would report a message as sent that never was, so the compose page is shown again

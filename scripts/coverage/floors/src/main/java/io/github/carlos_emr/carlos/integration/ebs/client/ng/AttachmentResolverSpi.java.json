@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentResolverSpi.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "711414f798e8b4b484ebd245c9b500da321bb084"
+  },
+  "evidenceSha256": "c633ed62ee37e52dc328633a236a23ab2bdc840d7ead8daf46838c1ca1eddda5"
+}

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "3b55f7ab2cdcc3dd4ce5cd08b97e140827a9d7ab",
+  "comparisonSha256": "3e3286472fb1009fbe03929425b990a203c808bd631a95b72de1be4c6277fd3c",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java": {
+      "lines": 93.4065934065934,
+      "instructions": 91.07981220657277,
+      "branches": 81.65548098434004,
+      "sourceBlob": "e5d981a12a9cee2e0f701bcd9eb1bd0ffdfe33f1"
+    }
+  },
+  "baselineCommit": "346366755a91a5f333da175713a9293bad3ad114",
+  "baselineSourceTree": "3b55f7ab2cdcc3dd4ce5cd08b97e140827a9d7ab",
+  "baselineReportSha256": "c941f75f0b67d3f3ef89b108ed44b0921a3073980ef86b1a2fa10fb9580cb0ec",
+  "baselineLane": "Fresh JDK25 driver classes;38 real MariaDB JDBC cases on the installed Ubuntu26.04 qualification host plus73 focused compatibility controls. All111 actual JUnit cases unique and passing, zero skips. Selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 111,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "0e2fbb9a8aafe83bee120699e7e5c0ae10ebab7d3a92c64cf172e7c5072b721b",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}

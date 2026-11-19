@@ -85,6 +85,25 @@ class WaitingListNoteLimitJspRegressionTest {
                 "items=\"${waitingListNoteErrors}\"", "<carlos:encode value=\"${noteError}\"/>");
     }
 
+    @Test
+    void shouldRefillTheRefusedRowsNoteBoxWithWhatWasPosted_andOtherRowsWithTheirSavedNote() throws IOException {
+        String page = Files.readString(projectRoot().resolve(
+                "src/main/webapp/WEB-INF/jsp/waitinglist/DisplayWaitingList.jsp"), StandardCharsets.UTF_8);
+        String row = page.substring(page.indexOf("<c:forEach var=\"waitingListBean\""));
+        String noteBox = row.substring(row.indexOf("<textarea cols=\"45\" name=\"waitingListBean[${ctr.index}].note\""));
+        String body = noteBox.substring(noteBox.indexOf(">", noteBox.indexOf("onblur=\"setParameters(this);\"")) + 1,
+                noteBox.indexOf("</textarea>"));
+        // Only the row the action refused (the row and patient posted) shows the posted text, encoded for the
+        // text-area body; every other row shows its saved note, encoded the same way.
+        assertThat(body).isEqualTo("\n${noteRefusedHere ? carlos:forHtmlContent(waitingListSubmittedNote)"
+                + " : carlos:forHtmlContent(waitingListBean.note)}");
+        assertThat(row).contains("value=\"${carlos:forHtmlAttribute(noteRefusedHere"
+                + " ? waitingListSubmittedDate : waitingListBean.onListSince)}\"");
+        // The text comes from the action's request attribute, never from a raw parameter.
+        assertThat(body).doesNotContain("param.");
+        assertThat(WLSetupDisplayWaitingList2Action.NOTE_SUBMITTED).isEqualTo("waitingListSubmittedNote");
+    }
+
     private static Path projectRoot() {
         try {
             Path location = Path.of(WaitingListNoteLimitJspRegressionTest.class

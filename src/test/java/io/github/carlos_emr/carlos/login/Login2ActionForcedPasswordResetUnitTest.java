@@ -1088,6 +1088,31 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"doctor", "Patient Intake"})
+    @DisplayName("should retain exactly one sign-in audit when the supported landing redirect fails")
+    void shouldRetainOneSignInAudit_whenLandingRedirectFails(String role) throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security, new String[]{"999998", "Test", "Provider", "", role, "0"});
+        stubSuccessfulProviderLogin();
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+        response = spy(response);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        doThrow(new java.io.IOException("FAKE landing redirect failure")).when(response).sendRedirect(anyString());
+
+        try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
+            Login2Action action = newAction(null, null, null);
+            action.setCode("123456");
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(action::execute)
+                    .isInstanceOf(java.io.IOException.class).hasMessage("FAKE landing redirect failure");
+            logActionMock.verify(() -> LogAction.addLog(eq("999998"), eq("log in"), eq("login"),
+                    anyString(), anyString()), org.mockito.Mockito.times(1));
+            assertPendingMfaCleared();
+        }
+    }
+
     @Test
     @DisplayName("should report the original failure when the audit of the accepted sign-in fails too")
     void shouldKeepTheOriginalFailure_whenAuditingTheAcceptedSignInAlsoFails() throws Exception {
@@ -1645,8 +1670,8 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should route patient intake users to patient intake result")
-    void shouldRoutePatientIntakeUsers_toPatientIntakeResult() throws Exception {
+    @DisplayName("should use the supported landing page after MFA for a retained patient intake role")
+    void shouldUseSupportedLandingPage_afterMfaForRetainedPatientIntakeRole() throws Exception {
         Security security = forcedResetSecurity();
         security.setForcePasswordReset(Boolean.FALSE);
         stagePendingMfa(security, new String[]{"999998", "Test", "Provider", "", "Patient Intake", "0"});
@@ -1659,8 +1684,55 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
 
             String result = action.execute();
 
-            assertThat(result).isEqualTo("patientIntake");
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getRedirectedUrl()).contains("/provider/providercontrol");
             assertPendingMfaCleared();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("should use the supported landing page for a retained patient intake role after login or password reset")
+    void shouldUseSupportedLandingPage_forRetainedPatientIntakeRole(boolean reset) throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(reset);
+        request.setRequestURI(reset ? "/carlos/forcepasswordresetSubmit" : "/carlos/login");
+        request.setParameter("forcedpasswordchange", Boolean.toString(reset));
+        String password = VALID_PASSWORD;
+        String token = null;
+        if (reset) {
+            token = cacheCredentials();
+            when(securityManager.matchesPassword(OLD_PASSWORD, ENCODED_OLD_PASSWORD)).thenReturn(true);
+            when(securityManager.encodePassword(password)).thenReturn("encoded-new-password");
+        }
+        stubSuccessfulProviderLogin();
+        when(securityDao.findByUserName(USERNAME)).thenReturn(Collections.singletonList(security));
+        String[] retainedRole = {"999998", "Test", "Provider", "", "Patient Intake", "0"};
+        try (MockedStatic<MfaManager> mfa = mockStatic(MfaManager.class);
+             MockedConstruction<LoginCheckLogin> login = mockConstruction(LoginCheckLogin.class,
+                     (mock, context) -> {
+                         when(mock.auth(USERNAME, password, "2026", request.getRemoteAddr())).thenReturn(retainedRole);
+                         when(mock.getSecurity()).thenReturn(security);
+                         when(mock.isBlock(anyString(), anyString())).thenReturn(false);
+                     })) {
+            mfa.when(MfaManager::isOscarMfaEnabled).thenReturn(false);
+            Login2Action action = newAction(reset ? OLD_PASSWORD : null,
+                    reset ? password : null, reset ? password : null);
+            action.setUsername(USERNAME);
+            action.setPassword(password);
+            action.setPin("2026");
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getRedirectedUrl()).contains("/provider/providercontrol");
+            assertThat(login.constructed()).hasSize(1);
+            assertThat(request.getSession(false).getAttribute("user")).isEqualTo("999998");
+            if (reset) {
+                assertThat(LoginCredentialCache.getInstance().peek(token)).isNull();
+                verify(securityDao).saveEntity(security);
+                assertThat(security.isForcePasswordReset()).isFalse();
+            } else {
+                verify(securityDao, never()).saveEntity(org.mockito.ArgumentMatchers.any());
+            }
         }
     }
 

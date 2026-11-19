@@ -69,12 +69,13 @@
         <%-- Same nine keys as the eForm page: these labels were previously duplicated verbatim in three
              places (here, EFormRenderMissingContent.jsp, and the JS in attachDocument.jsp) and could
              drift independently. One key per category means all three surfaces move together. --%>
+        <%-- Yes/no values are words in the page's language, not raw true/false (#6162). --%>
         <ul class="small">
             <li><fmt:message key="eform.renderIssue.failedContentResources"/>: <carlos:encode value="${failedContentResources}"/></li>
             <li><fmt:message key="eform.renderIssue.excludedContentElements"/>: <carlos:encode value="${excludedContentElements}"/></li>
-            <li><fmt:message key="eform.renderIssue.signatureMissing"/>: <carlos:encode value="${signatureMissing}"/></li>
-            <li><fmt:message key="eform.renderIssue.providerStampMissing"/>: <carlos:encode value="${providerStampMissing}"/></li>
-            <li><fmt:message key="eform.renderIssue.timerCompatibilityFailure"/>: <carlos:encode value="${timerCompatibilityFailure}"/></li>
+            <li><fmt:message key="eform.renderIssue.signatureMissing"/>: <fmt:message key="${signatureMissing ? 'eform.renderIssue.yes' : 'eform.renderIssue.no'}"/></li>
+            <li><fmt:message key="eform.renderIssue.providerStampMissing"/>: <fmt:message key="${providerStampMissing ? 'eform.renderIssue.yes' : 'eform.renderIssue.no'}"/></li>
+            <li><fmt:message key="eform.renderIssue.timerCompatibilityFailure"/>: <fmt:message key="${timerCompatibilityFailure ? 'eform.renderIssue.yes' : 'eform.renderIssue.no'}"/></li>
             <li><fmt:message key="eform.renderIssue.severeConsoleErrors"/>: <carlos:encode value="${severeConsoleErrors}"/></li>
             <c:if test="${not empty severeConsoleErrorDetails}">
                 <%-- PHI-safe per-error descriptions (script error type + source location only) so the
@@ -99,8 +100,8 @@
             </c:if>
             <li><fmt:message key="eform.renderIssue.containedInteractions"/>: <carlos:encode value="${containedInteractions}"/></li>
             <li><fmt:message key="eform.renderIssue.decorativeExcludedElements"/>: <carlos:encode value="${decorativeExcludedElements}"/></li>
-            <li><fmt:message key="eform.renderIssue.stabilizationCapped"/>: <carlos:encode value="${stabilizationCapped}"/></li>
-            <li><fmt:message key="eform.renderIssue.labDecisionSupportStubbed"/>: <carlos:encode value="${labDecisionSupportStubbed}"/></li>
+            <li><fmt:message key="eform.renderIssue.stabilizationCapped"/>: <fmt:message key="${stabilizationCapped ? 'eform.renderIssue.yes' : 'eform.renderIssue.no'}"/></li>
+            <li><fmt:message key="eform.renderIssue.labDecisionSupportStubbed"/>: <fmt:message key="${labDecisionSupportStubbed ? 'eform.renderIssue.yes' : 'eform.renderIssue.no'}"/></li>
         </ul>
         <div class="d-flex gap-2 mt-3">
             <form id="approve-incomplete-eform-fax" method="post" action="${pageContext.request.contextPath}/fax/faxAction">

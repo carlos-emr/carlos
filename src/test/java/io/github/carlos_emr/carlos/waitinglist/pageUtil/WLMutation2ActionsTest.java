@@ -651,7 +651,8 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
             assertThat(jsp)
                     .contains("name=\"waitingListBean[${ctr.index}].demographicNo\" value=\"${carlos:forHtmlAttribute(waitingListBean.demographicNo)}\"")
                     .contains("name=\"waitingListBean[${ctr.index}].note\"")
-                    .contains("name=\"waitingListBean[${ctr.index}].onListSince\" value=\"${carlos:forHtmlAttribute(waitingListBean.onListSince)}\"")
+                    .contains("name=\"waitingListBean[${ctr.index}].onListSince\" value=\"${carlos:forHtmlAttribute("
+                            + "noteRefusedHere ? waitingListSubmittedDate : waitingListBean.onListSince)}\"")
                     .doesNotContain("name=\"note\"")
                     .doesNotContain("name=\"onListSince\"")
                     .doesNotContain("indexed=\"true\"")
