@@ -76,7 +76,7 @@ class EFormExportZipImageImportTest {
         List<String> errors;
         try (MockedStatic<ImageUpload2Action> imgMock = mockStatic(ImageUpload2Action.class)) {
             imgMock.when(ImageUpload2Action::getImageFolder).thenReturn(imageFolder.toFile());
-            errors = new EFormExportZip().importForm(new ByteArrayInputStream(zip));
+            errors = new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(zip));
         }
 
         // The pre-existing image is preserved, not clobbered by the import.
@@ -93,7 +93,7 @@ class EFormExportZipImageImportTest {
         List<String> errors;
         try (MockedStatic<ImageUpload2Action> imgMock = mockStatic(ImageUpload2Action.class)) {
             imgMock.when(ImageUpload2Action::getImageFolder).thenReturn(imageFolder.toFile());
-            errors = new EFormExportZip().importForm(new ByteArrayInputStream(zip));
+            errors = new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(zip));
         }
 
         Path written = imageFolder.resolve("newlogo.png");
