@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/managers/DemographicManager.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "093c875265afcd551f1c5d3bd46aef06f522058b"
+  },
+  "evidenceSha256": "534a4290618256e9e3ff0fbfdfa01fff3a9d5847ad811051321023b4428bd225"
+}

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "37b78d2155449720751e9a4eb2c589c7933e2d0b",
+  "comparisonSha256": "21f44a8311a2e77f88b57a9cc2dd264edafb2f2cc7aa4cd793b772e042a48d39",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/managers/DemographicManager.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "093c875265afcd551f1c5d3bd46aef06f522058b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/DemographicManagerImpl.java": {
+      "lines": 96.98492462311557,
+      "instructions": 96.45191409897292,
+      "branches": 84.6774193548387,
+      "sourceBlob": "a631f9165bd4d6f5241fd877b2074c6910c39a21"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/DemographicService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "eeb5d038fbe7ad5c4f234bf7ebc28aa0d9d509c5"
+    }
+  },
+  "baselineCommit": "f6992c85c7d1773cbf30e735ec03f47a87967ed0",
+  "baselineSourceTree": "37b78d2155449720751e9a4eb2c589c7933e2d0b",
+  "baselineReportSha256": "1b86c2208e06237ab8b83441e59e038ed972504711e17717d056026a065282af",
+  "baselineLane": "Fresh JDK25 compilation at the measured commit, clean tree. Selected-source evidence for the demographic update transaction (#5298): 413 H2 cases (manager unit and transaction tests, REST unit and endpoint tests, the fifteen update-transaction cases, reassignment, OBEC apply and schedule controls) and 61 native MariaDB 11.8.8 cases with 32K pages on the generated schema (the same fifteen update-transaction cases, merge, web unmerge, identifier preservation, schedule sync, reporting audit). All 474 executed JUnit cases pass with zero failures, errors or skips. Existing higher floors retained; not full release qualification.",
+  "baselineTestCounts": {
+    "tests": 474,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "b700cfcb19945bad4076b2aed78b1100323de457ab00fabafb0bca2c85b9351a",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}
