@@ -115,7 +115,7 @@ public class EmailManager {
      * The method performs the following steps:
      * 1. Validates user has _email WRITE privilege
      * 2. Sanitizes email data fields and rejects any that would not fit the email log
-     * 3. Creates email log entry in FAILED status
+     * 3. Creates an email log entry in UNCONFIRMED status
      * 4. Encrypts message and/or attachments if requested
      * 5. Sends email via configured email server
      * 6. Updates log status to SUCCESS or FAILED
@@ -163,8 +163,8 @@ public class EmailManager {
      * Prepares an email for sending by creating and persisting an email log entry in the outbox.
      *
      * This method creates a comprehensive email log record that captures all email metadata,
-     * configuration, and content. The email log is initially created with FAILED status and
-     * a default error message, which is updated to SUCCESS after successful transmission.
+     * configuration, and content. The log remains UNCONFIRMED until a transport outcome is
+     * recorded. An interrupted send can therefore remain visible for manual reconciliation.
      *
      * The method:
      * 1. Retrieves active email configuration for the sender
@@ -193,7 +193,7 @@ public class EmailManager {
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, emailData.getDemographicNo());
         Provider provider = providerManager.getProvider(loggedInInfo, emailData.getProviderNo());
 
-        EmailLog emailLog = new EmailLog(emailConfig, emailConfig.getSenderEmail(), emailData.getRecipients(), emailData.getSubject(), emailData.getBody(), EmailStatus.FAILED);
+        EmailLog emailLog = new EmailLog(emailConfig, emailConfig.getSenderEmail(), emailData.getRecipients(), emailData.getSubject(), emailData.getBody(), EmailStatus.UNCONFIRMED);
         setEmailAttachments(emailLog, emailData.getAttachments());
         emailLog.setEncryptedMessage(emailData.getEncryptedMessage());
         emailLog.setPassword(emailData.getPassword());
@@ -203,7 +203,6 @@ public class EmailManager {
         emailLog.setChartDisplayOption(emailData.getChartDisplayOption());
         emailLog.setInternalComment(emailData.getInternalComment());
         emailLog.setTransactionType(emailData.getTransactionType());
-        emailLog.setErrorMessage("Email was not sent successfully for unknown reasons.");
         emailLog.setAdditionalParams(emailData.getAdditionalParams());
         emailLog.setDemographic(demographic);
         emailLog.setProvider(provider);
