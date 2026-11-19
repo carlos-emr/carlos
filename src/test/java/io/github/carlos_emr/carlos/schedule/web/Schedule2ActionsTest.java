@@ -275,6 +275,9 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
             addRequestParameter("provider_no", "999998");
             addRequestParameter("date", date);
             addRequestParameter("Submit", submit);
+            // The month view the popup was opened from: this provider's rule schedule and days.
+            setSessionAttribute("scheduleRscheduleBean", ruleSchedule("999998", false));
+            setSessionAttribute("scheduleDateBeanProvider", "999998");
             overrides = committingService();
             ScheduleDateSave2Action action = inject(new ScheduleDateSave2Action());
             injectField(action, "overrideService", overrides);
@@ -480,7 +483,12 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
 
         /** A rule schedule that does or does not cover every date, with fixed hours. */
         private io.github.carlos_emr.RscheduleBean ruleSchedule(boolean coversDate) {
-            return new io.github.carlos_emr.RscheduleBean() {
+            return ruleSchedule("999998", coversDate);
+        }
+
+        /** The given provider's rule schedule, as the month view leaves it in the session. */
+        private io.github.carlos_emr.RscheduleBean ruleSchedule(String providerNo, boolean coversDate) {
+            io.github.carlos_emr.RscheduleBean rule = new io.github.carlos_emr.RscheduleBean() {
                 @Override
                 public boolean getDateAvail(String date) {
                     return coversDate;
@@ -491,6 +499,72 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
                     return "0900-1700";
                 }
             };
+            rule.provider_no = providerNo;
+            return rule;
+        }
+
+        @Test
+        @DisplayName("should refuse Delete before writing when another provider's calendar is open (#5297)")
+        void shouldRefuseDelete_whenAnotherProvidersCalendarIsOpen() throws Exception {
+            ScheduleDateSave2Action action = postedSave("Delete");
+            // Another tab opened provider 999997's calendar after this popup was drawn.
+            setSessionAttribute("scheduleRscheduleBean", ruleSchedule("999997", true));
+            setSessionAttribute("scheduleDateBeanProvider", "999997");
+            java.util.Hashtable<String, Object> cache = new java.util.Hashtable<>();
+            cache.put("2031-05-14", "provider 999997's day");
+            setSessionAttribute("scheduleDateBean", cache);
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
+            assertThat(mockRequest.getAttribute(io.github.carlos_emr.carlos.utility.RefusalNotice.KEY_ATTRIBUTE))
+                    .isEqualTo("error.refusal.scheduleCalendarChanged");
+            org.mockito.Mockito.verifyNoInteractions(overrides);
+            assertThat(cache).containsOnlyKeys("2031-05-14").containsEntry("2031-05-14", "provider 999997's day");
+        }
+
+        @Test
+        @DisplayName("should refuse Save before writing when the calendar's days belong to another provider (#5297)")
+        void shouldRefuseSave_whenTheCalendarDaysBelongToAnotherProvider() throws Exception {
+            ScheduleDateSave2Action action = postedSave("Save");
+            addRequestParameter("available", "1");
+            setSessionAttribute("scheduleDateBeanProvider", "999997");
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
+            org.mockito.Mockito.verifyNoInteractions(overrides);
+        }
+
+        @Test
+        @DisplayName("should refuse before writing when the session has no calendar open (#5297)")
+        void shouldRefuse_whenNoCalendarIsOpen() throws Exception {
+            ScheduleDateSave2Action action = postedSave("Save");
+            addRequestParameter("available", "1");
+            mockSession.removeAttribute("scheduleRscheduleBean");
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
+            org.mockito.Mockito.verifyNoInteractions(overrides);
+        }
+
+        @Test
+        @DisplayName("should acknowledge a committed Save and leave the calendar to reload when the readback fails (#5297)")
+        void shouldAcknowledgeTheSave_whenReadingTheChangeBackFails() throws Exception {
+            ScheduleDateSave2Action action = postedSave("Save");
+            addRequestParameter("available", "1");
+            addRequestParameter("reason", "Half day");
+            java.util.Hashtable<String, Object> cache = new java.util.Hashtable<>();
+            cache.put("2031-05-14", new io.github.carlos_emr.HScheduleDate("0", "c", "before", "", "FAKE"));
+            setSessionAttribute("scheduleDateBean", cache);
+            when(overrides.currentOverride(any(), any())).thenThrow(new IllegalStateException("synthetic read failure"));
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+            assertThat(committed.get().getReason()).isEqualTo("Half day");
+            assertThat(((io.github.carlos_emr.HScheduleDate) cache.get("2031-05-14")).reason).isEqualTo("before");
+            assertThat(mockSession.getAttribute("scheduleDateBeanStale")).isEqualTo(Boolean.TRUE);
         }
 
         @Test
