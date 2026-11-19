@@ -566,7 +566,7 @@ cmd_suite() {
   for arg in "$@"; do [ "$prev" = --profile ] && requested=$arg; prev=$arg; done
   local managed=false
   case "$requested" in
-    address-lock|no-pin|multisite|caisi-admin|legacy-contacts|private-consent|appointment-options|appointment-lock-expiry|native-pathnet|first-nations|first-nations-encoding) managed=true ;;
+    address-lock|no-pin|multisite|caisi-admin|legacy-contacts|private-consent|appointment-options|appointment-lock-expiry|native-pathnet|first-nations|first-nations-encoding|pdf-signing) managed=true ;;
   esac
   if [ "$managed" = true ]; then
     [ -z "$active" ] || die "restore the manual profile before running an automatic profile"
