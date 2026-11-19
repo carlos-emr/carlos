@@ -21,6 +21,11 @@ CRITICAL = {
 # Surefire's default JUnit 5 names distinguish both boolean invocations. Counts
 # alone cannot prove archive-failure or demographic-audit regressions executed.
 REQUIRED_CASES = {
+    "ReportConnectionLeaseIntegrationTest": {
+        "shouldRetainActiveReportConnection_untilItsQueryDeadline",
+        "shouldRetireIdleAbandonedLeases_withExplicitShortTimeoutOverride",
+        "shouldHonorConfiguredTimeout_withoutDisablingLeakDetection",
+    },
     "EncounterFormDaoGroupedHistoryIntegrationTest": {
         "shouldGroupPhysicalHistory_onTheNativeTable",
         "shouldRejectUnregisteredTableBeforeHistorySql_whenIdentifierIsOtherwiseValid",
@@ -157,7 +162,8 @@ REQUIRED_CASES = {
 # AbstractDaoFindAllOrderingIntegrationTest pins issue #5308 where it matters: MariaDB returns an
 # unordered page in secondary-index order, so its paging cases must execute on the physical server.
 # CaseManagementIssueDAO adds one duplicate-link case on the legacy Flyway schema only.
-REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 18,**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
+REQUIRED = {"generated": {"ReportConnectionLeaseIntegrationTest": 3,
+                          "AppointmentUpdateDaoIntegrationTest": 18,**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
                           "JdbcConnectorMariaDbIntegrationTest": 32,
                           "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1,
                           "AbstractDaoFindAllOrderingIntegrationTest": 6,
