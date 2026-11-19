@@ -30,12 +30,16 @@ package io.github.carlos_emr.carlos.utility;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.Serializable;
 import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpSession;
@@ -43,6 +47,7 @@ import jakarta.servlet.http.HttpSession;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DigitalSignatureDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class DigitalSignatureUtils {
@@ -53,6 +58,7 @@ public class DigitalSignatureUtils {
 
     /** Session attribute holding the signature-pad request ids this login was given. */
     static final String ISSUED_REQUEST_IDS_ATTRIBUTE = DigitalSignatureUtils.class.getName() + ".issuedRequestIds";
+    private static final String UPLOAD_RECEIPTS_ATTRIBUTE = DigitalSignatureUtils.class.getName() + ".uploadReceipts";
 
     /** How many request ids one session keeps; the oldest is dropped beyond this. */
     static final int MAX_ISSUED_REQUEST_IDS = 200;
@@ -63,6 +69,54 @@ public class DigitalSignatureUtils {
 
     // Guards the get-or-create of a session's id set; signature pages are opened rarely.
     private static final Object ISSUED_IDS_LOCK = new Object();
+
+    /** The already-saved result of an exact capture, scoped to its pad and signature owner. */
+    public record UploadIdentity(String requestId, Integer patientId, String providerNo,
+                                 Integer facilityId, ModuleType module, String imageDigest) implements Serializable {}
+
+    /** Bounded session data for signature uploads whose acknowledgement may have been lost. */
+    public static final class UploadReceipts implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        private static final class UploadLock implements Serializable {
+            private static final long serialVersionUID = 1L;
+        }
+
+        private final Map<String, UploadLock> locks = new HashMap<>();
+        private final LinkedHashMap<UploadIdentity, Integer> saved = new LinkedHashMap<>();
+
+        /** Serializes writes to a pad's temp file without blocking uploads for other pads. */
+        public synchronized Object lockFor(HttpSession session, String id) {
+            if (locks.size() >= MAX_ISSUED_REQUEST_IDS && !locks.containsKey(id)) {
+                locks.keySet().removeIf(issuedId -> !isIssued(session, issuedId));
+            }
+            return locks.computeIfAbsent(id, _ -> new UploadLock());
+        }
+
+        public synchronized Integer savedId(UploadIdentity identity) {
+            return saved.get(identity);
+        }
+
+        /** Record the committed ID before the action starts writing its HTTP acknowledgement. */
+        public synchronized void remember(HttpSession session, UploadIdentity identity, int id) {
+            saved.put(identity, id);
+            while (saved.size() > MAX_ISSUED_REQUEST_IDS) {
+                saved.pollFirstEntry();
+            }
+            session.setAttribute(UPLOAD_RECEIPTS_ATTRIBUTE, this);
+        }
+    }
+
+    public static UploadReceipts uploadReceipts(HttpSession session) {
+        synchronized (ISSUED_IDS_LOCK) {
+            if (session.getAttribute(UPLOAD_RECEIPTS_ATTRIBUTE) instanceof UploadReceipts receipts) {
+                return receipts;
+            }
+            UploadReceipts receipts = new UploadReceipts();
+            session.setAttribute(UPLOAD_RECEIPTS_ATTRIBUTE, receipts);
+            return receipts;
+        }
+    }
 
     /**
      * Issues a request id for one signature-pad capture and records it in the session.

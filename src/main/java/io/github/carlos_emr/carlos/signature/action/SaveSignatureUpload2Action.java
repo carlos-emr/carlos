@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.signature.action;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -32,6 +33,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.owasp.encoder.Encode;
@@ -80,7 +82,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li>200 — HTML fragment with hidden {@code signatureId} input</li>
  * </ul>
  * Partial temp files from rejected uploads and orphaned temp files from
- * failed persistence are deleted before returning.
+ * failed persistence are deleted before returning. An exact replay in the
+ * same session receives the ID previously committed for that capture.
  */
 public final class SaveSignatureUpload2Action extends ActionSupport {
 
@@ -88,8 +91,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             SpringUtils.getBean(SecurityInfoManager.class);
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use")
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Case-insensitive comparison of an HTTP method name")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -112,13 +114,9 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             return NONE;
         }
 
-        String signatureId = "";
-        String uploadSource = request.getParameter("source");
-        String imageString = request.getParameter("signatureImage");
         String demographic = request.getParameter("demographicNo");
         boolean saveToDB = "true".equals(request.getParameter("saveToDB"));
         String signatureKey = request.getParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY);
-        ModuleType moduleType = ModuleType.getByName(request.getParameter(ModuleType.class.getSimpleName()));
         Integer demographicNo = null;
         if (saveToDB) {
             try {
@@ -148,12 +146,26 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
 
         // Only a key this session was given by the page that opened the pad is accepted, so a
         // capture is written for, and read back by, that page alone.
-        if (!DigitalSignatureUtils.isIssued(request.getSession(false), signatureKey)) {
+        HttpSession session = request.getSession(false);
+        if (!DigitalSignatureUtils.isIssued(session, signatureKey)) {
             MiscUtils.getLogger().warn("Refused a signature upload whose key was not issued to this session");
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "Unknown signature request");
             return NONE;
         }
 
+        var receipts = DigitalSignatureUtils.uploadReceipts(session);
+        synchronized (receipts.lockFor(session, signatureKey)) {
+            return storeCapture(request, response, loggedInInfo, signatureKey, demographicNo, receipts);
+        }
+    }
+
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "IMPROPER_UNICODE: compares an upload-source label; PATH_TRAVERSAL_IN: the signature path is validated before reading or writing it")
+    private String storeCapture(HttpServletRequest request, HttpServletResponse response, LoggedInInfo loggedInInfo,
+                                String signatureKey, Integer demographicNo, DigitalSignatureUtils.UploadReceipts receipts)
+            throws IOException {
+        String signatureId = "";
+        String uploadSource = request.getParameter("source");
+        String imageString = request.getParameter("signatureImage");
         String filename = DigitalSignatureUtils.getTempFilePath(signatureKey);
 
         // Defence-in-depth: confirm the resolved path is within the temp directory,
@@ -245,7 +257,23 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             return NONE;
         }
 
-        if (saveToDB) {
+        if (demographicNo != null) {
+            ModuleType moduleType = ModuleType.getByName(request.getParameter(ModuleType.class.getSimpleName()));
+            String digest;
+            try (InputStream capture = Files.newInputStream(safeTarget.toPath())) {
+                digest = DigestUtils.sha256Hex(capture);
+            } catch (IOException e) {
+                deleteQuietly(safeTarget);
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Save failed");
+                return NONE;
+            }
+            var facility = loggedInInfo.getCurrentFacility();
+            var identity = new DigitalSignatureUtils.UploadIdentity(signatureKey, demographicNo,
+                    loggedInInfo.getLoggedInProviderNo(), facility == null ? null : facility.getId(), moduleType, digest);
+            Integer savedId = receipts.savedId(identity);
+            if (savedId != null) {
+                return acknowledgeCapture(response, savedId.toString());
+            }
             DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
             DigitalSignature signature;
             try {
@@ -274,9 +302,14 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Save failed");
                 return NONE;
             }
+            receipts.remember(request.getSession(false), identity, signature.getId());
             signatureId = String.valueOf(signature.getId());
         }
 
+        return acknowledgeCapture(response, signatureId);
+    }
+
+    private String acknowledgeCapture(HttpServletResponse response, String signatureId) throws IOException {
         response.setStatus(HttpServletResponse.SC_OK);
 
         // Preserve the JSP's HTML-fragment response contract so existing

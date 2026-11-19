@@ -289,8 +289,7 @@ function saveCanvas() {
             },
             // Without an error handler, any non-2xx (a WAF 403 on the base64 image,
             // a CSRF rejection, a 400/500) was swallowed and the pad simply did
-            // nothing — the "signature not saved, no message" symptom. Surface it so
-            // the clinician knows the signature was not captured and can retry.
+            // nothing. A failed reply can also follow a successful save.
             error: function (xhr) {
                 signatureSaveFailed(xhr && xhr.status);
             }
@@ -305,8 +304,8 @@ function saveCanvas() {
 function signatureSaveFailed(status) {
     var recovery = status === 403
         ? " Please reopen the signing page and sign again; this signing request may have expired."
-        : " Please try again; if it keeps failing, reopen the signing page or contact your administrator.";
-    alert("The signature could not be saved" + (status ? " (server responded " + status + ")" : "") + "." + recovery);
+        : " You can retry this capture. If it keeps failing, contact your administrator.";
+    alert("The signature save could not be confirmed" + (status ? " (server responded " + status + ")" : "") + "." + recovery);
     // Keep the drawing and retry controls; never tell the parent that this capture was saved.
     OnSignEvent(false, true);
 }

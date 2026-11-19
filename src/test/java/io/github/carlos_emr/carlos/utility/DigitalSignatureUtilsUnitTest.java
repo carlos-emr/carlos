@@ -72,6 +72,33 @@ class DigitalSignatureUtilsUnitTest extends CarlosUnitTestBase {
     private MockHttpSession session;
     private final List<Path> writtenFiles = new ArrayList<>();
 
+    @Test
+    void shouldKeepUploadReceiptsAndPadLocksBoundedPerSession() {
+        MockHttpSession uploads = new MockHttpSession();
+        var receipts = DigitalSignatureUtils.uploadReceipts(uploads);
+        List<DigitalSignatureUtils.UploadIdentity> identities = new ArrayList<>();
+        Object lastLock = null;
+        for (int i = 0; i < DigitalSignatureUtils.MAX_ISSUED_REQUEST_IDS; i++) {
+            String id = DigitalSignatureUtils.generateSignatureRequestId(uploads);
+            lastLock = receipts.lockFor(uploads, id);
+            var key = new DigitalSignatureUtils.UploadIdentity(id, DEMOGRAPHIC_ID, "999998", 1, null, "digest");
+            receipts.remember(uploads, key, i + 1);
+            identities.add(key);
+        }
+        var latest = identities.getLast();
+        assertThat(receipts.lockFor(uploads, latest.requestId())).isSameAs(lastLock);
+
+        String nextPad = DigitalSignatureUtils.generateSignatureRequestId(uploads);
+        assertThat(receipts.lockFor(uploads, nextPad)).isNotSameAs(lastLock);
+        var next = new DigitalSignatureUtils.UploadIdentity(nextPad, DEMOGRAPHIC_ID, "999998", 1, null, "digest");
+        receipts.remember(uploads, next, 777);
+
+        assertThat(receipts.savedId(identities.getFirst())).isNull();
+        assertThat(receipts.savedId(latest)).isEqualTo(DigitalSignatureUtils.MAX_ISSUED_REQUEST_IDS);
+        assertThat(DigitalSignatureUtils.uploadReceipts(uploads).savedId(next)).isEqualTo(777);
+        assertThat(DigitalSignatureUtils.uploadReceipts(new MockHttpSession()).savedId(next)).isNull();
+    }
+
     @BeforeEach
     void setUp() {
         Facility facility = mock(Facility.class);

@@ -21,13 +21,19 @@
 package io.github.carlos_emr.carlos.signature.action;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -36,8 +42,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
@@ -127,6 +136,82 @@ class SaveSignatureUpload2ActionIssuedKeyUnitTest extends CarlosUnitTestBase {
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
         assertThat(new File(DigitalSignatureUtils.getTempFilePath(unknownKey))).doesNotExist();
         verifyNoInteractions(mockDigitalSignatureManager);
+    }
+
+    @Test
+    void shouldReturnTheOriginalId_whenTheSavedCaptureIsRetriedAfterItsResponseWasLost() throws Exception {
+        DigitalSignature first = mock(DigitalSignature.class);
+        DigitalSignature duplicate = mock(DigitalSignature.class);
+        when(first.getId()).thenReturn(101);
+        when(duplicate.getId()).thenReturn(102);
+        when(mockDigitalSignatureManager.processAndSaveDigitalSignature(mockLoggedInInfo, issuedKey, 1, null))
+                .thenReturn(first, duplicate);
+        configureCapture(mockRequest);
+
+        HttpServletResponse dropped = mock(HttpServletResponse.class);
+        when(dropped.getWriter()).thenThrow(new IOException("synthetic lost response"));
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(dropped, mockResponse);
+        assertThatThrownBy(action::execute).isInstanceOf(IOException.class);
+
+        MockHttpServletRequest retry = new MockHttpServletRequest("POST", "/signature_pad/SaveSignatureUpload");
+        retry.setSession(mockRequest.getSession(false));
+        configureCapture(retry);
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(retry);
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(mockResponse.getContentAsString()).contains("value=\"101\"");
+        verify(mockDigitalSignatureManager).processAndSaveDigitalSignature(mockLoggedInInfo, issuedKey, 1, null);
+    }
+
+    @Test
+    void shouldRememberEachDistinctCapture_whenTheSamePadIsUsedToDrawAgain() throws Exception {
+        Facility facility = mock(Facility.class);
+        when(facility.getId()).thenReturn(4);
+        when(mockLoggedInInfo.getCurrentFacility()).thenReturn(facility);
+        DigitalSignature first = mock(DigitalSignature.class);
+        DigitalSignature changed = mock(DigitalSignature.class);
+        when(first.getId()).thenReturn(101);
+        when(changed.getId()).thenReturn(102);
+        when(mockDigitalSignatureManager.processAndSaveDigitalSignature(mockLoggedInInfo, issuedKey, 1, null))
+                .thenReturn(first, changed);
+        var changedResponse = new MockHttpServletResponse();
+        var replayResponse = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse, changedResponse, replayResponse);
+
+        configureCapture(mockRequest);
+        action.execute();
+        mockRequest.setParameter("signatureImage", "data:image/png;base64,BAUG");
+        action.execute();
+        configureCapture(mockRequest);
+        action.execute();
+
+        assertThat(mockResponse.getContentAsString()).contains("value=\"101\"");
+        assertThat(changedResponse.getContentAsString()).contains("value=\"102\"");
+        assertThat(replayResponse.getContentAsString()).contains("value=\"101\"");
+        verify(mockDigitalSignatureManager, times(2)).processAndSaveDigitalSignature(mockLoggedInInfo, issuedKey, 1, null);
+    }
+
+    @Test
+    void shouldReturnAnErrorAndRemoveTheUpload_whenTheCaptureCannotBeReadForPersistence() throws Exception {
+        configureCapture(mockRequest);
+        try (var digests = mockStatic(DigestUtils.class)) {
+            digests.when(() -> DigestUtils.sha256Hex(any(InputStream.class))).thenThrow(new IOException("synthetic read failure"));
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        }
+
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        assertThat(new File(DigitalSignatureUtils.getTempFilePath(issuedKey))).doesNotExist();
+        verifyNoInteractions(mockDigitalSignatureManager);
+    }
+
+    private void configureCapture(MockHttpServletRequest request) {
+        request.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, issuedKey);
+        request.setParameter("source", "IPAD");
+        request.setParameter("signatureImage", "data:image/png;base64,AQID");
+        request.setParameter("saveToDB", "true");
+        request.setParameter("demographicNo", "1");
     }
 
     @Test
