@@ -704,7 +704,10 @@ async function main(state = {}) {
       type: 'BP',
       dataField: '122/80',
       comments: newMeasurementComment,
-      measuringInstruction: 'Standing',
+      // Must match a configured measurementType row: the endpoint refuses a
+      // type/instruction pair it cannot resolve to exactly one type. The ON and
+      // BC seed data (V1.0.2__*_data.sql) configure BP as "sitting position".
+      measuringInstruction: 'sitting position',
       dateObserved: Date.now(),
     };
     const limitedMeasurementCreate = await signedRequest(
