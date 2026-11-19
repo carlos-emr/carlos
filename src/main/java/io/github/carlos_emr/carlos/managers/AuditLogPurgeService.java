@@ -56,7 +56,9 @@ public class AuditLogPurgeService {
     private static final int COHORT_SIZE = 1000;
     private static final Duration COMMAND_TIMEOUT = Duration.ofSeconds(60);
     private static final Pattern INSERT = Pattern.compile(
-            "^INSERT INTO `log` \\(`id`(?:, `[A-Za-z_][A-Za-z0-9_]{0,63}`){0,255}\\) VALUES \\((-?[0-9]+),");
+            "^INSERT INTO `log` \\((`id`(?:, `[A-Za-z_][A-Za-z0-9_]{0,63}`){1,255})\\) VALUES \\((-?[0-9]+),");
+    private static final Pattern UNQUOTED_DUMP_VALUE = Pattern.compile(
+            "NULL|0[xX][0-9A-Fa-f]+|[+-]?[0-9]+(?:\\.[0-9]+)?(?:[Ee][+-]?[0-9]+)?");
     private final DataSource source;
     private final Duration commandTimeout;
 
@@ -100,7 +102,7 @@ public class AuditLogPurgeService {
             if (!Files.isDirectory(directory)) throw new IOException("Audit purge output directory does not exist");
             job = Files.createDirectory(directory.resolve("OSCAR_AUDIR_LOG_PURGE_" + UUID.randomUUID()),
                     PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
-            force(directory);
+            forceDirectory(directory);
             options = privateFile(job, "connection.cnf");
         } catch (IOException | RuntimeException failure) {
             // The form directs operators to the log. Preparation failures must
@@ -143,6 +145,7 @@ public class AuditLogPurgeService {
                 session.changedIsolation = true;
                 connection.setAutoCommit(false);
                 session.transactional = true;
+                String columns = auditColumnList(connection);
                 boolean audited = false;
                 int cohort = 0;
                 while (true) {
@@ -166,8 +169,8 @@ public class AuditLogPurgeService {
                     command.add(catalog);
                     command.add("log");
                     run(command, partial, stderr, connection);
-                    verifyDump(partial, ids);
-                    force(partial);
+                    verifyDump(partial, ids, columns);
+                    forceFile(partial);
                     Path sql = job.resolve(label + ".sql");
                     Files.move(partial, sql, StandardCopyOption.ATOMIC_MOVE);
                     Path manifest = privateFile(job, label + ".manifest");
@@ -179,8 +182,8 @@ public class AuditLogPurgeService {
                         digest = HexFormat.of().formatHex(sha.digest());
                     }
                     Files.writeString(manifest, "sha256=" + digest + "\nthrough=" + date + "\nids=" + ids + "\n");
-                    force(manifest);
-                    force(job);
+                    forceFile(manifest);
+                    forceDirectory(job);
                     if (!audited) {
                         recordAudit.run();
                         audited = true;
@@ -251,13 +254,29 @@ public class AuditLogPurgeService {
         return "id IN (" + numericIds + ") AND IS_USED_LOCK('" + witness + "')=" + owner;
     }
 
-    static void verifyDump(Path sql, List<Long> expected) throws IOException {
+    private static String auditColumnList(Connection connection) throws SQLException {
+        try (PreparedStatement query = connection.prepareStatement("SELECT * FROM log WHERE 1 = 0")) {
+            query.setQueryTimeout(5);
+            try (ResultSet empty = query.executeQuery()) {
+                var columns = empty.getMetaData();
+                var names = new java.util.StringJoiner(", ");
+                for (int column = 1; column <= columns.getColumnCount(); column++) {
+                    names.add("`" + columns.getColumnName(column) + "`");
+                }
+                return names.toString();
+            }
+        }
+    }
+
+    static void verifyDump(Path sql, List<Long> expected, String columns) throws IOException {
         Set<Long> remaining = new HashSet<>(expected);
         try (BufferedReader input = Files.newBufferedReader(sql, StandardCharsets.UTF_8)) {
             for (String line; (line = input.readLine()) != null;) {
                 if (line.startsWith("INSERT INTO")) {
                     var match = INSERT.matcher(line);
-                    if (!match.find() || !remaining.remove(Long.valueOf(match.group(1)))) {
+                    if (!match.find() || !columns.equals(match.group(1))
+                            || !completeDumpValues(line, match.end(), match.group(1).chars().filter(c -> c == ',').count())
+                            || !remaining.remove(Long.valueOf(match.group(2)))) {
                         throw new IOException("Dump did not contain the exact audit cohort");
                     }
                 }
@@ -266,6 +285,43 @@ public class AuditLogPurgeService {
             throw new IOException("Dump audit identifier was invalid");
         }
         if (!remaining.isEmpty()) throw new IOException("Dump omitted audit rows; nothing from this cohort was deleted");
+    }
+
+    /** Scan each complete INSERT without logging its payload. */
+    private static boolean completeDumpValues(String line, int start, long count) {
+        int cursor = start;
+        for (long field = 0; field < count; field++) {
+            while (cursor < line.length() && Character.isWhitespace(line.charAt(cursor))) cursor++;
+            if (cursor >= line.length()) return false;
+            if (line.charAt(cursor) == '\'') {
+                cursor = quotedDumpValueEnd(line, cursor + 1);
+                if (cursor < 0) return false;
+                while (cursor < line.length() && Character.isWhitespace(line.charAt(cursor))) cursor++;
+            } else {
+                int value = cursor;
+                while (cursor < line.length() && line.charAt(cursor) != ',' && line.charAt(cursor) != ')') cursor++;
+                if (!UNQUOTED_DUMP_VALUE.matcher(line.substring(value, cursor).strip()).matches()) return false;
+            }
+            if (field == count - 1) return ");".equals(line.substring(cursor).stripTrailing());
+            if (cursor >= line.length() || line.charAt(cursor++) != ',') return false;
+        }
+        return false;
+    }
+
+    private static int quotedDumpValueEnd(String line, int start) {
+        for (int cursor = start; cursor < line.length(); cursor++) {
+            char value = line.charAt(cursor);
+            if (value == '\\') {
+                cursor++;
+            } else if (value == '\'') {
+                if (cursor + 1 < line.length() && line.charAt(cursor + 1) == '\'') {
+                    cursor++;
+                } else {
+                    return cursor + 1;
+                }
+            }
+        }
+        return -1;
     }
 
     static String clientOptions(Configuration live, HostAddress address, boolean maria) throws IOException {
@@ -364,7 +420,13 @@ public class AuditLogPurgeService {
                 PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
     }
 
-    private static void force(Path path) throws IOException {
+    private static void forceFile(Path path) throws IOException {
+        try (FileChannel channel = FileChannel.open(path, StandardOpenOption.WRITE)) { channel.force(true); }
+    }
+
+    private static void forceDirectory(Path path) throws IOException {
+        // Packaged Linux opens directory descriptors for reading. Sync a directory after
+        // the backup rename and manifest creation, before deleting any database rows.
         try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) { channel.force(true); }
     }
 

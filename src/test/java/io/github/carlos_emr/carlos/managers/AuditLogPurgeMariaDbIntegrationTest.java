@@ -76,11 +76,13 @@ class AuditLogPurgeMariaDbIntegrationTest {
         assertThat(Files.getPosixFilePermissions(backup)).isEqualTo(PosixFilePermissions.fromString("rw-------"));
         assertThat(Files.readString(backup)).contains("FAKE last second").doesNotContain("FAKE next day");
         // Restore into the same owned table: the preserved next-day row must coexist.
-        Process restore = new ProcessBuilder("/usr/bin/mariadb", "--no-defaults", "--protocol=TCP",
+        String client = System.getenv().getOrDefault("CARLOS_TEST_MARIADB_CLIENT", "/usr/bin/mariadb");
+        ProcessBuilder restoreBuilder = new ProcessBuilder(client, "--no-defaults", "--protocol=TCP",
                 "--host=" + host(), "--port=" + port(), "--user=" + source.getUsername(), database)
-                .redirectInput(backup.toFile()).redirectError(temporary.resolve("restore-errors").toFile())
-                .start();
-        // Native CI uses an empty-password isolated root account. No secret in argv.
+                .redirectInput(backup.toFile()).redirectError(temporary.resolve("restore-errors").toFile());
+        // Use the isolated fixture's credentials without adding the password to argv.
+        restoreBuilder.environment().put("MYSQL_PWD", source.getPassword());
+        Process restore = restoreBuilder.start();
         assertThat(restore.waitFor(20, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
         assertThat(restore.exitValue()).isZero();
         assertThat(ids()).containsExactly(1L, 2L, 3L);

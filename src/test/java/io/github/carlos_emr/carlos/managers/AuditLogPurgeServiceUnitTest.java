@@ -75,12 +75,29 @@ class AuditLogPurgeServiceUnitTest {
         String first = "INSERT INTO `log` (`id`, `dateTime`, `data`) VALUES (1,'2000-01-01','FAKE');\n";
         String second = "INSERT INTO `log` (`id`, `dateTime`, `data`) VALUES (2,'2000-01-01','FAKE');\n";
         Files.writeString(sql, first + second);
-        assertThatCode(() -> AuditLogPurgeService.verifyDump(sql, List.of(1L, 2L))).doesNotThrowAnyException();
+        assertThatCode(() -> AuditLogPurgeService.verifyDump(sql, List.of(1L, 2L), "`id`, `dateTime`, `data`")).doesNotThrowAnyException();
         for (String content : List.of(first, first + first, first + second + first,
                 "INSERT INTO `other` VALUES (1);\n", "-- no rows\n")) {
             Files.writeString(sql, content);
-            assertThatThrownBy(() -> AuditLogPurgeService.verifyDump(sql, List.of(1L, 2L))).isInstanceOf(java.io.IOException.class);
+            assertThatThrownBy(() -> AuditLogPurgeService.verifyDump(sql, List.of(1L, 2L), "`id`, `dateTime`, `data`")).isInstanceOf(java.io.IOException.class);
         }
+    }
+
+    @Test
+    void shouldRequireEveryDumpValueAndTheEndOfTheInsert() throws Exception {
+        Path sql = temporary.resolve("backup.sql");
+        String header = "INSERT INTO `log` (`id`, `dateTime`, `data`) VALUES (1,";
+        for (String invalid : List.of("'2000-01-01','FAKE", "'2000-01-01');",
+                "'2000-01-01',FAKE);", "'2000-01-01','FAKE',NULL);", "'2000-01-01','FAKE')")) {
+            Files.writeString(sql, header + invalid + "\n");
+            assertThatThrownBy(() -> AuditLogPurgeService.verifyDump(sql, List.of(1L), "`id`, `dateTime`, `data`"))
+                    .isInstanceOf(java.io.IOException.class);
+        }
+        Files.writeString(sql, "INSERT INTO `log` (`id`, `data`) VALUES (1,'FAKE');\n");
+        assertThatThrownBy(() -> AuditLogPurgeService.verifyDump(sql, List.of(1L), "`id`, `dateTime`, `data`"))
+                .isInstanceOf(java.io.IOException.class);
+        Files.writeString(sql, header + "NULL,'quoted \\' text, internal ); and backslash \\\\');\n");
+        assertThatCode(() -> AuditLogPurgeService.verifyDump(sql, List.of(1L), "`id`, `dateTime`, `data`")).doesNotThrowAnyException();
     }
 
     @Test
