@@ -1,13 +1,42 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 // #5782: the installed DefaultServlet's HTML range bytes retain their original framing.
+const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
+const {parseProperties} = require('./lib/java-properties');
 const {runWorkflow} = require('./lib/workflow-session');
 
+const NOTICE_START = '<p class="yesprint carlos-print-decoration"><b>\n';
+const NOTICE_END = '</b><br/><b>END OF PRINTED DOCUMENT</b></p>';
+
+function configuredStatement(webapp) {
+  const effective = new Map();
+  const sources = [
+    path.join(webapp, 'WEB-INF/classes/carlos.properties'),
+    process.env.CARLOS_PROPERTIES_FILE || '/etc/carlos-emr/carlos.properties',
+    '/var/lib/carlos-emr/carlos.properties',
+  ];
+  for (const file of sources) {
+    if (!fs.existsSync(file)) continue;
+    for (const [key, value] of parseProperties(fs.readFileSync(file))) {
+      if (key.startsWith('confidentiality_statement.v')) effective.set(key, value);
+    }
+  }
+  // The server selects the last consecutive version beginning with v1.
+  let statement;
+  for (let version = 1; effective.has('confidentiality_statement.v' + version); version++) {
+    statement = effective.get('confidentiality_statement.v' + version);
+  }
+  h.assert(statement?.trim(), 'The installed confidentiality statement is not configured');
+  return statement;
+}
+
 async function workflow(s) {
-  const fixture = path.join(process.env.CARLOS_INSTALLED_WEBAPP_DIR || '/usr/share/carlos-emr/webapp/carlos', 'gpl.htm');
+  const webapp = process.env.CARLOS_INSTALLED_WEBAPP_DIR || '/usr/share/carlos-emr/webapp/carlos';
+  const fixture = path.join(webapp, 'gpl.htm');
+  const expectedNotice = NOTICE_START + configuredStatement(webapp) + NOTICE_END;
   h.assert(fs.existsSync(fixture), 'The installed static HTML fixture is unavailable; run this check on the host serving the packaged install');
   const original = fs.readFileSync(fixture);
   h.assert(original.length > 100, 'The installed static HTML fixture is unavailable');
@@ -27,8 +56,9 @@ async function workflow(s) {
   }
   function assertDecorated(response) {
     h.assert(response.status === 200, 'The complete static HTML response failed');
-    h.assert(response.bytes.includes(Buffer.from('carlos-print-decoration')),
-      'The installed privacy notice is unavailable for range qualification');
+    const charset = /charset\s*=\s*"?([^";\s]+)/i.exec(response.headers['content-type'] || '')?.[1] || 'utf-8';
+    const document = new TextDecoder(charset).decode(response.bytes);
+    h.assert(document.includes(expectedNotice), 'The installed privacy notice is missing or incomplete');
     h.assert(response.bytes.includes(originalBody), 'The decorated response lost original HTML body content');
   }
   function assertPartial(response, length) {
@@ -42,6 +72,11 @@ async function workflow(s) {
   await s.step('the complete installed HTML response carries the configured privacy notice', async () => {
     decorated = await fetch();
     assertDecorated(decorated);
+    const opening = Buffer.from(NOTICE_START);
+    const noticeStart = decorated.bytes.indexOf(opening);
+    h.assert(noticeStart >= 0, 'The decorated response has no notice opening');
+    const markerOnly = {...decorated, bytes: decorated.bytes.subarray(0, noticeStart + opening.length)};
+    assert.throws(() => assertDecorated(markerOnly), /privacy notice is missing or incomplete/);
   });
   const stale = 'Thu, 01 Jan 1970 00:00:00 GMT';
   const length = Math.min(16384, original.length - 1);
