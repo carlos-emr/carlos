@@ -31,18 +31,39 @@
 package io.github.carlos_emr.carlos.mds.data;
 
 import io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao;
+import io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.DateSearchType;
 import io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.Operation;
+import io.github.carlos_emr.carlos.commn.service.InboxDateSearchTypeResolver;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
+import java.util.function.Function;
 
-/** Builds inbox category counts and patient summaries from typed DAO results. */
+/**
+ * Builds inbox category counts and patient summaries from typed DAO results.
+ *
+ * <p>The {@code inboxDateSearchType} preference is read once per population (issue #5772) and
+ * that snapshot is used by every category count of the population and by the lazy abnormal count
+ * read after it, so the normal count ({@code totalLabs - abnormal}) never mixes two date modes.
+ * Calls to the single-category getters outside a population share the snapshot taken by the first
+ * of them. The inbox web model ({@link PatientInfo}) is assembled here from the DAO's
+ * {@link InboxCategoryDao.PatientCount} rows.</p>
+ */
 public class CategoryData {
-    private final InboxCategoryDao dao = SpringUtils.getBean(InboxCategoryDao.class);
-    private final InboxCategoryDao.Filter filter;
+    private final InboxCategoryDao dao;
+    private final InboxDateSearchTypeResolver dateSearchTypes;
+    /** The request's search values; a date-mode snapshot completes them into the DAO filter. */
+    private final Function<DateSearchType, InboxCategoryDao.Filter> filterFor;
+    private final String startDate;
+    private final String endDate;
+    /** Date mode of the current snapshot, or null until a count or getDateSearchType needs one. */
+    private DateSearchType dateSearchType;
+    /** Filter of the current snapshot, or null until the next count needs one. */
+    private InboxCategoryDao.Filter filter;
     private final boolean patientSearch;
     private final String abnormalStatus;
     private int totalDocs = 0;
@@ -138,20 +159,71 @@ public class CategoryData {
     public CategoryData(String patientLastName, String patientFirstName, String patientHealthNumber,
                         boolean patientSearch, boolean providerSearch, String searchProviderNo,
                         String status, String abnormalStatus, String startDate, String endDate) {
+        // Callers construct this per request with `new`, so the collaborators come from Spring here.
+        this(SpringUtils.getBean(InboxCategoryDao.class), SpringUtils.getBean(InboxDateSearchTypeResolver.class),
+                patientLastName, patientFirstName, patientHealthNumber, patientSearch, providerSearch,
+                searchProviderNo, status, abnormalStatus, startDate, endDate);
+    }
+
+    /**
+     * Creates one inbox request's accumulator with explicit collaborators (test seam).
+     * @param dao InboxCategoryDao that runs the category counts
+     * @param dateSearchTypes InboxDateSearchTypeResolver that reads the date-mode preference
+     * @param patientLastName String optional surname fragment
+     * @param patientFirstName String optional given-name fragment
+     * @param patientHealthNumber String optional HIN fragment
+     * @param patientSearch boolean whether to filter patients
+     * @param providerSearch boolean whether to filter provider
+     * @param searchProviderNo String provider identifier
+     * @param status String optional routing status
+     * @param abnormalStatus String optional normal/abnormal restriction
+     * @param startDate String optional inclusive start date
+     * @param endDate String optional inclusive end date
+     */
+    CategoryData(InboxCategoryDao dao, InboxDateSearchTypeResolver dateSearchTypes,
+                 String patientLastName, String patientFirstName, String patientHealthNumber,
+                 boolean patientSearch, boolean providerSearch, String searchProviderNo,
+                 String status, String abnormalStatus, String startDate, String endDate) {
+        this.dao = Objects.requireNonNull(dao, "dao");
+        this.dateSearchTypes = Objects.requireNonNull(dateSearchTypes, "dateSearchTypes");
         this.patientSearch = patientSearch;
         this.abnormalStatus = abnormalStatus;
-        this.filter = new InboxCategoryDao.Filter(patientLastName, patientFirstName, patientHealthNumber,
-                patientSearch, providerSearch, searchProviderNo, status, abnormalStatus, startDate, endDate);
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.filterFor = mode -> new InboxCategoryDao.Filter(patientLastName, patientFirstName, patientHealthNumber,
+                patientSearch, providerSearch, searchProviderNo, status, abnormalStatus, startDate, endDate, mode);
         patients = new HashMap<>();
+    }
+
+    /** @return DateSearchType the current snapshot's mode, reading the preference if there is none */
+    private DateSearchType dateSearchType() {
+        if (dateSearchType == null) {
+            dateSearchType = dateSearchTypes.resolve();
+        }
+        return dateSearchType;
+    }
+
+    /**
+     * Returns the current snapshot's filter. An impossible calendar bound is refused first, so it
+     * never costs a preference read or reaches a count query, as before the read left the DAO.
+     */
+    private InboxCategoryDao.Filter filter() {
+        if (filter == null) {
+            InboxCategoryDao.parseDateBound(startDate);
+            InboxCategoryDao.parseDateBound(endDate);
+            filter = filterFor.apply(dateSearchType());
+        }
+        return filter;
     }
 
     private int count(Operation operation, String demographicNo) throws SQLException {
         InboxCategoryDao.Counts result;
         try {
-            result = dao.count(filter, operation, demographicNo);
+            result = dao.count(filter(), operation, demographicNo);
         } catch (org.springframework.dao.DataAccessException | jakarta.persistence.PersistenceException
                  | org.springframework.transaction.TransactionException failure) {
-            // Inbox controllers retain their checked-SQL failure path after the DAO migration.
+            // Inbox controllers retain their checked-SQL failure path after the DAO migration. This
+            // also covers a failed preference read, which happens on the first count of a snapshot.
             throw new SQLException("Could not read inbox category counts", failure);
         }
         int withheld = 0;
@@ -190,8 +262,13 @@ public class CategoryData {
         this.hrmPatientReadable = java.util.Objects.requireNonNull(readable);
     }
 
-    /** @return String current date-search preference */
-    public String getDateSearchType() { return dao.getDateSearchType(); }
+    /**
+     * Reports the date mode the counts use: the current snapshot's, or a new snapshot's when no
+     * count has run since the last population began.
+     * @return String the {@code inboxDateSearchType} value of that mode ({@code serviceObservation}
+     *         for a missing, blank or unrecognised preference)
+     */
+    public String getDateSearchType() { return dateSearchType().preferenceValue(); }
     /**
      * Counts unmatched labs.
      * @return int total matching items
@@ -250,6 +327,9 @@ public class CategoryData {
     public void populateCountsAndPatients() throws SQLException {
         populated = false;
         abnormalCount = null;
+        // Each population reads the date-mode preference once, on its first count.
+        dateSearchType = null;
+        filter = null;
         totalDocs = totalLabs = unmatchedDocs = unmatchedLabs = totalNumDocs = 0;
         matchedHRMCount = unmatchedHRMCount = 0;
         patients.clear();

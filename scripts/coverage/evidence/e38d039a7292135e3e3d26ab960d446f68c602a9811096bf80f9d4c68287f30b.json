@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "d05b43b46fb411fe39c84a2563b92baf47393a43",
+  "comparisonSha256": "2f31716b9d7ad6c22ac715a73865095da1e2e50c5d5e8b5d7b751b9af539f974",
+  "baselineCommit": "1c35b248676539813faa1f03eee60ed04f2d4b2e",
+  "baselineSourceTree": "d05b43b46fb411fe39c84a2563b92baf47393a43",
+  "baselineReportSha256": "8e95e3490859694f87fb143b4d2a630bb44f2f50eb9bb0e50ec151d551191b0f",
+  "baselineLane": "Focused Java 25 and JaCoCo test run for the merged source and tests of PR #6113; only the selected Java file is covered by this record.",
+  "baselineTestCounts": {
+    "tests": 235,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "e1b3a29ce7bd68242d90988dc77944559de76165b3bf239dc0ac34917d3e09ff",
+  "baselineTestReportsHashFormat": "SHA-256 of a filename-to-SHA-256 JSON object with sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "Connector/J floating-point and BIT values over MariaDB (#5968)",
+    "Legacy yes/no values for MariaDB Boolean options (#5969)",
+    "io.github.carlos_emr.carlos.utility.JdbcConnectorMariaDbIntegrationTest"
+  ],
+  "priorSourceEvidenceSha256": [
+    "e3805cb4cc87404f104877bdc97ff2c313b18193a39af64a02f2aaedafec0515",
+    "1b228591ec5b9fd4d1a82fed71e6f7ac78ff18b1fc1b4d1d60034b08af41d44a"
+  ],
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java": {
+      "lines": 94.88372093023256,
+      "instructions": 92.8451461202553,
+      "branches": 86.10108303249098,
+      "sourceBlob": "f1f6a65cd6e6f88abaef41efd2ff2537a72bc146"
+    }
+  }
+}

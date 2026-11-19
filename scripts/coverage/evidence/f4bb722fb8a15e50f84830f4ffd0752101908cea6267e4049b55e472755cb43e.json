@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "e824c94b855f3007c75d745b32e653d22a07de92",
+  "comparisonSha256": "769154065480b630cc13b81c93eb1f6f3947e840401562c6941069e9e3a0a875",
+  "baselineCommit": "9935466bfa2c9964a070d14882f125201e86c346",
+  "baselineSourceTree": "e824c94b855f3007c75d745b32e653d22a07de92",
+  "baselineReportSha256": "10cad70e32916782d5b2005a06d0b890a9d5c8b36d5ea7cdf23b6922252d4d51",
+  "baselineLane": "waiting-list focused Java unit tests",
+  "baselineTestCounts": {
+    "tests": 33,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "8d4f6890b8548e4838da85e5830bb4babf1f8c2848bd2fd2871cd2ae57e94559",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecOutputApplyServiceUnitTest",
+    "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLWaitingListNoteLengthActionUnitTest",
+    "io.github.carlos_emr.carlos.waitinglist.pageUtil.WaitingListNoteLimitJspRegressionTest",
+    "io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtilNoteLengthUnitTest"
+  ],
+  "observedChangedSourceCoverage": {
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingObecOutputApplyService.java": {
+      "lineCounts": {
+        "covered": 11,
+        "missed": 0
+      },
+      "instructionBranchCounts": {
+        "covered_instructions": 47,
+        "missed_instructions": 0,
+        "covered_branches": 4,
+        "missed_branches": 0,
+        "partial_lines": [],
+        "missed_branch_lines": []
+      },
+      "percentages": {
+        "lines": 100.0,
+        "instructions": 100.0,
+        "branches": 100.0
+      }
+    },
+    "src/main/java/io/github/carlos_emr/carlos/waitinglist/pageUtil/WLSetupDisplayWaitingList2Action.java": {
+      "lineCounts": {
+        "covered": 14,
+        "missed": 0
+      },
+      "instructionBranchCounts": {
+        "covered_instructions": 56,
+        "missed_instructions": 2,
+        "covered_branches": 7,
+        "missed_branches": 1,
+        "partial_lines": [
+          263
+        ],
+        "missed_branch_lines": [
+          263
+        ]
+      },
+      "percentages": {
+        "lines": 100.0,
+        "instructions": 96.55172413793103,
+        "branches": 87.5
+      }
+    }
+  },
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingObecOutputApplyService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "a7f314a4916eb195d97b5e31ec8fb07a8d6df3e5"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/waitinglist/pageUtil/WLSetupDisplayWaitingList2Action.java": {
+      "lines": 100.0,
+      "instructions": 96.22641509433963,
+      "branches": 87.5,
+      "sourceBlob": "7b7c128adb043290ee5f725a0c0bf011776d2b99"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {}
+}

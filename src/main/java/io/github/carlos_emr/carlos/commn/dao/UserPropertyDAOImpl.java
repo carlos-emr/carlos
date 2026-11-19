@@ -57,6 +57,13 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
         super(UserProperty.class);
     }
 
+    @Override
+    @Transactional
+    public boolean lockProviderPreferences(String providerNo) {
+        return providerNo != null
+                && entityManager.find(Provider.class, providerNo, LockModeType.PESSIMISTIC_WRITE) != null;
+    }
+
 
     /**
      * Serializes preference creation against the existing owner row, including when there is

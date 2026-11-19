@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "097a00925d17c1b0c52a5b898a52b7a20fe95ba0",
+  "comparisonSha256": "3b1fb8e62bbe569542d7547ac58aaed743c49b8df9f647f098a2e4104c5a9d8a",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/MeasurementGraphAction22Action.java": {
+      "lines": 100.0,
+      "instructions": 99.85663082437276,
+      "branches": 93.4010152284264,
+      "sourceBlob": "068148cba8233fcc97d42d2328ff526a2277b9ec"
+    }
+  },
+  "baselineCommit": "9ac6ebe140026ad3ae0b7bbf872aeb93b19fb31b",
+  "baselineSourceTree": "097a00925d17c1b0c52a5b898a52b7a20fe95ba0",
+  "baselineReportSha256": "42a88e623a0b3882ce2223f553c9281095932fcf9d26cc888997b94d9d32256d",
+  "baselineLane": "PR #6163 focused JDK 25 graph and reference-range regression suites",
+  "baselineTestCounts": {
+    "tests": 183,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "987fe71759017c90bb70ee5bbe6b8163ea78ccf394d215ee682936a75499776f",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.GraphFailurePageUnitTest",
+    "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementChartDataUnitTest",
+    "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementGraphAction22ActionUnitTest",
+    "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementGraphChartMedsHeightUnitTest",
+    "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementGraphErrorResponseUnitTest"
+  ]
+}

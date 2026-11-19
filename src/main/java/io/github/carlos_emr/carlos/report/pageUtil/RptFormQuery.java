@@ -33,15 +33,21 @@
  */
 package io.github.carlos_emr.carlos.report.pageUtil;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.Vector;
 
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.report.data.RptReportCreator;
+import io.github.carlos_emr.carlos.report.data.RptReportFilter;
 import io.github.carlos_emr.carlos.util.SqlIdentifierValidator;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -50,9 +56,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  */
 public class RptFormQuery {
 
+    /**
+     * The filter checkbox the report filter page renders as {@code filter_<order no>}. Only the
+     * tick is read from the request: the predicate and its date format come from the stored
+     * report filter (#5831). The page's {@code value_<n>} and {@code dateFormat_<n>} hidden
+     * fields are ignored.
+     */
     static String CHECK_BOX = "filter_";
-    static String VALUE = "value_";
-    static String DATE_FORMAT = "dateFormat_";
     static String VARNAME_FORMAT = "startDate\\d|endDate\\d";
 
     /**
@@ -90,11 +100,10 @@ public class RptFormQuery {
         boolean bDemo = tableName.indexOf("demographic") >= 0 ? true : false;
         reportSql += tableName;
 
-        // get value param string — single call ensures vecValue and vecDateFormat stay index-aligned
-        Vector[] valueParams = getValueParam(request);
-        Vector vecValue = valueParams[0];
-        Vector vecDateFormat = valueParams[1];
-        List<ParameterizedSql> vecVarValue = getQueryValueParameterized(vecValue, vecDateFormat, request);
+        // The WHERE predicates are the report's stored filter definitions; the request only says
+        // which ones are ticked and supplies the ${...} placeholder values, which are bound (#5831).
+        List<CheckedFilter> checked = checkedFilters(reportId, request);
+        List<ParameterizedSql> vecVarValue = getQueryValueParameterized(checked, request);
 
         for (int i = 0; i < vecVarValue.size(); i++) {
             String tempVal = vecVarValue.get(i).getSql();
@@ -148,65 +157,80 @@ public class RptFormQuery {
         return new ParameterizedSql(reportSql, new ArrayList<>());
     }
 
-    private Vector[] getValueParam(HttpServletRequest request) {
-        Vector[] ret = new Vector[2];
-        String serialNo = "";
-        Vector vecValue = new Vector();
-        Vector vecDateFormat = new Vector();
+    /** A stored report filter the user ticked: its predicate template and date format. */
+    record CheckedFilter(String predicate, String dateFormat) { }
 
-        Enumeration varEnum = request.getParameterNames();
-        while (varEnum.hasMoreElements()) {
-            String name = (String) varEnum.nextElement();
-            if (name.startsWith(VALUE)) {
-                serialNo = name.substring(VALUE.length());
-                if (request.getParameter(CHECK_BOX + serialNo) == null)
-                    continue;
+    /**
+     * Thrown when a request ticks a filter the report does not define (or no longer defines,
+     * for example a page opened before an administrator deleted the filter). The predicate SQL
+     * only ever comes from the stored definition (#5831), so an unknown filter cannot be
+     * honoured, and running the report without it would silently widen the cohort.
+     */
+    public static final class UnknownReportFilterException extends IllegalArgumentException {
+        private static final long serialVersionUID = 1L;
 
-                vecValue.add(request.getParameter(name));
-                vecDateFormat.add(request.getParameter(DATE_FORMAT + serialNo));
-            }
+        UnknownReportFilterException() {
+            super("The report filter selection does not match this report's filters; reload the report filter page.");
         }
-        ret[0] = vecValue;
-        ret[1] = vecDateFormat;
-        return ret;
-    }
-
-    // filling the var with the real date value
-    private Vector getQueryValue(Vector vecValue, Vector vecDateFormat, HttpServletRequest request) throws Exception {
-        Vector ret = new Vector();
-        for (int i = 0; i < vecValue.size(); i++) {
-            String tempVal = (String) vecValue.get(i);
-            Vector vecVar = RptReportCreator.getVarVec(tempVal);
-            Vector vecVarValue = new Vector();
-            for (int j = 0; j < vecVar.size(); j++) {
-                // conver date format if needed
-                if (((String) vecVar.get(j)).matches(VARNAME_FORMAT) && ((String) vecDateFormat.get(i)).length() > 1) {
-                    vecVarValue.add(RptReportCreator.getDiffDateFormat(request.getParameter((String) vecVar.get(j)),
-                            (String) vecDateFormat.get(i), "yyyy-MM-dd"));
-                } else {
-                    vecVarValue.add(request.getParameter((String) vecVar.get(j)));
-                }
-            }
-            ret.add(RptReportCreator.getWhereValueClause(tempVal, vecVarValue));
-        }
-        return ret;
     }
 
     /**
-     * Parameterized version of {@link #getQueryValue}. Returns a list of
-     * {@link ParameterizedSql} fragments, each containing a WHERE clause
-     * template with {@code ?} placeholders and the corresponding bind values.
+     * Resolves the ticked {@code filter_<order no>} checkboxes to the report's stored, active
+     * filter definitions, in their configured order. The request's hidden {@code value_<n>} and
+     * {@code dateFormat_<n>} fields are deliberately not read: they used to carry the SQL
+     * predicate text itself, which let a caller control the WHERE clause (#5831).
+     *
+     * <p>Where two active filters share an order number the page renders duplicate parameter
+     * names and the browser submits the first, so the first stored definition wins here too.</p>
+     *
+     * @param reportId the configured report id
+     * @param request the report filter form submission
+     * @return the ticked filters, in stored order
+     * @throws SQLException when the report id is invalid or the filters cannot be read
+     * @throws UnknownReportFilterException when a ticked filter is not one of the report's active filters
      */
-    private List<ParameterizedSql> getQueryValueParameterized(Vector vecValue, Vector vecDateFormat, HttpServletRequest request) throws Exception {
+    List<CheckedFilter> checkedFilters(String reportId, HttpServletRequest request) throws SQLException {
+        Map<String, CheckedFilter> defined = new LinkedHashMap<>();
+        for (Object row : new RptReportFilter().getNameList(reportId, 1)) {
+            String[] filter = (String[]) row;
+            defined.putIfAbsent(filter[3], new CheckedFilter(filter[1], filter[5]));
+        }
+        Set<String> ticked = new LinkedHashSet<>();
+        Enumeration<String> names = request.getParameterNames();
+        while (names.hasMoreElements()) {
+            String name = names.nextElement();
+            if (name.startsWith(CHECK_BOX)) {
+                ticked.add(name.substring(CHECK_BOX.length()));
+            }
+        }
+        if (!defined.keySet().containsAll(ticked)) {
+            throw new UnknownReportFilterException();
+        }
+        List<CheckedFilter> checked = new ArrayList<>();
+        defined.forEach((orderNo, filter) -> {
+            if (ticked.contains(orderNo)) {
+                checked.add(filter);
+            }
+        });
+        return checked;
+    }
+
+    /**
+     * Binds each ticked filter's {@code ${name}} placeholders to the request parameter of the
+     * same name, converting {@code startDateN}/{@code endDateN} from the filter's date format.
+     * The predicate text is the stored definition; only the placeholder values come from the request.
+     */
+    private List<ParameterizedSql> getQueryValueParameterized(List<CheckedFilter> checked, HttpServletRequest request) throws Exception {
         List<ParameterizedSql> ret = new ArrayList<>();
-        for (int i = 0; i < vecValue.size(); i++) {
-            String tempVal = (String) vecValue.get(i);
+        for (CheckedFilter filter : checked) {
+            String tempVal = filter.predicate();
+            String dateFormat = filter.dateFormat() == null ? "" : filter.dateFormat();
             Vector vecVar = RptReportCreator.getVarVec(tempVal);
             Vector vecVarValue = new Vector();
             for (int j = 0; j < vecVar.size(); j++) {
-                if (((String) vecVar.get(j)).matches(VARNAME_FORMAT) && ((String) vecDateFormat.get(i)).length() > 1) {
+                if (((String) vecVar.get(j)).matches(VARNAME_FORMAT) && dateFormat.length() > 1) {
                     vecVarValue.add(RptReportCreator.getDiffDateFormat(request.getParameter((String) vecVar.get(j)),
-                            (String) vecDateFormat.get(i), "yyyy-MM-dd"));
+                            dateFormat, "yyyy-MM-dd"));
                 } else {
                     vecVarValue.add(request.getParameter((String) vecVar.get(j)));
                 }

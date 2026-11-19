@@ -55,6 +55,7 @@ import org.springframework.transaction.support.DefaultTransactionStatus;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -102,6 +103,8 @@ class DemographicAddRecord2ActionSubmissionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletRequest request;
     /** The Name Used the next {@link #submit} sends; none when null. */
     private String nameUsed;
+    /** The waiting list the next {@link #submit} picks; none when null. */
+    private String waitingListId;
     private MockHttpServletResponse response;
     private MockedStatic<ServletActionContext> servlet;
     private MockedStatic<LoggedInInfo> sessions;
@@ -166,6 +169,10 @@ class DemographicAddRecord2ActionSubmissionUnitTest extends CarlosUnitTestBase {
         request.setParameter("postal", "M5W 1E6");
         if (nameUsed != null) {
             request.setParameter("nameUsed", nameUsed);
+        }
+        if (waitingListId != null) {
+            request.setParameter("list_id", waitingListId);
+            request.setParameter("waiting_list_note", "FAKE note");
         }
         if (token != null) {
             request.setParameter(FormSubmissionGuard.PARAMETER, token);
@@ -288,6 +295,29 @@ class DemographicAddRecord2ActionSubmissionUnitTest extends CarlosUnitTestBase {
         submit(null, "FAKE-PW-1");
 
         verify(demographics, times(2)).save(any(Demographic.class));
+    }
+
+    /** Issue #5869: a list id that is not a number skips the waiting-list row; the patient is still registered. */
+    @Test
+    void shouldRegisterWithoutAWaitingListRow_whenTheListIdIsNotANumber() {
+        WaitingListDao waitingListRows = mock(WaitingListDao.class);
+        registerMock(WaitingListDao.class, waitingListRows);
+        WaitingList found = mock(WaitingList.class);
+        when(found.getFound()).thenReturn(true);
+        waitingLists.when(WaitingList::getInstance).thenReturn(found);
+        waitingListId = "FAKE-LIST";
+
+        try (LogCapture log = LogCapture.forLogger(DemographicAddRecord2Action.class)) {
+            assertThat(submit(rendering(), "FAKE-WL-ID")).isEqualTo(ActionSupport.SUCCESS);
+
+            assertThat(log.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage()).contains("skipping waiting list entry");
+            });
+        }
+        verify(demographics).save(any(Demographic.class));
+        verify(waitingListRows, never()).getMaxPosition(anyInt());
+        verify(waitingListRows, never()).persist(any());
     }
 
     /** Issue #5128: the saved patient keeps Name Used whole in the alias; pref_name holds what fits. */

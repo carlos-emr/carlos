@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/waitinglist/util/WLWaitingListUtil.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 87.5,
+    "instructions": 91.30434782608695,
+    "branches": 100.0,
+    "sourceBlob": "3e1b38d2f3f9de42c35b96b3d0d23dbd3cdcf035"
+  },
+  "evidenceSha256": "552a5b7d69e3df133c28638a51b2effd9df5b162350d9a54fa419c66c37a6376"
+}

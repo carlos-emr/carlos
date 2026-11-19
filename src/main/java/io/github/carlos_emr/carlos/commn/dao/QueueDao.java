@@ -50,6 +50,11 @@ public interface QueueDao extends AbstractDao<Queue> {
 
     boolean addNewQueue(String qn);
 
+    /** Checks queue existence. The database implementation holds the selected row through commit. */
+    default boolean lockExistingQueue(int id) {
+        return find(id) != null;
+    }
+
     /**
      * Inserts and flushes a queue, returning the ID assigned to that specific row.
      *

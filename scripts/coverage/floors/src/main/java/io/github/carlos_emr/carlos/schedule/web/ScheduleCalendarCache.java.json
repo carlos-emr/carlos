@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCache.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "d97816c68ca56cb202951538c10404c0f521caf8"
+  },
+  "evidenceSha256": "c3514e867b90c11aff206b7aff4f2105619bfc0bcacaafe41b485703bd4133b3"
+}

@@ -279,6 +279,7 @@
 
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script defer src="${carlos:forHtmlAttribute(ctx)}/demographic/eligibilityDialog.js"></script>
+        <script defer src="${carlos:forHtmlAttribute(ctx)}/js/demographic/custom-selects.js"></script>
         <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/check_hin.js"></script>
         <%@ include file="/WEB-INF/jspf/demographic-field-length-limits.jspf" %>

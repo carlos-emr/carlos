@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "62c7db91b03d0ea4ce07b334cadf33d1361b92ab",
+  "comparisonSha256": "9675cbf438c7848f235207224ef3b7193472f80825f1ba64571bac1a36895029",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/QueueDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "3fce1ae5c918f9f5518866650af4d65eb040e987"
+    }
+  },
+  "baselineCommit": "cfff3bea420c19df76b2bce569a919ce86f124b5",
+  "baselineSourceTree": "62c7db91b03d0ea4ce07b334cadf33d1361b92ab",
+  "baselineReportSha256": "969b340e97f18d1ce3fc64898017dc522e8aa41151f2251065e2a9b677583fcf",
+  "baselineLane": "16 provider queue unit cases including the existing adapter compatibility method",
+  "baselineTestCounts": {
+    "tests": 16,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "7682c73e0811b9aeb4dbfd6074035048f0b2d9c1c47005f4bd064bcecb0e89b3",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

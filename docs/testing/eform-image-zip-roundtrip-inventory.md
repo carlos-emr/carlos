@@ -31,3 +31,27 @@ regressions together: three passes, zero failures/skips. The application source
 is `e0601ced004c`, Ubuntu 26.04, Chromium 149.0.7827.55. Exact template/instance/
 asset/download/server-PDF cleanup passes; complete preexisting library rows and
 preexisting asset hashes remain unchanged. Full release qualification is separate.
+
+Image publication shares a lease with image uploads. Extraction and budget
+checks finish before the lease is acquired; another import cannot adopt a
+provisional image, or an upload replace its inode, until publication or rollback
+finishes. A JVM guard and filesystem lock coordinate cooperating application JVMs
+using the same image directory. Form registration and asset publication hold
+the lease through the database transaction.
+
+The empty `extractFolder/.publication.lock` inode is permanent coordination
+metadata. Keep it when checking or cleaning staging residue: removing it can
+split waiting processes across different lock inodes. Successful-import tests
+require this exact file and no leftover extraction directories. Refused ZIPs
+must preserve the preexisting staging snapshot without creating this metadata.
+Shared deployments give `extractFolder` the configured writer group or a
+default ACL granting the writer accounts access. New markers use that group
+even when the publisher belongs to it as a supplementary group. On upgrade, the
+marker owner or deployment administrator adds write access for those writers
+to the existing inode before resuming shared publication. When the marker
+already belongs to the writer group, `chmod g+w` grants this access in place.
+An owner acquiring the lease also repairs a missing group-write bit for the
+configured staging group.
+The ownership and lock unit suites exercise both consumer races, a separate JVM,
+and refused lock operations. These checks do not extend the historical installed
+qualification above to the newer production source.
