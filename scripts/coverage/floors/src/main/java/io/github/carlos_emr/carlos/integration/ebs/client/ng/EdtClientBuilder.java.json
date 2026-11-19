@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtClientBuilder.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "d16df6afad7db22a35ead229954ff97bfe07975b"
+  },
+  "evidenceSha256": "541325849386e999748b5f3eb8f71d350fcc93edc03fb8f99ca05c6dd5eeb3e6"
+}

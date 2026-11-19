@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/demographic/pageUtil/DemographicMergeRecord2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 97.82608695652173,
+    "sourceBlob": "e51000f07c1a91af53687696b73f59351ee4ddef"
+  },
+  "evidenceSha256": "964bc2f201b86cd43da268b0a937ff15ed124ff21ccacc22cbab28626baba165"
+}
