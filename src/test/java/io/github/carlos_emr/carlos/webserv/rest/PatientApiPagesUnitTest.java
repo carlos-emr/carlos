@@ -41,6 +41,26 @@ class PatientApiPagesUnitTest {
         when(security.hasPrivilegeReadOnly(actor,"_tickler","r","1")).thenThrow(new IllegalStateException("Synthetic policy failure"));
         assertThatThrownBy(() -> PatientApiPages.read(actor,security,"_tickler",0,1,(offset,limit) -> List.of(1),id -> id,id -> id)).isInstanceOf(IllegalStateException.class);
     }
+    @Test void shouldExcludeRowsAndTotals_whenARequiredModuleIsDenied() {
+        allow(1);
+        allow(2);
+        when(security.hasPrivilegeReadOnly(actor, "_document", "r", "2")).thenReturn(true);
+
+        var page = PatientApiPages.read(actor, security, "_tickler", 0, 2,
+                (offset, limit) -> List.of(1, 2), id -> id, id -> id, "_document");
+
+        assertThat(page.rows()).containsExactly(2);
+        assertThat(page.total()).isEqualTo(1);
+        verify(security, never()).isAllowedAccessToPatientRecord(actor, 1);
+    }
+    @Test void shouldReturnAnEmptyPage_whenTheSourceHasNoRows() {
+        var page = PatientApiPages.read(actor, security, "_tickler", 0, 2,
+                (offset, limit) -> List.<Integer>of(), id -> id, id -> id);
+
+        assertThat(page.rows()).isEmpty();
+        assertThat(page.total()).isZero();
+        verifyNoInteractions(security);
+    }
     @Test void shouldRefuseMalformedAndNonadvancingBackendPages() {
         assertThatThrownBy(() -> PatientApiPages.read(actor,security,"_tickler",0,1,(offset,limit) -> null,id -> 1,id -> id)).isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(() -> PatientApiPages.read(actor,security,"_tickler",0,1,(offset,limit) -> List.of(1),id -> null,id -> id)).isInstanceOf(IllegalStateException.class);

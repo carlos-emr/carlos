@@ -32,6 +32,12 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.util.Collections;
+import java.util.Enumeration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.HashSet;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -44,9 +50,11 @@ import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
 
+import com.google.common.base.Ascii;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.DeferredContentLength;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -101,7 +109,8 @@ public class PrivacyStatementAppendingFilter implements Filter {
     private Set<String> exclusions = Collections.synchronizedSet(new HashSet<String>());
 
     private String getPrivacyStatement() {
-        if (CarlosProperties.getConfidentialityStatement() == null || CarlosProperties.getConfidentialityStatement().trim().isEmpty()) {
+        String statement = CarlosProperties.getConfidentialityStatement();
+        if (statement == null || statement.trim().isEmpty()) {
             return "";
         }
         // carlos-print-decoration, alongside yesprint: this paragraph is PLATFORM boilerplate the
@@ -125,7 +134,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 "}\n" +
                 "--></style>" +
                 "<p class=\"yesprint carlos-print-decoration\"><b>\n" +
-                CarlosProperties.getConfidentialityStatement() +
+                statement +
                 "</b><br/>" +
                 "<b>END OF PRINTED DOCUMENT</b>" +
                 "</p>";
@@ -157,9 +166,36 @@ public class PrivacyStatementAppendingFilter implements Filter {
         try {
             // check if we are the first to print the request here
             isConfidentialityNotePrinted = isConfidentialtyNotePrinted(httpRequest);
+            String statement = isConfidentialityNotePrinted ? "" : getPrivacyStatement();
+            HttpServletRequest downstreamRequest = httpRequest;
+            boolean staticHtmlVariant = !isConfidentialityNotePrinted
+                    && ("GET".equals(httpRequest.getMethod()) || "HEAD".equals(httpRequest.getMethod()))
+                    && hasHtmlResourceType(httpRequest);
+            boolean ordinaryStaticHtml = staticHtmlVariant && !RequestNegotiation.isAjax(httpRequest);
+            boolean decoratedStaticHtml = ordinaryStaticHtml && !statement.isEmpty();
+            if (decoratedStaticHtml) {
+                // The file's validators and ranges describe only its undecorated bytes.
+                downstreamRequest = new PrintStatementRequest(httpRequest);
+            }
 
-            DelegatingServletResponse delegatingServletResponse = new DelegatingServletResponse(httpResponse);
-            chain.doFilter(request, delegatingServletResponse);
+            DelegatingServletResponse delegatingServletResponse = new DelegatingServletResponse(staticHtmlVariant
+                    ? new StaticHtmlMetadataResponse(httpResponse, decoratedStaticHtml, ordinaryStaticHtml) : httpResponse);
+            chain.doFilter(downstreamRequest, delegatingServletResponse);
+
+            if (decoratedStaticHtml && delegatingServletResponse.getStatus() == HttpServletResponse.SC_NOT_MODIFIED) {
+                // A wildcard existence condition can still produce 304. Its metadata
+                // must not advertise the undecorated file's validators or length.
+                delegatingServletResponse.discardDeferredContentLength();
+                discardBareFileMetadata(delegatingServletResponse);
+                delegatingServletResponse.completeWithoutStatement();
+                return;
+            }
+
+            // A partial response must retain the bytes and length described by Content-Range.
+            if (delegatingServletResponse.getStatus() == HttpServletResponse.SC_PARTIAL_CONTENT) {
+                delegatingServletResponse.completeWithoutStatement();
+                return;
+            }
 
             if (isConfidentialityNotePrinted) {
                 delegatingServletResponse.completeWithoutStatement();
@@ -188,13 +224,19 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 return;
             }
 
-            String statement = getPrivacyStatement();
             if (statement.isEmpty()) {
                 delegatingServletResponse.completeWithoutStatement();
                 return;
             }
             if (!delegatingServletResponse.isResponseWriterObtained()
                     && !delegatingServletResponse.isResponseOutputStreamObtained()) {
+                if (decoratedStaticHtml && "HEAD".equals(httpRequest.getMethod())
+                        && delegatingServletResponse.getStatus() == HttpServletResponse.SC_OK) {
+                    // A static HEAD's bare length omits the statement appended on GET.
+                    delegatingServletResponse.discardDeferredContentLength();
+                    discardBareFileMetadata(delegatingServletResponse);
+                    return;
+                }
                 delegatingServletResponse.completeWithoutStatement();
                 return;
             }
@@ -203,10 +245,191 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 return;
             }
             delegatingServletResponse.discardDeferredContentLength();
+            if (delegatingServletResponse.getStatus() == HttpServletResponse.SC_OK) {
+                discardBareFileMetadata(delegatingServletResponse);
+            }
             printConfidentialityStatement(response, delegatingServletResponse, statement);
         } finally {
             if (!isConfidentialityNotePrinted)
                 resetConfidentialityNote((HttpServletRequest) request);
+        }
+    }
+
+    private boolean hasHtmlResourceType(HttpServletRequest request) {
+        String path = getContextRelativePath(request);
+        return path != null && request.getServletContext() != null
+                && RequestNegotiation.isHtmlContentType(request.getServletContext().getMimeType(path));
+    }
+
+    private static void discardBareFileMetadata(HttpServletResponse response) {
+        response.setHeader("ETag", null);
+        response.setHeader("Last-Modified", null);
+        response.setHeader("Accept-Ranges", null);
+    }
+
+    /** Applies static representation metadata before any body write can commit the response. */
+    private static final class StaticHtmlMetadataResponse extends HttpServletResponseWrapper {
+        private static final String CACHE_CONTROL = "Cache-Control";
+        private static final String REQUEST_VARIANT = "X-Requested-With";
+        private static final List<String> FILE_METADATA = List.of("ETag", "Last-Modified", "Accept-Ranges");
+        private final Map<String, List<Runnable>> metadata = new LinkedHashMap<>();
+        private final boolean decorated;
+        private final boolean revalidate;
+        private boolean suppressing;
+
+        private StaticHtmlMetadataResponse(HttpServletResponse response, boolean decorated, boolean revalidate) {
+            super(response);
+            this.decorated = decorated;
+            this.revalidate = revalidate;
+            for (String name : FILE_METADATA) {
+                for (String value : response.getHeaders(name)) {
+                    metadata.computeIfAbsent(metadataKey(name), ignored -> new ArrayList<>())
+                            .add(() -> super.addHeader(name, value));
+                }
+            }
+            updatePolicy();
+            ensureRequestVariant();
+            ensureRevalidation();
+        }
+
+        private static String metadataKey(String name) {
+            return name == null ? "" : name.toLowerCase(Locale.ROOT);
+        }
+
+        private static boolean isFileMetadata(String name) {
+            return switch (metadataKey(name)) {
+                case "etag", "last-modified", "accept-ranges" -> true;
+                default -> false;
+            };
+        }
+
+        private void updatePolicy() {
+            boolean suppress = decorated && (getStatus() == SC_OK || getStatus() == SC_NOT_MODIFIED)
+                    && (getContentType() == null || RequestNegotiation.isHtmlContentType(getContentType()));
+            if (suppress == suppressing) return;
+            suppressing = suppress;
+            for (String name : FILE_METADATA) super.setHeader(name, null);
+            if (!suppressing) metadata.values().forEach(operations -> operations.forEach(Runnable::run));
+        }
+
+        private void record(String name, boolean replace, Runnable operation) {
+            var operations = metadata.computeIfAbsent(metadataKey(name), ignored -> new ArrayList<>());
+            if (replace) operations.clear();
+            operations.add(operation);
+            if (!suppressing) operation.run();
+        }
+
+        private void ensureRequestVariant() {
+            for (String value : super.getHeaders("Vary")) {
+                for (String token : value.split(",")) {
+                    String field = token.trim();
+                    if ("*".equals(field) || Ascii.equalsIgnoreCase(REQUEST_VARIANT, field)) return;
+                }
+            }
+            super.addHeader("Vary", REQUEST_VARIANT);
+        }
+
+        private void ensureRevalidation() {
+            if (!revalidate) return;
+            for (String header : super.getHeaders(CACHE_CONTROL)) {
+                for (String directive : header.split(",")) {
+                    if (Ascii.equalsIgnoreCase("no-cache", directive.trim())) return;
+                }
+            }
+            // A later settings change can render a different page even when the file has not changed.
+            super.addHeader(CACHE_CONTROL, "no-cache");
+        }
+
+        @Override public void setHeader(String name, String value) {
+            if (isFileMetadata(name)) {
+                record(name, true, () -> super.setHeader(name, value));
+            } else {
+                super.setHeader(name, value);
+                updatePolicy();
+                String key = metadataKey(name);
+                if ("vary".equals(key)) ensureRequestVariant();
+                if ("cache-control".equals(key)) ensureRevalidation();
+            }
+        }
+        @Override public void addHeader(String name, String value) {
+            if (isFileMetadata(name)) record(name, false, () -> super.addHeader(name, value));
+            else { super.addHeader(name, value); updatePolicy(); if ("vary".equals(metadataKey(name))) ensureRequestVariant(); }
+        }
+        @Override public void setDateHeader(String name, long value) {
+            if (isFileMetadata(name)) record(name, true, () -> super.setDateHeader(name, value));
+            else super.setDateHeader(name, value);
+        }
+        @Override public void addDateHeader(String name, long value) {
+            if (isFileMetadata(name)) record(name, false, () -> super.addDateHeader(name, value));
+            else super.addDateHeader(name, value);
+        }
+        @Override public void setIntHeader(String name, int value) {
+            if (isFileMetadata(name)) record(name, true, () -> super.setIntHeader(name, value));
+            else super.setIntHeader(name, value);
+        }
+        @Override public void addIntHeader(String name, int value) {
+            if (isFileMetadata(name)) record(name, false, () -> super.addIntHeader(name, value));
+            else super.addIntHeader(name, value);
+        }
+        @Override public void setStatus(int status) { super.setStatus(status); updatePolicy(); }
+        @Override public void setContentType(String type) { super.setContentType(type); updatePolicy(); }
+        @Override public void reset() {
+            super.reset();
+            metadata.clear();
+            suppressing = false;
+            updatePolicy();
+            ensureRequestVariant();
+            ensureRevalidation();
+        }
+    }
+
+    /** Hides file validators and ranges from requests for decorated static HTML. */
+    private static final class PrintStatementRequest extends HttpServletRequestWrapper {
+        private static final String IF_MATCH = "If-Match";
+        private static final String NONMATCHING_TAG = "W/\"carlos-print-statement\"";
+        private final boolean wildcard;
+        private final boolean explicitIfMatch;
+
+        @SuppressFBWarnings(value = "SERVLET_HEADER", justification = "Untrusted headers select HTTP preconditions, with a fixed nonmatching tag for explicit If-Match")
+        private PrintStatementRequest(HttpServletRequest request) {
+            super(request);
+            String tag = request.getHeader("If-None-Match");
+            wildcard = tag != null && "*".equals(tag.trim());
+            String ifMatch = request.getHeader(IF_MATCH);
+            explicitIfMatch = ifMatch != null && !"*".equals(ifMatch.trim());
+        }
+
+        private boolean isHiddenHeader(String name) {
+            return Ascii.equalsIgnoreCase("Range", name) || Ascii.equalsIgnoreCase("If-Range", name)
+                    || Ascii.equalsIgnoreCase("If-Modified-Since", name)
+                    || (Ascii.equalsIgnoreCase("If-None-Match", name) && !wildcard);
+        }
+
+        @Override
+        public String getHeader(String name) {
+            if (explicitIfMatch && Ascii.equalsIgnoreCase(IF_MATCH, name)) return NONMATCHING_TAG;
+            return isHiddenHeader(name) ? null : super.getHeader(name);
+        }
+
+        @Override
+        public Enumeration<String> getHeaders(String name) {
+            // If-Match uses strong comparison, so a weak tag never matches the bare file.
+            // Let the servlet keep its normal existence and error handling.
+            if (explicitIfMatch && Ascii.equalsIgnoreCase(IF_MATCH, name)) {
+                return Collections.enumeration(List.of(NONMATCHING_TAG));
+            }
+            return isHiddenHeader(name) ? Collections.emptyEnumeration() : super.getHeaders(name);
+        }
+
+        @Override
+        public long getDateHeader(String name) {
+            return isHiddenHeader(name) ? -1 : super.getDateHeader(name);
+        }
+
+        @Override
+        public Enumeration<String> getHeaderNames() {
+            return Collections.enumeration(Collections.list(super.getHeaderNames()).stream()
+                    .filter(name -> !isHiddenHeader(name)).toList());
         }
     }
 

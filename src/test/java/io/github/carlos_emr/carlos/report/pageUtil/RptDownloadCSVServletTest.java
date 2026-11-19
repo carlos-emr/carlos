@@ -17,6 +17,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
@@ -44,6 +46,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.invocation.InvocationOnMock;
+import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 
@@ -51,8 +54,13 @@ import io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery;
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.report.data.RptReportConfigData;
 import io.github.carlos_emr.carlos.report.data.RptReportCreator;
+import io.github.carlos_emr.carlos.report.data.RptReportFilter;
 import io.github.carlos_emr.carlos.report.data.RptReportItem;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.AntenatalReportDao;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import org.apache.logging.log4j.Level;
 
@@ -63,6 +71,11 @@ import org.apache.logging.log4j.Level;
  * verify the generated SQL shape and bind-parameter ordering without requiring a database.
  * They invoke the private servlet method via reflection and capture
  * {@link ConfiguredReportQuery#read(String, Object...)} calls with a static mock.</p>
+ *
+ * <p>The report filters are the stored filters of the report ({@link RptReportFilter}, stubbed
+ * here from {@link #addFilter}); SQL text posted in {@code value_<n>} is ignored (#5831). The
+ * servlet checks {@code _report}/{@code _admin.reporting} read itself, so requests carry a
+ * logged-in user, and the security manager is a mock that allows unless a test says otherwise.</p>
  *
  * <p>Public {@code service()} tests also verify that query failures return HTTP 500 and
  * UTF-8 payloads exceeding the export byte budget return HTTP 413 without a partial download,
@@ -82,6 +95,11 @@ class RptDownloadCSVServletTest {
 
 
     private MockedStatic<ConfiguredReportQuery> configuredQueryMock;
+    private MockedConstruction<RptReportFilter> storedFilterMock;
+    /** The report's stored filters, in RptReportFilter#getNameList's six-column shape. */
+    private final List<String[]> storedFilters = new ArrayList<>();
+    private SecurityInfoManager security;
+    private final LoggedInInfo user = new LoggedInInfo();
 
     @BeforeAll
     static void setUpReflection() throws NoSuchMethodException {
@@ -92,6 +110,10 @@ class RptDownloadCSVServletTest {
     @BeforeEach
     void setUp() {
         configuredQueryMock = mockStatic(ConfiguredReportQuery.class);
+        storedFilterMock = mockConstruction(RptReportFilter.class, (filters, context) ->
+                when(filters.getNameList(anyString(), anyInt())).thenAnswer(call -> new Vector<>(storedFilters)));
+        security = mock(SecurityInfoManager.class);
+        when(security.hasPrivilege(eq(user), eq("_report"), eq("r"), isNull())).thenReturn(true);
     }
 
     @AfterEach
@@ -100,6 +122,35 @@ class RptDownloadCSVServletTest {
             configuredQueryMock.close();
             configuredQueryMock = null;
         }
+        if (storedFilterMock != null) {
+            storedFilterMock.close();
+            storedFilterMock = null;
+        }
+    }
+
+    /** The servlet under test, with the mocked security manager. */
+    private RptDownloadCSVServlet servlet() {
+        return new RptDownloadCSVServlet(security);
+    }
+
+    @Test
+    void shouldUseTheCurrentSecurityManager_forEachContainerRequest() throws Exception {
+        RptDownloadCSVServlet containerServlet = new RptDownloadCSVServlet();
+        SecurityInfoManager firstManager = mock(SecurityInfoManager.class);
+        SecurityInfoManager secondManager = mock(SecurityInfoManager.class);
+        var firstResponse = mock(jakarta.servlet.http.HttpServletResponse.class);
+        var secondResponse = mock(jakarta.servlet.http.HttpServletResponse.class);
+
+        try (var spring = mockStatic(SpringUtils.class)) {
+            spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(firstManager, secondManager);
+            containerServlet.service(baseRequest(), firstResponse);
+            containerServlet.service(baseRequest(), secondResponse);
+        }
+
+        verify(firstManager).hasPrivilege(user, "_report", "r", null);
+        verify(secondManager).hasPrivilege(user, "_report", "r", null);
+        verify(firstResponse).sendError(eq(403), anyString());
+        verify(secondResponse).sendError(eq(403), anyString());
     }
 
     @Test
@@ -136,6 +187,25 @@ class RptDownloadCSVServletTest {
 
         assertSqlShape(subQuery);
         assertThat(subQuery.params()).containsExactly("2026-01-01");
+    }
+
+    @Test
+    void shouldUseTheBirthSummaryPatientIds_forAnAntenatalFilter() throws Exception {
+        var request = baseRequest();
+        request.addParameter("last_name", "on");
+        request.addParameter("c_EDD", "on");
+        addFilter(request, 1, "formBCAR.demographic_no in (select demographic_no from formBCBirthSumMo where demographic_no='${patient}')",
+                "patient", "17");
+        AntenatalReportDao summaries = mock(AntenatalReportDao.class);
+        when(summaries.birthSummaryDemographics()).thenReturn(List.of(17, 42));
+
+        try (var spring = mockStatic(SpringUtils.class)) {
+            spring.when(() -> SpringUtils.getBean(AntenatalReportDao.class)).thenReturn(summaries);
+            SqlCall subQuery = findCallContaining(invokeDemoReport(request), "select max(ID) from formBCAR");
+
+            assertThat(subQuery.sql()).contains("formBCAR.demographic_no in (17,42)").doesNotContain("formBCBirthSumMo");
+            assertThat(subQuery.params()).isEmpty();
+        }
     }
 
     @Test
@@ -227,7 +297,7 @@ class RptDownloadCSVServletTest {
         var response = new org.springframework.mock.web.MockHttpServletResponse();
         try (var settings = mockStatic(CarlosProperties.class)) {
             settings.when(CarlosProperties::getInstance).thenReturn(properties);
-            new RptDownloadCSVServlet().service(request, response);
+            servlet().service(request, response);
         }
 
         assertThat(response.getStatus()).isEqualTo(200);
@@ -264,7 +334,7 @@ class RptDownloadCSVServletTest {
         var response = new org.springframework.mock.web.MockHttpServletResponse();
         try (var settings = mockStatic(CarlosProperties.class)) {
             settings.when(CarlosProperties::getInstance).thenReturn(properties);
-            new RptDownloadCSVServlet().service(request, response);
+            servlet().service(request, response);
         }
         assertThat(response.getStatus()).isEqualTo(200);
         try (var csv = org.apache.commons.csv.CSVParser.parse(response.getContentAsString(),
@@ -299,7 +369,7 @@ class RptDownloadCSVServletTest {
         var response = new org.springframework.mock.web.MockHttpServletResponse();
         try (var settings = mockStatic(CarlosProperties.class)) {
             settings.when(CarlosProperties::getInstance).thenReturn(properties);
-            new RptDownloadCSVServlet().service(request, response);
+            servlet().service(request, response);
         }
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getContentAsString()).contains("Preferred Language\tcustom key", "French\tcustom value");
@@ -311,15 +381,12 @@ class RptDownloadCSVServletTest {
 
     @Test
     void shouldKeepPatientsAndKeysDistinct_forDigitLeadingExtensionKeys() throws Exception {
-        var request = new MockHttpServletRequest();
-        request.getSession(true);
+        var request = baseRequest();
         request.setParameter("demoReport", "true");
         request.setParameter("first_name", "on");
         request.setParameter("2custom", "on");
         request.setParameter("custom", "on");
-        request.setParameter("filter_1", "on");
-        request.setParameter("value_1", "demographic.first_name='FAKE'");
-        request.setParameter("dateFormat_1", "");
+        addFilter(request, 1, "demographic.first_name='FAKE'", "unused", "");
         var first = new ConfiguredReportQuery.Row(Map.of("demographic_no", "41", "first_name", "FAKE first"), List.of());
         var second = new ConfiguredReportQuery.Row(Map.of("demographic_no", "412", "first_name", "FAKE second"), List.of());
         configuredQueryMock.when(() -> ConfiguredReportQuery.read(anyString(), any(Object[].class)))
@@ -332,7 +399,7 @@ class RptDownloadCSVServletTest {
         var response = new org.springframework.mock.web.MockHttpServletResponse();
         try (var settings = mockStatic(CarlosProperties.class)) {
             settings.when(CarlosProperties::getInstance).thenReturn(properties);
-            new RptDownloadCSVServlet().service(request, response);
+            servlet().service(request, response);
         }
         assertThat(response.getStatus()).isEqualTo(200);
         try (var csv = org.apache.commons.csv.CSVParser.parse(response.getContentAsString(),
@@ -360,7 +427,7 @@ class RptDownloadCSVServletTest {
                                 ? List.of(extensionRow("41", "prefer_language", value))
                                 : List.of(new ConfiguredReportQuery.Row(Map.of("demographic_no", "41", "last_name", "FAKE", "first_name", "Patient"), List.of()))));
         var response = new org.springframework.mock.web.MockHttpServletResponse();
-        new RptDownloadCSVServlet().service(request, response);
+        servlet().service(request, response);
         assertThat(response.getStatus()).isEqualTo(200);
         try (var csv = org.apache.commons.csv.CSVParser.parse(response.getContentAsString(),
                 org.apache.commons.csv.CSVFormat.DEFAULT.builder().setDelimiter('\t').get())) {
@@ -386,7 +453,7 @@ class RptDownloadCSVServletTest {
         var response = new org.springframework.mock.web.MockHttpServletResponse();
         try (var settings = mockStatic(CarlosProperties.class)) {
             settings.when(CarlosProperties::getInstance).thenReturn(mock(CarlosProperties.class));
-            new RptDownloadCSVServlet().service(request, response);
+            servlet().service(request, response);
         }
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getContentAsString()).contains("Preferred Language");
@@ -424,7 +491,7 @@ class RptDownloadCSVServletTest {
         var response = new org.springframework.mock.web.MockHttpServletResponse();
         try (var settings = mockStatic(CarlosProperties.class)) {
             settings.when(CarlosProperties::getInstance).thenReturn(mock(CarlosProperties.class));
-            new RptDownloadCSVServlet().service(request, response);
+            servlet().service(request, response);
         }
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getContentAsString()).contains("\tsame-date-higher-id")
@@ -501,7 +568,7 @@ class RptDownloadCSVServletTest {
                 RptReportItem.class,
                 (report, context) -> when(report.getReportName("5549"))
                         .thenThrow(new java.sql.SQLException("synthetic read failure")))) {
-            new RptDownloadCSVServlet().service(request, response);
+            servlet().service(request, response);
             assertThat(reports.constructed()).hasSize(1);
             assertThat(response.getStatus()).isEqualTo(500);
             assertThat(response.getErrorMessage()).isEqualTo("Unable to generate report");
@@ -523,7 +590,7 @@ class RptDownloadCSVServletTest {
         addFilter(request, 1, "demographic.demographic_no=42", "unused", "");
         var response = new org.springframework.mock.web.MockHttpServletResponse();
         try (LogCapture log = LogCapture.forLogger(RptDownloadCSVServlet.class)) {
-            new RptDownloadCSVServlet().service(request, response);
+            servlet().service(request, response);
             assertThat(messages(log, Level.WARN))
                     .containsExactly("Report download refused by its configured_report.max_csv_mb limit of 5");
             assertThat(messages(log, Level.ERROR)).isEmpty();
@@ -552,7 +619,7 @@ class RptDownloadCSVServletTest {
         var response = new org.springframework.mock.web.MockHttpServletResponse();
         CarlosProperties.getInstance().setProperty("configured_report.max_csv_mb", "8");
         try {
-            new RptDownloadCSVServlet().service(request, response);
+            servlet().service(request, response);
         } finally {
             CarlosProperties.getInstance().remove("configured_report.max_csv_mb");
         }
@@ -570,7 +637,7 @@ class RptDownloadCSVServletTest {
         request.setParameter("demoReport", "true"); request.setParameter("last_name", "on");
         addFilter(request, 1, "demographic.demographic_no=42", "unused", "");
         var response = new org.springframework.mock.web.MockHttpServletResponse();
-        new RptDownloadCSVServlet().service(request, response);
+        servlet().service(request, response);
         // Still a failed download with nothing partial; the error page now says which limit stopped it.
         assertThat(response.getStatus()).isEqualTo(500);
         assertThat(response.getContentAsString()).isEmpty();
@@ -589,7 +656,7 @@ class RptDownloadCSVServletTest {
         addFilter(request, 1, "demographic.demographic_no=42", "unused", "");
         var response = new org.springframework.mock.web.MockHttpServletResponse();
         try (LogCapture log = LogCapture.forLogger(RptDownloadCSVServlet.class)) {
-            new RptDownloadCSVServlet().service(request, response);
+            servlet().service(request, response);
 
             // A refusal is the user's to fix: one warning naming the setting, no trace, no error.
             assertThat(messages(log, Level.WARN))
@@ -613,7 +680,7 @@ class RptDownloadCSVServletTest {
                 (report, context) -> when(report.getReportName("5549")).thenThrow(
                         new ConfiguredReportQuery.LimitExceededException(ConfiguredReportQuery.Limit.ROWS, 10_000)));
              LogCapture log = LogCapture.forLogger(RptDownloadCSVServlet.class)) {
-            new RptDownloadCSVServlet().service(request, response);
+            servlet().service(request, response);
 
             assertThat(reports.constructed()).hasSize(1);
             assertThat(messages(log, Level.WARN))
@@ -639,7 +706,7 @@ class RptDownloadCSVServletTest {
                 RptReportItem.class,
                 (report, context) -> when(report.getReportName("5549")).thenThrow(failure));
              LogCapture log = LogCapture.forLogger(RptDownloadCSVServlet.class)) {
-            new RptDownloadCSVServlet().service(request, response);
+            servlet().service(request, response);
 
             assertThat(messages(log, Level.WARN)).isEmpty();
             assertThat(messages(log, Level.ERROR)).containsExactly("RptDownloadCSVServlet service() - form report failed");
@@ -661,7 +728,7 @@ class RptDownloadCSVServletTest {
         addFilter(request, 1, "demographic.demographic_no=42", "unused", "");
         var response = new org.springframework.mock.web.MockHttpServletResponse();
         try (LogCapture log = LogCapture.forLogger(RptDownloadCSVServlet.class)) {
-            new RptDownloadCSVServlet().service(request, response);
+            servlet().service(request, response);
 
             assertThat(messages(log, Level.WARN)).isEmpty();
             assertThat(messages(log, Level.ERROR)).containsExactly("RptDownloadCSVServlet service() - report generation failed");
@@ -674,6 +741,161 @@ class RptDownloadCSVServletTest {
         assertThat(request.getAttribute("carlosReportLimitKey")).isNull();
     }
 
+    // ---- #5831: the servlet's own access check and server-side filter definitions ----
+
+    @Test
+    @DisplayName("should refuse with 403 and run no query when the session has no logged-in user")
+    void shouldRefuseWithForbidden_whenSessionHasNoLoggedInUser() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        request.getSession(true);
+        request.setParameter("demoReport", "true");
+        request.setParameter("last_name", "on");
+        addFilter(request, 1, "demographic.demographic_no=42", "unused", "");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        servlet().service(request, response);
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getErrorMessage()).isEqualTo("missing required sec object (_report)");
+        assertThat(request.getAttribute("carlosRefusalKey")).isEqualTo("error.refusal.reportAccess");
+        assertThat(response.getContentAsString()).isEmpty();
+        configuredQueryMock.verifyNoInteractions();
+        assertThat(storedFilterMock.constructed()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should refuse with 403 and run no query when the user has neither report privilege")
+    void shouldRefuseWithForbidden_whenUserLacksReportPrivileges() throws Exception {
+        when(security.hasPrivilege(eq(user), eq("_report"), eq("r"), isNull())).thenReturn(false);
+        var request = baseRequest();
+        request.setParameter("id", "5549");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        try (var reports = mockConstruction(RptReportItem.class)) {
+            servlet().service(request, response);
+            assertThat(reports.constructed()).isEmpty();
+        }
+        assertThat(response.getStatus()).isEqualTo(403);
+        verify(security).hasPrivilege(user, "_admin.reporting", "r", null);
+        configuredQueryMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should allow the download with _admin.reporting alone, as the report filter page does")
+    void shouldAllowDownload_whenUserHasAdminReportingOnly() throws Exception {
+        when(security.hasPrivilege(eq(user), eq("_report"), eq("r"), isNull())).thenReturn(false);
+        when(security.hasPrivilege(eq(user), eq("_admin.reporting"), eq("r"), isNull())).thenReturn(true);
+        var row = new ConfiguredReportQuery.Row(Map.of("last_name", "FAKE"), List.of("FAKE"));
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(anyString(), any(Object[].class)))
+                .thenReturn(new ConfiguredReportQuery.Result(List.of("last_name"), List.of(row)));
+        var request = baseRequest();
+        request.setParameter("demoReport", "true");
+        request.setParameter("last_name", "on");
+        addFilter(request, 1, "demographic.demographic_no=42", "unused", "");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        servlet().service(request, response);
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsString()).contains("FAKE");
+    }
+
+    @Test
+    @DisplayName("should build the WHERE clause from the stored filter, not SQL posted in value_")
+    void shouldUseStoredPredicate_whenRequestPostsInjectedSql() throws Exception {
+        MockHttpServletRequest request = baseRequest();
+        request.addParameter("last_name", "on");
+        addFilter(request, 1, "demographic.last_name='${lastName}'", "lastName", "Smith");
+        // The page's hidden copy is replaced with attacker SQL; only the stored definition may run.
+        request.setParameter("value_1", "1=1 UNION SELECT user_name FROM security");
+
+        List<SqlCall> sqlCalls = invokeDemoReport(request);
+
+        assertThat(sqlCalls).isNotEmpty().allSatisfy(call -> assertThat(call.sql())
+                .doesNotContainIgnoringCase("union").doesNotContain("security"));
+        SqlCall query = findCallContaining(sqlCalls, "from demographic where");
+        assertThat(query.sql()).contains("demographic.last_name=?");
+        assertThat(query.params()).containsExactly("Smith");
+    }
+
+    @Test
+    @DisplayName("should preserve date conversion for the report's stored date filter")
+    void shouldBindNormalizedDates_forStoredReportDateFilters() throws Exception {
+        MockHttpServletRequest request = baseRequest();
+        request.addParameter("last_name", "on");
+        addFilter(request, 1, "demographic.roster_date >= '${startDate1}'", "startDate1", "11/18/2026");
+        storedFilters.getFirst()[5] = "MM/dd/yyyy";
+        request.setParameter("dateFormat_1", "yyyy-MM-dd");
+
+        SqlCall query = findCallContaining(invokeDemoReport(request), "from demographic where");
+
+        assertThat(query.sql()).contains("demographic.roster_date >= ?");
+        assertThat(query.params()).containsExactly("2026-11-18");
+    }
+
+    @Test
+    @DisplayName("should answer 400 and run no query when a ticked filter is not one of the report's filters")
+    void shouldAnswerBadRequest_whenTickedFilterIsUnknown() throws Exception {
+        var request = baseRequest();
+        request.setParameter("demoReport", "true");
+        request.setParameter("last_name", "on");
+        request.setParameter("filter_9", "on");
+        request.setParameter("value_9", "1=1");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        try (LogCapture log = LogCapture.forLogger(RptDownloadCSVServlet.class)) {
+            servlet().service(request, response);
+            assertThat(messages(log, Level.ERROR)).isEmpty();
+            assertThat(messages(log, Level.WARN)).singleElement().asString().contains("not this report's active filters");
+        }
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getErrorMessage()).contains("reload the report filter page");
+        assertThat(request.getAttribute("carlosRefusalKey")).isEqualTo("error.refusal.reportFilterSelection");
+        assertThat(response.getContentAsString()).isEmpty();
+        configuredQueryMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should answer 400 when a form report ticks a filter the report does not define")
+    void shouldAnswerBadRequest_whenFormReportFilterIsUnknown() throws Exception {
+        var request = baseRequest();
+        request.setParameter("id", "7");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        try (var _ = mockConstruction(RptReportItem.class,
+                     (report, context) -> when(report.getReportName("7")).thenReturn("report-7"));
+             var _ = mockConstruction(RptFormQuery.class, (query, context) ->
+                     when(query.getQueryStr(anyString(), any())).thenThrow(new RptFormQuery.UnknownReportFilterException()))) {
+            servlet().service(request, response);
+        }
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should guard formula-like headers and cells in the form report CSV (#5846)")
+    void shouldGuardFormulaCells_inFormReportCsv() throws Exception {
+        var request = baseRequest();
+        request.setParameter("id", "7");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        try (var _ = mockConstruction(RptReportItem.class, (report, context) ->
+                     when(report.getReportName(anyString())).thenReturn("report-7"));
+             var _ = mockConstruction(RptFormQuery.class, (query, context) ->
+                     when(query.getQueryStr(anyString(), any())).thenReturn(new ParameterizedSql("select 1", List.of())));
+             var _ = mockConstruction(RptReportConfigData.class, (config, context) ->
+                     when(config.getAllFieldNameValue(anyString(), anyString())).thenReturn(new Vector[]{
+                             new Vector<>(List.of("=caption")), new Vector<>(List.of("=caption"))}));
+             var _ = mockConstruction(RptReportCreator.class, (reader, context) ->
+                     when(reader.query(anyString(), any(Vector.class), any(Object[].class))).thenAnswer(call -> {
+                         Properties row = new Properties();
+                         row.setProperty("=caption", "=HYPERLINK(\"synthetic\",\"x\")");
+                         return new Vector<>(List.of(row));
+                     }))) {
+            servlet().service(request, response);
+        }
+        assertThat(response.getStatus()).isEqualTo(200);
+        try (var csv = org.apache.commons.csv.CSVParser.parse(response.getContentAsString(),
+                org.apache.commons.csv.CSVFormat.DEFAULT.builder().setDelimiter('\t').get())) {
+            var rows = csv.getRecords();
+            assertThat(rows.get(0).get(0)).isEqualTo("\t=caption");
+            assertThat(rows.get(1).get(0)).isEqualTo("\t=HYPERLINK(\"synthetic\",\"x\")");
+        }
+    }
+
     /** The messages a capture holds at one level. */
     private static List<String> messages(LogCapture log, Level level) {
         return log.events().stream().filter(event -> event.getLevel() == level)
@@ -682,7 +904,7 @@ class RptDownloadCSVServletTest {
 
     @Test
     void shouldKeepEachDownloadFilename_whenRequestsOverlap() throws Exception {
-        RptDownloadCSVServlet servlet = new RptDownloadCSVServlet();
+        RptDownloadCSVServlet servlet = servlet();
         MockHttpServletRequest first = baseRequest();
         first.getSession(true);
         first.setParameter("id", "1");
@@ -743,15 +965,17 @@ class RptDownloadCSVServletTest {
         var response = mock(jakarta.servlet.http.HttpServletResponse.class);
         when(response.getOutputStream()).thenReturn(output);
 
-        assertThatThrownBy(() -> new RptDownloadCSVServlet().service(request, response))
+        assertThatThrownBy(() -> servlet().service(request, response))
                 .isInstanceOf(java.io.IOException.class)
                 .hasMessage("synthetic output failure");
         verify(output).close();
     }
 
+    /** A POST from a logged-in user, with the session the servlet requires. */
     private MockHttpServletRequest baseRequest() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("POST");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(true), user);
         return request;
     }
 
@@ -761,6 +985,9 @@ class RptDownloadCSVServletTest {
             String expression,
             String variableName,
             String variableValue) {
+        // The predicate is the report's stored definition; the page still posts its copy in
+        // value_<n>, which the servlet ignores (#5831).
+        storedFilters.add(new String[]{"filter " + serial, expression, "", String.valueOf(serial), "", ""});
         request.addParameter("filter_" + serial, "on");
         request.addParameter("value_" + serial, expression);
         request.addParameter("dateFormat_" + serial, "");
@@ -781,7 +1008,7 @@ class RptDownloadCSVServletTest {
                 });
 
         try {
-            demoReportMethod.invoke(new RptDownloadCSVServlet(), request);
+            demoReportMethod.invoke(servlet(), request);
         } catch (InvocationTargetException e) {
             if (e.getCause() instanceof Exception exception) {
                 throw exception;

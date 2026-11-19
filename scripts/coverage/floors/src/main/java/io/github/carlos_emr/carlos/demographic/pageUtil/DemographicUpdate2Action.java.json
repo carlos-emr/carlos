@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/demographic/pageUtil/DemographicUpdate2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "f2024ae55f07863ddffe36a574ce7f3ec326ece0"
+  },
+  "evidenceSha256": "544b227788f770a39399213b5c0959f385b9b9fcefc7f200fd5a473b51048d65"
+}

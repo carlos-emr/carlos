@@ -8836,6 +8836,24 @@
       "notes": "Checks observed-date and received-date modes. Native LocalDateTime received values must retain the legacy space-separated timestamp display and remain parseable."
     },
     {
+      "name": "inbox-date-mode-counts",
+      "script": "scripts/inbox-date-mode-counts-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "SystemPreferences"
+      ],
+      "fixtures": "Snapshots and restores the global SystemPreferences row inboxDateSearchType, which changes every user's Inbox date mode while it runs, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owns four documents (document, ctl_document, providerLabRouting) and three HL7 labs (hl7TextMessage, hl7TextInfo, providerLabRouting, patientLabRouting) for the run's FAKE- patient, whose HIN is set to ''; cleanup removes every row by id and run marker and asserts none remain.",
+      "notes": "Issue #5772. In serviceObservation and receivedCreated modes, the Inbox Hub lists exactly the fixtures dated in the window by that mode, and the Documents, Labs, total and patient-sidebar counts equal the rows listed."
+    },
+    {
       "name": "gap-provider-account-expiry",
       "script": "scripts/gap-provider-account-expiry-playwright-checks.js",
       "tiers": [
@@ -12784,6 +12802,29 @@
       "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two notes written and signed through the chart's note editor, and the casemgmt_issue row plus its casemgmt_issue_notes link written with SQL for the first note (a fixture isolates filtering from the separately tested assignment controls). Cleanup deletes by the patient key every note (with its link, extension and issue rows), casemgmt_issue row, CPP summary (casemgmt_cpp), draft, note lock and eChart row of the patient and asserts them all gone. The catalog issue (CTCMM1000 'Safety') is only read. No clinic-wide state is changed."
     },
     {
+      "name": "echart-queued-issue-mutations",
+      "script": "scripts/echart-issues-filter-playwright-checks.js",
+      "envSet": {
+        "ECHART_ISSUES_PIN": "queued"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "ECHART_ISSUES_PIN"
+      ],
+      "mutates": [
+        "log"
+      ],
+      "notes": "Queues native status and delete clicks while a CPP-triggered issue-editor refresh is delayed. The refresh changes the checklist order. Verifies the persisted status flags on the first two issues, the last repeated choice, and deletion of the third issue.",
+      "fixtures": "An owned FAKE patient with three synthetic catalog issues and three associated patient issues. Saves one Social History CPP note. Cleanup removes the owned issues, catalog entries, notes, links, summary, drafts and locks."
+    },
+    {
       "name": "inbox-file-forward",
       "script": "scripts/inbox-file-forward-playwright-checks.js",
       "tiers": [
@@ -14748,7 +14789,7 @@
       ],
       "timeoutSec": 180,
       "env": [],
-      "notes": "Messenger Reply ▸ Send and Archive (CreateMessage.jsp #sendArchive): the background POST to messenger/DisplayMessages archives exactly the message replied to (btnDelete=archive, its messageNo, taken from the validated server-rendered compose identity) and is accepted, then the reply is sent: one reply from the test login, delivered to the sender only. The message replied to is 'del' for the test login only (the other recipient's row is unchanged); the inbox no longer lists it and the archive box (boxType=2) does. The original message identity is carried by a validated encoded compose field rather than the browser referrer. A labeled negative fixture disables only the owned checked recipient control for one native ordinary Send, observes the actual server redisplay with no stored reply or changed source rows, then enables the real recipient and uses native Send & Archive. The retry retains the original message ID, raw fields and attachment key; only the original owned recipient row is archived, and the entire other-recipient row remains exact.",
+      "notes": "Messenger Reply ▸ Send and Archive (CreateMessage.jsp #sendArchive): one compose POST carries archiveAfterSend=1 and the original message ID (a validated encoded compose field, not the browser referrer), with no background archive POST; the server archives the message replied to only after the reply is sent (#6042). A labeled negative fixture disables only the owned checked recipient control: an ordinary Send and then a Send and Archive each reach the server's real redisplay with no stored reply, no changed source rows and the message replied to still not archived. With the real recipient enabled, Send and Archive sends one reply from the test login, delivered to the sender only, and the message replied to is 'del' for the test login only (the other recipient's row is unchanged); the inbox no longer lists it and the archive box (boxType=2) does. The retry retains the original message ID, raw fields and attachment key.",
       "fixtures": "One message seeded by SQL the way a local send writes it (sender messenger contact 1; recipients the test login and contact 2; subject and lines carry the run marker). SKIP when the messenger contacts are not 1 and 2 plus the test login. Cleanup deletes every message whose subject carries the marker, with its delivery and patient-link rows, and asserts they are gone."
     },
     {
@@ -15541,7 +15582,7 @@
       "timeoutSec": 180,
       "env": [],
       "fixtures": "Owned marker-named lists in the login schedule group and two synthetic patients; no clinic preferences changed.",
-      "notes": "Manager row Update: multiline/quoted note and date, reprioritization, untouched control patient, history, clearing the note and unedited Update."
+      "notes": "Manager row Update: multiline/quoted note and date, reprioritization, untouched control patient, history, clearing the note and unedited Update. Note limit (#6141): 255 characters as submitted (a line break as CR LF) are saved whole; one more is stopped in the browser with the limit message and nothing is sent; a crafted longer note past the browser is answered 400 with the refusal shown above the list, and no row changes."
     },
     {
       "name": "waiting-list-manager-remove",
@@ -15562,6 +15603,21 @@
       "envSet": {
         "WAITING_LIST_ACTION": "remove"
       }
+    },
+    {
+      "name": "waiting-list-row-links",
+      "script": "scripts/waiting-list-row-links-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "fixtures": "Owned marker-named lists in the login schedule group and two synthetic patients; no clinic preferences changed.",
+      "notes": "Issue #5477: the manager's patient-name link moved from the OWASP encoder taglib (e:forUriComponent) to carlos:forUriComponent, and encoder-jakarta-jsp left the WAR. For each existing entry the Master Record, Make Appointment and Remove links name that row's own patient (and list), the Master Record onclick is byte-for-byte the one the old expression rendered, and following it opens that patient's Master Record. Read-only apart from its own fixtures."
     },
     {
       "name": "waiting-list-booking",
@@ -19486,6 +19542,22 @@
       "notes": "#5928: installed Client Search bounds data and HTML to 10 rows, retains note identity and criteria drafts through repeated POST paging with fresh CSRF, applies global sorting and native Soundex paging; BC tray bounds each page to 50 rows and preserves both unsaved fee codes."
     },
     {
+      "name": "report-blob-text-readers",
+      "script": "scripts/report-blob-text-readers-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON",
+        "BC"
+      ],
+      "timeoutSec": 180,
+      "manual": true,
+      "notes": "#5922: runs on a local disposable Ubuntu26.04 packaged host with JDK25+ and access to the private CARLOS properties. After shared browser login, selects a real binary eform.errorLog column through both installed bounded-reader implementations; legacy string decoding is the control. Credentials and cell contents are never printed.",
+      "fixtures": "One owned inactive eForm with synthetic UTF8 errorLog text, no clinical data. Cleanup matches all ownership markers, refuses associated eform_data and verifies removal. Requires CARLOS_DISPOSABLE_HOST=true and EXCLUSIVE=1."
+    },
+    {
       "name": "fax-configuration-save",
       "script": "scripts/fax-configuration-save-playwright-checks.js",
       "tiers": [
@@ -19503,6 +19575,28 @@
       ],
       "fixtures": "Requires a disposable host with no active fax account. Snapshots and byte-exactly restores the complete inactive fax_config table; the owned account and inbound polling stay disabled. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#5783: verifies actual admin save/reset wiring and masked-credential roundtrip without contacting SRFax. Capped backoff and next-poll behavior are independently covered by real importer/action regressions."
+    },
+    {
+      "name": "provider-document-queue-security",
+      "script": "scripts/provider-document-queue-security-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON",
+        "BC"
+      ],
+      "timeoutSec": 180,
+      "manual": true,
+      "mutates": [
+        "queue",
+        "secObjectName",
+        "property",
+        "secObjPrivilege"
+      ],
+      "fixtures": "Requires a disposable exclusive host. Creates one marker-owned queue/security object, saves the authenticated provider default, restores the original preference rows byte exactly and removes the owned queue. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#6008: actual provider preference creation supplies a grantable security object using its persisted ID, assigns no role privileges, renders the literal description and refuses a blank name without changing the default. Real DAO transaction regressions separately prove rollback on security/preference failure."
     },
     {
       "name": "admin-facility-disable",
@@ -19561,6 +19655,21 @@
       ],
       "fixtures": "Owns the runWorkflow patient and one marker-named REST-created patient and admission; removes exact owned custom-field/archive/admission rows and verifies cleanup. Disposable exclusive host only. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#5999: six converted field lengths refuse REST create/update before side effects; exact schema limits and supplementary Unicode boundary values persist without truncation."
+    },
+    {
+      "name": "privacy-static-html-metadata",
+      "script": "scripts/privacy-static-html-metadata-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "manual": true,
+      "notes": "#5936: run on the host serving the packaged install, with a configured confidentiality statement. Verifies static HTML GET/HEAD metadata, conditional file-date requests, wildcard existence conditions, a two-mebibyte owned static page and same-URL AJAX/ordinary browser cache variants.",
+      "fixtures": "Reads installed gpl.htm bytes and modification time; creates and removes one marker-named synthetic large HTML file beside it. Honors CARLOS_INSTALLED_WEBAPP_DIR. No clinical fixtures or configuration changes."
     },
     {
       "name": "report-daysheet-selection",

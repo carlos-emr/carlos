@@ -30,16 +30,79 @@ var TableExport = (function () {
         return btoa(unescape(encodeURIComponent(str)));
     }
 
-    // Characters that trigger formula execution in Excel/LibreOffice when they
-    // appear at the start of a cell value (CSV injection / formula injection).
-    var FORMULA_PREFIX_RE = /^[=+\-@\t\r]/;
+    // Spreadsheet formula guard (issue #5846). This mirrors the server's cell policy,
+    // io.github.carlos_emr.carlos.utility.SpreadsheetCsv.sanitizeCell, so a CSV built in
+    // the browser guards exactly the cells a server-built CSV guards:
+    //  - an initial tab, CR or LF is always guarded;
+    //  - leading whitespace, Unicode spaces, control characters and a BOM cannot hide a
+    //    formula marker (= + - @ and their full-width forms U+FF1D U+FF0B U+FF0D U+FF20);
+    //  - a plain negative number (decimal or scientific) stays numeric.
+    // A guarded cell gains a leading tab, which spreadsheet importers keep as text.
+    // scripts/fixtures/spreadsheet-csv-cell-cases.json drives the tests on both sides.
+    var SKIPPABLE_LEADING_RE = /[\s\u0000-\u0008\u000E-\u001F\u007F-\u009F]/;
+    var FORMULA_MARKERS = "=+-@\uFF1D\uFF0B\uFF0D\uFF20";
+
+    function skipDigits(text, start) {
+        var cursor = start;
+        while (cursor < text.length && text.charAt(cursor) >= "0" && text.charAt(cursor) <= "9") {
+            cursor++;
+        }
+        return cursor;
+    }
+
+    // Linear scan (no regex backtracking): -12, -12.50, -.5, -1., -1.2E-7, -2e+10.
+    function isNegativeNumber(text, minusIndex) {
+        var start = minusIndex + 1;
+        var cursor = skipDigits(text, start);
+        var hasDigits = cursor > start;
+        if (cursor < text.length && text.charAt(cursor) === ".") {
+            start = cursor + 1;
+            cursor = skipDigits(text, start);
+            hasDigits = hasDigits || cursor > start;
+        }
+        if (!hasDigits) {
+            return false;
+        }
+        if (cursor < text.length && (text.charAt(cursor) === "e" || text.charAt(cursor) === "E")) {
+            cursor++;
+            if (cursor < text.length && (text.charAt(cursor) === "+" || text.charAt(cursor) === "-")) {
+                cursor++;
+            }
+            start = cursor;
+            cursor = skipDigits(text, start);
+            if (cursor === start) {
+                return false;
+            }
+        }
+        return cursor === text.length;
+    }
+
+    function sanitizeCell(text) {
+        if (text === null || text === undefined || text === "") {
+            return "";
+        }
+        var first = text.charAt(0);
+        if (first === "\t" || first === "\r" || first === "\n") {
+            return "\t" + text;
+        }
+        var index = 0;
+        while (index < text.length && SKIPPABLE_LEADING_RE.test(text.charAt(index))) {
+            index++;
+        }
+        if (index < text.length) {
+            var marker = text.charAt(index);
+            if (marker === "-" && isNegativeNumber(text, index)) {
+                return text;
+            }
+            if (FORMULA_MARKERS.includes(marker)) {
+                return "\t" + text;
+            }
+        }
+        return text;
+    }
 
     function escapeCsvCell(text) {
-        // Guard against formula injection: prefix with a tab so spreadsheet
-        // applications treat the cell as a text value, not a formula.
-        if (FORMULA_PREFIX_RE.test(text) && !/^-\d+(?:\.\d+)?$/.test(text)) {
-            text = "\t" + text;
-        }
+        text = sanitizeCell(text);
         var needsQuoting =
             text.indexOf(CSV_SEP) !== -1 ||
             text.indexOf("\r") !== -1 ||
@@ -53,6 +116,9 @@ var TableExport = (function () {
     }
 
     return {
+        /** The formula-guard cell policy, exposed for tests and other exporters. */
+        sanitizeCell: sanitizeCell,
+
         excel: function (anchor, tableId, sheetName) {
             var table = document.getElementById(tableId);
             if (!table) return false;
@@ -75,9 +141,12 @@ var TableExport = (function () {
                 for (var c = 0; c < row.cells.length; c++) {
                     if (c > 0) output += CSV_SEP;
                     var cell = row.cells[c];
-                    var text = cell.textContent.trim();
+                    var text = cell.textContent;
+                    // Preserve its initial control prefix for the spreadsheet cell guard.
+                    var controlPrefix = text.match(/^[\t\r\n]+/);
+                    text = text.trim();
                     if (cell.tagName === "TH") text = text.replace(/\s+/g, " ");
-                    output += escapeCsvCell(text);
+                    output += escapeCsvCell(controlPrefix ? controlPrefix[0] + text : text);
                 }
                 output += CSV_NEWLINE;
             }
