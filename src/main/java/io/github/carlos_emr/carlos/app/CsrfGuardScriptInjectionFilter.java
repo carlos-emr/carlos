@@ -42,6 +42,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
 import java.io.CharArrayWriter;
+import java.io.FilterWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
@@ -961,7 +962,8 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                     LOGGER.warn("CsrfGuard: response writer unavailable while streaming a large page; "
                             + "encoding it onto the output stream as {}: uri={}", charset.name(), requestUri);
                     CaptureResponseWrapper.super.setCharacterEncoding(charset.name());
-                    return new OutputStreamWriter(CaptureResponseWrapper.super.getOutputStream(), charset);
+                    return new InPlaceEncodingWriter(
+                            new OutputStreamWriter(CaptureResponseWrapper.super.getOutputStream(), charset));
                 }
             }
 
@@ -1099,6 +1101,27 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             void finish() throws IOException {
                 releaseHeld();
                 overflow.flush();
+            }
+        }
+
+        /**
+         * Encodes string writes onto an {@link OutputStreamWriter} without first copying them.
+         *
+         * <p>On Java 25, {@code OutputStreamWriter.write(String, int, int)} copies the slice into a
+         * new {@code char[]} of its full length before encoding, so a streamed large page would
+         * allocate twice its size. {@code append(CharBuffer)} encodes the same characters in place,
+         * in the encoder's own fixed-size chunks. Character-array writes, flush and close pass
+         * straight through.</p>
+         */
+        private static final class InPlaceEncodingWriter extends FilterWriter {
+
+            InPlaceEncodingWriter(OutputStreamWriter encoder) {
+                super(encoder);
+            }
+
+            @Override
+            public void write(String text, int offset, int length) throws IOException {
+                out.append(CharBuffer.wrap(text, offset, offset + length));
             }
         }
 

@@ -25,12 +25,15 @@ import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.ServletResponse;
+import jakarta.servlet.WriteListener;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
+import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -51,6 +54,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -328,6 +332,37 @@ class CsrfGuardScriptInjectionFilterUnitTest {
         }
         assertThat(response.getContentAsString(StandardCharsets.UTF_8))
                 .isEqualTo("<html><head>" + SCRIPT + "</head><body>" + body + "</body></html>");
+    }
+
+    @Test
+    @DisplayName("should encode a large streamed String onto the output stream without copying it first")
+    void shouldEncodeALargeStringInPlace_whenStreamingOntoTheOutputStream() throws Exception {
+        com.sun.management.ThreadMXBean threads =
+                (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
+        assumeTrue(threads.isThreadAllocatedMemorySupported() && threads.isThreadAllocatedMemoryEnabled(),
+                "this JVM cannot report per-thread allocation");
+        DiscardingStreamResponse response = new DiscardingStreamResponse();
+        String head = "<html><head></head><body>";
+        String body = "x".repeat(16 * 1024 * 1024);
+        String tail = "</body></html>";
+        long[] allocated = new long[1];
+
+        withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            var writer = res.getWriter();
+            writer.write(head);
+            // Crosses the bound with char[] writes, so the String below is streamed.
+            writeFillerChunks(writer, CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS);
+            long before = threads.getCurrentThreadAllocatedBytes();
+            writer.write(body);
+            allocated[0] = threads.getCurrentThreadAllocatedBytes() - before;
+            writer.write(tail);
+        }));
+
+        assertThat(response.bytesWritten()).isEqualTo((long) head.length() + SCRIPT.length()
+                + CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS + body.length() + tail.length());
+        // Copying the slice into a char[] alone would allocate 32 MiB; encoding in place needs a few KiB.
+        assertThat(allocated[0]).isLessThan(1024L * 1024L);
     }
 
     @Test
@@ -1365,6 +1400,47 @@ class CsrfGuardScriptInjectionFilterUnitTest {
 
         int getResetBufferCalls() {
             return resetBufferCalls;
+        }
+    }
+
+    /** An output stream that only counts bytes, with the writer unavailable as after getOutputStream(). */
+    private static class DiscardingStreamResponse extends MockHttpServletResponse {
+
+        private long bytes;
+        private final ServletOutputStream countingStream = new ServletOutputStream() {
+            @Override
+            public boolean isReady() {
+                return true;
+            }
+
+            @Override
+            public void setWriteListener(WriteListener listener) {
+                // Blocking writes only.
+            }
+
+            @Override
+            public void write(int b) {
+                bytes++;
+            }
+
+            @Override
+            public void write(byte[] b, int off, int len) {
+                bytes += len;
+            }
+        };
+
+        @Override
+        public ServletOutputStream getOutputStream() {
+            return countingStream;
+        }
+
+        @Override
+        public PrintWriter getWriter() {
+            throw new IllegalStateException("getOutputStream() has already been called for this response");
+        }
+
+        long bytesWritten() {
+            return bytes;
         }
     }
 
