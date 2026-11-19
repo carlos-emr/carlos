@@ -368,7 +368,7 @@ async function workflow(s) {
         await radio(second, 'resolved', 'true').click();
         await radio(first, 'major', 'true').click();
         await radio(first, 'major', 'false').click();
-        await row(deleted).getByRole('link', { name: 'Delete', exact: true }).click();
+        await row(deleted).getByRole('button', { name: 'Delete', exact: true }).click();
         releaseRefresh();
         await chart.waitForFunction(() => issueUpdatesPending === 0, null, { timeout: TIMEOUT });
       } finally {

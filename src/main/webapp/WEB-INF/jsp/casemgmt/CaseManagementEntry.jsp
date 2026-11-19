@@ -385,12 +385,12 @@
 
         <tr style="background-color: ${counter % 2 == 0 ? '#EEEEFF' : 'white'}; text-align: center;">
             <td>
-                <input type="checkbox" name="issueCheckList[${status.index}].checked"
+                <input type="checkbox" id="issue-check-${status.index}" name="issueCheckList[${status.index}].checked"
                        onchange="setChangeFlag(true);"
                        ${checkBoxDisabled ? 'disabled' : ''} />
             </td>
             <td style="${cbb.issueDisplay.priority eq 'allergy' ? 'background-color: yellow;' : ''}">
-                ${cbb.issueDisplay.description}
+                <label for="issue-check-${status.index}"><c:out value="${cbb.issueDisplay.description}"/></label>
             </td>
             <td>
                 <select name="issueCheckList[${status.index}].issueDisplay.acute" ${disabled ? 'disabled' : ''}>

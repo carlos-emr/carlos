@@ -322,14 +322,14 @@
 
                 <c:if test="${issueCheckList.used == false && writeAccess}">
                     &nbsp;
-                    <a href="#" onclick="return queueIssueMutation('issueDelete', this);">Delete</a>&nbsp;
+                    <button type="button" onclick="return queueIssueMutation('issueDelete', this);">Delete</button>&nbsp;
                 </c:if>
 
                 <c:if test="${writeAccess}">
                 <!-- change diagnosis button -->
                 <c:set var="submitChange" value="return changeDiagnosisResolved('${status.index}');" />
                 &nbsp;
-                <a href="#" onclick="${submitChange}">Change</a>
+                <button type="button" onclick="${submitChange}">Change</button>
 
                 </c:if>
 
@@ -407,13 +407,13 @@
 
             <c:if test="${issueCheckList.used == false && writeAccess}">
                 &nbsp;
-                <a href="#" onclick="return queueIssueMutation('issueDelete', this);">Delete</a>
+                <button type="button" onclick="return queueIssueMutation('issueDelete', this);">Delete</button>
                 &nbsp;
             </c:if>
 
             &nbsp;
             <c:if test="${writeAccess}">
-                <a href="#" onclick="return changeDiagnosisUnresolved('${status.index}');">Change</a>
+                <button type="button" onclick="return changeDiagnosisUnresolved('${status.index}');">Change</button>
             </c:if>
 
             <div id="${winame}" style="margin-left: 20px; display: none;">
