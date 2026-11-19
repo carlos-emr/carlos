@@ -32,11 +32,15 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.WaitingList;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class WaitingListDaoImpl extends AbstractDaoImpl<WaitingList> implements WaitingListDao {
@@ -59,11 +63,20 @@ public class WaitingListDaoImpl extends AbstractDaoImpl<WaitingList> implements 
         return query.getResultList();
     }
 
-    @SuppressWarnings("unchecked")
     public List<WaitingList> findByWaitingListId(Integer listId) {
-        Query query = entityManager.createQuery("FROM WaitingList w WHERE w.listId = ?1 AND w.isHistory = 'N' ORDER BY w.onListSince");
-        query.setParameter(1, listId);
-        return query.getResultList();
+        return currentListEntries(listId).getResultList();
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public List<WaitingList> findByWaitingListIdForUpdate(Integer listId) {
+        return currentListEntries(listId).setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList();
+    }
+
+    private TypedQuery<WaitingList> currentListEntries(Integer listId) {
+        return entityManager.createQuery(
+                "FROM WaitingList w WHERE w.listId = ?1 AND w.isHistory = 'N' ORDER BY w.onListSince", WaitingList.class)
+                .setParameter(1, listId);
     }
 
     @SuppressWarnings("unchecked")

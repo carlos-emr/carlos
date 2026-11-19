@@ -140,7 +140,9 @@ public class WLWaitingListUtil {
      * {@link #updateWaitingListRecord} for a caller that must not put a patient back on a list: the
      * note is recorded only when the patient has a current entry on the named list. Entries kept
      * as history after a removal do not count, so an update prepared before the removal is
-     * reported instead of undoing it (#5298).
+     * reported instead of undoing it (#5298). The caller holds the patient row lock in its
+     * transaction. The waiting-list rows are also locked through commit because this write
+     * repositions the entire list.
      *
      * @return {@code true} when the note was recorded; {@code false} when nothing was written
      *         because no list was named (id "0") or the patient is not on the named list now
@@ -164,16 +166,18 @@ public class WLWaitingListUtil {
         if (!isWatingIdSet) return false;
 
         WaitingListDao dao = SpringUtils.getBean(WaitingListDao.class);
-        // Every entry the patient ever had on this list, history included.
-        List<WaitingList> waitingLists = dao.findByWaitingListIdAndDemographicId(ConversionUtils.fromIntString(waitingListID), ConversionUtils.fromIntString(demographicNo));
+        int listId = ConversionUtils.fromIntString(waitingListID);
+        Integer patientId = ConversionUtils.fromIntString(demographicNo);
+        // A locking read sees the committed current rows even when the REST transaction
+        // established a repeatable-read snapshot before waiting for the patient lock.
+        List<WaitingList> waitingLists = currentEntryRequired
+                ? dao.findByWaitingListIdForUpdate(listId).stream()
+                        .filter(entry -> patientId.equals(entry.getDemographicNo())).toList()
+                : dao.findByWaitingListIdAndDemographicId(listId, patientId);
         // Not on this list: the patient edit form relies on this being a no-op (it then offers the
         // add), so it stays one, but it is reported, because a caller that was asked to save this
         // note has not saved it.
         if (waitingLists.isEmpty()) return false;
-        if (currentEntryRequired && waitingLists.stream().allMatch(entry -> WaitingList.IS_HISTORY_YES.equals(entry.getIsHistory()))) {
-            return false;
-        }
-
         long pos = 1;
         for (WaitingList wl : waitingLists) {
             pos = wl.getPosition();
@@ -186,8 +190,8 @@ public class WLWaitingListUtil {
         }
 
         WaitingList wl = new WaitingList();
-        wl.setListId(ConversionUtils.fromIntString(waitingListID));
-        wl.setDemographicNo(ConversionUtils.fromIntString(demographicNo));
+        wl.setListId(listId);
+        wl.setDemographicNo(patientId);
         wl.setNote(waitingListNote);
         wl.setPosition(pos);
         if (onListSince == null || onListSince.length() <= 0) {
@@ -200,7 +204,11 @@ public class WLWaitingListUtil {
         dao.saveEntity(wl);
 
         // update the waiting list positions
-        repositionEntries(waitingListID);
+        if (currentEntryRequired) {
+            repositionEntries(dao, dao.findByWaitingListIdForUpdate(listId));
+        } else {
+            repositionEntries(waitingListID);
+        }
         return true;
     }
 
@@ -252,9 +260,13 @@ public class WLWaitingListUtil {
     }
 
     private static void repositionEntries(String waitingListID) {
-        int i = 1;
         WaitingListDao dao = SpringUtils.getBean(WaitingListDao.class);
-        for (WaitingList waitingList : dao.findByWaitingListId(ConversionUtils.fromIntString(waitingListID))) {
+        repositionEntries(dao, dao.findByWaitingListId(ConversionUtils.fromIntString(waitingListID)));
+    }
+
+    private static void repositionEntries(WaitingListDao dao, List<WaitingList> entries) {
+        int i = 1;
+        for (WaitingList waitingList : entries) {
             waitingList.setPosition(i);
             dao.merge(waitingList);
             i++;

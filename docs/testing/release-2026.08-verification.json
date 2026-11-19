@@ -5240,7 +5240,7 @@
         "DemographicWebUnmergeIntegrationTest": 19,
         "BillingObecAlertDaoMariaDbIntegrationTest": 4,
         "SiteRenameClockMariaDbIntegrationTest": 8,
-        "DemographicUpdateDaoTransactionIntegrationTest": 24
+        "DemographicUpdateDaoTransactionIntegrationTest": 25
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -5312,7 +5312,7 @@
         "DemographicWebUnmergeIntegrationTest": 19,
         "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
         "SiteRenameClockMariaDbIntegrationTest": 8,
-        "DemographicUpdateDaoTransactionIntegrationTest": 24
+        "DemographicUpdateDaoTransactionIntegrationTest": 25
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -5382,7 +5382,7 @@
         "DemographicWebUnmergeIntegrationTest": 19,
         "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
         "SiteRenameClockMariaDbIntegrationTest": 8,
-        "DemographicUpdateDaoTransactionIntegrationTest": 24
+        "DemographicUpdateDaoTransactionIntegrationTest": 25
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"

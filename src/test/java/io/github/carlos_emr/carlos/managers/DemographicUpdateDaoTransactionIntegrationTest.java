@@ -58,6 +58,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.UnexpectedRollbackException;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
@@ -422,6 +423,29 @@ class DemographicUpdateDaoTransactionIntegrationTest {
     }
 
     // ------------------------------------------------------------------ REST command
+
+    @Test
+    @DisplayName("should keep one current note after overlapping REST updates start from the same stored note")
+    void shouldKeepOneCurrentWaitingListEntry_whenRestUpdatesOverlap() {
+        DemographicTo1 first = restPayload("First");
+        first.setWaitingListNote("First note");
+        DemographicTo1 second = restPayload("Second");
+        second.setWaitingListNote("Second note");
+
+        TransactionTemplate earlierSnapshot = new TransactionTemplate(transactions);
+        earlierSnapshot.setIsolationLevel(physicalMariaDb() ? TransactionDefinition.ISOLATION_REPEATABLE_READ
+                : TransactionDefinition.ISOLATION_READ_COMMITTED);
+        TransactionTemplate overlappingWrite = new TransactionTemplate(transactions);
+        overlappingWrite.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        earlierSnapshot.executeWithoutResult(status -> {
+            assertThat(waitingListNotes("N")).containsExactly("Original note");
+            overlappingWrite.executeWithoutResult(inner -> put(first));
+            put(second);
+        });
+
+        assertThat(waitingListNotes("N")).containsExactly("Second note");
+        assertThat(waitingListNotes("Y")).containsExactly("Original note", "First note");
+    }
 
     @Test
     @DisplayName("should commit the custom fields, the waiting-list entry and the patient as one REST update")

@@ -110,8 +110,7 @@ class WLWaitingListUpdateRecordUnitTest extends CarlosUnitTestBase {
         @DisplayName("should write nothing and report it when the patient was taken off the list")
         void shouldWriteNothingAndReportIt_whenOnlyHistoryRemains() {
             WaitingListDao dao = createAndRegisterMock(WaitingListDao.class);
-            WaitingList removed = entry(4, true);
-            when(dao.findByWaitingListIdAndDemographicId(7, 101)).thenReturn(List.of(removed, entry(2, true)));
+            when(dao.findByWaitingListIdForUpdate(7)).thenReturn(List.of());
 
             assertThat(WLWaitingListUtil.updateCurrentWaitingListRecord("7", "FAKE note", "101", null)).isFalse();
 
@@ -124,7 +123,9 @@ class WLWaitingListUpdateRecordUnitTest extends CarlosUnitTestBase {
         @DisplayName("should write nothing and report it when the patient has no entry on the list")
         void shouldWriteNothingAndReportIt_whenThePatientHasNoEntryOnTheList() {
             WaitingListDao dao = createAndRegisterMock(WaitingListDao.class);
-            when(dao.findByWaitingListIdAndDemographicId(7, 101)).thenReturn(List.of());
+            WaitingList anotherPatient = entry(4, false);
+            anotherPatient.setDemographicNo(102);
+            when(dao.findByWaitingListIdForUpdate(7)).thenReturn(List.of(anotherPatient));
 
             assertThat(WLWaitingListUtil.updateCurrentWaitingListRecord("7", "FAKE note", "101", null)).isFalse();
 
@@ -136,7 +137,7 @@ class WLWaitingListUpdateRecordUnitTest extends CarlosUnitTestBase {
         void shouldRecordTheNoteAndReportIt_whenACurrentEntryFollowsHistory() {
             WaitingListDao dao = createAndRegisterMock(WaitingListDao.class);
             WaitingList current = entry(3, false);
-            when(dao.findByWaitingListIdAndDemographicId(7, 101)).thenReturn(List.of(entry(9, true), current));
+            when(dao.findByWaitingListIdForUpdate(7)).thenReturn(List.of(current), List.of());
 
             assertThat(WLWaitingListUtil.updateCurrentWaitingListRecord("7", "FAKE note", "101", null)).isTrue();
 

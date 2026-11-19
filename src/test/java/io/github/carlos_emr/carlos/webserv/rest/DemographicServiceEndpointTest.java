@@ -334,7 +334,7 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             onTheList.setListId(7);
             onTheList.setDemographicNo(42);
             onTheList.setPosition(3);
-            when(mockWaitingListDao.findByWaitingListIdAndDemographicId(7, 42)).thenReturn(List.of(onTheList));
+            when(mockWaitingListDao.findByWaitingListIdForUpdate(7)).thenReturn(List.of(onTheList), List.of());
             DemographicTo1 data = payload("PUT");
             String exact = character.repeat(255);
             data.setAlert(exact);
