@@ -98,8 +98,9 @@ class OscarSpringContextLoaderUnitTest {
         context.addInitParameter(ContextLoader.CONTEXT_CLASS_PARAM, RefreshProbeContext.class.getName());
         try {
             System.setProperty(property, "org.apache.cxf.commons.logging.Log4j2Logger");
+            var loader = new OscarSpringContextLoader();
 
-            assertThatThrownBy(() -> new OscarSpringContextLoader().createWebApplicationContext(context))
+            assertThatThrownBy(() -> loader.createWebApplicationContext(context))
                     .isInstanceOf(RefreshReached.class)
                     .hasMessage("org.apache.cxf.common.logging.Slf4jLogger");
         } finally {

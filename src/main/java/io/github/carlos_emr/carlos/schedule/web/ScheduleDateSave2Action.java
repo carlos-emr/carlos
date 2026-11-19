@@ -62,7 +62,7 @@ public final class ScheduleDateSave2Action extends ActionSupport {
     static final String RULE_SCHEDULE = "scheduleRscheduleBean";
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private ScheduleDateOverrideService overrideService;
+    private transient ScheduleDateOverrideService overrideService;
 
     private ScheduleDateOverrideService overrideService() {
         if (overrideService == null) {

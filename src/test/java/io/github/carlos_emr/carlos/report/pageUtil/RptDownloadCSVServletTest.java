@@ -856,9 +856,9 @@ class RptDownloadCSVServletTest {
         var request = baseRequest();
         request.setParameter("id", "7");
         var response = new org.springframework.mock.web.MockHttpServletResponse();
-        try (var reports = mockConstruction(RptReportItem.class,
+        try (var _ = mockConstruction(RptReportItem.class,
                      (report, context) -> when(report.getReportName("7")).thenReturn("report-7"));
-             var queries = mockConstruction(RptFormQuery.class, (query, context) ->
+             var _ = mockConstruction(RptFormQuery.class, (query, context) ->
                      when(query.getQueryStr(anyString(), any())).thenThrow(new RptFormQuery.UnknownReportFilterException()))) {
             servlet().service(request, response);
         }
@@ -872,14 +872,14 @@ class RptDownloadCSVServletTest {
         var request = baseRequest();
         request.setParameter("id", "7");
         var response = new org.springframework.mock.web.MockHttpServletResponse();
-        try (var reports = mockConstruction(RptReportItem.class, (report, context) ->
+        try (var _ = mockConstruction(RptReportItem.class, (report, context) ->
                      when(report.getReportName(anyString())).thenReturn("report-7"));
-             var queries = mockConstruction(RptFormQuery.class, (query, context) ->
+             var _ = mockConstruction(RptFormQuery.class, (query, context) ->
                      when(query.getQueryStr(anyString(), any())).thenReturn(new ParameterizedSql("select 1", List.of())));
-             var configs = mockConstruction(RptReportConfigData.class, (config, context) ->
+             var _ = mockConstruction(RptReportConfigData.class, (config, context) ->
                      when(config.getAllFieldNameValue(anyString(), anyString())).thenReturn(new Vector[]{
                              new Vector<>(List.of("=caption")), new Vector<>(List.of("=caption"))}));
-             var readers = mockConstruction(RptReportCreator.class, (reader, context) ->
+             var _ = mockConstruction(RptReportCreator.class, (reader, context) ->
                      when(reader.query(anyString(), any(Vector.class), any(Object[].class))).thenAnswer(call -> {
                          Properties row = new Properties();
                          row.setProperty("=caption", "=HYPERLINK(\"synthetic\",\"x\")");

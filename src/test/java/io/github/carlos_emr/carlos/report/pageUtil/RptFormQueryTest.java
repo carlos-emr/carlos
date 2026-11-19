@@ -220,7 +220,7 @@ class RptFormQueryTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addParameter("filter_3", "on");
         request.addParameter("filter_1", "on");
-        try (var filters = storedFilters(
+        try (var _ = storedFilters(
                 storedFilter("1", "a=${a1}", ""),
                 storedFilter("2", "b=${b1}", ""),
                 storedFilter("3", "c>=${startDate1}", "yyyy-MM-dd"))) {
@@ -235,7 +235,7 @@ class RptFormQueryTest {
     void shouldKeepFirstStoredFilter_whenOrderNumbersRepeat() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addParameter("filter_1", "on");
-        try (var filters = storedFilters(storedFilter("1", "first=1", ""), storedFilter("1", "second=1", ""))) {
+        try (var _ = storedFilters(storedFilter("1", "first=1", ""), storedFilter("1", "second=1", ""))) {
             assertThat(new RptFormQuery().checkedFilters("7", request))
                     .containsExactly(new RptFormQuery.CheckedFilter("first=1", ""));
         }
@@ -248,7 +248,7 @@ class RptFormQueryTest {
         request.addParameter("filter_1", "on");
         request.addParameter("filter_99", "on");
         request.addParameter("value_99", "1=1");
-        try (var filters = storedFilters(storedFilter("1", "a=1", ""))) {
+        try (var _ = storedFilters(storedFilter("1", "a=1", ""))) {
             assertThatThrownBy(() -> new RptFormQuery().checkedFilters("7", request))
                     .isInstanceOf(RptFormQuery.UnknownReportFilterException.class)
                     .hasMessageContaining("reload the report filter page");

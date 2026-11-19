@@ -39,7 +39,7 @@ var TableExport = (function () {
     //  - a plain negative number (decimal or scientific) stays numeric.
     // A guarded cell gains a leading tab, which spreadsheet importers keep as text.
     // scripts/fixtures/spreadsheet-csv-cell-cases.json drives the tests on both sides.
-    var SKIPPABLE_LEADING_RE = /[\s\u0000-\u001F\u007F-\u009F]/;
+    var SKIPPABLE_LEADING_RE = /[\s\u0000-\u0008\u000E-\u001F\u007F-\u009F]/;
     var FORMULA_MARKERS = "=+-@\uFF1D\uFF0B\uFF0D\uFF20";
 
     function skipDigits(text, start) {
@@ -94,7 +94,7 @@ var TableExport = (function () {
             if (marker === "-" && isNegativeNumber(text, index)) {
                 return text;
             }
-            if (FORMULA_MARKERS.indexOf(marker) !== -1) {
+            if (FORMULA_MARKERS.includes(marker)) {
                 return "\t" + text;
             }
         }

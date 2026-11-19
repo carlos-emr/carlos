@@ -86,8 +86,10 @@ class ScheduleDateOverrideServiceIntegrationTest extends CarlosTestBase {
     @Test
     void shouldKeepCurrentOverrideActive_whenReplacementInsertFails() {
         Integer current = activeOverride("Clinic closed");
+        var overrideService = service(failingInsert(scheduleDateDao));
+        ScheduleDate replacement = override("Half day");
 
-        assertThatThrownBy(() -> service(failingInsert(scheduleDateDao)).replaceOverride(PROVIDER, DATE, override("Half day")))
+        assertThatThrownBy(() -> overrideService.replaceOverride(PROVIDER, DATE, replacement))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("synthetic replacement insert failure");
 

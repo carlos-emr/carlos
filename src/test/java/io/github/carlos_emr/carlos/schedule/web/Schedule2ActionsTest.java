@@ -30,6 +30,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -79,7 +81,8 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
         @DisplayName("should throw SecurityException when privilege missing")
         void shouldThrow_whenNoPrivilege() throws Exception {
             denyAll();
-            assertThatThrownBy(() -> executeAction(inject(new ScheduleTemplateSetting2Action())))
+            var action = inject(new ScheduleTemplateSetting2Action());
+            assertThatThrownBy(() -> executeAction(action))
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("_admin.schedule");
         }
@@ -99,7 +102,8 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
         @Test
         void shouldThrow_whenNoPrivilege() throws Exception {
             denyAll();
-            assertThatThrownBy(() -> executeAction(inject(new ScheduleEditTemplate2Action())))
+            var action = inject(new ScheduleEditTemplate2Action());
+            assertThatThrownBy(() -> executeAction(action))
                     .isInstanceOf(SecurityException.class);
         }
 
@@ -137,7 +141,8 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
         @Test
         void shouldThrow_whenNoPrivilege() throws Exception {
             denyAll();
-            assertThatThrownBy(() -> executeAction(inject(new ScheduleTemplateCodeSetting2Action())))
+            var action = inject(new ScheduleTemplateCodeSetting2Action());
+            assertThatThrownBy(() -> executeAction(action))
                     .isInstanceOf(SecurityException.class);
         }
 
@@ -227,7 +232,8 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
         @Test
         void shouldThrow_whenNoPrivilege() throws Exception {
             denyAll();
-            assertThatThrownBy(() -> executeAction(inject(new ScheduleDateSave2Action())))
+            var action = inject(new ScheduleDateSave2Action());
+            assertThatThrownBy(() -> executeAction(action))
                     .isInstanceOf(SecurityException.class);
         }
 
@@ -269,7 +275,7 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
             assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
 
             var replacement = org.mockito.ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.ScheduleDate.class);
-            org.mockito.Mockito.verify(overrides).replaceOverride(org.mockito.ArgumentMatchers.eq("999998"),
+            verify(overrides).replaceOverride(org.mockito.ArgumentMatchers.eq("999998"),
                     org.mockito.ArgumentMatchers.eq(java.sql.Date.valueOf("2031-05-14")), replacement.capture());
             assertThat(replacement.getValue().getReason()).isEqualTo("Half day");
             assertThat(replacement.getValue().getAvailable()).isEqualTo('1');
@@ -330,7 +336,7 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
             assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
 
             var replacement = org.mockito.ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.ScheduleDate.class);
-            org.mockito.Mockito.verify(overrides).replaceOverride(org.mockito.ArgumentMatchers.eq("999998"),
+            verify(overrides).replaceOverride(org.mockito.ArgumentMatchers.eq("999998"),
                     org.mockito.ArgumentMatchers.eq(java.sql.Date.valueOf("2031-05-14")), replacement.capture());
             assertThat(replacement.getValue().getPriority()).isEqualTo('b');
             assertThat(replacement.getValue().getAvailable()).isEqualTo('1');
@@ -349,7 +355,7 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
 
             assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
 
-            org.mockito.Mockito.verify(overrides).replaceOverride(org.mockito.ArgumentMatchers.eq("999998"),
+            verify(overrides).replaceOverride(org.mockito.ArgumentMatchers.eq("999998"),
                     org.mockito.ArgumentMatchers.eq(java.sql.Date.valueOf("2031-05-14")),
                     org.mockito.ArgumentMatchers.isNull());
             assertThat(cache).doesNotContainKey("2031-05-14");
@@ -359,7 +365,7 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
         @DisplayName("should keep the session cache when the replacement fails (#5297)")
         void shouldKeepSessionCache_whenReplacementFails() throws Exception {
             ScheduleDateSave2Action action = postedSave("Delete");
-            org.mockito.Mockito.doThrow(new IllegalStateException("synthetic failure")).when(overrides)
+            doThrow(new IllegalStateException("synthetic failure")).when(overrides)
                     .replaceOverride(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
                             org.mockito.ArgumentMatchers.any());
             java.util.Hashtable<String, Object> cache = new java.util.Hashtable<>();
@@ -468,7 +474,8 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
         @Test
         void shouldThrow_whenNoPrivilege() throws Exception {
             denyAll();
-            assertThatThrownBy(() -> executeAction(inject(new ScheduleFlipView2Action())))
+            var action = inject(new ScheduleFlipView2Action());
+            assertThatThrownBy(() -> executeAction(action))
                     .isInstanceOf(SecurityException.class);
         }
 
@@ -486,7 +493,8 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
         @Test
         void shouldThrow_whenNeitherPrivilege() throws Exception {
             denyAll();
-            assertThatThrownBy(() -> executeAction(inject(new ScheduleDisplayTemplate2Action())))
+            var action = inject(new ScheduleDisplayTemplate2Action());
+            assertThatThrownBy(() -> executeAction(action))
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("_admin.schedule or _appointment");
         }
@@ -514,7 +522,8 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
         @Test
         void shouldThrow_whenNeitherPrivilege() throws Exception {
             denyAll();
-            assertThatThrownBy(() -> executeAction(inject(new ScheduleDatePopup2Action())))
+            var action = inject(new ScheduleDatePopup2Action());
+            assertThatThrownBy(() -> executeAction(action))
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("_admin.schedule or _appointment");
         }
@@ -542,7 +551,8 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
         @Test
         void shouldThrow_whenNeitherPrivilege() throws Exception {
             denyAll();
-            assertThatThrownBy(() -> executeAction(inject(new ScheduleDateFinal2Action())))
+            var action = inject(new ScheduleDateFinal2Action());
+            assertThatThrownBy(() -> executeAction(action))
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("_admin.schedule or _appointment");
         }
