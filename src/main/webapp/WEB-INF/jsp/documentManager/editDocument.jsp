@@ -181,6 +181,15 @@
     <link rel="stylesheet" type="text/css" media="all"
           href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
     <style type="text/css">
+        span.warning {
+            color: #e26e6e;
+        }
+
+        span.comment {
+            font-size: 10px;
+            vertical-align: super;
+        }
+
         .autocomplete_style {
             background: #fff;
             text-align: left;
@@ -288,7 +297,7 @@
 <div class="maindiv">
     <div class="maindivheading">Edit Document</div>
     <%-- Lists docerrors --%> <% for (Enumeration errorkeys = docerrors.keys(); errorkeys.hasMoreElements(); ) {%>
-    <font class="warning">Error: <fmt:message key="<%=(String) docerrors.get(errorkeys.nextElement())%>"/></font><br/>
+    <span class="warning">Error: <fmt:message key="<%=(String) docerrors.get(errorkeys.nextElement())%>"/></span><br/>
     <% } %>
     <% if (editBaseline != null && editBaseline.content().isEmpty()) { %>
     <div role="alert" class="warning"><fmt:message key="documentMutation.sourceUnavailable"/></div>
@@ -453,7 +462,7 @@
 
             <td>
                 <div style="<%=updatableContent==true?"":"visibility: hidden"%>">
-                    <label for="replacementDocFile">File: <font class="comment">(blank to keep file)</font></label>
+                    <label for="replacementDocFile">File: <span class="comment">(blank to keep file)</span></label>
                 </div>
             </td>
             <td>
