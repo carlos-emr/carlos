@@ -43,8 +43,14 @@ REQUIRED_CASES = {
     "AppointmentUpdateDaoIntegrationTest": {
         "shouldReuseReturnedVersion_whenEditEntersTheRepeatedHour",
         "shouldRefuseStoredPatient_beforeArchivalOrMutation",
+        "shouldRollbackArchiveAndMutation_whenFlushFails",
         "shouldRollbackArchiveAndEdit_whenReplacementPatientIsDenied",
+        "shouldRollbackFieldEditAndArchive_whenAuditFails",
         "shouldAllowAssignedPatientWrite_withoutReadPermission",
+    },
+    "AppointmentFieldAuditTransactionIntegrationTest": {
+        f"shouldRollBackFieldAndArchive_whenAuditDaoLookupFails(AppointmentUpdateAction)[{index}]"
+        for index in (1, 2, 3)
     },
     "JdbcConnectorMariaDbIntegrationTest": {
         "shouldConnectAndApplyConnectorJYesNo_forLegacyBooleanOptions",
@@ -167,7 +173,8 @@ REQUIRED_CASES = {
 # AbstractDaoFindAllOrderingIntegrationTest pins issue #5308 where it matters: MariaDB returns an
 # unordered page in secondary-index order, so its paging cases must execute on the physical server.
 # CaseManagementIssueDAO adds one duplicate-link case on the legacy Flyway schema only.
-REQUIRED = {"generated": {"AuditLogPurgeMariaDbIntegrationTest": 7, "AppointmentUpdateDaoIntegrationTest": 18,**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
+REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, "AuditLogPurgeMariaDbIntegrationTest": 7,
+                          "AppointmentUpdateDaoIntegrationTest": 19,**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
                           "JdbcConnectorMariaDbIntegrationTest": 47,
                           "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1,
                           "AbstractDaoFindAllOrderingIntegrationTest": 6,
