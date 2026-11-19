@@ -946,6 +946,7 @@
     "test:waiting-list-management-playwright": "node scripts/waiting-list-management-playwright-checks.js",
     "test:waiting-list-row-edit-playwright": "node scripts/waiting-list-row-actions-playwright-checks.js",
     "test:waiting-list-manager-remove-playwright": "WAITING_LIST_ACTION=remove node scripts/waiting-list-row-actions-playwright-checks.js",
+    "test:waiting-list-row-links-playwright": "node scripts/waiting-list-row-links-playwright-checks.js",
     "test:waiting-list-booking-playwright": "node scripts/waiting-list-booking-playwright-checks.js",
     "test:waiting-list-booking-navigation-playwright": "WAITING_LIST_BOOKING=navigate node scripts/waiting-list-booking-playwright-checks.js",
     "test:waiting-list-booking-provider-playwright": "WAITING_LIST_BOOKING=provider node scripts/waiting-list-booking-playwright-checks.js",
