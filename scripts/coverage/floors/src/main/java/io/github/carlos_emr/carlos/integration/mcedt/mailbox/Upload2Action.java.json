@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/mailbox/Upload2Action.java",
   "kind": "floor",
   "floor": {
-    "lines": 0.0,
-    "instructions": 0.0,
+    "lines": 36.36363636363637,
+    "instructions": 29.09090909090909,
     "branches": 100.0,
     "sourceBlob": "8f2987c969afddae75243147c555f8a729109871"
   },
-  "evidenceSha256": "7988d00e87b1ae847fb06b1b4e86f6bb65d2bc2e408d1a34e53c55c1b8889c44"
+  "evidenceSha256": "c7bd26252fce1a6ef7997bd3562332eca2d17c3f0a81fc635bf816c5031f9943"
 }
