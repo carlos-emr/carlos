@@ -95,7 +95,7 @@ public class WLWaitingListUtil {
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    static public synchronized boolean updateWaitingListRecord(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+    public static synchronized boolean updateWaitingListRecord(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
         MiscUtils.getLogger().debug("WLWaitingListUtil.updateWaitingListRecord(): waitingListID: " + waitingListID + " for patient " + demographicNo);
         boolean isWatingIdSet = !waitingListID.equalsIgnoreCase("0") && !demographicNo.equalsIgnoreCase("0");
         if (!isWatingIdSet) return false;
