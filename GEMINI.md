@@ -107,7 +107,8 @@ CARLOS provides null-safe wrappers around the OWASP Encoder (`org.owasp.encoder:
 
 **When to use which:**
 - **JSP tag** (preferred): `<carlos:encode value="${v}"/>` — declarative, null-safe, context-selectable
-- **EL function** (inline in attribute strings, URL components, JSON): `${carlos:forUriComponent(v)}`
+- **Inline EL** Use `${carlos:forHtmlAttribute(v)}` for HTML attributes and `${carlos:forUriComponent(v)}` for URL components.
+- **JSON values** Serialize with Jackson. When placing serialized JSON in an HTML data attribute, HTML-attribute encode the complete JSON string and read it back through the DOM.
 - **Java code / scriptlets**: `SafeEncode.forHtmlContent(v)` — null-safe drop-in for `Encode.forHtmlContent(v)`
 
 **Legacy forms — do not use in new code:** `<e:forXxx>` tags and `${e:forXxx(...)}` EL functions

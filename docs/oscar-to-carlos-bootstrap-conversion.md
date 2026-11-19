@@ -174,7 +174,8 @@ When the converted file is a `.jsp` (not a static `.html`):
    ```
 
    **JavaScript encoding in JSP:**
-   Use `${carlos:forJavaScript(value)}` inside `<script>` blocks. For a value placed inside an HTML
+   Use `${carlos:forJavaScript(value)}` for the contents of a quoted JavaScript string literal in a
+   `<script>` block, such as `const displayName = "${carlos:forJavaScript(value)}";`. For a value placed inside an HTML
    `onclick` / `onchange` attribute string, use `${carlos:forJavaScriptAttribute(value)}`, which adds
    the HTML-attribute encoding layer on top of the JavaScript string encoding:
 
@@ -280,7 +281,7 @@ to all rules in `CLAUDE.md`**:
 9. **Preserve GPL copyright headers** at the top of JSP files. Do not remove or alter them.
 
 10. **OWASP encoding is mandatory** for every server-side value rendered into HTML.
-    Use `${carlos:forHtml(value)}` (EL) or `Encode.forHtml(value)` (scriptlet) as appropriate.
+    Use `${carlos:forHtmlContent(value)}` (EL) or `SafeEncode.forHtmlContent(value)` (scriptlet) for HTML text.
     See the OWASP Encoding section in `CLAUDE.md` for the full context-specific reference.
 
 11. **Security checks must be preserved.** Do not remove or weaken `SecurityInfoManager

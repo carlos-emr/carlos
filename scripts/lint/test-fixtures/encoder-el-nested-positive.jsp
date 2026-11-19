@@ -32,8 +32,8 @@
   argument of another function (the DisplayWaitingList.jsp link fixed in
   #5477), after a ternary, in a deferred #{...} expression, and after an
   earlier expression whose string literal holds a closing brace. The lint
-  MUST report all four as Class B EL sites. No taglib is declared, so
-  Class B is the only class that can fire.
+  MUST also report evaluated EL after a literal backslash and inside an HTML
+  comment. Class B is the only class that can fire.
 
   Used only by scripts/lint/test-encoder-null-safety.sh. Not deployed.
 --%>
@@ -43,3 +43,5 @@
 <span>${empty row.note ? '' : e:forHtml(row.note)}</span>
 <span>#{e:forHtmlContent(row.name)}</span>
 <input value="${carlos:forHtmlAttribute(fn:trim('}'))}${carlos:forHtmlAttribute(e:forUri(row.url))}"/>
+<span data-value="\\${e:forHtml(row.note)}"></span>
+<!-- ${e:forHtml(row.note)} -->

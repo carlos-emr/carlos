@@ -34,8 +34,9 @@ Fails the build if any non-commented JSP-family content (.jsp, .jspf, .jspx,
      cannot exempt this: the library is not in the WAR, so the page would
      fail to translate whatever the allowlist says.
 
-Comments (<%-- ... --%>) are stripped before pattern matching, because they
-don't execute. Intentional runtime exceptions live in
+JSP comments and XML comments in JSP documents are stripped before scanning.
+Standard JSP HTML comments can still contain evaluated expressions.
+Intentional runtime exceptions live in
 scripts/lint/encode-null-safety-allowlist.txt (one glob per line).
 
 Exit code: 0 if clean, 1 if any violation.
@@ -56,10 +57,11 @@ JSP_ROOT = REPO_ROOT / "src" / "main" / "webapp"
 JSP_SUFFIXES = (".jsp", ".jspf", ".jspx", ".tag", ".tagf", ".tagx")
 
 JSP_COMMENT_RE = re.compile(r"<%--.*?--%>", re.DOTALL)
+XML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+XML_JSP_SUFFIXES = (".jspx", ".tagx")
 TAG_RE = re.compile(r"<e:for[A-Za-z]+(?:\s|/>)")
-# Start of an EL expression: immediate ${ or deferred #{. A backslash-escaped
-# \${ / \#{ is literal template text in JSP and is not evaluated.
-EL_START_RE = re.compile(r"(?<!\\)[$#]\{")
+# Immediate and deferred expression starts. The scanner checks backslash parity.
+EL_START_RE = re.compile(r"[$#]\{")
 # An OWASP e:forXxx( function call. The word boundary keeps another prefix that
 # merely ends in "e" (node:forX, some_e:forX) from matching, while an operator
 # or bracket in front of it (a-e:forX, (e:forX) still counts. Applied only to
@@ -125,13 +127,11 @@ def is_allowlisted(rel: str, patterns: list[str]) -> bool:
     return any(fnmatch.fnmatch(rel, p) for p in patterns)
 
 
-def el_expression_bodies(text: str):
-    """Yield the body of every ${...} / #{...} EL expression in ``text``.
+def el_expression_code(text: str):
+    """Yield the expression code outside EL string literals.
 
     Scans to the brace that closes each expression, so a ``}`` inside an EL
-    string literal or a nested map/set literal does not end it early. An
-    expression left unterminated runs to the end of the text: that is
-    conservative (more text is searched, never less).
+    string literal or a nested map/set literal does not end it early.
     """
     pos = 0
     length = len(text)
@@ -139,7 +139,16 @@ def el_expression_bodies(text: str):
         start = EL_START_RE.search(text, pos)
         if start is None:
             return
+        preceding = start.start()
+        while preceding > 0 and text[preceding - 1] == "\\":
+            preceding -= 1
+        if (start.start() - preceding) % 2:
+            pos = start.end()
+            continue
+
         i = start.end()
+        code_start = i
+        code = []
         depth = 1
         quote = None
         while i < length:
@@ -150,7 +159,9 @@ def el_expression_bodies(text: str):
                     continue
                 if ch == quote:
                     quote = None
+                    code_start = i + 1
             elif ch in "'\"":
+                code.append(text[code_start:i])
                 quote = ch
             elif ch == "{":
                 depth += 1
@@ -159,13 +170,15 @@ def el_expression_bodies(text: str):
                 if depth == 0:
                     break
             i += 1
-        yield text[start.end():i]
+        if quote is None:
+            code.append(text[code_start:i])
+        yield " ".join(code)
         pos = i + 1
 
 
 def count_el_e_calls(text: str) -> int:
     """Count e:forXxx( calls anywhere inside EL expressions, nested or not."""
-    return sum(len(EL_E_CALL_RE.findall(body)) for body in el_expression_bodies(text))
+    return sum(len(EL_E_CALL_RE.findall(code)) for code in el_expression_code(text))
 
 
 def owasp_taglib_declarations(text: str) -> list[str]:
@@ -217,8 +230,10 @@ def main() -> int:
             violations += 1
             continue
 
-        # Strip JSP comments before pattern matching — they don't execute.
+        # XML comments are inert in JSP documents. Classic JSP evaluates their contents.
         text = JSP_COMMENT_RE.sub("", raw)
+        if path.suffix in XML_JSP_SUFFIXES:
+            text = XML_COMMENT_RE.sub(" ", text)
 
         # Class D: the OWASP encoder JSP taglib is declared. Checked before
         # the allowlist: the library is not shipped (#5477), so no exception

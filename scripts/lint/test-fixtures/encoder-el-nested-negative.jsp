@@ -46,5 +46,6 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <a href="#" onclick="popup('/demographic/DemographicEdit?demographic_no=${carlos:forJavaScript(carlos:forUriComponent(row.demographicNo))}')">x</a>
 <span>${node:forValue(row.note)}</span>
+<span>${carlos:forHtmlContent('e:forHtml(example)')}</span>
 <span>\${e:forHtml(row.note)}</span>
 <span>${carlos:forHtmlContent('}')} e:forHtml(row.note) is prose here, outside any EL expression.</span>

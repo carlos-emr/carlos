@@ -14,6 +14,26 @@ import json
 import re
 import sys
 
+EL_RE = re.compile(r"\$\{([^}]+)\}")
+QUOTED_ATTRIBUTE = r"""(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')"""
+CARLOS_ENCODE_TAG_RE = re.compile(
+    rf"""<carlos:encode(?=[\s/>])(?P<attrs>(?:[^<>"']|{QUOTED_ATTRIBUTE})*)>""",
+    re.DOTALL,
+)
+ATTRIBUTE_RE = re.compile(rf"(?:^|\s)(?P<name>[\w:-]+)\s*=\s*(?P<value>{QUOTED_ATTRIBUTE})", re.DOTALL)
+
+
+def encoded_value_expressions(content: str) -> set[int]:
+    """Locate expressions in the value attribute of a CARLOS encoder tag."""
+    starts = set()
+    for tag in CARLOS_ENCODE_TAG_RE.finditer(content):
+        for attribute in ATTRIBUTE_RE.finditer(tag.group("attrs")):
+            if attribute.group("name") == "value":
+                start = tag.start("attrs") + attribute.start("value") + 1
+                end = tag.start("attrs") + attribute.end("value") - 1
+                starts.update(match.start() for match in EL_RE.finditer(content, start, end))
+    return starts
+
 
 def get_file_content_from_input(tool_input: dict) -> tuple[str, str]:
     """Extract file path and content from tool input."""
@@ -56,9 +76,7 @@ def check_jsp_unsafe_patterns(content: str) -> list[str]:
             "  Use <%@ taglib uri=\"carlos\" prefix=\"carlos\" %> with <carlos:encode> or ${carlos:forXxx(...)}."
         )
 
-    # Pattern for raw EL expressions that are NOT inside Encode.for* or c:out
-    # This regex finds ${...} expressions
-    el_pattern = r'\$\{([^}]+)\}'
+    encoded_starts = encoded_value_expressions(content)
 
     # Safe wrappers that indicate proper encoding
     safe_wrappers = [
@@ -67,7 +85,9 @@ def check_jsp_unsafe_patterns(content: str) -> list[str]:
         r'fn:escapeXml\s*\(',    # JSTL escapeXml function
     ]
 
-    for match in re.finditer(el_pattern, content):
+    for match in EL_RE.finditer(content):
+        if match.start() in encoded_starts:
+            continue
         el_expr = match.group(0)
         el_content = match.group(1)
 
@@ -83,7 +103,7 @@ def check_jsp_unsafe_patterns(content: str) -> list[str]:
         if is_safe:
             continue
 
-        # Check if this ${} is inside a <c:out> or <e:for*> tag
+        # Check if this expression is inside a <c:out> tag.
         # Look backwards from the match to find if we're in a safe tag context
         start_pos = max(0, match.start() - 200)
         context_before = content[start_pos:match.start()]
@@ -94,13 +114,6 @@ def check_jsp_unsafe_patterns(content: str) -> list[str]:
         has_self_closing_after = bool(re.match(r'^["\']?\s*/>', context_after))
         has_cout_close_after = bool(re.search(r'</\s*c:out\s*>', context_after))
         if has_cout_open_before and (has_self_closing_after or has_cout_close_after):
-            is_safe = True
-
-        # Check if this ${} is inside the null-safe CARLOS encoder tag, e.g.
-        # <carlos:encode value='${param.foo}' context="htmlAttribute"/>
-        has_encoder_tag_before = bool(re.search(r'<carlos:encode\b[^>]*$', context_before))
-        has_encoder_tag_close_after = bool(re.search(r'</\s*carlos:encode\s*>', context_after))
-        if has_encoder_tag_before and (has_self_closing_after or has_encoder_tag_close_after):
             is_safe = True
 
         if is_safe:

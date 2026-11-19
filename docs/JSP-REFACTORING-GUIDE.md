@@ -293,11 +293,11 @@ For **all** data displayed in JSPs, use OWASP Encoder with context-appropriate e
 
 | Context | EL Function (Preferred) | Scriptlet Alternative |
 |---------|------------------------|----------------------|
-| HTML body | `${carlos:forHtml(value)}` | `<%= Encode.forHtml(value) %>` |
-| HTML attributes | `${carlos:forHtmlAttribute(value)}` | `<%= Encode.forHtmlAttribute(value) %>` |
-| JavaScript | `${carlos:forJavaScript(value)}` | `<%= Encode.forJavaScript(value) %>` |
-| CSS | `${carlos:forCssString(value)}` | `<%= Encode.forCssString(value) %>` |
-| URLs | `${carlos:forUriComponent(value)}` | `<%= Encode.forUriComponent(value) %>` |
+| HTML body | `${carlos:forHtmlContent(value)}` | `<%= SafeEncode.forHtmlContent(value) %>` |
+| HTML attributes | `${carlos:forHtmlAttribute(value)}` | `<%= SafeEncode.forHtmlAttribute(value) %>` |
+| JavaScript string content | `${carlos:forJavaScript(value)}` | `<%= SafeEncode.forJavaScript(value) %>` |
+| CSS strings | `${carlos:forCssString(value)}` | `<%= SafeEncode.forCssString(value) %>` |
+| URL components | `${carlos:forUriComponent(value)}` | `<%= SafeEncode.forUriComponent(value) %>` |
 
 > **Why `${carlos:forHtml()}` over `<c:out>`?**
 > - `<c:out>` and `fn:escapeXml()` only do basic XML entity escaping (`<>&"'`)
@@ -316,9 +316,9 @@ For **all** data displayed in JSPs, use OWASP Encoder with context-appropriate e
 
 **Example — scriptlet approach (when already in scriptlet-heavy JSP):**
 ```jsp
-<%-- Scriptlet context — use Encode.* static methods --%>
-<div><%= Encode.forHtml(userEnteredName) %></div>
-<input value="<%= Encode.forHtmlAttribute(userEnteredAddress) %>">
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<div><%= SafeEncode.forHtmlContent(userEnteredName) %></div>
+<input value="<%= SafeEncode.forHtmlAttribute(userEnteredAddress) %>">
 ```
 
 ### Step 2.2: Replace Conditional Logic
@@ -401,8 +401,8 @@ For **all** data displayed in JSPs, use OWASP Encoder with context-appropriate e
 **Scriptlet alternative (when in scriptlet-heavy JSP):**
 ```jsp
 <%-- Scriptlet — use when already in scriptlet context --%>
-<input value="<%= Encode.forHtmlAttribute(userName) %>">
-<div title="<%= Encode.forHtmlAttribute(userComment) %>">
+<input value="<%= SafeEncode.forHtmlAttribute(userName) %>">
+<div title="<%= SafeEncode.forHtmlAttribute(userComment) %>">
 ```
 
 > **Note**: `fn:escapeXml()` and `<c:out>` are legacy for attribute encoding. Prefer `${carlos:forHtmlAttribute()}` which provides proper HTML attribute encoding rather than basic XML escaping.
@@ -497,14 +497,14 @@ For attribute values, capture to a variable first:
 </fmt:message>
 ```
 
-#### JavaScript i18n — Use ResourceBundle + Encode.forJavaScript
+#### JavaScript i18n with ResourceBundle and SafeEncode
 
 **Never** put hardcoded English strings inside `<script>` blocks. Load translated
-strings server-side and encode them with `Encode.forJavaScript()`:
+strings server-side and encode their contents with `SafeEncode.forJavaScriptBlock()`.
 
 ```jsp
 <%@ page import="java.util.ResourceBundle" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
     java.util.ResourceBundle oscarResources =
@@ -514,9 +514,9 @@ strings server-side and encode them with `Encode.forJavaScript()`:
 <script>
     // Pre-computed i18n strings, safely encoded for JavaScript
     var i18n = {
-        msgConfirmDelete: '<%= Encode.forJavaScript(oscarResources.getString("appointment.addAppointment.msgConfirmDelete")) %>',
-        msgSaveSuccess:   '<%= Encode.forJavaScript(oscarResources.getString("appointment.addAppointment.msgSaveSuccess")) %>',
-        btnCancel:        '<%= Encode.forJavaScript(oscarResources.getString("global.btnCancel")) %>'
+        msgConfirmDelete: '<%= SafeEncode.forJavaScriptBlock(oscarResources.getString("appointment.addAppointment.msgConfirmDelete")) %>',
+        msgSaveSuccess:   '<%= SafeEncode.forJavaScriptBlock(oscarResources.getString("appointment.addAppointment.msgSaveSuccess")) %>',
+        btnCancel:        '<%= SafeEncode.forJavaScriptBlock(oscarResources.getString("global.btnCancel")) %>'
     };
 </script>
 ```
@@ -561,8 +561,8 @@ When embedding server values in JavaScript, use OWASP Encoder:
     // CORRECT (EL) - Use OWASP Encoder EL function
     var patientName = "${carlos:forJavaScript(patientName)}";
 
-    // CORRECT (Scriptlet) - Use Encode.forJavaScript in scriptlet-heavy JSPs
-    var patientName = "<%= Encode.forJavaScript((String) pageContext.getAttribute("patientName")) %>";
+    // CORRECT (Scriptlet) - Use SafeEncode for JavaScript string content
+    var patientName = "<%= SafeEncode.forJavaScriptBlock((String) pageContext.getAttribute("patientName")) %>";
 </script>
 ```
 

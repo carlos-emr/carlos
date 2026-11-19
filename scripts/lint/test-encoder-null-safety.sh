@@ -11,7 +11,7 @@
 #   - encoder-class-c-positive.jsp      : MUST be flagged (lint exits non-zero)
 #   - encoder-class-c-tag-positive.jsp  : MUST be flagged (lint exits non-zero)
 #   - encoder-class-c-negative.jsp      : MUST NOT be flagged (lint exits zero)
-#   - encoder-el-nested-positive.jsp    : four e:forXxx calls the old
+#   - encoder-el-nested-positive.jsp    : e:forXxx calls the old
 #                                         expression-leading pattern missed
 #                                         (#5477); MUST be flagged, Class B only
 #   - encoder-el-nested-negative.jsp    : near misses (wrapper nested in a
@@ -139,7 +139,7 @@ stage_and_run \
 stage_and_run \
   "encoder-el-nested-positive.jsp" \
   "1" \
-  "Class B — \${e:forXxx} EL function]: src/main/webapp/billingONFixture.jsp (4 site(s))
+  "Class B — \${e:forXxx} EL function]: src/main/webapp/billingONFixture.jsp (6 site(s))
 Total violating files                      : 1" \
   "nested and deferred e:forXxx EL calls flagged as Class B only"
 
@@ -167,6 +167,35 @@ stage_and_run \
 Declares https://www.owasp.org/index.php/OWASP_Java_Encoder_Project, urn:jsptld:owasp.encoder.jakarta.advanced." \
   "XML-syntax and legacy-URI OWASP taglib declarations flagged in a .jspx" \
   "billingONFixture.jspx"
+
+stage_and_run \
+  "encoder-taglib-xml-negative.jspx" \
+  "0" \
+  "" \
+  "XML comments do not declare taglibs or execute EL" \
+  "billingONFixture.jspx"
+
+if ! python3 - "$SCRIPT_DIR/../../.claude/hooks/validate-owasp-encoding.py" <<'PY'
+import json
+import subprocess
+import sys
+
+cases = (
+    ('<carlos:encode value="${param.foo}" context="htmlAttribute"/>', 0),
+    ('<carlos:encode context="htmlAttribute" value="prefix-${param.foo}"/>', 0),
+    ('<carlos:encode value="fixed" context="${param.foo}"/>', 2),
+    ('<carlos:encode value="${param.foo}" context="htmlAttribute"/>${param.foo}', 2),
+    ('<span>${param.foo}</span>', 2),
+)
+for markup, expected in cases:
+    payload = {"tool_name": "Write", "tool_input": {"file_path": "fixture.jsp", "content": markup}}
+    result = subprocess.run([sys.executable, sys.argv[1]], input=json.dumps(payload), text=True, capture_output=True)
+    assert result.returncode == expected and "Error in OWASP validation hook" not in result.stderr, result.stderr
+print("PASS: the encoder hook checks exactly the CARLOS value attribute")
+PY
+then
+  fails=$((fails+1))
+fi
 
 if [[ $fails -eq 0 ]]; then
   echo "All encoder-null-safety lint fixtures pass."
