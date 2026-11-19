@@ -100,7 +100,7 @@
      returned false (file unreadable / parse failure). --%>
 <c:if test="${raImportFailed}">
     <div class="alert alert-danger" role="alert">
-        RA import failed — see server log for details. The displayed RA list
+        RA import failed &#8212; see server log for details. The displayed RA list
         does not reflect the file you just attempted to import.
     </div>
 </c:if>

@@ -25,7 +25,6 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicMergedDao;
 import io.github.carlos_emr.carlos.commn.dao.RecycleBinDao;
 import io.github.carlos_emr.carlos.commn.dao.SecObjPrivilegeDao;
-import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicMerged;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -34,6 +33,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.spring.StrutsSpringObjectFactory;
 import org.junit.jupiter.api.BeforeEach;
@@ -103,9 +103,9 @@ class DemographicMergeRecord2ActionMergeUnitTest extends CarlosUnitTestBase {
         registerMock(SecObjPrivilegeDao.class, privilegeDao);
         registerMock(RecycleBinDao.class, recycleBinDao);
         for (int id : List.of(10, 11, 12)) {
-            when(demographicDao.findForUpdate(id)).thenAnswer(invocation -> {
+            when(demographicDao.lockForMerge(id)).thenAnswer(invocation -> {
                 assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
-                return new Demographic();
+                return true;
             });
         }
         when(info.getLoggedInProviderNo()).thenReturn("999998");
@@ -133,6 +133,10 @@ class DemographicMergeRecord2ActionMergeUnitTest extends CarlosUnitTestBase {
     private String merge(String head, String... records) {
         request.setParameter("head", head);
         request.setParameter("records", records);
+        return execute();
+    }
+
+    private String execute() {
         try (var servlet = org.mockito.Mockito.mockStatic(ServletActionContext.class);
              var loggedIn = org.mockito.Mockito.mockStatic(LoggedInInfo.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
@@ -140,6 +144,50 @@ class DemographicMergeRecord2ActionMergeUnitTest extends CarlosUnitTestBase {
             loggedIn.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
             return new DemographicMergeRecord2Action(security, demographicDao, transactions).execute();
         }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"GET,merge", "HEAD,merge", "GET,unmerge", "HEAD,unmerge"})
+    void shouldRejectNonPostRequests_beforeStartingAMutation(String method, String action) {
+        request.setMethod(method);
+        request.setParameter("mergeAction", action);
+        request.setParameter("head", "10");
+        if ("unmerge".equals(action)) {
+            alreadyMerged(11, 10);
+            request.setParameter("records", "11");
+        } else {
+            request.setParameter("records", "10", "11");
+        }
+
+        assertThat(execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(security, demographicDao, dao, privilegeDao, recycleBinDao);
+        assertThat(transactions.commits).isZero();
+        assertThat(transactions.rollbacks).isZero();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"merge,failure", "unmerge,failureUnMerge"})
+    void shouldReturnTheOperationFailure_whenTheSelectionIsMissing(String action, String outcome) {
+        request.setParameter("mergeAction", action);
+
+        assertThat(execute()).isEqualTo(outcome);
+        verifyNoInteractions(demographicDao, dao, privilegeDao, recycleBinDao);
+        assertThat(transactions.commits).isZero();
+        assertThat(transactions.rollbacks).isZero();
+    }
+
+    @Test
+    void shouldReturnTheMergeFailure_whenTheOperationIsUnknown() {
+        request.setParameter("mergeAction", "unknown");
+        request.setParameter("caisiSearch", "no");
+
+        assertThat(merge("10", "10", "11")).isEqualTo("failure");
+        assertThat(request.getAttribute("mergeoutcome")).isEqualTo("failure");
+        verifyNoInteractions(demographicDao, dao, privilegeDao, recycleBinDao);
+        assertThat(transactions.commits).isZero();
+        assertThat(transactions.rollbacks).isZero();
     }
 
     @Test
@@ -185,10 +233,31 @@ class DemographicMergeRecord2ActionMergeUnitTest extends CarlosUnitTestBase {
         assertThat(merge("10", "12", "10", "11")).isEqualTo("success");
 
         var order = inOrder(demographicDao, dao);
-        order.verify(demographicDao).findForUpdate(10);
-        order.verify(demographicDao).findForUpdate(11);
-        order.verify(demographicDao).findForUpdate(12);
+        order.verify(demographicDao).lockForMerge(10);
+        order.verify(demographicDao).lockForMerge(11);
+        order.verify(demographicDao).lockForMerge(12);
         order.verify(dao).findCurrentByDemographicNo(12);
+    }
+
+    @Test
+    void shouldLockUnmergePatientsInOrder_beforeCheckingActiveLinks() {
+        request.setParameter("mergeAction", "unmerge");
+        request.setParameter("records", "12", "10", "11");
+
+        assertThat(execute()).isEqualTo("failureUnMerge");
+
+        var order = inOrder(demographicDao, dao);
+        order.verify(demographicDao).lockForMerge(10);
+        order.verify(demographicDao).lockForMerge(11);
+        order.verify(demographicDao).lockForMerge(12);
+        order.verify(dao).findCurrentByDemographicNo(12);
+        verify(demographicDao, never()).findForUpdate(anyInt());
+    }
+
+    @Test
+    void shouldRejectBeforeLockingPatients_whenAMergeIdIsNonPositive() {
+        assertThat(merge("10", "10", "0")).isEqualTo("failure");
+        verifyNoInteractions(demographicDao, dao, privilegeDao, recycleBinDao);
     }
 
     @Test

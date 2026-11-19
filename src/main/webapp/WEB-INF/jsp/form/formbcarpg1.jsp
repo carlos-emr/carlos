@@ -820,7 +820,7 @@
                                                       style="width: 100%" size="2" maxlength="2"
                                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg1_partnerAge", "")) %>"
                                                       @oscar.formDB/></td>
-                            <td><span class="small9">ETHNIC ORIGIN OF NEWBORN�S
+                            <td><span class="small9">ETHNIC ORIGIN OF NEWBORN&#8217;S
 					FATHER</span> <input type="text" name="pg1_faEthOrig" id="pg1_faEthOrig"
                                          class="spe" onDblClick="showHideBox('Origdiv1',1);"
                                          style="width: 100%" size="30" maxlength="50"
