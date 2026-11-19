@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/prevention/reports/PreventionReportUtil.java",
   "kind": "floor",
   "floor": {
-    "lines": 92.6829268292683,
-    "instructions": 94.91525423728814,
-    "branches": 95.65217391304348,
-    "sourceBlob": "535ef1d5e68d3a3dd3f65d06230ab9c89c297ddf"
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 98.27586206896552,
+    "sourceBlob": "a2cdf234d428da6e5d0db089beef028b29ced255"
   },
-  "evidenceSha256": "ccc281505e8ab48d720a927b528cf61e9eb62ac5cd472d3aefa9993f7c1b7a9b"
+  "evidenceSha256": "478e295090027ba55c0f22e39bbb40398159fbfeff93209d9dee7b0398c30a64"
 }
