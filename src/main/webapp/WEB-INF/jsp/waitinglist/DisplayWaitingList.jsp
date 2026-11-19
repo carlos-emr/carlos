@@ -88,6 +88,19 @@
         <link rel="stylesheet" type="text/css" media="all"
               href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1">
 
+        <style>
+            .master-record-button {
+                background: none;
+                border: 0;
+                padding: 0;
+                color: LinkText;
+                cursor: pointer;
+                font: inherit;
+                text-align: inherit;
+                text-decoration: underline;
+            }
+        </style>
+
         <!-- main calendar program -->
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
 
@@ -199,9 +212,9 @@
                                             ${carlos:forHtml(waitingListBean.position)}
                                         </td>
                                         <td class="${styleClass}">
-                                            <a href="#" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=${carlos:forJavaScript(carlos:forUriComponent(waitingListBean.demographicNo))}'); return false;">
+                                            <button type="button" class="master-record-button" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=${carlos:forJavaScript(carlos:forUriComponent(waitingListBean.demographicNo))}'); return false;">
                                                 ${carlos:forHtml(waitingListBean.patientName)}
-                                            </a>
+                                            </button>
                                             <input type="button" value="<fmt:message key='oscarwaitinglist.displayWaitingList.update'/>" name="update_${ctr.index}" style="font-size: 7pt;"
                                                    onClick="updateWaitingList('${carlos:forJavaScript(waitingListBean.waitingListID)}', ${ctr.index});"/>
                                         </td>

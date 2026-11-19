@@ -171,9 +171,8 @@ class WaitingListMasterRecordLinkEncodingUnitTest extends CarlosUnitTestBase {
         void shouldLockEncoderWithoutJspTaglib_inDependencyLock() throws IOException {
             String lock = Files.readString(DEPENDENCY_LOCK, StandardCharsets.UTF_8);
 
-            assertThat(lock).as("SafeEncode and carlos-tag.tld still need org.owasp.encoder:encoder")
-                    .contains("\"artifactId\" : \"encoder\",");
-            assertThat(lock).as("no JSP uses the OWASP encoder taglib, so its jar must not ship (#5477)")
+            assertThat(lock).as("the OWASP core encoder must remain locked and its JSP taglib must stay removed (#5477)")
+                    .contains("\"artifactId\" : \"encoder\",")
                     .doesNotContain("encoder-jakarta-jsp");
         }
     }

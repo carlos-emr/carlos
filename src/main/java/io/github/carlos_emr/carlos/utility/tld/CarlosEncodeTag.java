@@ -120,8 +120,7 @@ public class CarlosEncodeTag extends TagSupport {
     private static void encode(JspWriter out, String ctx, String val) throws IOException, JspException {
         // Lowercase compare makes "html", "Html", "HTML", "hTML" equivalent.
         switch (ctx.toLowerCase(Locale.ROOT)) {
-            case "html":
-            case "htmlcontent":
+            case "html", "htmlcontent":
                 SafeEncode.forHtmlContent(out, val);
                 return;
             case "htmlwithbreakmarkers":
@@ -136,8 +135,7 @@ public class CarlosEncodeTag extends TagSupport {
             case "htmlunquotedattribute":
                 SafeEncode.forHtmlUnquotedAttribute(out, val);
                 return;
-            case "javascript":
-            case "js":
+            case "javascript", "js":
                 SafeEncode.forJavaScript(out, val);
                 return;
             case "javascriptattribute":
@@ -155,8 +153,7 @@ public class CarlosEncodeTag extends TagSupport {
             case "uricomponent":
                 SafeEncode.forUriComponent(out, val);
                 return;
-            case "cssstring":
-            case "css":
+            case "cssstring", "css":
                 SafeEncode.forCssString(out, val);
                 return;
             case "cssurl":

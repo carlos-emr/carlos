@@ -21,22 +21,23 @@ async function workflow(s) {
   h.assert(managerPath.startsWith(`${contextPath}/waitinglist/`), `Unexpected manager URL ${managerPath}`);
   const lastName = patient => s.sql.value(`SELECT last_name FROM demographic WHERE demographic_no=${patient}`);
   const firstName = patient => s.sql.value(`SELECT first_name FROM demographic WHERE demographic_no=${patient}`);
+  const masterButtonSelector = 'button[type="button"][onclick*="popupDemographicPage("]';
 
-  await s.step('each row renders its own patient in the Master Record, Make Appointment and Remove links', async () => {
-    const masterLinks = f.manager.locator('a[onclick*="popupDemographicPage("]');
-    h.assert(await masterLinks.count() === f.patients.length,
-      `The list shows ${await masterLinks.count()} Master Record links for ${f.patients.length} entries`);
+  await s.step('each row renders its own patient in the Master Record, Make Appointment and Remove controls', async () => {
+    const masterButtons = f.manager.locator(masterButtonSelector);
+    h.assert(await masterButtons.count() === f.patients.length,
+      `The list shows ${await masterButtons.count()} Master Record buttons for ${f.patients.length} entries`);
     for (const patient of f.patients) {
       const row = f.patientRow(patient);
       h.assert(await row.count() === 1, `No single manager row for patient ${patient}`);
-      const master = row.locator('a[onclick*="popupDemographicPage("]');
-      h.assert(await master.count() === 1, `Row ${patient} has no single Master Record link`);
+      const master = row.locator(masterButtonSelector);
+      h.assert(await master.count() === 1, `Row ${patient} has no single Master Record button`);
       // Byte-for-byte the onclick the OWASP taglib expression rendered for a numeric ID.
       h.assert(await master.getAttribute('onclick')
         === `popupDemographicPage('${contextPath}/demographic/DemographicEdit?demographic_no=${patient}'); return false;`,
-        `Row ${patient} Master Record link changed: ${await master.getAttribute('onclick')}`);
+        `Row ${patient} Master Record action changed: ${await master.getAttribute('onclick')}`);
       h.assert((await master.innerText()).trim() === `${lastName(patient)}, ${firstName(patient)}`,
-        `Row ${patient} link does not name its patient`);
+        `Row ${patient} button does not name its patient`);
       const appointment = row.locator('a[onclick*="popupPage("]');
       h.assert(await appointment.count() === 1, `Row ${patient} has no single Make Appointment link`);
       const appointmentOnClick = await appointment.getAttribute('onclick');
@@ -47,15 +48,15 @@ async function workflow(s) {
       h.assert(await remove.getAttribute('onclick') === `removePatient('${patient}', '${f.list.id}');`,
         `Row ${patient} Remove link names another patient or list: ${await remove.getAttribute('onclick')}`);
     }
-    // No row may print an empty or literal "null" demographic number into its link.
-    for (const onclick of await masterLinks.evaluateAll(links => links.map(link => link.getAttribute('onclick')))) {
-      h.assert(/demographic_no=[1-9]\d*'\); return false;$/.test(onclick), `Malformed Master Record link: ${onclick}`);
+    // No row may print an empty or literal "null" demographic number into its Master Record action.
+    for (const onclick of await masterButtons.evaluateAll(buttons => buttons.map(button => button.getAttribute('onclick')))) {
+      h.assert(/demographic_no=[1-9]\d*'\); return false;$/.test(onclick), `Malformed Master Record action: ${onclick}`);
     }
   });
 
-  await s.step('following each row link opens that patient\'s Master Record', async () => {
+  await s.step('clicking each row button opens that patient\'s Master Record', async () => {
     for (const patient of f.patients) {
-      const master = await s.popup(f.manager, f.patientRow(patient).locator('a[onclick*="popupDemographicPage("]'),
+      const master = await s.popup(f.manager, f.patientRow(patient).locator(masterButtonSelector),
         `waiting-list-master-record-${patient}`);
       try {
         await master.waitForURL(/\/demographic\/DemographicEdit\?/, { timeout: 20000 });
