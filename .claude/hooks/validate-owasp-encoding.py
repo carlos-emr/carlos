@@ -37,13 +37,24 @@ def check_jsp_unsafe_patterns(content: str) -> list[str]:
     - ${xxx} without Encode wrapper - any unencoded EL expression
 
     Safe patterns:
-    - ${Encode.forHtml(...)}
-    - ${Encode.forJavaScript(...)}
-    - ${Encode.forHtmlAttribute(...)}
+    - ${carlos:forHtml(...)}, ${carlos:forJavaScript(...)}, ... (null-safe CARLOS EL functions)
+    - <carlos:encode value="${...}" context="..."/>
     - <c:out value="${...}"/>
     - ${fn:escapeXml(...)}
+
+    Blocked: the OWASP encoder JSP taglib (owasp.encoder.jakarta[.advanced]) and its
+    <e:forXxx> / ${e:forXxx(...)} forms. CARLOS no longer ships that library (#5477),
+    so such a page fails to translate.
     """
     issues = []
+
+    if re.search(r'owasp\.encoder\.jakarta|OWASP_Java_Encoder_Project', content, re.IGNORECASE) \
+            or re.search(r'<e:for\w+|\be:for\w+\s*\(', content):
+        issues.append(
+            "CRITICAL: OWASP encoder JSP taglib (owasp.encoder.jakarta) or an e:forXxx call.\n"
+            "  CARLOS no longer ships that taglib (#5477); the page will not translate.\n"
+            "  Use <%@ taglib uri=\"carlos\" prefix=\"carlos\" %> with <carlos:encode> or ${carlos:forXxx(...)}."
+        )
 
     # Pattern for raw EL expressions that are NOT inside Encode.for* or c:out
     # This regex finds ${...} expressions
@@ -51,8 +62,8 @@ def check_jsp_unsafe_patterns(content: str) -> list[str]:
 
     # Safe wrappers that indicate proper encoding
     safe_wrappers = [
-        r'Encode\.for\w+\s*\(',  # Encode.forHtml(), Encode.forJavaScript(), etc.
-        r'e:for\w+\s*\(',        # OWASP Encoder EL functions: ${e:forHtml()}, ${e:forHtmlAttribute()}, etc.
+        r'Encode\.for\w+\s*\(',  # Encode.forHtml(), SafeEncode.forHtml(), etc.
+        r'\bcarlos:for\w+\s*\(',  # Null-safe CARLOS EL functions: ${carlos:forHtml()}, etc.
         r'fn:escapeXml\s*\(',    # JSTL escapeXml function
     ]
 
@@ -85,10 +96,10 @@ def check_jsp_unsafe_patterns(content: str) -> list[str]:
         if has_cout_open_before and (has_self_closing_after or has_cout_close_after):
             is_safe = True
 
-        # Check if this ${} is inside an OWASP Encoder JSP tag like
-        # <e:forHtmlAttribute value='${param.foo}' /> or <e:forHtml value="${expr}" />
-        has_encoder_tag_before = bool(re.search(r'<e:for\w+[^>]*$', context_before))
-        has_encoder_tag_close_after = bool(re.search(r'</\s*e:for\w+\s*>', context_after))
+        # Check if this ${} is inside the null-safe CARLOS encoder tag, e.g.
+        # <carlos:encode value='${param.foo}' context="htmlAttribute"/>
+        has_encoder_tag_before = bool(re.search(r'<carlos:encode\b[^>]*$', context_before))
+        has_encoder_tag_close_after = bool(re.search(r'</\s*carlos:encode\s*>', context_after))
         if has_encoder_tag_before and (has_self_closing_after or has_encoder_tag_close_after):
             is_safe = True
 
@@ -111,7 +122,7 @@ def check_jsp_unsafe_patterns(content: str) -> list[str]:
             issues.append(
                 f"CRITICAL: Unencoded user input in EL expression: {el_expr}\n"
                 f"  This can lead to XSS vulnerabilities.\n"
-                f"  Use: ${{Encode.forHtml({el_content})}} or <c:out value=\"{el_expr}\"/>"
+                f"  Use: ${{carlos:forHtml({el_content})}} or <carlos:encode value=\"{el_expr}\"/>"
             )
         else:
             # For other expressions, warn but be less strict
@@ -120,7 +131,7 @@ def check_jsp_unsafe_patterns(content: str) -> list[str]:
                 issues.append(
                     f"WARNING: Potentially unsafe EL expression: {el_expr}\n"
                     f"  If this contains user input, use OWASP encoding.\n"
-                    f"  Suggested: ${{Encode.forHtml({el_content})}} or <c:out value=\"{el_expr}\"/>"
+                    f"  Suggested: ${{carlos:forHtml({el_content})}} or <carlos:encode value=\"{el_expr}\"/>"
                 )
 
     return issues
@@ -258,11 +269,11 @@ def main():
             if not is_safe:
                 print("BLOCKED: Critical XSS vulnerability detected.", file=sys.stderr)
                 print("Please use OWASP encoding for all user input.", file=sys.stderr)
-                print("\nOWASP Encoder methods:", file=sys.stderr)
-                print("  - Encode.forHtml() - HTML body content", file=sys.stderr)
-                print("  - Encode.forHtmlAttribute() - HTML attributes", file=sys.stderr)
-                print("  - Encode.forJavaScript() - JavaScript contexts", file=sys.stderr)
-                print("  - <c:out value=\"${...}\"/> - JSP safe output", file=sys.stderr)
+                print("\nNull-safe CARLOS encoders (see CLAUDE.md, OWASP Encoding):", file=sys.stderr)
+                print("  - <carlos:encode value=\"${...}\"/> / ${carlos:forHtmlContent()} - HTML body", file=sys.stderr)
+                print("  - ${carlos:forHtmlAttribute()} - HTML attributes", file=sys.stderr)
+                print("  - ${carlos:forJavaScript()} - JavaScript contexts", file=sys.stderr)
+                print("  - SafeEncode.forXxx() - Java code and scriptlets", file=sys.stderr)
                 sys.exit(2)
             else:
                 print("WARNING: Potential issues detected but not blocking.", file=sys.stderr)
