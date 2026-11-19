@@ -24,15 +24,18 @@ public class PDFEncryptionUtil {
             encryptPDFPath = PathValidationUtils.createSecureTempFile(PathValidationUtils.validateGeneratedFileName("encryptedPDF_" + System.currentTimeMillis()), ".pdf").toPath();
             pdDocument.save(encryptPDFPath.toFile());
             return encryptPDFPath;
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             if (encryptPDFPath != null) {
                 try {
                     Files.deleteIfExists(encryptPDFPath);
-                } catch (IOException cleanupFailure) {
+                } catch (IOException | RuntimeException cleanupFailure) {
                     e.addSuppressed(cleanupFailure);
                 }
             }
-            throw new IOException("Failed to encrypt document", e);
+            if (e instanceof IOException) {
+                throw new IOException("Failed to encrypt document", e);
+            }
+            throw e;
         }
     }
 }
