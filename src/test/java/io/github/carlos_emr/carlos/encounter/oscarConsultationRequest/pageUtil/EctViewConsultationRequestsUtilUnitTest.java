@@ -115,6 +115,17 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         requests = mock(ConsultationRequestDao.class);
         extensions = mock(ConsultationRequestExtDao.class);
         demographics = mock(DemographicManager.class);
+        // Unless a test says otherwise, the user may read every patient on a team page and none of
+        // them has a demographic record: every row is listed, without a name.
+        when(demographics.getReadableDemographicFormattedNames(any(), any())).thenAnswer(call -> {
+            Map<Integer, String> names = new HashMap<>();
+            Collection<Integer> requested = call.getArgument(1);
+            // Null while a test replaces this stub: when(...) calls it with matcher placeholders.
+            if (requested != null) {
+                for (Integer id : requested) names.put(id, "");
+            }
+            return names;
+        });
         providers = mock(ProviderDao.class);
         info = mock(LoggedInInfo.class);
         registerMock(ConsultationRequestDao.class, requests);
@@ -155,7 +166,7 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldBatchLookups_forManyRowsWithRepeatedPatientAndProvider() {
         when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(1, 42, 0, "101", null), row(2, 42, 0, "101", 8)));
-        when(demographics.getDemographicFormattedNames(info, Set.of(42))).thenReturn(Map.of(42, "Doe, Jane"));
+        when(demographics.getReadableDemographicFormattedNames(info, Set.of(42))).thenReturn(Map.of(42, "Doe, Jane"));
         ProviderSummaryDTO ordering = new ProviderSummaryDTO("201", "Order", "Pat", null, null, null);
         when(providers.getProviderSummariesByIds(Set.of("201"))).thenReturn(Map.of("201", ordering));
         ConsultationRequestExt service = new ConsultationRequestExt();
@@ -181,7 +192,7 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         assertThat(util.patientWillBook).containsExactly("false", "false");
         assertThat(util.consultProvider).containsExactly(ordering, ordering);
         verify(requests).getConsultationListRows(filter());
-        verify(demographics).getDemographicFormattedNames(info, Set.of(42));
+        verify(demographics).getReadableDemographicFormattedNames(info, Set.of(42));
         verify(providers).getProviderSummariesByIds(Set.of("201"));
         verify(extensions).getConsultationRequestExts(List.of(1, 2));
         verifyNoMoreInteractions(requests, demographics, providers, extensions);
@@ -193,7 +204,9 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         assertThat(util.estConsultationVecByTeam(info, filter())).isTrue();
         assertThat(util.ids).containsExactly("7", "8");
         assertThat(util.demographicNo).containsExactly("", "42");
+        // Patient 42 is readable but has no demographic record: listed without a name, not withheld.
         assertThat(util.patient).containsExactly("", "");
+        assertThat(util.hasRestrictedRows()).isFalse();
         assertThat(util.provider).containsExactly("N/A", "N/A");
         assertThat(util.providerNo).containsExactly("-1", "-1");
         assertThat(util.service).containsExactly("", "");
@@ -210,14 +223,190 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         assertThat(util.vSpecialist).containsExactly("N/A");
     }
 
+    /** Every row on a patient's chart is that patient's: a restricted patient fails the whole list. */
     @Test
-    void shouldPublishNoRows_whenPatientReadIsDenied() {
-        when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(7, 42, null, null, null)));
+    void shouldPublishNoRows_whenPatientChartReadIsDenied() {
+        when(requests.getConsultationListRows(42)).thenReturn(List.of(row(7, 42, null, null, null)));
         when(demographics.getDemographicFormattedNames(info, Set.of(42))).thenThrow(new SecurityException("denied"));
-        assertThat(util.estConsultationVecByTeam(info, filter())).isFalse();
+        assertThat(util.estConsultationVecByDemographic(info, "42")).isFalse();
         assertThat(util.ids).isEmpty();
         assertThat(util.patient).isEmpty();
+        assertThat(util.hasRestrictedRows()).isFalse();
+        verify(demographics, never()).getReadableDemographicFormattedNames(any(), any());
         verifyNoInteractions(providers, extensions);
+    }
+
+    @Test
+    void shouldOmitOnlyRestrictedRows_whenTeamPageMixesPatients() {
+        when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(1, 41, null, "101", null),
+                row(2, 42, null, "102", null), row(3, 43, null, "101", null), row(4, 42, null, "102", null)));
+        // No entry for 42: the manager decided this user may not read that patient.
+        when(demographics.getReadableDemographicFormattedNames(info, new LinkedHashSet<>(List.of(41, 42, 43))))
+                .thenReturn(Map.of(41, "Readable, One", 43, "Readable, Three"));
+
+        assertThat(util.estConsultationVecByTeam(info, filter())).isTrue();
+
+        assertThat(util.ids).containsExactly("1", "3");
+        assertThat(util.demographicNo).containsExactly("41", "43");
+        assertThat(util.patient).containsExactly("Readable, One (alias)", "Readable, Three (alias)");
+        assertThat(util.hasRestrictedRows()).isTrue();
+        assertThat(parallelListSizes()).containsOnly(2);
+        // Nothing is looked up for the rows left out, and the all-or-nothing lookup is not used.
+        verify(extensions).getConsultationRequestExts(List.of(1, 3));
+        verify(demographics, never()).getDemographicFormattedNames(any(), any());
+    }
+
+    @Test
+    void shouldListNoRowsAndSayWhy_whenEveryPatientOnTheTeamPageIsRestricted() {
+        when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(1, 41, null, null, null), row(2, 42, null, null, null)));
+        when(demographics.getReadableDemographicFormattedNames(info, new LinkedHashSet<>(List.of(41, 42)))).thenReturn(Map.of());
+
+        // Loaded, with nothing this user may see: not a failure.
+        assertThat(util.estConsultationVecByTeam(info, filter())).isTrue();
+
+        assertThat(parallelListSizes()).containsOnly(0);
+        assertThat(util.hasRestrictedRows()).isTrue();
+        verifyNoInteractions(providers, extensions);
+    }
+
+    @Test
+    void shouldNotReportRestriction_whenEveryPatientOnTheTeamPageIsReadable() {
+        when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(1, 41, null, null, null), row(2, null, null, null, null), row(3, 0, null, null, null)));
+        when(demographics.getReadableDemographicFormattedNames(any(), any())).thenReturn(Map.of(41, "Readable, One"));
+
+        assertThat(util.estConsultationVecByTeam(info, filter())).isTrue();
+
+        // A row with no patient, or the blank patient 0, is not a restricted row.
+        assertThat(util.ids).containsExactly("1", "2", "3");
+        assertThat(util.patient).containsExactly("Readable, One (alias)", "", "");
+        assertThat(util.hasRestrictedRows()).isFalse();
+    }
+
+    /** A failure is not an access restriction: it is reported, and never as some or no rows. */
+    @Test
+    void shouldReportFailureWithNoRows_whenPatientAccessCannotBeDecided() {
+        when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(1, 41, null, null, null)));
+        when(demographics.getReadableDemographicFormattedNames(any(), any()))
+                .thenThrow(new IllegalStateException("synthetic policy store failure"));
+
+        assertThat(util.estConsultationVecByTeam(info, filter())).isFalse();
+
+        assertThat(parallelListSizes()).containsOnly(0);
+        assertThat(util.hasRestrictedRows()).isFalse();
+        assertThat(util.hasMoreRows()).isFalse();
+    }
+
+    @Test
+    void shouldReportFailureWithNoRows_whenLookupFailsAfterNamesWereRead() {
+        when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(1, 41, null, null, null), row(2, 42, null, null, null)));
+        when(demographics.getReadableDemographicFormattedNames(any(), any())).thenReturn(Map.of(41, "Readable, One"));
+        when(extensions.getConsultationRequestExts(any())).thenThrow(new IllegalStateException("synthetic database failure"));
+
+        assertThat(util.estConsultationVecByTeam(info, filter())).isFalse();
+
+        // Not the rows read so far, and not "some rows are restricted": the load failed.
+        assertThat(parallelListSizes()).containsOnly(0);
+        assertThat(util.hasRestrictedRows()).isFalse();
+    }
+
+    @Test
+    void shouldReportFailureWithNoRows_whenRowsCannotBeRead() {
+        when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(1, 41, null, null, null)));
+        assertThat(util.estConsultationPageByTeam(info, filter(), 10)).isTrue();
+        assertThat(util.ids).containsExactly("1");
+        when(requests.getConsultationListRows(filter())).thenThrow(new IllegalStateException("synthetic database failure"));
+
+        assertThat(util.estConsultationPageByTeam(info, filter(), 10)).isFalse();
+
+        // The rows of the earlier load are gone too.
+        assertThat(parallelListSizes()).containsOnly(0);
+        assertThat(util.hasMoreRows()).isFalse();
+    }
+
+    @Test
+    void shouldKeepPageBoundary_whenRestrictedRowIsOnThePage() {
+        // A page of two, fetched with its lookahead row.
+        when(requests.getConsultationListRows(filter())).thenReturn(List.of(
+                row(1, 41, null, null, null), row(2, 42, null, null, null), row(3, 43, null, null, null)));
+        when(demographics.getReadableDemographicFormattedNames(info, new LinkedHashSet<>(List.of(41, 42))))
+                .thenReturn(Map.of(42, "Readable, Two"));
+
+        assertThat(util.estConsultationPageByTeam(info, filter(), 2)).isTrue();
+
+        // The next page's row is not pulled forward to fill the gap, and its patient is not looked up.
+        assertThat(util.ids).containsExactly("2");
+        assertThat(util.hasMoreRows()).isTrue();
+        assertThat(util.hasRestrictedRows()).isTrue();
+        verify(demographics).getReadableDemographicFormattedNames(info, new LinkedHashSet<>(List.of(41, 42)));
+        verify(extensions).getConsultationRequestExts(List.of(2));
+    }
+
+    @Test
+    void shouldKeepNextPageReachable_whenEveryRowOnThePageIsRestricted() {
+        when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(1, 41, null, null, null), row(2, 42, null, null, null)));
+        when(demographics.getReadableDemographicFormattedNames(info, Set.of(41))).thenReturn(Map.of());
+
+        assertThat(util.estConsultationPageByTeam(info, filter(), 1)).isTrue();
+
+        assertThat(parallelListSizes()).containsOnly(0);
+        assertThat(util.hasMoreRows()).isTrue();
+        assertThat(util.hasRestrictedRows()).isTrue();
+        verifyNoInteractions(providers, extensions);
+    }
+
+    @Test
+    void shouldReportNoNextPage_whenPageIsTheLast() {
+        when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(1, 41, null, null, null), row(2, 42, null, null, null)));
+
+        assertThat(util.estConsultationPageByTeam(info, filter(), 2)).isTrue();
+
+        assertThat(util.ids).containsExactly("1", "2");
+        assertThat(util.hasMoreRows()).isFalse();
+        assertThat(util.hasRestrictedRows()).isFalse();
+    }
+
+    /** The JSP reads these by one index; a shorter list would fail the page. */
+    private List<Integer> parallelListSizes() {
+        return List.of(util.ids.size(), util.status.size(), util.patient.size(), util.teams.size(), util.provider.size(),
+                util.service.size(), util.vSpecialist.size(), util.date.size(), util.demographicNo.size(),
+                util.apptDate.size(), util.patientWillBook.size(), util.urgency.size(), util.followUpDate.size(),
+                util.providerNo.size(), util.siteName.size(), util.consultProvider.size(), util.eReferral.size());
+    }
+
+    /**
+     * Issue #5775, through the real manager: its batch name lookup refuses the whole batch when one
+     * patient is restricted, which emptied the team page. The security manager and the DAO are the
+     * only mocks, so this holds whichever manager method the list calls.
+     */
+    @Test
+    void shouldListReadablePatients_whenOneRestrictedPatientIsOnTheTeamPage() {
+        var security = mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        var patients = mock(DemographicDao.class);
+        var manager = new io.github.carlos_emr.carlos.managers.DemographicManagerImpl();
+        injectDependency(manager, "securityInfoManager", security);
+        injectDependency(manager, "demographicDao", patients);
+        registerMock(DemographicManager.class, manager);
+        // Patient 42 is restricted for this user; 41 and 43 are readable.
+        when(security.hasDemographicReadPrivileges(any(), any()))
+                .thenAnswer(call -> !((Collection<?>) call.getArgument(1)).contains(42));
+        when(security.getReadableDemographicIds(any(), any())).thenAnswer(call -> {
+            Set<Integer> readable = new LinkedHashSet<>(call.<Collection<Integer>>getArgument(1));
+            readable.remove(42);
+            return readable;
+        });
+        when(patients.getDemographicNames(any())).thenAnswer(call -> call.<Collection<Integer>>getArgument(0).stream()
+                .map(id -> new io.github.carlos_emr.carlos.commn.dao.projection.DemographicName(id, "FAKE-" + id, "Patient"))
+                .toList());
+        when(requests.getConsultationListRows(filter())).thenReturn(List.of(
+                row(1, 41, null, null, null), row(2, 42, null, null, null), row(3, 43, null, null, null)));
+
+        assertThat(util.estConsultationVecByTeam(info, filter())).isTrue();
+
+        assertThat(util.ids).containsExactly("1", "3");
+        assertThat(util.demographicNo).containsExactly("41", "43");
+        assertThat(util.patient).containsExactly("FAKE-41, Patient (alias)", "FAKE-43, Patient (alias)");
+        // The restricted patient's name is never read, not merely left out of the page.
+        verify(patients, never()).getDemographicNames(argThat(ids -> ids.contains(42)));
     }
 
     @Test

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/login/Startup.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "4d5b3a7a67182109e49737099bcf3dbed8fee33f"
+  },
+  "evidenceSha256": "c245822b9d361d478202f4a7fc3d4f1dbdace8b054af71a643e30a461c4bcf51"
+}

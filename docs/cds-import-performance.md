@@ -27,8 +27,8 @@ external PDFs in one ZIP. More than20GiB of real expanded source and native
 document bytes are read, copied, hashed and reconciled. The producer streams one
 PDF at a time into the archive, then retires only that unsubmitted temporary
 producer file. Its original bytes remain in the retained input ZIP. Compression
-is approximately7:1, within the unmodified production ratio ceiling200; this
-profile does not claim incompressible-source throughput. Production retains
+is approximately7:1 (no compression ratio refuses a source; only the free-disk reserve stops
+one for its size); this profile does not claim incompressible-source throughput. Production retains
 both the physical expanded snapshot and each unit's native publication. There
 is no global document deduplication. Admission requires at least48GiB of actual
 free storage inside the configured source filesystem; the CI owner requires50GiB
@@ -92,7 +92,7 @@ Each PROGRESS line reads the durable run summary, so the CLI spaces them out as
 an import runs longer: the first after 5s, then 10s, 20s and 40s, then one every
 minute.
 Bounded file and field reads share one explicit run/epoch control scope. Each
-read checks interruption and active-attempt/stage budgets locally. At every
+read checks interruption and the attempt's stall window locally. At every
 forced boundary, and otherwise after a wait that starts at 250ms and doubles
 after each unchanged poll up to 2s (`CdsControlPollBackoff`), one prepared SELECT
 on the already-owned unpooled coordinator checks its physical lock, run epoch,
@@ -104,11 +104,11 @@ borrow an ordinary pool connection or open a Hibernate transaction for each
 polling read. The ledger-status polls of the review, historical-snapshot and
 standalone verification paths use the same pacing. Clinical unit
 transactions retain their independent locks, fencing and atomic checkpoints.
-Inside a clinical unit, a separate local-only scope checks the same active
-attempt budget for bounded source-field reads and before/after successful work
+Inside a clinical unit, a separate local-only scope checks the same attempt
+stall window for bounded source-field reads and before/after successful work
 and verification callbacks. It performs no owner SQL or nested transaction.
 Binary publication remains outside the short clinical reference transaction;
-an expired preparation copy retires only its own unpublished partial bytes.
+a stalled preparation copy retires only its own unpublished partial bytes.
 Only a query-budget comparison may be deferred to later independent workloads,
 and only after that case's engine, native rows/files/hashes, all reports, zero
 holds, cleanup and release have passed every check. Its exact failed budget and

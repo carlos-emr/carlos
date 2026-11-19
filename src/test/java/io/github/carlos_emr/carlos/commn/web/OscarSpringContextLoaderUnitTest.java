@@ -21,11 +21,18 @@
  */
 package io.github.carlos_emr.carlos.commn.web;
 
+import org.springframework.mock.web.MockServletContext;
+import org.springframework.web.context.ContextLoader;
+import org.springframework.web.context.support.XmlWebApplicationContext;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -80,4 +87,42 @@ class OscarSpringContextLoaderUnitTest {
                         "classpath:applicationContextCaisi.xml",
                         "classpath:applicationContextHRM.xml");
     }
+
+    @Test
+    @ResourceLock(Resources.SYSTEM_PROPERTIES)
+    @DisplayName("should configure the CXF logger before the Spring context refresh")
+    void shouldConfigureCxfLogger_beforeSpringRefresh() {
+        String property = "org.apache.cxf.Logger";
+        String previous = System.getProperty(property);
+        var context = new MockServletContext();
+        context.addInitParameter(ContextLoader.CONTEXT_CLASS_PARAM, RefreshProbeContext.class.getName());
+        try {
+            System.setProperty(property, "org.apache.cxf.commons.logging.Log4j2Logger");
+            var loader = new OscarSpringContextLoader();
+
+            assertThatThrownBy(() -> loader.createWebApplicationContext(context))
+                    .isInstanceOf(RefreshReached.class)
+                    .hasMessage("org.apache.cxf.common.logging.Slf4jLogger");
+        } finally {
+            if (previous == null) {
+                System.clearProperty(property);
+            } else {
+                System.setProperty(property, previous);
+            }
+        }
+    }
+
+    static class RefreshProbeContext extends XmlWebApplicationContext {
+        @Override
+        public void refresh() {
+            throw new RefreshReached(System.getProperty("org.apache.cxf.Logger"));
+        }
+    }
+
+    private static class RefreshReached extends RuntimeException {
+        RefreshReached(String loggerClass) {
+            super(loggerClass);
+        }
+    }
+
 }

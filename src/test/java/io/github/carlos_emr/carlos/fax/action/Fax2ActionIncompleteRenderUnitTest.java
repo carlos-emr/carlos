@@ -11,6 +11,7 @@ import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderMessage;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -96,6 +97,8 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
         }
 
         assertThat(request.getAttribute("renderApproval")).isEqualTo("exact-approval-token");
+        // The fax page's first line (#6162): no Accept-Language gives the English.
+        assertThat(request.getAttribute("missingContentMessage")).isEqualTo(EFormRenderMessage.NOT_FAXED.english());
         assertThat(request.getAttribute("failedContentResources")).isEqualTo(2);
         assertThat(request.getAttribute("excludedContentElements")).isEqualTo(1);
         assertThat(request.getAttribute("signatureMissing")).isEqualTo(true);

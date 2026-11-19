@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/integration/mchcv/OnlineHCValidator.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 85.71428571428571,
+    "instructions": 85.71428571428571,
+    "branches": 100.0,
+    "sourceBlob": "e6e73cc3e07589fc70b2c1bace867b3119459d65"
+  },
+  "evidenceSha256": "818daeaf60dff4ab4c8cb683aa8b2af9f06d7c2da7c499cc7c31f259df13f315"
+}

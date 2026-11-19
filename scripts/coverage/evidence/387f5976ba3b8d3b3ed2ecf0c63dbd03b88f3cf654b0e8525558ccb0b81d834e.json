@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "688336be0e4f3c4ecaf78eacc59c2385cef69361",
+  "comparisonSha256": "e17741fb51da366ea1d9214b546f3834146dd888fe869c3c742b79bf9b463d44",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/service/ProviderDocumentQueueService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "bb592390d5eec28e3c483a291067a0fb78547b68"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/provider/web/ProviderProperty2Action.java": {
+      "lines": 68.96551724137932,
+      "instructions": 73.88059701492537,
+      "branches": 88.88888888888889,
+      "sourceBlob": "e5c81317c7edc7c5b81d23775d6cd32f6999bea5"
+    }
+  },
+  "baselineCommit": "61e93e963fd02ce5a2f41b04e56817443ecd3ca4",
+  "baselineSourceTree": "688336be0e4f3c4ecaf78eacc59c2385cef69361",
+  "baselineReportSha256": "e6374c69bc05776c1556914049a464aafd529da8f421fcc2fdaa0956332e9a17",
+  "baselineLane": "Java 25 queue service and action tests plus MariaDB 11.8.8 transaction tests. Both mixed existing/new and new/new defaults serialize on the provider lock.",
+  "baselineTestCounts": {
+    "tests": 43,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "5968e87bd15ba35ab6c557468ce2cb3b4a3d7bf67fda44d6eab716bc464376f8",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

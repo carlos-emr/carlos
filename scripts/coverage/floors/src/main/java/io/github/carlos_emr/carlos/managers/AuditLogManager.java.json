@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/managers/AuditLogManager.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "92cb693c73249072aac9b2eb6e04352eb4485c68"
+  },
+  "evidenceSha256": "c245822b9d361d478202f4a7fc3d4f1dbdace8b054af71a643e30a461c4bcf51"
+}

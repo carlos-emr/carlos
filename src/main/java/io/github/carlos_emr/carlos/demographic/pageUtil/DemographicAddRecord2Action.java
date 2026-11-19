@@ -57,6 +57,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -86,13 +87,13 @@ public class DemographicAddRecord2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-    private DemographicCustDao demographicCustDao = SpringUtils.getBean(DemographicCustDao.class);
-    private DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
-    private DemographicArchiveDao demographicArchiveDao = SpringUtils.getBean(DemographicArchiveDao.class);
-    private DemographicExtArchiveDao demographicExtArchiveDao = SpringUtils.getBean(DemographicExtArchiveDao.class);
-    private WaitingListDao waitingListDao = SpringUtils.getBean(WaitingListDao.class);
+    private final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
+    private final transient DemographicCustDao demographicCustDao = SpringUtils.getBean(DemographicCustDao.class);
+    private final transient DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
+    private final transient DemographicArchiveDao demographicArchiveDao = SpringUtils.getBean(DemographicArchiveDao.class);
+    private final transient DemographicExtArchiveDao demographicExtArchiveDao = SpringUtils.getBean(DemographicExtArchiveDao.class);
+    private final transient WaitingListDao waitingListDao = SpringUtils.getBean(WaitingListDao.class);
 
     /** Set once the patient row has committed, so a later failure can be told apart from one before it. */
     private String registeredDemographicNo;
@@ -278,7 +279,22 @@ public class DemographicAddRecord2Action extends ActionSupport {
             demographic.setPatientStatusDate(new Date());
         }
 
-        List<String> fieldLengthValidationErrors = demographic.validateFieldLengths();
+        // The custom row is built here so its fields are checked with the patient row's, before
+        // anything is saved; it is written after the patient row has its number (#5869).
+        DemographicCust demographicCust = new DemographicCust();
+        demographicCust.setResident(request.getParameter("cust2"));
+        demographicCust.setNurse(request.getParameter("cust1"));
+        demographicCust.setAlert(request.getParameter("cust3"));
+        demographicCust.setMidwife(request.getParameter("cust4"));
+        demographicCust.setNotes("<unotes>" + request.getParameter("content") + "</unotes>");
+
+        List<String> fieldLengthValidationErrors = new ArrayList<>(demographic.validateFieldLengths());
+        fieldLengthValidationErrors.addAll(demographicCust.validateFieldLengths());
+        String waitingListChoice = request.getParameter("list_id");
+        if (waitingListChoice != null && !waitingListChoice.isEmpty() && !waitingListChoice.equals("0")) {
+            fieldLengthValidationErrors.addAll(io.github.carlos_emr.carlos.commn.model.WaitingList
+                    .validateNoteLength(request.getParameter("waiting_list_note")));
+        }
         if (!fieldLengthValidationErrors.isEmpty()) {
             logger.warn("DemographicAddRecord2Action: rejected demographic input due to field length limits: {}",
                     LogSafe.sanitize(String.join("; ", fieldLengthValidationErrors)));
@@ -320,13 +336,7 @@ public class DemographicAddRecord2Action extends ActionSupport {
             claim.saved(dem);
         }
 
-        // --- DemographicCust ---
-        DemographicCust demographicCust = new DemographicCust();
-        demographicCust.setResident(request.getParameter("cust2"));
-        demographicCust.setNurse(request.getParameter("cust1"));
-        demographicCust.setAlert(request.getParameter("cust3"));
-        demographicCust.setMidwife(request.getParameter("cust4"));
-        demographicCust.setNotes("<unotes>" + request.getParameter("content") + "</unotes>");
+        // --- DemographicCust (built and checked before the save above) ---
         demographicCust.setId(demographic.getDemographicNo());
         demographicCustDao.persist(demographicCust);
 
@@ -427,7 +437,9 @@ public class DemographicAddRecord2Action extends ActionSupport {
                     waitingList.setIsHistory("N");
                     waitingListDao.persist(waitingList);
                 } catch (NumberFormatException e) {
-                    logger.warn("DemographicAddRecord2Action: invalid list_id={}, skipping waiting list entry", listId, e);
+                    logger.warn("DemographicAddRecord2Action: invalid list_id={}, skipping waiting list entry; failure={}",
+                            io.github.carlos_emr.carlos.utility.LogSafe.sanitize(listId),
+                            io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(e));
                 }
             }
         }

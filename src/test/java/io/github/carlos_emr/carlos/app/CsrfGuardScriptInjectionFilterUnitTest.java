@@ -25,18 +25,28 @@ import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.ServletResponse;
+import jakarta.servlet.WriteListener;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
+import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Stream;
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.api.function.Executable;
 import org.mockito.MockedStatic;
 import org.owasp.csrfguard.CsrfGuard;
@@ -44,6 +54,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -99,6 +110,430 @@ class CsrfGuardScriptInjectionFilterUnitTest {
         String content = response.getContentAsString();
         assertThat(content).contains("<script src=\"/carlos/csrfguard\"></script>\n</head>");
         assertThat(countOccurrences(content, "/csrfguard")).isEqualTo(1);
+    }
+
+    // ---- #5937: the FORWARD capture is bounded ----
+
+    /** Writes a page whose body pushes it past the capture bound, in JSP-sized chunks. */
+    private static void writeLargePage(jakarta.servlet.ServletResponse response, String head, int bodyChars)
+            throws java.io.IOException {
+        response.setContentType("text/html;charset=UTF-8");
+        var writer = response.getWriter();
+        writer.write(head);
+        String chunk = "x".repeat(8192);
+        for (int written = 0; written < bodyChars; written += chunk.length()) {
+            writer.write(chunk);
+        }
+        writer.write("</body></html>");
+    }
+
+    @Test
+    @DisplayName("should inject the script into the head and stream a page larger than the capture bound")
+    void shouldInjectIntoPrefixAndStream_whenPageExceedsCaptureBound() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/WEB-INF/jsp/big.jsp");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        int body = CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS * 2;
+        boolean[] committedWhileWriting = new boolean[1];
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+            writeLargePage(res, "<html><head><title>Big</title></head><body>", body);
+            res.flushBuffer();
+            committedWhileWriting[0] = res.isCommitted();
+            res.setContentLength(7);
+        }));
+
+        String content = response.getContentAsString();
+        assertThat(content).startsWith("<html><head><title>Big</title><script src=\"/carlos/csrfguard\"></script>\n</head><body>")
+                .endsWith("</body></html>");
+        assertThat(countOccurrences(content, "/csrfguard")).isEqualTo(1);
+        assertThat(content.length()).isGreaterThan(body);
+        // Past the bound the wrapper streams: flushBuffer reaches the response and commits it.
+        assertThat(committedWhileWriting[0]).isTrue();
+        // A length set after the injected prefix was written would be stale; it is not published.
+        assertThat(response.getContentLength()).isNotEqualTo(7);
+    }
+
+    @Test
+    @DisplayName("should not inject twice into a large page that already loads the script")
+    void shouldNotInjectTwice_whenLargePageAlreadyLoadsScript() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/WEB-INF/jsp/big.jsp");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) ->
+                writeLargePage(res, "<html><head><script src=\"/carlos/csrfguard\"></script></head><body>",
+                        CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS + 1)));
+
+        assertThat(countOccurrences(response.getContentAsString(), "/csrfguard")).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("should inject into a page written in one chunk larger than the capture bound")
+    void shouldInjectIntoHead_whenOneWriteCrossesTheBound() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/WEB-INF/jsp/big.jsp");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        String page = "<html><head></head><body>" + "y".repeat(CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS) + "</body></html>";
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            res.getWriter().write(page);
+        }));
+
+        String content = response.getContentAsString();
+        assertThat(content).startsWith("<html><head><script src=\"/carlos/csrfguard\"></script>\n</head><body>");
+        assertThat(content.length()).isEqualTo(page.length() + "<script src=\"/carlos/csrfguard\"></script>\n".length());
+    }
+
+    @Test
+    void shouldStreamCharacterWrites_whenTheContainerRejectsBufferReset() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/WEB-INF/jsp/big.jsp");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse() {
+            @Override
+            public void resetBuffer() {
+                throw new IllegalStateException("The container cannot reset this buffer");
+            }
+        };
+        String body = "a".repeat(CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS);
+        String followingWrite = "</body></html>";
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            var writer = res.getWriter();
+            writer.write('<');
+            writer.write("html><head></head><body>".toCharArray());
+            writer.write(body.toCharArray());
+            writer.write(followingWrite.toCharArray());
+            writer.close();
+        }));
+
+        assertThat(response.getContentAsString()).isEqualTo(
+                "<html><head><script src=\"/carlos/csrfguard\"></script>\n</head><body>" + body + followingWrite);
+    }
+
+    /** A forwarded request for one of the large-page streaming cases below. */
+    private static MockHttpServletRequest largeForward() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/WEB-INF/jsp/big.jsp");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        return request;
+    }
+
+    /** Writes {@code count} characters of filler as JSP-sized char[] chunks, as JspWriter does. */
+    private static void writeFillerChunks(Writer writer, int count) throws IOException {
+        char[] chunk = "x".repeat(8192).toCharArray();
+        for (int written = 0; written < count; written += chunk.length) {
+            writer.write(chunk, 0, Math.min(chunk.length, count - written));
+        }
+    }
+
+    private static final String SCRIPT = "<script src=\"/carlos/csrfguard\"></script>\n";
+
+    @Test
+    @DisplayName("should inject before a </body> streamed after the capture bound when the head holds none")
+    void shouldInjectIntoStreamedBody_whenThePrefixHasNoClosingTag() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        int filler = CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS + 20_000;
+
+        withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            var writer = res.getWriter();
+            writer.write("<html><body>".toCharArray());
+            writeFillerChunks(writer, filler);
+            writer.write("</body></html>".toCharArray());
+        }));
+
+        assertThat(response.getContentAsString())
+                .isEqualTo("<html><body>" + "x".repeat(filler) + SCRIPT + "</body></html>");
+    }
+
+    @Test
+    @DisplayName("should find a closing tag split across two streamed writes")
+    void shouldInjectBeforeAClosingTag_whenItIsSplitAcrossStreamedWrites() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        int filler = CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS + 10;
+
+        withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            var writer = res.getWriter();
+            writer.write("<html><body>".toCharArray());
+            writeFillerChunks(writer, filler);
+            writer.write("ab</BO".toCharArray());
+            writer.write("DY></html>".toCharArray());
+        }));
+
+        assertThat(response.getContentAsString())
+                .isEqualTo("<html><body>" + "x".repeat(filler) + "ab" + SCRIPT + "</BODY></html>");
+    }
+
+    @Test
+    @DisplayName("should stream a large fragment unchanged and warn once when it has no closing tag")
+    void shouldStreamFragmentUnchanged_whenNoClosingTagEverArrives() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        int filler = CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS + 100;
+
+        try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+                res.setContentType("text/html;charset=UTF-8");
+                var writer = res.getWriter();
+                writer.write("<tr>");
+                writeFillerChunks(writer, filler);
+                writer.write("</tr>");
+            }));
+
+            assertThat(capture.events()).filteredOn(event -> event.getLevel() == Level.WARN)
+                    .singleElement().satisfies(event -> assertThat(event.getMessage().getFormattedMessage())
+                            .contains("no </head> or </body>").contains("uri=/WEB-INF/jsp/big.jsp"));
+        }
+        assertThat(response.getContentAsString()).isEqualTo("<tr>" + "x".repeat(filler) + "</tr>");
+    }
+
+    @Test
+    @DisplayName("should stream a large response that turned out not to be HTML without injecting")
+    void shouldStreamUnchanged_whenTheLargeResponseIsNotHtml() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        String page = "<html><head></head><body>" + "x".repeat(CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS)
+                + "</body></html>";
+
+        withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+            var writer = res.getWriter();
+            writer.write("");
+            res.setContentType("text/plain;charset=UTF-8");
+            writer.write(page);
+        }));
+
+        assertThat(response.getContentAsString()).isEqualTo(page);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should encode a large streamed page onto the output stream when the writer is unavailable")
+    void shouldStreamOntoTheOutputStream_whenTheResponseWriterIsUnavailable(boolean downstreamCloses) throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        response.getOutputStream();
+        String body = "é".repeat(CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS);
+
+        try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+                res.setContentType("text/html;charset=UTF-8");
+                var writer = res.getWriter();
+                writer.write("<html><head></head><body>");
+                writer.write(body);
+                writer.write("</body></html>");
+                if (downstreamCloses) {
+                    writer.close();
+                }
+            }));
+
+            assertThat(capture.events()).anySatisfy(event -> assertThat(event.getMessage().getFormattedMessage())
+                    .contains("encoding it onto the output stream as UTF-8"));
+        }
+        assertThat(response.getContentAsString(StandardCharsets.UTF_8))
+                .isEqualTo("<html><head>" + SCRIPT + "</head><body>" + body + "</body></html>");
+    }
+
+    @Test
+    @DisplayName("should encode a large streamed String onto the output stream without copying it first")
+    void shouldEncodeALargeStringInPlace_whenStreamingOntoTheOutputStream() throws Exception {
+        com.sun.management.ThreadMXBean threads =
+                (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
+        assumeTrue(threads.isThreadAllocatedMemorySupported() && threads.isThreadAllocatedMemoryEnabled(),
+                "this JVM cannot report per-thread allocation");
+        DiscardingStreamResponse response = new DiscardingStreamResponse();
+        String head = "<html><head></head><body>";
+        String body = "x".repeat(16 * 1024 * 1024);
+        String tail = "</body></html>";
+        long[] allocated = new long[1];
+
+        withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            var writer = res.getWriter();
+            writer.write(head);
+            // Crosses the bound with char[] writes, so the String below is streamed.
+            writeFillerChunks(writer, CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS);
+            long before = threads.getCurrentThreadAllocatedBytes();
+            writer.write(body);
+            allocated[0] = threads.getCurrentThreadAllocatedBytes() - before;
+            writer.write(tail);
+        }));
+
+        assertThat(response.bytesWritten()).isEqualTo((long) head.length() + SCRIPT.length()
+                + CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS + body.length() + tail.length());
+        // Copying the slice into a char[] alone would allocate 32 MiB; encoding in place needs a few KiB.
+        assertThat(allocated[0]).isLessThan(1024L * 1024L);
+    }
+
+    @Test
+    @DisplayName("should capture the replacement page again after an accepted reset of a streamed page")
+    void shouldInjectIntoTheReplacementPage_whenAStreamedPageIsReset() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        response.setBufferSize(8 * CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS);
+
+        withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            var writer = res.getWriter();
+            writer.write("<html><head></head><body>");
+            writeFillerChunks(writer, CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS);
+            res.resetBuffer();
+            writer.write("<html><head></head><body>replacement</body></html>");
+        }));
+
+        assertThat(response.getContentAsString())
+                .isEqualTo("<html><head>" + SCRIPT + "</head><body>replacement</body></html>");
+    }
+
+    @Test
+    @DisplayName("should release held characters on flush and close while waiting for a closing tag")
+    void shouldReleaseHeldCharacters_whenFlushedOrClosedWhileWaiting() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        int filler = CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS + 1;
+        String[] beforeClose = new String[1];
+
+        withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            var writer = res.getWriter();
+            writer.write("<html><body>");
+            writeFillerChunks(writer, filler);
+            writer.write("tail");
+            writer.flush();
+            beforeClose[0] = ((MockHttpServletResponse) response).getContentAsString();
+            writer.write("</body>more");
+            writer.close();
+        }));
+
+        assertThat(beforeClose[0]).endsWith("xtail");
+        assertThat(response.getContentAsString())
+                .isEqualTo("<html><body>" + "x".repeat(filler) + "tail" + SCRIPT + "</body>more");
+    }
+
+    @Test
+    @DisplayName("should hold a partial closing tag across a flush so the script lands before the whole tag")
+    void shouldInjectBeforeAClosingTag_whenAFlushSplitsIt() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        int filler = CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS + 1;
+        String[] afterFlush = new String[1];
+
+        withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            var writer = res.getWriter();
+            writer.write("<html><body>");
+            writeFillerChunks(writer, filler);
+            writer.write("ab</bo");
+            writer.flush();
+            afterFlush[0] = ((MockHttpServletResponse) response).getContentAsString();
+            writer.write("dy></html>");
+        }));
+
+        assertThat(afterFlush[0]).endsWith("xab");
+        assertThat(response.getContentAsString())
+                .isEqualTo("<html><body>" + "x".repeat(filler) + "ab" + SCRIPT + "</body></html>");
+    }
+
+    @Test
+    @DisplayName("should write a held partial tag when the streamed response ends without completing it")
+    void shouldWriteTheHeldPartialTag_whenTheResponseEndsWithoutCompletingIt() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        int filler = CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS + 100;
+
+        try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+                res.setContentType("text/html;charset=UTF-8");
+                var writer = res.getWriter();
+                writer.write("<tr>");
+                writeFillerChunks(writer, filler);
+                writer.write("</b");
+            }));
+
+            assertThat(capture.events()).filteredOn(event -> event.getLevel() == Level.WARN)
+                    .singleElement().satisfies(event -> assertThat(event.getMessage().getFormattedMessage())
+                            .contains("no </head> or </body>"));
+        }
+        assertThat(response.getContentAsString()).isEqualTo("<tr>" + "x".repeat(filler) + "</b");
+    }
+
+    @Test
+    @DisplayName("should stream one large write from the caller's array when its closing tag lies past the bound")
+    void shouldStreamFromTheCallersArray_whenOneWriteCarriesTheClosingTagPastTheBound() throws Exception {
+        ArrayRecordingResponse response = new ArrayRecordingResponse();
+        String filler = "x".repeat(CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS + 50_000);
+        char[] page = ("<html><body>" + filler + "</body></html>").toCharArray();
+
+        withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            res.getWriter().write(page, 0, page.length);
+        }));
+
+        assertThat(response.getContentAsString()).isEqualTo("<html><body>" + filler + SCRIPT + "</body></html>");
+        // The part past the bound reached the response straight from the JSP's own array.
+        assertThat(response.arrays).anySatisfy(array -> assertThat(array).isSameAs(page));
+    }
+
+    @Test
+    @DisplayName("should forget a streamed page's held tag, pending script and length rule after a full reset")
+    void shouldForgetTheStreamedPage_whenTheResponseIsFullyReset() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        response.setBufferSize(8 * CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS);
+
+        try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+                res.setContentType("text/html;charset=UTF-8");
+                var streamed = res.getWriter();
+                streamed.write("<html><body>");
+                writeFillerChunks(streamed, CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS);
+                streamed.write("</bo");
+                res.reset();
+                res.setContentType("text/plain;charset=UTF-8");
+                res.setContentLength(5);
+                res.getWriter().write("plain");
+            }));
+
+            assertThat(capture.events()).noneSatisfy(event -> assertThat(event.getLevel()).isEqualTo(Level.WARN));
+        }
+        assertThat(response.getContentAsString()).isEqualTo("plain");
+        assertThat(response.getContentLength()).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("should stream a large page without a buffer reset when the response is already committed")
+    void shouldStreamWithoutReset_whenTheResponseIsAlreadyCommitted() throws Exception {
+        MockHttpServletResponse response = spy(new MockHttpServletResponse());
+        response.setCommitted(true);
+        String page = "<html><head></head><body>" + "x".repeat(CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS)
+                + "</body></html>";
+
+        withEnabledCsrfGuard(() -> filter.doFilter(largeForward(), response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            res.getWriter().write(page);
+        }));
+
+        verify(response, never()).resetBuffer();
+        assertThat(response.getContentAsString()).isEqualTo(page.replace("</head>", SCRIPT + "</head>"));
+    }
+
+    @Test
+    @DisplayName("should keep replaying a page within the capture bound as one injected document")
+    void shouldReplayCapturedPage_whenWithinTheBound() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/WEB-INF/jsp/small.jsp");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        boolean[] committedWhileWriting = new boolean[1];
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+            writeLargePage(res, "<html><head></head><body>", CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS / 2);
+            res.flushBuffer();
+            committedWhileWriting[0] = res.isCommitted();
+            res.getWriter().close();
+        }));
+
+        assertThat(committedWhileWriting[0]).isFalse();
+        assertThat(countOccurrences(response.getContentAsString(), "/csrfguard")).isEqualTo(1);
     }
 
     @Test
@@ -229,6 +664,44 @@ class CsrfGuardScriptInjectionFilterUnitTest {
                         .doesNotContain("secret-session");
             });
         }
+    }
+
+    @ParameterizedTest
+    @MethodSource("replayCharsets")
+    void shouldEncodeTheCapturedReplay_whenAForwardMustUseTheOutputStream(
+            String declaredCharset, Charset expectedCharset) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/forward");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse() {
+            @Override
+            public String getCharacterEncoding() {
+                return declaredCharset;
+            }
+        };
+        response.getOutputStream();
+        String body = "<html><head><title>Québec</title></head><body>café</body></html>";
+        String expected = body.replace("</head>", "<script src=\"/carlos/csrfguard\"></script>\n</head>");
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("text/html");
+            res.getWriter().write(body);
+        }));
+
+        byte[] expectedBytes = expected.getBytes(expectedCharset);
+        assertThat(response.getContentAsByteArray()).isEqualTo(expectedBytes);
+        assertThat(response.getContentLength()).isEqualTo(expectedBytes.length);
+    }
+
+    private static Stream<Arguments> replayCharsets() {
+        return Stream.of(
+                Arguments.of(null, StandardCharsets.UTF_8),
+                Arguments.of("", StandardCharsets.UTF_8),
+                Arguments.of("not-a-supported-charset", StandardCharsets.UTF_8),
+                Arguments.of("bad charset!", StandardCharsets.UTF_8),
+                Arguments.of("UTF-8", StandardCharsets.UTF_8),
+                Arguments.of("ISO-8859-1", StandardCharsets.ISO_8859_1),
+                Arguments.of("UTF-16LE", StandardCharsets.UTF_16LE));
     }
 
     @Test
@@ -743,6 +1216,71 @@ class CsrfGuardScriptInjectionFilterUnitTest {
         assertThat(response.getContentLength()).isEqualTo(4);
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldPreserveStreamFraming_whenLengthHeadersAreReplacedOrAdded(boolean add) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/forward");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+            HttpServletResponse http = (HttpServletResponse) res;
+            http.setHeader("X-Mode", "first");
+            http.addHeader("X-Mode", "second");
+            http.setIntHeader("X-Limit", 1);
+            http.addIntHeader("X-Limit", 2);
+            http.setHeader("Content-Length", "2");
+            if (add) http.addHeader("cOnTeNt-LeNgTh", "4");
+            else http.setHeader("cOnTeNt-LeNgTh", "4");
+            http.addHeader("Content-Length", null);
+            res.setContentType("application/octet-stream");
+            res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+        }));
+        assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+        assertThat(response.getHeaders("Content-Length")).containsExactly("4");
+        assertThat(response.getHeaders("X-Mode")).containsExactly("first", "second");
+        assertThat(response.getHeaders("X-Limit")).containsExactly("1", "2");
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldPreserveStreamFraming_whenIntegerLengthHeadersAreUsed(boolean add) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/forward");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+            HttpServletResponse http = (HttpServletResponse) res;
+            if (add) http.addIntHeader("Content-Length", 4);
+            else http.setIntHeader("Content-Length", 4);
+            res.setContentType("application/octet-stream");
+            res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+        }));
+        assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+        assertThat(response.getHeaders("Content-Length")).containsExactly("4");
+    }
+
+    @Test
+    void shouldKeepAnUnframedStream_whenItsLengthIsRemovedAndAMalformedValueIsAdded() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/forward");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+                HttpServletResponse http = (HttpServletResponse) res;
+                http.setHeader("Content-Length", "4");
+                http.setHeader("Content-Length", null);
+                http.addHeader("Content-Length", "invalid");
+                res.setContentType("application/octet-stream");
+                res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+            }));
+            assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+            assertThat(response.getHeader("Content-Length")).isNull();
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getMessage().getFormattedMessage()).contains("Ignoring malformed Content-Length");
+            });
+        }
+    }
+
     @Test
     void shouldAllowChannelReselection_afterFullReset() throws Exception {
         for (boolean writerFirst : new boolean[] {false, true}) {
@@ -866,6 +1404,86 @@ class CsrfGuardScriptInjectionFilterUnitTest {
 
         int getResetBufferCalls() {
             return resetBufferCalls;
+        }
+    }
+
+    /** An output stream that only counts bytes, with the writer unavailable as after getOutputStream(). */
+    private static class DiscardingStreamResponse extends MockHttpServletResponse {
+
+        private long bytes;
+        private final ServletOutputStream countingStream = new ServletOutputStream() {
+            @Override
+            public boolean isReady() {
+                return true;
+            }
+
+            @Override
+            public void setWriteListener(WriteListener listener) {
+                // Blocking writes only.
+            }
+
+            @Override
+            public void write(int b) {
+                bytes++;
+            }
+
+            @Override
+            public void write(byte[] b, int off, int len) {
+                bytes += len;
+            }
+        };
+
+        @Override
+        public ServletOutputStream getOutputStream() {
+            return countingStream;
+        }
+
+        @Override
+        public PrintWriter getWriter() {
+            throw new IllegalStateException("getOutputStream() has already been called for this response");
+        }
+
+        long bytesWritten() {
+            return bytes;
+        }
+    }
+
+    /** Records the arrays its writer receives, so a test can tell a streamed write was not copied. */
+    private static class ArrayRecordingResponse extends MockHttpServletResponse {
+
+        private final StringBuilder content = new StringBuilder();
+        private final List<char[]> arrays = new ArrayList<>();
+        private final PrintWriter recordingWriter = new PrintWriter(new Writer() {
+            @Override
+            public void write(char[] cbuf, int off, int len) {
+                arrays.add(cbuf);
+                content.append(cbuf, off, len);
+            }
+
+            @Override
+            public void write(String str, int off, int len) {
+                content.append(str, off, off + len);
+            }
+
+            @Override
+            public void flush() {
+                // Nothing is buffered.
+            }
+
+            @Override
+            public void close() {
+                // Nothing to release.
+            }
+        });
+
+        @Override
+        public PrintWriter getWriter() {
+            return recordingWriter;
+        }
+
+        @Override
+        public String getContentAsString() {
+            return content.toString();
         }
     }
 

@@ -162,6 +162,66 @@ class DemographicEdit2ActionTest extends CarlosWebTestBase {
         }
 
         @Test
+        @DisplayName("should audit the refused attempt, naming the patient and the refused login")
+        void shouldAuditRefusedAttempt_whenPatientRecordAclDeniesRead() {
+            addRequestParameter("demographic_no", " 12345 ");
+            when(mockSecurityInfoManager.hasPrivilege(
+                    any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull(String.class)))
+                    .thenReturn(true);
+            when(mockSecurityInfoManager.hasPrivilege(
+                    any(LoggedInInfo.class), eq("_demographic"), eq("r"), eq("12345")))
+                    .thenReturn(false);
+
+            try (MockedStatic<LogAction> audit = mockStatic(LogAction.class)) {
+                assertThatThrownBy(() -> executeAction(action)).isInstanceOf(SecurityException.class);
+
+                // A refusal of access to a patient's record is itself an auditable event: the row is
+                // written with the refused user (provider, client address), names the patient and
+                // says which right was refused. It is not a read row and carries nothing of the record.
+                audit.verify(() -> LogAction.addLog(mockLoggedInInfo, LogConst.NORIGHT, LogConst.CON_DEMOGRAPHIC,
+                        "12345", "12345", LogConst.READ));
+                audit.verifyNoMoreInteractions();
+            }
+            verify(mockDemographicDao, never()).getDemographic(anyString());
+        }
+
+        @Test
+        @DisplayName("should not audit a patient refusal when the role itself may not read demographics")
+        void shouldNotAuditAPatientRefusal_whenTheRoleLacksDemographicRead() {
+            addRequestParameter("demographic_no", "12345");
+            denyPrivilege("_demographic", "r");
+
+            try (MockedStatic<LogAction> audit = mockStatic(LogAction.class)) {
+                assertThatThrownBy(() -> executeAction(action)).isInstanceOf(SecurityException.class);
+
+                // That refusal is about the role, not about this patient.
+                audit.verifyNoInteractions();
+            }
+        }
+
+        @Test
+        @DisplayName("should still refuse when the refusal cannot be audited")
+        void shouldStillRefuse_whenTheRefusalCannotBeAudited() {
+            addRequestParameter("demographic_no", "12345");
+            when(mockSecurityInfoManager.hasPrivilege(
+                    any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull(String.class)))
+                    .thenReturn(true);
+            when(mockSecurityInfoManager.hasPrivilege(
+                    any(LoggedInInfo.class), eq("_demographic"), eq("r"), eq("12345")))
+                    .thenReturn(false);
+
+            try (MockedStatic<LogAction> audit = mockStatic(LogAction.class)) {
+                audit.when(() -> LogAction.addLog(any(LoggedInInfo.class), anyString(), anyString(), anyString(),
+                        anyString(), anyString())).thenThrow(new IllegalStateException("audit store unavailable"));
+
+                assertThatThrownBy(() -> executeAction(action))
+                        .isInstanceOf(SecurityException.class)
+                        .hasMessageContaining("missing required sec object (_demographic)");
+            }
+            verify(mockDemographicDao, never()).getDemographic(anyString());
+        }
+
+        @Test
         @DisplayName("should throw SecurityException when patient record ACL denies read")
         void shouldThrowSecurityException_whenPatientRecordAclDeniesRead() {
             addRequestParameter("demographic_no", "12345");

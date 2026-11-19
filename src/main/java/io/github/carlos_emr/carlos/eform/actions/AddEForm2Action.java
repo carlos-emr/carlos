@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings;
 import io.github.carlos_emr.carlos.email.core.EmailComposeStaging;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderMessage;
 import io.github.carlos_emr.carlos.eform.util.EFormSavedRenderResponse;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
@@ -92,12 +93,6 @@ public class AddEForm2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private static final String INVALID_FILENAME_MESSAGE_KEY = "dms.error.invalidFilename";
     private static final String ERROR_ATTRIBUTE = "error";
-    private static final String PDF_DOWNLOAD_FAILURE_MESSAGE = "This eForm (and attachments, if applicable) could not be downloaded.";
-    private static final String PDF_EDOC_FAILURE_MESSAGE =
-            "This eForm (and attachments, if applicable) could not be added to this patient’s documents.";
-    private static final String PDF_DOWNLOAD_MISSING_CONTENT_MESSAGE =
-            "Some content of this eForm could not be rendered. Review the omissions below before downloading it.";
-    private static final String PDF_PREVIEW_WARNING_MESSAGE = "This eForm was saved, but its PDF preview could not be generated.";
     private static final String ERROR_MESSAGE_ATTRIBUTE = "errorMessage";
     private static final String WARNING_MESSAGE_ATTRIBUTE = "warningMessage";
     private static final String PDF_PREVIEW_FALLBACK_SUFFIX = "_eform.pdf";
@@ -288,6 +283,7 @@ public class AddEForm2Action extends ActionSupport {
         //for each name="fieldname" value="myval"
         ArrayList<String> paramNames = new ArrayList<String>();  //holds "fieldname, ...."
         ArrayList<String> paramValues = new ArrayList<String>(); //holds "myval, ...."
+        Map<String, List<String>> submittedValues = new HashMap<>(); //every value of a field submitted more than once
         String fid = request.getParameter("efmfid");
         String demographic_no = request.getParameter("efmdemographic_no");
         String eform_link = validateEformLink(request.getParameter("eform_link"));
@@ -338,6 +334,13 @@ public class AddEForm2Action extends ActionSupport {
             if (request.getParameter(curField) != null) {
                 paramNames.add(curField);
                 paramValues.add(request.getParameter(curField));
+                // paramValues holds one value per field, which is what the value rows and the
+                // chart templates use. A <select multiple> submits one value per chosen option
+                // under the same name; keep them all for the rendered form only.
+                String[] submitted = request.getParameterValues(curField);
+                if (submitted != null && submitted.length > 1) {
+                    submittedValues.put(curField, List.of(submitted));
+                }
             }
 
         }
@@ -390,7 +393,7 @@ public class AddEForm2Action extends ActionSupport {
         //----names parsed
         //ActionMessages errors = curForm.setMeasurements(paramNames, paramValues);
         curForm.setFormSubject(subject);
-        curForm.setValues(paramNames, paramValues);
+        curForm.setValues(paramNames, paramValues, submittedValues);
         // Rendering must see explicit clears, while value rows and chart-template substitutions
         // retain the historical nonblank-only contract used by existing eForm consumers.
         for (int i = paramValues.size() - 1; i >= 0; i--) {
@@ -516,7 +519,7 @@ public class AddEForm2Action extends ActionSupport {
                     return offerSavedRenderCapacity(loggedInInfo, (String) request.getAttribute("fdid"),
                             demographic_no, EFormRenderApprovalService.Operation.EDOC, true);
                 }
-                setPdfError(PDF_EDOC_FAILURE_MESSAGE, e);
+                setPdfError(EFormRenderMessage.EDOC_FAILURE.text(request), e);
                 return "error";
             }
             followOnStep = FollowOnStep.FOLLOW_ON;
@@ -552,7 +555,7 @@ public class AddEForm2Action extends ActionSupport {
                     return offerSavedRenderCapacity(loggedInInfo, fdid, demographic_no,
                             EFormRenderApprovalService.Operation.DOWNLOAD, submitAndPdf);
                 }
-                setPdfError(PDF_DOWNLOAD_FAILURE_MESSAGE, e);
+                setPdfError(EFormRenderMessage.DOWNLOAD_FAILURE.text(request), e);
                 return "error";
             }
 
@@ -680,7 +683,7 @@ public class AddEForm2Action extends ActionSupport {
             }
             pdfBase64 = documentAttachmentManager.convertPDFToBase64(eFormPdfPath);
         } catch (Exception e) {
-            setPdfWarning(PDF_PREVIEW_WARNING_MESSAGE, e);
+            setPdfWarning(EFormRenderMessage.PREVIEW_NOT_GENERATED.text(request), e);
         }
 
         request.setAttribute("eFormPDF", pdfBase64);
@@ -735,7 +738,7 @@ public class AddEForm2Action extends ActionSupport {
     private String offerDownloadApproval(LoggedInInfo loggedInInfo, EformContentUnavailableException e,
             String fdid, String demographicNo, boolean autoClose) {
         String result = offerRenderApproval(loggedInInfo, e, fdid, demographicNo,
-                EFormRenderApprovalService.Operation.DOWNLOAD, PDF_DOWNLOAD_MISSING_CONTENT_MESSAGE,
+                EFormRenderApprovalService.Operation.DOWNLOAD, EFormRenderMessage.NOT_DOWNLOADED.text(request),
                 "eform/downloadEFormPdf", "eform.renderMissingContent.btnApproveAndDownload");
         if (autoClose && "missingContent".equals(result)) {
             request.setAttribute("approvalAutoClose", "true");
@@ -770,9 +773,9 @@ public class AddEForm2Action extends ActionSupport {
             // told a clinician who had clicked "Add to documents" that the eForm "could not be
             // downloaded" -- naming an action they never took and leaving them unsure whether the
             // document had been filed.
-            setPdfError(operation == EFormRenderApprovalService.Operation.EDOC
-                    ? PDF_EDOC_FAILURE_MESSAGE
-                    : PDF_DOWNLOAD_FAILURE_MESSAGE, e);
+            setPdfError((operation == EFormRenderApprovalService.Operation.EDOC
+                    ? EFormRenderMessage.EDOC_FAILURE
+                    : EFormRenderMessage.DOWNLOAD_FAILURE).text(request), e);
             return "error";
         }
         // efmfid: the template this submission was made from (read the same way the save path reads it).
@@ -793,12 +796,12 @@ public class AddEForm2Action extends ActionSupport {
             String fdid, String demographicNo) {
         String result = offerRenderApproval(loggedInInfo, e, fdid, demographicNo,
                 EFormRenderApprovalService.Operation.EDOC,
-                "This eForm could not be fully rendered, so it was not added to the patient's documents."
-                        + " Review the omissions below before archiving it.",
+                EFormRenderMessage.NOT_ADDED_TO_DOCUMENTS.text(request),
                 "eform/saveEFormAsEDoc", "eform.renderMissingContent.btnApproveAndAddToDocuments");
         return result;
     }
 
+    /** The eForm page shows the message in an alert; callers pass bundle text in the page's language (#6162). */
     private void setPdfError(String message, Exception e) {
         logger.error("eForm PDF preparation failed ({})", e.getClass().getSimpleName());
         request.setAttribute(ERROR_ATTRIBUTE, "true");

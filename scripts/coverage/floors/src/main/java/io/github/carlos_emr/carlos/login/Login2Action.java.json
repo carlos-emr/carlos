@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/login/Login2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "6d49673a0bc4cc1afbd422af3fcb091b5c121e70"
+  },
+  "evidenceSha256": "69f8bc749186596fe64a2df094800606f66dae9506240512a885f016cae4862a"
+}

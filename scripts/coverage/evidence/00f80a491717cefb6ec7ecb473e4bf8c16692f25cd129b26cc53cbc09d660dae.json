@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "496f84d9001f6b108ae2b6dbc5085661c7e29f7e",
+  "comparisonSha256": "88eae27f570656ec31bca6ab36b483a3390912b06183e1ca60960c7f023b8612",
+  "baselineCommit": "0e3faadd24fe9fa5fefa8600a1cba3a578e630fe",
+  "baselineSourceTree": "496f84d9001f6b108ae2b6dbc5085661c7e29f7e",
+  "baselineReportSha256": "f91f51656d3aa60487fe61eb15ffe0fefe6e27d6cb474d00e200bd7d5636fac3",
+  "baselineLane": "Master Record focused Java unit tests",
+  "baselineTestCounts": {
+    "tests": 77,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "4a43e7be295732ad195c894d783a5652f0a394e69c4b5977b931693c7ffdfc22",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.demographic.DemographicCustomFieldSelectUnitTest",
+    "io.github.carlos_emr.carlos.demographic.pageUtil.DemographicEditVersionUnitTest",
+    "io.github.carlos_emr.carlos.demographic.pageUtil.DemographicUpdate2ActionStaleFormUnitTest",
+    "io.github.carlos_emr.carlos.demographic.pageUtil.DemographicUpdate2ActionTest"
+  ],
+  "observedChangedSourceCoverage": {
+    "src/main/java/io/github/carlos_emr/carlos/demographic/DemographicCustomFieldSelect.java": {
+      "lineCounts": {
+        "covered": 168,
+        "missed": 20
+      },
+      "instructionBranchCounts": {
+        "covered_instructions": 877,
+        "missed_instructions": 63,
+        "covered_branches": 139,
+        "missed_branches": 47,
+        "partial_lines": [
+          197,
+          200,
+          320,
+          352,
+          353,
+          369
+        ],
+        "missed_branch_lines": [
+          82,
+          87,
+          94,
+          139,
+          164,
+          177,
+          184,
+          197,
+          200,
+          215,
+          220,
+          225,
+          228,
+          234,
+          239,
+          241,
+          244,
+          246,
+          254,
+          278,
+          280,
+          285,
+          286,
+          290,
+          293,
+          298,
+          313,
+          316,
+          320,
+          324,
+          338,
+          345,
+          347,
+          352,
+          353,
+          362,
+          365,
+          369,
+          373
+        ]
+      },
+      "percentages": {
+        "lines": 89.36170212765957,
+        "instructions": 93.29787234042553,
+        "branches": 74.73118279569893
+      }
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/pageUtil/DemographicUpdate2Action.java": {
+      "lineCounts": {
+        "covered": 10,
+        "missed": 0
+      },
+      "instructionBranchCounts": {
+        "covered_instructions": 62,
+        "missed_instructions": 0,
+        "covered_branches": 10,
+        "missed_branches": 0,
+        "partial_lines": [],
+        "missed_branch_lines": []
+      },
+      "percentages": {
+        "lines": 100.0,
+        "instructions": 100.0,
+        "branches": 100.0
+      }
+    }
+  },
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/demographic/DemographicCustomFieldSelect.java": {
+      "lines": 88.41463414634147,
+      "instructions": 92.45982694684795,
+      "branches": 72.6027397260274,
+      "sourceBlob": "f68ab46a295362c04e566db042c90237fe45ac50"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/pageUtil/DemographicUpdate2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0bb52d87fd599c39bf3271f405b874a71eac4e03"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {}
+}

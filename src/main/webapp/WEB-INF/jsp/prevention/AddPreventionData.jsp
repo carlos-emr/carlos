@@ -85,6 +85,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig" %>
+<%@ page import="io.github.carlos_emr.carlos.prevention.PreventionFormCodes" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 
@@ -150,7 +151,36 @@
 
     if (id != null) {
 
-        existingPrevention = PreventionData.getPreventionById(id);
+        // When the record cannot be shown, this window shows only the reason. The entry form with
+        // today's date and empty fields would present defaults as the saved record and let them
+        // be saved over it.
+        String recordUnavailableKey = null;
+        try {
+            existingPrevention = PreventionData.getPreventionById(id);
+            if (existingPrevention == null) {
+                // No record has this id (or the id is not a number). The page used to fail on a
+                // null here; the record may have been removed or replaced by a newer version.
+                recordUnavailableKey = "prevention.unreadable.recordNotFound";
+            }
+        } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException unavailable) {
+            PreventionData.logUnreadable("prevention record popup", demographic_no);
+            recordUnavailableKey = "prevention.unreadable.record";
+        }
+        if (recordUnavailableKey != null) {
+%>
+<!DOCTYPE html>
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
+<head>
+    <title><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></title>
+</head>
+<body>
+<div class="prevention-unreadable" role="alert"
+     style="color:#842029; background:#f8d7da; border:1px solid #f5c2c7; padding:10px 14px; margin:12px; font-family:sans-serif;"><fmt:message key="<%= recordUnavailableKey %>"/></div>
+</body>
+</html>
+<%
+            return;
+        }
 
         prevDate = (String) existingPrevention.get("preventionDate");
         prevDate = partialDateDao.getDatePartial(prevDate, PartialDate.PREVENTION, Integer.parseInt(id), PartialDate.PREVENTION_PREVENTIONDATE);
@@ -974,22 +1004,33 @@
                                 <option value=""></option>
                                 <%
                                     String routeSelected = " selected=\"selected\" ";
+                                    // The stored route, else the brand picker's, as the form's code in any
+                                    // letter case (SQ is SC, Intranasal is IN). A route with no code here is
+                                    // listed as given below, so it is never shown blank and lost (#5432).
+                                    String storedRoute = extraData.get("route");
+                                    String route = PreventionFormCodes.routeCode(storedRoute != null ? storedRoute : pRoute);
                                 %>
-                                <option value="ID" <%="ID".equals(str((extraData.get("route")), pRoute)) ? routeSelected : "" %>>
+                                <option value="ID" <%="ID".equals(route) ? routeSelected : "" %>>
                                     Intradermal: ID
                                 </option>
-                                <option value="IM" <%="IM".equals(str((extraData.get("route")), pRoute)) ? routeSelected : "" %>>
+                                <option value="IM" <%="IM".equals(route) ? routeSelected : "" %>>
                                     Intramuscular: IM
                                 </option>
-                                <option value="IN" <%="IN".equals(str((extraData.get("route")), pRoute)) ? routeSelected : "" %>>
+                                <option value="IN" <%="IN".equals(route) ? routeSelected : "" %>>
                                     Intranasal: IN
                                 </option>
-                                <option value="PO" <%="PO".equals(str((extraData.get("route")), pRoute)) ? routeSelected : "" %>>
+                                <option value="IV" <%="IV".equals(route) ? routeSelected : "" %>>
+                                    Intravenous: IV
+                                </option>
+                                <option value="PO" <%="PO".equals(route) ? routeSelected : "" %>>
                                     Oral: PO
                                 </option>
-                                <option value="SC" <%="SC".equals(str((extraData.get("route")), pRoute)) ? routeSelected : "" %>>
+                                <option value="SC" <%="SC".equals(route) ? routeSelected : "" %>>
                                     Subcutaneous: SC
                                 </option>
+                                <% if (!route.isEmpty() && !PreventionFormCodes.isOfferedRoute(route)) { %>
+                                <option value="<carlos:encode value='<%= route %>' context='htmlAttribute'/>" selected="selected"><carlos:encode value='<%= route %>'/></option>
+                                <% } %>
                             </select>
                                 </div>
                             </div>
@@ -998,29 +1039,35 @@
                                 <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="din" id="din" value="<carlos:encode value='<%= str((extraData.get("din")), pDIN) %>' context="htmlAttribute"/>"/></div>
                             </div>
                             <%
-                                String dose = str((extraData.get("dose")), "");
-                                String d1 = pDose;
-                                String d2 = pUnit;
-                                if (dose.split(" ").length == 2) {
-                                    String d3 = dose.split(" ")[1];
-                                    if (!d3.equals("mL") && !d3.equals("mg") && !d3.equals("g") && !d3.equals("capsule") && !d3.equals("vial")) {
-                                        d1 = dose;
-                                    } else {
-                                        d1 = dose.split(" ")[0];
-                                        d2 = dose.split(" ")[1];
+                                String dose = Objects.toString(extraData.get("dose"), "");
+                                // Initial edits use stored text; a refused submission retains the entered values.
+                                boolean hasSubmittedDose = request.getParameter("dose") != null;
+                                String d1 = (existingPrevention == null || hasSubmittedDose) ? pDose : dose;
+                                // The brand picker's unit as the form's own (VIAL is vial, DOSE is dose).
+                                String d2 = (existingPrevention == null || hasSubmittedDose) ? PreventionFormCodes.doseUnitCode(pUnit) : "";
+                                String[] doseParts = dose.split(" ", -1);
+                                if (!hasSubmittedDose && doseParts.length == 2
+                                        && doseParts[0].matches("[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)")) {
+                                    String unit = PreventionFormCodes.doseUnitCode(doseParts[1]);
+                                    // Splitting must reconstruct the exact stored text on an unchanged save.
+                                    if (PreventionFormCodes.isOfferedDoseUnit(unit)
+                                            && dose.equals(doseParts[0] + " " + unit)) {
+                                        d1 = doseParts[0];
+                                        d2 = unit;
                                     }
-                                } else {
-                                    d1 = pDose;
                                 }
 
-                                if ("".equals(dose)) {
+                                // mL is only the default for a new record that names no unit. An existing
+                                // record's blank dose stays blank: saving the edit must not store "mL" for it.
+                                if (existingPrevention == null && "".equals(dose) && "".equals(d2)) {
                                     d2 = "mL";
                                 }
                             %>
 
                             <div class="row g-2 align-items-center mb-1">
                                 <div class="col-sm-4"><label for="dose" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.dose"/></label></div>
-                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="dose" id="dose" value="<carlos:encode value='<%= d1 %>' context="htmlAttribute"/>"/></div>
+                                <div class="col-sm-8"><textarea class="form-control form-control-sm" name="dose" id="dose" rows="1">
+<carlos:encode value='<%= d1 %>'/></textarea></div>
                             </div>
                             <div class="row g-2 align-items-center mb-1">
                                 <div class="col-sm-4"><label for="doseUnit" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.doseunit"/></label></div>
@@ -1035,6 +1082,10 @@
                                 </option>
                                 <option value="vial" <%="vial".equals(d2) ? "selected=\"selected\" " : "" %>>vial
                                 </option>
+                                <option value="dose" <%="dose".equals(d2) ? "selected=\"selected\" " : "" %>>dose</option>
+                                <% if (!d2.isEmpty() && !PreventionFormCodes.isOfferedDoseUnit(d2)) { %>
+                                <option value="<carlos:encode value='<%= d2 %>' context='htmlAttribute'/>" selected="selected"><carlos:encode value='<%= d2 %>'/></option>
+                                <% } %>
 
                             </select>
                                 </div>

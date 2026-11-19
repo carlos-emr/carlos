@@ -38,8 +38,10 @@ import org.openpdf.text.pdf.*;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
@@ -93,8 +95,17 @@ public class HRMPDFCreator extends PdfPageEventHelper {
      * @param outputStream OutputStream to write the generated PDF to
      * @param hrmId Integer the HRM document ID to render
      * @param loggedInInfo LoggedInInfo the current user session, used for report parsing
+     * @throws SecurityException if the report is filed to a patient the user may not read
+     *         ({@link HRMReportAccess}); nothing has been read or written
      */
     public HRMPDFCreator(OutputStream outputStream, Integer hrmId, LoggedInInfo loggedInInfo) {
+
+        // Every printed copy of a report is made here (the viewer's Print, attachments to
+        // consultations, eForms, faxes and email), so the patient decision is made here too,
+        // before the report row or file is read. The callers decide first for their own response;
+        // this is the one place a new caller cannot forget.
+        HRMReportAccess.requireReport(SpringUtils.getBean(SecurityInfoManager.class),
+                SpringUtils.getBean(HRMDocumentToDemographicDao.class), loggedInInfo, hrmId);
 
         //Gets the HRMDocumentDao
         HRMDocumentDao hrmDocumentDao = SpringUtils.getBean(HRMDocumentDao.class);

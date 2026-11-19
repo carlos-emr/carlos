@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "09c2cab20ed517f903312af4a693a5de9069692b",
+  "comparisonSha256": "fb23d2bd8e77588d240bf0161dcfad141694f291b689252985187a7d2dfa0122",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/form/FrmBCAR2020Record.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "4b938aa07550ba8ad6936b5cbcfbb76bb08278bf"
+    }
+  },
+  "baselineCommit": "639023e8a458464996aa543d06b90ca819fcc787",
+  "baselineSourceTree": "09c2cab20ed517f903312af4a693a5de9069692b",
+  "baselineReportSha256": "5de01834ea68f821b3ae37f33df38f4ea0b32c70b48cd55578f5f0a5ad5e593b",
+  "baselineLane": "Fresh exact JDK25 selected-source classes and existing/regression controls. All166 unique actual JUnit cases pass with zero failures/errors/skips. Component inputs and exact JUnit hashes retained; selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 166,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "cdb922524bc4485b1de6f77de085b711a4a8264258d18dc4f9605db4ec870437",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}

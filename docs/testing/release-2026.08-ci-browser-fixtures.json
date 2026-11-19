@@ -87,7 +87,7 @@
         "scripts/dashboard-tickler-picker-browser-check.js"
       ],
       "source": "scripts/dashboard-tickler-picker-browser-check.js",
-      "sourceSha256": "de2dc855f2337fa4bb5434b8c069e4cc058f91ccb2b06e5006fd307a52a89e85",
+      "sourceSha256": "2baca8498457900f458c6c68ce9d68f278a9cbceea1584ba8ed6bed81bf3be48",
       "minimumAssertions": 314
     },
     {
@@ -171,6 +171,23 @@
       "minimumAssertions": 61
     },
     {
+      "id": "facility-disable-browser-checks",
+      "command": [
+        "node",
+        "--test",
+        "scripts/facility-disable-browser-checks.js"
+      ],
+      "source": "scripts/facility-disable-browser-checks.js",
+      "sourceSha256": "3cd54d75ab5cfab984ed36e255b989d51118125edeb5b3d8efc606e5a57730a9",
+      "minimumAssertions": 12,
+      "requiredCases": [
+        "every parsed row retains its own POST form, including the first facility",
+        "Disable submits only the selected facility: 20959291",
+        "Disable submits only the selected facility: 20959292",
+        "Cancel leaves every facility unsubmitted"
+      ]
+    },
+    {
       "id": "job-types-datatable-browser-check",
       "command": [
         "node",
@@ -181,5 +198,5 @@
       "minimumAssertions": 139
     }
   ],
-  "workflowSha256": "3f5bdb35f9c02bcd9bf0317b9301b2c7e1bf804d46b5bbb20d03d662711292c1"
+  "workflowSha256": "3712acabffa97c95bd282eb83d8cd755c0eb6c0f2dbfa626e845c1b76f5879bc"
 }

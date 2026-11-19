@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "b3b8392ec6baa6107c33d6ca99894b40ed3d5a64",
+  "comparisonSha256": "7ab9bf09d3526aea518ad5cf50e0236a80267104a365938fbcca316dd97146b9",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/MeasurementGraphAction22Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 95.69377990430623,
+      "sourceBlob": "8bc5696e629bfac0996ffda64068921aa93ddf95"
+    }
+  },
+  "baselineCommit": "6599b59089ca7fd10a892cf5bc49351c3d1358fa",
+  "baselineSourceTree": "b3b8392ec6baa6107c33d6ca99894b40ed3d5a64",
+  "baselineReportSha256": "2b74dc39b3fa779710559530ef607b770753d2773c8db8416d92f39e8ed74315",
+  "baselineLane": "Graph failure page, chart data, action, medication height and error response suites (191 tests)",
+  "baselineTestCounts": {
+    "tests": 191,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "9afd13744158202188cc5d7a3095ecac3a8b8c193d053a2f04e7c5f52507c615",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.GraphFailurePageUnitTest",
+    "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementChartDataUnitTest",
+    "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementGraphAction22ActionUnitTest",
+    "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementGraphChartMedsHeightUnitTest",
+    "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementGraphErrorResponseUnitTest"
+  ]
+}

@@ -19,6 +19,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
 
 @DisplayName("GenericDownload")
 @Tag("unit")
@@ -45,6 +48,21 @@ class GenericDownloadUnitTest {
         assertThat(response.getHeader("Content-Length")).isEqualTo("4");
         assertThat(response.bytes.toByteArray()).containsExactly(content);
         assertThat(response.outputClosed).isFalse();
+    }
+
+    @Test
+    void shouldPropagateResponseWriteFailures_withoutClosingTheContainerStream() throws Exception {
+        Files.write(tempDir.resolve("report.bin"), new byte[] {1, 2, 3});
+        var output = mock(ServletOutputStream.class);
+        var failure = new java.io.FileNotFoundException("synthetic response write failure");
+        doThrow(failure).when(output).write(any(byte[].class), anyInt(), anyInt());
+        var response = new MockHttpServletResponse() {
+            @Override public ServletOutputStream getOutputStream() { return output; }
+        };
+        assertThatThrownBy(() -> new GenericDownload().download(true, response, tempDir.toString(), "report.bin"))
+                .isSameAs(failure);
+        assertThat(response.getStatus()).isEqualTo(200);
+        verify(output, never()).close();
     }
 
     private static final class TrackingResponse extends MockHttpServletResponse {

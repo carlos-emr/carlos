@@ -205,6 +205,9 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
         List<Object> v = null;
         if (demographicNo != null) {
             v = privilegeLookup.apply(objectName + "$" + demographicNo);
+            if (!READ.equals(privilege) && isReadOnlyForEveryone(v)) {
+                return false;
+            }
             List<String> roleInObj = (List<String>) v.get(1);
 
             for (String objRole : roleInObj) {
@@ -251,28 +254,135 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
         return false;
     }
 
+    /** The group a patient-specific privilege row applies to everyone through. */
+    static final String EVERYONE = "_all";
+
+    /**
+     * Whether a patient-specific object carries a read-only row for {@link #EVERYONE}.
+     *
+     * <p>Merge Records writes {@code _all / _eChart$<chart> / |or|} for each chart merged into
+     * another, so the merged-away chart stays readable but can no longer be written. The legacy
+     * encounter editor honoured that row through its JSP tag (Index2.jsp); the modern chart checks
+     * {@code _eChart} write through this manager, which only matched rows for the user's own roles,
+     * so the merged-away chart stayed writable there (#5890). The row now caps every user's rights
+     * on that object for that patient at read. It never grants anything.</p>
+     */
+    @SuppressWarnings("unchecked")
+    private static boolean isReadOnlyForEveryone(List<Object> patientSpecific) {
+        if (patientSpecific == null || patientSpecific.size() < 2
+                || !((List<String>) patientSpecific.get(1)).contains(EVERYONE)) {
+            return false;
+        }
+        Properties privileges = (Properties) patientSpecific.get(0);
+        List<String> roles = (List<String>) patientSpecific.get(1);
+        return OscarRoleObjectPrivilege.checkPrivilege(EVERYONE, privileges, roles, null, READ)
+                && !OscarRoleObjectPrivilege.checkPrivilege(EVERYONE, privileges, roles, null, WRITE)
+                && !OscarRoleObjectPrivilege.checkPrivilege(EVERYONE, privileges, roles, null, UPDATE);
+    }
+
     @Override
     public boolean isAllowedAccessToPatientRecord(LoggedInInfo loggedInInfo, Integer demographicNo) {
+        return allowedAccessToPatientRecord(
+                roleNames(loggedInInfo), OscarRoleObjectPrivilege::getPrivilegeProp, demographicNo);
+    }
 
-        List<String> roleNameLs = new ArrayList<>();
-        for (Secuserrole role : getRoles(loggedInInfo)) {
-            roleNameLs.add(role.getRoleName());
-        }
-        roleNameLs.add(loggedInInfo.getLoggedInProviderNo());
-        String roleNames = StringUtils.join(roleNameLs, ",");
-
-        List<Object> v = OscarRoleObjectPrivilege.getPrivilegeProp("_demographic$" + demographicNo);
+    /** The patient-record lockout rule, over the given role names and privilege rows. */
+    @SuppressWarnings("unchecked")
+    private static boolean allowedAccessToPatientRecord(String roleNames,
+            Function<String, ? extends List<Object>> privilegeLookup, Integer demographicNo) {
+        List<Object> v = privilegeLookup.apply("_demographic$" + demographicNo);
         if (OscarRoleObjectPrivilege.checkPrivilege(roleNames, (Properties) v.get(0), (List<String>) v.get(1),
                 (List<String>) v.get(2), "o")) {
             return false;
         }
 
-        v = OscarRoleObjectPrivilege.getPrivilegeProp("_eChart$" + demographicNo);
+        v = privilegeLookup.apply("_eChart$" + demographicNo);
         if (OscarRoleObjectPrivilege.checkPrivilege(roleNames, (Properties) v.get(0), (List<String>) v.get(1),
                 (List<String>) v.get(2), "o")) {
             return false;
         }
 
         return true;
+    }
+
+    @Override
+    public PrivilegeSnapshot readOnlySnapshot(LoggedInInfo loggedInInfo, Collection<String> objectNames) {
+        return new Snapshot(loggedInInfo, objectNames);
+    }
+
+    /**
+     * One identity's role names and privilege rows, each read once and then evaluated by the
+     * ordinary rules ({@link #evaluatePrivilege} without the account-lock side effect, and
+     * {@link #allowedAccessToPatientRecord}). The rows are read when the first question is asked,
+     * inside the caller's operation, so a failed read is answered as a refusal exactly as
+     * {@link #hasPrivilegeReadOnly} answers it, and is tried again by the next question.
+     */
+    private final class Snapshot implements PrivilegeSnapshot {
+        private final LoggedInInfo identity;
+        private final List<String> expected;
+        private String roles;
+        private Map<String, Vector<Object>> rows;
+
+        private Snapshot(LoggedInInfo identity, Collection<String> objectNames) {
+            this.identity = Objects.requireNonNull(identity);
+            List<String> names = new ArrayList<>();
+            for (String name : new LinkedHashSet<>(objectNames)) {
+                // A comma separates several objects in the single-object reader; never batch one.
+                if (name != null && !name.isEmpty() && name.indexOf(',') < 0) names.add(name);
+            }
+            this.expected = List.copyOf(names);
+        }
+
+        private void load() {
+            if (rows != null) return;
+            String names = roleNames(identity);
+            Map<String, Vector<Object>> read;
+            try {
+                read = OscarRoleObjectPrivilege.getPrivilegeProps(expected);
+            } catch (NullPointerException unattributed) {
+                // The batch reader could not give a returned row to one requested object (a stored
+                // name the database's collation equates with a requested one); it reports that as
+                // a missing entry. Nothing is guessed: every object is then read by the
+                // single-object reader, as hasPrivilegeReadOnly reads it. Only this is answered
+                // here. A read that failed is not: it leaves the snapshot unread, so the question
+                // is refused, exactly as hasPrivilegeReadOnly refuses it, and never retried by
+                // other reads inside a transaction the failure may already have doomed.
+                read = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+            }
+            // Both reads succeeded, or neither is kept.
+            rows = read;
+            roles = names;
+        }
+
+        /** The object's rows from this snapshot; an object not read ahead is read once, now. */
+        private List<Object> rows(String objectName) {
+            if (objectName.indexOf(',') >= 0) return OscarRoleObjectPrivilege.getPrivilegeProp(objectName);
+            Vector<Object> known = rows.get(objectName);
+            if (known == null) {
+                // The single-object reader, exactly as hasPrivilegeReadOnly reads this object.
+                known = OscarRoleObjectPrivilege.getPrivilegeProp(objectName);
+                rows.put(objectName, known);
+            }
+            return known;
+        }
+
+        @Override
+        public boolean hasPrivilege(String objectName, String privilege, String demographicNo) {
+            try {
+                load();
+                return evaluatePrivilege(identity, objectName, privilege, demographicNo, false, roles, this::rows);
+            } catch (PatientDirectiveException ex) {
+                throw ex;
+            } catch (Exception ex) {
+                MiscUtils.getLogger().error("Error checking privileges", ex);
+            }
+            return false;
+        }
+
+        @Override
+        public boolean isAllowedAccessToPatientRecord(Integer demographicNo) {
+            load();
+            return allowedAccessToPatientRecord(roles, this::rows, demographicNo);
+        }
     }
 }

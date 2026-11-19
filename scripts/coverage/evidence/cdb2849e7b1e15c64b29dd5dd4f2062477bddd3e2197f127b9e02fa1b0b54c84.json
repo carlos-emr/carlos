@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "2ce1a2a400665f68a5dbdd06e4f58f449dfceb1f",
+  "comparisonSha256": "fc6f8bebdaaeda7225341a55b8bb82cd02b36ff288a38698a07f4722b37f1572",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/managers/DashboardManagerImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f3c5ab40524929c9558476d38998891047381fcb"
+    }
+  },
+  "baselineCommit": "987adc7ef012d5d3f9006f29f0e413f407a9a798",
+  "baselineSourceTree": "2ce1a2a400665f68a5dbdd06e4f58f449dfceb1f",
+  "baselineReportSha256": "91cb28264e4ef7f9c4c25079cda06eaff19ef02510d8528d4e343f20b17c2095",
+  "baselineLane": "Fresh exact JDK25 selected-source classes and existing/regression controls. All25 unique actual JUnit cases pass with zero failures/errors/skips. Component inputs and exact JUnit hashes retained; selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 25,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "63b97fb3d8d6d88d0f102d5d75ec18b888b0b2eb8a8f998eea44d2d98d7d3d24",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}

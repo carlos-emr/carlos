@@ -42,6 +42,27 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class WLWaitingListUtil {
 
+    /**
+     * Why a waiting-list note cannot be saved: it is longer than {@code waitingList.note} holds
+     * ({@link WaitingList#validateNoteLength}, counted in Unicode code points). Under the packaged
+     * empty {@code sql_mode} a longer note was cut with only a warning (#6141). Callers check this
+     * first and show the refusal on their own page; every writer below refuses such a note too.
+     *
+     * @param note the note as it would be stored; may be {@code null}
+     * @return a message naming the field and the limit, never the note; empty when it fits
+     */
+    public static List<String> noteLengthErrors(String note) {
+        return WaitingList.validateNoteLength(note);
+    }
+
+    /** Refuses an over-long note before any waiting-list row is read or changed. */
+    private static void requireNoteFits(String note) {
+        List<String> errors = noteLengthErrors(note);
+        if (!errors.isEmpty()) {
+            throw new IllegalArgumentException(String.join(" ", errors));
+        }
+    }
+
 
     // Modified this method in Feb 2007 to ensure that all records cannot be deleted except hidden.
     static public synchronized void removeFromWaitingList(String waitingListID, String demographicNo) {
@@ -58,6 +79,7 @@ public class WLWaitingListUtil {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     static public synchronized void add2WaitingList(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+        requireNoteFits(waitingListNote);
         MiscUtils.getLogger().debug("WLWaitingListUtil.add2WaitingList(): adding to waitingList: " + waitingListID + " for patient " + demographicNo);
 
         boolean emptyIds = waitingListID.equalsIgnoreCase("0") || demographicNo.equalsIgnoreCase("0");
@@ -93,6 +115,7 @@ public class WLWaitingListUtil {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     static public synchronized void updateWaitingListRecord(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+        requireNoteFits(waitingListNote);
         MiscUtils.getLogger().debug("WLWaitingListUtil.updateWaitingListRecord(): waitingListID: " + waitingListID + " for patient " + demographicNo);
         boolean isWatingIdSet = !waitingListID.equalsIgnoreCase("0") && !demographicNo.equalsIgnoreCase("0");
         if (!isWatingIdSet) return;
@@ -136,6 +159,7 @@ public class WLWaitingListUtil {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     static public synchronized void updateWaitingList(String id, String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+        requireNoteFits(waitingListNote);
         MiscUtils.getLogger().debug("WLWaitingListUtil.updateWaitingList(): waitingListID: " + waitingListID + " for patient " + demographicNo);
         boolean idsSet = !waitingListID.equalsIgnoreCase("0") && !demographicNo.equalsIgnoreCase("0");
         if (!idsSet) {

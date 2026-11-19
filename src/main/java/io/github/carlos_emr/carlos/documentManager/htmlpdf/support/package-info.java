@@ -50,7 +50,9 @@
  *       CSS a document brings (a span property would otherwise reach the layout unclamped);</li>
  *   <li>{@code ImageBox}, {@code SvgReferences} and {@code SvgViewBox}: the "[image unavailable]" box, the
  *       removal of the outside references of an SVG (and of an inline picture that declares more pixels
- *       than Batik should decode), and the size of an inline SVG that gives only a viewBox.</li>
+ *       than Batik should decode), and the size of an inline SVG that gives only a viewBox;</li>
+ *   <li>{@code XhtmlDom}: the DOM Flying Saucer lays out, parsed from the serialised XHTML with the
+ *       JDK's parser, stated limits in place of the JDK's defaults and no document type at all.</li>
  * </ul>
  *
  * <p>Two package-private classes serve them: {@code InlineStyle} (a scanner for the inline
@@ -68,7 +70,8 @@
  *
  * <ul>
  *   <li>A rule changes the Jsoup {@code Document} it is given and nothing else ({@code PrintStylesheet},
- *       {@code PrintMessages} and {@code LegacyBodyMargins} return text). There is no file, network or clock access beyond
+ *       {@code PrintMessages} and {@code LegacyBodyMargins} return text; {@code XhtmlDom} returns a new
+ *       W3C document). There is no file, network or clock access beyond
  *       reading the English message bundle from the class path, and no mutable static state, so the
  *       rules are safe to call from concurrent renders on different documents.</li>
  *   <li>The same document always gives the same result, whatever the server's locale, time zone or

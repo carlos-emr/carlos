@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "f3ed42f9e81a34953b403bf51f5b487694858323",
+  "comparisonSha256": "4005752e2cc01c5251652ed87a0bf48cc48e8a170f56c99fd053ab44848b50f5",
+  "baselineCommit": "ed5441bfe0813b9b0195d41dd0bc1c0390d5ae01",
+  "baselineSourceTree": "f3ed42f9e81a34953b403bf51f5b487694858323",
+  "baselineReportSha256": "a055e87baa0849fc7f8ab773fa7b5b7a5887ca19a8c8ba68ae036248352d3b52",
+  "baselineLane": "Java 25 response-filter lifecycle, Spring and embedded Tomcat regressions",
+  "baselineTestCounts": {
+    "tests": 715,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "909cd338e61666a29db38825d7e9ddebb81ad5c1ebf01f26ff23d5a382b9fb6c",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/app/CsrfGuardScriptInjectionFilter.java": {
+      "sourceBlob": "7cab012a9838c653d091b3bef9da8f8fc7571c99",
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 98.86363636363636
+    }
+  }
+}

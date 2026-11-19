@@ -19,7 +19,6 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-
 package io.github.carlos_emr.carlos.demographic.cdsimport;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsInputLimitsDto;
@@ -42,19 +41,45 @@ import static org.assertj.core.api.Assertions.*;
 class CdsContractCorpusUnitTest {
     @TempDir Path temporary;
 
-    @Test void shouldSealEveryCategoryAndPreserveNativeInputs_whenCompleteWireCorpusIsParsed() throws Exception {
+    @Test
+    void shouldSealEveryCategoryAndPreserveNativeInputs_whenCompleteWireCorpusIsParsed()
+            throws Exception {
         Path source = temporary.resolve("source.xml");
-        try (var input = getClass().getResourceAsStream("/demographic/cds-import-all-categories.xml")) {
-            assertThat(input).isNotNull(); Files.copy(input, source);
+        try (var input =
+                getClass().getResourceAsStream("/demographic/cds-import-all-categories.xml")) {
+            assertThat(input).isNotNull();
+            Files.copy(input, source);
         }
         List<CdsRecordDto> records = new ArrayList<>();
-        var parsed = new CdsXmlParser().parse(source, temporary.resolve("spool"),
-                CdsInputLimitsDto.defaults(), () -> false, records::add);
+        var parsed =
+                new CdsXmlParser()
+                        .parse(
+                                source,
+                                temporary.resolve("spool"),
+                                CdsInputLimitsDto.defaults(),
+                                () -> false,
+                                records::add);
         assertThat(parsed.records()).isEqualTo(17);
-        assertThat(records).extracting(CdsRecordDto::section).containsExactly(
-                "Demographics", "PersonalHistory", "FamilyHistory", "PastHealth", "ProblemList", "RiskFactors",
-                "AllergiesAndAdverseReactions", "MedicationsAndTreatments", "Immunizations", "LaboratoryResults",
-                "Appointments", "ClinicalNotes", "Reports", "Reports", "CareElements", "AlertsAndSpecialNeeds", "NewCategory");
+        assertThat(records)
+                .extracting(CdsRecordDto::section)
+                .containsExactly(
+                        "Demographics",
+                        "PersonalHistory",
+                        "FamilyHistory",
+                        "PastHealth",
+                        "ProblemList",
+                        "RiskFactors",
+                        "AllergiesAndAdverseReactions",
+                        "MedicationsAndTreatments",
+                        "Immunizations",
+                        "LaboratoryResults",
+                        "Appointments",
+                        "ClinicalNotes",
+                        "Reports",
+                        "Reports",
+                        "CareElements",
+                        "AlertsAndSpecialNeeds",
+                        "NewCategory");
         var fields = new CdsFieldParser();
         for (CdsRecordDto record : records) fields.verifyRecord(record);
         var normalization = new CdsClinicalNormalizationService(fields);
@@ -66,23 +91,54 @@ class CdsContractCorpusUnitTest {
         assertThat(noteDate.precision()).isEqualTo(Precision.FULL_DATE);
         assertThat(noteDate.original()).isEqualTo("2026-02-03");
         var lab = category(records, "LaboratoryResults");
-        assertThat(fields.firstText(lab, "PhysiciansNotes", 100)).isEqualTo("PRIVATE SYNTHETIC PHYSICIAN NOTE");
-        assertThat(fields.firstText(lab, "ResultNormalAbnormalFlag/resultNormalAbnormalFlagAsPlainText", 50)).isEqualTo("H");
-        assertThat(normalization.date(lab, "CollectionDateTime").original()).isEqualTo("2025-03-04T10:20:30.125-05:00");
-        var binaryReport = records.stream().filter(r -> r.section().equals("Reports")
-                && r.ordinal() == records.stream().filter(v -> v.section().equals("Reports")).mapToLong(CdsRecordDto::ordinal).max().orElseThrow())
-                .findFirst().orElseThrow();
-        fields.forEachField(binaryReport, field -> {
-            if (field.kind().equals("BINARY")) {
-                try (var input = fields.openValue(binaryReport, field)) {
-                    assertThat(input.readNBytes(8)).containsExactly((byte)137, (byte)80, (byte)78, (byte)71, (byte)13, (byte)10, (byte)26, (byte)10);
-                } catch (java.io.IOException failure) { throw new java.io.UncheckedIOException(failure); }
-            }
-        });
+        assertThat(fields.firstText(lab, "PhysiciansNotes", 100))
+                .isEqualTo("PRIVATE SYNTHETIC PHYSICIAN NOTE");
+        assertThat(
+                        fields.firstText(
+                                lab,
+                                "ResultNormalAbnormalFlag/resultNormalAbnormalFlagAsPlainText",
+                                50))
+                .isEqualTo("H");
+        assertThat(normalization.date(lab, "CollectionDateTime").original())
+                .isEqualTo("2025-03-04T10:20:30.125-05:00");
+        var binaryReport =
+                records.stream()
+                        .filter(
+                                r ->
+                                        r.section().equals("Reports")
+                                                && r.ordinal()
+                                                        == records.stream()
+                                                                .filter(
+                                                                        v ->
+                                                                                v.section()
+                                                                                        .equals(
+                                                                                                "Reports"))
+                                                                .mapToLong(CdsRecordDto::ordinal)
+                                                                .max()
+                                                                .orElseThrow())
+                        .findFirst()
+                        .orElseThrow();
+        fields.forEachField(
+                binaryReport,
+                field -> {
+                    if (field.kind().equals("BINARY")) {
+                        try (var input = fields.openValue(binaryReport, field)) {
+                            assertThat(input.readNBytes(8))
+                                    .containsExactly(
+                                            (byte) 137, (byte) 80, (byte) 78, (byte) 71, (byte) 13,
+                                            (byte) 10, (byte) 26, (byte) 10);
+                        } catch (java.io.IOException failure) {
+                            throw new java.io.UncheckedIOException(failure);
+                        }
+                    }
+                });
         assertThat(parsed.decodedBinaryBytes()).isEqualTo(68);
     }
 
     private static CdsRecordDto category(List<CdsRecordDto> records, String name) {
-        return records.stream().filter(record -> record.section().equals(name)).findFirst().orElseThrow();
+        return records.stream()
+                .filter(record -> record.section().equals(name))
+                .findFirst()
+                .orElseThrow();
     }
 }

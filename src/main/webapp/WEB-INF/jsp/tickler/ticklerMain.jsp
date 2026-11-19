@@ -379,8 +379,10 @@
                         {
                             data: 'id',
                             orderable: false,
-                            render: function(data) {
-                                return '<input type="checkbox" name="checkbox" value="' + escapeHtml(String(data)) + '" class="noprint">';
+                            render: function(data, type, row) {
+                                // data-rendered-status: what this row showed, posted with a bulk action so a task
+                                // someone else has changed since is not overwritten (ticklerStaleSelection.jspf).
+                                return '<input type="checkbox" name="checkbox" value="' + escapeHtml(String(data)) + '" data-rendered-status="' + escapeHtml(String((row && row.status) || '')) + '" class="noprint">';
                             }
                         },
                         {
@@ -1020,6 +1022,7 @@
             <%-- Complete/delete posts also reload this view, so preserve the schedule shell flag there too. --%>
             <input type="hidden" name="scheduleNav" value="1">
             <% } %>
+            <%@ include file="/WEB-INF/jsp/tickler/ticklerStaleSelection.jspf" %>
             <table id="ticklerResults" class="table table-striped table-sm" style="width:100%">
                 <thead>
                 <tr>

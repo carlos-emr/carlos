@@ -317,6 +317,54 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should give the sidebar counts the locked-patient filter before they are counted")
+    void shouldFilterSidebarHrmCounts_whenIndexPageIsPrepared() throws Exception {
+        request.getSession().setAttribute("userrole", "doctor");
+        request.getSession().setAttribute("user", "999998");
+        LoggedInInfo user = mock(LoggedInInfo.class);
+        try (MockedStatic<LoggedInInfo> login = mockStatic(LoggedInInfo.class);
+             org.mockito.MockedConstruction<io.github.carlos_emr.carlos.mds.data.CategoryData> built =
+                     mockConstruction(io.github.carlos_emr.carlos.mds.data.CategoryData.class)) {
+            login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(user);
+
+            String result = new DmsInboxManage2Action().prepareForIndexPage();
+
+            assertThat(result).isEqualTo("dms_index");
+            assertThat(built.constructed()).hasSize(1);
+            io.github.carlos_emr.carlos.mds.data.CategoryData counts = built.constructed().get(0);
+            // The hospital-report rows of the list leave out a patient the user may not open. The
+            // sidebar's counts must be given the same rule, and before they are counted.
+            org.mockito.InOrder order = inOrder(counts);
+            order.verify(counts).setHrmPatientReadable(notNull());
+            order.verify(counts).populateCountsAndPatients();
+        }
+    }
+
+    @Test
+    @DisplayName("should keep no patient's hospital reports in the sidebar when the session has no signed-in user")
+    void shouldKeepNoPatientReports_whenSessionHasNoLoggedInInfo() throws Exception {
+        request.getSession().setAttribute("userrole", "doctor");
+        request.getSession().setAttribute("user", "999998");
+        try (MockedStatic<LoggedInInfo> login = mockStatic(LoggedInInfo.class);
+             org.mockito.MockedConstruction<io.github.carlos_emr.carlos.mds.data.CategoryData> built =
+                     mockConstruction(io.github.carlos_emr.carlos.mds.data.CategoryData.class)) {
+            login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(null);
+
+            String result = new DmsInboxManage2Action().prepareForIndexPage();
+
+            assertThat(result).isEqualTo("dms_index");
+            io.github.carlos_emr.carlos.mds.data.CategoryData counts = built.constructed().get(0);
+            org.mockito.ArgumentCaptor<java.util.function.IntPredicate> rule =
+                    org.mockito.ArgumentCaptor.forClass(java.util.function.IntPredicate.class);
+            verify(counts).setHrmPatientReadable(rule.capture());
+            verify(counts).populateCountsAndPatients();
+            // The rule is set even then, and it denies: the default would have counted every patient.
+            assertThat(rule.getValue().test(7)).isFalse();
+            verifyNoInteractions(securityInfoManager);
+        }
+    }
+
+    @Test
     @DisplayName("should return NONE when execute dispatches index with missing user role")
     void shouldReturnNone_whenExecuteDispatchesIndexWithMissingUserRole() {
         request.setParameter("method", "prepareForIndexPage");
@@ -377,15 +425,17 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
         request.getSession().setAttribute("user", "991820");
         request.setParameter(bound, value);
         registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
-        var preferences = mock(io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao.class);
-        registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class,
-                new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao(preferences));
+        // An invalid bound is refused before the inbox date preference is read or any count runs.
+        var dateSearchTypes = mock(io.github.carlos_emr.carlos.commn.service.InboxDateSearchTypeResolver.class);
+        registerMock(io.github.carlos_emr.carlos.commn.service.InboxDateSearchTypeResolver.class, dateSearchTypes);
+        var counts = mock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class, counts);
         var inbox = mock(InboxResultsDao.class);
         registerMock(InboxResultsDao.class, inbox);
         var action = new DmsInboxManage2Action();
         assertThat(action.prepareForIndexPage()).isEqualTo("error");
         assertThat(action.prepareForContentPage()).isEqualTo("error");
-        verifyNoInteractions(preferences, inbox);
+        verifyNoInteractions(dateSearchTypes, counts, inbox);
     }
 
     @ParameterizedTest

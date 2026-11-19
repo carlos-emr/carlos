@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "1857c5695431384266738a9f02a6982cd374f355",
+  "comparisonSha256": "7ea4e37b55da751531f2928259e09f98f7b2d2fbba5436fdff883afbe899deb1",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/util/ConcatPDF.java": {
+      "lines": 90.56603773584905,
+      "instructions": 94.41624365482234,
+      "branches": 100.0,
+      "sourceBlob": "aff353d53251f46e010d1b311ec0cf779686769d"
+    }
+  },
+  "baselineCommit": "c5e75867a198d5b6a8c09fb405f58d921a347b05",
+  "baselineSourceTree": "1857c5695431384266738a9f02a6982cd374f355",
+  "baselineReportSha256": "974609fe1f28d486c2a1ea60572388f21634ebd99788a771e35237130b57a8e8",
+  "baselineLane": "PDF staging, billing invoice and attachment tests",
+  "baselineTestCounts": {
+    "tests": 92,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "74c10ed5bb329a2db79f5d129e57c94c7451682bfbeaa17f7b8c217b27e1573a",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.commn.web.BillingInvoice2ActionUnitTest",
+    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachPDF2ActionUnitTest",
+    "io.github.carlos_emr.carlos.util.ConcatPDFUnitTest"
+  ]
+}

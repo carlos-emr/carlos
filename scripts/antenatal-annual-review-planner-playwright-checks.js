@@ -8,8 +8,9 @@
 // the saved plan for that patient, that a GET carrying the save intent is refused without
 // a write, and that the shared risk/checklist editors render the deployed lists (opened
 // read-only: their Save rewrites a clinic-wide file, so the check never submits them).
-// The antenatal planner, its OB risk/checklist editors, SaveAntenatalRiskConfig and
-// provider/ViewObar* have no UI entry on an Ontario install, so they get no check here.
+// The antenatal planner, its OB risk/checklist editors and SaveAntenatalRiskConfig have
+// no UI entry on an Ontario install, so they get no check here. (The unlinked
+// provider/ViewObar* copies of those editors were removed, #3438.)
 // Fixtures: the owned synthetic patient and a marker-named Forms-menu registration of the
 // Annual form (a clinic-wide menu entry, so run EXCLUSIVE=1); cleanup deletes both.
 const { authenticatedProbe } = require('./lib/authenticated-probe');

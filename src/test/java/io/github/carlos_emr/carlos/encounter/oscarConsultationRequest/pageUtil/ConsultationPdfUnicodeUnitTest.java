@@ -3,11 +3,7 @@ package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
 import java.io.ByteArrayOutputStream;
 import java.util.Locale;
-import java.util.ResourceBundle;
-import io.github.carlos_emr.carlos.clinic.ClinicData;
-import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
-import io.github.carlos_emr.CarlosProperties;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,10 +17,6 @@ import org.openpdf.text.pdf.PdfPTable;
 import org.openpdf.text.pdf.PdfWriter;
 import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.CALLS_REAL_METHODS;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 /**
  * Renders the consultation request's patient, reason, specialist and letterhead tables through the
@@ -40,52 +32,30 @@ import static org.mockito.Mockito.when;
 class ConsultationPdfUnicodeUnitTest {
     private static final String PATIENT = "FAKE-陈小明 さくら 김민준 Nguyễn";
     private ConsultationPDFCreator creator;
-    private EctConsultationFormRequestUtil form;
 
     @BeforeEach
     void setUp() {
-        creator = mock(ConsultationPDFCreator.class, CALLS_REAL_METHODS);
-        form = mock(EctConsultationFormRequestUtil.class);
-        form.patientName = PATIENT;
-        form.patientAddress = "FAKE 1 Rue Élodie<br>北京市朝阳区";
-        form.patientPhone = "555-0100";
-        form.patientDOB = "2000/01/01";
-        form.patientSex = "F";
-        form.patientHealthCardType = "ON";
-        form.patientHealthNum = "9876543210";
-        form.patientHealthCardVersionCode = "AB";
-        form.patientChartNo = "FAKE-カルテ7";
-        form.pwb = "1";
-        form.referalDate = "2026/10/22";
-        form.reasonForConsultation = "FAKE-复诊 ≥5 mmol/L";
-        form.clinicalInformation = "FAKE-さくら history";
-        form.currentMedications = "FAKE-阿莫西林 500 mg";
-        form.allergies = "FAKE-페니실린";
-        form.letterheadName = "-1";
-        ProfessionalSpecialist specialist = mock(ProfessionalSpecialist.class);
-        when(specialist.getFormattedTitle()).thenReturn("Dr. FAKE-김민준");
-        when(specialist.getPhoneNumber()).thenReturn("555-0101");
-        when(specialist.getFaxNumber()).thenReturn("555-0102");
-        when(specialist.getStreetAddress()).thenReturn("FAKE 3 東京都");
-        when(form.getProfessionalSpecialist()).thenReturn(specialist);
-        when(form.getServiceName(any())).thenReturn("FAKE-心脏科");
-        ClinicData clinic = mock(ClinicData.class);
-        when(clinic.getClinicName()).thenReturn("FAKE-诊所 Łukasz");
-        when(clinic.getClinicAddress()).thenReturn("FAKE 9 대로 ");
-        when(clinic.getClinicCity()).thenReturn("Toronto");
-        when(clinic.getClinicProvince()).thenReturn("ON");
-        when(clinic.getClinicPostal()).thenReturn("M5V 1A1");
+        // The drawing methods read only the resolved letter (#3973 made it request-free), so the
+        // letter carries the same multi-script values the request path used to supply.
+        ConsultationLetterDto letter = new ConsultationLetterDto(
+                Locale.ENGLISH,
+                new ConsultationLetterDto.Letterhead("FAKE-诊所 Łukasz", "", "", "", "FAKE-诊所 Łukasz",
+                        "FAKE 9 대로 ", "Toronto", "ON", "M5V 1A1", "", ""),
+                new ConsultationLetterDto.Request("1", "2026/10/22", "1", "FAKE-心脏科", "", true, false),
+                new ConsultationLetterDto.Specialist("Dr. FAKE-김민준", "555-0101", "555-0102", "FAKE 3 東京都"),
+                new ConsultationLetterDto.Patient(PATIENT, "FAKE 1 Rue Élodie<br>北京市朝阳区", "555-0100", "", "",
+                        "", "2000/01/01", "F", "ON", "9876543210", "AB", "", "", "", "", "FAKE-カルテ7"),
+                new ConsultationLetterDto.Clinical("FAKE-复诊 ≥5 mmol/L", "FAKE-さくら history", "",
+                        "FAKE-阿莫西林 500 mg", "FAKE-페니실린", "", ""),
+                new ConsultationLetterDto.Footer(false, null, "", false, null, ""),
+                new ConsultationLetterDto.Images(false, null, false, null, null));
+        creator = new ConsultationPDFCreator(letter, new ByteArrayOutputStream());
 
         Font font = PdfFonts.getFont(BaseFont.HELVETICA, 10);
-        ReflectionTestUtils.setField(creator, "reqFrm", form);
-        ReflectionTestUtils.setField(creator, "clinic", clinic);
         ReflectionTestUtils.setField(creator, "font", font);
         ReflectionTestUtils.setField(creator, "heading", PdfFonts.getFont(BaseFont.HELVETICA, 12));
         ReflectionTestUtils.setField(creator, "boldFontHeading", PdfFonts.getFont(BaseFont.HELVETICA, 12, Font.BOLD,
                 java.awt.Color.BLACK));
-        ReflectionTestUtils.setField(creator, "props", mock(CarlosProperties.class, invocation ->
-                invocation.getArguments().length > 1 ? invocation.getArgument(1) : null));
-        ReflectionTestUtils.setField(creator, "oscarR", ResourceBundle.getBundle("oscarResources", Locale.ENGLISH));
     }
 
     private String render(String... tableMethods) throws Exception {
