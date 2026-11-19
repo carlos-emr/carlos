@@ -2829,6 +2829,10 @@
             {
               "name": "shouldCountDistinctHrmReports_byPatientProviderAndSignoffIndependentlyOfViewed",
               "container": ""
+            },
+            {
+              "name": "shouldCompareTheFiltersDateColumns_forLabAndDocumentBoundsOnPhysicalMariaDb",
+              "container": ""
             }
           ]
         },
@@ -5217,7 +5221,7 @@
         "BillingONCHeader1DaoIntegrationTest": 1,
         "LegacyLabUploadDaoIntegrationTest": 8,
         "LabRoutingLookupDaoIntegrationTest": 6,
-        "LegacyLabNativeMariaDbIntegrationTest": 7,
+        "LegacyLabNativeMariaDbIntegrationTest": 8,
         "ArchiveAuditTimestampIntegrationTest": 2,
         "Growth0To36FormPersistenceIntegrationTest": 19,
         "FixedJasperReportDaoIntegrationTest": 2,
@@ -5281,7 +5285,7 @@
         "CaseManagementNoteLockMariaDbIntegrationTest": 15,
         "ConsultationArchiveDaoIntegrationTest": 1,
         "LabRoutingLookupDaoIntegrationTest": 6,
-        "LegacyLabNativeMariaDbIntegrationTest": 7,
+        "LegacyLabNativeMariaDbIntegrationTest": 8,
         "ArchiveAuditTimestampIntegrationTest": 2,
         "FormXmlImportServiceIntegrationTest": 7,
         "EFormApColumnLookupIntegrationTest": 2,
