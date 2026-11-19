@@ -425,15 +425,17 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
         request.getSession().setAttribute("user", "991820");
         request.setParameter(bound, value);
         registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
-        var preferences = mock(io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao.class);
-        registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class,
-                new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao(preferences));
+        // An invalid bound is refused before the inbox date preference is read or any count runs.
+        var dateSearchTypes = mock(io.github.carlos_emr.carlos.commn.service.InboxDateSearchTypeResolver.class);
+        registerMock(io.github.carlos_emr.carlos.commn.service.InboxDateSearchTypeResolver.class, dateSearchTypes);
+        var counts = mock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class, counts);
         var inbox = mock(InboxResultsDao.class);
         registerMock(InboxResultsDao.class, inbox);
         var action = new DmsInboxManage2Action();
         assertThat(action.prepareForIndexPage()).isEqualTo("error");
         assertThat(action.prepareForContentPage()).isEqualTo("error");
-        verifyNoInteractions(preferences, inbox);
+        verifyNoInteractions(dateSearchTypes, counts, inbox);
     }
 
     @ParameterizedTest
