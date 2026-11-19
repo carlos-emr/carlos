@@ -2,7 +2,6 @@ package io.github.carlos_emr.carlos.managers;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -20,8 +19,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.commons.lang3.math.NumberUtils;
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService;
@@ -60,7 +57,7 @@ import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResult;
 import io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings;
-import io.github.carlos_emr.carlos.email.core.EmailDocumentManifestComposer;
+import io.github.carlos_emr.carlos.email.core.PdfAttachmentSigningService;
 import io.github.carlos_emr.carlos.email.core.EmailFieldLengthException;
 import io.github.carlos_emr.carlos.email.core.EmailFieldLengthValidator;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
@@ -73,9 +70,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.PDFEncryptionUtil;
-import io.github.carlos_emr.carlos.utility.DocumentManifest;
-import io.github.carlos_emr.carlos.utility.PDFSigningConfig;
-import io.github.carlos_emr.carlos.utility.PDFSigningUtil;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.owasp.encoder.Encode;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -182,11 +176,10 @@ public class EmailManager {
     private PatientPortalInviteDeliveryDao inviteDeliveries;
     @Autowired
     private ClinicEmailFooterService clinicFooterService;
-    @Autowired
-    private EmailDocumentManifestComposer documentManifestComposer;
     private final EmailConsentResolver emailConsentResolver;
     private final EmailSenderFactory emailSenderFactory;
     private final OutboundEmailArchiveService outboundEmailArchiveService;
+    private final PdfAttachmentSigningService pdfAttachmentSigningService;
     /** Sender config ids already reported for a credential key problem in this server run. */
     private final Set<Integer> credentialKeyWarnings = ConcurrentHashMap.newKeySet();
 
@@ -198,12 +191,15 @@ public class EmailManager {
      * @param emailSenderFactory creates the outbound sender after consent is accepted
      * @param securityInfoManager checks the caller's email privileges
      * @param outboundEmailArchiveService persists finalized SMTP messages before dispatch
+     * @param pdfAttachmentSigningService signs the final attachments when PDF signing is configured
      */
     public EmailManager(EmailConsentResolver emailConsentResolver, EmailSenderFactory emailSenderFactory,
-            SecurityInfoManager securityInfoManager, OutboundEmailArchiveService outboundEmailArchiveService) {
+            SecurityInfoManager securityInfoManager, OutboundEmailArchiveService outboundEmailArchiveService,
+            PdfAttachmentSigningService pdfAttachmentSigningService) {
         this.emailConsentResolver = emailConsentResolver;
         this.emailSenderFactory = emailSenderFactory;
         this.outboundEmailArchiveService = outboundEmailArchiveService;
+        this.pdfAttachmentSigningService = pdfAttachmentSigningService;
         this.securityInfoManager = securityInfoManager;
         logCredentialKeyEnforcement();
     }
@@ -393,7 +389,7 @@ public class EmailManager {
                     portalResult = portalEmailDelivery.send(loggedInInfo, emailLog, emailData,
                             () -> {
                                 encryptEmail(emailData);
-                                signAttachments(emailData, loggedInInfo, emailLog);
+                                pdfAttachmentSigningService.signAttachments(emailData, loggedInInfo, emailLog);
                             },
                             () -> archiveId.set(sendWithArchive(loggedInInfo,
                                     createSenderBeforeTransport(loggedInInfo, emailLog, emailData), emailLog,
@@ -424,7 +420,7 @@ public class EmailManager {
                 }
                 // After encryption and before the sender is built, so the signature covers the
                 // exact bytes that are archived and dispatched.
-                signAttachments(emailData, loggedInInfo, emailLog);
+                pdfAttachmentSigningService.signAttachments(emailData, loggedInInfo, emailLog);
                 EmailSender emailSender = emailSenderFactory.create(loggedInInfo, emailLog.getEmailConfig(), emailData);
                 Integer archiveId = sendWithArchive(loggedInInfo, emailSender, emailLog,
                         emailData.getArchiveRedactions(), dispatchGate);
@@ -1741,166 +1737,6 @@ public class EmailManager {
                 logger.error("Failed to create encrypted email attachments", e);
                 throw new EmailSendingException("Failed to create encrypted email attachments", e);
             }
-        }
-    }
-
-    /**
-     * Cryptographically signs outgoing PDF attachments when PDF signing is configured.
-     *
-     * <p>Runs after optional password encryption, so the signature covers the exact bytes sent
-     * to the patient. Each signed PDF is adopted into the send's working directory, which owns
-     * its cleanup. The compose flow always supplies that directory and {@code sendEmailInternal}
-     * decides who closes it; only a caller that builds {@code EmailData} directly arrives
-     * without one, and then it is created here, never closed here.</p>
-     *
-     * <p>Every attachment on {@code emailData} is expected to be a signable PDF. Signing is
-     * fail-closed: if signing is enabled and any single attachment cannot be signed, the whole
-     * send is aborted rather than delivering a partially signed or unsigned set.</p>
-     *
-     * <p>This form embeds no document manifest; the send path uses
-     * {@link #signAttachments(EmailData, LoggedInInfo, EmailLog)}.</p>
-     *
-     * @param emailData EmailData containing the final attachment list
-     * @throws EmailSendingException if signing is enabled but an attachment cannot be signed
-     */
-    void signAttachments(EmailData emailData) throws EmailSendingException {
-        signAttachments(emailData, null, null);
-    }
-
-    /**
-     * Signs outgoing PDF attachments as {@link #signAttachments(EmailData)} does and, when
-     * {@code pdf.signing.document_id.secret} is set, embeds each document's manifest in the same
-     * update as its signature (carlos-emr/carlos#4691). An attachment with no CARLOS record behind
-     * it, such as the rendered message text, gets no manifest. A manifest that cannot be built
-     * stops the send like any other signing failure. Each signed attachment gets an audit entry
-     * naming the signing key, the record and its document ID (carlos-emr/carlos#4691).
-     *
-     * @param emailData EmailData containing the final attachment list
-     * @param loggedInInfo the sending provider's session, or {@code null} for no manifests
-     * @param emailLog the send's email log, holding the patient and the sending provider, or
-     *        {@code null} for no manifests
-     * @throws EmailSendingException if signing is enabled but an attachment cannot be signed
-     */
-    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
-    void signAttachments(EmailData emailData, LoggedInInfo loggedInInfo, EmailLog emailLog)
-            throws EmailSendingException {
-        List<EmailAttachment> attachments = emailData.getAttachments();
-        if (attachments == null || attachments.isEmpty()) {
-            return;
-        }
-        PDFSigningConfig signingConfig = PDFSigningConfig.fromCarlosProperties();
-        if (!signingConfig.isEnabled()) {
-            return;
-        }
-
-        ensureWorkingDirectory(emailData);
-        // An encrypted PDF can only be modified with its owner password.
-        String ownerPassword = emailData.getIsEncrypted() ? emailData.getPassword() : null;
-        EmailDocumentManifestComposer.AttachmentManifests manifests = documentManifests(loggedInInfo, emailLog);
-        String keyId = signingKeyIdForAudit(signingConfig, loggedInInfo, emailLog);
-        for (EmailAttachment attachment : attachments) {
-            Path signedPDFPath = null;
-            try {
-                Path attachmentPDFPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
-                DocumentManifest manifest = manifests.forAttachment(attachment);
-                signedPDFPath = PDFSigningUtil.signPDF(attachmentPDFPath, signingConfig, ownerPassword, manifest);
-                boolean attachmentEncrypted = false;
-                if (loggedInInfo != null && emailLog != null) {
-                    // A protected message PDF can share a send with clear document attachments.
-                    // Read the signed bytes, not either send-level intent flag, for this audit row.
-                    try (PDDocument signed = Loader.loadPDF(signedPDFPath.toFile(), ownerPassword == null ? "" : ownerPassword)) {
-                        attachmentEncrypted = signed.isEncrypted();
-                    }
-                }
-                attachment.setFilePath(emailData.getWorkingDirectory().adoptGeneratedPdf(signedPDFPath).toString());
-                auditSignedAttachment(loggedInInfo, emailLog, attachment, keyId, manifest, attachmentEncrypted);
-            } catch (IOException | RuntimeException e) {
-                // Any RuntimeException, not a chosen few: one that escaped would skip
-                // completeFailedSend and strand the EmailLog at PENDING behind a 500.
-                deleteUnadoptedSignedPdf(signedPDFPath);
-                // The cause chain is what tells an operator whether the keystore, its password or
-                // the certificate is at fault. It names server paths, never the attachment: the
-                // attachment's own file name can identify a patient, so it is left out.
-                logger.error("Failed to sign an email PDF attachment", e);
-                throw new EmailSendingException("Failed to sign email PDF attachment", e);
-            }
-        }
-    }
-
-    /**
-     * The signing key's ID for the audit entries, or {@code null} when the send has no context to
-     * audit under. Read once per send; an unreadable keystore fails the send here, as signing would.
-     */
-    private String signingKeyIdForAudit(PDFSigningConfig signingConfig, LoggedInInfo loggedInInfo,
-            EmailLog emailLog) throws EmailSendingException {
-        if (loggedInInfo == null || emailLog == null) {
-            return null;
-        }
-        try {
-            return PDFSigningUtil.signingKeyId(signingConfig);
-        } catch (IOException | RuntimeException e) {
-            logger.error("Failed to read the PDF signing key for an email's signed PDFs", e);
-            throw new EmailSendingException("Failed to sign email PDF attachment", e);
-        }
-    }
-
-    /**
-     * Records that CARLOS signed one attachment: the email, the record it came from, the signing
-     * key and the embedded document ID and version, if any. The document ID is an opaque HMAC, so
-     * the entry is how a document ID is traced back to its record. No names or content. Like
-     * other audit entries it is written in the background ({@link LogAction#addLog}): a failure to
-     * store it is logged and does not stop the send.
-     */
-    private static void auditSignedAttachment(LoggedInInfo loggedInInfo, EmailLog emailLog, EmailAttachment attachment,
-            String keyId, DocumentManifest manifest, boolean encrypted) {
-        if (loggedInInfo == null || emailLog == null) {
-            return;
-        }
-        String data = "emailLogId=" + emailLog.getId()
-                + "&source=" + (attachment.getDocumentType() == null ? "" : attachment.getDocumentType().getName())
-                + "&recordId=" + attachment.getDocumentId()
-                + "&kid=" + keyId
-                + "&documentId=" + (manifest == null ? "" : manifest.documentId())
-                + "&version=" + (manifest == null ? "" : String.valueOf(manifest.version()))
-                + "&encrypted=" + encrypted;
-        String demographicNo = emailLog.getDemographic() == null ? null
-                : String.valueOf(emailLog.getDemographic().getDemographicNo());
-        // contentId is limited to 80 characters; keep the full tracing payload in log.data.
-        LogAction.addLog(loggedInInfo, "EmailManager.signAttachment", EMAIL_AUDIT_CONTENT,
-                String.valueOf(emailLog.getId()), demographicNo, data);
-    }
-
-    private EmailDocumentManifestComposer.AttachmentManifests documentManifests(LoggedInInfo loggedInInfo,
-            EmailLog emailLog) throws EmailSendingException {
-        if (loggedInInfo == null || emailLog == null) {
-            return EmailDocumentManifestComposer.AttachmentManifests.NONE;
-        }
-        try {
-            return documentManifestComposer.forSend(loggedInInfo, emailLog);
-        } catch (RuntimeException e) {
-            // Usually an invalid pdf.signing.document_id.secret. The message names the setting,
-            // never the patient or the document.
-            logger.error("Failed to prepare the document manifests for an email's signed PDFs", e);
-            throw new EmailSendingException("Failed to sign email PDF attachment", e);
-        }
-    }
-
-    /**
-     * Removes a signed PDF that the working directory never took ownership of. It holds the
-     * patient's document and nothing else would ever delete it.
-     */
-    private void deleteUnadoptedSignedPdf(Path signedPDFPath) {
-        // signPDF only ever returns a temp file it created, so anything else here is a bug and
-        // is left alone rather than deleted.
-        if (signedPDFPath == null || !PathValidationUtils.isInAllowedTempDirectory(signedPDFPath.toFile())) {
-            return;
-        }
-        try {
-            Files.deleteIfExists(signedPDFPath);
-        } catch (IOException | RuntimeException cleanupFailure) {
-            logger.warn("Signed email PDF could not be removed after a failed send: {}",
-                    cleanupFailure.getClass().getSimpleName());
         }
     }
 

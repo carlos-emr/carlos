@@ -438,7 +438,10 @@ signature panel.
 
 Two situations stop sends once signing is on, and both show in **Admin > Manage
 Emails** as "Failed to sign email PDF attachment", with the cause in the server
-log:
+log. The log entry comes from `PdfAttachmentSigningService`; before
+carlos-emr/carlos#3851 the same entries came from `EmailManager`, so a log search
+or alert keyed on that class name needs updating. The audit action name,
+`EmailManager.signAttachment`, is unchanged.
 
 - **The certificate expires, or is not yet valid.** Validity is checked on
   every send, so from the expiry date until the keystore is replaced every
