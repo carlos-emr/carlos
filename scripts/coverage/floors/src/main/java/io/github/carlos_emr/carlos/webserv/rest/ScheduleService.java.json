@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleService.java",
   "kind": "floor",
   "floor": {
-    "lines": 91.20879120879121,
-    "instructions": 90.0,
-    "branches": 81.9672131147541,
-    "sourceBlob": "a1032304e4c8dcfcb2b316a877a1c70a80ac9c16"
+    "lines": 91.39784946236558,
+    "instructions": 90.09708737864078,
+    "branches": 82.53968253968254,
+    "sourceBlob": "78dc8684810919f755cb74c4dacd0766559c1420"
   },
-  "evidenceSha256": "23db5597e3c927904eacaf70e8ece985862c55a88475b891b1e0e21220cff8fd"
+  "evidenceSha256": "c7405bef900e5cb4b12fd2084ed5f8f835fa917d41dfdd91e7f7824afccb0848"
 }
