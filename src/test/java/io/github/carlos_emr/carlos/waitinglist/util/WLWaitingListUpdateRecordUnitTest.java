@@ -2,6 +2,7 @@
 package io.github.carlos_emr.carlos.waitinglist.util;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -50,7 +51,8 @@ class WLWaitingListUpdateRecordUnitTest extends CarlosUnitTestBase {
     @DisplayName("should write nothing when no list or no patient is named")
     void shouldWriteNothing_whenNoListOrPatientIsNamed(String listId, String demographicNo) {
         // No WaitingListDao is registered: looking one up would fail this case.
-        WLWaitingListUtil.updateWaitingListRecord(listId, "FAKE note", demographicNo, null);
+        assertThatCode(() -> WLWaitingListUtil.updateWaitingListRecord(listId, "FAKE note", demographicNo, null))
+                .doesNotThrowAnyException();
     }
 
     @Test
