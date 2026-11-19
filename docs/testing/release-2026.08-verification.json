@@ -889,6 +889,7 @@
         "installed-package-reinstall",
         "manual-report-configured-jasper",
         "manual-fax-configuration-save",
+        "manual-provider-document-queue-security",
         "manual-log-provider-order"
       ]
     },
@@ -8320,6 +8321,43 @@
         "--strict-release",
         "--only",
         "fax-configuration-save",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
+    },
+    {
+      "id": "manual-provider-document-queue-security",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "provider-document-queue-security"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "provider-document-queue-security",
         "--province",
         "{profile}",
         "--residue-audit",

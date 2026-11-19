@@ -19546,6 +19546,28 @@
       "notes": "#5783: verifies actual admin save/reset wiring and masked-credential roundtrip without contacting SRFax. Capped backoff and next-poll behavior are independently covered by real importer/action regressions."
     },
     {
+      "name": "provider-document-queue-security",
+      "script": "scripts/provider-document-queue-security-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON",
+        "BC"
+      ],
+      "timeoutSec": 180,
+      "manual": true,
+      "mutates": [
+        "queue",
+        "secObjectName",
+        "property",
+        "secObjPrivilege"
+      ],
+      "fixtures": "Requires a disposable exclusive host. Creates one marker-owned queue/security object, saves the authenticated provider default, restores the original preference rows byte exactly and removes the owned queue. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#6008: actual provider preference creation supplies a grantable security object using its persisted ID, assigns no role privileges, renders the literal description and refuses a blank name without changing the default. Real DAO transaction regressions separately prove rollback on security/preference failure."
+    },
+    {
       "name": "admin-facility-disable",
       "script": "scripts/admin-facility-disable-playwright-checks.js",
       "tiers": [
