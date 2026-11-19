@@ -31,6 +31,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -254,7 +256,7 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
 
         /** An override service whose replacements commit to {@link #committed} and whose reads return it. */
         private io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideService committingService() {
-            var service = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideService.class);
+            var service = mock(io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideService.class);
             when(service.replaceOverride(any(), any(), any())).thenAnswer(call -> {
                 committed.set(call.getArgument(2));
                 return true;
@@ -332,7 +334,7 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
             assertThat(mockRequest.getAttribute(io.github.carlos_emr.carlos.utility.RefusalNotice.KEY_ATTRIBUTE))
                     .isEqualTo("error.refusal.scheduleDateIncomplete");
             assertThat(cache).containsEntry("2031-05-14", "cached");
-            verify(overrides, org.mockito.Mockito.never()).currentOverride(any(), any());
+            verify(overrides, never()).currentOverride(any(), any());
         }
 
         @Test
