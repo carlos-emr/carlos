@@ -649,6 +649,7 @@
     "test:popup-opener-day-sheet-playwright": "node scripts/popup-opener-day-sheet-playwright-checks.js",
     "test:native-cast-report-continuity-playwright": "node scripts/native-cast-report-continuity-playwright-checks.js",
     "test:native-cast-inbox-lab-dates-playwright": "node scripts/native-cast-inbox-lab-dates-playwright-checks.js",
+    "test:inbox-date-mode-counts-playwright": "node scripts/inbox-date-mode-counts-playwright-checks.js",
     "test:gap-provider-account-expiry-playwright": "node scripts/gap-provider-account-expiry-playwright-checks.js",
     "test:gap-provider-appointment-do-not-book-playwright": "node scripts/gap-provider-appointment-do-not-book-playwright-checks.js",
     "test:gap-provider-appointment-null-timestamps-playwright": "node scripts/gap-provider-appointment-null-timestamps-playwright-checks.js",
