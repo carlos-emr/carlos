@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementEntry2Action.java",
   "kind": "floor",
   "floor": {
-    "sourceBlob": "b697dea93d810183e4ed183a57c552c10a8fadb1",
+    "sourceBlob": "75158a0a641da416699aa8a57ad38a7f825890ae",
     "lines": 100.0,
     "instructions": 100.0,
     "branches": 100.0
   },
-  "evidenceSha256": "f185d05a576d5c65eeda6e48860513cd0ead978cccb0ea35a5f6c6d9d4d32549"
+  "evidenceSha256": "ce84475ce23b1d95085360a58e75cdba797f1181d2cdab66300424ca1c290f84"
 }
