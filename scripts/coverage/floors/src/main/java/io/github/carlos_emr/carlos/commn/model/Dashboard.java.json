@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/model/Dashboard.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "900b4c9c5b0655aa02902a11d3b26820aba391a9"
+  },
+  "evidenceSha256": "82fc40c4571648627f4ed21b5ba3eccaddc26d9588afbabb5221803ca20d57c6"
+}

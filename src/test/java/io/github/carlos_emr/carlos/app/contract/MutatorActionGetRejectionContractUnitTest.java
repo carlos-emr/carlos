@@ -707,6 +707,8 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     private static final Set<String> CONDITIONAL_MUTATORS =
             Set.of(
+                    // DashboardManager2ActionUnitTest covers its read-only route and guarded writes.
+                    "io.github.carlos_emr.carlos.dashboard.admin.DashboardManager2Action",
                     "io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action",
                     "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action",
                     // Demographic report favourites and patient sets (#4225) are POST-only;
@@ -1070,6 +1072,7 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES =
             Set.of(
+                    "io.github.carlos_emr.carlos.dashboard.admin.DashboardManager2Action",
                     "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmDetach2Action",
                     "io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action",
                     "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action",
@@ -1354,6 +1357,8 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     private static final Map<String, String[]> FILTER_LISTED_ROUTE_PRIVILEGES =
             Map.of(
+                    "io.github.carlos_emr.carlos.dashboard.admin.DashboardManager2Action",
+                            new String[] {"_dashboardManager", "r"},
                     "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action",
                             new String[] {"_rx", "u"},
                     "io.github.carlos_emr.carlos.admin.web.ProviderPrivilege2Action",

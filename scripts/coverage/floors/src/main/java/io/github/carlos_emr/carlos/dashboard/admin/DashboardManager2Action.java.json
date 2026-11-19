@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/dashboard/admin/DashboardManager2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 99.10714285714286,
+    "branches": 92.3076923076923,
+    "sourceBlob": "01d52a8133ee5107dcc0d38fe97c35481c05aad3"
+  },
+  "evidenceSha256": "65128552d2fb6fa445200e0b083b9c10a4dffa30eb95a9819a0061f4f1a0db0b"
+}

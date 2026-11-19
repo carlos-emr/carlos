@@ -103,7 +103,9 @@ public final class FormSubmissionGuard {
         RX_FAVORITE_GROUP,
         PREGNANCY_CREATE,
         /** {@code messenger/CreateMessage} from the Messenger compose page (new, reply, reply all, forward). */
-        MESSENGER_SEND
+        MESSENGER_SEND,
+        /** Indicator Dashboard Manager create form. */
+        DASHBOARD_CREATE
     }
 
     private enum State { ISSUED, SAVING, SAVED }

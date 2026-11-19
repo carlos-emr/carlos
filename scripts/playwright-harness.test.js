@@ -905,6 +905,20 @@ test('shouldPassAssertRefused_when405AndRowCountUnchanged', async () => {
   assert.deepEqual(queries, ['SELECT COUNT(*) FROM tickler WHERE demographic_no=77']);
 });
 
+test('shouldBindOwnedRowValues_whenCheckingARefusedMutation', async () => {
+  const parameters = ['999998', "FAKE O'Neil & report%"];
+  const s = { sql: { value(query, values) {
+    assert.equal(query, 'SELECT COUNT(*) FROM dashboard WHERE creator=? AND name LIKE ?');
+    assert.deepEqual(values, parameters);
+    return '2';
+  } } };
+  const verdict = await harness.assertRefused(s, {
+    response: apiResponse({ status: 403, headers: APP_HEADERS }),
+    table: 'dashboard', where: 'creator=? AND name LIKE ?', parameters, before: '2',
+  });
+  assert.equal(verdict.rows, '2');
+});
+
 test('shouldPassAssertRefused_when405CarriesTheApplicationErrorPage', async () => {
   // The app's own error page (errorpage.jsp, <title>Error Page</title>) answers a refused method
   // even where a proxy has stripped the header.

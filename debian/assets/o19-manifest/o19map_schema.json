@@ -23382,10 +23382,6 @@
   "ctl_billingservice": [
    "service_order"
   ],
-  "dashboard": [
-   "active",
-   "locked"
-  ],
   "default_role_access": [
    "access_id",
    "role_id"
@@ -57608,10 +57604,6 @@
     ],
     "ctl_billingservice_sex_rules": [
      "gender"
-    ],
-    "dashboard": [
-     "active",
-     "locked"
     ],
     "default_role_access": [
      "access_id",
