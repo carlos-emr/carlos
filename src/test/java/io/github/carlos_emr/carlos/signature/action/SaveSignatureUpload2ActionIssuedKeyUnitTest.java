@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -297,6 +298,48 @@ class SaveSignatureUpload2ActionIssuedKeyUnitTest extends CarlosUnitTestBase {
 
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
         assertThat(Files.readAllBytes(capture.toPath())).isEqualTo(original);
+        verifyNoInteractions(mockDigitalSignatureManager);
+    }
+
+    @ParameterizedTest(name = "upload from the tablet: {0}")
+    @ValueSource(booleans = {false, true})
+    @DisplayName("should refuse a temporary capture and drop its file when the pad expires during the upload")
+    void shouldRefuseTheTemporaryCapture_whenThePadExpiresDuringTheUpload(boolean tablet) throws Exception {
+        HttpSession session = mockRequest.getSession();
+        // Opening more pads in this session after the key was checked and before the image is
+        // written retires the key, as the cap of 200 pads per session does.
+        Runnable openMorePads = () -> {
+            for (int i = 0; i < 200; i++) DigitalSignatureUtils.generateSignatureRequestId(session);
+        };
+        var upload = new MockHttpServletRequest("POST", "/signature_pad/SaveSignatureUpload") {
+            @Override
+            public String getParameter(String name) {
+                if (tablet && "signatureImage".equals(name)) openMorePads.run();
+                return super.getParameter(name);
+            }
+
+            @Override
+            public jakarta.servlet.ServletInputStream getInputStream() {
+                if (!tablet) openMorePads.run();
+                return super.getInputStream();
+            }
+        };
+        upload.setSession(session);
+        upload.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, issuedKey);
+        if (tablet) {
+            upload.setParameter("source", "IPAD");
+            upload.setParameter("signatureImage", "data:image/png;base64,AQID");
+        } else {
+            upload.setContent("FAKE signature capture".getBytes(StandardCharsets.US_ASCII));
+        }
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(upload);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(DigitalSignatureUtils.isIssued(session, issuedKey)).isFalse();
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(mockResponse.getContentAsString()).doesNotContain("signatureId");
+        assertThat(new File(DigitalSignatureUtils.getTempFilePath(issuedKey))).doesNotExist();
         verifyNoInteractions(mockDigitalSignatureManager);
     }
 

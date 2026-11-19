@@ -306,6 +306,13 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             }
             receipts.remember(request.getSession(false), identity, signature.getId());
             signatureId = String.valueOf(signature.getId());
+        } else if (!DigitalSignatureUtils.isIssued(request.getSession(false), signatureKey)) {
+            // A temporary capture is read back later through its pad key. The pad can expire while the
+            // image is being received (another pad opened in this session), and the preview would then
+            // refuse the key and show a blank image. Refuse instead, as for an expired pad, so the page
+            // keeps its drawing for the user to reopen the pad, and drop the unusable file.
+            deleteQuietly(safeTarget);
+            return refuseInvalidPad(response);
         }
 
         return acknowledgeCapture(response, signatureId);
