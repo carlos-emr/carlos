@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "125cc1386beeeda3be810430108c5f6d6b40a0b3",
+  "comparisonSha256": "397ccd9385cdeafca14b8bcc3bb01a4ba7ff5ae33cb1bf773c83d29daffd3601",
+  "baselineCommit": "2bd0e8dc9fec3375227da0b9077a2fe2c24c0215",
+  "baselineSourceTree": "125cc1386beeeda3be810430108c5f6d6b40a0b3",
+  "baselineReportSha256": "deb06c40dde7393b3c462def03fd5879704156ea4061c6f7336bba75e58060d7",
+  "baselineLane": "messenger compose focused Java unit tests",
+  "baselineTestCounts": {
+    "tests": 77,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "ed5175d44fdc2472405cb47f2a242f38c90a4c1c0df0b6a838a894fc530f3871",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgCreateMessage2ActionTest"
+  ],
+  "observedChangedSourceCoverage": {
+    "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgCreateMessage2Action.java": {
+      "lineCounts": {
+        "covered": 104,
+        "missed": 2
+      },
+      "instructionBranchCounts": {
+        "covered_instructions": 596,
+        "missed_instructions": 10,
+        "covered_branches": 80,
+        "missed_branches": 7,
+        "partial_lines": [
+          196
+        ],
+        "missed_branch_lines": [
+          196,
+          199,
+          200,
+          202,
+          209,
+          228,
+          391
+        ]
+      },
+      "percentages": {
+        "lines": 98.11320754716981,
+        "instructions": 98.34983498349835,
+        "branches": 91.95402298850574
+      }
+    }
+  },
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgCreateMessage2Action.java": {
+      "lines": 97.95918367346938,
+      "instructions": 97.79411764705883,
+      "branches": 89.85507246376811,
+      "sourceBlob": "10cbbcf2a3193c1068763644ac17277892cf4545"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {}
+}

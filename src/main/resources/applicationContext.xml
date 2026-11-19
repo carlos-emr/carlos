@@ -285,6 +285,7 @@
 
 	<bean id="ClientImageManager" class="io.github.carlos_emr.carlos.casemgmt.service.ClientImageManagerImpl" autowire="byName" />
 	<bean id="programManager" class="io.github.carlos_emr.carlos.PMmodule.service.ProgramManagerImpl" autowire="byName">
+		<property name="admissionDao" ref="admissionDaoImpl" />
 		<property name="enabled" value="${pmm.refer.temporaryAdmission.enabled}" />
 	</bean>
 	<bean id="clientManager" class="io.github.carlos_emr.carlos.PMmodule.service.ClientManagerImpl" autowire="byName">

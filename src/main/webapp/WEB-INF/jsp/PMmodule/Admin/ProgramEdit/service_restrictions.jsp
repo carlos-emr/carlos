@@ -56,12 +56,12 @@
 Please define the following parameters control the behaviour of new service restrictions for this program.
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<tr class="b">
-		<td width="20%">Maximum length of service restriction (in days):</td>
-		<td><html:text property="program.maximumServiceRestrictionDays" size="4" maxlength="4"/>&nbsp;(empty or zero means no maximum)</td>
+		<td width="20%"><label for="maximum-restriction-days">Maximum length of service restriction (in days):</label></td>
+		<td><input type="text" name="program.maximumServiceRestrictionDays" id="maximum-restriction-days" size="4" maxlength="4" value="${carlos:forHtmlAttribute(program.maximumServiceRestrictionDays)}" />&nbsp;(empty or zero means no maximum)</td>
 	</tr>
 	<tr class="b">
-		<td width="20%">Default service restriction length (in days):</td>
-		<td><html:text property="program.defaultServiceRestrictionDays" size="4" maxlength="4"/></td>
+		<td width="20%"><label for="default-restriction-days">Default service restriction length (in days):</label></td>
+		<td><input type="text" name="program.defaultServiceRestrictionDays" id="default-restriction-days" size="4" maxlength="4" value="${carlos:forHtmlAttribute(program.defaultServiceRestrictionDays)}" /></td>
 	</tr>
 	<tr>
 		<td colspan="2">
@@ -90,7 +90,7 @@ Please define the following parameters control the behaviour of new service rest
         document.programManagerForm.submit();
     }
 </script>
-<html:hidden property="restriction.id" />
+<input type="hidden" name="restriction.id" />
 
 <c:if test="${not empty service_restrictions}">
 <table class="carlos-table-spaced simple" id="restriction" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/appointment/service/DaySheetSelection.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "4ef813112d9531eb246d8f2be7bcb2e2a6168ad4"
+  },
+  "evidenceSha256": "da6bd92d05d33dca04dbbdb7c32e92aa91080d4ed69a16e8f379423f0f20f5e1"
+}
