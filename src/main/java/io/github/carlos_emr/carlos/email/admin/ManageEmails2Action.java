@@ -69,6 +69,8 @@ public class ManageEmails2Action extends ActionSupport {
     private static final String ERROR_MESSAGE_KEY = "errorMessage";
     private static final String INVALID_EMAIL_LOG_ID_MESSAGE = "Invalid email log id";
     private static final String EMAIL_LOG_NOT_FOUND_MESSAGE = "Email log not found";
+    private static final String DELIVERY_UNCONFIRMED_MESSAGE =
+            "Delivery is unconfirmed. Check the sending provider before creating another email.";
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -232,7 +234,9 @@ public class ManageEmails2Action extends ActionSupport {
             JSONUtil.jsonResponse(response, ERROR_MESSAGE_KEY, EMAIL_LOG_NOT_FOUND_MESSAGE);
         } else if (emailLog.getStatus() != EmailStatus.RESOLVED) {
             response.setStatus(HttpServletResponse.SC_CONFLICT);
-            JSONUtil.jsonResponse(response, ERROR_MESSAGE_KEY, "Only failed emails can be resolved");
+            String message = emailLog.getStatus() == EmailStatus.UNCONFIRMED
+                    ? DELIVERY_UNCONFIRMED_MESSAGE : "Only failed emails can be resolved";
+            JSONUtil.jsonResponse(response, ERROR_MESSAGE_KEY, message);
         } else {
             JSONUtil.jsonResponse(response, "resolvedLogId", emailLogId);
         }
@@ -289,6 +293,11 @@ public class ManageEmails2Action extends ActionSupport {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             JSONUtil.jsonResponse(response, ERROR_MESSAGE_KEY, EMAIL_LOG_NOT_FOUND_MESSAGE);
             return null;
+        }
+        if (emailLog.getStatus() == EmailStatus.UNCONFIRMED) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            JSONUtil.jsonResponse(response, ERROR_MESSAGE_KEY, DELIVERY_UNCONFIRMED_MESSAGE);
+            return NONE;
         }
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
         boolean attachmentsRefreshed = false;

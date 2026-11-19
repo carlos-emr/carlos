@@ -53,7 +53,7 @@ public class DisplayDashboard2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private static DashboardManager dashboardManager = SpringUtils.getBean(DashboardManager.class);
+    private final DashboardManager dashboardManager = SpringUtils.getBean(DashboardManager.class);
     private ProviderManager2 providerManager = SpringUtils.getBean(ProviderManager2.class);
     private static Logger logger = MiscUtils.getLogger();
 
@@ -69,10 +69,8 @@ public class DisplayDashboard2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardDisplay", SecurityInfoManager.READ, null)) {
             return "unauthorized";
         }
-        Boolean canChgDashboardUser = false;
-        if (securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardChgUser", SecurityInfoManager.READ, null)) {
-            canChgDashboardUser = true;
-        }
+        boolean canChgDashboardUser =
+                securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardChgUser", SecurityInfoManager.READ, null);
 
         String dashboardId = request.getParameter("dashboardId");
         int id = 0;
@@ -82,20 +80,26 @@ public class DisplayDashboard2Action extends ActionSupport {
 
         Provider preferredProvider = loggedInInfo.getLoggedInProvider();
         List<Provider> providers = new ArrayList<Provider>();
+        String selectedProvider = request.getParameter("providerNo");
+        if (selectedProvider != null && !selectedProvider.isBlank()) {
+            dashboardManager.setRequestedProviderNo(loggedInInfo, selectedProvider);
+        }
+        String requestedProviderNo = dashboardManager.getRequestedProviderNo(loggedInInfo);
+        if (requestedProviderNo != null) {
+            logger.info("DashboardDisplay of provider_no {} requested by provider_no {}", LogSafe.sanitize(requestedProviderNo), LogSafe.sanitize(loggedInInfo.getLoggedInProviderNo())); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            if (!requestedProviderNo.equals(loggedInInfo.getLoggedInProviderNo())) {
+                preferredProvider = providerManager.getProvider(loggedInInfo, requestedProviderNo);
+            }
+        }
 
         if (canChgDashboardUser) {
-            String requestedProviderNo = request.getParameter("providerNo");
-            if (requestedProviderNo != null && !requestedProviderNo.isEmpty()) {
-                logger.info("DashboardDisplay of provider_no {} requested by provider_no {}", LogSafe.sanitize(requestedProviderNo), LogSafe.sanitize(loggedInInfo.getLoggedInProviderNo())); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                preferredProvider = providerManager.getProvider(loggedInInfo, requestedProviderNo);
-                dashboardManager.setRequestedProviderNo(loggedInInfo, requestedProviderNo);
-            } else if (dashboardManager.getRequestedProviderNo(loggedInInfo) != null) {
-                preferredProvider = providerManager.getProvider(loggedInInfo, dashboardManager.getRequestedProviderNo(loggedInInfo));
-            }
             providers = providerManager.getProviders(loggedInInfo, Boolean.TRUE);
         }
 
+        // The heading provider is also shown when no override was selected. Keep
+        // that display default separate from the template's own provider default.
         request.setAttribute("preferredProvider", preferredProvider);
+        request.setAttribute("dashboardProviderNo", requestedProviderNo);
         request.setAttribute("providers", providers);
 
         DashboardBean dashboard = dashboardManager.getDashboard(loggedInInfo, id);

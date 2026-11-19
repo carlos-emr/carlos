@@ -1,6 +1,8 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:if test="${not empty emailValidationError}">
 <div class="alert alert-danger mt-1" role="alert">${carlos:forHtml(emailValidationError)}</div>
 </c:if>
@@ -54,7 +56,14 @@
                     <c:if test="${emailStatusResult.status eq 'FAILED'}">
                         <button type="button" class="btn btn-outline-secondary btnResolve" id="btnResolve${emailStatusResult.logId}" onclick="resolve('${emailStatusResult.logId}')"><i class="fa-solid fa-circle-check"></i> Resolve</button>
                     </c:if>
-                    <button type="button" class="btn btn-success btnResend" id="btnResend${emailStatusResult.logId}" onclick="resend('${emailStatusResult.logId}')"><i class="fa-solid fa-envelope"></i> Copy and Open as New Email to Patient</button>
+                    <c:choose>
+                        <c:when test="${emailStatusResult.status eq 'UNCONFIRMED'}">
+                            <p class="mb-0 text-muted"><fmt:message key="admin.manageEmails.deliveryUnconfirmed"/></p>
+                        </c:when>
+                        <c:otherwise>
+                            <button type="button" class="btn btn-success btnResend" id="btnResend${emailStatusResult.logId}" onclick="resend('${emailStatusResult.logId}')"><i class="fa-solid fa-envelope"></i> Copy and Open as New Email to Patient</button>
+                        </c:otherwise>
+                    </c:choose>
                 </td>
             </tr>
         </table>
