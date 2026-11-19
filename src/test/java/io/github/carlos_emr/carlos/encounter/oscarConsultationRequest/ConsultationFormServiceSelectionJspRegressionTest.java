@@ -166,8 +166,10 @@ class ConsultationFormServiceSelectionJspRegressionTest {
         assertThat(lost).isGreaterThan(decision);
         assertThat(field).isGreaterThan(decision);
         assertThat(alert).isGreaterThan(field);
-        assertThat(jsp.substring(alert, jsp.indexOf('}', alert)))
-                .contains("alert('<carlos:encode value=\"${signatureCaptureLostMessage}\" context=\"javaScriptBlock\"/>');");
+        // The alert is the statement right inside that if (the message's ${...} has a brace of its own).
+        String body = jsp.substring(alert + "if (<%=signatureCaptureLost%>) {".length()).stripLeading();
+        assertThat(body).startsWith(
+                "alert('<carlos:encode value=\"${signatureCaptureLostMessage}\" context=\"javaScriptBlock\"/>');");
         assertThat(jsp).contains("<fmt:message key=\"tabletSignature.msgCaptureLost\" var=\"signatureCaptureLostMessage\"/>");
     }
 
