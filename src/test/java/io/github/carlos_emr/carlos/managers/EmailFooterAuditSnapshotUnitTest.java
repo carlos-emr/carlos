@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
 import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
+import io.github.carlos_emr.carlos.email.core.PdfAttachmentSigningService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -49,7 +50,8 @@ class EmailFooterAuditSnapshotUnitTest {
         var user = new LoggedInInfo();
         when(security.hasPrivilege(user, "_email", SecurityInfoManager.READ, null)).thenReturn(true);
         var manager = new EmailManager(mock(EmailConsentResolver.class), new EmailSenderFactory(), security,
-                mock(OutboundEmailArchiveService.class));
+                mock(OutboundEmailArchiveService.class),
+                mock(PdfAttachmentSigningService.class));
         ReflectionTestUtils.setField(manager, "emailLogDao", logs);
         ReflectionTestUtils.setField(manager, "clinicFooterService", currentClinic);
         var saved = log(41, EmailLog.EmailStatus.FAILED);
@@ -74,7 +76,8 @@ class EmailFooterAuditSnapshotUnitTest {
     void shouldRequireAuditReadPrivilege_beforeLookingUpHistory() {
         var logs = mock(EmailLogDaoImpl.class);
         var manager = new EmailManager(mock(EmailConsentResolver.class), new EmailSenderFactory(),
-                mock(SecurityInfoManager.class), mock(OutboundEmailArchiveService.class));
+                mock(SecurityInfoManager.class), mock(OutboundEmailArchiveService.class),
+                mock(PdfAttachmentSigningService.class));
         ReflectionTestUtils.setField(manager, "emailLogDao", logs);
         assertThatThrownBy(() -> manager.getEmailStatusByDateDemographicSenderStatus(new LoggedInInfo(),
                 "2026-10-09", "2026-10-09", null, null, null)).isInstanceOf(RuntimeException.class);

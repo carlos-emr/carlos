@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.SecRole;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
 import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
+import io.github.carlos_emr.carlos.email.core.PdfAttachmentSigningService;
 import io.github.carlos_emr.carlos.email.util.EmailNoteUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -79,7 +80,8 @@ class EmailManagerChartNoteUnitTest extends CarlosUnitTestBase {
         loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         emailManager = new EmailManager(mock(EmailConsentResolver.class), new EmailSenderFactory(),
-                securityInfoManager, mock(OutboundEmailArchiveService.class));
+                securityInfoManager, mock(OutboundEmailArchiveService.class),
+                mock(PdfAttachmentSigningService.class));
         injectDependency(emailManager, "caseManagementManager", caseManagementManager);
         injectDependency(emailManager, "programManager", mock(ProgramManager.class));
         SecRole doctor = new SecRole();

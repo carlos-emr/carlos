@@ -15,6 +15,12 @@ const PROFILES = Object.freeze({
   'private-consent': {privateConsentEnabled: 'true',STUDENT_PARTICIPATION_CONSENT:'false'},
   'appointment-options': {mc_number: 'true', emailApptReminder: 'yes'},
   'appointment-lock-expiry': {appointment_locking_timeout: '20', allowMultipleSameDayGroupAppt: 'yes'},
+  // Email PDF signing (#3216, #3851). The keystore is read on every send, not at startup, so
+  // email-pdf-signing provisions and removes its FAKE keystore at this path itself. The
+  // password guards nothing but that throwaway validation key.
+  'pdf-signing': {'pdf.signing.enabled': 'true', 'pdf.signing.keystore.path': '/etc/carlos-emr/validation-pdf-signing.p12',
+    'pdf.signing.keystore.type': 'PKCS12', 'pdf.signing.keystore.password': 'FAKE-validation-only-keystore',
+    'pdf.signing.key.alias': 'carlos-validation-signing'},
 });
 function propertiesFor(name, env = process.env) {
   if (!Object.hasOwn(PROFILES, name)) throw new Error(`Unknown property profile ${name}`);

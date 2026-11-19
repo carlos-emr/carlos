@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
+import io.github.carlos_emr.carlos.email.core.PdfAttachmentSigningService;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -105,7 +106,8 @@ class EmailManagerPendingStatusUnitTest extends CarlosUnitTestBase {
                 new io.github.carlos_emr.carlos.email.core.EmailConsentResult("Email",
                         EmailLog.EmailConsentStatus.OPT_IN, null, null));
         emailManager = new EmailManager(consentResolver,
-                new io.github.carlos_emr.carlos.email.core.EmailSenderFactory(), securityInfoManager, mock(OutboundEmailArchiveService.class));
+                new io.github.carlos_emr.carlos.email.core.EmailSenderFactory(), securityInfoManager, mock(OutboundEmailArchiveService.class),
+                mock(PdfAttachmentSigningService.class));
         injectDependency(emailManager, "clinicFooterService", io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
