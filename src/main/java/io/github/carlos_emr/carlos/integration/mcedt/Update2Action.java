@@ -38,19 +38,24 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import org.springframework.web.util.WebUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.File;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static io.github.carlos_emr.carlos.integration.mcedt.ActionUtils.*;
 import static io.github.carlos_emr.carlos.integration.mcedt.McedtConstants.SESSION_KEY_UPLOAD_DETAILS;
 
 public class Update2Action extends ActionSupport implements UploadedFilesAware {
+    private static final String SEND_IN_PROGRESS = Update2Action.class.getName() + ".sendInProgress";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -100,28 +105,30 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
         }
         // Only a resource on the list this page loaded may be replaced. A missing list means the
         // page's session state is gone; nothing is queued in either case.
-        Detail details = (Detail) request.getSession().getAttribute(SESSION_KEY_UPLOAD_DETAILS);
-        BigInteger requested = BigInteger.valueOf(ConversionUtils.fromIntString(resourceId));
-        List<DetailData> listed = new ArrayList<>();
-        if (details != null) {
-            for (DetailData d : details.getData()) {
-                if (requested.equals(d.getResourceID())) {
-                    listed.add(d);
+        HttpSession session = request.getSession();
+        synchronized (WebUtils.getSessionMutex(session)) {
+            Detail details = (Detail) session.getAttribute(SESSION_KEY_UPLOAD_DETAILS);
+            BigInteger requested = BigInteger.valueOf(ConversionUtils.fromIntString(resourceId));
+            List<DetailData> listed = new ArrayList<>();
+            if (details != null) {
+                for (DetailData d : details.getData()) {
+                    if (requested.equals(d.getResourceID())) {
+                        listed.add(d);
+                    }
                 }
             }
-        }
-        if (listed.isEmpty()) {
-            addActionError(getText("updateAction.addUpdateRequest.unknownResource"));
-            return "initial";
-        }
+            if (listed.isEmpty()) {
+                addActionError(getText("updateAction.addUpdateRequest.unknownResource"));
+                return "initial";
+            }
 
-        UpdateRequest update = this.toUpdateRequest();
-        List<UpdateRequest> updates = getUpdateList(request);
-        // A repeated add for the same resource (a retry, double click or second tab) replaces the
-        // queued file instead of sending two updates for one resource.
-        updates.removeIf(queued -> requested.equals(queued.getResourceID()));
-        updates.add(update);
-        listed.forEach(this::markUpdated);
+            UpdateRequest update = this.toUpdateRequest();
+            List<UpdateRequest> updates = getUpdateList(session);
+            // A repeated add replaces the pending file for this resource.
+            updates.removeIf(queued -> requested.equals(queued.getResourceID()));
+            updates.add(update);
+            listed.forEach(this::markUpdated);
+        }
         return "initial";
     }
 
@@ -130,34 +137,76 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
     }
 
     public String cancel() {
-        clearUpdateList(request);
-        request.getSession().removeAttribute(SESSION_KEY_UPLOAD_DETAILS);
+        HttpSession session = request.getSession();
+        synchronized (WebUtils.getSessionMutex(session)) {
+            clearUpdateList(request);
+            session.removeAttribute(SESSION_KEY_UPLOAD_DETAILS);
+        }
         return "cancel";
     }
 
     public String sendUpdateRequest() {
+        return sendUpdateRequest(DelegateFactory::getEDTDelegateInstance);
+    }
 
-        List<UpdateRequest> updates = getUpdateList(request);
-        if (updates.isEmpty()) {
-            addActionError(getText("updateAction.sendUpdateRequest.emptyUpdates"));
-            return SUCCESS;
+    String sendUpdateRequest(Supplier<EDTDelegate> delegate) {
+        HttpSession session = request.getSession();
+        Object mutex = WebUtils.getSessionMutex(session);
+        List<UpdateRequest> snapshot;
+        Detail sentDetails;
+        synchronized (mutex) {
+            if (session.getAttribute(SEND_IN_PROGRESS) != null) {
+                addActionError(getText("updateAction.sendUpdateRequest.inProgress"));
+                return SUCCESS;
+            }
+            snapshot = List.copyOf(getUpdateList(session));
+            if (snapshot.isEmpty()) {
+                addActionError(getText("updateAction.sendUpdateRequest.emptyUpdates"));
+                return SUCCESS;
+            }
+            sentDetails = (Detail) session.getAttribute(SESSION_KEY_UPLOAD_DETAILS);
+            // This request marker must not survive session persistence or failover.
+            session.setAttribute(SEND_IN_PROGRESS, new Object());
         }
 
         try {
-            EDTDelegate delegate = DelegateFactory.getEDTDelegateInstance();
-            ResourceResult result = delegate.update(updates);
-            clearUpdateList(request);
+            ResourceResult result = delegate.get().update(snapshot);
+            synchronized (mutex) {
+                acknowledgeSentUpdates(session, sentDetails, snapshot);
+            }
             addActionMessage(getText("updateAction.sendUpdateRequest.success", new String[]{McedtMessageCreator.resourceResultToString(result)}));
-
-            cancel();
         } catch (Exception e) {
             logger.error("Unable to update", e);
 
             request.setAttribute("message", "Error updating: " + e.getMessage());
             addActionError(getText("updateAction.sendUpdateRequest.failure", new String[]{McedtMessageCreator.exceptionToString(e)}));
+        } finally {
+            synchronized (mutex) {
+                session.removeAttribute(SEND_IN_PROGRESS);
+            }
         }
 
         return SUCCESS;
+    }
+
+    private void acknowledgeSentUpdates(HttpSession session, Detail sentDetails, List<UpdateRequest> snapshot) {
+        List<UpdateRequest> pending = getUpdateList(session);
+        // A replacement for the same resource is a new UpdateRequest and stays queued.
+        pending.removeAll(snapshot);
+        if (pending.isEmpty()) {
+            clearUpdateList(request);
+        }
+        if (sentDetails != null && sentDetails == session.getAttribute(SESSION_KEY_UPLOAD_DETAILS)) {
+            if (pending.isEmpty()) {
+                session.removeAttribute(SESSION_KEY_UPLOAD_DETAILS);
+            } else {
+                for (DetailData detail : sentDetails.getData()) {
+                    if (pending.stream().noneMatch(update -> update.getResourceID().equals(detail.getResourceID()))) {
+                        detail.setModifyTimestamp(null);
+                    }
+                }
+            }
+        }
     }
 
     private String resourceId;

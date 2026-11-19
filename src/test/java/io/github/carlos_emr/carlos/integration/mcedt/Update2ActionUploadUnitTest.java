@@ -6,20 +6,30 @@ package io.github.carlos_emr.carlos.integration.mcedt;
 
 import static io.github.carlos_emr.carlos.integration.mcedt.McedtConstants.SESSION_KEY_UPLOAD_DETAILS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import ca.ontario.health.edt.Detail;
 import ca.ontario.health.edt.DetailData;
+import ca.ontario.health.edt.EDTDelegate;
+import ca.ontario.health.edt.ResourceResult;
 import ca.ontario.health.edt.UpdateRequest;
 import java.io.File;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
@@ -31,6 +41,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockHttpSession;
 
 /**
  * MCEDT Update Upload replaces an outbox resource's content with a file the user chooses. Struts 7's
@@ -85,11 +96,13 @@ class Update2ActionUploadUnitTest {
     }
 
     @Test
-    @DisplayName("should ignore uploads sent under another input name, and an empty list")
+    @DisplayName("should ignore missing uploads, other input names, and non-file parts")
     void shouldIgnoreOtherInputs_whenNoContentUploadIsSent() {
         Update2Action action = new Update2Action();
+        UploadedFile nonFile = mock(UploadedFile.class);
+        when(nonFile.getInputName()).thenReturn("content");
 
-        action.withUploadedFiles(List.of(uploaded("other", upload)));
+        action.withUploadedFiles(Arrays.asList(null, uploaded("other", upload), nonFile));
         action.withUploadedFiles(null);
 
         assertThat(action.getContent()).isNull();
@@ -132,6 +145,105 @@ class Update2ActionUploadUnitTest {
         assertThat(queued).hasSize(1);
         assertThat(new String(queued.get(0).getContent(), StandardCharsets.UTF_8))
                 .isEqualTo("SYNTHETIC SECOND CONTENT");
+    }
+
+    @Test
+    @DisplayName("should keep uploads queued during a send, including a replacement for a sent resource")
+    void shouldKeepPendingUpdates_whenFilesAreAddedDuringSend() throws Exception {
+        Detail details = listedResources(42, 43, 47);
+        add(42);
+        add(43);
+        List<UpdateRequest> original = List.copyOf(ActionUtils.getUpdateList(request));
+        CountDownLatch sending = new CountDownLatch(1);
+        CountDownLatch reply = new CountDownLatch(1);
+        EDTDelegate delegate = mock(EDTDelegate.class);
+        when(delegate.update(anyList())).thenAnswer(call -> {
+            List<UpdateRequest> sent = call.getArgument(0);
+            sending.countDown();
+            assertThat(reply.await(5, TimeUnit.SECONDS)).isTrue();
+            assertThat(sent).containsExactlyElementsOf(original);
+            return new ResourceResult();
+        });
+        Update2Action sender = sendingAction();
+        MockHttpServletRequest senderRequest = new MockHttpServletRequest();
+        senderRequest.setSession((MockHttpSession) request.getSession());
+        sender.request = senderRequest;
+
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var result = executor.submit(() -> sender.sendUpdateRequest(() -> delegate));
+            try {
+                assertThat(sending.await(5, TimeUnit.SECONDS)).isTrue();
+                Files.writeString(upload.toPath(), "SYNTHETIC LATER CONTENT", StandardCharsets.UTF_8);
+                add(42);
+                add(47);
+
+                EDTDelegate duplicate = mock(EDTDelegate.class);
+                Update2Action other = sendingAction();
+                doReturn("Send already pending").when(other).getText("updateAction.sendUpdateRequest.inProgress");
+                assertThat(other.sendUpdateRequest(() -> duplicate)).isEqualTo("success");
+                assertThat(other.getActionErrors()).containsExactly("Send already pending");
+                verifyNoInteractions(duplicate);
+            } finally {
+                reply.countDown();
+            }
+            assertThat(result.get(5, TimeUnit.SECONDS)).isEqualTo("success");
+        }
+
+        assertThat(ActionUtils.getUpdateList(request)).extracting(UpdateRequest::getResourceID)
+                .containsExactly(BigInteger.valueOf(42), BigInteger.valueOf(47));
+        assertThat(new String(ActionUtils.getUpdateList(request).getFirst().getContent(), StandardCharsets.UTF_8))
+                .isEqualTo("SYNTHETIC LATER CONTENT");
+        assertThat(details.getData().get(0).getModifyTimestamp()).isNotNull();
+        assertThat(details.getData().get(1).getModifyTimestamp()).isNull();
+        assertThat(details.getData().get(2).getModifyTimestamp()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("should keep the batch pending after a failed service call and allow it to be retried")
+    void shouldAllowRetry_whenSendFails() throws Exception {
+        listedResources(42);
+        add(42);
+        EDTDelegate delegate = mock(EDTDelegate.class);
+        when(delegate.update(anyList())).thenThrow(new IllegalStateException("Synthetic service failure"))
+                .thenReturn(new ResourceResult());
+        var first = sendingAction();
+        doReturn("Send failed").when(first).getText(eq("updateAction.sendUpdateRequest.failure"), any(String[].class));
+
+        assertThat(first.sendUpdateRequest(() -> delegate)).isEqualTo("success");
+        assertThat(first.getActionErrors()).containsExactly("Send failed");
+        assertThat(ActionUtils.getUpdateList(request)).hasSize(1);
+
+        assertThat(sendingAction().sendUpdateRequest(() -> delegate)).isEqualTo("success");
+        assertThat(ActionUtils.getUpdateList(request)).isEmpty();
+        assertThat(request.getSession().getAttribute(SESSION_KEY_UPLOAD_DETAILS)).isNull();
+    }
+
+    @Test
+    @DisplayName("should discard pending files on explicit cancel and refuse an empty send")
+    void shouldDiscardPendingUpdates_whenCancelled() {
+        listedResources(42);
+        add(42);
+        Update2Action action = sendingAction();
+        doReturn("Nothing to send").when(action).getText("updateAction.sendUpdateRequest.emptyUpdates");
+
+        assertThat(action.cancel()).isEqualTo("cancel");
+        assertThat(ActionUtils.getUpdateList(request)).isEmpty();
+        assertThat(request.getSession().getAttribute(SESSION_KEY_UPLOAD_DETAILS)).isNull();
+        assertThat(action.sendUpdateRequest()).isEqualTo("success");
+        assertThat(action.getActionErrors()).containsExactly("Nothing to send");
+    }
+
+    private void add(int resourceId) {
+        Update2Action action = new Update2Action();
+        action.setResourceId(Integer.toString(resourceId));
+        action.withUploadedFiles(List.of(uploaded("content", upload)));
+        assertThat(action.addUpdateRequest()).isEqualTo("initial");
+    }
+
+    private Update2Action sendingAction() {
+        Update2Action action = spy(new Update2Action());
+        doReturn("Sent").when(action).getText(eq("updateAction.sendUpdateRequest.success"), any(String[].class));
+        return action;
     }
 
     @Test
