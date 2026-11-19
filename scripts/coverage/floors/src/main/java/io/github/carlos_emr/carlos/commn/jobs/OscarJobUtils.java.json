@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/commn/jobs/OscarJobUtils.java",
   "kind": "floor",
   "floor": {
-    "sourceBlob": "8419c233aeacb4bbeb0fea844d2b16af9b193312",
-    "lines": 79.3103448275862,
-    "instructions": 85.71428571428571,
-    "branches": 100.0
+    "lines": 82.75862068965517,
+    "instructions": 87.5,
+    "branches": 100.0,
+    "sourceBlob": "b46ac7cc60fe44fe5f80673eb884cfb6d32a871b"
   },
-  "evidenceSha256": "8586dd4a4f01156772a8fee76162daf75d816940f7272a1328fe2216ca061a99"
+  "evidenceSha256": "97072aae64fe0fa02017a34ce7a809f097ee94be80f6bd1df2bded3b61732146"
 }
