@@ -17,6 +17,8 @@
  */
 package io.github.carlos_emr.carlos.eform;
 
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -34,7 +36,6 @@ import java.util.zip.ZipOutputStream;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
-import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -112,6 +113,35 @@ class EFormExportZipArchiverMetadataImportUnitTest {
             });
             List<String> errors = new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(zip));
             return new Result(errors, saved);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"nameless", "missing-filename", "existing", "valid"})
+    void shouldRetainFormValidationAndPublicationContracts_withOperationalLoggingEnabled(String variant) throws Exception {
+        String properties = "form.name=" + (variant.equals("nameless") ? "" : "FAKE metadata control") + "\n"
+                + (variant.equals("missing-filename") ? "" : "form.htmlFilename=form.html\n");
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        entries.put(".DS_Store", utf8("FAKE metadata"));
+        entries.put("eform.properties", utf8(properties));
+        if (!variant.equals("missing-filename")) entries.put("form.html", utf8(HTML));
+        List<EForm> saved = new ArrayList<>();
+        try (var capture = LogCapture.forLogger(EFormExportZip.class);
+             MockedStatic<ImageUpload2Action> images = mockStatic(ImageUpload2Action.class);
+             MockedStatic<EFormUtil> forms = mockStatic(EFormUtil.class)) {
+            images.when(ImageUpload2Action::getImageFolder).thenReturn(imageFolder.toFile());
+            forms.when(() -> EFormUtil.formExistsInDB(any())).thenReturn(variant.equals("existing"));
+            forms.when(() -> EFormUtil.saveEForm(any(EForm.class))).thenAnswer(call -> {saved.add(call.getArgument(0)); return "FAKE";});
+            var errors = new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(zip(entries)));
+            if (variant.equals("valid")) {
+                assertThat(errors).isEmpty();
+                assertThat(saved).singleElement().satisfies(form -> assertThat(form.getFormHtml()).isEqualTo(HTML));
+            } else {
+                assertThat(errors).singleElement().asString().contains("Skipped form");
+                assertThat(saved).isEmpty();
+            }
+            assertThat(publishedNames()).isEmpty();
+            assertThat(capture.messages()).noneSatisfy(message -> assertThat(message).contains(HTML));
         }
     }
 

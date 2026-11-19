@@ -68,8 +68,8 @@
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBean" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.securityupdate.msgMaximumCharacters" var="waitingListNoteLimitMessage"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String wlid = (String) request.getAttribute("WLId");
@@ -89,6 +89,19 @@
         <link rel="stylesheet" type="text/css" media="all"
               href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1">
 
+        <style>
+            .master-record-button {
+                background: none;
+                border: 0;
+                padding: 0;
+                color: LinkText;
+                cursor: pointer;
+                font: inherit;
+                text-align: inherit;
+                text-decoration: underline;
+            }
+        </style>
+
         <!-- main calendar program -->
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
 
@@ -105,6 +118,14 @@
           onload='window.resizeTo(900,400)'>
     <!--  -->
     <form action="${pageContext.request.contextPath}/waitinglist/SetupDisplayWaitingList?update=Y" method="post">
+        <%-- #6141: a note longer than the column holds is refused, and nothing on the list changes. --%>
+        <c:if test="${not empty waitingListNoteErrors}">
+            <div role="alert" data-carlos-waiting-list-note-error="true" style="color: #b00020; font-weight: bold; margin: 4px;">
+                <c:forEach var="noteError" items="${waitingListNoteErrors}">
+                    <carlos:encode value="${noteError}"/><br/>
+                </c:forEach>
+            </div>
+        </c:if>
 
         <input type="hidden" name="demographicNumSelected" value=""/>
         <input type="hidden" name="wlNoteSelected" value=""/>
@@ -200,19 +221,37 @@
                                             ${carlos:forHtml(waitingListBean.position)}
                                         </td>
                                         <td class="${styleClass}">
-                                            <a href="#" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=${carlos:forJavaScript(e:forUriComponent(waitingListBean.demographicNo))}'); return false;">
+                                            <button type="button" class="master-record-button" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=${carlos:forJavaScript(carlos:forUriComponent(waitingListBean.demographicNo))}'); return false;">
                                                 ${carlos:forHtml(waitingListBean.patientName)}
-                                            </a>
+                                            </button>
                                             <input type="button" value="<fmt:message key='oscarwaitinglist.displayWaitingList.update'/>" name="update_${ctr.index}" style="font-size: 7pt;"
                                                    onClick="updateWaitingList('${carlos:forJavaScript(waitingListBean.waitingListID)}', ${ctr.index});"/>
                                         </td>
                                         <td class="${styleClass}">
                                             <fmt:message key="oscarwaitinglist.displayWaitingList.note" var="waitingListNoteLabel"/>
-                                            <textarea cols="45" name="waitingListBean[${ctr.index}].note" id="waitingListNote_${ctr.index}" aria-label="${carlos:forHtmlAttribute(waitingListNoteLabel)}" class="data3" onblur="setParameters(this);">${carlos:forHtmlContent(waitingListBean.note)}</textarea>
+                                            <%-- #6141: a refused note's message also sits by the note box of the row it came
+                                                 from. That is the row the action validated in wlNoteSelected, with the
+                                                 patient number posted for it (a list re-ordered since the page was drawn
+                                                 shows the message above the list only). --%>
+                                            <c:set var="noteRowSelector" value="waitingListBean[${ctr.index}].note"/>
+                                            <c:set var="noteRefusedHere" value="${not empty waitingListNoteErrors and param.wlNoteSelected eq noteRowSelector and param[param.demographicNumSelected] eq waitingListBean.demographicNo}"/>
+                                            <%-- #6139: on that refused row the box shows the note the user posted (the action's
+                                                 waitingListSubmittedNote request attribute, encoded for the text-area body), not
+                                                 the saved note, so a refusal does not cost them what they typed. Any other row,
+                                                 or a row whose patient no longer matches, shows its saved note as before. --%>
+                                            <textarea cols="45" name="waitingListBean[${ctr.index}].note" id="waitingListNote_${ctr.index}" aria-label="${carlos:forHtmlAttribute(waitingListNoteLabel)}"<c:if test="${noteRefusedHere}"> aria-invalid="true" aria-describedby="waitingListNoteError_${ctr.index}"</c:if> class="data3" onblur="setParameters(this);">
+${noteRefusedHere ? carlos:forHtmlContent(waitingListSubmittedNote) : carlos:forHtmlContent(waitingListBean.note)}</textarea>
+                                            <c:if test="${noteRefusedHere}">
+                                                <div role="alert" id="waitingListNoteError_${ctr.index}" data-carlos-waiting-list-note-row-error="true" style="color: #b00020; font-weight: bold;">
+                                                    <c:forEach var="noteError" items="${waitingListNoteErrors}">
+                                                        <carlos:encode value="${noteError}"/><br/>
+                                                    </c:forEach>
+                                                </div>
+                                            </c:if>
                                         </td>
                                         <td class="${styleClass}">
                                             <fmt:message key="oscarwaitinglist.displayWaitingList.dateOfRequest" var="waitingListDateLabel"/>
-                                            <input type="text" name="waitingListBean[${ctr.index}].onListSince" value="${carlos:forHtmlAttribute(waitingListBean.onListSince)}" id="waitingListOnListSince_${ctr.index}" aria-label="${carlos:forHtmlAttribute(waitingListDateLabel)}" class="data3" onblur="setParameters(this);" onchange="setParameters(this);"/>
+                                            <input type="text" name="waitingListBean[${ctr.index}].onListSince" value="${carlos:forHtmlAttribute(noteRefusedHere ? waitingListSubmittedDate : waitingListBean.onListSince)}" id="waitingListOnListSince_${ctr.index}" aria-label="${carlos:forHtmlAttribute(waitingListDateLabel)}" class="data3" onblur="setParameters(this);" onchange="setParameters(this);"/>
                                             <img src="<%= request.getContextPath() %>/images/cal.gif" id="referral_date_cal_${ctr.index}">
                                             <script type="text/javascript">
                                                 Calendar.setup({
@@ -333,7 +372,37 @@
             }
         }
 
+        // #6141: the note boxes keep the waiting-list note's limit, counted as the server counts it:
+        // Unicode code points, each line break as the CR LF the browser submits (as the Master
+        // Record note does). The row's update button submits by script, which skips the browser's
+        // own check, so updateWaitingList() checks the selected note itself.
+        var WAITING_LIST_NOTE_MAX = <%= io.github.carlos_emr.carlos.commn.model.WaitingList.NOTE_MAX_LENGTH %>;
+        var WAITING_LIST_NOTE_MESSAGE = '${carlos:forJavaScript(waitingListNoteLimitMessage)}'.replace('{0}', WAITING_LIST_NOTE_MAX);
+
+        function waitingListNoteFits(field) {
+            var submitted = (field.value || '').replace(/\r?\n/g, '\r\n');
+            var fits = Array.from(submitted).length <= WAITING_LIST_NOTE_MAX;
+            field.setCustomValidity(fits ? '' : WAITING_LIST_NOTE_MESSAGE);
+            return fits;
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            var notes = document.querySelectorAll('textarea[id^="waitingListNote_"]');
+            for (var i = 0; i < notes.length; i++) {
+                // HTML counts UTF-16 units; this allows any note the code-point check accepts.
+                notes[i].setAttribute('maxlength', WAITING_LIST_NOTE_MAX * 2);
+                notes[i].setAttribute('data-max-codepoints', WAITING_LIST_NOTE_MAX);
+                notes[i].addEventListener('input', function (event) { waitingListNoteFits(event.target); });
+            }
+        });
+
         function updateWaitingList(waitingListId, ctr) {
+            var selectedNote = document.forms[0].wlNoteSelected.value
+                ? document.querySelector('textarea[name="' + document.forms[0].wlNoteSelected.value + '"]') : null;
+            if (selectedNote && !waitingListNoteFits(selectedNote)) {
+                selectedNote.reportValidity();
+                return;
+            }
             document.forms[0].waitingListId.value = waitingListId;
             document.forms[0].update.value = "Y";
             document.forms[0].action = "<%=request.getContextPath()%>/waitinglist/SetupDisplayWaitingList#anchor_" + ctr;

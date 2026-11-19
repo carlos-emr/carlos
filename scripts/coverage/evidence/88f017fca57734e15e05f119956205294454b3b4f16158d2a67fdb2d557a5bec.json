@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "b797064c51315552ac33f22b379428d6ba30d588",
+  "comparisonSha256": "bf8bb99501652a34625919c8c6dad688a7438fb609231f7b0d895ef428851043",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/eform/upload/ImageUpload2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0ba200e111497b7a8fcd6cebe075b095f2d56b6e"
+    }
+  },
+  "baselineCommit": "9e54e4b31961ef2588c1ca367e9317f82a2d5f61",
+  "baselineSourceTree": "b797064c51315552ac33f22b379428d6ba30d588",
+  "baselineReportSha256": "a9a9c4f1c78b2852e5c6a8796d8ed4dd4c5cb1b22d98b812dfd6f91f4782294c",
+  "baselineLane": "Focused JDK 25 eForm upload/ZIP suite with JaCoCo, plus a real Linux group-write ownership control as UID 1000",
+  "baselineTestCounts": {
+    "tests": 154,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "8b08a6e6c3e66f45db5ba9643f7514c035812d4973c46eee98feb75444fafc6e",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

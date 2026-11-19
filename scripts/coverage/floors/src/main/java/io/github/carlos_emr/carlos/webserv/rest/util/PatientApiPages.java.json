@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/webserv/rest/util/PatientApiPages.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 95.55555555555556,
+    "branches": 84.78260869565217,
+    "sourceBlob": "6c2f157eed611a3ef45f330e96138f40457d7846"
+  },
+  "evidenceSha256": "25f4b5217510732ddb89adde948c86a57e95d0ff8ec14e108eca6f6163e424ca"
+}

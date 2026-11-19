@@ -14,6 +14,10 @@ package io.github.carlos_emr.carlos.report.pageUtil;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
+import io.github.carlos_emr.carlos.commn.dao.ReportFilterDao;
+import io.github.carlos_emr.carlos.commn.model.ReportFilter;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -44,7 +48,20 @@ class RptDownloadCSVExtensionBudgetUnitTest extends CarlosUnitTestBase {
             throws Exception {
         ConfiguredReportQuery.Limit limit = budget.limit;
         var request = new MockHttpServletRequest();
-        request.getSession(true);
+        LoggedInInfo user = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(true), user);
+        var security = mock(SecurityInfoManager.class);
+        when(security.hasPrivilege(user, "_report", "r", null)).thenReturn(true);
+        registerMock(SecurityInfoManager.class, security);
+        // The filter predicate is the report's stored definition (#5831), not the posted value_1.
+        var storedFilter = new ReportFilter();
+        storedFilter.setReportId(0);
+        storedFilter.setValue("demographic.first_name='FAKE'");
+        storedFilter.setOrderNo(1);
+        storedFilter.setDateFormat("");
+        var filterDao = mock(ReportFilterDao.class);
+        when(filterDao.findByReportIdAndStatus(0, 1)).thenReturn(List.of(storedFilter));
+        registerMock(ReportFilterDao.class, filterDao);
         request.setParameter("demoReport", "true");
         request.setParameter("first_name", "on");
         request.setParameter("prefer_language", "on");

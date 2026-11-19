@@ -173,7 +173,7 @@ public class EFormPDFServlet extends HttpServlet {
                     intermediateFiles.add(tmpFile);
                 }
                 tmpFile = PathValidationUtils.createSecureTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), ".pdf");
-                ConcatPDF.concat(files, tmpFile.getAbsolutePath());
+                ConcatPDF.concatRequired(files, tmpFile.getAbsolutePath());
                 for (File intermediateFile : intermediateFiles) {
                     if (!intermediateFile.delete()) {
                         intermediateFile.deleteOnExit();

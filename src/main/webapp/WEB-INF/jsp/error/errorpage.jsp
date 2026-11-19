@@ -220,6 +220,11 @@
         <c:if test="${not empty carlosReportLimitKey}">
             <p id="report-limit" class="alert alert-warning" role="alert"><fmt:message key="${carlosReportLimitKey}"><fmt:param value="${carlosReportLimitValue}"/></fmt:message><c:if test="${not empty carlosReportLimitSetting}"> <fmt:message key="report.limit.administratorCanRaise"><fmt:param value="${carlosReportLimitSetting}"/></fmt:message></c:if></p>
         </c:if>
+        <%-- Published by RefusalNotice for a 4xx refusal: a resource-bundle key the application
+             chose, never request text, so nothing the user or an attacker sent is echoed (#5897). --%>
+        <c:if test="${not empty carlosRefusalKey and _responseStatus >= 400 and _responseStatus < 500}">
+            <p id="refusal-reason" class="alert alert-warning" role="alert"><fmt:message key="${carlosRefusalKey}"/></p>
+        </c:if>
         <c:if test="${_responseStatus == 400 and requestScope.carlosMessengerAttachmentUnavailable}">
             <p id="messenger-attachment-unavailable" class="alert alert-warning" role="alert">
                 <fmt:message key="messenger.attachment.selectionUnavailable"/>

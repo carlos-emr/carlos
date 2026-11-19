@@ -119,8 +119,8 @@
                         <input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
                         <select name="existingDefaultDocQueueProperty.value" id="existingDefaultDocQueueProperty.value">
                             <c:forEach var="viewChoice" items="${viewChoices}">
-                                <option value="${viewChoice.value}">
-                                        ${viewChoice.label}
+                                <option value="${carlos:forHtmlAttribute(viewChoice.value)}">
+                                        ${carlos:forHtml(viewChoice.label)}
                                 </option>
                             </c:forEach>
                         </select>

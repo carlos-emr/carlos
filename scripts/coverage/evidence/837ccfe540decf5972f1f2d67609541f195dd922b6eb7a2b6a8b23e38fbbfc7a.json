@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "b3aeb4ea63a2445eff170451862bc597cc4f403d",
+  "comparisonSha256": "57f72946fd6bff5b9a4be9f3c752ebd25a3fed4337e90ac31a5c4fa080fee77a",
+  "baselineCommit": "18351633e608763fee4e88b2bbf81a793f2e2d06",
+  "baselineSourceTree": "b3aeb4ea63a2445eff170451862bc597cc4f403d",
+  "baselineReportSha256": "873432a31241a9c2ba5f63d162706ae79fa1f5038ceba35717ce4ef463a6544c",
+  "baselineLane": "Java 25 eForm archive budgets, transactional publication, Unix staging permissions and upload ownership",
+  "baselineTestCounts": {
+    "tests": 146,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "ae86ec6d83047b3769249ce213ab97152290671effdd23dbe75832eca5549dde",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/eform/EFormImagePublicationLock.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "1382362a1a90def1b050a0c77f9c354c3afe805e",
+      "requiredRefusalLines": [
+        74
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/eform/EFormExportZip.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 97.45762711864407,
+      "sourceBlob": "05cc2b51938ab81f9c7ee873a735d8c3a86716b1"
+    }
+  },
+  "exclusions": {},
+  "refusalLineMappings": {
+    "src/main/java/io/github/carlos_emr/carlos/eform/EFormImagePublicationLock.java": {
+      "fromSourceBlob": "cd10236d79349cff544adf23e4c1d9403d89ed66",
+      "lines": {
+        "74": 74
+      }
+    }
+  }
+}
