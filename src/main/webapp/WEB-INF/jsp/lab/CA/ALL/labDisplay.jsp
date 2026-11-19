@@ -720,11 +720,15 @@ input[id^='acklabel_']{
 
         function handleLab(formid, labid, action, beforeAcknowledge) {
             var url = '<%= request.getContextPath() %>/documentManager/inboxManage';
-            var data = 'method=isLabLinkedToDemographic&labid=' + labid + '&CSRF-TOKEN=' + encodeURIComponent(getCsrfToken());
-            return fetch(url, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: data
+            var params = new URLSearchParams({method: 'isLabLinkedToDemographic', labid: labid});
+            // This link check gates Acknowledge and Comment; the page's CSRF-TOKEN input can still be
+            // empty here, and a rejected check would stop either action (#1408).
+            return carlosEnsureCsrfParam(params, '<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>').then(function () {
+                return fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: params.toString()
+                });
             })
             .then(function(response) { return response.json(); })
             .then(function(json) {

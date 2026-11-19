@@ -224,8 +224,9 @@ test('the lab and document macro and comment POSTs ensure a token before fetch',
   // The fetch must be issued inside the helper's .then(), so it waits for the token.
   const chained = /carlosEnsureCsrfParam\(params,[^\n]*?\)\.then\(function \(\) \{\s*return fetch\(url, \{/g;
 
-  // labDisplay: Add Comment, the macro link check and Run Macro; showDocument: the link check and Run Macro.
-  for (const [name, source, sites] of [['labDisplay.jsp', lab, 3], ['showDocument.jsp', doc, 2]]) {
+  // labDisplay: the Acknowledge/Comment link check, Add Comment, the macro link check and Run Macro;
+  // showDocument: the macro link check and Run Macro.
+  for (const [name, source, sites] of [['labDisplay.jsp', lab, 4], ['showDocument.jsp', doc, 2]]) {
     assert.doesNotMatch(source, /params\.has\(\s*['"]CSRF-TOKEN['"]\s*\)/, `${name} still treats an empty token as present`);
     assert.equal((source.match(/carlosEnsureCsrfParam\(params,/g) || []).length, sites, `${name} token-ensured POSTs`);
     assert.equal((source.match(chained) || []).length, sites, `${name} POSTs wait for the token before fetch`);
