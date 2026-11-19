@@ -13,8 +13,12 @@ Exit codes:
 import json
 import re
 import sys
+from collections import Counter
 
 EL_RE = re.compile(r"\$\{([^}]+)\}")
+# The retired OWASP encoder JSP taglib (#5477): its URIs, and its tag and EL function forms.
+OWASP_TAGLIB_RE = re.compile(
+    r"(?i:owasp\.encoder\.jakarta|OWASP_Java_Encoder_Project)|<e:for\w+|\be:for\w+\s*\(")
 QUOTED_ATTRIBUTE = r"""(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')"""
 CARLOS_ENCODE_TAG_RE = re.compile(
     rf"""<carlos:encode(?=[\s/>])(?P<attrs>(?:[^<>"']|{QUOTED_ATTRIBUTE})*)>""",
@@ -23,15 +27,15 @@ CARLOS_ENCODE_TAG_RE = re.compile(
 ATTRIBUTE_RE = re.compile(rf"(?:^|\s)(?P<name>[\w:-]+)\s*=\s*(?P<value>{QUOTED_ATTRIBUTE})", re.DOTALL)
 
 
-def blank_jsp_comments(content: str) -> str:
+def blank_jsp_comments(content: str, fragment: bool = True) -> str:
     """Blank JSP comments, which Jasper discards, keeping offsets and line breaks.
 
-    The hook sees only the edited text, not the whole page. An edit inside a comment can
-    therefore start after its ``<%--`` or stop before its ``--%>``: text up to a ``--%>``
-    that no ``<%`` precedes, and text after an unclosed ``<%--``, are comment too. A
-    scriptlet ending ``--%>`` (``<% i--%>``) is preceded by its own ``<%``, so it is not
-    mistaken for one. HTML comments are kept: Jasper still evaluates EL inside them.
-    scripts/lint/check-encoder-null-safety.py checks the whole page.
+    HTML comments are kept: Jasper still evaluates EL inside them. Text after an unclosed
+    ``<%--`` is blanked. With ``fragment`` (the edited text alone, when the file it
+    changes cannot be read), the text may also start inside a comment, so text up to a
+    ``--%>`` that no ``<%`` precedes is blanked too; a scriptlet ending ``--%>``
+    (``<% i--%>``) is preceded by its own ``<%``, so it is not mistaken for one.
+    scripts/lint/check-encoder-null-safety.py checks whole pages in CI.
     """
     chars = list(content)
 
@@ -43,7 +47,7 @@ def blank_jsp_comments(content: str) -> str:
     position = 0
     close = content.find("--%>")
     opener = content.find("<%")
-    if close != -1 and (opener == -1 or close < opener):
+    if fragment and close != -1 and (opener == -1 or close < opener):
         blank(0, close + 4)
         position = close + 4
     while (start := content.find("<%--", position)) != -1:
@@ -79,9 +83,10 @@ def get_file_content_from_input(tool_input: dict) -> tuple[str, str]:
     return file_path, content
 
 
-def check_jsp_unsafe_patterns(content: str) -> list[str]:
+def find_jsp_issues(code: str) -> list[tuple[str, int, int]]:
     """
-    Check JSP content for unsafe EL expressions without OWASP encoding.
+    Check JSP code, with its JSP comments already blanked, for unsafe EL expressions
+    without OWASP encoding. Returns (message, start, end) for each issue found.
 
     Unsafe patterns:
     - ${param.xxx} - raw parameter access
@@ -100,18 +105,20 @@ def check_jsp_unsafe_patterns(content: str) -> list[str]:
     so such a page fails to translate.
 
     JSP comments are not checked: Jasper discards them, so a comment that names the
-    retired taglib or an EL expression is documentation, not code.
+    retired taglib or an EL expression is documentation, not code. Callers blank them
+    with blank_jsp_comments() first.
     """
+    content = code
     issues = []
-    content = blank_jsp_comments(content)
 
-    if re.search(r'owasp\.encoder\.jakarta|OWASP_Java_Encoder_Project', content, re.IGNORECASE) \
-            or re.search(r'<e:for\w+|\be:for\w+\s*\(', content):
-        issues.append(
-            "CRITICAL: OWASP encoder JSP taglib (owasp.encoder.jakarta) or an e:forXxx call.\n"
+    # One issue per occurrence, so an edit that adds another is told apart from the ones
+    # the page already had (jsp_edit_issues).
+    for match in OWASP_TAGLIB_RE.finditer(content):
+        issues.append((
+            f"CRITICAL: OWASP encoder JSP taglib or e:forXxx call: {match.group(0)}\n"
             "  CARLOS no longer ships that taglib (#5477); the page will not translate.\n"
-            "  Use <%@ taglib uri=\"carlos\" prefix=\"carlos\" %> with <carlos:encode> or ${carlos:forXxx(...)}."
-        )
+            "  Use <%@ taglib uri=\"carlos\" prefix=\"carlos\" %> with <carlos:encode> or ${carlos:forXxx(...)}.",
+            match.start(), match.end()))
 
     encoded_starts = encoded_value_expressions(content)
 
@@ -169,22 +176,74 @@ def check_jsp_unsafe_patterns(content: str) -> list[str]:
         is_high_risk = any(re.search(p, el_content) for p in high_risk_patterns)
 
         if is_high_risk:
-            issues.append(
+            issues.append((
                 f"CRITICAL: Unencoded user input in EL expression: {el_expr}\n"
                 f"  This can lead to XSS vulnerabilities.\n"
-                f"  Use: ${{carlos:forHtml({el_content})}} or <carlos:encode value=\"{el_expr}\"/>"
-            )
+                f"  Use: ${{carlos:forHtml({el_content})}} or <carlos:encode value=\"{el_expr}\"/>",
+                match.start(), match.end()))
         else:
             # For other expressions, warn but be less strict
             # Check if it looks like it might contain user data
             if re.search(r'[Nn]ame|[Vv]alue|[Ii]nput|[Dd]ata|[Tt]ext|[Mm]essage|[Cc]omment', el_content):
-                issues.append(
+                issues.append((
                     f"WARNING: Potentially unsafe EL expression: {el_expr}\n"
                     f"  If this contains user input, use OWASP encoding.\n"
-                    f"  Suggested: ${{carlos:forHtml({el_content})}} or <carlos:encode value=\"{el_expr}\"/>"
-                )
+                    f"  Suggested: ${{carlos:forHtml({el_content})}} or <carlos:encode value=\"{el_expr}\"/>",
+                    match.start(), match.end()))
 
     return issues
+
+
+def check_jsp_unsafe_patterns(content: str) -> list[str]:
+    """Check JSP text on its own (a whole page, or edited text whose page is unknown)."""
+    return [message for message, _, _ in find_jsp_issues(blank_jsp_comments(content))]
+
+
+def jsp_edit_issues(file_path: str, tool_input: dict) -> list[str] | None:
+    """
+    Judge an Edit in the page it changes, or return None when that page is unavailable.
+
+    The edited text alone cannot show whether it lies inside a JSP comment: both
+    delimiters may sit outside it. So the edit is applied to the current file, JSP
+    comments are blanked across the result, and an issue is reported when it overlaps
+    the replaced text or is new to the page; the latter catches an edit that removes a
+    <%-- and so exposes code the comment hid. Issues the page already had elsewhere are
+    left to scripts/lint/check-encoder-null-safety.py.
+    """
+    old_string = tool_input.get("old_string") or ""
+    new_string = tool_input.get("new_string") or ""
+    if not old_string:
+        return None
+    try:
+        with open(file_path, encoding="utf-8", errors="surrogateescape") as page:
+            original = page.read()
+    except OSError:
+        return None
+    if old_string not in original:
+        return None
+
+    pieces, spans, position, length = [], [], 0, 0
+    while (index := original.find(old_string, position)) != -1:
+        pieces.extend((original[position:index], new_string))
+        length += index - position
+        spans.append((length, length + len(new_string)))
+        length += len(new_string)
+        position = index + len(old_string)
+        if not tool_input.get("replace_all"):
+            break
+    pieces.append(original[position:])
+    updated = "".join(pieces)
+
+    before = Counter(message for message, _, _ in find_jsp_issues(blank_jsp_comments(original, fragment=False)))
+    reported = []
+    for message, start, end in find_jsp_issues(blank_jsp_comments(updated, fragment=False)):
+        if any(start < span_end and end > span_start for span_start, span_end in spans):
+            reported.append(message)
+        elif before[message] > 0:
+            before[message] -= 1
+        else:
+            reported.append(message)
+    return reported
 
 
 def check_java_unsafe_patterns(content: str) -> list[str]:
@@ -261,21 +320,26 @@ def check_java_unsafe_patterns(content: str) -> list[str]:
     return issues
 
 
-def validate_content(file_path: str, content: str) -> tuple[bool, list[str]]:
+def validate_content(file_path: str, content: str, tool_input: dict | None = None) -> tuple[bool, list[str]]:
     """
     Validate file content for OWASP encoding compliance.
+
+    For an Edit (``tool_input`` with ``old_string``) of a JSP, the edit is judged in the
+    page it changes when that page can be read; otherwise ``content`` is checked alone.
 
     Returns:
         (is_safe, issues): Tuple of safety status and list of issues found
     """
-    if not file_path or not content:
+    # An Edit whose replacement is empty can still expose code, e.g. by deleting a <%--.
+    if not file_path or (not content and not tool_input):
         return True, []
 
     issues = []
 
     # Check based on file type
     if file_path.endswith('.jsp'):
-        issues.extend(check_jsp_unsafe_patterns(content))
+        edit_issues = jsp_edit_issues(file_path, tool_input) if tool_input else None
+        issues.extend(edit_issues if edit_issues is not None else check_jsp_unsafe_patterns(content))
     elif file_path.endswith('.java'):
         issues.extend(check_java_unsafe_patterns(content))
 
@@ -306,8 +370,8 @@ def main():
         if not (file_path.endswith('.jsp') or file_path.endswith('.java')):
             sys.exit(0)
 
-        # Validate content
-        is_safe, issues = validate_content(file_path, content)
+        # Validate content; an Edit is judged in the file it changes
+        is_safe, issues = validate_content(file_path, content, tool_input if tool_name == "Edit" else None)
 
         if issues:
             # Output feedback to stderr

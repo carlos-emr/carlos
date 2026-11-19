@@ -240,6 +240,65 @@ then
   fails=$((fails+1))
 fi
 
+# An Edit is judged in the file it changes: an edit inside a JSP comment passes even
+# when neither delimiter is part of the replacement, and an edit that exposes code a
+# comment hid, or adds unsafe code next to a comment, is still blocked.
+if ! python3 - "$SCRIPT_DIR/../../.claude/hooks/validate-owasp-encoding.py" <<'PY'
+import json
+import os
+import subprocess
+import sys
+import tempfile
+
+PAGE = """<%@ taglib uri="carlos" prefix="carlos" %>
+<script>
+        <%-- Pre-declare i18n messages used in JavaScript so they can be safely embedded
+        in JavaScript string literals using OWASP ${e:forJavaScript(msgComment)} encoding --%>
+</script>
+<span><carlos:encode value="${param.label}"/></span>
+<div>${param.legacy}</div>
+<p>TOKEN</p>
+<%-- TOKEN --%>
+"""
+
+def run(old, new, replace_all=False):
+    with tempfile.TemporaryDirectory() as directory:
+        path = os.path.join(directory, "page.jsp")
+        with open(path, "w", encoding="utf-8") as page:
+            page.write(PAGE)
+        payload = {"tool_name": "Edit", "tool_input": {"file_path": path, "old_string": old,
+                                                       "new_string": new, "replace_all": replace_all}}
+        return subprocess.run([sys.executable, sys.argv[1]], input=json.dumps(payload), text=True, capture_output=True)
+
+cases = (
+    # The edit from the review: wording inside the labDisplay.jsp comment, delimiters outside it.
+    ("using OWASP ${e:forJavaScript(msgComment)} encoding",
+     "using the old OWASP ${e:forJavaScript(msgComment)} encoding", False, 0),
+    ("Pre-declare", "Declare", False, 0),
+    # Removing the opener exposes the e: call the comment hid, including by a pure deletion.
+    ("<%-- Pre-declare", "Pre-declare", False, 2),
+    ("<%-- Pre-declare ", "", False, 2),
+    # The value attribute of an existing <carlos:encode> encodes the expression.
+    ("${param.label}", "${param.title}", False, 0),
+    # A pre-existing raw expression elsewhere does not block an unrelated edit...
+    ("<p>TOKEN</p>", "<p>Token</p>", False, 0),
+    # ...but an edit that writes one does.
+    ("<div>${param.legacy}</div>", "<div>${param.legacy} ${param.other}</div>", False, 2),
+    ("</script>", "</script>${e:forHtml(x)}", False, 2),
+    # replace_all is judged at every occurrence: the one in the <p> is code.
+    ("TOKEN", "${e:forHtml(token)}", True, 2),
+    ("<%-- TOKEN --%>", "<%-- ${e:forHtml(token)} --%>", False, 0),
+)
+for old, new, replace_all, expected in cases:
+    result = run(old, new, replace_all)
+    assert result.returncode == expected and "Error in OWASP validation hook" not in result.stderr, \
+        f"{old!r} -> {new!r}: expected {expected}, got {result.returncode}\n{result.stderr}"
+print("PASS: the encoder hook judges an Edit in the file it changes")
+PY
+then
+  fails=$((fails+1))
+fi
+
 if [[ $fails -eq 0 ]]; then
   echo "All encoder-null-safety lint fixtures pass."
   exit 0
