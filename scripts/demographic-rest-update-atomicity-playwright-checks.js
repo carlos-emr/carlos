@@ -135,7 +135,10 @@ async function workflow(s) {
         extra('cytolNum', `${s.marker}-dupA`), extra('cytolNum', `${s.marker}-dupB`)]),
       maxRedirects: 0,
     });
-    h.assert(response.status() >= 400, `a refused update expected an error status, received ${response.status()}`);
+    h.assert(response.status() === 409, `a duplicate-key update expected HTTP 409, received ${response.status()}`);
+    const failure = await response.json().catch(() => null);
+    h.assert(failure?.code === 'DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY',
+      'the response did not identify the duplicate demographic extension key');
     await response.dispose();
 
     const after = state();

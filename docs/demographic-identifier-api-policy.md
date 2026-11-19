@@ -29,6 +29,10 @@ A response acknowledges the selected profile using the same header. Blank, unkno
 
 The default locks and refreshes the existing database row inside the resource's transaction before preserving omitted identifiers or changing related records. A missing record returns 404. Recognized pre-write concurrency conflicts return 409 with a fixed reload instruction; no related record is changed. Other storage failures propagate through the existing exception handling rather than being reported as success. Related changes and the demographic write share the transaction and roll back on failure: the custom fields and their archive copy, the waiting-list entry, the archive copy of the stored patient, the patient row, each extension with its archive copy, and the audit rows the manager writes. Only the web-service access log row is written outside it, after it has ended, so a failed request is still recorded. A client receiving an uncertain network/commit outcome must reload before deciding whether to submit another update; this is not an idempotency protocol.
 
+When the database refuses a duplicate single-value extension on create or
+update, the request rolls back and returns HTTP 409 with the JSON error code
+`DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY`.
+
 ## Executable evidence
 
 `DemographicConverterUnitTest` checks the three named outbound mappings: SIN omitted, HIN retained in detail and list conversions, source records unchanged. `DemographicSearchAuthorizationUnitTest` returns the HIN of readable search rows and leaves restricted patients out of rows and counts. Real CXF `DemographicServiceEndpointTest` cases cover the HIN in `GET /demographics`, both write-profile choices, acknowledgement, validation, authorization, explicit replacement/clear and pre-write conflict refusal. `InboxIdentifierDisclosureEndpointTest` covers the HIN on lab and document inbox items; `EmbeddedRecordSnapshotsUnitTest` and `EmbeddedRecordXmlContractUnitTest` cover it on patients embedded in appointment and consultation responses. `DemographicWriteProfileUnitTest` checks strict parsing and registration on both REST configurations.

@@ -92,6 +92,7 @@ import io.github.carlos_emr.carlos.webserv.rest.conversion.MeasurementConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.ProfessionalSpecialistConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.ProviderConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.WaitingListNameConverter;
+import io.github.carlos_emr.carlos.webserv.rest.response.ErrorResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.OscarSearchResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicContactFewTo1;
@@ -105,6 +106,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.ProfessionalSpecialistT
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ProviderTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.StatusValueTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.WaitingListNameTo1;
+import io.github.carlos_emr.carlos.webserv.rest.util.DemographicWriteConflict;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -649,7 +651,11 @@ public class DemographicService extends AbstractServiceImpl {
         }
         Demographic demographic = demoConverter.getAsDomainObject(loggedInInfo, data);
         validateFieldLengths(demographic);
-        demographicManager.createDemographic(loggedInInfo, demographic, data.getAdmissionProgramId());
+        try {
+            demographicManager.createDemographic(loggedInInfo, demographic, data.getAdmissionProgramId());
+        } catch (RuntimeException failure) {
+            throw extensionWriteFailure(failure);
+        }
         return demoConverter.getAsTransferObject(loggedInInfo, demographic);
     }
 
@@ -707,9 +713,23 @@ public class DemographicService extends AbstractServiceImpl {
             WLWaitingListUtil.updateWaitingListRecord(data.getWaitingListID().toString(), data.getWaitingListNote(), data.getDemographicNo().toString(), null);
         }
 
-        demographicManager.updateDemographic(loggedInInfo, demographic);
+        try {
+            demographicManager.updateDemographic(loggedInInfo, demographic);
+        } catch (RuntimeException failure) {
+            throw extensionWriteFailure(failure);
+        }
 
         return demoConverter.getAsTransferObject(loggedInInfo, demographic);
+    }
+
+    private static RuntimeException extensionWriteFailure(RuntimeException failure) {
+        if (!DemographicWriteConflict.isDuplicateExtensionKey(failure)) {
+            return failure;
+        }
+        ErrorResponse error = ErrorResponse.of(
+                "DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY", "The request would create a duplicate demographic extension key.");
+        return new WebApplicationException(failure, Response.status(Response.Status.CONFLICT)
+                .type(MediaType.APPLICATION_JSON).entity(error).build());
     }
 
     /** Resolve omitted identifiers under the row lock before related records are changed. */
