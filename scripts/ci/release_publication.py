@@ -79,6 +79,8 @@ def candidate(assets, tag, source, root=ROOT):
                if line and not line.startswith("#") and "=" in line)["tag"].replace("-", "~")
     packages.add("carlos-ctl")
     seen = set()
+    payload_names = {war.name}
+    emr_package_hash = None
     for deb in sorted(assets.glob("*.deb")):
         fields = subprocess.check_output(["dpkg-deb", "-f", str(deb), "Package", "Version", "Architecture"], text=True)
         fields = dict(line.split(": ", 1) for line in fields.splitlines())
@@ -88,26 +90,31 @@ def candidate(assets, tag, source, root=ROOT):
         if fields.get("Architecture") != ("amd64" if package == "carlos-emr" else "all"):
             raise EvidenceError("Candidate package architecture differs from the supported release")
         seen.add(package)
-        if package == "carlos-emr" and package_contents(deb, digest(deb))["entries"] != expected:
-            raise EvidenceError("Final Debian application differs from the qualified WAR and reviewed transforms")
+        payload_names.add(deb.name)
+        if package == "carlos-emr":
+            emr_package_hash = digest(deb)
+            if package_contents(deb, emr_package_hash)["entries"] != expected:
+                raise EvidenceError("Final Debian application differs from the qualified WAR and reviewed transforms")
     if seen != packages:
         raise EvidenceError("Candidate is missing required Debian packages")
     sbom = assets / f"carlos-{tag}-cyclonedx.json"
     if read_json(sbom).get("bomFormat") != "CycloneDX":
         raise EvidenceError("Candidate is missing its CycloneDX SBOM")
+    payload_names.add(sbom.name)
+    expected_names = payload_names | {name + ".sha256" for name in payload_names}
     files = {}
     for file in sorted(assets.iterdir()):
-        if file.name == "release-candidate.json":
-            continue
         if file.is_symlink() or not file.is_file() or not re.fullmatch(r"[A-Za-z0-9_.~+-]+", file.name):
             raise EvidenceError("Candidate asset is not a regular named file")
         files[file.name] = digest(file)
-    for name, value in files.items():
-        if name.endswith((".deb", ".war", ".json")):
-            checksum = assets / (name + ".sha256")
-            if not checksum.is_file() or checksum.read_text().strip() != value + "  " + name.replace("~", "."):
-                raise EvidenceError("Candidate checksum is missing or names different bytes")
-    return {"schemaVersion": 1, "tag": tag, "source": source, "warSha256": manifest["warSha256"], "assets": files}
+    if set(files) != expected_names:
+        raise EvidenceError("Candidate asset set includes an unexpected file or is incomplete")
+    for name in payload_names:
+        checksum = assets / (name + ".sha256")
+        if checksum.read_text().strip() != files[name] + "  " + name.replace("~", "."):
+            raise EvidenceError("Candidate checksum names different bytes")
+    return {"schemaVersion": 1, "tag": tag, "source": source, "warSha256": manifest["warSha256"],
+            "emrPackageSha256": emr_package_hash, "assets": files}
 
 
 def api(endpoint):
@@ -146,7 +153,21 @@ def required_ci(repo, commit):
 def download_assets(repo, tag, destination):
     destination.mkdir(parents=True, exist_ok=False)
     subprocess.run(["gh", "release", "download", tag, "--repo", repo, "--dir", str(destination),
-                    "--pattern", "*.war", "--pattern", "*.deb", "--pattern", "*cyclonedx.json", "--pattern", "*.sha256"], check=True)
+                    "--pattern", "*"], check=True)
+
+
+def verify_draft_assets(repo, tag, verified_assets):
+    """Recheck the server's draft immediately before publishing the verified bytes."""
+    drafts = [release for page in api(f"repos/{repo}/releases?per_page=100")
+              for release in page if release.get("tag_name") == tag and release.get("draft") is True]
+    if len(drafts) != 1:
+        raise EvidenceError("The verified release draft no longer exists")
+    assets = [asset for page in api(f"repos/{repo}/releases/{drafts[0]['id']}/assets?per_page=100")
+              for asset in page]
+    expected = {file.name: "sha256:" + digest(file) for file in verified_assets.iterdir()}
+    actual = {asset["name"]: asset.get("digest") for asset in assets if asset.get("state") == "uploaded"}
+    if len(assets) != len(expected) or actual != expected:
+        raise EvidenceError("Draft assets changed after qualification replay")
 
 
 def verify_provenance(repo, source, assets):
@@ -182,7 +203,8 @@ def promotion(repo, tag, run_id, assets):
         if frozen != candidate(assets, tag, source):
             raise EvidenceError("Release assets changed after qualification")
         # Recompute from every raw report; a hand-written releaseReady=true is never sufficient.
-        result = verify(DEFAULT_PLAN, evidence / "evidence", assets / f"carlos-{tag}.war")
+        result = verify(DEFAULT_PLAN, evidence / "evidence", assets / f"carlos-{tag}.war",
+                        target_package_hash=frozen["emrPackageSha256"])
         if result.get("releaseReady") is not True:
             raise EvidenceError("Exact tagged candidate is not release ready")
         if read_json(evidence / "readiness.json") != result:
@@ -191,16 +213,22 @@ def promotion(repo, tag, run_id, assets):
 
 def collect_evidence(source, destination):
     """Copy claimed evidence only. Never upload private logs, credentials or unclaimed output."""
+    if source.is_symlink():
+        raise EvidenceError("Qualification evidence root cannot be a symlink")
     destination.mkdir(parents=True, exist_ok=False)
     for receipt in sorted(source.glob("*/receipt.json")):
+        if receipt.parent.is_symlink() or receipt.is_symlink():
+            raise EvidenceError("Qualification receipt cannot follow a symlink")
         data = read_json(receipt)
         target = destination / receipt.parent.name
         target.mkdir()
         for name in ["receipt.json"] + [item["path"] for item in data.get("inputs", [])]:
             relative = Path(name)
             file = receipt.parent / relative
-            if relative.is_absolute() or ".." in relative.parts or file.is_symlink() or not file.is_file():
+            if relative.is_absolute() or ".." in relative.parts or not file.is_file():
                 raise EvidenceError("Qualification evidence escapes its receipt")
+            if any((receipt.parent / parent).is_symlink() for parent in (relative, *relative.parents)):
+                raise EvidenceError("Qualification evidence cannot follow a symlink")
             output = target / relative
             output.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(file, output)
@@ -208,19 +236,25 @@ def collect_evidence(source, destination):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("operation", choices=("freeze", "promote"))
+    parser.add_argument("operation", choices=("freeze", "promote", "verify-draft"))
     parser.add_argument("--repo", required=True)
     parser.add_argument("--tag", required=True)
     parser.add_argument("--assets", type=Path, required=True)
     parser.add_argument("--run", default="")
+    parser.add_argument("--manifest", type=Path)
     args = parser.parse_args(argv)
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", args.repo):
         parser.error("Invalid repository")
     try:
         if args.operation == "freeze":
-            write_json(args.assets / "release-candidate.json", candidate(args.assets, args.tag, checked_tag(args.tag)))
-        else:
+            manifest = args.manifest or args.assets.parent / "release-candidate.json"
+            if manifest.resolve().is_relative_to(args.assets.resolve()):
+                raise EvidenceError("Store the candidate manifest outside the payload directory")
+            write_json(manifest, candidate(args.assets, args.tag, checked_tag(args.tag)))
+        elif args.operation == "promote":
             promotion(args.repo, args.tag, args.run, args.assets)
+        else:
+            verify_draft_assets(args.repo, args.tag, args.assets)
         return 0
     except (EvidenceError, OSError, ValueError, KeyError, subprocess.SubprocessError) as failure:
         print("Release publication refused: " + (str(failure) if isinstance(failure, EvidenceError) else type(failure).__name__))

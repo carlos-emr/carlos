@@ -73,6 +73,19 @@ class ReleasePublicationTest(unittest.TestCase):
         with self.assertRaises(gate.EvidenceError):
             gate.collect_evidence(source, self.root / "escaped")
 
+    def test_collected_evidence_refuses_symlinked_directories(self):
+        source = self.root / "private"
+        run = source / "run1"
+        run.mkdir(parents=True)
+        outside = self.root / "outside"
+        outside.mkdir()
+        (outside / "result.xml").write_text("synthetic report")
+        (run / "reports").symlink_to(outside, target_is_directory=True)
+        (run / "receipt.json").write_text(json.dumps({"inputs": [{"path": "reports/result.xml"}]}))
+
+        with self.assertRaisesRegex(gate.EvidenceError, "symlink"):
+            gate.collect_evidence(source, self.root / "upload")
+
     def make_candidate(self):
         assets = self.root / "assets"; assets.mkdir()
         (self.root / "debian").mkdir()
@@ -115,6 +128,25 @@ class ReleasePublicationTest(unittest.TestCase):
         with self.assertRaisesRegex(gate.EvidenceError, "checksum"):
             gate.candidate(assets, tag, self.source, self.root)
 
+    def test_unqualified_draft_asset_is_refused(self):
+        assets, tag = self.make_candidate()
+        (assets / "unreviewed.txt").write_text("not a qualified release asset")
+        with self.assertRaisesRegex(gate.EvidenceError, "unexpected file"):
+            gate.candidate(assets, tag, self.source, self.root)
+
+    def test_publication_rechecks_draft_assets_after_replay(self):
+        tag = "2026.08.0-rc1"
+        draft = {"id": 45, "draft": True, "tag_name": tag}
+        path = self.root / "candidate.war"
+        path.write_text("qualified bytes")
+        correct = {"name": path.name, "digest": "sha256:" + gate.digest(path), "state": "uploaded"}
+        with patch.object(gate, "api", side_effect=[[[draft]], [[correct]]]):
+            gate.verify_draft_assets("org/repo", tag, self.root)
+        modified = {**correct, "digest": "sha256:" + "0" * 64}
+        with patch.object(gate, "api", side_effect=[[[draft]], [[modified]]]), self.assertRaisesRegex(
+                gate.EvidenceError, "changed after qualification replay"):
+            gate.verify_draft_assets("org/repo", tag, self.root)
+
     def test_different_package_identity_or_final_payload_is_refused(self):
         assets, tag = self.make_candidate()
         with zipfile.ZipFile(assets / f"carlos-{tag}.war", "a") as archive:
@@ -125,20 +157,20 @@ class ReleasePublicationTest(unittest.TestCase):
     def test_forged_readiness_summary_cannot_replace_raw_verification(self):
         assets = self.root / "assets"; assets.mkdir()
         def download(argv, **options):
-            target = Path(argv[-1]); (target / "release-candidate.json").write_text('{"candidate":"frozen"}')
+            target = Path(argv[-1]); (target / "release-candidate.json").write_text('{"candidate":"frozen","emrPackageSha256":"test-package-digest"}')
             (target / "readiness.json").write_text('{"releaseReady":true}')
         with patch.object(gate, "checked_tag", return_value=self.source), patch.object(gate, "api", return_value=[self.run]), \
              patch.object(gate, "successful_jobs"), patch.object(gate, "required_ci"), \
-             patch.object(gate.subprocess, "run", side_effect=download), patch.object(gate, "candidate", return_value={"candidate":"frozen"}), \
+             patch.object(gate.subprocess, "run", side_effect=download), patch.object(gate, "candidate", return_value={"candidate":"frozen","emrPackageSha256":"test-package-digest"}), \
              patch.object(gate, "verify", return_value={"releaseReady":False}), self.assertRaisesRegex(gate.EvidenceError, "not release ready"):
             gate.promotion("org/repo", "2026.08.0-rc1", "123", assets)
 
     def test_only_unchanged_candidate_with_recomputed_passing_evidence_can_promote(self):
         assets = self.root / "assets"; assets.mkdir()
         def download(argv, **options):
-            target = Path(argv[-1]); (target / "release-candidate.json").write_text('{"candidate":"frozen"}')
+            target = Path(argv[-1]); (target / "release-candidate.json").write_text('{"candidate":"frozen","emrPackageSha256":"test-package-digest"}')
             (target / "readiness.json").write_text('{"releaseReady":true}')
-        for candidate in ({"candidate":"frozen"}, {"candidate":"changed"}):
+        for candidate in ({"candidate":"frozen","emrPackageSha256":"test-package-digest"}, {"candidate":"changed"}):
             with self.subTest(candidate=candidate), patch.object(gate, "checked_tag", return_value=self.source), \
                  patch.object(gate, "api", return_value=[self.run]), patch.object(gate, "successful_jobs"), \
                  patch.object(gate, "required_ci"), patch.object(gate.subprocess, "run", side_effect=download), \
@@ -149,7 +181,7 @@ class ReleasePublicationTest(unittest.TestCase):
                     verify.assert_not_called()
                 else:
                     gate.promotion("org/repo", "2026.08.0-rc1", "123", assets)
-                    verify.assert_called_once()
+                    self.assertEqual(verify.call_args.kwargs, {"target_package_hash": "test-package-digest"})
 
 
 if __name__ == "__main__":

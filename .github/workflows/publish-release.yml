@@ -417,11 +417,17 @@ jobs:
           python-version: '3.14'
       - name: Install the hash-pinned evidence parser
         run: python3 -m pip install --require-hashes -r scripts/ci/requirements.txt
+      - name: Set up Node.js for qualification replay
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '22'
+          cache: npm
       - name: Verify the exact tagged candidate and current required checks
         run: |
           set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
           gh release download "$RELEASE_TAG" --repo "$REPO" --dir target/promotion-assets \
-            --pattern '*.war' --pattern '*.deb' --pattern '*cyclonedx.json' --pattern '*.sha256'
+            --pattern '*'
           python3 scripts/ci/release_publication.py promote --repo "$REPO" --tag "$RELEASE_TAG" \
             --run "$QUALIFICATION_RUN" --assets target/promotion-assets
       - name: Dispatch final publication without rebuilding

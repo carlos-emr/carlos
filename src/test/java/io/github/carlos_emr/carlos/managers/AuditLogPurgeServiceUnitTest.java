@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mariadb.jdbc.Configuration;
 import org.mariadb.jdbc.HostAddress;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -28,22 +29,13 @@ class AuditLogPurgeServiceUnitTest {
         var source = org.mockito.Mockito.mock(javax.sql.DataSource.class);
         var settings = new java.util.Properties();
         settings.setProperty("log.purge.minDays", "FAKE-sensitive-retention");
-        var messages = new java.util.ArrayList<String>();
-        var logger = (org.apache.logging.log4j.core.Logger) org.apache.logging.log4j.LogManager.getLogger(AuditLogPurgeService.class);
-        var appender = new org.apache.logging.log4j.core.appender.AbstractAppender("audit-preparation-test", null,
-                org.apache.logging.log4j.core.layout.PatternLayout.createDefaultLayout(), false,
-                org.apache.logging.log4j.core.config.Property.EMPTY_ARRAY) {
-            @Override public void append(org.apache.logging.log4j.core.LogEvent event) {
-                messages.add(event.getMessage().getFormattedMessage());
-            }
-        };
-        appender.start(); logger.addAppender(appender);
-        try {
+        try (LogCapture logs = LogCapture.forLogger(AuditLogPurgeService.class)) {
             assertThatThrownBy(() -> new AuditLogPurgeService(source).purge(settings, new java.util.Date(), () -> {}))
-                    .isInstanceOf(java.io.IOException.class).hasMessageContaining("retention policy", "no rows were deleted");
-        } finally { logger.removeAppender(appender); appender.stop(); }
-        assertThat(messages).anyMatch(message -> message.contains("retention policy") && message.contains("no rows were deleted"))
-                .noneMatch(message -> message.contains("FAKE-sensitive-retention"));
+                    .isInstanceOf(IOException.class).hasMessageContaining("retention policy", "no rows were deleted");
+            assertThat(logs.messages())
+                    .anyMatch(message -> message.contains("retention policy") && message.contains("no rows were deleted"))
+                    .noneMatch(message -> message.contains("FAKE-sensitive-retention"));
+        }
         org.mockito.Mockito.verifyNoInteractions(source);
         try (var files = Files.list(temporary)) { assertThat(files).isEmpty(); }
     }
@@ -116,7 +108,7 @@ class AuditLogPurgeServiceUnitTest {
         when(process.waitFor(5, TimeUnit.SECONDS)).thenReturn(false);
         IOException primary = new IOException("Synthetic primary dump failure");
         boolean priorInterrupt = Thread.interrupted();
-        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(AuditLogPurgeService.class)) {
+        try (LogCapture logs = LogCapture.forLogger(AuditLogPurgeService.class)) {
             Thread.currentThread().interrupt();
             assertThatThrownBy(() -> {
                 try (var cleanup = new AuditLogPurgeService.DumpProcess(process)) { throw primary; }
@@ -138,7 +130,7 @@ class AuditLogPurgeServiceUnitTest {
         when(process.isAlive()).thenReturn(true);
         when(process.waitFor(5, TimeUnit.SECONDS)).thenThrow(new InterruptedException("Synthetic interrupt"));
         boolean priorInterrupt = Thread.interrupted();
-        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(AuditLogPurgeService.class)) {
+        try (LogCapture logs = LogCapture.forLogger(AuditLogPurgeService.class)) {
             assertThatThrownBy(() -> new AuditLogPurgeService.DumpProcess(process).close())
                     .isInstanceOf(IOException.class).hasMessageContaining("reaping was interrupted");
             assertThat(Thread.interrupted()).isTrue();
@@ -215,7 +207,7 @@ class AuditLogPurgeServiceUnitTest {
         Path blocked = Files.createDirectory(temporary.resolve("connection.cnf"));
         Files.writeString(blocked.resolve("retained"), "Synthetic removal fault");
         IOException primary = new IOException("Synthetic primary purge failure");
-        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(AuditLogPurgeService.class)) {
+        try (LogCapture logs = LogCapture.forLogger(AuditLogPurgeService.class)) {
             assertThatThrownBy(() -> {
                 try (var cleanup = new AuditLogPurgeService.PrivateCredentials(blocked)) { throw primary; }
             }).isSameAs(primary);

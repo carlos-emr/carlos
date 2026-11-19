@@ -160,6 +160,10 @@ class TestPublishedConffileCompatibility(unittest.TestCase):
             script = ROOT / "debian/stamp-war-build-identity.sh"
             command = ["sh", str(script), str(war), "carlos-emr-deb", "2026.09.0~snapshot30"]
             subprocess.run(command, check=True, capture_output=True)
+            with zipfile.ZipFile(war) as archive:
+                identity = archive.read("WEB-INF/classes/carlos-build.properties").decode("utf-8")
+            self.assertIn("build.job=carlos-emr-deb", identity.splitlines())
+            self.assertIn("build.number=2026.09.0~snapshot30", identity.splitlines())
             before = war.read_bytes()
             subprocess.run(command, check=True, capture_output=True)
             self.assertEqual(war.read_bytes(), before)

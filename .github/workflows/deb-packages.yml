@@ -389,14 +389,21 @@ jobs:
           done
           echo "Draft candidate: $(cd release-assets && ls *.deb | tr '\n' ' ')"
 
+      - name: Set up Node.js for qualification replay
+        if: env.SKIP != 'true' && env.QUALIFICATION_RUN != ''
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '22'
+          cache: npm
       - name: Verify readiness before final publication (also on direct dispatch and retries)
         if: env.SKIP != 'true' && env.QUALIFICATION_RUN != ''
         run: |
           set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
           python3 -m venv /tmp/release-gate
           /tmp/release-gate/bin/pip install --require-hashes -r scripts/ci/requirements.txt
           gh release download "$RELEASE_TAG" --repo "$REPO" --dir /tmp/promotion-assets \
-            --pattern '*.war' --pattern '*.deb' --pattern '*cyclonedx.json' --pattern '*.sha256'
+            --pattern '*'
           /tmp/release-gate/bin/python scripts/ci/release_publication.py promote \
             --repo "$REPO" --tag "$RELEASE_TAG" --run "$QUALIFICATION_RUN" --assets /tmp/promotion-assets
 
@@ -422,9 +429,8 @@ jobs:
             prerelease=true
           fi
 
-          if [ "$prerelease" = "true" ]; then
-            gh release edit "$RELEASE_TAG" --repo "$REPO" --draft=false --prerelease --latest=false
-          else
+          latest_flag=--latest=false
+          if [ "$prerelease" = "false" ]; then
             # A maintenance patch published from an OLDER release line must not
             # steal the repo's "latest release" pointer from a newer train:
             # mark latest only when this tag tops every published stable
@@ -439,6 +445,8 @@ jobs:
               latest_flag=--latest=false
               echo "A newer stable release ($top) is already published — not marking $RELEASE_TAG as latest."
             fi
-            gh release edit "$RELEASE_TAG" --repo "$REPO" --draft=false --prerelease=false "$latest_flag"
           fi
+          /tmp/release-gate/bin/python scripts/ci/release_publication.py verify-draft \
+            --repo "$REPO" --tag "$RELEASE_TAG" --assets /tmp/promotion-assets
+          gh release edit "$RELEASE_TAG" --repo "$REPO" --draft=false --prerelease="$prerelease" "$latest_flag"
           echo "Published release $RELEASE_TAG with WAR, SBOM, and .deb assets."

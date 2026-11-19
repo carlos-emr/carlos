@@ -73,15 +73,18 @@ class CandidateWarBuildTest(unittest.TestCase):
 
     def test_different_frozen_source_or_stamp_is_refused_without_publishing_output(self):
         frozen = self.output.parent / "frozen.war"
-        with zipfile.ZipFile(frozen, "w") as archive:
-            archive.writestr("WEB-INF/classes/buildNumber.properties", "git-sha-1=" + "c" * 40 + "\n")
-            archive.writestr("WEB-INF/classes/carlos-build.properties", "build.job=carlos-emr-deb\nbuild.number=2026.08.0~rc1\n")
-        with patch.dict(builder.os.environ, {"CARLOS_RELEASE_CANDIDATE_WAR": str(frozen)}), \
-             patch.object(builder.subprocess, "check_output", return_value="a" * 40), patch.object(builder.subprocess, "run") as commands:
-            with self.assertRaisesRegex(SystemExit, "Frozen candidate identity differs"):
-                builder.main(["--output", str(self.output), "--package-version", "2026.08.0~rc1"])
-            commands.assert_not_called()
-        self.assertFalse(self.output.exists())
+        for sha, stamp in (("c" * 40, "2026.08.0~rc1"), ("a" * 40, "2026.08.0~rc2")):
+            with self.subTest(sha=sha, stamp=stamp):
+                with zipfile.ZipFile(frozen, "w") as archive:
+                    archive.writestr("WEB-INF/classes/buildNumber.properties", "git-sha-1=" + sha + "\n")
+                    archive.writestr("WEB-INF/classes/carlos-build.properties",
+                                     "build.job=carlos-emr-deb\nbuild.number=" + stamp + "\n")
+                with patch.dict(builder.os.environ, {"CARLOS_RELEASE_CANDIDATE_WAR": str(frozen)}), \
+                     patch.object(builder.subprocess, "check_output", return_value="a" * 40), patch.object(builder.subprocess, "run") as commands:
+                    with self.assertRaisesRegex(SystemExit, "Frozen candidate identity differs"):
+                        builder.main(["--output", str(self.output), "--package-version", "2026.08.0~rc1"])
+                    commands.assert_not_called()
+                self.assertFalse(self.output.exists())
 
 
 if __name__ == "__main__":
