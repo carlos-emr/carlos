@@ -72,6 +72,12 @@ class CaseManagementEntryNoteLockJspRegressionTest {
         assertThat(lock.indexOf("if (!owned)")).isLessThan(lock.indexOf("note.readOnly = false;"));
     }
 
+    @Test
+    void shouldUseEachIssueDescriptionAsItsCheckboxLabel() {
+        assertThat(page).contains("id=\"note-issue-select-${status.index}\"",
+                "<label for=\"note-issue-select-${status.index}\">${cbb.issueDisplay.description}</label>");
+    }
+
     /** The body of a top-level page function, up to the next function at the same indent. */
     private static String function(String name) {
         Matcher start = Pattern.compile("\\n        function " + Pattern.quote(name) + "\\(\\) \\{").matcher(page);

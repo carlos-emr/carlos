@@ -438,13 +438,14 @@
         <tr style="background-color: ${counter % 2 == 0 ? '#EEEEFF' : 'white'}; text-align: center;">
             <td>
                 <input type="checkbox" name="${cbb.issue.id > 0 ? 'selectedCaseIssueId' : 'selectedCatalogIssueId'}"
+                       id="note-issue-select-${status.index}"
                        value="<carlos:encode value='${cbb.issue.id > 0 ? cbb.issue.id : cbb.issue.issue_id}' context='htmlAttribute'/>"
                        onchange="setChangeFlag(true);"
                        disabled ${checkBoxDisabled ? '' : 'data-note-lock-edit'} />
             </td>
             <td id="note-issue-description-${status.index}"
                 style="${cbb.issueDisplay.priority eq 'allergy' ? 'background-color: yellow;' : ''}">
-                ${cbb.issueDisplay.description}
+                <label for="note-issue-select-${status.index}">${cbb.issueDisplay.description}</label>
             </td>
             <td>
                 <select id="note-issue-acute-${status.index}" name="issueCheckList[${status.index}].issueDisplay.acute"

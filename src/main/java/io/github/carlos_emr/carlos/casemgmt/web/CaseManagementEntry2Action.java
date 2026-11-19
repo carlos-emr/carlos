@@ -2028,7 +2028,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String ongoing = "";
         note.setIssues(issueset);
         if (checkedlist != null) {
-            ongoing = prepareCheckedIssues(request, demo, issuelist, checkedlist, issueset, noteSet, ongoing, removedIssue);
+            ongoing = prepareCheckedIssues(request, demo, issuelist, checkedlist, issueset, noteSet, removedIssue);
         }
 
         if (removedIssue != null) checkedlist.removeIf(checkbox -> removedIssue.getId().equals(checkbox.getIssue().getId()));
@@ -2167,13 +2167,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     @SuppressFBWarnings(value = "IMPROPER_UNICODE",
             justification = "Compares a fixed editor checkbox token. Issue authorization uses patient ownership and write permission.")
     private String prepareCheckedIssues(HttpServletRequest request, String demo, List<CaseManagementIssue> issuelist,
-                                        List<CheckBoxBean> checkedlist, Set issueset, Set noteSet, String ongoing,
+                                        List<CheckBoxBean> checkedlist, Set issueset, Set noteSet,
                                         CaseManagementIssue removedIssue) {
         int demographicNo = Integer.parseInt(demo);
         boolean selectionById = "true".equals(request.getParameter("issueSelectionById"));
         Set<String> selectedIssues = submittedIssueIds(request, "selectedCaseIssueId");
         Set<String> selectedCatalogIssues = submittedIssueIds(request, "selectedCatalogIssueId");
         boolean legacy = !Boolean.parseBoolean((String) request.getSession().getAttribute("newCaseManagement"));
+        StringBuilder ongoing = new StringBuilder();
 
         for (int i = 0; i < checkedlist.size(); i++) {
             CheckBoxBean checkBoxBean = checkedlist.get(i);
@@ -2184,10 +2185,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             boolean persisted = existingId != null && existingId > 0;
             String editorChecked = checkBoxBean.getChecked();
             boolean editorSelected = editorChecked != null && "on".equals(editorChecked.toLowerCase(Locale.ROOT));
-            boolean selected = selectionById
-                    ? (persisted ? selectedIssues.contains(existingId.toString())
-                                 : selectedCatalogIssues.contains(Long.toString(editorIssue.getIssue_id())))
-                    : removedIssue == null && WebUtils.isChecked(request, "issueCheckList[" + i + "].checked");
+            boolean selected;
+            if (selectionById) {
+                selected = persisted ? selectedIssues.contains(existingId.toString())
+                        : selectedCatalogIssues.contains(Long.toString(editorIssue.getIssue_id()));
+            } else {
+                selected = removedIssue == null && WebUtils.isChecked(request, "issueCheckList[" + i + "].checked");
+            }
             // Old delete callers that lack the ID selection preserve the editor's associations.
             boolean isChecked = selected || (editorSelected && (legacy && persisted || removedIssue != null && !selectionById));
 
@@ -2204,7 +2208,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                     checkBoxBean.setUsed(true);
                 }
                 checkBoxBean.setChecked(keep ? "on" : "off");
-                if (!stored.isResolved()) ongoing += issueDisplay.getDescription() + "\n";
+                if (!stored.isResolved()) ongoing.append(issueDisplay.getDescription()).append('\n');
                 continue;
             }
 
@@ -2215,13 +2219,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                         String.valueOf(checkBoxBean.getIssue().getIssue_id()));
                 if (existing != null) {
                     if (editorSelected) issueset.add(copyIssueForRevision(existing));
-                    if (!existing.isResolved()) ongoing += issueDisplay.getDescription() + "\n";
+                    if (!existing.isResolved()) ongoing.append(issueDisplay.getDescription()).append('\n');
                 }
                 continue;
             }
 
             if ("unresolved".equals(issueDisplay.resolved)) {
-                ongoing = ongoing + issueDisplay.getDescription() + "\n";
+                ongoing.append(issueDisplay.getDescription()).append('\n');
             }
 
             CaseManagementIssue caseManagementIssue = findCheckedIssue(demo, issueDisplay, isChecked, issuelist);
@@ -2247,7 +2251,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
             if (!containsIssue(issuelist, caseManagementIssue)) issuelist.add(caseManagementIssue);
         }
-        return ongoing;
+        return ongoing.toString();
     }
 
     private static Set<String> submittedIssueIds(HttpServletRequest request, String parameter) {
@@ -4687,29 +4691,15 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     protected String createIssueString(Set<CaseManagementIssue> issuelist) {
         if (issuelist.isEmpty())
             return "";
-        String rt = "\n[" + relateIssueString;
-        Iterator<CaseManagementIssue> itr = issuelist.iterator();
-        while (itr.hasNext()) {
-            CaseManagementIssue iss = itr.next();
-            rt = rt + "\n" + iss.getIssue().getDescription() + "\t\t\n";
-            if (iss.isCertain())
-                rt = rt + ISSUE_CERTAIN + "  ";
-            else
-                rt = rt + "uncertain" + "  ";
-            if (iss.isAcute())
-                rt = rt + ISSUE_ACUTE + "  ";
-            else
-                rt = rt + "chronic" + "  ";
-            if (iss.isMajor())
-                rt = rt + ISSUE_MAJOR + "  ";
-            else
-                rt = rt + "not major" + "  ";
-            if (iss.isResolved())
-                rt = rt + ISSUE_RESOLVED;
-            else
-                rt = rt + "unresolved";
+        StringBuilder text = new StringBuilder("\n[").append(relateIssueString);
+        for (CaseManagementIssue issue : issuelist) {
+            text.append('\n').append(issue.getIssue().getDescription()).append("\t\t\n")
+                    .append(issue.isCertain() ? ISSUE_CERTAIN : "uncertain").append("  ")
+                    .append(issue.isAcute() ? ISSUE_ACUTE : "chronic").append("  ")
+                    .append(issue.isMajor() ? ISSUE_MAJOR : "not major").append("  ")
+                    .append(issue.isResolved() ? ISSUE_RESOLVED : "unresolved");
         }
-        return rt + "]\n";
+        return text.append("]\n").toString();
     }
 
     protected CaseManagementIssue newIssueToCIssue(String demographicNo, Issue iss, Integer programId) {

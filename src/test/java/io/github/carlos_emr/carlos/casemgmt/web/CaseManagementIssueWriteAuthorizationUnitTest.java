@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.function.Function;
 
@@ -29,6 +30,27 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 @Tag("release-review")
 class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
+    @Test
+    void shouldPreserveTheOrderAndStatusText_whenRenderingRelatedIssues() {
+        var first = new CaseManagementIssue();
+        first.setId(71L);
+        first.setIssue(new Issue());
+        first.getIssue().setDescription("First synthetic issue");
+        first.setCertain(true);
+        first.setAcute(true);
+        first.setMajor(true);
+        first.setResolved(true);
+        var second = new CaseManagementIssue();
+        second.setId(72L);
+        second.setIssue(new Issue());
+        second.getIssue().setDescription("Second synthetic issue");
+        var action = mock(CaseManagementEntry2Action.class, CALLS_REAL_METHODS);
+
+        assertThat(action.createIssueString(new LinkedHashSet<>(List.of(first, second))))
+                .endsWith("\nFirst synthetic issue\t\t\ncertain  acute  major  resolved"
+                        + "\nSecond synthetic issue\t\t\nuncertain  chronic  not major  unresolved]\n");
+    }
+
     @Test
     void shouldRefuseIssueChangeBeforePersistence_whenCallerHasOnlyDemographicRead() throws Exception {
         var action = mock(CaseManagementEntry2Action.class, CALLS_REAL_METHODS);
