@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/admin/gate/ViewKeygenCreateKey2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "38d3b353689c5c4a3f1ee91f4be7cb50f4481aef"
+  },
+  "evidenceSha256": "7988d00e87b1ae847fb06b1b4e86f6bb65d2bc2e408d1a34e53c55c1b8889c44"
+}
