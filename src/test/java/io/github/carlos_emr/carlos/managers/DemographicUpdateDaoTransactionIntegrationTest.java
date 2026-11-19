@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.managers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -30,6 +31,7 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.sql.DataSource;
 
@@ -93,6 +95,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.webserv.rest.DemographicService;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.DemographicConverter;
+import io.github.carlos_emr.carlos.webserv.rest.response.ErrorResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicExtTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicTo1;
 import jakarta.persistence.EntityManager;
@@ -119,6 +122,12 @@ import jakarta.ws.rs.WebApplicationException;
  * {@code mariadb-native} lanes when {@code CARLOS_TEST_MARIADB_DAO=true}) refuses the write at
  * the patient row, after the archive row was inserted, or at one extension row, after earlier
  * extension rows were written. Committed state is then read on other connections.</p>
+ *
+ * <p>Two cases use the refusal a client can cause without any injected fault: a stored extension
+ * renamed onto a key the patient already holds violates {@code uk_demo_ext_single_value}. That
+ * write is an UPDATE of an existing row, which Hibernate defers, so the cases pin where the
+ * refusal is raised (by the update command, not by its caller's commit) and, on MariaDB, that the
+ * REST update answers it with its documented duplicate-key conflict.</p>
  *
  * @since 2026-11-19
  */
@@ -168,6 +177,15 @@ class DemographicUpdateDaoTransactionIntegrationTest {
     private static final String FAULT_ALERT = "FAKE-FAULT alert";
     private static final String UPDATE_AUDIT = "DemographicManager.updateDemographic";
     private static final String CUSTOM_FIELD_AUDIT = "DemographicManager.createUpdateDemographicCust";
+    private static final String EXTENSION_AUDIT = "DemographicManager.updateExtension";
+    /**
+     * Production's one-value-per-key index on {@code demographicExt}; a duplicate is MariaDB error 1062.
+     * The Flyway lanes have the shipped index, and {@link #prepare} gives a generated schema one of
+     * that name.
+     */
+    private static final String SINGLE_VALUE_KEY = "uk_demo_ext_single_value";
+    /** The key of the second extension {@link #storeHeldExtension} gives the patient. */
+    private static final String HELD_KEY = "hPhoneExt";
 
     @Autowired private DataSource dataSource;
     @Autowired private PlatformTransactionManager transactions;
@@ -196,13 +214,18 @@ class DemographicUpdateDaoTransactionIntegrationTest {
     @BeforeEach
     void prepare() {
         jdbc = new JdbcTemplate(dataSource);
-        if (!"flyway".equals(System.getenv("CARLOS_TEST_MARIADB_SCHEMA"))) {
+        if (!flywaySchema()) {
             // Demographic's read-only formulas refer to these legacy lookup tables.
             // The Flyway lanes use the shipped definitions without alteration.
             jdbc.execute("CREATE TABLE IF NOT EXISTS admission(client_id INT, admission_status VARCHAR(20), program_id INT)");
             jdbc.execute("CREATE TABLE IF NOT EXISTS program(id INT, type VARCHAR(20))");
             jdbc.execute("CREATE TABLE IF NOT EXISTS health_safety(demographic_no INT)");
             jdbc.execute("CREATE TABLE IF NOT EXISTS lst_gender(code VARCHAR(10), description VARCHAR(100))");
+            // One row per patient and key, as the shipped index enforces for every key these tests use.
+            // Hibernate does not generate it, and a duplicate is how MariaDB refuses a stored extension
+            // renamed onto a key the patient already holds.
+            jdbc.execute("CREATE UNIQUE INDEX IF NOT EXISTS " + SINGLE_VALUE_KEY
+                    + " ON demographicExt (demographic_no, key_val)");
         }
         previousAuditDao = ReflectionTestUtils.getField(LogAction.class, "oscarLogDao");
         ReflectionTestUtils.setField(LogAction.class, "oscarLogDao", auditLogs);
@@ -290,6 +313,37 @@ class DemographicUpdateDaoTransactionIntegrationTest {
                 .satisfies(failure -> assertThat(rootCauseMessage(failure)).containsIgnoringCase(EXTENSION_FAULT));
 
         assertNothingOfTheUpdateRemains(auditsBefore);
+    }
+
+    @Test
+    @DisplayName("should raise a refused change to a stored extension itself, before the caller's transaction commits")
+    void shouldRaiseTheRefusalItself_whenAStoredExtensionTakesAHeldKey() {
+        long auditsBefore = audits(UPDATE_AUDIT);
+        long extensionAuditsBefore = audits(EXTENSION_AUDIT);
+        storeHeldExtension();
+        Demographic changed = storedPatient();
+        changed.setFirstName("Changed");
+        DemographicExt renamed = existingExtension("555-0199");
+        renamed.setKey(HELD_KEY);
+        changed.setExtras(new DemographicExt[] { renamed });
+        AtomicReference<RuntimeException> raisedByTheCommand = new AtomicReference<>();
+
+        // A stored row is changed by an UPDATE that Hibernate leaves for the next flush. Left for the
+        // commit of the transaction the command joined (here the caller's, as in the REST update), the
+        // database's refusal would arrive after the caller's own code had finished.
+        new TransactionTemplate(transactions).executeWithoutResult(caller -> {
+            try {
+                manager.updateDemographic(actor, changed);
+            } catch (RuntimeException refusal) {
+                raisedByTheCommand.set(refusal);
+                caller.setRollbackOnly();
+            }
+        });
+
+        assertThat(raisedByTheCommand.get()).as("the refusal, raised by the update command").isNotNull()
+                .satisfies(refusal -> assertThat(rootCauseMessage(refusal)).containsIgnoringCase(SINGLE_VALUE_KEY));
+        assertNothingOfTheUpdateRemains(auditsBefore, "demo_cell=555-0100", HELD_KEY + "=42");
+        assertThat(audits(EXTENSION_AUDIT)).as("extension audit rows").isEqualTo(extensionAuditsBefore);
     }
 
     @Test
@@ -421,6 +475,36 @@ class DemographicUpdateDaoTransactionIntegrationTest {
 
         assertNothingOfTheUpdateRemains(auditsBefore);
         assertNoCompanionWriteRemains(customFieldAuditsBefore);
+    }
+
+    @Test
+    @DisplayName("should answer the duplicate-key conflict and keep nothing when a stored extension takes a key the patient holds")
+    void shouldAnswerTheDuplicateKeyConflict_whenAStoredExtensionTakesAHeldKey() {
+        long auditsBefore = audits(UPDATE_AUDIT);
+        long customFieldAuditsBefore = audits(CUSTOM_FIELD_AUDIT);
+        long extensionAuditsBefore = audits(EXTENSION_AUDIT);
+        storeHeldExtension();
+        DemographicTo1 data = restPayload("Changed");
+        data.getExtras().add(extensionPayload(extensionId, HELD_KEY, "555-0199"));
+
+        Throwable refusal = catchThrowable(() -> put(data));
+
+        if (physicalMariaDb()) {
+            // The contract clients are given: the same answer as for two new extensions with one key.
+            assertThat(refusal).isInstanceOfSatisfying(WebApplicationException.class, conflict -> {
+                assertThat(conflict.getResponse().getStatus()).isEqualTo(409);
+                assertThat(conflict.getResponse().getEntity()).isInstanceOfSatisfying(ErrorResponse.class,
+                        error -> assertThat(error.getCode()).isEqualTo("DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY"));
+            });
+        } else {
+            // H2 reports a duplicate under its own error code, which the resource does not take for
+            // MariaDB's 1062, so here the refusal is only shown to be the database's.
+            assertThat(refusal).isNotNull();
+            assertThat(rootCauseMessage(refusal)).containsIgnoringCase(SINGLE_VALUE_KEY);
+        }
+        assertNothingOfTheUpdateRemains(auditsBefore, "demo_cell=555-0100", HELD_KEY + "=42");
+        assertNoCompanionWriteRemains(customFieldAuditsBefore);
+        assertThat(audits(EXTENSION_AUDIT)).as("extension audit rows").isEqualTo(extensionAuditsBefore);
     }
 
     @Test
@@ -618,6 +702,23 @@ class DemographicUpdateDaoTransactionIntegrationTest {
         return extension;
     }
 
+    /** Gives the patient a second stored extension, under {@link #HELD_KEY}. */
+    private void storeHeldExtension() {
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            DemographicExt held = newExtension(HELD_KEY, "42");
+            held.setProviderNo(SEEDING_USER);
+            em.persist(held);
+        });
+    }
+
+    private static boolean flywaySchema() {
+        return "flyway".equals(System.getenv("CARLOS_TEST_MARIADB_SCHEMA"));
+    }
+
+    private static boolean physicalMariaDb() {
+        return "true".equals(System.getenv("CARLOS_TEST_MARIADB_DAO"));
+    }
+
     /** A complete REST payload for the stored patient that also changes the companion records. */
     private DemographicTo1 restPayload(String firstName) {
         DemographicTo1 data = new DemographicConverter().getAsTransferObject(actor, storedPatient());
@@ -665,10 +766,15 @@ class DemographicUpdateDaoTransactionIntegrationTest {
     // ------------------------------------------------------------------ committed state
 
     private void assertNothingOfTheUpdateRemains(long auditsBefore) {
+        assertNothingOfTheUpdateRemains(auditsBefore, "demo_cell=555-0100");
+    }
+
+    /** As above, for a patient whose stored extensions are {@code storedExtensions}. */
+    private void assertNothingOfTheUpdateRemains(long auditsBefore, String... storedExtensions) {
         assertThat(patientFirstName()).as("patient row").isEqualTo("Original");
         assertThat(patientUpdatedBy()).as("patient row attribution").isEqualTo(SEEDING_USER);
         assertThat(archivedPatientRows()).as("demographicArchive rows").isZero();
-        assertThat(extensionValues()).as("demographicExt rows").containsExactly("demo_cell=555-0100");
+        assertThat(extensionValues()).as("demographicExt rows").containsExactlyInAnyOrder(storedExtensions);
         assertThat(archivedExtensionValues()).as("demographicExtArchive rows").isEmpty();
         assertThat(audits(UPDATE_AUDIT)).as("update audit rows").isEqualTo(auditsBefore);
         assertThat(mergeLinkIsIntact()).as("merge link").isTrue();

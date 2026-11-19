@@ -574,6 +574,10 @@ public class DemographicManagerImpl implements DemographicManager {
      * to the signed-in provider. The audit rows are written in the same transaction, so a failed
      * update leaves no record claiming that it happened.</p>
      *
+     * <p>A change to a stored extension is executed before this method returns, as the insert of
+     * a new one is, so a refusal by the database (for example a key the patient already holds) is
+     * thrown by this call and not by the caller's commit.</p>
+     *
      * <p>Pass a copy of the patient, not the stored row changed in place: a caller already inside
      * a transaction holds the stored row itself, and the archive would then record the new values
      * (see {@code DemographicProviderReassignmentService}).</p>
@@ -603,12 +607,22 @@ public class DemographicManagerImpl implements DemographicManager {
         demographic.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
         demographicDao.save(demographic);
 
+        boolean changedStoredExtension = false;
         if (demographic.getExtras() != null) {
             for (DemographicExt ext : demographic.getExtras()) {
+                changedStoredExtension |= ext.isPersistent();
                 updateExtension(loggedInInfo, ext);
                 LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.updateDemographic ext",
                         extensionAuditData(ext));
             }
+        }
+        if (changedStoredExtension) {
+            // A new extension row is inserted as it is saved, but the UPDATE of a stored one waits for
+            // the next flush, which would otherwise be the commit of whichever transaction this command
+            // joined. The database can refuse it (a key the patient already holds violates
+            // uk_demo_ext_single_value), and a refusal at the commit reaches the caller after its own
+            // code has finished: the REST update then answers 500 instead of the conflict it documents.
+            demographicExtDao.flush();
         }
 
         // --- log action ---

@@ -1203,6 +1203,46 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
         }
 
         @Test
+        @DisplayName("should execute a changed stored extension before the update returns")
+        void shouldFlushExtensionWrites_whenAStoredExtensionIsChanged() {
+            Demographic updated = createTestDemographicWithId(TEST_DEMO_NO);
+            DemographicExt stored = createTestDemographicExt(TEST_DEMO_NO, "demo_cell", "555-0100");
+            stored.setId(65);
+            DemographicExt changed = createTestDemographicExt(TEST_DEMO_NO, "hPhoneExt", "555-0100");
+            changed.setId(65);
+            updated.setExtras(new DemographicExt[] {changed});
+            when(mockDemographicDao.getDemographicById(TEST_DEMO_NO)).thenReturn(createTestDemographicWithId(TEST_DEMO_NO));
+            // By the Integer id, as the manager reads it: find(int) is a different overload.
+            when(mockDemographicExtDao.find(changed.getId())).thenReturn(stored);
+
+            manager.updateDemographic(mockLoggedInInfo, updated);
+
+            // The database answers the UPDATE at the flush; the update is audited only after it.
+            var order = inOrder(mockDemographicExtDao);
+            order.verify(mockDemographicExtDao).saveEntity(changed);
+            order.verify(mockDemographicExtDao).flush();
+            logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(
+                    mockLoggedInInfo, "DemographicManager.updateDemographic", "demographicNo=" + TEST_DEMO_NO));
+        }
+
+        @Test
+        @DisplayName("should leave pending writes to the transaction when no stored extension is changed")
+        void shouldNotFlush_whenNoStoredExtensionIsChanged() {
+            Demographic updated = createTestDemographicWithId(TEST_DEMO_NO);
+            DemographicExt added = createTestDemographicExt(TEST_DEMO_NO, "hPhoneExt", "42");
+            added.setId(null);
+            updated.setExtras(new DemographicExt[] {added});
+            when(mockDemographicDao.getDemographicById(TEST_DEMO_NO)).thenReturn(createTestDemographicWithId(TEST_DEMO_NO));
+
+            manager.updateDemographic(mockLoggedInInfo, updated);
+
+            // A new row is inserted as it is saved. Bulk callers (provider reassignment) update many
+            // patients in one transaction, and a flush per patient would re-check every row they hold.
+            verify(mockDemographicExtDao).saveEntity(added);
+            verify(mockDemographicExtDao, never()).flush();
+        }
+
+        @Test
         @DisplayName("should add demographic without admission")
         void shouldAddDemographic_withoutAdmission() {
             Demographic demographic = createTestDemographic();

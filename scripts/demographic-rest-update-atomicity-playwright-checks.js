@@ -17,6 +17,10 @@
  * and an earlier extension have been written) fails, and the database is exactly as step 1 left it.
  * The failed call is still recorded in the web-service access log, which is written outside the
  * transaction; no audit row claims the update happened.
+ * Step 3: an update that renames the stored extension to a key the patient already holds violates
+ * the same index, but as an UPDATE of an existing row, which the application executes later than
+ * the INSERT of a new one. It is answered and rolled back exactly as step 2 is; it used to be
+ * refused only when the transaction committed and reported as HTTP 500.
  *
  * The patient is the runWorkflow fixture (last name = this run's FAKE-PW<hex> marker, which the
  * updates keep). The waiting list is a list of its own, named by the marker, so renumbering it
@@ -127,15 +131,16 @@ async function workflow(s) {
     h.assert(audits(ACCESS_SUCCESS) === accessBefore + 1, 'The successful call was not recorded in the access log');
   });
 
-  await s.step('an update whose last extension is refused leaves every record as it was', async () => {
+  /**
+   * Sends an update the database refuses for a duplicate extension key. The client must be told so
+   * (HTTP 409 with the documented code), and nothing of the update may have been stored.
+   * `refusedValues` matches the extension values only this update carries.
+   */
+  const expectDuplicateKeyConflict = async (what, data, refusedValues) => {
     const before = state();
     const failuresBefore = audits(ACCESS_FAILURE);
-    const response = await s.context.request.put(endpoint, {
-      data: update('Refused', 2, [extra('demo_cell', `${s.marker}-cell2`, cell),
-        extra('cytolNum', `${s.marker}-dupA`), extra('cytolNum', `${s.marker}-dupB`)]),
-      maxRedirects: 0,
-    });
-    h.assert(response.status() === 409, `a duplicate-key update expected HTTP 409, received ${response.status()}`);
+    const response = await s.context.request.put(endpoint, { data, maxRedirects: 0 });
+    h.assert(response.status() === 409, `${what} expected HTTP 409, received ${response.status()}`);
     const failure = await response.json().catch(() => null);
     h.assert(failure?.code === 'DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY',
       'the response did not identify the duplicate demographic extension key');
@@ -144,9 +149,23 @@ async function workflow(s) {
     const after = state();
     h.assert(after === before, `The refused update left changes behind.\nbefore: ${before}\nafter:  ${after}`);
     // Found by value: a row the rollback orphaned would not be found through the patient.
-    h.assert(count('SELECT COUNT(*) FROM demographicExt WHERE value LIKE ?', [`${s.marker}-dup%`]) === 0,
+    h.assert(count('SELECT COUNT(*) FROM demographicExt WHERE value LIKE ?', [refusedValues]) === 0,
       'The refused update left an extension behind');
     h.assert(audits(ACCESS_FAILURE) === failuresBefore + 1, 'The refused call was not recorded as a failure in the access log');
+  };
+
+  await s.step('an update whose last extension is refused leaves every record as it was', async () => {
+    await expectDuplicateKeyConflict('a duplicate-key update',
+      update('Refused', 2, [extra('demo_cell', `${s.marker}-cell2`, cell),
+        extra('cytolNum', `${s.marker}-dupA`), extra('cytolNum', `${s.marker}-dupB`)]),
+      `${s.marker}-dup%`);
+  });
+
+  await s.step('a stored extension renamed onto a key the patient already holds is refused the same way', async () => {
+    // Step 1 left the patient a stored hPhoneExt; this gives the stored demo_cell row that key.
+    await expectDuplicateKeyConflict('renaming a stored extension onto a held key',
+      update('Renamed', 3, [extra('hPhoneExt', `${s.marker}-cell3`, cell)]),
+      `${s.marker}-cell3`);
   });
 }
 
