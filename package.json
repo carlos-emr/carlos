@@ -1041,6 +1041,7 @@
     "test:server-table-installed-playwright": "node scripts/server-table-installed-playwright-checks.js",
     "test:admin-keygen-create-key-retry-playwright": "node scripts/admin-keygen-create-key-retry-playwright-checks.js",
     "test:admin-jobs-save-browser": "node --test scripts/admin-jobs-save-browser-checks.js",
+    "test:fax-configuration-save-playwright": "node scripts/fax-configuration-save-playwright-checks.js",
     "test:admin-issue-editor-save": "node scripts/admin-issue-editor-save-playwright-checks.js",
     "test:admin-facility-disable-playwright": "node scripts/admin-facility-disable-playwright-checks.js",
     "test:playwright:log-provider-order": "node scripts/log-provider-order-playwright-checks.js",

@@ -886,6 +886,7 @@
         "packaged-full",
         "installed-package-reinstall",
         "manual-report-configured-jasper",
+        "manual-fax-configuration-save",
         "manual-log-provider-order"
       ]
     },
@@ -8274,6 +8275,43 @@
         "java": "25"
       },
       "timeoutSeconds": 3600
+    },
+    {
+      "id": "manual-fax-configuration-save",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "fax-configuration-save"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "fax-configuration-save",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
     },
     {
       "id": "manual-log-provider-order",
