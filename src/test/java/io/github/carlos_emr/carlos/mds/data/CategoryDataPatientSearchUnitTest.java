@@ -76,7 +76,8 @@ class CategoryDataPatientSearchUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void captureQueries() {
-        registerMock(SystemPreferencesDao.class, mock(SystemPreferencesDao.class));
+        registerMock(io.github.carlos_emr.carlos.commn.service.InboxDateSearchTypeResolver.class,
+                new io.github.carlos_emr.carlos.commn.service.InboxDateSearchTypeResolver(mock(SystemPreferencesDao.class)));
         EntityManagerFactory factory = mock(EntityManagerFactory.class);
         entityManager = mock(EntityManager.class);
         registerMock(EntityManagerFactory.class, factory);
@@ -85,7 +86,7 @@ class CategoryDataPatientSearchUnitTest extends CarlosUnitTestBase {
         when(entityManager.createNativeQuery(anyString(), eq(Tuple.class))).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of());
 
-        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao(mock(SystemPreferencesDao.class));
+        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao();
         org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", entityManager);
         registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class, dao);
         when(entityManager.createNativeQuery(anyString(), eq(Tuple.class))).thenAnswer(invocation -> {
@@ -163,7 +164,7 @@ class CategoryDataPatientSearchUnitTest extends CarlosUnitTestBase {
 
     private RecordingTransactionManager installTransactionalDao() {
         var transactions = new RecordingTransactionManager();
-        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao(mock(SystemPreferencesDao.class));
+        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao();
         org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", entityManager);
         var interceptor = new TransactionInterceptor();
         interceptor.setTransactionManager(transactions);

@@ -226,6 +226,15 @@ public class LogoutBroadcastFilter implements Filter {
             delegatingResponse.completeWithoutInjection();
             return;
         }
+        if ("HEAD".equals(httpRequest.getMethod())
+                && !delegatingResponse.isResponseWriterObtained()
+                && !delegatingResponse.isResponseOutputStreamObtained()) {
+            // DefaultServlet supplies metadata without a GET body for HEAD. Creating
+            // a body here makes an outer capture advertise only this script's length.
+            // A decorated GET length is unknown, so omit it without opening a channel.
+            delegatingResponse.setHeader("Content-Length", null);
+            return;
+        }
         if (delegatingResponse.isHtmlInjectionBufferUnavailable()) {
             logger.warn("Skipping logout broadcast script injection because the HTML response buffer "
                     + "could not be enlarged before body content was written: uri={}",

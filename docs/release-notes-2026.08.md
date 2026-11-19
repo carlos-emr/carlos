@@ -1,5 +1,23 @@
 # CARLOS 2026.08 release notes
 
+## Note lock recovery
+
+When another window takes a note lock, a refused toolbar save now explains that
+the lock was lost and tells the clinician to copy their text and reopen the chart.
+The draft remains available, and autosave stops for that editor. Opening a different
+editor restores its own saving. Close still asks before discarding unsaved text,
+dates or issue changes, including after a lock is lost.
+
+## New-appointment day-sheet acknowledgment
+
+Opening or printing the new-appointments day sheet is read-only. Appointment
+writers must use **Acknowledge new appointments** to mark the displayed rows as
+Daysheet Printed. The form now carries the displayed appointment IDs and versions.
+Appointments booked or edited after preview are left unchanged, with a skipped
+count in the result; preview again before acknowledging them. Repeating the same
+submission does not acquire newly booked appointments or create duplicate archives.
+Incomplete, malformed or oversized selections are refused before any update.
+
 ## Audit identifiers after model diagnostic redaction
 
 Demographic-extension, consent-type, appointment and disease-registry creation audit
@@ -19,6 +37,18 @@ Single-point and constant-value measurement charts now draw useful markers and a
 Point labels retain Java HALF_EVEN rounding and the server's locale/date conventions.
 Graph failures return explicit 422, 500 or 503 responses; embedded lab and medication
 graphs provide a visible retry control.
+Graphs opened in their own window (measurement history, Health Tracker, flowsheets) say
+what went wrong: the drawing service is busy or not running, or an unexpected problem was
+logged (each with a Retry button); or which stored values cannot be drawn and why, naming
+the measurement type or lab test, such as a blood pressure not in the form 120/80 or a
+value with no date (without Retry). The page is styled like the CARLOS error page.
+The medication-profile graph keeps its default height up to 20 drugs, then grows 30 px per
+drug; 11 to 19 drugs no longer draw a shorter chart than 10.
+Measurement, lab and medication graphs are drawn by the bundled render browser that eForm
+print and fax use. Graphs have one browser of their own beside the two they share with
+eForm PDFs, so a graph no longer waits behind PDF renders while its own browser is free;
+while every browser is busy, or the service is down, graphs ask to be retried. A standalone
+WAR without the render-browser service shows no graphs.
 
 Qualified bounds such as `<5` continue to plot as 5 pending the clinical decision in
 [#6118](https://github.com/carlos-emr/carlos/issues/6118). The parser reads left to right in one pass. It accepts one
@@ -389,6 +419,9 @@ not subsequent chart changes. Messenger encounter attachments are labelled
 **Historical encounter** snapshots, consultation/form prefills use CPP, and
 legacy encounter-editor writes return HTTP 410. Historical chart print access
 remains read-only and patient-scoped.
+Messenger's Attach Patient window also offers **All current chart notes and CPP**:
+every current note and the CPP from the modern chart, as the chart prints them,
+without locked notes. Preview is audited like the chart print, and so is attaching.
 
 Keep the same external file, `AbandonOldChart=true` and the original encryption
 key on rollback. Restoring an older false/absent flag while retaining modern-only
@@ -401,7 +434,9 @@ and [modern chart cutover and rollback](modern-chart-cutover.md).
 MariaDB Connector/J 3.5.11 replaces MySQL Connector/J. The compatibility adapter
 accepts legacy driver names and MySQL-style URLs, including those still produced
 by the pinned `carlos-ctl` 1.3.1 for **new** packaged installs. WAR/devcontainer
-defaults use the native MariaDB driver and URL. Configuration that requests
+defaults use the native MariaDB driver and URL. In MySQL-style configuration,
+Connector/J's `yes`/`no` values for Boolean options keep working; native
+`jdbc:mariadb:` URLs follow MariaDB's own Boolean values. Configuration that requests
 non-UTF-8 `characterEncoding`, non-utf8mb4 `connectionCollation`, DNS SRV (`dnsSrv`),
 or explicit FIPS/JSSE provider selection is refused rather than silently ignored.
 Review overrides and TLS requirements against the
@@ -469,6 +504,9 @@ See [Jasper/OpenPDF migration](jasperreports-openpdf3.md).
     blank values. Commenting the line out in `/etc/carlos-emr/carlos.properties` brings back the
     shipped filter.
   - Measurements filed earlier keep their values.
+- Graphs use a third render browser of their own, so the packaged render-browser
+  unit's memory ceiling rises by one browser's peak, 300 MiB (`MemoryHigh=1324M`,
+  `MemoryMax=1836M`). Raise any local override of those limits to match.
 - displaytag, JFreeChart, production POI and Selenium are removed from the WAR.
   `/taglibs.jsp` no longer declares `display` or `display-el` prefixes.
   Table paging/sorting is client-side, so old displaytag `d-…-p/s/o` bookmarks
@@ -481,7 +519,16 @@ It also covers object diagnostics/equality, audit text and JavaScript encoding.
 
 ### HTTP responses, permissions and validation
 
-- REST list pagination rejects negative offsets with HTTP 400.
+- REST demographic and pharmacy lists reject negative offsets or limits, and
+  limits above 500 patients or 5000 pharmacies, with HTTP 400. Clients that used
+  `limit=-1` or `offset=-1` must send a supported page size and a nonnegative
+  offset instead. See the [REST list contract](api-collections-index.md#rest-list-pagination-and-demographic-validation).
+- REST demographic creation and update reject over-length values in fields
+  checked by `Demographic.validateFieldLengths()` with HTTP 400 and a `text/plain`
+  body naming the fields and limits. Checked fields include names, pronouns,
+  gender, title, addresses and contact details. JSON/XML clients
+  must handle this plain-text error response; submitted patient values are not
+  included.
 - Email-resolution requests distinguish invalid input (400), missing records
   (404) and conflicting identity (409). Manage Emails requires `_email` READ
   for viewing and WRITE for mutations; update custom role assignments.

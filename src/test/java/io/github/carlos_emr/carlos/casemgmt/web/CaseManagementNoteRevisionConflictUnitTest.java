@@ -225,6 +225,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         when(manager.saveCompactNoteRevision(any(), any(), anyList(), any())).thenThrow(snapshotConflict());
         assertThat(action.ajaxsave()).isNull();
         assertDraftRetained("Original");
+        assertThat(response.getHeader("X-Carlos-Note-Lock-Lost")).isNull();
     }
 
     @ParameterizedTest
@@ -1028,7 +1029,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         checkbox.setIssue(issue);
         form.getIssueCheckList().add(checkbox);
         var originalIssues = form.getIssueCheckList();
-        action.setDeleteId("0");
+        request.setParameter("caseIssueId", "71");
 
         assertThat(action.issueDelete()).isEqualTo("ajaxStaleSelection".equals(scenario) ? "none" : "windowCloseError");
 
@@ -1077,6 +1078,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         assertThat(action.save()).isEqualTo("windowCloseError");
 
         assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getHeader("X-Carlos-Note-Lock-Lost")).isEqualTo("true");
         assertThat(request.getAttribute("unsavedNoteText")).isEqualTo("Unsaved draft");
         assertThat(note.getNote()).isEqualTo("Original");
         verify(manager, never()).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),

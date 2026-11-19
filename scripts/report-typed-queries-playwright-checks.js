@@ -9,6 +9,15 @@ async function workflow(s) {
   const page = await s.context.newPage();
   const base = String(s.config.baseUrl).replace(/\/$/, '');
   let reportId, billingId;
+  // #5831: a report's WHERE predicates are its stored reportFilter rows; a request only ticks
+  // filter_<order no> and supplies bound ${...} values, and SQL posted in value_<n> is ignored.
+  // The owned report's filters are removed with it by the cleanup above.
+  function storeFilter(orderNo, predicate) {
+    h.assert(/^[1-9]\d*$/.test(String(reportId)), 'The owned report is required before its filters');
+    sql.execute('DELETE FROM reportFilter WHERE report_id=? AND order_no=?', [reportId, orderNo]);
+    sql.execute(`INSERT INTO reportFilter (report_id,description,value,position,status,order_no,javascript,date_format)
+      VALUES (?,?,?,'',1,?,'','')`, [reportId, `${marker} filter ${orderNo}`, predicate, orderNo]);
+  }
   const roleProvider = `R${marker.slice(-5)}`;
   let ownsRoleProvider = false;
   let extensionPatient, ownsExtensionPatient = false;
@@ -98,6 +107,9 @@ async function workflow(s) {
       const targetRow = page.locator(`input[name="nameSelected"][value="${target}"]`).locator('xpath=ancestor::tr[1]');
       await Promise.all([page.waitForEvent('framenavigated', {predicate: frame => frame === page.mainFrame()}),
         targetRow.locator('input[type="submit"][name="submit"]').click()]);
+      // A frame commits before the replacement HTML is parsed. Keep the blank/error
+      // checks, but apply them to the completed document rather than its empty body.
+      await page.waitForLoadState('domcontentloaded');
       await h.assertNotErrorPage(page, 'report field move');
       h.assert(metadata() === before, 'Move here deleted or changed configured field metadata');
       h.assert(JSON.stringify(rows().map(row => row[0])) === JSON.stringify(expected),
@@ -189,9 +201,10 @@ async function workflow(s) {
     await page.goto(`${base}/report/ViewReportFormRecord`);
     const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
     async function verifyCohort() {
+      storeFilter(1, `demographic.demographic_no IN (${patient},${extensionPatient})`);
       const response = await s.context.request.post(`${base}/report/ViewReportResult`, {headers:{'CSRF-TOKEN':token}, form:{
-        'CSRF-TOKEN':token, submit:'Report in CSV', demoReport:'true', last_name:'on', first_name:'on',
-        prefer_language:'on', filter_1:'on', value_1:`demographic.demographic_no IN (${patient},${extensionPatient})`, dateFormat_1:''
+        'CSRF-TOKEN':token, submit:'Report in CSV', demoReport:'true', id:reportId, last_name:'on', first_name:'on',
+        prefer_language:'on', filter_1:'on'
       }});
       h.assert(response.status() === 200, `The cohort extension CSV failed with HTTP ${response.status()}`);
       const rows = (await response.text()).trimEnd().split(/\r?\n/).map(line => line.split('\t'));
@@ -214,9 +227,10 @@ async function workflow(s) {
     for (const [value, expected] of [['=1+1', '"\t=1+1"'], ['-5', '-5']]) {
       sql.execute('UPDATE demographicExt SET value=? WHERE demographic_no=? AND provider_no=? AND key_val=?',
         [value, extensionPatient, provider, 'prefer_language']);
+      storeFilter(1, `demographic.demographic_no IN (${patient},${extensionPatient})`);
       const response = await s.context.request.post(`${base}/report/ViewReportResult`, {headers:{'CSRF-TOKEN':token}, form:{
-        'CSRF-TOKEN':token, submit:'Report in CSV', demoReport:'true', last_name:'on', first_name:'on',
-        prefer_language:'on', filter_1:'on', value_1:`demographic.demographic_no IN (${patient},${extensionPatient})`, dateFormat_1:''
+        'CSRF-TOKEN':token, submit:'Report in CSV', demoReport:'true', id:reportId, last_name:'on', first_name:'on',
+        prefer_language:'on', filter_1:'on'
       }});
       h.assert(response.status() === 200, 'The guarded extension CSV failed');
       const lines = (await response.text()).trimEnd().split(/\r?\n/);
@@ -229,18 +243,26 @@ async function workflow(s) {
     // An authenticated form POST exercises the gated CSV dispatch and its download response.
     await page.goto(`${base}/report/ViewReportFormRecord`);
     const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    storeFilter(1, `demographic.demographic_no=${patient}`);
+    // The posted value_1 is a decoy: only the stored predicate may select the cohort (#5831).
     const response = await s.context.request.post(`${base}/report/ViewReportResult`, {headers:{'CSRF-TOKEN':token},form:{
-      'CSRF-TOKEN':token, submit:'Report in CSV', demoReport:'true', last_name:'on', filter_1:'on',
-      value_1:`demographic.demographic_no=${patient}`, dateFormat_1:''
+      'CSRF-TOKEN':token, submit:'Report in CSV', demoReport:'true', id:reportId, last_name:'on', filter_1:'on',
+      value_1:'1=1', dateFormat_1:''
     }});
     h.assert(response.status()===200, `CSV failed with HTTP ${response.status()}`);
     h.assert((response.headers()['content-disposition'] || '').startsWith('attachment;'), 'CSV lost its attachment response header');
     h.assert((response.headers()['content-type'] || '').includes('text/csv'), 'CSV lost its content type');
     const csv = await response.text();
     h.assert(csv.includes(marker) && csv.includes('Last Name'), 'CSV omitted the selected synthetic demographic or header');
+    h.assert(csv.trimEnd().split(/\r?\n/).length === 2, 'CSV followed the posted value_1 instead of the stored filter');
+    const unknown = await s.context.request.post(`${base}/report/ViewReportResult`, {headers:{'CSRF-TOKEN':token},form:{
+      'CSRF-TOKEN':token, submit:'Report in CSV', demoReport:'true', id:reportId, last_name:'on', filter_9:'on',
+      value_9:'1=1', dateFormat_9:''
+    }});
+    h.assert(unknown.status() === 400, `A filter the report does not define answered HTTP ${unknown.status()}, not 400`);
+    storeFilter(1, 'demographic.missing_report_column_5549=1');
     const failed = await s.context.request.post(`${base}/report/ViewReportResult`, {headers:{'CSRF-TOKEN':token},form:{
-      'CSRF-TOKEN':token, submit:'Report in CSV', demoReport:'true', last_name:'on', filter_1:'on',
-      value_1:'demographic.missing_report_column_5549=1', dateFormat_1:''
+      'CSRF-TOKEN':token, submit:'Report in CSV', demoReport:'true', id:reportId, last_name:'on', filter_1:'on'
     }});
     h.assert(failed.status() === 500, 'Failed gated CSV query did not retain its HTTP error status');
   });

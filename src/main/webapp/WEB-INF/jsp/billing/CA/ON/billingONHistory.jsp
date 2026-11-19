@@ -95,7 +95,7 @@
 <c:if test="${historyModel.partial}">
     <div style="background:#fff3cd;color:#7a5b00;border:1px solid #d4a700;padding:8px;margin:4px 0;">
         <strong>Billing history may be incomplete.</strong>
-        A loader error truncated this list — please refresh or contact admin before
+        A loader error truncated this list &#8212; please refresh or contact admin before
         re-billing this patient.
     </div>
 </c:if>

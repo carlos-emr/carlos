@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "953aca0a408f6d30d294c13da3f462d75a595ae0",
+  "comparisonSha256": "072a7d76a64470869855d3b31627cb3714b165573307a616095a53edac57717c",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgAttachPDF2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "b2284864be83e5b16ba615de4d5ee6c72d3a065e"
+    }
+  },
+  "baselineCommit": "355e4761b4f2c97e7f1ea391059580fd083a207b",
+  "baselineSourceTree": "953aca0a408f6d30d294c13da3f462d75a595ae0",
+  "baselineReportSha256": "81b9032e571ad73550b922753a2eb1677d218fa7460bf495b6cea9beb488cbde",
+  "baselineLane": "Messenger attachment action and Tomcat recovery dispatch",
+  "baselineTestCounts": {
+    "tests": 40,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "8ac2b1b4edb9d40d7ed8efe6dafd106dc25163c3ab6ee5e3502eec2cb5c47a86",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachPDF2ActionUnitTest",
+    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachmentRefusalIntegrationTest"
+  ]
+}

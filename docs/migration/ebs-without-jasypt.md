@@ -46,10 +46,10 @@ is not an interoperable replacement.
 
 The EBS `ClientPasswordCallback` has never supplied WSS4J's
 `PASSWORD_ENCRYPTOR_PASSWORD` callback, so `ENC(...)` properties were not a
-supported EBS configuration. They continue to fail. Inbound loading reports an
-explicit migration message; CXF's existing outbound fallback can instead report
-a keystore-loading error.
-They are never passed through as plaintext or decrypted using a guessed key.
+supported EBS configuration. Outbound signing rejects these values before the
+SOAP request is sent and returns migration guidance in the operation error.
+Inbound decryption retains that guidance in the error's cause. The errors omit
+the encrypted value.
 
 Before upgrading any locally customized deployment that does use `ENC(...)`:
 

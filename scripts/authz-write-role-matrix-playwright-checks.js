@@ -270,9 +270,9 @@ async function issueChange(s, { restricted, restrictedToken, fullToken, name, ca
     h.assert(captured.status === 200, `Choosing Resolved in the full login's chart answered HTTP ${captured.status}`);
     await R.expectCount(sql, 'casemgmt_issue', `id=${issueRow} AND resolved=1`, 1, 'The full login\'s own issueChange did not resolve the issue');
 
-    const field = [...captured.body.keys()].map((key) => /^issueCheckList\[(\d+)\]\.issue\.resolved$/.exec(key)).find(Boolean);
-    h.assert(field, 'The captured issueChange carries no issueCheckList[N].issue.resolved field');
-    overrides = { [`issueCheckList[${field[1]}].issue.major`]: 'true' };
+    h.assert(captured.body.get('caseIssueId') === issueRow && captured.body.get('issueResolved') === 'true',
+      'The captured issue change does not target the owned issue and resolved flag');
+    overrides = { issueMajor: 'true' };
 
     // Positive control: the request the probe sends, from the login that may write, writes both flags.
     reseed();
