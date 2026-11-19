@@ -1,0 +1,241 @@
+{
+  "description": "Spreadsheet formula-guard cell policy (issue #5846). Read by SpreadsheetCsvUnitTest (the server, SpreadsheetCsv.sanitizeCell) and scripts/table-export.test.js (the page, TableExport.sanitizeCell in js/table-export.js) so CSV exports built on either side guard the same cells. 'expected' is the cell text before CSV quoting: a guarded cell gains a leading tab.",
+  "cases": [
+    {
+      "input": "=1+1",
+      "expected": "\t=1+1"
+    },
+    {
+      "input": "+SUM(A1)",
+      "expected": "\t+SUM(A1)"
+    },
+    {
+      "input": "-cmd",
+      "expected": "\t-cmd"
+    },
+    {
+      "input": "@SUM(A1)",
+      "expected": "\t@SUM(A1)"
+    },
+    {
+      "input": "  =1+1",
+      "expected": "\t  =1+1"
+    },
+    {
+      "input": " \t@SUM(A1)",
+      "expected": "\t \t@SUM(A1)"
+    },
+    {
+      "input": "\tname",
+      "expected": "\t\tname"
+    },
+    {
+      "input": "\rname",
+      "expected": "\t\rname"
+    },
+    {
+      "input": "\nname",
+      "expected": "\t\nname"
+    },
+    {
+      "input": "\r\n=1+1",
+      "expected": "\t\r\n=1+1"
+    },
+    {
+      "input": "\u0000=1+1",
+      "expected": "\t\u0000=1+1"
+    },
+    {
+      "input": "\u001b+1",
+      "expected": "\t\u001b+1"
+    },
+    {
+      "input": "\u00a0=1+1",
+      "expected": "\t\u00a0=1+1"
+    },
+    {
+      "input": "\u2003@SUM(A1)",
+      "expected": "\t\u2003@SUM(A1)"
+    },
+    {
+      "input": "\ufeff=1+1",
+      "expected": "\t\ufeff=1+1"
+    },
+    {
+      "input": "\uff1d1+1",
+      "expected": "\t\uff1d1+1"
+    },
+    {
+      "input": "\uff0bSUM(A1)",
+      "expected": "\t\uff0bSUM(A1)"
+    },
+    {
+      "input": "\uff0dcmd",
+      "expected": "\t\uff0dcmd"
+    },
+    {
+      "input": "\uff20SUM(A1)",
+      "expected": "\t\uff20SUM(A1)"
+    },
+    {
+      "input": " \ufeff\uff1d1+1",
+      "expected": "\t \ufeff\uff1d1+1"
+    },
+    {
+      "input": "-",
+      "expected": "\t-"
+    },
+    {
+      "input": "-.",
+      "expected": "\t-."
+    },
+    {
+      "input": "-e2",
+      "expected": "\t-e2"
+    },
+    {
+      "input": "-1e",
+      "expected": "\t-1e"
+    },
+    {
+      "input": "-1E+",
+      "expected": "\t-1E+"
+    },
+    {
+      "input": "-1e2+3",
+      "expected": "\t-1e2+3"
+    },
+    {
+      "input": "--12",
+      "expected": "\t--12"
+    },
+    {
+      "input": "-12.5.6",
+      "expected": "\t-12.5.6"
+    },
+    {
+      "input": "-NaN",
+      "expected": "\t-NaN"
+    },
+    {
+      "input": "-Infinity",
+      "expected": "\t-Infinity"
+    },
+    {
+      "input": "\t-12.5",
+      "expected": "\t\t-12.5"
+    },
+    {
+      "input": "\r-12.5",
+      "expected": "\t\r-12.5"
+    },
+    {
+      "input": "\n-12.5",
+      "expected": "\t\n-12.5"
+    },
+    {
+      "input": "-1+2",
+      "expected": "\t-1+2"
+    },
+    {
+      "input": "-1E3+2",
+      "expected": "\t-1E3+2"
+    },
+    {
+      "input": "-cmd|x",
+      "expected": "\t-cmd|x"
+    },
+    {
+      "input": "=HYPERLINK(\"synthetic\",\"quoted,\r\nvalue\")",
+      "expected": "\t=HYPERLINK(\"synthetic\",\"quoted,\r\nvalue\")"
+    },
+    {
+      "input": "",
+      "expected": ""
+    },
+    {
+      "input": "Zo\u00eb",
+      "expected": "Zo\u00eb"
+    },
+    {
+      "input": "O'Neil",
+      "expected": "O'Neil"
+    },
+    {
+      "input": "a,b",
+      "expected": "a,b"
+    },
+    {
+      "input": "a\"b",
+      "expected": "a\"b"
+    },
+    {
+      "input": "a\r\nb",
+      "expected": "a\r\nb"
+    },
+    {
+      "input": "value=1",
+      "expected": "value=1"
+    },
+    {
+      "input": "42",
+      "expected": "42"
+    },
+    {
+      "input": "-12",
+      "expected": "-12"
+    },
+    {
+      "input": "-12.50",
+      "expected": "-12.50"
+    },
+    {
+      "input": "-0",
+      "expected": "-0"
+    },
+    {
+      "input": "-.5",
+      "expected": "-.5"
+    },
+    {
+      "input": "-1.",
+      "expected": "-1."
+    },
+    {
+      "input": "-1.2E-7",
+      "expected": "-1.2E-7"
+    },
+    {
+      "input": "-2e+10",
+      "expected": "-2e+10"
+    },
+    {
+      "input": "  ordinary text",
+      "expected": "  ordinary text"
+    },
+    {
+      "input": "  -12.50",
+      "expected": "  -12.50"
+    },
+    {
+      "input": "\u00a0-12.50",
+      "expected": "\u00a0-12.50"
+    },
+    {
+      "input": "\u2003-1.2E-7",
+      "expected": "\u2003-1.2E-7"
+    },
+    {
+      "input": "\ufeff-12.50",
+      "expected": "\ufeff-12.50"
+    },
+    {
+      "input": "-0.01",
+      "expected": "-0.01"
+    },
+    {
+      "input": "-123",
+      "expected": "-123"
+    }
+  ]
+}

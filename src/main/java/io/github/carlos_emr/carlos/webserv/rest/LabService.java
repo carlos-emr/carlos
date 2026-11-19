@@ -99,6 +99,8 @@ public class LabService extends AbstractServiceImpl {
     public LabResponse getHl7LabsByDemographicNo(@QueryParam("demographicNo") int demographicNo, @QueryParam("offset") int offset, @QueryParam("limit") int limit) {
 //	public LabResponse getHl7LabsByDemographicNo() {
 
+        // A negative or oversized page reached the DAO and surfaced as a 500 (#6038).
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiPages.requireValidPage(offset, limit);
         LabResponse response = new LabResponse();
 
         List<Hl7TextMessage> hl7TextMessages = labManager.getHl7Messages(getLoggedInInfo(), demographicNo, offset, limit);
