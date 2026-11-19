@@ -293,10 +293,20 @@ public class RptDemographicQuery2Builder {
                 theFirstFlag = 1;
                 String paramName = "provider" + i;
                 params.put(paramName, providers[i]);
+                String providerPredicate = " d.provider_no = :" + paramName;
+                if (asofRosterDate != null) {
+                    // An "as of" report asks who was rostered to the provider on that date, which
+                    // the per-row history check below decides. Filtering on the patient's current
+                    // provider here dropped patients who were the provider's then but have since
+                    // moved (#5877), so also admit patients any archived period assigns to them.
+                    providerPredicate = " ( d.provider_no = :" + paramName
+                            + " or d.demographic_no in (select da.demographic_no from demographicArchive da"
+                            + " where da.provider_no = :" + paramName + ") )";
+                }
                 if (i == (providers.length - 1)) {
-                    stringBuffer.append(" d.provider_no = :" + paramName + " )");
+                    stringBuffer.append(providerPredicate + " )");
                 } else {
-                    stringBuffer.append(" d.provider_no = :" + paramName + " or  ");
+                    stringBuffer.append(providerPredicate + " or  ");
                 }
             }
         }
@@ -424,10 +434,11 @@ public class RptDemographicQuery2Builder {
                     //Only checking the first doc.  Only one should be included for finding the cumulative bonus
                     try {
                         if (!PreventionReportUtil.wasRosteredToThisProvider(loggedInInfo, Integer.parseInt(demoNo), DateUtils.parseDate(asofRosterDate, null), providers[0])) {
-                            MiscUtils.getLogger().info("Demographic :" + demoNo + " was not included in returned array because they were not rostered to " + providers[0] + " on " + asofRosterDate);
+                            // Patient and provider numbers stay out of the log: this runs for every candidate row.
+                            MiscUtils.getLogger().debug("Report row left out: not rostered to the selected provider on the as-of date");
                             continue;
                         } else {
-                            MiscUtils.getLogger().info("Demographic :" + demoNo + " was included in returned array because they were not rostered to " + providers[0] + " on " + asofRosterDate);
+                            MiscUtils.getLogger().debug("Report row kept: rostered to the selected provider on the as-of date");
                         }
                     } catch (NumberFormatException e) {
                         MiscUtils.getLogger().error("Error", e);
