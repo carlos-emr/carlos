@@ -170,10 +170,10 @@ class LegacyLabNativeMariaDbIntegrationTest extends CarlosTestBase {
                 .setParameter(1, patient).executeUpdate();
         // Labs: 41 observed in January but received in March; 42 observed in December but received
         // in January; 43 is unmatched, observed in January and received in March.
-        Object[][] labs = {{1900577941, "2026-01-10", "2026-03-05 10:00:00", true},
+        Object[][] labFixtures = {{1900577941, "2026-01-10", "2026-03-05 10:00:00", true},
                 {1900577942, "2025-12-01", "2026-01-10 09:00:00", true},
                 {1900577943, "2026-01-10", "2026-03-05 10:00:00", false}};
-        for (Object[] lab : labs) {
+        for (Object[] lab : labFixtures) {
             em.createNativeQuery("INSERT INTO hl7TextInfo (lab_no,accessionNum,result_status,obr_date,report_status) VALUES (?1,?2,'A',?3,'F')")
                     .setParameter(1, lab[0]).setParameter(2, "FAKE-" + lab[0]).setParameter(3, lab[1]).executeUpdate();
             em.createNativeQuery("INSERT INTO hl7TextMessage (lab_id,fileUploadCheck_id,message,type,serviceName,created)"
@@ -186,10 +186,10 @@ class LegacyLabNativeMariaDbIntegrationTest extends CarlosTestBase {
         }
         // Documents: 44 observed in January, created in March; 45 observed in December, created in
         // January; 46 is unmatched, observed in March and created in January.
-        Object[][] documents = {{1900577944, "2026-01-10", "2026-03-05 10:00:00", patient},
+        Object[][] documentFixtures = {{1900577944, "2026-01-10", "2026-03-05 10:00:00", patient},
                 {1900577945, "2025-12-01", "2026-01-10 09:00:00", patient},
                 {1900577946, "2026-03-05", "2026-01-10 08:00:00", -1}};
-        for (Object[] document : documents) {
+        for (Object[] document : documentFixtures) {
             em.createNativeQuery("INSERT INTO document (document_no,docdesc,docfilename,doccreator,responsible,status,contenttype,"
                     + "restrictToProgram,abnormal,observationdate,contentdatetime) VALUES (?1,'FAKE-dates','fake.pdf',?2,?2,'A',"
                     + "'application/pdf',0,0,?3,?4)")
