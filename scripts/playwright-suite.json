@@ -19559,6 +19559,23 @@
       "notes": "#5928: installed Client Search bounds data and HTML to 10 rows, retains note identity and criteria drafts through repeated POST paging with fresh CSRF, applies global sorting and native Soundex paging; BC tray bounds each page to 50 rows and preserves both unsaved fee codes."
     },
     {
+      "name": "privacy-html-range",
+      "script": "scripts/privacy-html-range-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": [
+        "MYSQL_PASSWORD"
+      ],
+      "notes": "Issue #5782. Authenticated HTTP protocol checks against the actual installed DefaultServlet: full HTML carries the privacy notice, a single byte range preserves exact bytes and Content-Range, and an ignored If-Range returns a decorated full response.",
+      "fixtures": "Read-only packaged /usr/share/carlos-emr/webapp/carlos/gpl.htm and a configured confidentiality statement. No clinical fixtures or configuration changes."
+    },
+    {
       "name": "report-blob-text-readers",
       "script": "scripts/report-blob-text-readers-playwright-checks.js",
       "tiers": [
@@ -19592,6 +19609,52 @@
       ],
       "fixtures": "Requires a disposable host with no active fax account. Snapshots and byte-exactly restores the complete inactive fax_config table; the owned account and inbound polling stay disabled. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#5783: verifies actual admin save/reset wiring and masked-credential roundtrip without contacting SRFax. Capped backoff and next-poll behavior are independently covered by real importer/action regressions."
+    },
+    {
+      "name": "consultation-health-care-team",
+      "script": "scripts/consultation-health-care-team-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "profile": "consult-health-care-team",
+      "notes": "#6201: unmapped and mapped HCT roles fill contact details and persist the correct service/contact identity; owned fixtures only.",
+      "fixtures": "Owned synthetic patient, professional contact, patient HCT link, consultation service and requests; request descendants and signatures removed by owned keys. These rows are in shared lists, so this check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "Contact",
+        "DemographicContact",
+        "consultationServices",
+        "consultationRequests",
+        "consultationRequestExt",
+        "consultationRequestExtArchive",
+        "consultationRequestsArchive",
+        "consultdocs",
+        "DigitalSignature"
+      ]
+    },
+    {
+      "name": "forms-default-heading",
+      "script": "scripts/forms-default-heading-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON",
+        "BC"
+      ],
+      "timeoutSec": 180,
+      "manual": true,
+      "mutates": [
+        "demographic",
+        "eform"
+      ],
+      "fixtures": "Requires a disposable exclusive host. Creates a synthetic patient and one active eForm template, reads the forms REST endpoint and removes both owned fixtures on exit. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#3093: the installed authenticated REST surface returns the available-form list when heading is omitted, preserves empty/unrecognized-heading behavior and keeps Completed scoped to the owned patient."
     },
     {
       "name": "provider-document-queue-security",

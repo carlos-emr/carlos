@@ -27,6 +27,9 @@ key would make encrypted data unreadable after restart.
    key, then move the legacy file out of the startup search path. The startup
    listener loads home-directory properties after the explicit override, so a
    stale home file can replace the override's settings and key.
+   Startup now warns with both absolute paths when those files differ. The last
+   successfully loaded external file remains the persistence destination; a
+   generated-key notice names that destination without printing the key.
 2. Set `-Dcarlos_override_properties=/absolute/path/to/carlos.properties` in
    Tomcat's `CATALINA_OPTS`. The Tomcat service account must be able to read it.
    Set `AbandonOldChart=true` in that file before startup, or allow CARLOS to
@@ -97,6 +100,11 @@ or decrypted credentials while troubleshooting.
   `debian/assets/bin/carlos-emr-tomcat` selects it with
   `-Dcarlos_override_properties`. The installer and CLI manage this external
   configuration. Loading demonstration data does not change that path.
+  The packaged pre-start check requires an existing valid key and never generates
+  one. If a restored configuration lacks its key, restore the original before
+  starting the service. An unreadable explicit override is a startup error with
+  that override's path; CARLOS does not continue using bundled defaults. Local
+  POSIX record locking must work on the configuration filesystem.
 - Ad-hoc WAR and CI smoke deployments must supply a durable external file.
   With read-only configuration, provision both the valid key and
   `AbandonOldChart=true` before startup. With writable configuration, CARLOS

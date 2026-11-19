@@ -70,6 +70,7 @@ import io.github.carlos_emr.carlos.managers.AppointmentUpdateException;
 import io.github.carlos_emr.carlos.managers.AppointmentManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ScheduleManager;
+import io.github.carlos_emr.carlos.managers.ScheduleManager.AppointmentUpdateAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -302,13 +303,20 @@ public class ScheduleService extends AbstractServiceImpl {
     }
 
     private Appointment updateVersionedAppointment(Integer id, AppointmentTo1 submitted, Consumer<Appointment> edit) {
+        return updateVersionedAppointment(id, submitted, AppointmentUpdateAction.UPDATE, edit);
+    }
+
+    private Appointment updateVersionedAppointment(Integer id, AppointmentTo1 submitted,
+            AppointmentUpdateAction auditAction, Consumer<Appointment> edit) {
         if (submitted == null) {
             throw new WebApplicationException(Response.status(Status.BAD_REQUEST)
                     .entity("Appointment payload is required").build());
         }
         try {
             // Validation and all mutations run under the shared manager's row lock.
-            return scheduleManager.updateAppointment(getLoggedInInfo(), id, appointmentWriteVersion(submitted), edit);
+            return auditAction == AppointmentUpdateAction.UPDATE
+                    ? scheduleManager.updateAppointment(getLoggedInInfo(), id, appointmentWriteVersion(submitted), edit)
+                    : scheduleManager.updateAppointment(getLoggedInInfo(), id, appointmentWriteVersion(submitted), auditAction, edit);
         } catch (AppointmentUpdateException e) {
             Status status = switch (e.getReason()) {
                 case MISSING_VERSION -> Status.BAD_REQUEST;
@@ -400,7 +408,7 @@ public class ScheduleService extends AbstractServiceImpl {
             throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         }
 
-        Appointment appointment = updateVersionedAppointment(id, appt,
+        Appointment appointment = updateVersionedAppointment(id, appt, AppointmentUpdateAction.STATUS,
                 current -> current.setStatus(appt.getStatus()));
         SchedulingResponse response = new SchedulingResponse();
         response.setAppointment(new AppointmentConverter().getAsTransferObject(getLoggedInInfo(), appointment));
@@ -416,7 +424,7 @@ public class ScheduleService extends AbstractServiceImpl {
             throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         }
 
-        Appointment appointment = updateVersionedAppointment(id, appt,
+        Appointment appointment = updateVersionedAppointment(id, appt, AppointmentUpdateAction.TYPE,
                 current -> current.setType(appt.getType()));
         SchedulingResponse response = new SchedulingResponse();
         response.setAppointment(new AppointmentConverter().getAsTransferObject(getLoggedInInfo(), appointment));
@@ -432,7 +440,7 @@ public class ScheduleService extends AbstractServiceImpl {
             throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         }
 
-        Appointment appointment = updateVersionedAppointment(id, appt,
+        Appointment appointment = updateVersionedAppointment(id, appt, AppointmentUpdateAction.URGENCY,
                 current -> current.setUrgency(appt.getUrgency()));
         SchedulingResponse response = new SchedulingResponse();
         response.setAppointment(new AppointmentConverter().getAsTransferObject(getLoggedInInfo(), appointment));

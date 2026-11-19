@@ -2,10 +2,12 @@
 # Copyright (C) 2026 CARLOS Contributors
 """Run the shipped postinst cutover against retained operator configuration."""
 
+import base64
 import os
 import re
 import stat
 import subprocess
+import shlex
 import tempfile
 import unittest
 from pathlib import Path
@@ -27,6 +29,18 @@ def migration_block():
 
 
 class TestModernChartCutover(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.compilation = tempfile.TemporaryDirectory()
+        cls.addClassCleanup(cls.compilation.cleanup)
+        cls.classes = Path(cls.compilation.name)
+        runtime = Path(os.environ.get("JAVA_HOME", "/usr")) / "bin"
+        cls.java = runtime / "java"
+        source = ROOT / "src/main/java/io/github/carlos_emr/carlos/config/PackagedConfigurationPreflight.java"
+        fixture = ROOT / "debian/assets/tests/fixtures/ConfigurationPreflightFixture.java"
+        subprocess.run([str(runtime / "javac"), "--release", "25", "-d", str(cls.classes),
+                        str(source), str(fixture)], check=True, capture_output=True, text=True)
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -37,7 +51,11 @@ class TestModernChartCutover(unittest.TestCase):
     def command(self, lock_held="1"):
         env = dict(os.environ, PROVISION_LOCK_HELD=lock_held,
                    PROPERTIES=str(self.properties), STARTED=str(self.started))
-        return ["sh", "-c", "set -e\n" + migration_block()
+        launcher = shlex.join([str(self.java), "-cp", str(self.classes),
+                               "io.github.carlos_emr.carlos.config.ConfigurationPreflightFixture"])
+        block = migration_block().replace("/usr/lib/carlos-emr/carlos-emr-config-preflight reconcile",
+                                          launcher + ' reconcile "$PROPERTIES"')
+        return ["sh", "-c", "set -e\n" + block
                 + '\nprintf started > "$STARTED"\n'], env
 
     def run_block(self, lock_held="1"):
@@ -102,11 +120,106 @@ class TestModernChartCutover(unittest.TestCase):
         self.assertFalse(self.started.exists())
         self.assertTrue(self.properties.is_dir())
 
-    def test_no_rewrite_without_provisioning_lock(self):
+    def test_deferred_configure_still_persists_the_flag(self):
         original = self.write_properties(b"AbandonOldChart=false\n")
         result = self.run_block(lock_held="0")
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.properties.read_bytes(), original + ENTRY)
+
+    def test_effective_true_is_unchanged_even_when_other_settings_follow_it(self):
+        original = self.write_properties(b"AbandonOldChart=true\n")
+        result = self.run_block()
+        self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.properties.read_bytes(), original)
+
+    def test_actual_java_escape_and_continuation_semantics_select_true(self):
+        for setting in (b"AbandonOldCh\\u0061rt : true\n", b"AbandonOldChart=tr\\\n ue\n"):
+            with self.subTest(setting=setting):
+                original = self.write_properties(setting)
+                result = self.run_block()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(self.properties.read_bytes(), original)
+
+    def test_upgrade_status_agrees_with_actual_java_properties(self):
+        source = (ROOT / 'scripts/deb-upgrade-baseline.sh').read_text()
+        function = re.search(r'\nproperties_without_cutover\(\) \{.*?\n\}', source, re.S).group(0)
+        cases = (b'AbandonOldChart=true\nother=retained\n', b'AbandonOldChart=false\n',
+                 b'AbandonOldCh\\u0061rt : true\n', b'AbandonOldChart=tr\\\n ue\n',
+                 b'AbandonOldChart=true\nAbandonOldCh\\art=false\n',
+                 b'  ! AbandonOldChart=false\\\nAbandonOldChart=true\n',
+                 b'AbandonOldChart\\ =true\n', b'AbandonOldChart=TRUE\r\n# later comment\n')
+        for data in cases:
+            with self.subTest(data=data):
+                self.properties.write_bytes(data)
+                expected = subprocess.run([str(self.java), '-cp', str(self.classes),
+                    'io.github.carlos_emr.carlos.config.ConfigurationPreflightFixture', 'status', str(self.properties)],
+                    capture_output=True, text=True, check=True).stdout
+                actual = subprocess.run(['bash', '-c', function + '\nproperties_without_cutover status'],
+                    env={**os.environ, 'CARLOS_ETC_DIR': str(self.root)}, capture_output=True, text=True, check=True).stdout
+                self.assertEqual(actual, expected)
+
+    def test_explicit_false_override_is_announced_without_printing_its_value(self):
+        self.write_properties(b"AbandonOldChart=FAKE-sensitive-setting\n")
+        result = self.run_block()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("overriding", result.stderr)
+        self.assertNotIn("FAKE-sensitive-setting", result.stderr)
+
+    def test_provisioning_flock_is_not_reacquired_by_the_prestart(self):
+        import fcntl
+        self.write_properties(b"AbandonOldChart=false\n")
+        with (self.root / ".finish-install.lock").open("w") as held:
+            fcntl.flock(held, fcntl.LOCK_EX)
+            result = self.run_block(lock_held="0")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_service_user_verification_keeps_key_and_home_precedence(self):
+        key = b"encryption.util.secret.key=" + base64.b64encode(bytes(range(16))) + b"\n"
+        self.properties.write_bytes(key + b"AbandonOldChart=true\n")
+        home = self.root / "home.properties"
+        home.write_bytes(key + b"other=keep\n")
+        command = [str(self.java), "-cp", str(self.classes),
+                   "io.github.carlos_emr.carlos.config.ConfigurationPreflightFixture",
+                   "verify", str(self.properties), str(home)]
+        result = subprocess.run(command, capture_output=True, text=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("loads after", result.stderr)
+        self.assertTrue(home.read_bytes().startswith(key + b"other=keep\n"))
+        self.assertNotIn(key.decode().strip(), result.stderr)
+        self.assertEqual(self.properties.read_bytes(), key + b"AbandonOldChart=true\n")
+
+    def test_invalid_or_missing_key_refuses_without_creating_one(self):
+        for key in (b"", b"encryption.util.secret.key=FAKE-invalid-secret\n"):
+            with self.subTest(key=key):
+                original = key + b"AbandonOldChart=true\n"
+                self.properties.write_bytes(original)
+                result = subprocess.run([str(self.java), "-cp", str(self.classes),
+                    "io.github.carlos_emr.carlos.config.ConfigurationPreflightFixture",
+                    "verify", str(self.properties), str(self.root / "missing-home")],
+                    capture_output=True, text=True, check=False)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(self.properties.read_bytes(), original)
+                self.assertNotIn("FAKE-invalid-secret", result.stderr)
+
+    def test_service_jvm_uses_the_override_and_refuses_a_different_loaded_key(self):
+        build = ROOT / "debian/build-configuration-preflight.sh"
+        subprocess.run(["sh", str(build), str(self.root)], cwd=ROOT, check=True, capture_output=True)
+        self.properties.write_text("AbandonOldChart=true\n")
+        override = self.root / "configured override.properties"
+        override.write_text("AbandonOldChart=true\nencryption.util.secret.key=AAAAAAAAAAAAAAAAAAAAAA==\n")
+        home = self.root / "home"
+        home.mkdir()
+        command = [str(self.java),
+                   f"-javaagent:{self.root / 'carlos-configuration-preflight.jar'}={self.properties}",
+                   f"-Dcarlos_override_properties={override}", f"-Duser.home={home}",
+                   "-cp", str(self.classes), "io.github.carlos_emr.carlos.config.ConfigurationPreflightFixture",
+                   "verify-loaded-key"]
+        subprocess.run([*command, str(override)], check=True, capture_output=True)
+        different = self.root / "different.properties"
+        different.write_text("AbandonOldChart=true\nencryption.util.secret.key=AQAAAAAAAAAAAAAAAAAAAA==\n")
+        refused = subprocess.run([*command, str(different)], capture_output=True, text=True)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("packaged encryption key changed during startup", refused.stderr)
 
     def test_parallel_configures_append_one_complete_entry(self):
         original = self.write_properties(b"AbandonOldChart=false\n")
@@ -131,7 +244,11 @@ class TestModernChartCutover(unittest.TestCase):
         self.assertGreater(cutover, source.index("carlos-ctl init-config ||"))
         self.assertGreater(cutover, source.index("if ! carlos-ctl db-users; then"))
         self.assertLess(cutover, source.index('emr_verb=start', cutover))
-        self.assertIn('if [ "${PROVISION_LOCK_HELD}" = 1 ]', migration_block())
+        self.assertNotIn('if [ "${PROVISION_LOCK_HELD}" = 1 ]', migration_block())
+        service = (ROOT / "debian/carlos-emr.carlos-emr.service").read_text()
+        self.assertIn("ExecStartPre=+/usr/lib/carlos-emr/carlos-emr-config-preflight reconcile", service)
+        launcher = (ROOT / "debian/assets/bin/carlos-emr-tomcat").read_text()
+        self.assertIn("-javaagent:/usr/share/carlos-emr/lib/carlos-configuration-preflight.jar", launcher)
 
     def test_fresh_install_skeleton_explicitly_selects_modern_chart(self):
         settings = re.findall(r"^AbandonOldChart=(.*)$", SHIPPED.read_text(), re.M)
