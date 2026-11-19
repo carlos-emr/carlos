@@ -37,7 +37,8 @@ function loadHelper({ fetchImpl, inputCount = 1 }) {
     clearTimeout,
     console: { warn: (...args) => warnings.push(args.map(String).join(' ')) },
     document: {
-      querySelectorAll: () => inputs,
+      // Answer only the selector the helper is meant to use, so a wrong selector finds nothing.
+      querySelectorAll: (selector) => (selector === 'input[name="CSRF-TOKEN"]' ? inputs : []),
     },
   };
   context.window = {
@@ -220,10 +221,37 @@ test('the lab and document macro and comment POSTs ensure a token before fetch',
   const root = path.join(__dirname, '..', 'src', 'main', 'webapp', 'WEB-INF', 'jsp');
   const lab = fs.readFileSync(path.join(root, 'lab', 'CA', 'ALL', 'labDisplay.jsp'), 'utf8');
   const doc = fs.readFileSync(path.join(root, 'documentManager', 'showDocument.jsp'), 'utf8');
+  // The fetch must be issued inside the helper's .then(), so it waits for the token.
+  const chained = /carlosEnsureCsrfParam\(params,[^\n]*?\)\.then\(function \(\) \{\s*return fetch\(url, \{/g;
 
-  for (const [name, source, sites] of [['labDisplay.jsp', lab, 2], ['showDocument.jsp', doc, 1]]) {
+  // labDisplay: Add Comment, the macro link check and Run Macro; showDocument: the link check and Run Macro.
+  for (const [name, source, sites] of [['labDisplay.jsp', lab, 3], ['showDocument.jsp', doc, 2]]) {
     assert.doesNotMatch(source, /params\.has\(\s*['"]CSRF-TOKEN['"]\s*\)/, `${name} still treats an empty token as present`);
     assert.equal((source.match(/carlosEnsureCsrfParam\(params,/g) || []).length, sites, `${name} token-ensured POSTs`);
+    assert.equal((source.match(chained) || []).length, sites, `${name} POSTs wait for the token before fetch`);
     assert.match(source, /share\/javascript\/csrfTokenFetch\.js/, `${name} loads the helper`);
   }
+});
+
+test('ignores inputs the CSRF-TOKEN selector does not match', async () => {
+  let fetches = 0;
+  const helper = loadHelper({ fetchImpl: async () => { fetches += 1; return { ok: true, text: async () => TOKEN_SCRIPT }; } });
+  const first = vm.runInContext('carlosFirstCsrfToken', helper.context);
+
+  // Any other selector would read 'WRONG'; only the CSRF-TOKEN selector yields the page token.
+  helper.context.document.querySelectorAll = (selector) =>
+    (selector === 'input[name="CSRF-TOKEN"]' ? [{ value: '' }, { value: 'PAGE-TOKEN' }] : [{ value: 'WRONG' }]);
+  assert.equal(first(), 'PAGE-TOKEN');
+  assert.equal(fetches, 0);
+});
+
+test('rejects when the token request never answers', async () => {
+  const helper = loadHelper({ fetchImpl: () => new Promise(() => {}) });
+  const params = new URLSearchParams('a=1');
+
+  await assert.rejects(
+    vm.runInContext('carlosEnsureCsrfParam', helper.context)(params, '/carlos', 20),
+    /timed out/,
+  );
+  assert.equal(params.get('CSRF-TOKEN'), null);
 });

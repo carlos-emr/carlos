@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -69,10 +70,15 @@ class KeygenCreateKeyMethodUnitTest extends CarlosUnitTestBase {
         request.setMethod(method);
         request.addParameter("name", "probe-get");
 
-        assertThat(new ViewKeygenCreateKey2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(new ViewKeygenCreateKey2Action().execute())
+                .as("NONE: the key-creating createKey.jsp is never forwarded to")
+                .isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(405);
         assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        assertThat(response.getContentAsByteArray()).as("nothing is streamed").isEmpty();
+        // The privilege check is the only collaborator touched before the refusal.
         verify(security).hasPrivilege(user, "_admin", "w", null);
+        verifyNoMoreInteractions(security);
     }
 
     @Test

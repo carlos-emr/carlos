@@ -1188,12 +1188,15 @@ input[id^='acklabel_']{
     //first check to see if lab is linked, if it is, we can send the demographicNo to the macro
     function runMacro(name, formid, closeOnSuccess) {
         var url = '<%=request.getContextPath()%>/documentManager/inboxManage';
-        var data = 'method=isLabLinkedToDemographic&labid=<carlos:encode value='<%= segmentID %>' context="javaScript"/>&CSRF-TOKEN=' + encodeURIComponent(getCsrfToken());
-        fetch(url, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: data,
-            credentials: 'same-origin'
+        var params = new URLSearchParams({method: 'isLabLinkedToDemographic', labid: '<carlos:encode value='<%= segmentID %>' context="javaScript"/>'});
+        // The macro's link check is a POST too; it must not go out with an empty token either (#1408).
+        carlosEnsureCsrfParam(params, '<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>').then(function () {
+            return fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: params.toString(),
+                credentials: 'same-origin'
+            });
         })
         .then(function(response) { return response.json(); })
         .then(function(json) {

@@ -117,21 +117,35 @@ function carlosFirstCsrfToken() {
  *
  * @param {URLSearchParams} params - the request body; its CSRF-TOKEN is set in place
  * @param {string} contextPath - the application context path (e.g. "/carlos")
+ * @param {number} [timeoutMs=15000] - how long to wait for a token fetch before rejecting
  * @returns {Promise<URLSearchParams>} resolves with params once it carries a token;
  *                                     rejects when no token can be obtained
  */
-function carlosEnsureCsrfParam(params, contextPath) {
+function carlosEnsureCsrfParam(params, contextPath, timeoutMs) {
     var token = params.get('CSRF-TOKEN') || carlosFirstCsrfToken();
     if (token) {
         params.set('CSRF-TOKEN', token);
         return Promise.resolve(params);
     }
-    return fetchCsrfToken(contextPath).then(function () {
+    // A /csrfguard request that never answers must not leave the click silently waiting: give up
+    // after the deadline so the caller's error handling tells the user.
+    var deadline = typeof timeoutMs === 'number' ? timeoutMs : 15000;
+    var timer;
+    var timedOut = new Promise(function (resolve, reject) {
+        timer = setTimeout(function () {
+            reject(new Error('CSRF token request timed out'));
+        }, deadline);
+    });
+    return Promise.race([fetchCsrfToken(contextPath), timedOut]).then(function () {
+        clearTimeout(timer);
         var fetched = carlosFirstCsrfToken();
         if (!fetched) {
             throw new Error('CSRF token unavailable after fetch');
         }
         params.set('CSRF-TOKEN', fetched);
         return params;
+    }, function (err) {
+        clearTimeout(timer);
+        throw err;
     });
 }
