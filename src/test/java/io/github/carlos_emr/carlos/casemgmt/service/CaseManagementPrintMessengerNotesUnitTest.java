@@ -218,6 +218,18 @@ class CaseManagementPrintMessengerNotesUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should refuse the Messenger switch without the CPP, where hidden entries are recognised")
+    void shouldRefuseTheMessengerSwitch_withoutTheCpp() {
+        CaseManagementPrint print = messengerPrint();
+        try (var configuration = mockStatic(CarlosProperties.class)) {
+            configuration.when(CarlosProperties::getInstance).thenReturn(properties);
+            org.assertj.core.api.Assertions.assertThatIllegalStateException().isThrownBy(() ->
+                    print.doPrint(login, PATIENT, true, new String[0], false, false, false, false, false, false,
+                            null, null, chartRequest(), new ByteArrayOutputStream()));
+        }
+    }
+
+    @Test
     @DisplayName("should filter the Messenger attachment's notes by the program the session remembers for the chart")
     void shouldFilterTheMessengerAttachment_byTheChartsRememberedProgram() throws Exception {
         MockHttpServletRequest chart = new MockHttpServletRequest();
@@ -230,8 +242,12 @@ class CaseManagementPrintMessengerNotesUnitTest extends CarlosUnitTestBase {
             return given.stream().filter(note -> readable.contains(note.getId())).toList();
         });
         CaseManagementPrint print = messengerPrint();
+        // The composer's request is another request of the same session: no parameters, and none of the
+        // chart request's attributes, so the program can only come from what the session remembers.
+        MockHttpServletRequest messenger = new MockHttpServletRequest("POST", "/messenger/Doc2PDF");
+        messenger.setSession(chart.getSession());
 
-        List<CaseManagementNote> printed = printedNotes(print, parameterless(chart));
+        List<CaseManagementNote> printed = printedNotes(print, parameterless(messenger));
 
         assertThat(printed).containsExactly(current);
         // Once for the body and once per CPP issue code.

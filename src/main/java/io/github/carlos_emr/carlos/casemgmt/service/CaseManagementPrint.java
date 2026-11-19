@@ -165,7 +165,7 @@ public class CaseManagementPrint {
      * it such an entry is not in its CPP section, so it falls through into the notes body, as the
      * chart's own Print All has always printed it. The Messenger attachment of a patient's chart notes,
      * sent to a third party as "current" notes, uses this (#5856); it asks for the CPP, which is
-     * where those entries are recognised.
+     * where those entries are recognised, and a print with this switch but without the CPP is refused.
      */
     public void leaveOutArchivedAndHiddenNotes() {
         this.leaveOutArchivedAndHiddenNotes = true;
@@ -222,6 +222,10 @@ public class CaseManagementPrint {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use")
     public void doPrint(LoggedInInfo loggedInInfo, Integer demographicNo, boolean printAllNotes, String[] noteIds, boolean printCPP, boolean printRx, boolean printLabs, boolean printPreventions, boolean printAllergies, boolean useDateRange, Calendar startDate, Calendar endDate, HttpServletRequest request, OutputStream os) throws IOException, DocumentException {
+        if (leaveOutArchivedAndHiddenNotes && !printCPP) {
+            // Hidden CPP entries are recognised in the CPP step; without it they would reach the notes body.
+            throw new IllegalStateException("Leaving out hidden CPP entries needs the CPP printed");
+        }
 
         // Extensions read servlet parameters rather than this method's patient argument. Bind every
         // parameter view to the authorized patient so a query string cannot select a second chart.
