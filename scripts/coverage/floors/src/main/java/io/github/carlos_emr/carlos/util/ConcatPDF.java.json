@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/util/ConcatPDF.java",
   "kind": "floor",
   "floor": {
-    "lines": 91.52542372881356,
-    "instructions": 94.93087557603687,
+    "lines": 92.1875,
+    "instructions": 95.2991452991453,
     "branches": 100.0,
-    "sourceBlob": "7b1f5280b929b0cbeceb442dee3249ae9bef7d92"
+    "sourceBlob": "07636e417f1932f55ad7aa9f02c3c92ca4bf89d5"
   },
-  "evidenceSha256": "08bf119dec4f8910f7205ab2a4e55fd33174c68e49705bfe4397375d70df7090"
+  "evidenceSha256": "3f1a3bb967366e84bf429c9244c4485fde8f829332dc09ccdb8804078e54f0e2"
 }
