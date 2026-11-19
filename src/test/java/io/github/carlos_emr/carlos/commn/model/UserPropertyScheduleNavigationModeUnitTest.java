@@ -34,7 +34,7 @@ class UserPropertyScheduleNavigationModeUnitTest extends CarlosUnitTestBase {
     @DisplayName("should use saved mode when valid")
     void shouldUseSavedMode_whenValid() {
         String mode = UserProperty.resolveScheduleNavigationMode(
-                UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED, true);
+                UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED, false);
 
         assertThat(mode).isEqualTo(UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED);
     }
