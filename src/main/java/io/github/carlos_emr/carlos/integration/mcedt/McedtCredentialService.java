@@ -7,7 +7,6 @@ package io.github.carlos_emr.carlos.integration.mcedt;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.LockModeType;
 import jakarta.persistence.PersistenceContext;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -25,19 +24,26 @@ public class McedtCredentialService {
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
+    private record LegacyPassword(int id, String value) {}
+
     private void lockCredential() {
-        entityManager.createNativeQuery("SELECT id FROM mcedt_credential WHERE id = 1 FOR UPDATE", Integer.class)
+        entityManager.createNativeQuery(currentRows("SELECT id FROM mcedt_credential WHERE id = 1 FOR UPDATE"), Integer.class)
                 .getSingleResult();
     }
 
-    private List<UserProperty> legacyPasswords(boolean lock) {
-        var query = entityManager.createQuery(
-                "SELECT p FROM UserProperty p WHERE p.name = :name ORDER BY p.id", UserProperty.class)
-                .setParameter("name", UserProperty.MCEDT_ACCOUNT_PASSWORD);
+    private List<LegacyPassword> legacyPasswords(boolean lock) {
+        String sql = "SELECT p.id, p.value FROM property p WHERE p.name = :name ORDER BY p.id";
         if (lock) {
-            query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+            sql = currentRows(sql + " FOR UPDATE");
         }
-        return query.getResultList();
+        // Scalar values come from the current row, even if Hibernate already manages an
+        // earlier version of the corresponding preference in the caller's transaction.
+        return entityManager.unwrap(org.hibernate.Session.class).createNativeQuery(sql, Object[].class)
+                .addSynchronizedEntityClass(UserProperty.class)
+                .setParameter("name", UserProperty.MCEDT_ACCOUNT_PASSWORD)
+                .getResultList().stream()
+                .map(row -> new LegacyPassword(((Number) row[0]).intValue(), (String) row[1]))
+                .toList();
     }
 
     private boolean hasLegacyPassword() {
@@ -51,41 +57,29 @@ public class McedtCredentialService {
                 connection.getMetaData().getDatabaseProductName().equals("MariaDB"));
     }
 
-    private List<UserProperty> lockLegacyPasswordsAfterProbe() {
-        if (isMariaDb()) {
-            // Promote the nonlocking existence check to a current read, including commits
-            // after the probe established a snapshot. Keep the caller's settings intact.
-            return entityManager.unwrap(org.hibernate.Session.class).createNativeQuery(
-                            "SET STATEMENT innodb_snapshot_isolation=OFF FOR "
-                                    + "SELECT * FROM property WHERE name = :name ORDER BY id FOR UPDATE",
-                            UserProperty.class)
-                    .addSynchronizedEntityClass(UserProperty.class)
-                    .setParameter("name", UserProperty.MCEDT_ACCOUNT_PASSWORD).getResultList();
-        }
-        return legacyPasswords(true);
+    /** Use a current row without changing the caller's transaction isolation settings. */
+    private String currentRows(String sql) {
+        return isMariaDb() ? "SET STATEMENT innodb_snapshot_isolation=OFF FOR " + sql : sql;
     }
 
     private void store(String encrypted, String actor) {
-        entityManager.createNativeQuery("UPDATE mcedt_credential SET encrypted_password = :password, "
-                        + "lastUpdateUser = :actor, lastUpdateDate = CURRENT_TIMESTAMP WHERE id = 1")
+        entityManager.createNativeQuery(currentRows("UPDATE mcedt_credential SET encrypted_password = :password, "
+                        + "lastUpdateUser = :actor, lastUpdateDate = CURRENT_TIMESTAMP WHERE id = 1"))
                 .setParameter("password", encrypted).setParameter("actor", actor).executeUpdate();
     }
 
-    private void removeLegacy(List<UserProperty> rows) {
+    private void removeLegacy(List<LegacyPassword> rows) {
         if (rows.isEmpty()) {
             return;
         }
-        // MariaDB snapshot isolation otherwise rejects cleanup when a legacy writer commits
-        // after the nonlocking read. Scope current-row deletion to this statement, preserving
-        // the caller's isolation and avoiding a second connection. The portable DELETE also
-        // guards the name so a row renamed into an ordinary preference cannot be erased.
-        String delete = (isMariaDb() ? "SET STATEMENT innodb_snapshot_isolation=OFF FOR " : "")
-                + "DELETE FROM property WHERE id = :id AND name = :name";
-        for (UserProperty row : rows) {
+        // Guard the name so a row renamed into an ordinary preference cannot be erased.
+        String delete = currentRows("DELETE FROM property WHERE id = :id AND name = :name");
+        for (LegacyPassword row : rows) {
+            // Remove any managed copy without reloading the value or flushing it after the delete.
+            entityManager.detach(entityManager.getReference(UserProperty.class, row.id()));
             entityManager.createNativeQuery(delete)
-                    .setParameter("id", row.getId())
+                    .setParameter("id", row.id())
                     .setParameter("name", UserProperty.MCEDT_ACCOUNT_PASSWORD).executeUpdate();
-            entityManager.detach(row);
         }
         entityManager.flush();
     }
@@ -120,7 +114,7 @@ public class McedtCredentialService {
             }
             String encrypted = EncryptionUtils.encrypt(password);
             lockCredential();
-            List<UserProperty> legacy = legacyPasswords(true);
+            List<LegacyPassword> legacy = legacyPasswords(true);
             store(encrypted, actor);
             removeLegacy(legacy);
         } catch (Exception failure) {
@@ -141,15 +135,19 @@ public class McedtCredentialService {
         try {
             // The singleton is a current locking read, serializing saves and first-read migration.
             String encrypted = (String) entityManager.createNativeQuery(
-                    "SELECT encrypted_password FROM mcedt_credential WHERE id = 1 FOR UPDATE", String.class).getSingleResult();
+                    currentRows("SELECT encrypted_password FROM mcedt_credential WHERE id = 1 FOR UPDATE"),
+                    String.class).getSingleResult();
             // A null singleton is normal with a configured or cleared password. Check for
             // migration without taking an index gap lock on the unrelated preference table.
             if (encrypted == null && !hasLegacyPassword()) {
                 return fallback;
             }
-            List<UserProperty> legacy = encrypted == null ? lockLegacyPasswordsAfterProbe() : legacyPasswords(false);
-            if (encrypted == null && !legacy.isEmpty()) {
-                encrypted = EncryptionUtils.encrypt(legacy.get(0).getValue());
+            List<LegacyPassword> legacy = legacyPasswords(encrypted == null);
+            if (encrypted == null) {
+                if (legacy.isEmpty()) {
+                    return fallback;
+                }
+                encrypted = EncryptionUtils.encrypt(legacy.getFirst().value());
                 store(encrypted, "mcedt-migration");
             }
             if (!EncryptionUtils.isEncrypted(encrypted)) {

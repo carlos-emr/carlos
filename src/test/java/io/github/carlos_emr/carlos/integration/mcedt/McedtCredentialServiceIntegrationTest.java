@@ -225,6 +225,42 @@ class McedtCredentialServiceIntegrationTest {
     @Test
     void shouldRejectOverlongInput_beforeMutatingStorage() {legacy("FAKE-before");assertStaticFailure(()->credentials.savePassword("x".repeat(4001)));assertNull(stored());assertEquals(1,legacyCount());}
     @Test
+    void shouldMigrateCurrentPreference_whenCallerAlreadyLoadedTheEntity() throws Exception {
+        int id = legacy("FAKE-initial");
+        try (var worker = Executors.newSingleThreadExecutor()) {
+            String password = tx.execute(status -> {
+                assertEquals("FAKE-initial", em.find(UserProperty.class, id).getValue());
+                CompletableFuture.runAsync(() -> tx.executeWithoutResult(other ->
+                        em.createNativeQuery("UPDATE property SET value = :value WHERE id = :id")
+                                .setParameter("value", "FAKE-current").setParameter("id", id).executeUpdate()), worker)
+                        .orTimeout(8, TimeUnit.SECONDS).join();
+
+                return credentials.getPassword("FAKE-fallback");
+            });
+
+            assertEquals("FAKE-current", password);
+            assertEquals("FAKE-current", EncryptionUtils.decrypt(stored()));
+            assertEquals(0, legacyCount());
+        }
+    }
+
+    @Test
+    void shouldReadCurrentCredential_whenCallerAlreadyHasAnUnrelatedSnapshot() throws Exception {
+        credentials.savePassword("FAKE-initial");
+        try (var worker = Executors.newSingleThreadExecutor()) {
+            String password = tx.execute(status -> {
+                em.createQuery("SELECT COUNT(p) FROM UserProperty p", Long.class).getSingleResult();
+                CompletableFuture.runAsync(() -> credentials.savePassword("FAKE-rotated"), worker)
+                        .orTimeout(8, TimeUnit.SECONDS).join();
+
+                return credentials.getPassword("FAKE-fallback");
+            });
+
+            assertEquals("FAKE-rotated", password);
+        }
+    }
+
+    @Test
     void shouldFailClosed_whenSingletonLockRecordIsMissing() {tx.executeWithoutResult(status->em.createNativeQuery("DELETE FROM mcedt_credential").executeUpdate());assertStaticFailure(()->credentials.savePassword("FAKE-value"));assertStaticFailure(()->credentials.getPassword("fallback"));}
 
     private <T> T contend(AtomicInteger session, AtomicInteger nativeTimeout,

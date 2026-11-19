@@ -66,9 +66,6 @@ public class User2Action extends ActionSupport {
         }
         request.getSession().setAttribute("mcedtUsername", CarlosProperties.getInstance().getProperty("mcedt.service.user")); // nosemgrep: tainted-session-from-http-request -- value from application properties
 
-        if (request.getSession().getAttribute("isPassChange") != null) {
-            request.getSession().removeAttribute("isPassChange");
-        }
 
         return SUCCESS;
     }
@@ -82,28 +79,20 @@ public class User2Action extends ActionSupport {
         if (actor == null) {
             throw new SecurityException("MCEDT password change requires an authenticated provider");
         }
-        String outcome;
+        boolean outcome;
         try {
             credentials.savePassword(getPassword(), actor);
-            outcome = "true";
+            outcome = true;
         } catch (RuntimeException failure) {
             MiscUtils.getLogger().warn("MCEDT password change failed; credential storage was not updated");
-            outcome = "false";
+            outcome = false;
         }
-        try {
-            session.setAttribute("isPassChange", outcome); // nosemgrep: tainted-session-from-http-request -- storage outcome selects a fixed literal
-        } catch (IllegalStateException invalidated) {
-            // A concurrent logout removes this request's feedback destination.
-            MiscUtils.getLogger().debug("MCEDT password change feedback session is no longer active");
-        }
+        request.setAttribute("isPassChange", outcome);
 
         return SUCCESS;
     }
 
     public String cancel() throws Exception {
-        if (request.getSession().getAttribute("isPassChange") != null) {
-            request.getSession().removeAttribute("isPassChange");
-        }
         if (request.getSession().getAttribute("mcedtUsername") != null) {
             request.getSession().removeAttribute("mcedtUsername");
         }

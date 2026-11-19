@@ -89,7 +89,7 @@ class McedtCredentialConsumerUnitTest extends CarlosUnitTestBase {
         var request=authenticatedRequest();
         try(MockedStatic<ServletActionContext> servlet=mockStatic(ServletActionContext.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
-            var action=new User2Action();action.setPassword("FAKE-input");assertEquals("success",action.changePassword());verify(credentials).savePassword("FAKE-input", AUDIT_ACTOR);assertEquals("true",request.getSession().getAttribute("isPassChange"));
+            var action=new User2Action();action.setPassword("FAKE-input");assertEquals("success",action.changePassword());verify(credentials).savePassword("FAKE-input", AUDIT_ACTOR);assertEquals(Boolean.TRUE,request.getAttribute("isPassChange"));
         }
     }
     @Test
@@ -99,7 +99,7 @@ class McedtCredentialConsumerUnitTest extends CarlosUnitTestBase {
         try(MockedStatic<ServletActionContext> servlet=mockStatic(ServletActionContext.class);
                 var log=LogCapture.forLogger(User2Action.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
-            var action=new User2Action();action.setPassword("FAKE-input");assertEquals("success",action.changePassword());assertEquals("false",request.getSession().getAttribute("isPassChange"));
+            var action=new User2Action();action.setPassword("FAKE-input");assertEquals("success",action.changePassword());assertEquals(Boolean.FALSE,request.getAttribute("isPassChange"));
             assertEquals(List.of("MCEDT password change failed; credential storage was not updated"), log.messages());
             assertNull(log.events().getFirst().getThrown());
         }
@@ -113,14 +113,38 @@ class McedtCredentialConsumerUnitTest extends CarlosUnitTestBase {
             session.invalidate();
             return null;
         }).when(credentials).savePassword("FAKE-input", AUDIT_ACTOR);
-        try (var servlet = mockStatic(ServletActionContext.class);
-                var log = LogCapture.forLogger(User2Action.class)) {
+        try (var servlet = mockStatic(ServletActionContext.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             var action = new User2Action();
             action.setPassword("FAKE-input");
             assertEquals("success", action.changePassword());
             verify(credentials).savePassword("FAKE-input", AUDIT_ACTOR);
-            assertEquals(List.of("MCEDT password change feedback session is no longer active"), log.messages());
+            assertEquals(Boolean.TRUE, request.getAttribute("isPassChange"));
+        }
+    }
+
+    @Test
+    void shouldKeepDistinctStorageOutcomes_whenRequestsShareOneSession() throws Exception {
+        var failed = authenticatedRequest();
+        var saved = new MockHttpServletRequest("POST", "/mcedt");
+        saved.setSession(failed.getSession());
+        doThrow(new IllegalStateException("synthetic storage refusal"))
+                .when(credentials).savePassword("FAKE-refused", AUDIT_ACTOR);
+
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(failed);
+            var first = new User2Action();
+            first.setPassword("FAKE-refused");
+            assertEquals("success", first.changePassword());
+
+            servlet.when(ServletActionContext::getRequest).thenReturn(saved);
+            var second = new User2Action();
+            second.setPassword("FAKE-accepted");
+            assertEquals("success", second.changePassword());
+
+            assertEquals(Boolean.FALSE, failed.getAttribute("isPassChange"));
+            assertEquals(Boolean.TRUE, saved.getAttribute("isPassChange"));
+            assertNull(saved.getSession().getAttribute("isPassChange"));
         }
     }
 
