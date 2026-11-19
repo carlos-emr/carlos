@@ -3293,6 +3293,19 @@
             }
           ]
         },
+        "io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecAlertDaoMariaDbIntegrationTest": {
+          "check": "java-native-generated",
+          "cases": [
+            {
+              "name": "shouldLeaveTheStoredAlertWhole_whenTheMessageWouldMakeItTooLong(String)[2]",
+              "container": "OBEC apply and the patient alert column, on the database"
+            },
+            {
+              "name": "shouldStoreTheAlertWhole_whenItFillsTheLimitAsTheFormCountsIt(String)[2]",
+              "container": "OBEC apply and the patient alert column, on the database"
+            }
+          ]
+        },
         "io.github.carlos_emr.carlos.app.contract.CdsTransferPermissionSeedMariaDbIntegrationTest": {
           "check": "java-cds-transfer-shared",
           "cases": [
@@ -5179,6 +5192,7 @@
         "RxRestPrescriptionRollbackIntegrationTest": 1,
         "RxStrictAuditIntegrationTest": 1,
         "DemographicWebUnmergeIntegrationTest": 19,
+        "BillingObecAlertDaoMariaDbIntegrationTest": 4,
         "SiteRenameClockMariaDbIntegrationTest": 8
       },
       "requiresEnvironment": [
