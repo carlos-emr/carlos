@@ -63,6 +63,7 @@ ADMISSION_REQUIRED_CASES = {
 }
 
 APPOINTMENT_REQUIRED_CASES = {
+    "shouldReuseReturnedVersion_whenEditEntersTheRepeatedHour",
     "shouldRefuseStoredPatient_beforeArchivalOrMutation",
     "shouldRollbackArchiveAndMutation_whenFlushFails",
     "shouldRollbackArchiveAndEdit_whenReplacementPatientIsDenied",

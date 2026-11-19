@@ -329,22 +329,10 @@ public class EctFormData {
         public static final Comparator<PatientForm> CREATED_DATE_COMPARATOR =
                 Comparator.comparing((PatientForm form) -> form.created != null ? form.created : form.edited,
                         Comparator.nullsLast(Comparator.<Date>reverseOrder()));
-        public static final Comparator<PatientForm> EDITED_DATE_COMPARATOR = new Comparator<PatientForm>() {
-            public int compare(PatientForm o1, PatientForm o2) {
-                if (o2.edited == null && o1.edited == null) {
-                    return o2.created.compareTo(o1.created);
-                }
-                if (o2.edited == null && o1.edited != null) {
-                    return o2.created.compareTo(o1.edited);
-                }
-                if (o1.edited == null && o2.edited != null) {
-                    return o2.edited.compareTo(o1.created);
-                }
-
-
-                return (o2.edited.compareTo(o1.edited));
-            }
-        };
+        /** Uses the creation date for an unedited row and puts wholly undated rows last. */
+        public static final Comparator<PatientForm> EDITED_DATE_COMPARATOR =
+                Comparator.comparing((PatientForm form) -> form.edited != null ? form.edited : form.created,
+                        Comparator.nullsLast(Comparator.<Date>reverseOrder()));
 
         /**
          * Orders rows the way {@code FrmData.getShortcutFormValue} resolves {@code formId=latest}:
@@ -423,7 +411,7 @@ public class EctFormData {
         }
 
         public String getEdited() {
-            return dateTimeFormat.format(edited);
+            return edited == null ? null : dateTimeFormat.format(edited);
         }
 
         public String getFormName() {
