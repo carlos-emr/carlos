@@ -5,8 +5,8 @@
 # needs the same ~70 lines of setup: log in to ghcr.io, pull the pre-built
 # carlos-tomcat-dev image, fall back to a local buildx build when the image is
 # not in the registry, restore (or restore-and-save) the Maven repository
-# cache, evict the two vendored groupIds that a restored cache must never
-# shadow, and start the container with the workspace mounted. This action is
+# cache, evict artifacts in namespaces vendored by the checkout, and start
+# the container with the workspace mounted. This action is
 # that block, kept in one place so the callers cannot drift apart.
 #
 # Ordering contract: actions/checkout must run BEFORE this action -- a local
@@ -138,15 +138,16 @@ runs:
     - name: Prepare Maven cache directory and purge stale local_repo artifacts
       shell: bash
       run: |
-        # Create the mount point as the runner user (a cache miss would otherwise
-        # let dockerd create it root-owned), then evict the two formerly-JitPack
-        # groupIds: they are vendored in local_repo with bytes that differ from
-        # what JitPack ever served, a restored cache copy shadows local_repo
-        # (Maven prefers ~/.m2 and never re-verifies cached bytes), so they must
-        # re-copy from file://local_repo on every run.
+        # Create the mount point as the runner user. Maven prefers cached
+        # artifacts to local_repo, so evict the JitPack namespaces only when
+        # this checkout vendors them. Releases using Central must keep their
+        # cached OpenPDF and OpenRTF artifacts.
         mkdir -p .m2-cache
-        rm -rf .m2-cache/repository/com/github/openosp \
-               .m2-cache/repository/com/github/librepdf
+        for group in com/github/openosp com/github/librepdf; do
+          if [[ -d "local_repo/$group" ]]; then
+            rm -rf -- ".m2-cache/repository/$group"
+          fi
+        done
 
     - name: Build dev container (fallback)
       if: steps.pull.outputs.pulled == 'false' && steps.pull.outputs.reason == 'not-found'
