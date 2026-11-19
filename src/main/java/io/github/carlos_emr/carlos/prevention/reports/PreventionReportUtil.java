@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.prevention.reports;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao;
@@ -99,23 +100,42 @@ public final class PreventionReportUtil {
     }
 
     public static boolean wasRosteredToThisProvider(LoggedInInfo loggedInInfo, Integer demographicId, Date onThisDate, String providerNo) {
+        return providerNo != null && wasRosteredToAnyProvider(loggedInInfo, demographicId, onThisDate, Set.of(providerNo));
+    }
+
+    /**
+     * Checks the patient's roster periods for any selected provider.
+     *
+     * @param loggedInInfo LoggedInInfo authorizing the demographic read
+     * @param demographicId Integer patient whose periods are checked
+     * @param onThisDate Date requested by the report
+     * @param providerNumbers Set of selected provider numbers
+     * @return true if a roster period covers the date and belongs to a selected provider
+     */
+    public static boolean wasRosteredToAnyProvider(LoggedInInfo loggedInInfo, Integer demographicId, Date onThisDate,
+                                                    Set<String> providerNumbers) {
         // Patient and provider numbers stay out of the log: report queries call this for every row.
         logger.debug("Checking roster history for one patient");
-        if (providerNo == null) {
+        if (providerNumbers.isEmpty()) {
             return false;
         }
 
-
         Demographic demographic = demographicManager().getDemographic(loggedInInfo, demographicId);
 
-        if (rosteredDuringThisTimeDemographic(onThisDate, demographic.getRosterDate(), demographic.getRosterTerminationDate()) && providerNo.equals(demographic.getProviderNo()))
+        String currentProvider = demographic.getProviderNo();
+        if (currentProvider != null && providerNumbers.contains(currentProvider)
+                && rosteredDuringThisTimeDemographic(onThisDate, demographic.getRosterDate(), demographic.getRosterTerminationDate())) {
             return (true);
+        }
 
         // As above: the archived period's provider, not today's (#5877).
         List<DemographicArchive> archives = demographicArchiveDao().findByDemographicNo(demographicId);
         for (DemographicArchive archive : archives) {
-            if (rosteredDuringThisTimeDemographicArchive(onThisDate, archive.getRosterDate(), archive.getRosterTerminationDate()) && providerNo.equals(archive.getProviderNo()))
-                return (true);
+            String archivedProvider = archive.getProviderNo();
+            if (archivedProvider != null && providerNumbers.contains(archivedProvider)
+                    && rosteredDuringThisTimeDemographicArchive(onThisDate, archive.getRosterDate(), archive.getRosterTerminationDate())) {
+                return true;
+            }
         }
 
         return (false);

@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
@@ -49,6 +50,7 @@ import org.mockito.MockedStatic;
 class RptDemographicQueryAsOfRosterUnitTest extends CarlosUnitTestBase {
 
     private static final String DR_A = "101";
+    private static final String DR_B = "102";
     private static final String AS_OF = "2025-06-30";
     private static final String CURRENT_ONLY = " d.provider_no = :provider0 )";
     private static final String ARCHIVE_ADMISSION =
@@ -149,6 +151,29 @@ class RptDemographicQueryAsOfRosterUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("builders")
+    @DisplayName("should keep patients rostered to a later selected provider on the as-of date")
+    void shouldKeepPatientsForAllSelectedProviders_whenUsingArchivedHistory(
+            String name, BiFunction<RptDemographicReport2Form, String, List<?>> build) {
+        List<Object[]> rows = new ArrayList<>();
+        rows.add(new Object[] {"11", 11});
+        rows.add(new Object[] {"12", 12});
+        when(formsDao.runParameterizedNativeQuery(anyString(), anyMap())).thenReturn(rows);
+        history.when(() -> PreventionReportUtil.wasRosteredToAnyProvider(
+                        any(), eq(11), any(Date.class), eq(Set.of(DR_A, DR_B))))
+                .thenReturn(true);
+        RptDemographicReport2Form frm = form();
+        frm.setProviderNo(new String[] {DR_A, DR_B});
+
+        List<?> result = build.apply(frm, AS_OF);
+
+        assertThat(result).singleElement().isEqualTo(List.of("11"));
+        assertThat(capturedParams()).containsEntry("provider0", DR_A).containsEntry("provider1", DR_B);
+        history.verify(() -> PreventionReportUtil.wasRosteredToAnyProvider(
+                any(), eq(11), any(Date.class), eq(Set.of(DR_A, DR_B))));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("builders")
     @DisplayName("should check roster history even when the patient number is not a selected column")
     void shouldCheckHistoryWithHiddenPatientNumber_whenDemographicNoIsNotSelected(
             String name, BiFunction<RptDemographicReport2Form, String, List<?>> build) {
@@ -227,8 +252,8 @@ class RptDemographicQueryAsOfRosterUnitTest extends CarlosUnitTestBase {
     }
 
     private void rosteredToDrA(int demographicNo) {
-        history.when(() -> PreventionReportUtil.wasRosteredToThisProvider(
-                        any(), eq(demographicNo), any(Date.class), eq(DR_A)))
+        history.when(() -> PreventionReportUtil.wasRosteredToAnyProvider(
+                        any(), eq(demographicNo), any(Date.class), eq(Set.of(DR_A))))
                 .thenReturn(true);
     }
 

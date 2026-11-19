@@ -31,6 +31,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -110,6 +111,18 @@ class PreventionReportUtilUnitTest extends CarlosUnitTestBase {
     void shouldCountArchivedProvider_whenThePatientHasSinceMoved() {
         assertThat(PreventionReportUtil.wasRosteredToThisProvider(
                 loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, ARCHIVED_PROVIDER)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should check archived and current periods against the complete provider selection")
+    void shouldAcceptAnySelectedProvider_inThePeriodCoveringTheDate() {
+        Set<String> selected = Set.of(CURRENT_PROVIDER, ARCHIVED_PROVIDER);
+        assertThat(PreventionReportUtil.wasRosteredToAnyProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, selected)).isTrue();
+        assertThat(PreventionReportUtil.wasRosteredToAnyProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_CURRENT_PERIOD, selected)).isTrue();
+        assertThat(PreventionReportUtil.wasRosteredToAnyProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, Set.of())).isFalse();
     }
 
     @Test

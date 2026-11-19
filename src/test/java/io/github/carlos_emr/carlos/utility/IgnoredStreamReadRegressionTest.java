@@ -7,6 +7,7 @@ package io.github.carlos_emr.carlos.utility;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -79,7 +80,7 @@ class IgnoredStreamReadRegressionTest {
     }
 
     @Test
-    @DisplayName("should read a whole classpath resource, whatever available() reports")
+    @DisplayName("should read a real classpath resource and report a missing resource")
     void shouldReadWholeResource_viaMiscUtils() throws IOException {
         String missing = "/no-such-resource-for-read-test.txt";
         byte[] expected;
@@ -91,6 +92,45 @@ class IgnoredStreamReadRegressionTest {
         assertThat(MiscUtils.readFileAsByteArray("/log4j2.xml")).isEqualTo(expected);
         assertThatThrownBy(() -> MiscUtils.readFileAsByteArray(missing))
                 .isInstanceOf(FileNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("should read through EOF when a classpath resource reports no available bytes and reads short")
+    void shouldReadCompleteResource_whenEachReadIsShort() throws Exception {
+        byte[] expected = "A synthetic fixture longer than three bytes".getBytes(StandardCharsets.UTF_8);
+        byte[] bytecode;
+        try (InputStream source = MiscUtils.class.getResourceAsStream("MiscUtils.class")) {
+            assertThat(source).isNotNull();
+            bytecode = source.readAllBytes();
+        }
+        // Class.getResourceAsStream uses the class's defining loader.
+        var loader = new ClassLoader(MiscUtils.class.getClassLoader()) {
+            Class<?> loadFixtureClass() {
+                return defineClass(MiscUtils.class.getName(), bytecode, 0, bytecode.length);
+            }
+
+            @Override
+            public InputStream getResourceAsStream(String name) {
+                if (!"carlos-short-read.txt".equals(name)) {
+                    return super.getResourceAsStream(name);
+                }
+                var data = new ByteArrayInputStream(expected);
+                return new InputStream() {
+                    @Override
+                    public int read() {
+                        return data.read();
+                    }
+
+                    @Override
+                    public int read(byte[] buffer, int offset, int length) {
+                        return data.read(buffer, offset, Math.min(length, 3));
+                    }
+                };
+            }
+        };
+
+        var readResource = loader.loadFixtureClass().getMethod("readFileAsByteArray", String.class);
+        assertThat((byte[]) readResource.invoke(null, "/carlos-short-read.txt")).containsExactly(expected);
     }
 
     private static boolean matches(String line) {

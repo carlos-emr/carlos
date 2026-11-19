@@ -41,9 +41,12 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RptDemographicQuery2Builder {
@@ -104,6 +107,7 @@ public class RptDemographicQuery2Builder {
         // then checks each row against the roster history. The check needs the patient number
         // whatever columns were selected, and a row limit must count only the rows it keeps.
         boolean historicalRoster = asofRosterDate != null && providers != null && providers.length > 0;
+        Set<String> rosterProviders = historicalRoster ? new HashSet<>(Arrays.asList(providers)) : Set.of();
         java.sql.Date rosterHistoryDate = null;
         if (historicalRoster) {
             java.util.Date parsed = UtilDateUtilities.getDateFromString(asofRosterDate, "yyyy-MM-dd");
@@ -466,9 +470,9 @@ public class RptDemographicQuery2Builder {
                         // A row whose roster history cannot be checked is not reported for the date.
                         continue;
                     }
-                    //Only checking the first doc.  Only one should be included for finding the cumulative bonus
                     try {
-                        if (!PreventionReportUtil.wasRosteredToThisProvider(loggedInInfo, Integer.parseInt(demoNo), DateUtils.parseDate(asofRosterDate, null), providers[0])) {
+                        if (!PreventionReportUtil.wasRosteredToAnyProvider(loggedInInfo, Integer.parseInt(demoNo),
+                                DateUtils.parseDate(asofRosterDate, null), rosterProviders)) {
                             // Patient and provider numbers stay out of the log: this runs for every candidate row.
                             MiscUtils.getLogger().debug("Report row left out: not rostered to the selected provider on the as-of date");
                             continue;
