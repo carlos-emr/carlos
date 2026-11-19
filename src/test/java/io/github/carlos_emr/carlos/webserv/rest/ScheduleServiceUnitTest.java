@@ -134,6 +134,33 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRequireAnAppointmentPayload_evenWithWriteAccess() {
+        assertThatThrownBy(() -> service.addAppointment(null))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(appointmentManager);
+    }
+
+    @Test
+    void shouldRejectInvalidDeleteIds_beforeCallingManager() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "d", null)).thenReturn(true);
+        AppointmentTo1 zeroId = new AppointmentTo1();
+        zeroId.setId(0);
+
+        assertThatThrownBy(() -> service.deleteAppointment(null)).isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        assertThatThrownBy(() -> service.deleteAppointment(new AppointmentTo1()))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        assertThatThrownBy(() -> service.deleteAppointment(zeroId)).isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(appointmentManager);
+    }
+
+    @Test
+    void shouldRefuseAppointmentHistory_whenTheCallerLacksModuleAccess() {
+        assertThatThrownBy(() -> service.findExistAppointments(123))
+                .isInstanceOf(jakarta.ws.rs.ForbiddenException.class);
+        verifyNoInteractions(appointmentManager, scheduleManager);
+    }
+
+    @Test
     void shouldReturnNotFound_whenAppointmentDoesNotExist() {
         AppointmentTo1 request = new AppointmentTo1();
         request.setId(123);

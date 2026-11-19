@@ -63,6 +63,8 @@ public class MessagingService extends AbstractServiceImpl {
     @Path("/unread")
     @Produces("application/json")
     public MessagingResponse getMyUnreadMessages(@QueryParam("startIndex") int startIndex, @QueryParam("limit") int limit) {
+        // A negative or oversized page reached the DAO and surfaced as a 500 (#6038).
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiPages.requireValidPage(startIndex, limit);
         Provider provider = getCurrentProvider();
         List<MessageList> msgs = messagingManager.getMyInboxMessages(getLoggedInInfo(), provider.getProviderNo(), MessageList.STATUS_NEW, startIndex, limit);
 

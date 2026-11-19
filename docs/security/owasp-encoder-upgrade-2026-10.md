@@ -7,6 +7,12 @@ advisory affects supported artifacts below 1.5.0. Interpolated fragments could
 complete outer HTML/XML delimiters supplied in part by adjacent trusted text.
 A call to an affected method alone does not establish an exploitable template.
 
+> **Later change ([#5477](https://github.com/carlos-emr/carlos/issues/5477)):**
+> `encoder-jakarta-jsp` has since been removed. No JSP used its taglib once
+> `DisplayWaitingList.jsp` moved to `${carlos:forUriComponent(...)}`, so only
+> `encoder` (behind `SafeEncode`, `<carlos:encode>` and `${carlos:forXxx()}`)
+> is shipped. The findings below are kept as the record of the 1.6.0 upgrade.
+
 ## Version choice
 
 1.6.0 is the latest published version as of October 31, 2026. It retains the

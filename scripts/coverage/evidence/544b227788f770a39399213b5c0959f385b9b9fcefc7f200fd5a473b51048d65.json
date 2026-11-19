@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "c5dcd1aa5587582d4a52862bf4015c0bad18b4d7",
+  "comparisonSha256": "786dfb6983bb6483939d8c7d59e8187f56c5fd72823015444771c7577d303513",
+  "baselineCommit": "20a35847ddd046577ce614ec78332b6dae335b35",
+  "baselineSourceTree": "c5dcd1aa5587582d4a52862bf4015c0bad18b4d7",
+  "baselineReportSha256": "346d1a36e180e7af539f5b5abd2ea5be68cdbabfd95452c1d804ebc5b92c2a7a",
+  "baselineLane": "Merged release demographic update, stale-form, custom field, wait-list and REST regressions",
+  "baselineTestCounts": {
+    "tests": 290,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "f44942d6bc845797b0d7dfa76882681eb40956451586b88146156f732c8584a4",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.commn.model.DemographicCustFieldLengthUnitTest",
+    "io.github.carlos_emr.carlos.demographic.DemographicChartScriptletEncodingUnitTest",
+    "io.github.carlos_emr.carlos.demographic.DemographicCustomFieldSelectUnitTest",
+    "io.github.carlos_emr.carlos.demographic.pageUtil.DemographicAddRecord2ActionSubmissionUnitTest",
+    "io.github.carlos_emr.carlos.demographic.pageUtil.DemographicAddRecord2ActionTest",
+    "io.github.carlos_emr.carlos.demographic.pageUtil.DemographicUpdate2ActionStaleFormUnitTest",
+    "io.github.carlos_emr.carlos.demographic.pageUtil.DemographicUpdate2ActionTest",
+    "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLMutation2ActionsTest",
+    "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLWaitingListNoteLengthActionUnitTest",
+    "io.github.carlos_emr.carlos.waitinglist.pageUtil.WaitingListNoteLimitJspRegressionTest",
+    "io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtilNoteLengthUnitTest",
+    "io.github.carlos_emr.carlos.webserv.rest.DemographicServiceEndpointTest",
+    "io.github.carlos_emr.carlos.webserv.rest.DemographicServiceUnitTest"
+  ],
+  "observedChangedSourceCoverage": {
+    "src/main/java/io/github/carlos_emr/carlos/demographic/pageUtil/DemographicUpdate2Action.java": {
+      "lineCounts": {
+        "covered": 17,
+        "missed": 15
+      },
+      "instructionBranchCounts": {
+        "covered_instructions": 91,
+        "missed_instructions": 67,
+        "covered_branches": 14,
+        "missed_branches": 4,
+        "partial_lines": [],
+        "missed_branch_lines": [
+          523,
+          537
+        ]
+      },
+      "percentages": {
+        "lines": 53.125,
+        "instructions": 57.59493670886076,
+        "branches": 77.77777777777777
+      }
+    }
+  },
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/demographic/pageUtil/DemographicUpdate2Action.java": {
+      "lines": 53.125,
+      "instructions": 57.59493670886076,
+      "branches": 77.77777777777777,
+      "sourceBlob": "f2024ae55f07863ddffe36a574ce7f3ec326ece0"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {}
+}

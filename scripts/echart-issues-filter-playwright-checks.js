@@ -5,7 +5,8 @@
  * Unset ECHART_ISSUES_PIN drives CPP assignment and form isolation. `editor` assigns to a new
  * note and an edited saved note, reading the returned latest revision rather than assuming
  * stable IDs. `heading` clicks both module headings after filtering. `panel` drives opening,
- * hiding, filtering, and resetting. Existing `resolve` and `radios` pins cover separate defects.
+ * hiding, filtering, and resetting. `queued` changes and deletes issues during a delayed CPP
+ * refresh that reorders the checklist. Existing `resolve` and `radios` pins cover separate defects.
  * Seeded heading/panel fixtures isolate those controls from assignment failures. Every note,
  * patient issue, link, extension, draft and lock belongs to the workflow's disposable patient.
  */
@@ -33,11 +34,10 @@ const STEP = {
   radios: 'the Certain, Uncertain, Major and Not Major radios and the role box of an issue are enabled for a login with full rights',
 };
 
-const PINS = ['editor', 'heading', 'resolve', 'panel', 'radios'];
+const PINS = ['editor', 'heading', 'resolve', 'panel', 'radios', 'queued'];
 // ECHART_ISSUES_PIN selects which finding the run pins (see the header); judged when the check runs, never when
 // the module is required, so a stray value in someone's shell cannot break a test that only requires the file.
 const PIN = (process.env.ECHART_ISSUES_PIN || '').trim();
-/** ECHART_ISSUES_PIN must be unset or one of editor, heading, resolve, panel, radios. */
 function validatePin(value = PIN) {
   if (!['', ...PINS].includes(value)) {
     throw new Error(`ECHART_ISSUES_PIN must be unset or ${PINS.join(', ')}, not ${value}`);
@@ -58,6 +58,7 @@ async function workflow(s) {
 
   let producerIssue;
   let producerTemplate;
+  const ownedCatalog = [];
 
   // ---- Fixtures --------------------------------------------------------------------------------
   s.cleanup(() => {
@@ -86,6 +87,10 @@ async function workflow(s) {
     'Owned chart notes, issues, links, summary, drafts or locks were not removed');
     if (producerIssue) sql.execute(`DELETE FROM issue WHERE issue_id=${producerIssue}`);
     if (producerTemplate) sql.execute(`DELETE FROM encountertemplate WHERE encountertemplate_name=${q(producerTemplate)}`);
+    for (const { id, code } of ownedCatalog) {
+      sql.execute('DELETE FROM issue WHERE issue_id=? AND code=?', [id, code]);
+      h.assert(sql.value('SELECT COUNT(*) FROM issue WHERE issue_id=?', [id]) === '0', 'An owned catalog issue survived cleanup');
+    }
   });
 
   // ---- Database helpers ------------------------------------------------------------------------
@@ -308,6 +313,79 @@ async function workflow(s) {
   }
 
   // ---- The unset entry: the real assignment path ----------------------------------------------------
+  if (PIN === 'queued') {
+    const firstChart = await s.chart();
+    const program = await firstChart.locator('input[name="caseNote.program_no"]').first().inputValue();
+    h.assert(/^\d+$/.test(program), 'The chart has no numeric program');
+    await leaveChart(firstChart);
+
+    const ids = [];
+    await s.step('(fixture) the patient has three writable issues in a known checklist order', async () => {
+      for (const [suffix, sortOrder, major] of [['A', -30, 0], ['B', -20, 1], ['C', -10, 0]]) {
+        const code = `${marker.slice(-16)}${suffix}`;
+        const id = h.insertId(sql, `INSERT INTO issue (code,description,role,update_date,type,sortOrderId)
+          VALUES (?,?,?,NOW(),'custom',?)`, 'queued catalog issue', [code, `${marker} issue ${suffix}`, issueRole, sortOrder]);
+        ownedCatalog.push({ id, code });
+        ids.push(h.insertId(sql, `INSERT INTO casemgmt_issue (demographic_no,issue_id,acute,certain,major,resolved,program_id,type,update_date)
+          VALUES (?,?,0,0,?,0,?,?,NOW())`, 'queued patient issue', [patient, id, major, program, issueRole]));
+      }
+    });
+
+    await s.step('changes and deletion behind a delayed CPP refresh persist on the clicked issues after a checklist reorder', async () => {
+      const chart = await s.chart();
+      const [first, second, deleted] = ids;
+      const checkbox = id => chart.locator(`#noteIssues input[data-issue-id="${id}"]`);
+      const row = id => checkbox(id).locator('..');
+      const radio = (id, flag, value) => row(id).locator(`input[name$=".issue.${flag}"][value="${value}"]`);
+      const initialIndex = await checkbox(first).getAttribute('name');
+      h.assert(initialIndex === 'issueCheckList[0].checked', 'The first issue did not start at index 0');
+      await chart.locator('#toggleIssue').click();
+      for (const id of [first, second]) await row(id).locator('a[onclick^="return displayIssue"]').click();
+
+      // Sort the owned catalog issue behind the other two, while the chart
+      // continues to display the original checklist until its CPP refresh arrives.
+      sql.execute('UPDATE issue SET sortOrderId=-5 WHERE issue_id=? AND code=?', [ownedCatalog[0].id, ownedCatalog[0].code]);
+      const cppText = `${marker} CPP item while editing issues`;
+      await chart.locator(CPP_PLUS).first().click();
+      await chart.locator('#noteEditTxt').fill(cppText);
+      const isRefresh = request => chartSaveRequest('edit')(request)
+        && new URLSearchParams(request.postData()).get('preserveIssueEditor') === 'true';
+      let releaseRefresh;
+      const delayed = new Promise(resolve => { releaseRefresh = resolve; });
+      const delay = async route => {
+        if (!isRefresh(route.request())) return route.continue();
+        const response = await route.fetch();
+        await delayed;
+        await route.fulfill({ response });
+      };
+      await chart.route('**/CaseManagementEntry*', delay);
+      try {
+        await Promise.all([
+          chart.waitForRequest(isRefresh, { timeout: TIMEOUT }),
+          chart.locator(`${CPP_DIALOG} input[type="image"][title="Sign & Save"]`).click(),
+        ]);
+        await radio(first, 'acute', 'true').click();
+        await radio(second, 'resolved', 'true').click();
+        await radio(first, 'major', 'true').click();
+        await radio(first, 'major', 'false').click();
+        await row(deleted).getByRole('button', { name: 'Delete', exact: true }).click();
+        releaseRefresh();
+        await chart.waitForFunction(() => issueUpdatesPending === 0, null, { timeout: TIMEOUT });
+      } finally {
+        releaseRefresh();
+        await chart.unroute('**/CaseManagementEntry*', delay);
+      }
+
+      const flags = id => sql.rows('SELECT acute,certain,major,resolved FROM casemgmt_issue WHERE id=? AND demographic_no=?', [id, patient]);
+      h.assert(flags(first).flat().join(',') === '1,0,0,0', 'The first issue did not retain its acute and final not-major choices');
+      h.assert(flags(second).flat().join(',') === '0,0,1,1', 'The second issue did not become resolved with its existing major flag');
+      h.assert(flags(deleted).length === 0, 'The third issue was not deleted');
+      h.assert(await checkbox(first).getAttribute('name') !== initialIndex, 'The server did not rebuild the checklist in its new order');
+      h.assert((await waitForNote(cppText, 'The CPP item did not save')).signed === '1', 'The CPP item was not signed');
+    });
+    return;
+  }
+
   if (PIN === '') {
     await s.step('(control) a plain note is written and signed through the note editor', async () => {
       notes.b = (await writeSignedNote(`${marker} note beta`)).id;

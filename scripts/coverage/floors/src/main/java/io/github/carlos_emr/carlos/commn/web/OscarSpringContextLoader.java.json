@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/web/OscarSpringContextLoader.java",
+  "kind": "floor",
+  "floor": {
+    "sourceBlob": "38073d8e42310b1cb23d9236be644a31a281f74a",
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0
+  },
+  "evidenceSha256": "0265a3aaefad3f4e7568337dc098761c387348d7d934ce39a3f8a582b83866bf"
+}

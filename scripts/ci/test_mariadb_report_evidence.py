@@ -77,6 +77,16 @@ APPOINTMENT_FIELD_AUDIT_REQUIRED_CASES = {
     "shouldRollBackFieldAndArchive_whenAuditDaoLookupFails(AppointmentUpdateAction)[3]",
 }
 
+JDBC_REQUIRED_CASES = {
+    "shouldConnectAndApplyConnectorJYesNo_forLegacyBooleanOptions",
+    "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)[1]",
+    "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)[2]",
+    "shouldCheckFloatRange_inBothPreparedProtocols(boolean)[1]",
+    "shouldCheckFloatRange_inBothPreparedProtocols(boolean)[2]",
+    "shouldPreserveZeroFilledTextAndUnsignedTinyIntegers_inBothPreparedProtocols(boolean)[1]",
+    "shouldPreserveZeroFilledTextAndUnsignedTinyIntegers_inBothPreparedProtocols(boolean)[2]",
+}
+
 RX_REQUIRED_CASES = {
     "shouldCommitPrescriptionAndDrugs_whenNativeWritesSucceed",
     "shouldRequireReconciliation_whenCommitSucceedsButAcknowledgementIsLost",
@@ -228,6 +238,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     "TicklerPatientAccessMariaDbIntegrationTest": TICKLER_REQUIRED_CASES,
                     "AppointmentUpdateDaoIntegrationTest": APPOINTMENT_REQUIRED_CASES,
                     "AppointmentFieldAuditTransactionIntegrationTest": APPOINTMENT_FIELD_AUDIT_REQUIRED_CASES,
+                    "JdbcConnectorMariaDbIntegrationTest": JDBC_REQUIRED_CASES,
                     "ProgramAdmissionAuditMariaDbIntegrationTest": ADMISSION_REQUIRED_CASES,
                     "ReportingPatientListAuditMariaDbIntegrationTest": REPORTING_REQUIRED_CASES,
                 }.get(family, set()) | MODULE.REQUIRED_CASES.get(family, set()))
@@ -302,6 +313,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                 families = [
                     ("AppointmentUpdateDaoIntegrationTest", APPOINTMENT_REQUIRED_CASES),
                     ("AppointmentFieldAuditTransactionIntegrationTest", APPOINTMENT_FIELD_AUDIT_REQUIRED_CASES),
+                    ("JdbcConnectorMariaDbIntegrationTest", JDBC_REQUIRED_CASES),
                 ]
             else:
                 families = [("CaseManagementNoteLegacyFlagsMariaDbIntegrationTest", LEGACY_NOTE_FLAG_REQUIRED_CASES)]
