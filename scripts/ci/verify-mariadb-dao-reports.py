@@ -209,7 +209,7 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 18,**CRITICAL, 
                            "BcBillingNativeMariaDbIntegrationTest": 22,
                            "FormXmlImportServiceIntegrationTest": 7,
                            "EFormApColumnLookupIntegrationTest": 2,
-                           "AppointmentDaySheetServiceIntegrationTest": 4,
+                           "AppointmentDaySheetServiceIntegrationTest": 5,
                            "AntenatalReportDaoIntegrationTest": 5,
                            "EFormGroupDaoIntegrationTest": 9,
                            "BcBillingDaoTransactionIntegrationTest": 4,
@@ -236,7 +236,8 @@ INBOX_CASES = (
 INBOX_CLASS = 'io.github.carlos_emr.carlos.commn.dao.LegacyLabNativeMariaDbIntegrationTest'
 BC_PHYSICAL_CASES = {
     'io.github.carlos_emr.carlos.appointment.service.AppointmentDaySheetServiceIntegrationTest': (
-        'shouldReadPhysicalIdsAndEditVersions_beforeAcknowledgingNativeDaySheetRows',),
+        'shouldReadPhysicalIdsAndEditVersions_beforeAcknowledgingNativeDaySheetRows',
+        'shouldAcknowledgeOnlyRenderedVersions_whenRowsAreBookedOrEditedAfterPreview',),
     'io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingNativeMariaDbIntegrationTest': (
         'shouldRetainNumericTimeRules_fromPhysicalTinyintFlags',
         'shouldPreserveCharacterStatusAndCallerWrites_whenReadingCurrentBillState'),

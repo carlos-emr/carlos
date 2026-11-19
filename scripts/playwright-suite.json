@@ -2295,11 +2295,19 @@
     {
       "name": "login-legacy-intake",
       "script": "scripts/login-legacy-intake-playwright-checks.js",
-      "tiers": ["core"],
+      "tiers": [
+        "core"
+      ],
       "assertsDatabase": true,
-      "provinces": ["all"],
+      "provinces": [
+        "all"
+      ],
       "timeoutSec": 180,
-      "env": ["TEST_PASSWORD", "TEST_PIN", "MYSQL_PASSWORD"],
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
       "notes": "Issue 4562: a retained Patient Intake assignment uses the supported landing page after password login and forced reset; the replacement password remains usable.",
       "fixtures": "One owned throwaway login retains its copied privileges plus the legacy assignment. Cleanup removes its credentials, assignments, preferences and audit rows; no shared role or account is edited."
     },
@@ -19534,6 +19542,23 @@
       ],
       "fixtures": "Owns the runWorkflow patient and one marker-named REST-created patient and admission; removes exact owned custom-field/archive/admission rows and verifies cleanup. Disposable exclusive host only. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#5999: six converted field lengths refuse REST create/update before side effects; exact schema limits and supplementary Unicode boundary values persist without truncation."
+    },
+    {
+      "name": "report-daysheet-selection",
+      "script": "scripts/report-daysheet-selection-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "MYSQL_PASSWORD"
+      ],
+      "notes": "#5956: a preview stays read-only; acknowledgment excludes newly booked and subsequently edited appointments; replay cannot acquire later appointments or duplicate archives.",
+      "fixtures": "Owns one patient, one reader-role/login/provider and site memberships, and three marker-reason appointments. Removes only their exact archives, appointments and fixture identities. Disposable exclusive host only."
     },
     {
       "name": "eform-large-html-roundtrip",
