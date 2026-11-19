@@ -617,7 +617,7 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
         List<String> pathSeenBySender = new ArrayList<>();
         List<byte[]> bytesSeenBySender = new ArrayList<>();
 
-        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders((smtpSender, context) -> {
+        try (MockedConstruction<SMTPEmailSender> _ = mockSmtpSenders((smtpSender, context) -> {
                     // The sender is built with the attachment list itself, so the paths it holds at
                     // construction are what get archived and dispatched.
                     for (Object argument : context.arguments()) {

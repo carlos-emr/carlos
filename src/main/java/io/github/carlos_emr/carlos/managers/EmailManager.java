@@ -1728,15 +1728,21 @@ public class EmailManager {
             EmailData emailData
     ) throws EmailSendingException {
         for (EmailAttachment attachment : encryptableAttachments) {
+            // The encrypted copy is a new temp file until the working directory adopts it; on any
+            // failure before then it holds the patient's document and nothing else would delete it.
+            Path encryptedPDFPath = null;
             try {
                 Path attachmentPDFPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
-                attachmentPDFPath = PDFEncryptionUtil.encryptPDF(attachmentPDFPath, emailData.getPassword());
-                attachmentPDFPath = emailData.getWorkingDirectory().adoptGeneratedPdf(attachmentPDFPath);
-                attachment.setFilePath(attachmentPDFPath.toString());
+                encryptedPDFPath = PDFEncryptionUtil.encryptPDF(attachmentPDFPath, emailData.getPassword());
+                Path adoptedPDFPath = emailData.getWorkingDirectory().adoptGeneratedPdf(encryptedPDFPath);
+                encryptedPDFPath = null;
+                attachment.setFilePath(adoptedPDFPath.toString());
             } catch (IOException | RuntimeException e) {
                 // The same convention as PdfAttachmentSigningService (carlos-emr/carlos#3851): an
                 // unchecked fault (an unreadable path, a malformed PDF) that escaped would skip
-                // completeFailedSend and strand the EmailLog at PENDING behind a 500.
+                // completeFailedSend and strand the EmailLog at PENDING behind a 500, and a copy
+                // nothing adopted is removed. Only the generated copy: never the source attachment.
+                EmailComposeWorkingDirectory.discardUnadoptedPdf(encryptedPDFPath);
                 logger.error("Failed to create encrypted email attachments", e);
                 throw new EmailSendingException("Failed to create encrypted email attachments", e);
             }

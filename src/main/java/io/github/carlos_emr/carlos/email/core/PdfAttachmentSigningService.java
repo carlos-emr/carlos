@@ -23,7 +23,6 @@ package io.github.carlos_emr.carlos.email.core;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -150,7 +149,8 @@ public class PdfAttachmentSigningService {
             } catch (IOException | RuntimeException e) {
                 // Any RuntimeException, not a chosen few: one that escaped would skip the send's
                 // failure handling and strand the EmailLog at PENDING behind a 500.
-                deleteUnadoptedSignedPdf(signedPDFPath);
+                // Holds the patient's document, and nothing else would ever delete it.
+                EmailComposeWorkingDirectory.discardUnadoptedPdf(signedPDFPath);
                 // The cause chain is what tells an operator whether the keystore, its password or
                 // the certificate is at fault. It names server paths, never the attachment: the
                 // attachment's own file name can identify a patient, so it is left out.
@@ -220,24 +220,6 @@ public class PdfAttachmentSigningService {
         // contentId is limited to 80 characters; keep the full tracing payload in log.data.
         LogAction.addLog(loggedInInfo, AUDIT_ACTION, AUDIT_CONTENT,
                 String.valueOf(emailLog.getId()), demographicNo, data);
-    }
-
-    /**
-     * Removes a signed PDF that the working directory never took ownership of. It holds the
-     * patient's document and nothing else would ever delete it.
-     */
-    private static void deleteUnadoptedSignedPdf(Path signedPDFPath) {
-        // The signer only ever returns a temp file it created, so anything else here is a bug and
-        // is left alone rather than deleted.
-        if (signedPDFPath == null || !PathValidationUtils.isInAllowedTempDirectory(signedPDFPath.toFile())) {
-            return;
-        }
-        try {
-            Files.deleteIfExists(signedPDFPath);
-        } catch (IOException | RuntimeException cleanupFailure) {
-            logger.warn("Signed email PDF could not be removed after a failed send: {}",
-                    cleanupFailure.getClass().getSimpleName());
-        }
     }
 
     private static void ensureWorkingDirectory(EmailData emailData) throws EmailSendingException {
