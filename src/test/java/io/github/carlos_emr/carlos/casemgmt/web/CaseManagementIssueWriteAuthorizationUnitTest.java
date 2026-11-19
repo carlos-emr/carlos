@@ -308,7 +308,7 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         note.setDemographic_no("101");
         fixture.form.setCaseNote(note);
         fixture.action.setIssueCheckList(fixture.form.getIssueCheckList());
-        ((MockHttpServletRequest) fixture.action.request).setParameter("change_diagnosis_id", "0");
+        ((MockHttpServletRequest) fixture.action.request).setParameter("changeDiagnosisIssueId", "91");
         ((MockHttpServletRequest) fixture.action.request).setParameter("newIssueId", "52");
         doReturn("").when(fixture.action).getDemoName(anyString());
         doReturn("").when(fixture.action).getDemoAge(anyString());
@@ -377,6 +377,70 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void shouldReplaceTheClickedDiagnosis_whenTheChecklistReordersBeforeSubmission(boolean ajax) {
+        var fixture = diagnosisFixture();
+        var clicked = fixture.form.getIssueCheckList().getFirst();
+        var other = new CheckBoxBean();
+        var otherIssue = spy(other.getIssue());
+        otherIssue.setId(92L);
+        otherIssue.setDemographic_no(101);
+        otherIssue.setIssue(clicked.getIssue().getIssue());
+        doReturn(true).when(otherIssue).isWriteAccess("999998", 0);
+        other.setIssue(otherIssue);
+        var issues = (io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO)
+                org.springframework.test.util.ReflectionTestUtils.getField(fixture.action, "caseManagementIssueDao");
+        when(issues.findById(92L)).thenReturn(otherIssue);
+        fixture.form.getIssueCheckList().addFirst(other);
+        var replacement = new io.github.carlos_emr.carlos.casemgmt.model.Issue();
+        replacement.setId(52L);
+        replacement.setRole("nurse");
+        replacement.setDescription("Replacement diagnosis");
+        when(fixture.manager.getIssue("52")).thenReturn(replacement);
+
+        assertThat(ajax ? fixture.action.ajaxChangeDiagnosis() : fixture.action.submitChangeDiagnosis())
+                .isEqualTo(ajax ? "issueList_ajax" : "view");
+        verify(fixture.manager).saveCaseIssue(clicked.getIssue());
+        assertThat(clicked.getIssue().getIssue()).isSameAs(replacement);
+        assertThat(otherIssue.getIssue()).isNotSameAs(replacement);
+    }
+
+    @Test
+    void shouldKeepTheClickedIssueIdAcrossLegacyDiagnosisSearch() {
+        var fixture = diagnosisFixture();
+        var request = (MockHttpServletRequest) fixture.action.request;
+        fixture.action.setSearString("");
+        when(fixture.manager.searchIssues("999998", "0", "")).thenReturn(List.of());
+
+        assertThat(fixture.action.changeDiagnosis()).isEqualTo("IssueSearch");
+        assertThat(request.getAttribute("changeDiagnosisIssueId")).isEqualTo("91");
+        request.removeAttribute("changeDiagnosisIssueId");
+        request.setParameter("change_diagnosis", "true");
+
+        assertThat(fixture.action.issueSearch()).isEqualTo("IssueSearch");
+        assertThat(request.getAttribute("changeDiagnosisIssueId")).isEqualTo("91");
+        verify(fixture.manager, never()).saveCaseIssue(any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"true,missing", "false,missing", "true,duplicate", "false,duplicate"})
+    void shouldRefuseAnAmbiguousOrObsoleteDiagnosisSelection(boolean ajax, String scenario) {
+        var fixture = diagnosisFixture();
+        var request = (MockHttpServletRequest) fixture.action.request;
+        if ("duplicate".equals(scenario)) {
+            request.setParameter("changeDiagnosisIssueId", "91", "92");
+        } else {
+            request.removeParameter("changeDiagnosisIssueId");
+            request.setParameter("change_diagnosis_id", "0");
+        }
+
+        assertThat(ajax ? fixture.action.ajaxChangeDiagnosis() : fixture.action.submitChangeDiagnosis())
+                .isEqualTo("none");
+        assertThat(fixture.action.response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(fixture.manager);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
     void shouldRetainDiagnosisWithoutWriting_whenReplacementDoesNotExist(boolean ajax) {
         var fixture = diagnosisFixture();
         var issue = fixture.form.getIssueCheckList().get(0).getIssue();
@@ -413,7 +477,7 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         selected.setChecked(true);
         selected.getIssue().setId(52L);
         fixture.action.setNewIssueCheckList(new CheckIssueBoxBean[]{selected});
-        ((MockHttpServletRequest) fixture.action.request).setParameter("change_diagnosis_id", "0");
+        ((MockHttpServletRequest) fixture.action.request).setParameter("changeDiagnosisIssueId", "91");
         ((MockHttpServletRequest) fixture.action.request).setParameter("newIssueId", "52");
         doReturn("").when(fixture.action).getDemoName(anyString());
         doReturn("").when(fixture.action).getDemoAge(anyString());
@@ -517,7 +581,12 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
             }
         }
 
-        assertThatThrownBy(fixture.action::submitChangeDiagnosis).isInstanceOf(SecurityException.class);
+        if ("missing-selection".equals(scenario) || "missing-id".equals(scenario)) {
+            assertThat(fixture.action.submitChangeDiagnosis()).isEqualTo("none");
+            assertThat(fixture.action.response.getStatus()).isEqualTo(400);
+        } else {
+            assertThatThrownBy(fixture.action::submitChangeDiagnosis).isInstanceOf(SecurityException.class);
+        }
 
         verifyNoInteractions(fixture.manager);
         assertThat(fixture.form.getIssueCheckList().get(0).getIssue()).isSameAs(original);
@@ -525,13 +594,13 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.CsvSource({"submit,not-an-index", "submit,-1", "submit,1",
-            "ajax,not-an-index", "ajax,-1", "ajax,1", "status,not-an-id", "status,-1", "status,999",
+    @org.junit.jupiter.params.provider.CsvSource({"submit,not-an-id", "submit,-1", "submit,99",
+            "ajax,not-an-id", "ajax,-1", "ajax,99", "status,not-an-id", "status,-1", "status,999",
             "delete,not-an-id", "delete,-1", "delete,999"})
-    void shouldRejectInvalidIssueReferenceWithoutWrites_whenChangingDiagnosisOrStatus(String operation, String index) throws Exception {
+    void shouldRejectInvalidIssueReferenceWithoutWrites_whenChangingDiagnosisOrStatus(String operation, String id) throws Exception {
         var fixture = diagnosisFixture();
-        ((MockHttpServletRequest) fixture.action.request).setParameter("change_diagnosis_id", index);
-        ((MockHttpServletRequest) fixture.action.request).setParameter("caseIssueId", index);
+        ((MockHttpServletRequest) fixture.action.request).setParameter("changeDiagnosisIssueId", id);
+        ((MockHttpServletRequest) fixture.action.request).setParameter("caseIssueId", id);
 
         String result = switch (operation) {
             case "submit" -> fixture.action.submitChangeDiagnosis();

@@ -153,6 +153,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             "providerName", "programName", "roleName", "update_date");
 
     private static final String ISSUE_LIST_AJAX_RESULT = "issueList_ajax";
+    private static final String CHANGE_DIAGNOSIS_ISSUE_ID = "changeDiagnosisIssueId";
     private static final Set<String> ALLOWED_CHAIN_RESULT_NAMES = Set.of("list", "view", ISSUE_LIST_AJAX_RESULT);
     private static final Set<String> NOTE_WRITE_METHODS = Set.of(
             "issueNoteSave", "issueNoteSaveJson", "ajaxsave", "save", "saveAndExit", "ticklerSaveNote");
@@ -328,14 +329,16 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     /** Match the clicked patient issue against the current chart checklist by persisted identity. */
-    private CheckBoxBean findIssueMutationTarget(List<CheckBoxBean> checklist) {
-        String[] values = request.getParameterValues("caseIssueId");
+    private CheckBoxBean findIssueMutationTarget(List<CheckBoxBean> checklist, String parameter) {
+        String[] values = request.getParameterValues(parameter);
         if (checklist == null || values == null || values.length != 1) return null;
         try {
             Long id = Long.valueOf(values[0]);
             if (id > 0) {
                 for (CheckBoxBean entry : checklist) {
-                    if (id.equals(entry.getIssue().getId())) return entry;
+                    if (entry != null && entry.getIssue() != null && id.equals(entry.getIssue().getId())) {
+                        return entry;
+                    }
                 }
             }
         } catch (NumberFormatException _) {
@@ -2863,8 +2866,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         if (request.getParameter("change_diagnosis") != null)
             request.setAttribute("change_diagnosis", request.getParameter("change_diagnosis"));
-        if (request.getParameter("change_diagnosis_id") != null)
-            request.setAttribute("change_diagnosis_id", request.getParameter("change_diagnosis_id"));
+        if (request.getParameter(CHANGE_DIAGNOSIS_ISSUE_ID) != null)
+            request.setAttribute(CHANGE_DIAGNOSIS_ISSUE_ID, request.getParameter(CHANGE_DIAGNOSIS_ISSUE_ID));
 
         return "IssueSearch";
     }
@@ -3051,14 +3054,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         logger.debug("changeDiagnosis");
         if (request.getSession().getAttribute("userrole") == null) return "expired";
 
-        String inds = this.getDeleteId();
         String demono = getDemographicNo(request);
         request.setAttribute("demoName", getDemoName(demono));
         request.setAttribute("demoAge", getDemoAge(demono));
         request.setAttribute("demoDOB", getDemoDOB(demono));
         request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
         request.setAttribute("change_diagnosis", Boolean.valueOf(true));
-        request.setAttribute("change_diagnosis_id", inds);
+        request.setAttribute(CHANGE_DIAGNOSIS_ISSUE_ID, request.getParameter(CHANGE_DIAGNOSIS_ISSUE_ID));
         this.setShowList("false");
         this.setSearString("");
         return "IssueSearch";
@@ -3077,23 +3079,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         request.setAttribute("demoAge", getDemoAge(demono));
         request.setAttribute("demoDOB", getDemoDOB(demono));
 
-        // get issue we're changing
-        String strIndex = request.getParameter("change_diagnosis_id");
-        int index;
-        try {
-            index = Integer.parseInt(strIndex);
-        } catch (NumberFormatException _) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            return NONE;
-        }
-
-        // change issue
         List<CheckBoxBean> oldList = this.getIssueCheckList();
-        if (oldList == null || index < 0 || index >= oldList.size()) {
+        CheckBoxBean selected = findIssueMutationTarget(oldList, CHANGE_DIAGNOSIS_ISSUE_ID);
+        if (selected == null) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
-        CaseManagementIssue currentIssue = requireCurrentIssueWriteAccess(oldList.get(index).getIssue(), demono);
+        CaseManagementIssue currentIssue = requireCurrentIssueWriteAccess(selected.getIssue(), demono);
 
         CheckIssueBoxBean substitution = selectedDiagnosis();
         String origIssueDesc = null;
@@ -3111,7 +3103,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             requireReplacementIssueWriteAccess(currentIssue, newIssue);
             newIssueDesc = newIssue.getDescription();
 
-            CheckBoxBean selected = oldList.get(index);
             selected.setIssue(currentIssue);
             selected.getIssue().setIssue(newIssue);
             selected.getIssue().setIssue_id(substitution.getIssue().getId().longValue());
@@ -3149,26 +3140,17 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         HttpSession session = request.getSession();
         if (session.getAttribute("userrole") == null) return "expired";
 
-        // get issue we're changing
-        String strIndex = request.getParameter("change_diagnosis_id");
-        int idx;
-        try {
-            idx = Integer.parseInt(strIndex);
-        } catch (NumberFormatException _) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            return NONE;
-        }
-
         String substitution = request.getParameter("newIssueId");
         String sessionFrmName = ChartProgramContext.formKey(request, getDemographicNo(request));
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
 
         List<CheckBoxBean> curIssues = sessionFrm == null ? null : sessionFrm.getIssueCheckList();
-        if (curIssues == null || sessionFrm.getCaseNote() == null || idx < 0 || idx >= curIssues.size()) {
+        CheckBoxBean selected = findIssueMutationTarget(curIssues, CHANGE_DIAGNOSIS_ISSUE_ID);
+        if (selected == null || sessionFrm.getCaseNote() == null) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
-        CaseManagementIssue currentIssue = requireCurrentIssueWriteAccess(curIssues.get(idx).getIssue(), getDemographicNo(request));
+        CaseManagementIssue currentIssue = requireCurrentIssueWriteAccess(selected.getIssue(), getDemographicNo(request));
 
         if (substitution != null) {
 
@@ -3178,10 +3160,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 return NONE;
             }
             requireReplacementIssueWriteAccess(currentIssue, iss);
-            curIssues.get(idx).setIssue(currentIssue);
-            curIssues.get(idx).getIssue().setIssue(iss);
-            curIssues.get(idx).getIssue().setIssue_id(iss.getId());
-            this.caseManagementMgr.saveCaseIssue(curIssues.get(idx).getIssue());
+            selected.setIssue(currentIssue);
+            currentIssue.setIssue(iss);
+            currentIssue.setIssue_id(iss.getId());
+            this.caseManagementMgr.saveCaseIssue(currentIssue);
 
             // update form with new issue list
             Set<CaseManagementIssue> issueset = new HashSet<CaseManagementIssue>();
@@ -3250,7 +3232,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
         }
         List<CheckBoxBean> oldList = sessionFrm.getIssueCheckList();
-        CheckBoxBean selected = findIssueMutationTarget(oldList);
+        CheckBoxBean selected = findIssueMutationTarget(oldList, "caseIssueId");
         if (selected == null) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
@@ -3325,7 +3307,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String sessionFrmName = ChartProgramContext.formKey(request, demono);
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
 
-        CheckBoxBean selected = findIssueMutationTarget(sessionFrm == null ? null : sessionFrm.getIssueCheckList());
+        CheckBoxBean selected = findIssueMutationTarget(sessionFrm == null ? null : sessionFrm.getIssueCheckList(), "caseIssueId");
         String acute = request.getParameter("issueAcute");
         String certain = request.getParameter("issueCertain");
         String major = request.getParameter("issueMajor");

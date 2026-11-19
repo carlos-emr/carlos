@@ -3327,7 +3327,7 @@ function updateCPPNote() {
 
     var changeIssueMsg;
     function changeDiagnosis(issueId) {
-        document.forms['caseManagementEntryForm'].change_diagnosis_id.value = issueId;
+        document.forms['caseManagementEntryForm'].elements.changeDiagnosisIssueId.value = issueId;
         var button = document.getElementById('asgnIssues');
         if (button) {
             button.value = changeIssueMsg;

@@ -327,9 +327,9 @@
 
                 <c:if test="${writeAccess}">
                 <!-- change diagnosis button -->
-                <c:set var="submitChange" value="return changeDiagnosisResolved('${status.index}');" />
                 &nbsp;
-                <button type="button" onclick="${submitChange}">Change</button>
+                <button type="button" data-issue-id="${carlos:forHtmlAttribute(issueCheckList.issue.id)}"
+                        onclick="return changeDiagnosisResolved(this.dataset.issueId);">Change</button>
 
                 </c:if>
 
@@ -413,7 +413,8 @@
 
             &nbsp;
             <c:if test="${writeAccess}">
-                <button type="button" onclick="return changeDiagnosisUnresolved('${status.index}');">Change</button>
+                <button type="button" data-issue-id="${carlos:forHtmlAttribute(issueCheckList.issue.id)}"
+                        onclick="return changeDiagnosisUnresolved(this.dataset.issueId);">Change</button>
             </c:if>
 
             <div id="${winame}" style="margin-left: 20px; display: none;">

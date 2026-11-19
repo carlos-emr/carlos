@@ -428,8 +428,8 @@
                             Delete
                         </button>
                     </c:if>
-                    <button type="submit" 
-                            onclick="this.form.method.value='changeDiagnosis'; this.form.deleteId.value='${status.index}';">
+                    <button type="submit" name="changeDiagnosisIssueId" value="${carlos:forHtmlAttribute(cbb.issue.id)}"
+                            onclick="this.form.method.value='changeDiagnosis';">
                         Change Issue
                     </button>
                 </c:if>
