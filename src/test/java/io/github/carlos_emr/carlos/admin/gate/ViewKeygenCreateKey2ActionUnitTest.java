@@ -173,10 +173,10 @@ class ViewKeygenCreateKey2ActionUnitTest extends CarlosUnitTestBase {
     class ServiceKeyPair {
 
         @BeforeEach
-        void serverKeyExists() {
+        void createServiceKey() {
             keys.when(() -> KeyPairGen.checkName(anyString())).thenReturn(false);
-            keys.when(KeyPairGen::getPublic).thenReturn(SERVER_PUBLIC_KEY);
-            keys.when(() -> KeyPairGen.createKeys(anyString(), any())).thenReturn(CLIENT_PRIVATE_KEY);
+            keys.when(() -> KeyPairGen.createClientKeys(anyString(), any())).thenReturn(
+                    new KeyPairGen.ClientKeys(KeyPairGen.ClientKeyStatus.CREATED, CLIENT_PRIVATE_KEY, SERVER_PUBLIC_KEY));
         }
 
         @Test
@@ -186,7 +186,7 @@ class ViewKeygenCreateKey2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(execute()).isEqualTo("none");
 
-            keys.verify(() -> KeyPairGen.createKeys(SERVICE, "FAKEPW"));
+            keys.verify(() -> KeyPairGen.createClientKeys(SERVICE, "FAKEPW"));
             String body = response.getContentAsString(StandardCharsets.UTF_8);
             assertThat(body).isEqualTo("-------- Service Name --------\n" + SERVICE + "\n------------------------------\n"
                     + "----- Client Private Key -----\n" + CLIENT_PRIVATE_KEY + "\n------------------------------\n"
@@ -206,7 +206,7 @@ class ViewKeygenCreateKey2ActionUnitTest extends CarlosUnitTestBase {
             request.addParameter("otherType", " FAKE-TYPE ");
 
             assertThat(execute()).isEqualTo("none");
-            keys.verify(() -> KeyPairGen.createKeys(SERVICE, "FAKE-TYPE"));
+            keys.verify(() -> KeyPairGen.createClientKeys(SERVICE, "FAKE-TYPE"));
         }
 
         @ParameterizedTest
@@ -218,7 +218,7 @@ class ViewKeygenCreateKey2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(execute()).isEqualTo("success");
             assertPageMessage("specify the message type", true);
-            keys.verify(() -> KeyPairGen.createKeys(anyString(), any()), never());
+            keys.verify(() -> KeyPairGen.createClientKeys(anyString(), any()), never());
         }
 
         @Test
@@ -228,7 +228,7 @@ class ViewKeygenCreateKey2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(execute()).isEqualTo("success");
             assertPageMessage("specify the message type", true);
-            keys.verify(() -> KeyPairGen.createKeys(anyString(), any()), never());
+            keys.verify(() -> KeyPairGen.createClientKeys(anyString(), any()), never());
         }
 
         @Test
@@ -239,7 +239,7 @@ class ViewKeygenCreateKey2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(execute()).isEqualTo("success");
             assertPageMessage("at most 100 characters", true);
-            keys.verify(() -> KeyPairGen.createKeys(anyString(), any()), never());
+            keys.verify(() -> KeyPairGen.createClientKeys(anyString(), any()), never());
         }
 
         @Test
@@ -250,17 +250,19 @@ class ViewKeygenCreateKey2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(execute()).isEqualTo("success");
             assertPageMessage("already been created for the service '" + SERVICE + "'", true);
-            keys.verify(() -> KeyPairGen.createKeys(anyString(), any()), never());
+            keys.verify(() -> KeyPairGen.createClientKeys(anyString(), any()), never());
         }
 
         @Test
         @DisplayName("should refuse before storing a pair when the server key pair is missing")
         void shouldRefuseWithoutStoring_whenServerKeyIsMissing() throws Exception {
-            keys.when(KeyPairGen::getPublic).thenReturn(null);
+            keys.when(() -> KeyPairGen.createClientKeys(SERVICE, "FAKEPW")).thenReturn(
+                    new KeyPairGen.ClientKeys(KeyPairGen.ClientKeyStatus.CARLOS_KEY_MISSING, null, null));
             post(SERVICE, "FAKEPW");
 
             assertThat(execute()).isEqualTo("success");
             assertPageMessage("CARLOS key pair has not been created yet", true);
+            assertPageMessage("then retry '" + SERVICE + "'", true);
             // Storing first used to leave a pair nobody received under a name that could not be reused.
             keys.verify(() -> KeyPairGen.createKeys(anyString(), any()), never());
         }
@@ -268,11 +270,12 @@ class ViewKeygenCreateKey2ActionUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should report a failed creation on the page")
         void shouldReportFailure_whenCreationFails() throws Exception {
-            keys.when(() -> KeyPairGen.createKeys(anyString(), any())).thenReturn(null);
+            keys.when(() -> KeyPairGen.createClientKeys(SERVICE, "FAKEPW")).thenReturn(
+                    new KeyPairGen.ClientKeys(KeyPairGen.ClientKeyStatus.FAILED, null, null));
             post(SERVICE, "FAKEPW");
 
             assertThat(execute()).isEqualTo("success");
-            assertPageMessage("Could not create key pair", true);
+            assertPageMessage("Could not create key pair. The server log records the cause", true);
         }
 
         @Test

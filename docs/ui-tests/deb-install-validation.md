@@ -97,6 +97,14 @@ health check passed. The focused Java regression run passed 219 tests. Locked No
 6,983 tests (zero failures, one existing TODO); the final chart-context and JSP
 inline-script checks passed 28 and 13 tests respectively.
 
+The 2026-11-10 focused validation for issue #6009 (Key Pair Creation stored a client key
+before finding the CARLOS key missing) ran on source-built snapshot27 packages installed
+fresh on Ubuntu 26.04 through the packaged front door. `admin-keygen-create-key-retry`
+passed on the fixed package and failed with the pre-fix `createKey.jsp` swapped in. A fresh
+install has no CARLOS key pair, so it starts in the state the issue describes. See
+[PR #6112 validation](pr6112-validation.md) for the before/after screenshots and the
+unrelated smoke-tier failures on that install.
+
 It is the procedure that first surfaced the WAF false positives on note-saving
 and eForm saves, the add-patient validation regression, the nullable-column
 500s on the consultation surfaces, and the empty Consultations inbox on the demo

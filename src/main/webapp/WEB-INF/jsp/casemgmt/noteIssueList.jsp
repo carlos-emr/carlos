@@ -35,6 +35,11 @@
     The encounter date (observation_date) is rendered by NoteObservationDate in its fixed English
     form, never by fmt:formatDate: that formats in the browser's language and, for a language with
     no date format, prints the raw java.sql.Timestamp, which the save could not read (issue #4711).
+    Each issue row's Change, Delete and status radios carry the patient issue's casemgmt_issue id
+    (data-case-issue-id) and, for a radio, the one attribute it sets (data-issue-field). The page
+    sends that id and value captured at the click, and the server resolves the id in the editor's
+    list; the list position is never sent, because an editor refresh can rebuild and reorder the
+    list while a click is pending (issue #6090). Radios render the issue's stored state.
     @since 2026-09-27 (soft-wrap and save-order documentation)
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -278,6 +283,7 @@
 
 
 <div id="noteIssues" data-saved-note-id="${carlos:forHtmlAttribute(ajaxsave)}">
+    <input type="hidden" name="issueSelectionById" value="true"/>
     <c:if test="${empty ajaxsave or preserveEditor}">
         <div class="add-issues">
             <label for="issueAutocomplete"><fmt:message key="encounter.Index.assnIssue"/></label>
@@ -301,59 +307,59 @@
     <c:if test="${issueCheckList.issue.resolved == true}">
         <tr>
             <td style="width: 50%; background-color: #CCCCFF;">
-                <c:set var="winame" value="noteIssueDetails${status.index}" />
+                <c:set var="caseIssueId" value="${issueCheckList.issue.id}" />
+                <%-- Row controls name the patient issue, not its list position: an editor refresh can
+                     rebuild and reorder the list before a click is sent (#6090). --%>
+                <c:set var="winame" value="noteIssueDetails${empty caseIssueId ? ('row' += status.index) : caseIssueId}" />
 
-                <c:set var="submitString" value="this.form.method.value='issueChange'; this.form.lineId.value='${status.index}'; return ajaxUpdateIssues('issueChange', $('noteIssues').up().id);" />
                 <c:set var="id" value="noteIssue${status.index}" />
 
                 <c:set var="writeAccess" value="${issueCheckList.issueDisplay.writeAccess}" />
                 <c:set var="disabled" value="${!writeAccess}" />
 
-                <input type="checkbox" id="${id}" data-issue-id="<carlos:encode value='${issueCheckList.issue.id}' context='htmlAttribute'/>" data-catalog-issue-id="<carlos:encode value='${issueCheckList.issue.issue_id}' context='htmlAttribute'/>" name="issueCheckList[${status.index}].checked" value="on" onchange="noteIssuesChanged = true;" ${issueCheckList.checked == 'on' ? 'checked="checked"' : ''} ${disabled ? 'disabled="disabled"' : ''}/>
+                <input type="checkbox" id="${id}" data-issue-id="<carlos:encode value='${issueCheckList.issue.id}' context='htmlAttribute'/>" data-catalog-issue-id="<carlos:encode value='${issueCheckList.issue.issue_id}' context='htmlAttribute'/>" name="${caseIssueId > 0 ? 'selectedCaseIssueId' : 'selectedCatalogIssueId'}" value="<carlos:encode value='${caseIssueId > 0 ? caseIssueId : issueCheckList.issue.issue_id}' context='htmlAttribute'/>" onchange="noteIssuesChanged = true;" ${issueCheckList.checked == 'on' ? 'checked="checked"' : ''} ${disabled ? 'disabled="disabled"' : ''}/>
 
                 <a href="#" onclick="return displayIssue('${winame}');">
                     ${carlos:forHtml(issueCheckList.issueDisplay.description)}
                 </a>
 
                 <c:if test="${issueCheckList.used == false && writeAccess}">
-                    <c:set var="submitDelete" value="removeIssue('${winame}');document.forms['caseManagementEntryForm'].deleteId.value='${status.index}';return ajaxUpdateIssues('issueDelete', $('noteIssues').up().id);" />
                     &nbsp;
-                    <a href="#" onclick="${submitDelete}">Delete</a>&nbsp;
+                    <a href="#" data-issue-action="delete" data-case-issue-id="<carlos:encode value='${caseIssueId}' context='htmlAttribute'/>" onclick="return deleteNoteIssue(this, '${winame}');">Delete</a>&nbsp;
                 </c:if>
 
                 <c:if test="${writeAccess}">
                 <!-- change diagnosis button -->
-                <c:set var="submitChange" value="return changeDiagnosisResolved('${status.index}');" />
                 &nbsp;
-                <a href="#" onclick="${submitChange}">Change</a>
+                <a href="#" data-issue-action="change" data-case-issue-id="<carlos:encode value='${caseIssueId}' context='htmlAttribute'/>" onclick="return changeDiagnosisResolved(this.getAttribute('data-case-issue-id'));">Change</a>
 
                 </c:if>
 
                 <div id="${winame}" style="margin-left: 20px; display: none;">
                     <div>
                         <div style="width: 50%; float: left; display: inline;">
-                            <input type="radio" id="${winame}-acute-true" name="issueCheckList[${status.index}].issue.acute" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-acute-true">acute</label>
+                            <input type="radio" id="${winame}-acute-true" name="issueCheckList[${status.index}].issue.acute" value="true" ${disabled ? 'disabled="disabled"' : ''} data-case-issue-id="<carlos:encode value='${caseIssueId}' context='htmlAttribute'/>" data-issue-field="acute" ${issueCheckList.issue.acute == true ? 'checked="checked"' : ''} onchange="return changeNoteIssue(this);"> <label for="${winame}-acute-true">acute</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline; clear: right;">
-                            <input type="radio" id="${winame}-acute-false" name="issueCheckList[${status.index}].issue.acute" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-acute-false">chronic</label>
+                            <input type="radio" id="${winame}-acute-false" name="issueCheckList[${status.index}].issue.acute" value="false" ${disabled ? 'disabled="disabled"' : ''} data-case-issue-id="<carlos:encode value='${caseIssueId}' context='htmlAttribute'/>" data-issue-field="acute" ${issueCheckList.issue.acute != true ? 'checked="checked"' : ''} onchange="return changeNoteIssue(this);"> <label for="${winame}-acute-false">chronic</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline;">
-                            <input type="radio" id="${winame}-certain-true" name="issueCheckList[${status.index}].issue.certain" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-certain-true">certain</label>
+                            <input type="radio" id="${winame}-certain-true" name="issueCheckList[${status.index}].issue.certain" value="true" ${disabled ? 'disabled="disabled"' : ''} data-case-issue-id="<carlos:encode value='${caseIssueId}' context='htmlAttribute'/>" data-issue-field="certain" ${issueCheckList.issue.certain == true ? 'checked="checked"' : ''} onchange="return changeNoteIssue(this);"> <label for="${winame}-certain-true">certain</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline; clear: right;">
-                            <input type="radio" id="${winame}-certain-false" name="issueCheckList[${status.index}].issue.certain" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-certain-false">uncertain</label>
+                            <input type="radio" id="${winame}-certain-false" name="issueCheckList[${status.index}].issue.certain" value="false" ${disabled ? 'disabled="disabled"' : ''} data-case-issue-id="<carlos:encode value='${caseIssueId}' context='htmlAttribute'/>" data-issue-field="certain" ${issueCheckList.issue.certain != true ? 'checked="checked"' : ''} onchange="return changeNoteIssue(this);"> <label for="${winame}-certain-false">uncertain</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline;">
-                            <input type="radio" id="${winame}-major-true" name="issueCheckList[${status.index}].issue.major" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-major-true">major</label>
+                            <input type="radio" id="${winame}-major-true" name="issueCheckList[${status.index}].issue.major" value="true" ${disabled ? 'disabled="disabled"' : ''} data-case-issue-id="<carlos:encode value='${caseIssueId}' context='htmlAttribute'/>" data-issue-field="major" ${issueCheckList.issue.major == true ? 'checked="checked"' : ''} onchange="return changeNoteIssue(this);"> <label for="${winame}-major-true">major</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline; clear: right;">
-                            <input type="radio" id="${winame}-major-false" name="issueCheckList[${status.index}].issue.major" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-major-false">not major</label>
+                            <input type="radio" id="${winame}-major-false" name="issueCheckList[${status.index}].issue.major" value="false" ${disabled ? 'disabled="disabled"' : ''} data-case-issue-id="<carlos:encode value='${caseIssueId}' context='htmlAttribute'/>" data-issue-field="major" ${issueCheckList.issue.major != true ? 'checked="checked"' : ''} onchange="return changeNoteIssue(this);"> <label for="${winame}-major-false">not major</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline;">
-                            <input type="radio" id="${winame}-resolved-true" name="issueCheckList[${status.index}].issue.resolved" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-resolved-true">resolved</label>
+                            <input type="radio" id="${winame}-resolved-true" name="issueCheckList[${status.index}].issue.resolved" value="true" ${disabled ? 'disabled="disabled"' : ''} data-case-issue-id="<carlos:encode value='${caseIssueId}' context='htmlAttribute'/>" data-issue-field="resolved" ${issueCheckList.issue.resolved == true ? 'checked="checked"' : ''} onchange="return changeNoteIssue(this);"> <label for="${winame}-resolved-true">resolved</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline; clear: right;">
-                            <input type="radio" id="${winame}-resolved-false" name="issueCheckList[${status.index}].issue.resolved" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-resolved-false">unresolved</label>
+                            <input type="radio" id="${winame}-resolved-false" name="issueCheckList[${status.index}].issue.resolved" value="false" ${disabled ? 'disabled="disabled"' : ''} data-case-issue-id="<carlos:encode value='${caseIssueId}' context='htmlAttribute'/>" data-issue-field="resolved" ${issueCheckList.issue.resolved != true ? 'checked="checked"' : ''} onchange="return changeNoteIssue(this);"> <label for="${winame}-resolved-false">unresolved</label>
                         </div>
                         <div style="text-align: center;">
                             <label for="${winame}-role"><fmt:message key="role"/></label>
@@ -380,7 +386,9 @@
             <c:forEach var="issueCheckList" items="${caseManagementEntryForm.issueCheckList}" varStatus="status">
     <c:if test="${issueCheckList.issue.resolved == false}">
 
-        <c:set var="winame" value="noteIssueDetails${status.index}" />
+        <c:set var="caseIssueId" value="${issueCheckList.issue.id}" />
+        <%-- Row controls name the patient issue, not its list position (#6090). --%>
+        <c:set var="winame" value="noteIssueDetails${empty caseIssueId ? ('row' += status.index) : caseIssueId}" />
 
         <c:set var="countUnresolvedIssue" value="${status.index + 1}" />
 
@@ -389,55 +397,53 @@
         </c:if>
 
         <td style="width: 50%; background-color: #CCCCFF;">
-            <c:set var="submitString" value="this.form.method.value='issueChange'; this.form.lineId.value='${status.index}'; return ajaxUpdateIssues('issueChange', $('noteIssues').up().id);" />
             <c:set var="id" value="noteIssue${status.index}" />
 
             <c:set var="writeAccess" value="${issueCheckList.issueDisplay.writeAccess}" />
             <c:set var="disabled" value="${!writeAccess}" />
 
-            <input type="checkbox" id="${id}" data-issue-id="<carlos:encode value='${issueCheckList.issue.id}' context='htmlAttribute'/>" data-catalog-issue-id="<carlos:encode value='${issueCheckList.issue.issue_id}' context='htmlAttribute'/>" name="issueCheckList[${status.index}].checked" value="on" onchange="noteIssuesChanged = true;" ${issueCheckList.checked == 'on' ? 'checked="checked"' : ''} ${disabled ? 'disabled="disabled"' : ''} />
+            <input type="checkbox" id="${id}" data-issue-id="<carlos:encode value='${issueCheckList.issue.id}' context='htmlAttribute'/>" data-catalog-issue-id="<carlos:encode value='${issueCheckList.issue.issue_id}' context='htmlAttribute'/>" name="${caseIssueId > 0 ? 'selectedCaseIssueId' : 'selectedCatalogIssueId'}" value="<carlos:encode value='${caseIssueId > 0 ? caseIssueId : issueCheckList.issue.issue_id}' context='htmlAttribute'/>" onchange="noteIssuesChanged = true;" ${issueCheckList.checked == 'on' ? 'checked="checked"' : ''} ${disabled ? 'disabled="disabled"' : ''} />
 
             <a href="#" onclick="return displayIssue('${winame}');">
                 ${carlos:forHtml(issueCheckList.issueDisplay.description)}
             </a>
 
             <c:if test="${issueCheckList.used == false && writeAccess}">
-                <c:set var="submitDelete" value="removeIssue('${winame}');document.forms['caseManagementEntryForm'].deleteId.value='${status.index}';return ajaxUpdateIssues('issueDelete', $('noteIssues').up().id);" />
                 &nbsp;
-                <a href="#" onclick="${submitDelete}">Delete</a>
+                <a href="#" data-issue-action="delete" data-case-issue-id="<carlos:encode value='${caseIssueId}' context='htmlAttribute'/>" onclick="return deleteNoteIssue(this, '${winame}');">Delete</a>
                 &nbsp;
             </c:if>
 
             &nbsp;
             <c:if test="${writeAccess}">
-                <a href="#" onclick="return changeDiagnosisUnresolved('${status.index}');">Change</a>
+                <a href="#" data-issue-action="change" data-case-issue-id="<carlos:encode value='${caseIssueId}' context='htmlAttribute'/>" onclick="return changeDiagnosisUnresolved(this.getAttribute('data-case-issue-id'));">Change</a>
             </c:if>
 
             <div id="${winame}" style="margin-left: 20px; display: none;">
                 <div>
                     <div style="width: 50%; float: left; display: inline;">
-                        <input type="radio" id="${winame}-acute-true" name="issueCheckList[${status.index}].issue.acute" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-acute-true">Acute</label>
+                        <input type="radio" id="${winame}-acute-true" name="issueCheckList[${status.index}].issue.acute" value="true" ${disabled ? 'disabled="disabled"' : ''} data-case-issue-id="<carlos:encode value='${caseIssueId}' context='htmlAttribute'/>" data-issue-field="acute" ${issueCheckList.issue.acute == true ? 'checked="checked"' : ''} onchange="return changeNoteIssue(this);"> <label for="${winame}-acute-true">Acute</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline; clear: right;">
-                        <input type="radio" id="${winame}-acute-false" name="issueCheckList[${status.index}].issue.acute" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-acute-false">Chronic</label>
+                        <input type="radio" id="${winame}-acute-false" name="issueCheckList[${status.index}].issue.acute" value="false" ${disabled ? 'disabled="disabled"' : ''} data-case-issue-id="<carlos:encode value='${caseIssueId}' context='htmlAttribute'/>" data-issue-field="acute" ${issueCheckList.issue.acute != true ? 'checked="checked"' : ''} onchange="return changeNoteIssue(this);"> <label for="${winame}-acute-false">Chronic</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline;">
-                        <input type="radio" id="${winame}-certain-true" name="issueCheckList[${status.index}].issue.certain" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-certain-true">Certain</label>
+                        <input type="radio" id="${winame}-certain-true" name="issueCheckList[${status.index}].issue.certain" value="true" ${disabled ? 'disabled="disabled"' : ''} data-case-issue-id="<carlos:encode value='${caseIssueId}' context='htmlAttribute'/>" data-issue-field="certain" ${issueCheckList.issue.certain == true ? 'checked="checked"' : ''} onchange="return changeNoteIssue(this);"> <label for="${winame}-certain-true">Certain</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline; clear: right;">
-                        <input type="radio" id="${winame}-certain-false" name="issueCheckList[${status.index}].issue.certain" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-certain-false">Uncertain</label>
+                        <input type="radio" id="${winame}-certain-false" name="issueCheckList[${status.index}].issue.certain" value="false" ${disabled ? 'disabled="disabled"' : ''} data-case-issue-id="<carlos:encode value='${caseIssueId}' context='htmlAttribute'/>" data-issue-field="certain" ${issueCheckList.issue.certain != true ? 'checked="checked"' : ''} onchange="return changeNoteIssue(this);"> <label for="${winame}-certain-false">Uncertain</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline;">
-                        <input type="radio" id="${winame}-major-true" name="issueCheckList[${status.index}].issue.major" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-major-true">Major</label>
+                        <input type="radio" id="${winame}-major-true" name="issueCheckList[${status.index}].issue.major" value="true" ${disabled ? 'disabled="disabled"' : ''} data-case-issue-id="<carlos:encode value='${caseIssueId}' context='htmlAttribute'/>" data-issue-field="major" ${issueCheckList.issue.major == true ? 'checked="checked"' : ''} onchange="return changeNoteIssue(this);"> <label for="${winame}-major-true">Major</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline; clear: right;">
-                        <input type="radio" id="${winame}-major-false" name="issueCheckList[${status.index}].issue.major" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-major-false">Not Major</label>
+                        <input type="radio" id="${winame}-major-false" name="issueCheckList[${status.index}].issue.major" value="false" ${disabled ? 'disabled="disabled"' : ''} data-case-issue-id="<carlos:encode value='${caseIssueId}' context='htmlAttribute'/>" data-issue-field="major" ${issueCheckList.issue.major != true ? 'checked="checked"' : ''} onchange="return changeNoteIssue(this);"> <label for="${winame}-major-false">Not Major</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline;">
-                        <input type="radio" id="${winame}-resolved-true" name="issueCheckList[${status.index}].issue.resolved" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-resolved-true">Resolved</label>
+                        <input type="radio" id="${winame}-resolved-true" name="issueCheckList[${status.index}].issue.resolved" value="true" ${disabled ? 'disabled="disabled"' : ''} data-case-issue-id="<carlos:encode value='${caseIssueId}' context='htmlAttribute'/>" data-issue-field="resolved" ${issueCheckList.issue.resolved == true ? 'checked="checked"' : ''} onchange="return changeNoteIssue(this);"> <label for="${winame}-resolved-true">Resolved</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline; clear: right;">
-                        <input type="radio" id="${winame}-resolved-false" name="issueCheckList[${status.index}].issue.resolved" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-resolved-false">Unresolved</label>
+                        <input type="radio" id="${winame}-resolved-false" name="issueCheckList[${status.index}].issue.resolved" value="false" ${disabled ? 'disabled="disabled"' : ''} data-case-issue-id="<carlos:encode value='${caseIssueId}' context='htmlAttribute'/>" data-issue-field="resolved" ${issueCheckList.issue.resolved != true ? 'checked="checked"' : ''} onchange="return changeNoteIssue(this);"> <label for="${winame}-resolved-false">Unresolved</label>
                     </div>
                     <div style="text-align: center;">
                         <label for="${winame}-role"><fmt:message key="role"/></label>

@@ -70,6 +70,7 @@ import io.github.carlos_emr.carlos.util.LabelValueBean;
 import java.nio.file.ProviderNotFoundException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -729,6 +730,11 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     @Override
     public void saveCaseIssue(CaseManagementIssue issue) {
         caseManagementIssueDAO.saveIssue(issue);
+    }
+
+    @Override
+    public <T> T updateExistingIssue(Long issueId, Function<CaseManagementIssue, T> change) {
+        return change.apply(caseManagementIssueDAO.findByIdForUpdate(issueId));
     }
 
     @Override

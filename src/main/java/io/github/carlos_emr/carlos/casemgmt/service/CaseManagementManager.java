@@ -209,6 +209,9 @@ public interface CaseManagementManager {
 
     public void saveCaseIssue(CaseManagementIssue issue);
 
+    /** Applies an editor operation to the locked, current issue in one transaction. */
+    <T> T updateExistingIssue(Long issueId, java.util.function.Function<CaseManagementIssue, T> change);
+
     public Issue getIssueInfo(Long l);
 
     public List getAllIssueInfo();

@@ -4065,6 +4065,26 @@
       }
     },
     {
+      "name": "admin-issue-editor-save",
+      "script": "scripts/admin-issue-editor-save-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owns up to three PS<hex>-coded issue rows (saved, cancelled and token-less probe codes); adds one through Administration > CAISI > Issue Editor and removes all of them in cleanup.",
+      "notes": "Pins #6078: the add form must load the CSRFGuard client so Save and Cancel post a CSRF token.",
+      "profile": "caisi-admin"
+    },
+    {
       "name": "security-password-length",
       "script": "scripts/security-password-length-playwright-checks.js",
       "tiers": [
@@ -4636,6 +4656,29 @@
       ],
       "notes": "REST Clients round trip, key manager read and buttons, then Key Pair Creation (app-findings-log.md finding 163, fixed under #6055): a GET of admin/ViewKeygenCreateKey?name=<service> is refused by the application (403/405) and adds no publicKeys row; through the page's form the server pair is created once (or refused when one exists) and a service pair is created and downloaded as a no-store keyPair.key whose keys match the stored ones, with no page rendered after the file; the same service again is refused on the page; a POST without the CSRF token is refused.",
       "fixtures": "Creates and deletes one marker-named ServiceClient through the UI. Seeds one marker publicKeys row with a fresh RSA-2048 pair and links a demo specialist id only on that row; creates one more marker publicKeys row through Key Pair Creation. Removes the client, the marker keys (including any a refused probe registers under the marker-get and marker-nocsrf names), the key's PublicKey read-audit log rows and, only when this run created it and it is unchanged, the server oscarKeys pair; the downloaded key file is deleted as soon as it is read."
+    },
+    {
+      "name": "admin-keygen-create-key-retry",
+      "script": "scripts/admin-keygen-create-key-retry-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "notes": "Issue #6009. On an install without the CARLOS key pair (oscarKeys name oscar), Key Pair Creation refuses a client key with a message to create the CARLOS key pair first and stores no publicKeys row; the page then creates the CARLOS key pair, the same client name downloads keyPair.key (client private key pairs with the stored public key, CARLOS public key is the stored one), and a further attempt is refused as a duplicate. SKIPs when the CARLOS key pair already exists.",
+      "mutates": [
+        "oscarKeys",
+        "publicKeys"
+      ],
+      "fixtures": "Creates the CARLOS key pair and one marker-named publicKeys row through the page. Cleanup removes the marker row and the CARLOS key pair this run created (only while its public key is still the one the run stored) and asserts both are gone. An existing CARLOS key pair is never changed: the check SKIPs. The downloaded key file is deleted once read. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "admin-email-config",
@@ -10021,6 +10064,26 @@
       ],
       "notes": "Creates signed chart and CPP notes through the UI, selects Safety in CPP Assign Issues, verifies both issue links in MariaDB, and filters back to all notes. CPP selections remain isolated from the chart editor form.",
       "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), one plain note written and signed through the chart's note editor and one CPP Social History item written through the CPP editor. Cleanup deletes by the patient key every note (with its link, extension and issue rows), casemgmt_issue row, CPP summary (casemgmt_cpp), draft, note lock and eChart row of the patient and asserts them all gone. The catalog issue (CTCMM1000 'Safety') is only read. No clinic-wide state is changed."
+    },
+    {
+      "name": "echart-issue-mutation-identity",
+      "script": "scripts/echart-issue-mutation-identity-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "ISSUE_IDENTITY_SCREENSHOT_DIR"
+      ],
+      "mutates": [
+        "log"
+      ],
+      "notes": "Issue #6090. Resolves one issue so the next editor refresh reorders the note editor's checklist, holds that refresh's response, and clicks another issue's Acute radio; then deletes two issues, the second behind the first's held response. Asserts each casemgmt_issue row's flags and existence by identity, the controls disabled while an update is in flight, and the radios showing the stored state.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name) with four casemgmt_issue rows created with SQL from catalog issues of the CTCMM1000 role, linked to no note. Cleanup deletes the patient's issues, notes, links, drafts, note locks and eChart row by the patient key and asserts them gone. The catalog is only read. No clinic-wide state is changed."
     },
     {
       "name": "echart-issues-filter-note-editor",

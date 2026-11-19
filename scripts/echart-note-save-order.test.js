@@ -357,7 +357,8 @@ for (const [index, kind] of ['resolved', 'unresolved'].entries()) {
     const h = switchHarness();
     h.context.origCaseNote = h.editor.value;
     const markup = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/casemgmt/noteIssueList.jsp'), 'utf8');
-    const inputs = markup.match(/<input type="checkbox"[^\n]+name="issueCheckList[^\n]+/g);
+    const inputs = markup.split('\n')
+      .filter(line => line.includes('<input type="checkbox"') && line.includes('data-issue-id='));
     assert.equal(inputs.length, 2);
     const handler = inputs[index].match(/onchange="([^"]+)"/);
     assert.ok(handler, 'AJAX-rendered checkboxes must retain their change handler');

@@ -29,7 +29,10 @@
 package io.github.carlos_emr.carlos.utility;
 
 import java.time.Instant;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import org.springframework.scheduling.TaskScheduler;
 
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDao;
@@ -63,8 +66,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class ContextStartupListener implements jakarta.servlet.ServletContextListener {
     private static final Logger logger = MiscUtils.getLogger();
     private static final CarlosProperties oscarProperties = CarlosProperties.getInstance();
+    private static final long PORTAL_SWEEP_RETRY_SECONDS = 30;
 
+    // The startup and retry threads register the sweep, and the container thread stops it under the same lock.
     private ScheduledFuture<?> portalInviteSweep;
+    private ScheduledExecutorService portalInviteSweepRetry;
+    private boolean sweepsStopped;
     private ClinicalStartupCoordinator clinicalStartup;
     private CdsImportMaintenanceService maintenance;
 
@@ -111,15 +118,60 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
         }
     }
 
-    /** Start cleanup independently of invitation traffic; cancel it when this webapp stops. */
+    /**
+     * Start cleanup independently of invitation traffic; cancel it when this webapp stops. Safe to call again:
+     * the coordinator can run the whole clinical initialization a second time (maintenance returning right after it,
+     * or a failed gate read), and after shutdown has begun nothing is scheduled.
+     */
     private void forgetLeftoverPortalInviteCodes() {
+        synchronized (this) {
+            if (sweepsStopped || portalInviteSweep != null || portalInviteSweepRetry != null) return;
+        }
         try {
             PortalInviteCodeSweeper sweeper = new PortalInviteCodeSweeper(SpringUtils.getBean(EmailLogDao.class));
             sweeper.run();
+            schedulePortalInviteSweep(sweeper);
+        } catch (RuntimeException e) {
+            logger.warn("patient portal invitation code sweep could not be started: {}", e.getClass().getSimpleName());
+        }
+    }
+
+    private synchronized void schedulePortalInviteSweep(PortalInviteCodeSweeper sweeper) {
+        if (sweepsStopped || portalInviteSweep != null) return;
+        try {
             portalInviteSweep = SpringUtils.getBean(TaskScheduler.class).scheduleWithFixedDelay(
                     sweeper, Instant.now().plus(PortalInviteCodeSweeper.INTERVAL), PortalInviteCodeSweeper.INTERVAL);
         } catch (RuntimeException e) {
-            logger.warn("patient portal invitation code sweep could not be scheduled: {}", e.getClass().getSimpleName());
+            logger.warn("patient portal invitation code sweep registration failed, will retry: {}", e.getClass().getSimpleName());
+            if (portalInviteSweepRetry == null) {
+                var worker = Executors.newSingleThreadScheduledExecutor(
+                        new DeamonThreadFactory("carlos-portal-invite-sweep-retry", Thread.NORM_PRIORITY));
+                try {
+                    worker.scheduleWithFixedDelay(() -> retryPortalInviteSweep(sweeper),
+                            PORTAL_SWEEP_RETRY_SECONDS, PORTAL_SWEEP_RETRY_SECONDS, TimeUnit.SECONDS);
+                    portalInviteSweepRetry = worker;
+                } catch (RuntimeException retryFailure) {
+                    worker.shutdown();
+                    throw retryFailure;
+                }
+            }
+            return;
+        }
+        stopPortalInviteSweepRetry();
+    }
+
+    private void retryPortalInviteSweep(PortalInviteCodeSweeper sweeper) {
+        try {
+            if (!maintenance.isClinicalAccessBlocked()) schedulePortalInviteSweep(sweeper);
+        } catch (RuntimeException e) {
+            logger.warn("patient portal invitation code sweep retry failed: {}", e.getClass().getSimpleName());
+        }
+    }
+
+    private void stopPortalInviteSweepRetry() {
+        if (portalInviteSweepRetry != null) {
+            portalInviteSweepRetry.shutdown();
+            portalInviteSweepRetry = null;
         }
     }
 
@@ -158,6 +210,11 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
         requireClinicalAccessOpen();
         SpringUtils.getBean(io.github.carlos_emr.carlos.fax.core.FaxSchedulerJob.class)
                 .retryDeferredInitialization();
+        requireClinicalAccessOpen();
+        // After clinical initialization, so it is held back with the other clinical processes while maintenance is
+        // retained, as it was before startup moved into the coordinator. This initialization can run more than once
+        // (the coordinator retries it), so the call is idempotent.
+        forgetLeftoverPortalInviteCodes();
     }
 
     void initializeDefaultData(PlatformTransactionManager transactionManager) {
@@ -263,8 +320,12 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
 
     @Override
     public void contextDestroyed(jakarta.servlet.ServletContextEvent sce) {
-        if (portalInviteSweep != null) {
-            portalInviteSweep.cancel(false);
+        synchronized (this) {
+            sweepsStopped = true;
+            stopPortalInviteSweepRetry();
+            if (portalInviteSweep != null) {
+                portalInviteSweep.cancel(false);
+            }
         }
         logger.info("Server processes stopping. context=" + sce.getServletContext().getContextPath());
 

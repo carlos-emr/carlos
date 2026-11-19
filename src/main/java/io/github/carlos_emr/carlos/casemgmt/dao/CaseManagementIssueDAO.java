@@ -72,6 +72,9 @@ public interface CaseManagementIssueDAO extends io.github.carlos_emr.carlos.comm
      */
     public CaseManagementIssue findById(Long id);
 
+    /** Loads the latest managed issue and holds its write lock through the caller's transaction. */
+    CaseManagementIssue findByIdForUpdate(Long id);
+
     /**
      * Finds at most two patient issues without collapsing duplicate catalogue associations.
      *
