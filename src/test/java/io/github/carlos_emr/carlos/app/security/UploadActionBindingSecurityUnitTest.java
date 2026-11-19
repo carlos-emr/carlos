@@ -151,7 +151,14 @@ class UploadActionBindingSecurityUnitTest {
                 binding("io.github.carlos_emr.carlos.provider.web.ProviderSignatureStamp2Action", "setImage", File.class),
                 binding("io.github.carlos_emr.carlos.provider.web.ProviderSignatureStamp2Action", "setImageFileContentType", String.class),
                 binding("io.github.carlos_emr.carlos.provider.web.ProviderSignatureStamp2Action", "setImageFileName", String.class),
-                binding("io.github.carlos_emr.carlos.report.reportByTemplate.actions.UploadTemplates2Action", "setTemplateFile", File.class)
+                binding("io.github.carlos_emr.carlos.report.reportByTemplate.actions.UploadTemplates2Action", "setTemplateFile", File.class),
+                // MCEDT Update Upload (#2212): bound through withUploadedFiles only.
+                binding("io.github.carlos_emr.carlos.integration.mcedt.Update2Action", "setContent", File.class),
+                // File fields no request ever fills (#2212): Struts 7 binds no file from parameters.
+                binding("io.github.carlos_emr.carlos.eform.actions.HtmlEdit2Action", "setUploadFile", File.class),
+                binding("io.github.carlos_emr.carlos.documentManager.actions.AddEditHtml2Action", "setDocFile", File.class),
+                binding("io.github.carlos_emr.carlos.documentManager.actions.AddEditHtml2Action", "setFiledata", File.class),
+                binding("io.github.carlos_emr.carlos.casemgmt.web.CaseManagementView2Action", "setImageFile", File.class)
         );
     }
 
