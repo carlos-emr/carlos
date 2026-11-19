@@ -113,22 +113,45 @@ public class WLWaitingListUtil {
      * This method adds the Waiting List note to the same position in the waitingList table but do not delete previous ones - later on DisplayWaitingList.jsp will display only the most current Waiting List Note record.
      *
      * Returns true when the note was recorded, and false when nothing was written: no list was
-     * named (id "0"), or the patient has no entry on the named list.
+     * named (id "0"), or the patient has no entry on the named list. An entry kept as history
+     * after a removal counts here, as it always has: the patient edit form then puts the patient
+     * back on the list.
      */
+    public static synchronized boolean updateWaitingListRecord(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+        return recordNote(waitingListID, waitingListNote, demographicNo, onListSince, false);
+    }
+
+    /**
+     * {@link #updateWaitingListRecord} for a caller that must not put a patient back on a list: the
+     * note is recorded only when the patient has a current entry on the named list. Entries kept
+     * as history after a removal do not count, so an update prepared before the removal is
+     * reported instead of undoing it (#5298).
+     *
+     * @return {@code true} when the note was recorded; {@code false} when nothing was written
+     *         because no list was named (id "0") or the patient is not on the named list now
+     */
+    public static synchronized boolean updateCurrentWaitingListRecord(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+        return recordNote(waitingListID, waitingListNote, demographicNo, onListSince, true);
+    }
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    public static synchronized boolean updateWaitingListRecord(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+    private static boolean recordNote(String waitingListID, String waitingListNote, String demographicNo, String onListSince, boolean currentEntryRequired) {
         requireNoteFits(waitingListNote);
         MiscUtils.getLogger().debug("WLWaitingListUtil.updateWaitingListRecord(): waitingListID: " + waitingListID + " for patient " + demographicNo);
         boolean isWatingIdSet = !waitingListID.equalsIgnoreCase("0") && !demographicNo.equalsIgnoreCase("0");
         if (!isWatingIdSet) return false;
 
         WaitingListDao dao = SpringUtils.getBean(WaitingListDao.class);
+        // Every entry the patient ever had on this list, history included.
         List<WaitingList> waitingLists = dao.findByWaitingListIdAndDemographicId(ConversionUtils.fromIntString(waitingListID), ConversionUtils.fromIntString(demographicNo));
         // Not on this list: the patient edit form relies on this being a no-op (it then offers the
         // add), so it stays one, but it is reported, because a caller that was asked to save this
         // note has not saved it.
         if (waitingLists.isEmpty()) return false;
+        if (currentEntryRequired && waitingLists.stream().allMatch(entry -> WaitingList.IS_HISTORY_YES.equals(entry.getIsHistory()))) {
+            return false;
+        }
 
         long pos = 1;
         for (WaitingList wl : waitingLists) {

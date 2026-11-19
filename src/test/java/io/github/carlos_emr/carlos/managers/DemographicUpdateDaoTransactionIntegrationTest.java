@@ -555,6 +555,29 @@ class DemographicUpdateDaoTransactionIntegrationTest {
     }
 
     @Test
+    @DisplayName("should refuse the REST update and keep the patient off the list when the entry was removed through the application")
+    void shouldRefuseAndKeepThePatientOffTheList_whenTheEntryWasRemovedThroughTheApplication() {
+        long auditsBefore = audits(UPDATE_AUDIT);
+        long customFieldAuditsBefore = audits(CUSTOM_FIELD_AUDIT);
+        DemographicTo1 data = restPayload("Changed");
+        // What the waiting-list page's removal leaves (WLWaitingListUtil.removeFromWaitingList): the
+        // entry is kept, marked as history. It happens after the client loaded the patient, and a
+        // patient read shows current entries only.
+        jdbc.update("UPDATE waitingList SET is_history='Y' WHERE listID=? AND demographic_no=?", waitingListId, patientId);
+
+        // Recording the note would put the patient back on the list they were taken off.
+        assertThatThrownBy(() -> put(data)).isInstanceOfSatisfying(WebApplicationException.class,
+                refusal -> assertConflict(refusal, "WAITING_LIST_ENTRY_NOT_FOUND"));
+
+        assertNothingOfTheUpdateRemains(auditsBefore);
+        assertThat(customFieldAlert()).as("demographiccust alert").isEqualTo("Original alert");
+        assertThat(archivedCustomFieldAlerts()).as("demographiccustArchive rows").isEmpty();
+        assertThat(audits(CUSTOM_FIELD_AUDIT)).as("custom-field audit rows").isEqualTo(customFieldAuditsBefore);
+        assertThat(waitingListNotes("N")).as("current waiting-list entries").isEmpty();
+        assertThat(waitingListNotes("Y")).as("historical waiting-list entries").containsExactly("Original note");
+    }
+
+    @Test
     @DisplayName("should save the patient and leave the waiting list alone when the request names no list")
     void shouldSaveThePatient_whenTheRequestNamesNoWaitingList() {
         DemographicTo1 data = restPayload("Changed");

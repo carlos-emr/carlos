@@ -27,9 +27,11 @@
  * Step 5: an update that sends the id of another patient's extension is refused (409,
  * DEMOGRAPHIC_EXTENSION_NOT_FOUND) before either chart changes. The id alone used to re-point that
  * row to this patient and overwrite it.
- * Step 6: an update that names a waiting list the patient is no longer on (the entry was removed
- * after the form was loaded) is refused (409, WAITING_LIST_ENTRY_NOT_FOUND) and rolled back. It
- * used to save the patient and answer success while dropping the waiting-list note.
+ * Step 6: an update that names a waiting list the patient was taken off after the form was loaded
+ * (the application keeps the removed entry as history) is refused (409,
+ * WAITING_LIST_ENTRY_NOT_FOUND) and rolled back. It used to put the patient back on the list.
+ * Step 7: the same refusal for a list on which the patient has no entry at all. That update used
+ * to save the patient and answer success while dropping the waiting-list note.
  *
  * The patient is the runWorkflow fixture (last name = this run's FAKE-PW<hex> marker, which the
  * updates keep). The waiting list is a list of its own, named by the marker, so renumbering it
@@ -235,15 +237,28 @@ async function workflow(s) {
       'The refused update archived the other patient\'s extension');
   });
 
-  await s.step('an update naming a waiting list the patient is no longer on is refused, not half saved', async () => {
-    // The entry is removed after the form that names the list was loaded.
+  await s.step('an update naming a waiting list the patient was taken off does not put them back', async () => {
+    // The application's removal (WLWaitingListUtil.removeFromWaitingList) keeps the entry as
+    // history. It happens after the form that names the list was loaded.
+    s.sql.execute("UPDATE waitingList SET is_history='Y' WHERE listID=? AND demographic_no=?", [list, patient]);
+    h.assert(count('SELECT COUNT(*) FROM waitingList WHERE listID=? AND demographic_no=?', [list, patient]) > 0
+      && count("SELECT COUNT(*) FROM waitingList WHERE listID=? AND demographic_no=? AND is_history<>'Y'", [list, patient]) === 0,
+      'The waiting-list entries were not turned into history');
+
+    // expectRefusal compares every waiting-list row before and after: no current entry may appear.
+    await expectRefusal('an update naming a waiting list the patient was taken off',
+      update('Stale', 6, [extra('wPhoneExt', `${s.marker}-stale6`)]),
+      'WAITING_LIST_ENTRY_NOT_FOUND', 'the removed waiting-list entry', `${s.marker}-stale6`);
+  });
+
+  await s.step('an update naming a waiting list the patient has no entry on is refused, not half saved', async () => {
     s.sql.execute('DELETE FROM waitingList WHERE listID=? AND demographic_no=?', [list, patient]);
     h.assert(count('SELECT COUNT(*) FROM waitingList WHERE listID=? AND demographic_no=?', [list, patient]) === 0,
       'The waiting-list entries were not removed');
 
-    await expectRefusal('an update naming a removed waiting-list entry',
-      update('Stale', 6, [extra('wPhoneExt', `${s.marker}-stale6`)]),
-      'WAITING_LIST_ENTRY_NOT_FOUND', 'the missing waiting-list entry', `${s.marker}-stale6`);
+    await expectRefusal('an update naming a waiting list the patient has no entry on',
+      update('Stale', 7, [extra('wPhoneExt', `${s.marker}-stale7`)]),
+      'WAITING_LIST_ENTRY_NOT_FOUND', 'the missing waiting-list entry', `${s.marker}-stale7`);
   });
 }
 

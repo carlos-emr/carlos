@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -21,7 +22,8 @@ import io.github.carlos_emr.carlos.commn.model.WaitingList;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 /**
- * What {@link WLWaitingListUtil#updateWaitingListRecord} tells its caller (issue #5298).
+ * What {@link WLWaitingListUtil#updateWaitingListRecord} and its stricter sibling
+ * {@link WLWaitingListUtil#updateCurrentWaitingListRecord} tell their caller (issue #5298).
  *
  * <p>The helper is a no-op when no list is named or the patient has no entry on the named list.
  * The patient edit form relies on that; the REST demographic update must instead refuse, because it
@@ -76,5 +78,83 @@ class WLWaitingListUpdateRecordUnitTest extends CarlosUnitTestBase {
         assertThat(saved.getValue().getNote()).isEqualTo("FAKE note");
         assertThat(saved.getValue().getPosition()).isEqualTo(3L);
         assertThat(saved.getValue().getIsHistory()).isEqualTo("N");
+    }
+
+    @Test
+    @DisplayName("should put the patient back on the list when only history remains, as the patient edit form expects")
+    void shouldRecordACurrentEntry_whenOnlyHistoryRemainsForTheEditForm() {
+        WaitingListDao dao = createAndRegisterMock(WaitingListDao.class);
+        when(dao.findByWaitingListIdAndDemographicId(7, 101)).thenReturn(List.of(entry(4, true)));
+
+        assertThat(WLWaitingListUtil.updateWaitingListRecord("7", "FAKE note", "101", null)).isTrue();
+
+        ArgumentCaptor<WaitingList> saved = ArgumentCaptor.forClass(WaitingList.class);
+        verify(dao).saveEntity(saved.capture());
+        assertThat(saved.getValue().getIsHistory()).isEqualTo("N");
+    }
+
+    /** {@code updateCurrentWaitingListRecord}: the caller must not put a removed patient back. */
+    @Nested
+    @DisplayName("when a current entry is required")
+    class WhenACurrentEntryIsRequired {
+
+        @ParameterizedTest(name = "list {0}, patient {1}")
+        @CsvSource({"0, 101", "7, 0"})
+        @DisplayName("should report that nothing was written when no list or no patient is named")
+        void shouldReportNothingWritten_whenNoListOrPatientIsNamed(String listId, String demographicNo) {
+            // No WaitingListDao is registered: looking one up would fail this case.
+            assertThat(WLWaitingListUtil.updateCurrentWaitingListRecord(listId, "FAKE note", demographicNo, null)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should write nothing and report it when the patient was taken off the list")
+        void shouldWriteNothingAndReportIt_whenOnlyHistoryRemains() {
+            WaitingListDao dao = createAndRegisterMock(WaitingListDao.class);
+            WaitingList removed = entry(4, true);
+            when(dao.findByWaitingListIdAndDemographicId(7, 101)).thenReturn(List.of(removed, entry(2, true)));
+
+            assertThat(WLWaitingListUtil.updateCurrentWaitingListRecord("7", "FAKE note", "101", null)).isFalse();
+
+            verify(dao, never()).saveEntity(any(WaitingList.class));
+            verify(dao, never()).merge(any(WaitingList.class));
+            verify(dao, never()).findByWaitingListId(any());
+        }
+
+        @Test
+        @DisplayName("should write nothing and report it when the patient has no entry on the list")
+        void shouldWriteNothingAndReportIt_whenThePatientHasNoEntryOnTheList() {
+            WaitingListDao dao = createAndRegisterMock(WaitingListDao.class);
+            when(dao.findByWaitingListIdAndDemographicId(7, 101)).thenReturn(List.of());
+
+            assertThat(WLWaitingListUtil.updateCurrentWaitingListRecord("7", "FAKE note", "101", null)).isFalse();
+
+            verify(dao, never()).saveEntity(any(WaitingList.class));
+        }
+
+        @Test
+        @DisplayName("should record the note and report it when the patient is on the list, whatever history precedes")
+        void shouldRecordTheNoteAndReportIt_whenACurrentEntryFollowsHistory() {
+            WaitingListDao dao = createAndRegisterMock(WaitingListDao.class);
+            WaitingList current = entry(3, false);
+            when(dao.findByWaitingListIdAndDemographicId(7, 101)).thenReturn(List.of(entry(9, true), current));
+
+            assertThat(WLWaitingListUtil.updateCurrentWaitingListRecord("7", "FAKE note", "101", null)).isTrue();
+
+            assertThat(current.getIsHistory()).as("the replaced entry is kept as history").isEqualTo("Y");
+            ArgumentCaptor<WaitingList> saved = ArgumentCaptor.forClass(WaitingList.class);
+            verify(dao).saveEntity(saved.capture());
+            assertThat(saved.getValue().getNote()).isEqualTo("FAKE note");
+            assertThat(saved.getValue().getPosition()).isEqualTo(3L);
+            assertThat(saved.getValue().getIsHistory()).isEqualTo("N");
+        }
+    }
+
+    private static WaitingList entry(long position, boolean history) {
+        WaitingList entry = new WaitingList();
+        entry.setListId(7);
+        entry.setDemographicNo(101);
+        entry.setPosition(position);
+        entry.setHistory(history);
+        return entry;
     }
 }

@@ -24,8 +24,9 @@ with HTTP 409 and a JSON error code, and save nothing: a second extension with a
 the patient already holds (`DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY`), an extension id
 that is not one of this patient's stored extensions (`DEMOGRAPHIC_EXTENSION_NOT_FOUND`;
 the id alone could re-point another patient's extension to this patient), and a
-waiting list on which the patient has no entry (`WAITING_LIST_ENTRY_NOT_FOUND`; the
-patient was saved and the waiting-list note dropped without an error). Every extension
+waiting list on which the patient has no current entry (`WAITING_LIST_ENTRY_NOT_FOUND`; the
+patient was saved and the waiting-list note dropped without an error, or, when the entry
+had been removed through the application, the patient was put back on the list). Every extension
 is saved under the patient being updated, whatever patient number the request gives it.
 Integrations that send extension ids or a waiting-list id should reload the patient on
 these codes.
