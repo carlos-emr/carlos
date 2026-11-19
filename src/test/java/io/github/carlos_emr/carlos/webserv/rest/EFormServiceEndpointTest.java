@@ -28,6 +28,7 @@ import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Map;
@@ -336,6 +337,189 @@ class EFormServiceEndpointTest extends CarlosRestTestBase {
             Response response = request().path("/eform/instance/9").delete();
 
             assertThat(response.getStatus()).isEqualTo(404);
+        }
+    }
+
+    /**
+     * Each instance endpoint first checks the {@code _eform} right with no patient attached, so a
+     * caller without it learns nothing about which fdids exist. Only the right the endpoint needs
+     * is refused here, which also pins which right that is.
+     */
+    @Nested
+    @DisplayName("instance endpoints: coarse _eform gate")
+    class CoarseGate {
+
+        private void denyGlobal(String privilege) {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq(privilege), isNull()))
+                .thenReturn(false);
+        }
+
+        private void assertAccessDeniedWithoutService(Response response) {
+            var wireJson = responseJson(response);
+            assertThat(wireJson.at("/status").textValue()).isEqualTo("ERROR");
+            assertThat(wireJson.at("/error/message").textValue()).isEqualTo("Access Denied");
+            verifyNoInteractions(mockInstanceService);
+        }
+
+        @Test
+        @DisplayName("GET should need _eform read")
+        void shouldDenyWithoutCallingService_whenReadRightMissing() {
+            denyGlobal(SecurityInfoManager.READ);
+
+            assertAccessDeniedWithoutService(request().path("/eform/instance/5").get());
+        }
+
+        @Test
+        @DisplayName("POST should need _eform write")
+        void shouldDenyWithoutCallingService_whenWriteRightMissingForCreate() {
+            denyGlobal(SecurityInfoManager.WRITE);
+
+            assertAccessDeniedWithoutService(request().path("/eform/instance")
+                .post(jakarta.ws.rs.client.Entity.json("{\"fid\":3,\"demographicNo\":42}")));
+        }
+
+        @Test
+        @DisplayName("PUT should need _eform update")
+        void shouldDenyWithoutCallingService_whenUpdateRightMissing() {
+            denyGlobal(SecurityInfoManager.UPDATE);
+
+            assertAccessDeniedWithoutService(request().path("/eform/instance/5")
+                .put(jakarta.ws.rs.client.Entity.json("{\"values\":{}}")));
+        }
+
+        @Test
+        @DisplayName("DELETE should need _eform write")
+        void shouldDenyWithoutCallingService_whenWriteRightMissingForDelete() {
+            denyGlobal(SecurityInfoManager.WRITE);
+
+            assertAccessDeniedWithoutService(request().path("/eform/instance/5").delete());
+        }
+    }
+
+    @Nested
+    @DisplayName("instance endpoints: refusals from the service")
+    class ServiceRefusals {
+
+        @Test
+        @DisplayName("GET should return a retired revision as history with current=false")
+        void shouldReturnRetiredRevision_withCurrentFalse() {
+            when(mockInstanceService.get(any(), eq(5)))
+                .thenReturn(new EFormInstanceService.Instance(instanceRow(5, false), Map.of()));
+
+            Response response = request().path("/eform/instance/5").get();
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(responseJson(response).at("/body/current").booleanValue()).isFalse();
+        }
+
+        @Test
+        @DisplayName("POST should refuse without calling the service when demographicNo is missing")
+        void shouldRefuseWithoutCallingService_whenDemographicNoMissing() {
+            Response response = request().path("/eform/instance")
+                .post(jakarta.ws.rs.client.Entity.json("{\"demographicNo\":42}"));
+
+            assertThat(responseJson(response).at("/error/message").textValue())
+                .isEqualTo("fid and demographicNo are required");
+            verifyNoInteractions(mockInstanceService);
+        }
+
+        @Test
+        @DisplayName("POST should report the reason when the patient does not exist")
+        void shouldReportReason_whenPatientMissing() {
+            when(mockInstanceService.create(any(), anyInt(), anyInt(), any(), any()))
+                .thenThrow(new EFormInstanceException(EFormInstanceException.Reason.PATIENT_NOT_FOUND));
+
+            Response response = request().path("/eform/instance")
+                .post(jakarta.ws.rs.client.Entity.json("{\"fid\":3,\"demographicNo\":42}"));
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(responseJson(response).at("/error/message").textValue()).isEqualTo("Patient not found");
+        }
+
+        @Test
+        @DisplayName("POST should report the reason when a field name is blank")
+        void shouldReportReason_whenFieldNameBlank() {
+            when(mockInstanceService.create(any(), anyInt(), anyInt(), any(), any()))
+                .thenThrow(new EFormInstanceException(EFormInstanceException.Reason.INVALID_FIELD_NAME));
+
+            Response response = request().path("/eform/instance")
+                .post(jakarta.ws.rs.client.Entity.json("{\"fid\":3,\"demographicNo\":42,\"values\":{\" \":\"x\"}}"));
+
+            assertThat(responseJson(response).at("/error/message").textValue())
+                .isEqualTo("EForm field names must not be blank");
+        }
+
+        @Test
+        @DisplayName("POST should answer access denied when the service refuses the patient")
+        void shouldAnswerAccessDenied_whenServiceRefusesCreate() {
+            when(mockInstanceService.create(any(), anyInt(), anyInt(), any(), any()))
+                .thenThrow(new SecurityException("missing required sec object (_eform)"));
+
+            Response response = request().path("/eform/instance")
+                .post(jakarta.ws.rs.client.Entity.json("{\"fid\":3,\"demographicNo\":42}"));
+
+            assertThat(responseJson(response).at("/error/message").textValue()).isEqualTo("Access Denied");
+        }
+
+        @Test
+        @DisplayName("PUT should pass a new subject through to the revision")
+        void shouldPassSubjectThrough_whenRevising() {
+            when(mockInstanceService.revise(any(), eq(5), eq("Corrected"), anyMap())).thenReturn(instanceRow(78, true));
+
+            Response response = request().path("/eform/instance/5")
+                .put(jakarta.ws.rs.client.Entity.json("{\"subject\":\"Corrected\",\"values\":{\"bp\":\"1\"}}"));
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            verify(mockInstanceService).revise(any(), eq(5), eq("Corrected"), eq(Map.of("bp", "1")));
+        }
+
+        @Test
+        @DisplayName("PUT should return 404 when no instance has the id")
+        void shouldReturn404_whenRevisingMissingInstance() {
+            when(mockInstanceService.revise(any(), eq(9), any(), any()))
+                .thenThrow(new EFormInstanceException(EFormInstanceException.Reason.NOT_FOUND));
+
+            Response response = request().path("/eform/instance/9")
+                .put(jakarta.ws.rs.client.Entity.json("{\"values\":{}}"));
+
+            assertThat(response.getStatus()).isEqualTo(404);
+        }
+
+        @Test
+        @DisplayName("PUT should answer access denied when the service refuses the patient")
+        void shouldAnswerAccessDenied_whenServiceRefusesRevise() {
+            when(mockInstanceService.revise(any(), eq(5), any(), any()))
+                .thenThrow(new SecurityException("missing required sec object (_eform)"));
+
+            Response response = request().path("/eform/instance/5")
+                .put(jakarta.ws.rs.client.Entity.json("{\"values\":{}}"));
+
+            assertThat(responseJson(response).at("/error/message").textValue()).isEqualTo("Access Denied");
+        }
+
+        @Test
+        @DisplayName("DELETE should return 409 when the instance was already deleted or revised")
+        void shouldReturn409_whenDeletingRetiredInstance() {
+            doThrow(new EFormInstanceException(EFormInstanceException.Reason.RETIRED))
+                .when(mockInstanceService).delete(any(), eq(5));
+
+            Response response = request().path("/eform/instance/5").delete();
+
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(response.readEntity(String.class)).contains("EForm instance is no longer current");
+        }
+
+        @Test
+        @DisplayName("DELETE should answer access denied when the service refuses the patient")
+        void shouldAnswerAccessDenied_whenServiceRefusesDelete() {
+            doThrow(new SecurityException("missing required sec object (_eform)"))
+                .when(mockInstanceService).delete(any(), eq(5));
+
+            Response response = request().path("/eform/instance/5").delete();
+
+            var wireJson = responseJson(response);
+            assertThat(wireJson.at("/status").textValue()).isEqualTo("ERROR");
+            assertThat(wireJson.at("/error/message").textValue()).isEqualTo("Access Denied");
         }
     }
 }

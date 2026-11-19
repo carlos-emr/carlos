@@ -33,6 +33,7 @@ import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Stream;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -45,6 +46,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
@@ -446,6 +451,245 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
 
             assertThat(response.getStatus()).isEqualTo(400);
             verifyNoInteractions(mockMeasurementManager);
+        }
+
+        private MeasurementType configureType(String typeCode, String instruction, String validationId) {
+            MeasurementType type = new MeasurementType();
+            type.setType(typeCode);
+            type.setMeasuringInstruction(instruction);
+            type.setValidation(validationId);
+            when(mockMeasurementTypeDao.findByTypeAndMeasuringInstruction(typeCode, instruction))
+                .thenReturn(List.of(type));
+            return type;
+        }
+
+        /** The seeded "Blood Pressure" rule (validations row 6 in the ON and BC data). */
+        private void configureSeededBloodPressureRule() {
+            configureType("BP", "sitting position", "6");
+            Validations rule = new Validations();
+            rule.setRegularExp("[0-9]{2,3}/{1}[0-9]{2,3}");
+            when(mockValidationsDao.find(6)).thenReturn(rule);
+        }
+
+        private void allowWriteToExistingPatient() {
+            allowMeasurementWrite();
+            when(mockDemographicDao.getDemographicById(123)).thenReturn(new Demographic());
+        }
+
+        private Response postNew(String body) {
+            return request().path("/measurements/123/new").post(Entity.json(body));
+        }
+
+        static Stream<Arguments> malformedMeasurementBodies() {
+            String tooLong = "x".repeat(Measurement.DATA_FIELD_MAX_LENGTH + 1);
+            return Stream.of(
+                Arguments.of("empty object", "{}"),
+                Arguments.of("blank type", "{\"type\":\"  \",\"dataField\":\"1\"}"),
+                Arguments.of("type longer than 50 characters",
+                    "{\"type\":\"" + "T".repeat(51) + "\",\"dataField\":\"1\"}"),
+                Arguments.of("non-text type", "{\"type\":5,\"dataField\":\"1\"}"),
+                Arguments.of("blank dataField", "{\"type\":\"BP\",\"dataField\":\" \"}"),
+                Arguments.of("dataField longer than the column",
+                    "{\"type\":\"BP\",\"dataField\":\"" + tooLong + "\"}"),
+                Arguments.of("non-text dataField", "{\"type\":\"BP\",\"dataField\":120}"),
+                Arguments.of("comments longer than 255 characters",
+                    "{\"type\":\"BP\",\"dataField\":\"1\",\"comments\":\"" + "c".repeat(256) + "\"}"),
+                Arguments.of("non-text comments", "{\"type\":\"BP\",\"dataField\":\"1\",\"comments\":5}"),
+                Arguments.of("measuringInstruction longer than 255 characters",
+                    "{\"type\":\"BP\",\"dataField\":\"1\",\"measuringInstruction\":\"" + "i".repeat(256) + "\"}"),
+                Arguments.of("non-text measuringInstruction",
+                    "{\"type\":\"BP\",\"dataField\":\"1\",\"measuringInstruction\":true}"),
+                Arguments.of("text dateObserved",
+                    "{\"type\":\"BP\",\"dataField\":\"1\",\"dateObserved\":\"2026-01-01\"}"),
+                Arguments.of("fractional dateObserved",
+                    "{\"type\":\"BP\",\"dataField\":\"1\",\"dateObserved\":1770000000000.5}"),
+                Arguments.of("dateObserved before the DATETIME minimum",
+                    "{\"type\":\"BP\",\"dataField\":\"1\",\"dateObserved\":-30610224000001}"),
+                Arguments.of("unsupported server-set field", "{\"type\":\"BP\",\"dataField\":\"1\",\"id\":5}"));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("malformedMeasurementBodies")
+        @DisplayName("should reject a malformed body before any access check or save")
+        void shouldReturn400BeforeAccessCheck_whenBodyIsMalformed(String description, String body) {
+            Response response = postNew(body);
+
+            assertThat(response.getStatus()).as(description).isEqualTo(400);
+            verifyNoInteractions(mockSecurityInfoManager, mockMeasurementTypeDao, mockMeasurementManager);
+        }
+
+        @ParameterizedTest(name = "demographicNo {0}")
+        @ValueSource(ints = {0, -1})
+        @DisplayName("should reject nonpositive patient identifiers before any access check")
+        void shouldReturn400_whenPatientIdentifierIsNotPositive(int demographicNo) {
+            Response response = request().path("/measurements/" + demographicNo + "/new")
+                .post(Entity.json("{\"type\":\"BP\",\"dataField\":\"122/80\"}"));
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockSecurityInfoManager, mockMeasurementManager);
+        }
+
+        @ParameterizedTest(name = "dateObserved {0}")
+        @ValueSource(longs = {-30610224000000L, 253402300799000L})
+        @DisplayName("should accept dateObserved at either end of the database DATETIME range")
+        void shouldRecordMeasurement_whenDateObservedIsAtRangeBoundary(long dateObserved) {
+            allowWriteToExistingPatient();
+            allowConfiguredBloodPressure();
+            when(mockMeasurementManager.addMeasurement(any(LoggedInInfo.class), any(Measurement.class)))
+                .thenAnswer(invocation -> invocation.getArgument(1));
+
+            Response response = postNew("{\"type\":\"BP\",\"dataField\":\"122/80\","
+                + "\"measuringInstruction\":\"Standing\",\"dateObserved\":" + dateObserved + "}");
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            verify(mockMeasurementManager).addMeasurement(any(LoggedInInfo.class), argThat(measurement ->
+                measurement.getDateObserved().getTime() == dateObserved));
+        }
+
+        @Test
+        @DisplayName("should store empty optional text and no observed date when only required fields are sent")
+        void shouldStoreEmptyOptionalFields_whenOnlyRequiredFieldsSent() {
+            allowWriteToExistingPatient();
+            configureType("HT", "", null);
+            when(mockMeasurementManager.addMeasurement(any(LoggedInInfo.class), any(Measurement.class)))
+                .thenAnswer(invocation -> invocation.getArgument(1));
+
+            Response response = postNew("{\"type\":\"HT\",\"dataField\":\"170\"}");
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            verify(mockMeasurementManager).addMeasurement(any(LoggedInInfo.class), argThat(measurement ->
+                measurement.getComments().isEmpty()
+                    && measurement.getMeasuringInstruction().isEmpty()
+                    && measurement.getDateObserved() == null));
+        }
+
+        @Test
+        @DisplayName("should record a blood pressure that satisfies the seeded blood pressure rule")
+        void shouldRecordMeasurement_whenValueSatisfiesSeededBloodPressureRule() {
+            allowWriteToExistingPatient();
+            configureSeededBloodPressureRule();
+            when(mockMeasurementManager.addMeasurement(any(LoggedInInfo.class), any(Measurement.class)))
+                .thenAnswer(invocation -> invocation.getArgument(1));
+
+            Response response = postNew(
+                "{\"type\":\"BP\",\"dataField\":\"122/80\",\"measuringInstruction\":\"sitting position\"}");
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            verify(mockValidationsDao).find(6);
+            verify(mockMeasurementManager).addMeasurement(any(LoggedInInfo.class), any(Measurement.class));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"80/122", "350/80", "high", "122-80", "1220/80"})
+        @DisplayName("should reject a blood pressure the seeded blood pressure rule refuses")
+        void shouldReturn400_whenValueViolatesSeededBloodPressureRule(String value) {
+            allowWriteToExistingPatient();
+            configureSeededBloodPressureRule();
+
+            Response response = postNew("{\"type\":\"BP\",\"dataField\":\"" + value
+                + "\",\"measuringInstruction\":\"sitting position\"}");
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockMeasurementManager);
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"301", "-1"})
+        @DisplayName("should reject a value outside the configured numeric range")
+        void shouldReturn400_whenValueIsOutsideConfiguredRange(String value) {
+            allowWriteToExistingPatient();
+            configureType("WT", "", "5");
+            Validations rule = new Validations();
+            rule.setMinValue(0.0);
+            rule.setMaxValue(300.0);
+            rule.setNumeric(true);
+            when(mockValidationsDao.find(5)).thenReturn(rule);
+
+            Response response = postNew("{\"type\":\"WT\",\"dataField\":\"" + value + "\"}");
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should reject a type and instruction that match more than one configured type")
+        void shouldReturn400_whenMeasurementTypeIsAmbiguous() {
+            allowWriteToExistingPatient();
+            MeasurementType first = new MeasurementType();
+            MeasurementType second = new MeasurementType();
+            when(mockMeasurementTypeDao.findByTypeAndMeasuringInstruction("BP", ""))
+                .thenReturn(List.of(first, second));
+
+            Response response = postNew("{\"type\":\"BP\",\"dataField\":\"122/80\"}");
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockValidationsDao, mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should fail without saving when the type names a non-numeric validation id")
+        void shouldReturn500WithoutSaving_whenValidationIdIsNotNumeric() {
+            allowWriteToExistingPatient();
+            configureType("BP", "", "six");
+
+            Response response = postNew("{\"type\":\"BP\",\"dataField\":\"122/80\"}");
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            verifyNoInteractions(mockValidationsDao, mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should fail without saving when the type's validation rule does not exist")
+        void shouldReturn500WithoutSaving_whenValidationRuleIsMissing() {
+            allowWriteToExistingPatient();
+            configureType("BP", "", "99");
+
+            Response response = postNew("{\"type\":\"BP\",\"dataField\":\"122/80\"}");
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            verify(mockValidationsDao).find(99);
+            verifyNoInteractions(mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should fail without saving when the validation rule's pattern is not a valid regex")
+        void shouldReturn500WithoutSaving_whenValidationPatternIsInvalid() {
+            allowWriteToExistingPatient();
+            configureType("BP", "", "6");
+            Validations rule = new Validations();
+            rule.setRegularExp("[0-9");
+            when(mockValidationsDao.find(6)).thenReturn(rule);
+
+            Response response = postNew("{\"type\":\"BP\",\"dataField\":\"122/80\"}");
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            verifyNoInteractions(mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should refuse a write when the session carries no provider identity")
+        void shouldReturn403_whenProviderIdentityIsMissing() {
+            allowWriteToExistingPatient();
+            when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(null);
+
+            Response response = postNew("{\"type\":\"BP\",\"dataField\":\"122/80\"}");
+
+            assertThat(response.getStatus()).isEqualTo(403);
+            verifyNoInteractions(mockMeasurementTypeDao, mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should answer 409 without saving when structured care cannot be projected")
+        void shouldReturn409WithoutSaving_whenStructuredCareCannotBeProjected() {
+            allowWriteToExistingPatient();
+            org.mockito.Mockito.doThrow(new jakarta.ws.rs.WebApplicationException(Response.status(409)
+                    .type("text/plain").entity("Structured projection requires review").build()))
+                .when(projections).requireRestSupported(123, java.util.Set.of("CareElements"));
+
+            Response response = postNew("{\"type\":\"BP\",\"dataField\":\"122/80\"}");
+
+            assertThat(response.getStatus()).isEqualTo(409);
+            verifyNoInteractions(mockMeasurementTypeDao, mockMeasurementManager);
         }
     }
 }

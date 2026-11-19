@@ -24,11 +24,13 @@ package io.github.carlos_emr.carlos.eform;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -56,6 +58,8 @@ import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.eform.EFormInstanceService.EFormInstanceException;
 import io.github.carlos_emr.carlos.eform.EFormInstanceService.EFormInstanceException.Reason;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -263,6 +267,63 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
                     .isEqualTo(Reason.INVALID_FIELD_NAME);
             verify(eformDataManager, never()).saveEformData(any(), any());
         }
+
+        @Test
+        @DisplayName("should use the caller's subject when one is given")
+        void shouldUseCallerSubject_whenSubjectGiven() {
+            EFormData saved = service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, "Caller subject", Map.of());
+
+            assertThat(saved.getSubject()).isEqualTo("Caller subject");
+        }
+
+        @Test
+        @DisplayName("should save the template defaults and no value rows when no values are given")
+        void shouldSaveTemplateDefaultsWithoutValueRows_whenValuesNull() {
+            EFormData saved = service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, null);
+
+            assertThat(saved.getFormData()).contains("template default").contains("value=\"kept\"");
+            verify(eFormValueDao, never()).persist(any());
+        }
+
+        @Test
+        @DisplayName("should store no value row for a whitespace-only value, as the browser save does")
+        void shouldStoreNoValueRow_whenValueIsWhitespace() {
+            service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, Map.of("bp", "   "));
+
+            verify(eFormValueDao, never()).persist(any());
+        }
+
+        @Test
+        @DisplayName("should refuse when the template does not exist")
+        void shouldRefuse_whenTemplateMissing() {
+            when(eFormDao.findById(FID)).thenReturn(null);
+
+            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, Map.of()))
+                    .isInstanceOf(EFormInstanceException.class)
+                    .extracting(e -> ((EFormInstanceException) e).getReason())
+                    .isEqualTo(Reason.TEMPLATE_UNAVAILABLE);
+            verify(eformDataManager, never()).saveEformData(any(), any());
+        }
+
+        @Test
+        @DisplayName("should refuse before looking up the template or patient when the caller has no eForm write right")
+        void shouldRefuseBeforeLookup_whenGlobalWriteDenied() {
+            when(securityInfoManager.hasPrivilege(any(), eq("_eform"), eq(SecurityInfoManager.WRITE), nullable(String.class)))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, Map.of()))
+                    .isInstanceOf(SecurityException.class);
+            verifyNoInteractions(eFormDao, demographicDao, eformDataManager);
+        }
+
+        @Test
+        @DisplayName("should fail rather than return nothing when the saved row cannot be read back")
+        void shouldFail_whenSavedRowCannotBeReadBack() {
+            when(eFormDataDao.find(SAVED_FDID)).thenReturn(null);
+
+            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, Map.of()))
+                    .isInstanceOf(IllegalStateException.class);
+        }
     }
 
     @Nested
@@ -323,6 +384,101 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
             assertThat(previous.isCurrent()).isTrue();
             verify(eformDataManager, never()).saveEformData(any(), any());
         }
+
+        @Test
+        @DisplayName("should give an omitted field the template default, since values replace the old ones")
+        void shouldUseTemplateDefault_whenFieldOmittedFromRevision() {
+            when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(instance(5, true));
+
+            EFormData revision = service.revise(loggedInInfo, 5, null, Map.of("bp", "130/85"));
+
+            assertThat(revision.getFormData()).contains("template default").contains("value=\"kept\"");
+        }
+
+        @Test
+        @DisplayName("should use the caller's subject when one is given")
+        void shouldUseCallerSubject_whenSubjectGiven() {
+            when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(instance(5, true));
+
+            EFormData revision = service.revise(loggedInInfo, 5, "Corrected", Map.of());
+
+            assertThat(revision.getSubject()).isEqualTo("Corrected");
+        }
+
+        @Test
+        @DisplayName("should still revise an instance whose template has since been retired, as the browser re-save does")
+        void shouldSaveRevision_whenTemplateRetired() {
+            when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(instance(5, true));
+            when(eFormDao.findById(FID)).thenReturn(template(false, null));
+
+            EFormData revision = service.revise(loggedInInfo, 5, null, Map.of("bp", "130/85"));
+
+            assertThat(revision.getId()).isEqualTo(SAVED_FDID);
+        }
+
+        @Test
+        @DisplayName("should refuse without retiring the old row when its template has been removed")
+        void shouldRefuseWithoutRetiring_whenTemplateRemoved() {
+            EFormData previous = instance(5, true);
+            when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(previous);
+            when(eFormDao.findById(FID)).thenReturn(null);
+
+            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, Map.of()))
+                    .isInstanceOf(EFormInstanceException.class)
+                    .extracting(e -> ((EFormInstanceException) e).getReason())
+                    .isEqualTo(Reason.TEMPLATE_UNAVAILABLE);
+            assertThat(previous.isCurrent()).isTrue();
+            verify(eformDataManager, never()).saveEformData(any(), any());
+            verify(eFormDataDao, never()).merge(any());
+        }
+
+        @Test
+        @DisplayName("should refuse without saving when the instance is role restricted and the caller lacks the role object")
+        void shouldRefuseWithoutSaving_whenInstanceRoleTypeDenied() {
+            EFormData previous = instance(5, true);
+            previous.setRoleType("doctor");
+            when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(previous);
+            when(securityInfoManager.hasPrivilege(any(), eq("_eform.doctor"), anyString(), nullable(String.class)))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, Map.of()))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_eform.doctor)");
+            assertThat(previous.isCurrent()).isTrue();
+            verify(eformDataManager, never()).saveEformData(any(), any());
+        }
+
+        @Test
+        @DisplayName("should refuse before locking the row when a field name is blank")
+        void shouldRefuseBeforeLocking_whenFieldNameBlank() {
+            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, Map.of("", "x")))
+                    .isInstanceOf(EFormInstanceException.class)
+                    .extracting(e -> ((EFormInstanceException) e).getReason())
+                    .isEqualTo(Reason.INVALID_FIELD_NAME);
+            verify(eFormDataDao, never()).lockForAttachmentSync(anyInt());
+        }
+
+        @Test
+        @DisplayName("should refuse before locking the row when the caller has no eForm update right")
+        void shouldRefuseBeforeLocking_whenGlobalUpdateDenied() {
+            when(securityInfoManager.hasPrivilege(any(), eq("_eform"), eq(SecurityInfoManager.UPDATE), nullable(String.class)))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, Map.of()))
+                    .isInstanceOf(SecurityException.class);
+            verify(eFormDataDao, never()).lockForAttachmentSync(anyInt());
+        }
+
+        @Test
+        @DisplayName("should audit the revision against the patient, naming the replaced row")
+        void shouldAuditRevision_withReplacedRow() {
+            when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(instance(5, true));
+
+            service.revise(loggedInInfo, 5, null, Map.of());
+
+            logActionMock.verify(() -> LogAction.addLog(loggedInInfo, LogConst.UPDATE, EFormInstanceService.AUDIT_CONTENT,
+                    String.valueOf(SAVED_FDID), String.valueOf(DEMOGRAPHIC_NO), "Revision of eform data 5"));
+        }
     }
 
     @Nested
@@ -366,6 +522,52 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
             assertThat(data.isCurrent()).isTrue();
             verify(eFormDataDao, never()).merge(any());
         }
+
+        @Test
+        @DisplayName("should report not found when no instance has the id")
+        void shouldReportNotFound_whenInstanceMissing() {
+            when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(null);
+
+            assertThatThrownBy(() -> service.delete(loggedInInfo, 5))
+                    .isInstanceOf(EFormInstanceException.class)
+                    .extracting(e -> ((EFormInstanceException) e).getReason())
+                    .isEqualTo(Reason.NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("should refuse when the instance is role restricted and the caller lacks the role object")
+        void shouldRefuse_whenInstanceRoleTypeDenied() {
+            EFormData data = instance(5, true);
+            data.setRoleType("doctor");
+            when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(data);
+            when(securityInfoManager.hasPrivilege(any(), eq("_eform.doctor"), anyString(), nullable(String.class)))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> service.delete(loggedInInfo, 5)).isInstanceOf(SecurityException.class);
+            assertThat(data.isCurrent()).isTrue();
+            verify(eFormDataDao, never()).merge(any());
+        }
+
+        @Test
+        @DisplayName("should refuse before locking the row when the caller has no eForm write right")
+        void shouldRefuseBeforeLocking_whenGlobalWriteDenied() {
+            when(securityInfoManager.hasPrivilege(any(), eq("_eform"), eq(SecurityInfoManager.WRITE), nullable(String.class)))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> service.delete(loggedInInfo, 5)).isInstanceOf(SecurityException.class);
+            verify(eFormDataDao, never()).lockForAttachmentSync(anyInt());
+        }
+
+        @Test
+        @DisplayName("should audit the deletion against the patient")
+        void shouldAuditDeletion_againstPatient() {
+            when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(instance(5, true));
+
+            service.delete(loggedInInfo, 5);
+
+            logActionMock.verify(() -> LogAction.addLog(loggedInInfo, LogConst.DELETE, EFormInstanceService.AUDIT_CONTENT,
+                    "5", String.valueOf(DEMOGRAPHIC_NO), null));
+        }
     }
 
     @Nested
@@ -406,6 +608,42 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
 
             assertThatThrownBy(() -> service.get(loggedInInfo, 5)).isInstanceOf(SecurityException.class);
             verify(eFormDataDao, never()).find(any());
+        }
+
+        @Test
+        @DisplayName("should report not found when no instance has the id")
+        void shouldReportNotFound_whenInstanceMissing() {
+            when(eFormDataDao.find(5)).thenReturn(null);
+
+            assertThatThrownBy(() -> service.get(loggedInInfo, 5))
+                    .isInstanceOf(EFormInstanceException.class)
+                    .extracting(e -> ((EFormInstanceException) e).getReason())
+                    .isEqualTo(Reason.NOT_FOUND);
+            verify(eFormValueDao, never()).findByFormDataId(anyInt());
+        }
+
+        @Test
+        @DisplayName("should refuse without reading values when the instance is role restricted and the caller lacks the role object")
+        void shouldRefuseWithoutReadingValues_whenInstanceRoleTypeDenied() {
+            EFormData data = instance(5, true);
+            data.setRoleType("doctor");
+            when(eFormDataDao.find(5)).thenReturn(data);
+            when(securityInfoManager.hasPrivilege(any(), eq("_eform.doctor"), anyString(), nullable(String.class)))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> service.get(loggedInInfo, 5)).isInstanceOf(SecurityException.class);
+            verify(eFormValueDao, never()).findByFormDataId(anyInt());
+        }
+
+        @Test
+        @DisplayName("should audit the read against the patient")
+        void shouldAuditRead_againstPatient() {
+            when(eFormDataDao.find(5)).thenReturn(instance(5, true));
+
+            service.get(loggedInInfo, 5);
+
+            logActionMock.verify(() -> LogAction.addLog(loggedInInfo, LogConst.READ, EFormInstanceService.AUDIT_CONTENT,
+                    "5", String.valueOf(DEMOGRAPHIC_NO), null));
         }
     }
 }
