@@ -10,7 +10,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { DatabaseSync } = require('node:sqlite');
-const { guardDatePreference } = require('./inbox-date-mode-counts-playwright-checks');
+const { guardDatePreference, preflightConfig, WORKFLOW_OPTIONS } = require('./inbox-date-mode-counts-playwright-checks');
 
 const PREFERENCE = 'inboxDateSearchType';
 
@@ -100,4 +100,19 @@ test('shouldFailCleanup_whenThePreferenceCannotBeRestored', () => {
   f.db.exec(`UPDATE SystemPreferences SET value='serviceObservation' WHERE name='${PREFERENCE}'`);
 
   assert.throws(() => f.cleanup(), /inboxDateSearchType was not restored/);
+});
+
+test('shouldSkipBeforeAnyWrite_whenTheRunIsNotExclusiveOnADisposableHost', () => {
+  // The guard deletes every preference row its snapshot did not hold, so a concurrent writer's row would go
+  // with it (PR #6317 review). preflightConfig runs before runWorkflow opens a database connection.
+  for (const env of [{}, { CARLOS_DISPOSABLE_HOST: 'true' }, { EXCLUSIVE: '1' },
+    { CARLOS_DISPOSABLE_HOST: 'true', EXCLUSIVE: '0' }, { CARLOS_DISPOSABLE_HOST: 'yes', EXCLUSIVE: '1' }]) {
+    assert.throws(() => preflightConfig({ config: {} }, env),
+      error => error.name === 'SkipCheck' && /EXCLUSIVE=1/.test(error.message), JSON.stringify(env));
+  }
+  assert.doesNotThrow(() => preflightConfig({ config: {} }, { CARLOS_DISPOSABLE_HOST: 'true', EXCLUSIVE: '1' }));
+});
+
+test('shouldEnforceExclusivity_atTheDirectEntryPoint', () => {
+  assert.equal(WORKFLOW_OPTIONS.preflightConfig, preflightConfig);
 });

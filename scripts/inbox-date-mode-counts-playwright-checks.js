@@ -18,7 +18,8 @@
  *   set so the patient search judges dates only; cleanup removes every row by id and marker and asserts
  *   none remain. The global SystemPreferences row inboxDateSearchType is snapshotted and restored exactly; it
  *   changes every user's Inbox date mode while the check runs, so the check must not run concurrently with
- *   other checks (live wrapper: EXCLUSIVE=1).
+ *   other checks (live wrapper: EXCLUSIVE=1). The entry point enforces that: without CARLOS_DISPOSABLE_HOST=true
+ *   and EXCLUSIVE=1 it SKIPs before any database connection or write (preflightConfig).
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
@@ -56,11 +57,29 @@ const EXPECTED = {
 };
 
 /**
+ * Refuses the run, before any database connection or write, unless it is on a disposable host with no other
+ * check running. The preference guard deletes every inboxDateSearchType row its snapshot did not hold, which
+ * is only safe while nothing else writes that clinic-wide preference: a row another session added mid-run
+ * would be deleted with the check's own (PR #6317 review). The packaged suite environment exports
+ * EXCLUSIVE=1 (scripts/deb-docker-validation.sh); a direct `npm run` must set it too. runWorkflow passes
+ * `{config}` first, so the environment is the second parameter.
+ * @param {object} _context runWorkflow's `{config}` (unused)
+ * @param {object} env process environment
+ */
+function preflightConfig(_context, env = process.env) {
+  if (env.CARLOS_DISPOSABLE_HOST !== 'true' || env.EXCLUSIVE !== '1') {
+    throw new h.SkipCheck('Requires a disposable exclusive application host (CARLOS_DISPOSABLE_HOST=true and '
+      + 'EXCLUSIVE=1): the check rewrites the clinic-wide inboxDateSearchType preference');
+  }
+}
+
+/**
  * Snapshots the clinic-wide inboxDateSearchType rows and registers a cleanup that puts them back exactly:
  * every row the check added is deleted (restoring the original absence when there was no row) and every
  * original row gets its original bytes or NULL back. The cleanup reconciles by preference name rather than
  * by a captured id, because an INSERT can commit while the SQL client loses its reply and never returns the
- * new id; the run is exclusive (EXCLUSIVE=1), so any row the snapshot did not hold was added by this run.
+ * new id. preflightConfig has already refused any run without EXCLUSIVE=1, so any row the snapshot did not
+ * hold was added by this run.
  * It then asserts that the rows equal the snapshot, so a restore that silently failed fails the check.
  * @param {object} s workflow session with `sql` and `cleanup`
  * @returns {(value: string) => void} sets the preference for every inboxDateSearchType row
@@ -213,5 +232,7 @@ async function workflow(s) {
   }
 }
 
-if (require.main === module) runWorkflow('inbox-date-mode-counts', workflow, { openMaster: false });
-module.exports = { workflow, guardDatePreference };
+const WORKFLOW_OPTIONS = { openMaster: false, preflightConfig };
+
+if (require.main === module) runWorkflow('inbox-date-mode-counts', workflow, WORKFLOW_OPTIONS);
+module.exports = { workflow, guardDatePreference, preflightConfig, WORKFLOW_OPTIONS };
