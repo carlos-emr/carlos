@@ -150,6 +150,19 @@ class TestLabFilterMigration(unittest.TestCase):
                 self.assertEqual(self.properties.read_bytes(), before)
                 self.assertNotIn("WARNING", result.stderr)
 
+    def test_counts_escaped_names_without_rewriting_either_definition(self):
+        for alias in (r"HL7_LAB_MEASUREMENT_\u0046ILTER", r"HL7_LAB_MEASUREMENT_\FILTER"):
+            with self.subTest(alias=alias):
+                (self.state / SENTINEL).unlink(missing_ok=True)
+                self.write_properties(old_line(), alias + "=" + old_line().split("=", 1)[1])
+                before = self.properties.read_bytes()
+
+                result = self.run_block()
+
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(self.properties.read_bytes(), before)
+                self.assertIn("WARNING", result.stderr)
+
     def test_leaves_a_value_the_operator_chose(self):
         self.write_properties("before=1", KEY + "^\\\\d+")
         before = self.properties.read_bytes()

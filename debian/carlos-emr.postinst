@@ -646,8 +646,21 @@ path, old, new, marker = map(os.fsencode, sys.argv[1:])
 recovery = path + b".lab-filter-recovery"
 staged = recovery + b".tmp"
 directory = os.path.dirname(path) or b"."
-# Properties accepts an indented key and '=', ':' or whitespace as separators.
-definition = re.compile(rb"^HL7_LAB_MEASUREMENT_FILTER(?:[ \t\f=:]|$)")
+# Separate the raw key before decoding it. Escaped characters are part of the key,
+# even when their unescaped forms can delimit a key and value.
+property_key = re.compile(rb"^((?:\\.|[^\\ \t\f=:])*)(?:[ \t\f=:]|$)")
+key_escape = re.compile(r"\\u([0-9a-fA-F]{4})|\\(.)")
+
+def decode_key_escape(match):
+    if match[1] is not None:
+        return chr(int(match[1], 16))
+    return {"t": "\t", "n": "\n", "r": "\r", "f": "\f"}.get(match[2], match[2])
+
+def is_filter_definition(logical):
+    key = property_key.match(logical)
+    return key is not None and key_escape.sub(
+        decode_key_escape, key[1].decode("latin-1")
+    ) == "HL7_LAB_MEASUREMENT_FILTER"
 
 def filter_definitions(content):
     start = None
@@ -664,13 +677,13 @@ def filter_definitions(content):
             parts.append(line[:-1])
             continue
         logical = b"".join([*parts, line])
-        if definition.match(logical):
+        if is_filter_definition(logical):
             yield start, physical.end(), logical
         start = None
         parts.clear()
     if start is not None:
         logical = b"".join(parts)
-        if definition.match(logical):
+        if is_filter_definition(logical):
             yield start, len(content), logical
 
 def open_configuration():
