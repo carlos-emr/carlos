@@ -122,6 +122,20 @@ class DocumentReviewServiceUnitTest extends CarlosUnitTestBase {
         persistence.verify(() -> EDocUtil.editDocumentSQL(any(), anyBoolean()), never());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = "invalid")
+    void shouldRefuseMetadataChanges_whenTheEditorHasNoValidBaseline(String observed) throws Exception {
+        EDoc edit = edit("old content");
+        stored.setDocdesc("Newer title");
+        String contentRevision = DocumentEditRevision.content(stored);
+
+        assertThatThrownBy(() -> service.edit(actor, edit, false, false, true, contentRevision, observed))
+                .hasCauseInstanceOf(DocumentReviewService.Conflict.class);
+        persistence.verify(() -> EDocUtil.editDocumentSQL(any(), anyBoolean()), never());
+        assertThat(transactions.rollbacks).isEqualTo(1);
+    }
+
     @Test void shouldArchiveTheCurrentRevision_whenAPlainUpdateHasAnOldBaseline() throws Exception {
         String observed = DocumentEditRevision.content(stored);
         stored.setDocxml("newer content"); stored.setReviewer("8"); stored.setReviewdatetime(new Date());

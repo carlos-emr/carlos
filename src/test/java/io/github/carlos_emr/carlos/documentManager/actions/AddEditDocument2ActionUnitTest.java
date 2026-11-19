@@ -202,6 +202,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
         registerMock(QueueDocumentLinkDao.class, mock(QueueDocumentLinkDao.class));
         var defaultStored = new io.github.carlos_emr.carlos.commn.model.Document(123);
+        request.setParameter("metadataRevision", io.github.carlos_emr.carlos.documentManager.DocumentEditRevision.metadata(defaultStored));
         defaultStored.setStatus('H'); defaultStored.setDocxml("Synthetic review content");
         lenient().when(storedDocuments.find(123)).thenReturn(defaultStored);
         lenient().when(storedDocuments.findForPageMutation(123)).thenReturn(defaultStored);

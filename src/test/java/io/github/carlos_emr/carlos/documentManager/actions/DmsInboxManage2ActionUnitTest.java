@@ -484,6 +484,9 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
         request.getSession().setAttribute("user", "991820");
         var counts = mock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class);
         registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class, counts);
+        var dateSearchTypes = mock(io.github.carlos_emr.carlos.commn.service.InboxDateSearchTypeResolver.class);
+        registerMock(io.github.carlos_emr.carlos.commn.service.InboxDateSearchTypeResolver.class, dateSearchTypes);
+        when(dateSearchTypes.resolve()).thenReturn(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.DateSearchType.SERVICE_OBSERVATION);
         Exception failure = switch (kind) {
             case "checked" -> new java.sql.SQLException("synthetic count failure");
             case "data-access" -> new org.springframework.dao.DataAccessResourceFailureException("synthetic count failure");

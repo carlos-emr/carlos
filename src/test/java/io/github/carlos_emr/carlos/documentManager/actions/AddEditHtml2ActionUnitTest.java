@@ -105,6 +105,7 @@ class AddEditHtml2ActionUnitTest extends CarlosUnitTestBase {
                 mock(io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao.class), securityInfoManager,
                 new io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager()));
         request.setParameter("contentRevision", io.github.carlos_emr.carlos.documentManager.DocumentEditRevision.digest((Object) null));
+        request.setParameter("metadataRevision", io.github.carlos_emr.carlos.documentManager.DocumentEditRevision.metadata(edited));
         response = new MockHttpServletResponse();
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);

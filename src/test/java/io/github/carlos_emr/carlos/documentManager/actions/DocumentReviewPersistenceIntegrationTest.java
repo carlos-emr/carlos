@@ -82,7 +82,7 @@ import static org.mockito.Mockito.when;
 @Tag("integration")
 @Tag("document")
 @DisplayName("Document review persistence")
-@Isolated("Uses per-thread static servlet/security bindings around real JPA transactions")
+@Isolated("Mutates the shared document directory and EDoc DAO cache during real JPA transactions")
 // The action owns its transactions, as it does in production; CarlosTestBase's per-test
 // transaction would otherwise hold the row lock and hide the commit being tested.
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -280,6 +280,8 @@ class DocumentReviewPersistenceIntegrationTest extends CarlosTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("POST");
         request.setParameter("contentRevision", revision());
+        request.setParameter("metadataRevision", transaction().execute(status ->
+                io.github.carlos_emr.carlos.documentManager.DocumentEditRevision.metadata(documents.find(id))));
         requestOut[0] = request;
         Provider provider = new Provider();
         provider.setProviderNo(providerNo);

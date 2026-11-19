@@ -56,6 +56,14 @@ public class DocumentReviewService {
         return new Baseline(content, DocumentEditRevision.metadata(stored));
     }
 
+    /**
+     * Checks that an editor observed the current stored document content.
+     *
+     * @param stored the current persisted document
+     * @param observed the content revision supplied by the editor
+     * @throws Conflict if the supplied revision is missing or differs, or the stored content
+     *         cannot be read safely
+     */
     public void requireContent(Document stored, String observed) {
         try {
             if (!StoredDocumentRevision.valid(observed)

@@ -803,7 +803,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         } catch (SecurityException denied) {
             throw denied;
         } catch (Exception e) {
-            errors.putIfAbsent("savefailure", "dms.error.saveFailed");
+            if (errors.isEmpty()) errors.put("savefailure", "dms.error.saveFailed");
             request.setAttribute("docerrors", errors);
             request.setAttribute("editDocumentNo", this.getMode());
             MiscUtils.getLogger().error("Failed to edit document ({})", e.getClass().getSimpleName());
