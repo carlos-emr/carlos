@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "860cda509907d1829d3f6994c6372c97bbeb52d6",
+  "comparisonSha256": "0e5663648296171dca466bad291b73a974bb5e3ccfde1366f314be804e49945e",
+  "baselineCommit": "e88702f4fc878c8e56aef8f360d247c41ef2654a",
+  "baselineSourceTree": "860cda509907d1829d3f6994c6372c97bbeb52d6",
+  "baselineReportSha256": "1ac96823791c2c1fd38b3814f52261e35f09d417cd5c058ae439d8648358f408",
+  "baselineLane": "Focused Java 25 and JaCoCo test run for the merged source and tests of PR #6139; only the selected Java file is covered by this record.",
+  "baselineTestCounts": {
+    "tests": 78,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "90289a1aaa89b59685672b9b7bbfda3635e4327204c42cf3a6c7584dd3a0d517",
+  "baselineTestReportsHashFormat": "SHA-256 of a filename-to-SHA-256 JSON object with sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "The waiting-list page's note limit",
+    "WLAdd2WaitingList2Action",
+    "WLEditWaitingListName2Action",
+    "WLRemoveFromWaitingList2Action",
+    "WLSetupDisplayWaitingList2Action row selectors",
+    "Waiting-list note length guard",
+    "a direct POST to Add to Waiting List",
+    "the waiting-list page's own note box"
+  ],
+  "priorSourceEvidenceSha256": [
+    "552a5b7d69e3df133c28638a51b2effd9df5b162350d9a54fa419c66c37a6376"
+  ],
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/waitinglist/pageUtil/WLSetupDisplayWaitingList2Action.java": {
+      "lines": 100.0,
+      "instructions": 96.22641509433963,
+      "branches": 87.5,
+      "sourceBlob": "7d9632b07332404e511b5d8d39d77e92553b8bbd"
+    }
+  }
+}

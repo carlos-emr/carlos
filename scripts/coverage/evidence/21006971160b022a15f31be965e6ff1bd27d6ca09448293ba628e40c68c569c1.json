@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "caea51267d7b26254f98393d252ed1a03418b6b0",
+  "comparisonSha256": "ce69aae43d3ee5455a816980d52740ea61336a6640de1b17b36280ac0227d5d5",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/eform/upload/ImageUpload2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "54f7b613d8ef7b3389a79a3a1568e1dc27c53c5f"
+    }
+  },
+  "baselineCommit": "2c164dc5faca498b2e0090d7fe7c199a58010f12",
+  "baselineSourceTree": "caea51267d7b26254f98393d252ed1a03418b6b0",
+  "baselineReportSha256": "00e22db21e45e83cc874c7c9cbba4d0c8d2c287872391cdd1e93955dee0afe26",
+  "baselineLane": "Image upload and ZIP suite plus five real access and portable replacement controls as UID 1000",
+  "baselineTestCounts": {
+    "tests": 168,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "f545069351144cddd4e56c1ead317f91052aac6a747ed3ef20997ae55d04efca",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

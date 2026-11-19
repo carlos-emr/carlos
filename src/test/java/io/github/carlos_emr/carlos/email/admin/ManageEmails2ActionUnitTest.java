@@ -178,6 +178,44 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should refuse Resolve without an acknowledgement while delivery is unconfirmed")
+    void shouldRefuseResolve_whenDeliveryIsUnconfirmed() throws Exception {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        EmailLog unconfirmed = new EmailLog();
+        unconfirmed.setStatus(EmailLog.EmailStatus.UNCONFIRMED);
+        when(emailManager.updateEmailStatus(loggedInInfo, 7003, EmailLog.EmailStatus.RESOLVED, null))
+                .thenReturn(unconfirmed);
+
+        MockHttpServletResponse response = resolve("7003", loggedInInfo);
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getContentAsString()).contains("Delivery is unconfirmed").doesNotContain("resolvedLogId");
+    }
+
+    @Test
+    @DisplayName("should refuse a direct copy of an unconfirmed attempt before preparing attachments")
+    void shouldRefuseCopy_whenDeliveryIsUnconfirmed() throws Exception {
+        EmailLog unconfirmed = loggedEmail(10001, 501);
+        unconfirmed.setStatus(EmailLog.EmailStatus.UNCONFIRMED);
+        when(emailComposeManager.prepareEmailForResend(any(), eq(7001))).thenReturn(unconfirmed);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/admin/ManageEmails");
+        request.setSession(session);
+        LoggedInInfo.setLoggedInInfoIntoSession(session, new LoggedInInfo());
+        request.setParameter("method", "resendEmail");
+        request.setParameter("logId", "7001");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+
+        assertThat(new ManageEmails2Action().execute()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getContentAsString()).contains("Delivery is unconfirmed");
+        assertThat(request.getAttribute(EmailAttachmentStaging.KEY_ATTRIBUTE)).isNull();
+        verifyNoInteractions(documentAttachmentManager);
+    }
+
+    @Test
     @DisplayName("should check write privilege in the action before dispatching any update")
     void shouldDenyResolve_whenActionWritePrivilegeMissing() {
         when(securityInfoManager.hasPrivilege(any(), eq("_email"), eq(SecurityInfoManager.WRITE), any())).thenReturn(false);

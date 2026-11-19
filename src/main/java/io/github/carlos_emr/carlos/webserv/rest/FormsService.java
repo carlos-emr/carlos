@@ -139,7 +139,7 @@ public class FormsService extends AbstractServiceImpl {
     public FormListTo1 getFormsForHeading(@PathParam("demographicNo") Integer demographicNo, @QueryParam("heading") String heading) {
         requireRead(SECOBJ_EFORM, demographicNo == null ? null : demographicNo.toString());
         FormListTo1 formListTo1 = new FormListTo1();
-        if (heading.equals("Completed")) {
+        if ("Completed".equals(heading)) {
             List<EFormData> completedEforms = formsManager.findByDemographicId(getLoggedInInfo(), demographicNo);
             Collections.sort(completedEforms, Collections.reverseOrder(EFormData.FORM_DATE_COMPARATOR));
 

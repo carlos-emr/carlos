@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "4069441cc7625d2b2de8e1e9f2bfc72175ee52d9",
+  "comparisonSha256": "2402ae63b66296bb155691809070a3aad5b7ff54b9f91083c09da19e5b094698",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/config/PackagedConfigurationPreflight.java": {
+      "lines": 62.20472440944882,
+      "instructions": 60.48951048951049,
+      "branches": 42.30769230769231,
+      "sourceBlob": "26efea38fca329eca5eb326bf32fb4660ac25993"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/login/Startup.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "e557c5f7d24fffc09bbf929dd52f1402d34b0e5c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/AuditLogManager.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "3f891cba2e39e35d470209a8820601274f4a3676"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/AuditLogPurgeService.java": {
+      "lines": 90.9090909090909,
+      "instructions": 86.03192702394527,
+      "branches": 70.44534412955466,
+      "sourceBlob": "143f772136fead7b77d687e62197b87e45316238"
+    }
+  },
+  "baselineCommit": "79767dfefb6d15079ee7918b698a49cd50b012ad",
+  "baselineSourceTree": "4069441cc7625d2b2de8e1e9f2bfc72175ee52d9",
+  "baselineReportSha256": "9da804ba56e545edb51950c50498159eda41a450df93c60068049a5e9092e3c5",
+  "baselineLane": "Exact package preflight fixtures, Java unit tests and MariaDB audit retention",
+  "baselineTestCounts": {
+    "tests": 73,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "58678010914a7e91afa07498ec56dc40d5579f6f4fb47d1cab0f544659a30007",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.admin.web.AuditLogPurgeActionUnitTest",
+    "io.github.carlos_emr.carlos.login.StartupKeyPersistenceUnitTest",
+    "io.github.carlos_emr.carlos.login.StartupUnitTest",
+    "io.github.carlos_emr.carlos.managers.AuditLogManagerUnitTest",
+    "io.github.carlos_emr.carlos.managers.AuditLogPurgeMariaDbIntegrationTest",
+    "io.github.carlos_emr.carlos.managers.AuditLogPurgeServiceUnitTest"
+  ]
+}

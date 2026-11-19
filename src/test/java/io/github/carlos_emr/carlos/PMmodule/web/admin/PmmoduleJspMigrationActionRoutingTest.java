@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.PMmodule.service.ClientRestrictionManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ClientManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramQueueManager;
+import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.PMmodule.service.VacancyTemplateManager;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
@@ -43,6 +44,8 @@ import io.github.carlos_emr.carlos.commn.dao.EFormDao;
 import io.github.carlos_emr.carlos.commn.dao.FacilityDao;
 import io.github.carlos_emr.carlos.commn.dao.FunctionalCentreDao;
 import io.github.carlos_emr.carlos.commn.model.Facility;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.services.LookupManager;
 import io.github.carlos_emr.carlos.services.security.RolesManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
@@ -53,6 +56,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -61,7 +65,10 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -154,7 +161,17 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
     }
 
     private ProgramManager2Action newProgramManagerAction() {
-        ProgramManager2Action action = new ProgramManager2Action();
+        ProgramManager2Action action = new ProgramManager2Action() {
+            @Override
+            public String getText(String key) {
+                return key;
+            }
+
+            @Override
+            public String getText(String key, String defaultValue) {
+                return key;
+            }
+        };
         action.setProgramManager(programManager);
         action.setProgramQueueManager(programQueueManager);
         action.setAdmissionManager(admissionManager);
@@ -233,6 +250,87 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
         assertThat(result).isEqualTo("edit");
         assertThat(getMockRequest().getAttribute("program")).isEqualTo(program);
         verifySecurityCheck("_pmm_management", "w");
+    }
+
+    @Test
+    void shouldExposeStaffSelectionAndChoices_whenOpeningTheStaffTab() throws Exception {
+        Program program = new Program();
+        program.setId(17);
+        when(programManager.getProgram("17")).thenReturn(program);
+        List<Provider> providers = List.of(new Provider());
+        when(providerManager.getActiveProviders()).thenReturn(providers);
+        addRequestParameter("method", "edit");
+        addRequestParameter("id", "17");
+        addRequestParameter("view.tab", "Staff");
+
+        Provider signedInProvider = new Provider("902");
+        getMockRequest().getSession().setAttribute("provider", signedInProvider);
+        ProgramProvider staffProvider = new ProgramProvider();
+        staffProvider.setProviderNo("123");
+        staffProvider.setRoleId(33L);
+        ProgramManager2Action action = newProgramManagerAction();
+        action.setProvider(staffProvider);
+
+        assertThat(executeAction(action)).isEqualTo("edit");
+
+        assertThat(getMockRequest().getAttribute("availableProviders")).isEqualTo(providers);
+        assertThat(getMockRequest().getAttribute("staffProvider")).isSameAs(staffProvider);
+        assertThat(getMockRequest().getSession().getAttribute("provider")).isSameAs(signedInProvider);
+    }
+
+    @Test
+    void shouldSaveRestrictionSettings_whenTheFormOnlySubmitsRestrictionFields() throws Exception {
+        Program program = new Program();
+        program.setId(17);
+        program.setName("Shelter");
+        program.setMaximumServiceRestrictionDays(60);
+        program.setMaxAllowed(null);
+        when(programManager.getProgram(17)).thenReturn(program);
+        when(programManager.getProgram("17")).thenReturn(program);
+        Provider provider = new Provider();
+        provider.setFirstName("FAKE");
+        provider.setLastName("Provider");
+        when(providerManager.getProvider("999998")).thenReturn(provider);
+        Program form = new Program();
+        form.setId(17);
+        form.setDefaultServiceRestrictionDays(30);
+        form.setMaximumServiceRestrictionDays(0);
+        ProgramManager2Action action = newProgramManagerAction();
+        action.setProgram(form);
+        addRequestParameter("method", "save_restriction_settings");
+        addRequestParameter("id", "17");
+        addRequestParameter("view.tab", "Service Restrictions");
+
+        try (var log = mockStatic(LogAction.class)) {
+            assertThat(executeAction(action)).isEqualTo("edit");
+            log.verify(() -> LogAction.log("write", "edit program", "17", getMockRequest()));
+        }
+
+        assertThat(program.getMaximumServiceRestrictionDays()).isZero();
+        assertThat(program.getDefaultServiceRestrictionDays()).isEqualTo(30);
+        verify(programManager).saveProgram(program);
+        verify(programManager).saveProgramSignature(argThat(signature -> "Shelter".equals(signature.getProgramName())));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldListProgramsWithoutSaving_whenRestrictionTargetIsMissing(boolean submitProgramId) throws Exception {
+        ProgramManager2Action action = newProgramManagerAction();
+        if (submitProgramId) {
+            Program form = new Program();
+            form.setId(17);
+            action.setProgram(form);
+        }
+        addRequestParameter("method", "save_restriction_settings");
+
+        try (var log = mockStatic(LogAction.class)) {
+            assertThat(executeAction(action)).isEqualTo("list");
+            log.verify(() -> LogAction.log("read", "full program list", "", getMockRequest()));
+        }
+
+        assertThat(action.getActionMessages()).containsExactly("program.missing");
+        verify(programManager, never()).saveProgram(any(Program.class));
+        verify(programManager, never()).saveProgramSignature(any());
     }
 
     @Test
@@ -346,14 +444,12 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
         String editWrapper = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/PMmodule/Admin/ProgramManagerForm.jsp"));
         String viewWrapper = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/PMmodule/Admin/ProgramManagerView.jsp"));
 
-        assertThat(editWrapper).contains("Function User");
-        assertThat(editWrapper).contains("view.tab=vacancies");
-        assertThat(editWrapper).contains("/WEB-INF/jsp/PMmodule/Admin/ProgramEdit/function_user.jsp");
-        assertThat(editWrapper).contains("/WEB-INF/jsp/PMmodule/Admin/ProgramEdit/vacancy_add.jsp");
-        assertThat(editWrapper).contains("/WEB-INF/jsp/PMmodule/Admin/ProgramEdit/vacancies.jsp");
+        assertThat(editWrapper).contains("Function User", "view.tab=vacancies",
+                "/WEB-INF/jsp/PMmodule/Admin/ProgramEdit/function_user.jsp",
+                "/WEB-INF/jsp/PMmodule/Admin/ProgramEdit/vacancy_add.jsp",
+                "/WEB-INF/jsp/PMmodule/Admin/ProgramEdit/vacancies.jsp");
 
-        assertThat(viewWrapper).contains("Function User");
-        assertThat(viewWrapper).contains("/WEB-INF/jsp/PMmodule/Admin/ProgramView/function_user.jsp");
+        assertThat(viewWrapper).contains("Function User", "/WEB-INF/jsp/PMmodule/Admin/ProgramView/function_user.jsp");
     }
 
     @Test
@@ -503,13 +599,12 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
     void shouldUseConcretePmmoduleStrutsResults() throws IOException {
         String strutsXml = Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-pmmodule.xml"));
 
-        assertThat(strutsXml).doesNotContain("page.pmm.admin.list");
-        assertThat(strutsXml).doesNotContain("page.pmm.admin.edit");
-        assertThat(strutsXml).doesNotContain("page.pmm.admin.view");
-        assertThat(strutsXml).doesNotContain("page.pmm.admin.facility.view");
-        assertThat(strutsXml).contains("/WEB-INF/jsp/PMmodule/Admin/ProgramManagerList.jsp");
-        assertThat(strutsXml).contains("/WEB-INF/jsp/PMmodule/Admin/ProgramManagerForm.jsp");
-        assertThat(strutsXml).contains("/WEB-INF/jsp/PMmodule/Admin/ProgramManagerView.jsp");
-        assertThat(strutsXml).contains("/WEB-INF/jsp/PMmodule/Admin/Facility/ViewFacility.jsp");
+        assertThat(strutsXml)
+                .doesNotContain("page.pmm.admin.list", "page.pmm.admin.edit",
+                        "page.pmm.admin.view", "page.pmm.admin.facility.view")
+                .contains("/WEB-INF/jsp/PMmodule/Admin/ProgramManagerList.jsp",
+                        "/WEB-INF/jsp/PMmodule/Admin/ProgramManagerForm.jsp",
+                        "/WEB-INF/jsp/PMmodule/Admin/ProgramManagerView.jsp",
+                        "/WEB-INF/jsp/PMmodule/Admin/Facility/ViewFacility.jsp");
     }
 }

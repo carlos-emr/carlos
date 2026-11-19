@@ -23,6 +23,7 @@
  * mysql helper.
  */
 
+const assert = require('node:assert/strict');
 const { randomBytes } = require('node:crypto');
 
 const POSITIVE = /^[1-9]\d*$/;
@@ -141,6 +142,46 @@ function createOwnedPatient(sql, { marker, provider, firstName = 'Workflow' }) {
   return String(patient);
 }
 
+/** Register before the insert so cleanup can discover a committed patient after a lost reply. */
+function createRecoverablePatientFixture({sql, marker, provider}) {
+  assert(MARKER.test(marker) && provider, 'The patient fixture requires a private marker and provider');
+  let attempted = false;
+  let patient;
+
+  function findOwnedPatient() {
+    const rows = sql.rows('SELECT demographic_no, first_name, provider_no FROM demographic WHERE last_name=?', [marker]);
+    assert(rows.length <= 1, 'The patient marker identifies multiple rows');
+    if (rows.length === 0) {
+      assert(patient === undefined, 'The confirmed patient is missing');
+      return undefined;
+    }
+    const [[id, firstName, providerNo]] = rows;
+    const owned = patient === undefined ? firstName === 'Workflow' && providerNo === provider : patient === id;
+    assert(POSITIVE.test(id) && owned, 'The patient fixture ownership changed');
+    return id;
+  }
+
+  return {
+    create() {
+      assert(!attempted && findOwnedPatient() === undefined, 'The patient marker is already in use');
+      attempted = true;
+      patient = createOwnedPatient(sql, {marker, provider});
+      return patient;
+    },
+    verifyOwner() {
+      if (attempted) findOwnedPatient();
+    },
+    cleanup({browserClosed}) {
+      if (!attempted) return;
+      assert(browserClosed, 'The fixture browser is still open');
+      const id = findOwnedPatient();
+      if (id !== undefined) removeOwnedPatient(sql, id, marker);
+      assert(sql.value('SELECT COUNT(*) FROM demographic WHERE last_name=?', [marker]) === '0',
+        'The patient fixture survived cleanup');
+    },
+  };
+}
+
 /**
  * Remove the owned patient and everything the chart pages wrote for it, by its key, then assert none is left.
  *
@@ -197,6 +238,7 @@ function removeOwnedPatient(sql, patient, marker, { extra = [], via = [] } = {})
 }
 
 module.exports = {
-  ADDED_AFTER_UPGRADE_BASELINE, ALLERGY_ROWS, CONSULTATION_ROWS, PATIENT_KEYED_TABLES, combineRows, createOwnedPatient, eformRows,
+  ADDED_AFTER_UPGRADE_BASELINE, ALLERGY_ROWS, CONSULTATION_ROWS, PATIENT_KEYED_TABLES, combineRows, createOwnedPatient,
+  createRecoverablePatientFixture, eformRows,
   newOwnedMarker, presentTables, removeOwnedPatient,
 };

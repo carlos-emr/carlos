@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "b65a59b7524628a25c2e03f36805bb8248a83fe9",
+  "comparisonSha256": "df1df71f818b9fb50c5771fb0ac4a3cec796568ab07977a7aba96eecb34e14a9",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/eform/upload/ImageUpload2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "28b839ae49164226ce06038f1eb2fe60cd7a797a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/eform/actions/ManageEForm2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f56e6c802fcbbd62bd42c6de0347e33eae59d552"
+    }
+  },
+  "baselineCommit": "9cc8606ae8f61deb0e62fab1a61c6b0244a1f4b4",
+  "baselineSourceTree": "b65a59b7524628a25c2e03f36805bb8248a83fe9",
+  "baselineReportSha256": "f0edd663a2f1649c44828fc4b336d7f3cf5cb51e31aca119d7be549e370d6900",
+  "baselineLane": "eForm import, shared publication and image metadata controls",
+  "baselineTestCounts": {
+    "tests": 183,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "f812a9af51a441efed0b160f998b806674bf069cf079b92aaa05adf4680ff5d9",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.eform.EFormExportZipArchiverMetadataImportUnitTest",
+    "io.github.carlos_emr.carlos.eform.EFormExportZipConcurrentImportUnitTest",
+    "io.github.carlos_emr.carlos.eform.EFormExportZipCopyUnitTest",
+    "io.github.carlos_emr.carlos.eform.EFormExportZipExportUnitTest",
+    "io.github.carlos_emr.carlos.eform.EFormExportZipImageImportTest",
+    "io.github.carlos_emr.carlos.eform.EFormExportZipIntegrationTest",
+    "io.github.carlos_emr.carlos.eform.EFormExportZipLimitsUnitTest",
+    "io.github.carlos_emr.carlos.eform.EFormImagePublicationLockUnitTest",
+    "io.github.carlos_emr.carlos.eform.EFormImagePublicationOwnershipUnitTest",
+    "io.github.carlos_emr.carlos.eform.EFormImageReplacementMetadataUnitTest",
+    "io.github.carlos_emr.carlos.eform.EFormImageUploadFilesystemIntegrationTest",
+    "io.github.carlos_emr.carlos.eform.EFormImportDefensiveMetadataUnitTest",
+    "io.github.carlos_emr.carlos.eform.EFormImportPublicationSerializationUnitTest",
+    "io.github.carlos_emr.carlos.eform.EFormImportedLibraryIntegrationTest",
+    "io.github.carlos_emr.carlos.eform.EFormLargeHtmlRoundTripUnitTest",
+    "io.github.carlos_emr.carlos.eform.actions.ManageEFormImportErrorsUnitTest",
+    "io.github.carlos_emr.carlos.eform.upload.EFormUploadFilenameValidationUnitTest"
+  ]
+}

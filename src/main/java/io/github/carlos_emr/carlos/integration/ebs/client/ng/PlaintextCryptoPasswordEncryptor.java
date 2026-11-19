@@ -4,6 +4,8 @@
  */
 package io.github.carlos_emr.carlos.integration.ebs.client.ng;
 
+import java.io.Serial;
+
 import org.apache.wss4j.common.crypto.PasswordEncryptor;
 
 /**
@@ -25,11 +27,20 @@ enum PlaintextCryptoPasswordEncryptor implements PasswordEncryptor {
 
     @Override
     public String encrypt(String password) {
-        throw new UnsupportedOperationException(UNSUPPORTED_MESSAGE);
+        throw new EncryptedPasswordException();
     }
 
     @Override
     public String decrypt(String encryptedPassword) {
-        throw new UnsupportedOperationException(UNSUPPORTED_MESSAGE);
+        throw new EncryptedPasswordException();
+    }
+
+    static final class EncryptedPasswordException extends UnsupportedOperationException {
+        @Serial
+        private static final long serialVersionUID = 1L;
+
+        private EncryptedPasswordException() {
+            super(UNSUPPORTED_MESSAGE);
+        }
     }
 }

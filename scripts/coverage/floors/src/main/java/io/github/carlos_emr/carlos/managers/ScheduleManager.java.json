@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/managers/ScheduleManager.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "d91a5d1c3636e64cffb54fd98ad2e820f68fdb11"
+  },
+  "evidenceSha256": "23db5597e3c927904eacaf70e8ece985862c55a88475b891b1e0e21220cff8fd"
+}

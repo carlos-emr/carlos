@@ -737,9 +737,7 @@ public class EFormUtil {
     }
 
     public static boolean formExistsInDB(String eFormName) {
-
-        io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao().findByName(eFormName);
-        return eform != null;
+        return eformDao().findMaxIdForActiveForm(eFormName) != null;
     }
 
     public static int formExistsInDBn(String formName, String fid) {

@@ -29,6 +29,8 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import io.github.carlos_emr.carlos.commn.model.converter.AppointmentBookingSourceConverter;
 import jakarta.persistence.*;
+import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
 import java.io.Serializable;
 import java.util.Calendar;
 import java.util.Comparator;
@@ -88,6 +90,9 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
 
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "updatedatetime")
+    // Read back the value used by getEditVersion(). DATETIME drops the offset, so
+    // the JDBC read can resolve a repeated local time to a different instant.
+    @Generated(event = {EventType.INSERT, EventType.UPDATE}, writable = true)
     private Date updateDateTime = new Date();
 
     @Transient

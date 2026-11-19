@@ -87,7 +87,7 @@
         "scripts/dashboard-tickler-picker-browser-check.js"
       ],
       "source": "scripts/dashboard-tickler-picker-browser-check.js",
-      "sourceSha256": "de2dc855f2337fa4bb5434b8c069e4cc058f91ccb2b06e5006fd307a52a89e85",
+      "sourceSha256": "2baca8498457900f458c6c68ce9d68f278a9cbceea1584ba8ed6bed81bf3be48",
       "minimumAssertions": 314
     },
     {
@@ -198,5 +198,5 @@
       "minimumAssertions": 139
     }
   ],
-  "workflowSha256": "0fdfaa5082bf5f9ff5fe6f6a55ed9824c57c6cc5ccbd2c12db6eee75bc0852d8"
+  "workflowSha256": "8043143f6d01cb0a983dcfa1d66ca89f85925b368b9ca2aa17c7b0b222ec5e35"
 }

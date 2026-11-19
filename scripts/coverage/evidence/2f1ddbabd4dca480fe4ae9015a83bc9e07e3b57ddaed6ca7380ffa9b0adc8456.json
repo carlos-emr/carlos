@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "4ad20995f61a46d978e7a4d318d98d29fac9ec44",
+  "comparisonSha256": "8fdcd767d68244618a11774250907e8991ebec45a331b9dd12793af01927f437",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/report/pageUtil/RptDownloadCSVServlet.java": {
+      "lines": 99.61977186311788,
+      "instructions": 99.21875,
+      "branches": 84.0909090909091,
+      "sourceBlob": "94b6af779a8da5bbf0b3d220e539e48e5be70dec"
+    }
+  },
+  "baselineCommit": "24d2e02cefe28910d0d3acf0eb4b766b7192256d",
+  "baselineSourceTree": "4ad20995f61a46d978e7a4d318d98d29fac9ec44",
+  "baselineReportSha256": "9cecb8bce3c9189d6ca34c6c414491ac77b2b29c4697c6341d3d6202b631ef16",
+  "baselineLane": "PR #6318 Java 25 CSV reports and per-request servlet authorization",
+  "baselineTestCounts": {
+    "tests": 76,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "0c6cb48e407d90a8ec3ce1ad75635932f0dae642c248e0ceba020be954f2fa6d",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.report.data.ReportLimitNoticeUnitTest",
+    "io.github.carlos_emr.carlos.report.pageUtil.RptDownloadCSVExtensionBudgetUnitTest",
+    "io.github.carlos_emr.carlos.report.pageUtil.RptDownloadCSVServletTest",
+    "io.github.carlos_emr.carlos.report.pageUtil.RptFormQueryTest"
+  ]
+}

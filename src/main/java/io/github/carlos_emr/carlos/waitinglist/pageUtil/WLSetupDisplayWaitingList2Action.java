@@ -55,6 +55,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -108,6 +109,18 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
 
 
     private Logger log = MiscUtils.getLogger();
+
+    /** Request attribute: why the page refused the posted note (#6141); DisplayWaitingList.jsp shows it. */
+    static final String NOTE_ERRORS = "waitingListNoteErrors";
+
+    /**
+     * Request attribute: the note text the user posted when the page refused it (#6139), so the refused row's
+     * note box shows what they typed. It is set only with {@link #NOTE_ERRORS}, from the validated row's own
+     * note parameter, and the page encodes it for the text-area body; the page never echoes a raw parameter.
+     */
+    static final String NOTE_SUBMITTED = "waitingListSubmittedNote";
+    /** Submitted date belonging to the same refused row as {@link #NOTE_SUBMITTED}. */
+    static final String DATE_SUBMITTED = "waitingListSubmittedDate";
 
     private final SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
@@ -231,20 +244,31 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
                 waitingListId = (String) wlForm.get("selectedWL");
             }*/
 
-            try {
-                // A selected row is updated even when its note is empty: clearing the note
-                // is an edit, and treating the empty box as "no row selected" left the old
-                // note on the record.
-                if (anySelector) {
-                    WLWaitingListUtil.updateWaitingListRecord(waitingListId,
-                            waitingListNote == null ? "" : waitingListNote, demographicNo, onListSince);
-                } else {
-                    WLWaitingListUtil.rePositionWaitingList(waitingListId);
-                }
+            // A note longer than the column holds was cut there with only a warning while the page
+            // reported success (#6141). It is refused before any row changes, and the page says why.
+            List<String> noteErrors = anySelector ? WLWaitingListUtil.noteLengthErrors(waitingListNote) : List.of();
+            if (!noteErrors.isEmpty()) {
+                log.warn("WLSetupDisplayWaitingList2Action/execute(): refused a waiting-list note over its length limit"); // NOSONAR javasecurity:S5145 — fixed text, no request data
+                request.setAttribute(NOTE_ERRORS, noteErrors);
+                request.setAttribute(NOTE_SUBMITTED, waitingListNote);
+                request.setAttribute(DATE_SUBMITTED, onListSince);
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            } else {
+                try {
+                    // A selected row is updated even when its note is empty: clearing the note
+                    // is an edit, and treating the empty box as "no row selected" left the old
+                    // note on the record.
+                    if (anySelector) {
+                        WLWaitingListUtil.updateWaitingListRecord(waitingListId,
+                                waitingListNote == null ? "" : waitingListNote, demographicNo, onListSince);
+                    } else {
+                        WLWaitingListUtil.rePositionWaitingList(waitingListId);
+                    }
 
-            } catch (Exception ex) {
-                log.error("WLSetupDisplayWaitingList2Action/execute(): Exception: ({})", ex.getClass().getSimpleName());
-                return "failure";
+                } catch (Exception ex) {
+                    log.error("WLSetupDisplayWaitingList2Action/execute(): Exception: ({})", ex.getClass().getSimpleName());
+                    return "failure";
+                }
             }
         }//end of if ( !update.equalsIgnoreCase("Y") ) -- could be remove also ???
 
@@ -262,7 +286,6 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
 
         log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListId = {}", LogSafe.sanitize(waitingListId));
         log.debug("WLSetupDisplayWaitingList2Action/execute(): demographicNo = {}", LogSafe.sanitize(demographicNo));
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListNote = {}", LogSafe.sanitize(waitingListNote));
         log.debug("WLSetupDisplayWaitingList2Action/execute(): onListSince = {}", LogSafe.sanitize(onListSince));
 
         WLWaitingListBeanHandler hd = null;

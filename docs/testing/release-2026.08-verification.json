@@ -527,7 +527,8 @@
         "scripts/form-growth-clinical-geometry-playwright-checks.js",
         "scripts/form-rourke2020-growth-playwright-checks.js",
         "scripts/lib/growth-clinical-oracle.js",
-        "docs/testing/growth-clinical-geometry-inventory.md"
+        "docs/testing/growth-clinical-geometry-inventory.md",
+        "scripts/privacy-static-html-metadata-playwright-checks.js"
       ],
       "implementation": "Rerun the established before/after PDF corpus on the final packaged WAR; extend renderer security and concurrency, and preserve the already-added half-letter browser dimension/content assertions.",
       "cases": "A4/Letter/A6/396x612 half-letter, print/reprint/fax, auto-print, signatures, long patient/pharmacy headers, all Rourke/BC/legacy forms, long notes and checked marks, CJK/emoji/accents, no host fonts/unwritable font cache, PDF 2.0 consumers, Brotli input, warm-cache two-patient parallel rendering; Flying Saucer resource/network/path refusals. Native Rourke/Growth output for fixed male/female infant birth dates, independent WHO grid/curve/unit/age-axis and median relationships, irregular and birth/24-month-edge observations, form/module inclusion and exact duplicate representation, complete saved-history and unrelated-control preservation.",
@@ -541,7 +542,8 @@
         "packaged-full",
         "http-client-compatibility",
         "java-browser-pdf",
-        "manual-jasper-production"
+        "manual-jasper-production",
+        "manual-privacy-static-html-metadata"
       ]
     },
     {
@@ -795,7 +797,8 @@
         "docs/eform-zip-import-limits.md",
         "scripts/eform-visual-widgets-playwright-checks.js",
         "scripts/eform-visual-widgets.test.js",
-        "docs/testing/eform-visual-widgets-inventory.md"
+        "docs/testing/eform-visual-widgets-inventory.md",
+        "scripts/eform-large-html-roundtrip-playwright-checks.js"
       ],
       "implementation": "Extend real save/reopen/print workflows for every changed form and eForm resource. Keep saved primary state distinct from failed email/PDF/fax/EDoc work and assert visible, retry-safe recovery.",
       "cases": "Unticked/checked/blank/long/multiline/quoted/Unicode data; autosave pending/error and multiple clicks; form version and refresh; editor toolbar/Bootstrap/jQuery aliases/AP values/calendar/signature; Mac ZIPs, bounded bulk export, path and collision attacks; actual expanded ZIP bytes/count and properties/retained-HTML budgets, exact-limit acceptance, rejection before publication and owned staging cleanup; primary save succeeds then secondary preparation fails; expired email draft. Native visual editor non-text controls: independent xBox/radio defaults, real grouping and local image/wet signature, exact saved/cleared markup and value rows, native history/reopen, actual PDF selected controls and image/ink pixels, same-template Update and revised new-instance layout. Explicit empty-field loss #5826 remains fatal.",
@@ -817,7 +820,9 @@
         "fixture-hrm-report-list",
         "fixture-messenger-reply-form",
         "fixture-search-sort-messenger-inbox",
-        "manual-demographic-converted-limits"
+        "manual-forms-default-heading",
+        "manual-demographic-converted-limits",
+        "manual-eform-large-html-roundtrip"
       ]
     },
     {
@@ -834,7 +839,7 @@
         "scripts/ci/lifecycle_baselines.py",
         "scripts/ci/test_lifecycle_baselines.py"
       ],
-      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5 and current-main beta6 installs on ON/BC; beta5 exercises V1.0.59.27\u201332 and CLI 1.3.0-to-1.3.1. A source-identical current-main install alone does not cover historical migration.",
+      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5 and current-main beta6 installs on ON/BC; beta5 exercises V1.0.59.27–32 and CLI 1.3.0-to-1.3.1. A source-identical current-main install alone does not cover historical migration.",
       "cases": "Framingham/UKPDS HDL equal/greater than total and stale-answer clearing; renal thresholds/source selection; WHtR and waist units; valid/impossible dates and leap/DST days; missing patient/catalog/rules; age/sex/hide filters; shared/private/null flowsheet scopes; selected preventions in print; duplicate linked diagnosis/drug and intact long lab values.",
       "acceptance": "Clinical calculations use the intended inputs, invalid input clears stale results, persisted dates/values are exact, and no missing-data case logs an error per prevention type.",
       "requiredChecks": [
@@ -884,6 +889,9 @@
         "packaged-full",
         "installed-package-reinstall",
         "manual-report-configured-jasper",
+        "manual-report-blob-text-readers",
+        "manual-fax-configuration-save",
+        "manual-provider-document-queue-security",
         "manual-log-provider-order"
       ]
     },
@@ -921,7 +929,8 @@
         "manual-shared-outcomes-launch",
         "browser-process-oracle",
         "packaged-profile-first-nations",
-        "packaged-profile-first-nations-encoding"
+        "packaged-profile-first-nations-encoding",
+        "packaged-profile-consult-health-care-team"
       ]
     },
     {
@@ -1087,7 +1096,8 @@
         "packaged-full",
         "backup-retention-purge",
         "debian-python",
-        "installed-backup-core"
+        "installed-backup-core",
+        "java-native-generated"
       ]
     },
     {
@@ -2622,6 +2632,52 @@
               ]
             },
             {
+              "name": "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldConnectAndApplyConnectorJYesNo_forLegacyBooleanOptions",
+              "container": ""
+            },
+            {
+              "name": "shouldPreserveZeroFilledTextAndUnsignedTinyIntegers_inBothPreparedProtocols(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldPreserveZeroFilledTextAndUnsignedTinyIntegers_inBothPreparedProtocols(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldPreserveZeroFilledTextAndUnsignedTinyIntegers_inBothPreparedProtocols(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldCheckFloatRange_inBothPreparedProtocols(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldCheckFloatRange_inBothPreparedProtocols(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldCheckFloatRange_inBothPreparedProtocols(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
               "name": "shouldPreserveDateWrites_whenJvmAndConnectionZonesDiffer(boolean)",
               "container": "",
               "destinations": [
@@ -2825,6 +2881,10 @@
             },
             {
               "name": "shouldCountDistinctHrmReports_byPatientProviderAndSignoffIndependentlyOfViewed",
+              "container": ""
+            },
+            {
+              "name": "shouldCompareTheFiltersDateColumns_forLabAndDocumentBoundsOnPhysicalMariaDb",
               "container": ""
             }
           ]
@@ -3158,6 +3218,15 @@
             }
           ]
         },
+        "io.github.carlos_emr.carlos.eform.util.StaticHtmlPrivacyCacheBrowserIntegrationTest": {
+          "check": "java-browser-pdf",
+          "cases": [
+            {
+              "name": "shouldFetchTheCurrentPage_whenThePrintStatementIsEnabledAndDisabled",
+              "container": ""
+            }
+          ]
+        },
         "io.github.carlos_emr.carlos.managers.RxPrescribeMariaDbIntegrationTest": {
           "check": "java-native-generated",
           "cases": [
@@ -3270,6 +3339,19 @@
             {
               "name": "shouldRollbackEarlierNameAudits_whenLaterCheckedFailureEscapes",
               "container": ""
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecAlertDaoMariaDbIntegrationTest": {
+          "check": "java-native-generated",
+          "cases": [
+            {
+              "name": "shouldLeaveTheStoredAlertWhole_whenTheMessageWouldMakeItTooLong(String)[2]",
+              "container": "OBEC apply and the patient alert column, on the database"
+            },
+            {
+              "name": "shouldStoreTheAlertWhole_whenItFillsTheLimitAsTheFormCountsIt(String)[2]",
+              "container": "OBEC apply and the patient alert column, on the database"
             }
           ]
         },
@@ -5058,6 +5140,39 @@
               ]
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.managers.AuditLogPurgeMariaDbIntegrationTest": {
+          "check": "java-native-generated",
+          "cases": [
+            {
+              "name": "shouldRestoreEveryDeletedValue_whenPurgingThroughTheLastInstantOfTheDay",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainRowsAndReleaseLocks_whenDumpFailsTimesOutOrOmitsRows",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainBackedUpRows_whenAuditRecordingFailsBeforeDelete",
+              "container": ""
+            },
+            {
+              "name": "shouldSerializePurgesAndPreserveLateHistoricalRows_whenAnotherWriterRuns",
+              "container": ""
+            },
+            {
+              "name": "shouldRecordPurgeAuditWithoutBlocking_whenAllExistingRowsAreEligible",
+              "container": ""
+            },
+            {
+              "name": "shouldUseLiveCredentials_whenApplicationUserHasQuotedPassword",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainCompletedBackupsAndReportFailure_whenALaterCohortFails",
+              "container": ""
+            }
+          ]
         }
       },
       "runtimeConstraints": {
@@ -5109,7 +5224,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,SiteRenameClockMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,RxStrictAuditIntegrationTest,RxSaveReceiptCommitIntegrationTest,RxConcurrencyIntegrationTest,RxFavoriteGroupIntegrationTest,RxFavoriteCopyIntegrationTest,RxRestPrescriptionRollbackIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest",
+        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,RxStrictAuditIntegrationTest,RxSaveReceiptCommitIntegrationTest,RxConcurrencyIntegrationTest,RxFavoriteGroupIntegrationTest,RxFavoriteCopyIntegrationTest,RxRestPrescriptionRollbackIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,AppointmentFieldAuditTransactionIntegrationTest,AuditLogPurgeMariaDbIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -5119,13 +5234,13 @@
         "-DexcludedGroups=flyway-schema",
         "-Dcarlos.test.schema.expected=generated"
       ],
-      "minimumCases": 2583,
+      "minimumCases": 2606,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
         "DemographicMergeMariaDbIntegrationTest": 9,
-        "JdbcConnectorMariaDbIntegrationTest": 40,
+        "JdbcConnectorMariaDbIntegrationTest": 47,
         "BilledProviderReportDaoIntegrationTest": 2,
         "MariaDbDaoHarnessIntegrationTest": 1,
         "MeasurementDaoIntegrationTest": 1,
@@ -5150,7 +5265,8 @@
         "RxPrescribeMariaDbIntegrationTest": 4,
         "TicklerPatientAccessMariaDbIntegrationTest": 12,
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
-        "AppointmentUpdateDaoIntegrationTest": 17,
+        "AppointmentUpdateDaoIntegrationTest": 19,
+        "AppointmentFieldAuditTransactionIntegrationTest": 3,
         "ReportingPatientListAuditMariaDbIntegrationTest": 4,
         "RxSaveReceiptCommitIntegrationTest": 19,
         "RxConcurrencyIntegrationTest": 6,
@@ -5158,7 +5274,10 @@
         "RxFavoriteCopyIntegrationTest": 1,
         "RxRestPrescriptionRollbackIntegrationTest": 1,
         "RxStrictAuditIntegrationTest": 1,
-        "SiteRenameClockMariaDbIntegrationTest": 8
+        "DemographicWebUnmergeIntegrationTest": 19,
+        "BillingObecAlertDaoMariaDbIntegrationTest": 4,
+        "SiteRenameClockMariaDbIntegrationTest": 8,
+        "AuditLogPurgeMariaDbIntegrationTest": 7
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -5188,7 +5307,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest",
+        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -5197,7 +5316,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 198,
+      "minimumCases": 214,
       "requiredFamilies": {
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
@@ -5213,7 +5332,7 @@
         "BillingONCHeader1DaoIntegrationTest": 1,
         "LegacyLabUploadDaoIntegrationTest": 8,
         "LabRoutingLookupDaoIntegrationTest": 6,
-        "LegacyLabNativeMariaDbIntegrationTest": 7,
+        "LegacyLabNativeMariaDbIntegrationTest": 8,
         "ArchiveAuditTimestampIntegrationTest": 2,
         "Growth0To36FormPersistenceIntegrationTest": 19,
         "FixedJasperReportDaoIntegrationTest": 2,
@@ -5227,6 +5346,7 @@
         "TicklerPatientAccessMariaDbIntegrationTest": 12,
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
         "ReportingPatientListAuditMariaDbIntegrationTest": 4,
+        "DemographicWebUnmergeIntegrationTest": 19,
         "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
         "SiteRenameClockMariaDbIntegrationTest": 8
       },
@@ -5258,7 +5378,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,LegacyBcTeleplanExportMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest",
+        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,LegacyBcTeleplanExportMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -5267,7 +5387,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 225,
+      "minimumCases": 241,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 22,
@@ -5276,11 +5396,11 @@
         "CaseManagementNoteLockMariaDbIntegrationTest": 15,
         "ConsultationArchiveDaoIntegrationTest": 1,
         "LabRoutingLookupDaoIntegrationTest": 6,
-        "LegacyLabNativeMariaDbIntegrationTest": 7,
+        "LegacyLabNativeMariaDbIntegrationTest": 8,
         "ArchiveAuditTimestampIntegrationTest": 2,
         "FormXmlImportServiceIntegrationTest": 7,
         "EFormApColumnLookupIntegrationTest": 2,
-        "AppointmentDaySheetServiceIntegrationTest": 4,
+        "AppointmentDaySheetServiceIntegrationTest": 5,
         "AntenatalReportDaoIntegrationTest": 5,
         "EFormGroupDaoIntegrationTest": 9,
         "Growth0To36FormPersistenceIntegrationTest": 19,
@@ -5295,6 +5415,7 @@
         "TicklerPatientAccessMariaDbIntegrationTest": 12,
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
         "ReportingPatientListAuditMariaDbIntegrationTest": 4,
+        "DemographicWebUnmergeIntegrationTest": 19,
         "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
         "SiteRenameClockMariaDbIntegrationTest": 8
       },
@@ -6171,14 +6292,14 @@
         "all"
       ],
       "repetitions": 1,
-      "minimumCases": 5,
+      "minimumCases": 6,
       "command": [
         "mvn",
         "-B",
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest,DhirReviewJspBrowserIntegrationTest,MeasurementChartSmokeIntegrationTest",
+        "-Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest,DhirReviewJspBrowserIntegrationTest,MeasurementChartSmokeIntegrationTest,StaticHtmlPrivacyCacheBrowserIntegrationTest",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
         "-Djacoco.destFile={run}/jacoco.exec",
@@ -8271,6 +8392,187 @@
       "timeoutSeconds": 3600
     },
     {
+      "id": "manual-report-blob-text-readers",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "report-blob-text-readers"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "report-blob-text-readers",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
+    },
+    {
+      "id": "manual-fax-configuration-save",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "fax-configuration-save"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "fax-configuration-save",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
+    },
+    {
+      "id": "packaged-profile-consult-health-care-team",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--profile",
+        "consult-health-care-team",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "packaged": true,
+      "propertyProfile": "consult-health-care-team",
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST"
+      ],
+      "timeoutSeconds": 7200,
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "requireLockedChromium": true
+    },
+    {
+      "id": "manual-forms-default-heading",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "forms-default-heading"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "forms-default-heading",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
+    },
+    {
+      "id": "manual-provider-document-queue-security",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "provider-document-queue-security"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "provider-document-queue-security",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
+    },
+    {
       "id": "manual-log-provider-order",
       "kind": "browser",
       "profiles": [
@@ -8336,6 +8638,75 @@
         "--strict-release",
         "--only",
         "demographic-converted-limits",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
+    },
+    {
+      "id": "manual-privacy-static-html-metadata",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "privacy-static-html-metadata"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "privacy-static-html-metadata",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
+    },
+    {
+      "id": "manual-eform-large-html-roundtrip",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "eform-large-html-roundtrip"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_PASSWORD"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "eform-large-html-roundtrip",
         "--province",
         "{profile}",
         "--residue-audit",
@@ -9572,6 +9943,108 @@
       ],
       "workstreams": [
         "T26"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/CarlosProperties.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T07"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/CarlosPropertiesSaveUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/login/StartupKeyPersistenceUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/login/Startup.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T07"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/login/StartupKeyPersistenceUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/config/PackagedConfigurationPreflight.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T26"
+      ],
+      "checks": [
+        "debian-python"
+      ],
+      "tests": [
+        "debian/assets/tests/test_modern_chart_cutover.py",
+        "scripts/ci/check-installed-configuration-preflight.sh"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/AuditLogPurgeService.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T36"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AuditLogPurgeServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/AuditLogPurgeMariaDbIntegrationTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/AuditLogManager.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T36"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AuditLogManagerUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/AuditLogPurgeMariaDbIntegrationTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/admin/web/AuditLogPurge2Action.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T23"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/admin/web/AuditLogPurgeActionUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibility.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T21"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibilityUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/OscarTrackingBasicDataSource.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T21"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibilityUnitTest.java"
       ]
     }
   },

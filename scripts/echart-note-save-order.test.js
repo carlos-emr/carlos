@@ -139,6 +139,7 @@ function switchHarness() {
   h.fields.observationDate = { value: 'date', disabled: false };
   h.fields.encTypeSelect01 = { value: 'face-to-face', disabled: true };
   h.fields.autosaveTime = { textContent: 'previous status' };
+  h.context.document.getElementById = id => h.fields[id];
   const form = h.context.document.forms.caseManagementEntryForm;
   const durationNames = ['hourOfEncounterTime', 'minuteOfEncounterTime',
     'hourOfEncTransportationTime', 'minuteOfEncTransportationTime'];
@@ -150,6 +151,7 @@ function switchHarness() {
   Object.assign(h.context, {
     providerNo: '1', origCaseNote: '', origObservationDate: 'date',
     confirm: () => true, unsavedNoteWarning: 'save changes?', lostNoteLock: false, caisiEnabled: false,
+    URLSearchParams,
     $F: id => h.fields[id]?.value, validDate: () => true,
     clearAutoSaveTimer: () => effects.push('pause autosave'), setTimer: () => effects.push('resume autosave'),
     finishChangeToView: () => effects.push('teardown'),
@@ -372,6 +374,28 @@ for (const [index, kind] of ['resolved', 'unresolved'].entries()) {
     assert.equal(h.effects.includes('teardown'), false);
   });
 }
+
+test('compact save sends the current editor issue identities once and in checkbox order', () => {
+  const h = switchHarness();
+  h.fields.noteIssue0 = {value: 'on'};
+  h.fields.noteIssue1 = {value: 'off'};
+  h.fields.noteIssues = {
+    querySelectorAll(selector) {
+      assert.equal(selector, 'input[name="renderedIssueIdentity"]');
+      return ['', '43:103', '42:102'].map(value => ({name: 'renderedIssueIdentity', value}));
+    },
+  };
+  h.context.Form.serialize = () => 'fixture=form&renderedIssueIdentity=old';
+
+  h.context.changeToView('editor1');
+
+  const posted = new URLSearchParams(h.updates[0].postBody);
+  assert.deepEqual(posted.getAll('renderedIssueIdentity'), ['', '43:103', '42:102']);
+  assert.equal(posted.get('numIssues'), '2');
+  assert.equal(posted.get('issue0'), 'on');
+  assert.equal(posted.get('issue1'), 'off');
+  assert.equal(posted.get('fixture'), 'form');
+});
 
 test('the first chart load succeeds before a note form or editor exists', () => {
   const h = switchHarness();

@@ -11,6 +11,7 @@ const {requirePoppler}=require('./lib/stored-pdf-documents');
 const {readRegular,retireOwnedFile}=require('./lib/owned-file-retirement');
 const {reserveInstanceIds,rendererFileFixture}=require('./eform-deployed-page-exclusion-playwright-checks');
 const graph=require('./lib/pdf-graph');
+const {zipDeflated}=require('./lib/gap-encounter-zip');
 const q=h.sqlString,NAME='eform-image-zip-roundtrip';
 const imageRoot=()=>process.env.EFORM_IMAGE_DIR||'/var/lib/carlos-emr/CarlosDocument/eform/images';
 const renderRoot=()=>process.env.EFORM_RENDER_TEMP_DIR||'/var/lib/carlos-emr/catalina/work/carlos/eform-browser-pdf-temp';
@@ -124,6 +125,27 @@ async function workflow(s) {
   sourceId=sql.value(`SELECT fid FROM eform WHERE form_name=${q(name)}`);h.assert(/^[1-9]\d*$/.test(sourceId),'Source ZIP template missing');fids.add(sourceId);
   reserveInstanceIds(s,{id:sourceId,name});
   const manager=await s.context.newPage();let exported;
+  await s.step('an archive exceeding the expanded text budget shows an import error without publishing resources',async()=>{
+    const bytes=zipDeflated([{name:'eform.properties',data:Buffer.alloc((16<<20)+1,35)}]);
+    h.assert(bytes.length<100000&&x.unzip(bytes)['eform.properties'].length===(16<<20)+1,
+      'The ZIP refusal fixture does not exceed the real text budget below the multipart limit');
+    const extract=path.join(root,'extractFolder');
+    const staged=()=>fs.existsSync(extract)?fs.readdirSync(extract).sort():[];
+    const before=JSON.stringify(staged());
+    await h.gotoApp(manager,s.config.baseUrl,'/eform/efmformmanager');
+    await manager.locator('#eformOptions a[href="#import"]').click();
+    const frame=manager.frameLocator('#importFrame');
+    await frame.locator('#zippedForm').setInputFiles({name:name+'-over-limit.zip',mimeType:'application/zip',buffer:bytes});
+    const [response]=await Promise.all([manager.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/eform/manageEForm')),
+      frame.locator('input.upload[type="submit"]').click()]);
+    h.assert(response.status()===200,'Over-limit ZIP did not return the import page');
+    await frame.locator('.text-danger',{hasText:'The ZIP archive could not be imported.'}).waitFor();
+    h.assert(!((await response.text()).includes('Your eform was imported.')),'Refused ZIP reported success');
+    h.assert(JSON.stringify(staged())===before,'Refused ZIP left an extraction directory');
+    h.assert(sql.value('SELECT COUNT(*) FROM eform WHERE fid=? AND form_name=? AND form_html=?',
+      [sourceId,name,html])==='1','Refused ZIP changed the owned source template');
+    unchanged();
+  });
   await s.step('native export contains exact HTML, properties and both image resources',async()=>{
     await h.gotoApp(manager,s.config.baseUrl,'/eform/efmformmanager');
     const link=manager.locator(`#eformTbl a[href*="method=exportEForm"][href*="fid=${sourceId}"]`);
