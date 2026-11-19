@@ -1703,7 +1703,10 @@ public class EmailManager {
         }
         try {
             encryptedMessagePDF = emailData.getWorkingDirectory().adoptGeneratedPdf(encryptedMessagePDF);
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
+            // The rendered body is the secure message in plain text, written before encryption.
+            // Nothing else would ever delete a copy the working directory did not take.
+            EmailComposeWorkingDirectory.discardUnadoptedPdf(encryptedMessagePDF);
             logger.error("Failed to secure generated email message PDF", e);
             throw new EmailSendingException("Failed to create encrypted email message", e);
         }

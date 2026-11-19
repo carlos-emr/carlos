@@ -177,6 +177,39 @@ class EmailManagerEncryptedBodyUnitTest extends CarlosUnitTestBase {
                 .satisfies(attachment -> assertThat(attachment.getFilePath()).isEqualTo(original.toString()));
     }
 
+    @Test
+    @DisplayName("should remove the rendered message body when the working directory cannot adopt it")
+    void shouldRemoveRenderedMessageBody_whenWorkingDirectoryCannotAdoptIt() throws Exception {
+        // The rendered body is the secure message in plain text, written before encryption.
+        Path renderedMessage = tempDir.resolve("emailbody.pdf");
+        try (PDDocument document = new PDDocument()) {
+            document.addPage(new PDPage());
+            document.save(renderedMessage.toFile());
+        }
+
+        EmailData emailData = new EmailData();
+        emailData.setBody("SECURE_NOTICE");
+        emailData.setPassword("FAKE-encryption-passphrase");
+        emailData.setEncryptedMessage("FAKE confidential clinical message");
+        emailData.setAttachments(List.of());
+        // A directory that can no longer adopt anything: rendering succeeds, adoption fails.
+        EmailComposeWorkingDirectory closedDirectory = EmailComposeWorkingDirectory.create();
+        closedDirectory.close();
+        emailData.setWorkingDirectory(closedDirectory);
+
+        try (MockedStatic<ConvertToEdoc> converter = mockStatic(ConvertToEdoc.class)) {
+            converter.when(() -> ConvertToEdoc.saveAsTempPDF(emailData)).thenReturn(renderedMessage);
+
+            assertThatThrownBy(() -> createEmailManager().encryptEmail(emailData))
+                    .isInstanceOf(EmailSendingException.class)
+                    .hasMessage("Failed to create encrypted email message");
+            converter.verify(() -> ConvertToEdoc.saveAsTempPDF(emailData));
+        }
+
+        assertThat(renderedMessage).doesNotExist();
+        assertThat(emailData.getAttachments()).isEmpty();
+    }
+
     private EmailManager createEmailManager() {
         return new EmailManager(
                 mock(EmailConsentResolver.class), mock(EmailSenderFactory.class), mock(SecurityInfoManager.class), mock(OutboundEmailArchiveService.class),
