@@ -39,8 +39,9 @@ async function workflow(s) {
         `Row ${patient} link does not name its patient`);
       const appointment = row.locator('a[onclick*="popupPage("]');
       h.assert(await appointment.count() === 1, `Row ${patient} has no single Make Appointment link`);
-      h.assert(new RegExp(`^popupPage\\(\\d+, '${patient}', '[^']+', 400, 780, `)
-        .test(await appointment.getAttribute('onclick')), `Row ${patient} Make Appointment names another patient`);
+      const appointmentOnClick = await appointment.getAttribute('onclick');
+      const appointmentPatient = /^popupPage\(\d+, '([1-9]\d*)', '[^']+', 400, 780, /.exec(appointmentOnClick)?.[1];
+      h.assert(appointmentPatient === patient, `Row ${patient} Make Appointment names another patient`);
       const remove = row.locator('a[onclick*="removePatient("]');
       h.assert(await remove.count() === 1, `Row ${patient} has no single Remove link`);
       h.assert(await remove.getAttribute('onclick') === `removePatient('${patient}', '${f.list.id}');`,
