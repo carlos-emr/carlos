@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "f7ee3d5adf64ba04107f1cbe46b1590689aa34fb",
+  "comparisonSha256": "c9004666b055c546e976795da34601a510e89fe4fa7681e0ded8d207af47582a",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/demographic/pageUtil/DemographicMergeRecord2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 97.05882352941177,
+      "sourceBlob": "61dcc9372c96c1bbb6435148a042df46ce3b0e9c"
+    }
+  },
+  "baselineCommit": "25b490866d29c61cc10192a1ca22ec77b26cc380",
+  "baselineSourceTree": "f7ee3d5adf64ba04107f1cbe46b1590689aa34fb",
+  "baselineReportSha256": "0bbd4792a4507aba77f9394b7401f52d725e41fa5a6daf5b42b2fd21f9cdfa7e",
+  "baselineLane": "Fresh exact JDK25 selected-source classes and existing/regression controls. All50 unique actual JUnit cases pass with zero failures/errors/skips. Component inputs and exact JUnit hashes retained; selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 50,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "34221f54c65c890f08a535fd2faee77db7943a8ab954e099fb668a8ca0464237",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}

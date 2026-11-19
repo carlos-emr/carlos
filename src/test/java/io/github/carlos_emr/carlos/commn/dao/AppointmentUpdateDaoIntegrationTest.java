@@ -8,11 +8,18 @@ import io.github.carlos_emr.carlos.managers.AppointmentUpdateException;
 import io.github.carlos_emr.carlos.managers.ScheduleManager;
 import io.github.carlos_emr.carlos.managers.ScheduleManagerImpl;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.base.MariaDbTestUrl;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MariaDbCompatibilityDriver;
 import jakarta.persistence.EntityManager;
 import java.sql.DriverManager;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.Properties;
+import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -22,10 +29,13 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.SharedEntityManagerCreator;
@@ -39,13 +49,17 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Uses a database-free {@code jdbc:mariadb://host:port/} server URL from
+ * Uses a database-free MariaDB or legacy MySQL server URL from
  * {@code CARLOS_TEST_MARIADB_URL}, or H2 when the variable is absent.
  */
 @Tag("integration")
 @Tag("dao")
 @Tag("mariadb-native")
+@Isolated("Temporarily sets the JVM timezone for JDBC timestamp conversion")
 class AppointmentUpdateDaoIntegrationTest {
+    private static final ZoneId TORONTO = ZoneId.of("America/Toronto");
+    private static TimeZone previousTimeZone;
+
     private SessionFactory factory;
     private JpaTransactionManager transactions;
     private ScheduleManager manager;
@@ -59,27 +73,37 @@ class AppointmentUpdateDaoIntegrationTest {
     private int id;
     private SecurityInfoManager security;
 
+    @BeforeAll
+    static void setTorontoTimeZone() {
+        previousTimeZone = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone(TORONTO));
+    }
+
+    @AfterAll
+    static void restoreTimeZone() {
+        TimeZone.setDefault(previousTimeZone);
+    }
+
     @BeforeEach
     void setup() throws Exception {
         String configuredServer = System.getenv("CARLOS_TEST_MARIADB_URL");
-        if (configuredServer != null && !configuredServer.matches("jdbc:mariadb://[^/@?#;\\s]+/")) {
-            throw new IllegalArgumentException("Appointment DAO tests require a jdbc:mariadb server URL ending in / without a database or query");
-        }
-        // Assign only after validation so failure cleanup cannot connect to a rejected URL.
-        server = configuredServer;
+        // Validate before setting server so failure cleanup cannot connect to a rejected URL.
+        server = configuredServer == null ? null : MariaDbTestUrl.requireServerUrl(configuredServer);
         database = "carlos_test_5300_" + UUID.randomUUID().toString().replace("-", "");
         String url = "jdbc:h2:mem:" + database + ";MODE=MySQL;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=5000";
         credentials.setProperty("user", System.getenv().getOrDefault("CARLOS_TEST_MARIADB_USER", "root"));
         credentials.setProperty("password", System.getenv().getOrDefault("CARLOS_TEST_MARIADB_PASSWORD", ""));
         if (server != null) {
-            try (var connection = DriverManager.getConnection(server, credentials); var statement = connection.createStatement()) {
+            try (var connection = DriverManager.getConnection(MariaDbTestUrl.toNativeUrl(server), credentials);
+                 var statement = connection.createStatement()) {
                 assertThat(connection.getMetaData().getDatabaseProductVersion()).contains("MariaDB");
                 statement.executeUpdate("CREATE DATABASE " + database);
             }
-            url = server + database;
+            url = server + database + "?connectionTimeZone=" + TORONTO.getId();
         }
         var configuration = new Configuration().addAnnotatedClass(Appointment.class).addAnnotatedClass(AppointmentArchive.class)
-                .setProperty("hibernate.connection.driver_class", server == null ? "org.h2.Driver" : "org.mariadb.jdbc.Driver")
+                .setProperty("hibernate.connection.driver_class", server == null ? "org.h2.Driver"
+                        : MariaDbCompatibilityDriver.class.getName())
                 .setProperty("hibernate.connection.url", url)
                 .setProperty("hibernate.dialect", server == null ? "org.hibernate.dialect.H2Dialect"
                         : "io.github.carlos_emr.carlos.util.persistence.OscarMySQL5Dialect")
@@ -93,7 +117,8 @@ class AppointmentUpdateDaoIntegrationTest {
         factory = configuration.buildSessionFactory();
         if (server != null) {
             // Match the production column, rather than Hibernate's fractional TIMESTAMP default.
-            try (var connection = DriverManager.getConnection(url, credentials); var statement = connection.createStatement()) {
+            try (var connection = DriverManager.getConnection(MariaDbTestUrl.toNativeUrl(server + database), credentials);
+                 var statement = connection.createStatement()) {
                 statement.executeUpdate("ALTER TABLE appointment MODIFY updatedatetime DATETIME NULL");
             }
         }
@@ -134,7 +159,8 @@ class AppointmentUpdateDaoIntegrationTest {
             if (factory != null) factory.close();
         } finally {
             if (server != null && database != null) {
-                try (var connection = DriverManager.getConnection(server, credentials); var statement = connection.createStatement()) {
+                try (var connection = DriverManager.getConnection(MariaDbTestUrl.toNativeUrl(server), credentials);
+                     var statement = connection.createStatement()) {
                     statement.executeUpdate("DROP DATABASE IF EXISTS " + database);
                 }
             }
@@ -286,12 +312,9 @@ class AppointmentUpdateDaoIntegrationTest {
 
     @Test
     void shouldAdvanceStoredVersion_whenWritesShareAClockSecond() {
-        Date future = new Date((System.currentTimeMillis() / 1000 + 60) * 1000);
-        tx(em -> {
-            em.createNativeQuery("update appointment set updatedatetime=:version where appointment_no=:id")
-                    .setParameter("version", future).setParameter("id", id).executeUpdate();
-            return null;
-        });
+        // Midnight UTC is an unambiguous evening time in Toronto, including on clock-change days.
+        Date future = Date.from(Instant.now().truncatedTo(ChronoUnit.DAYS).plus(Duration.ofDays(2)));
+        setStoredUpdateTime(future);
         String version = read().getEditVersion();
         Appointment first = save(clientA, version, row -> {
             row.setReason("FAKE-first");
@@ -302,6 +325,39 @@ class AppointmentUpdateDaoIntegrationTest {
         assertThat(Long.parseLong(second.getEditVersion())).isEqualTo(future.getTime() + 2000);
         assertThat(read().getEditVersion()).isEqualTo(second.getEditVersion());
         assertState("FAKE-second", 2);
+    }
+
+    @Test
+    void shouldReuseReturnedVersion_whenEditEntersTheRepeatedHour() {
+        var rules = TORONTO.getRules();
+        var transition = rules.nextTransition(Instant.now().plus(Duration.ofDays(1)));
+        if (!transition.isOverlap()) {
+            transition = rules.nextTransition(transition.getInstant());
+        }
+        // Seed one second before the first occurrence of the repeated hour. The update
+        // advances the version by a second, reaching a DATETIME with two possible instants.
+        var firstOccurrence = transition.getDateTimeAfter().toInstant(transition.getOffsetBefore());
+        setStoredUpdateTime(Date.from(firstOccurrence.minusSeconds(1)));
+        String original = read().getEditVersion();
+        assertThat(original).isEqualTo(Long.toString(firstOccurrence.minusSeconds(1).toEpochMilli()));
+
+        Appointment first = save(clientA, original, row -> row.setReason("FAKE-first"));
+        assertThat(first.getEditVersion()).isNotEqualTo(original).isEqualTo(read().getEditVersion());
+
+        Appointment second = save(clientB, first.getEditVersion(), row -> row.setReason("FAKE-second"));
+        assertThat(second.getEditVersion()).isNotEqualTo(first.getEditVersion()).isEqualTo(read().getEditVersion());
+        assertThatThrownBy(() -> save(clientA, original, row -> row.setReason("FAKE-stale")))
+                .isInstanceOfSatisfying(AppointmentUpdateException.class,
+                        error -> assertThat(error.getReason()).isEqualTo(AppointmentUpdateException.Reason.STALE_VERSION));
+        assertState("FAKE-second", 2);
+    }
+
+    private void setStoredUpdateTime(Date value) {
+        tx(em -> {
+            em.createNativeQuery("update appointment set updatedatetime=:version where appointment_no=:id")
+                    .setParameter("version", value).setParameter("id", id).executeUpdate();
+            return null;
+        });
     }
 
     @Test
