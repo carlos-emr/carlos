@@ -1,0 +1,214 @@
+# Oracle for the executeQuery() statement guard. Recorded 2026-11-19 on MariaDB 11.8.8 (sql_mode='').
+# connectorj: what MySQL Connector/J 9.6.0 did with Statement.executeQuery(sql): REFUSED (client-side, never sent) or SENT.
+#             'unrecorded' marks hand-written edge cases that were not run against Connector/J.
+# carlos:     what the CARLOS adapter must do. Differences from connectorj are deliberate; see docs/mariadb-connector-migration.md.
+# changes:    whether sending the statement through MariaDB Connector/J 3.5.11 executeQuery() changed the database.
+# statement:  \n and \t are escaped. Lines starting with # are comments.
+connectorj	carlos	changes	statement
+SENT	SENT	no	SELECT 1
+SENT	SENT	no	select 1
+SENT	SENT	no	  \n\t SELECT 1
+SENT	SENT	no	(SELECT 1)
+SENT	SENT	no	((SELECT 1))
+SENT	SENT	no	( SELECT 1 ) UNION ( SELECT 2 )
+SENT	SENT	no	/* c */ SELECT 1
+SENT	SENT	no	/* c */ /* d */ SELECT 1
+SENT	SENT	no	-- c\nSELECT 1
+SENT	SENT	no	# c\nSELECT 1
+SENT	SENT	no	--\nSELECT 1
+SENT	SENT	no	-- c\n-- d\nSELECT 1
+SENT	SENT	no	SELECT 1 -- trailing
+SENT	SENT	no	SELECT 1;
+SENT	SENT	no	SELECT 1 ; 
+SENT	REFUSED	no	;SELECT 1
+SENT	SENT	no	SHOW TABLES LIKE 'zz_lock'
+SENT	SENT	no	show variables like 'sql_mode'
+SENT	SENT	no	DESCRIBE zz_lock
+SENT	SENT	no	DESC zz_lock
+SENT	SENT	no	EXPLAIN SELECT 1
+SENT	SENT	no	EXPLAIN UPDATE zz_lock SET v = v + 1
+SENT	SENT	no	ANALYZE TABLE zz_lock
+SENT	SENT	no	ANALYZE SELECT 1
+SENT	SENT	yes	ANALYZE UPDATE zz_lock SET v = v + 1
+SENT	SENT	yes	ANALYZE FORMAT=JSON DELETE FROM zz_lock WHERE id = 3
+SENT	SENT	no	CHECK TABLE zz_lock
+SENT	SENT	no	CHECKSUM TABLE zz_lock
+SENT	SENT	no	OPTIMIZE TABLE zz_lock
+SENT	SENT	no	REPAIR TABLE zz_lock
+SENT	SENT	no	HELP 'contents'
+SENT	SENT	no	TABLE zz_lock
+SENT	SENT	no	VALUES (1)
+SENT	SENT	no	WITH w AS (SELECT 1 a) SELECT a FROM w
+SENT	SENT	no	CALL zz_proc()
+SENT	SENT	no	call zz_proc()
+SENT	SENT	no	{call zz_proc()}
+SENT	SENT	no	EXECUTE zznostmt
+SENT	SENT	no	XA RECOVER
+REFUSED	REFUSED	no	XA START 'zzx'
+REFUSED	REFUSED	no	HANDLER zz_lock OPEN
+REFUSED	REFUSED	no	HANDLER zz_lock READ FIRST
+REFUSED	REFUSED	no	SELECT 1 INTO @zz1
+REFUSED	REFUSED	no	select 1 into @zz2
+SENT	SENT	no	SELECT 'into' 
+SENT	SENT	no	SELECT 1 /* INTO */
+SENT	SENT	no	SELECT `into` FROM (SELECT 1 AS `into`) x
+REFUSED	SENT	no	SELECT 1 AS into_x
+SENT	SENT	no	SELECT ' INTO OUTFILE '
+REFUSED	REFUSED	no	SELECT 1 FROM zz_lock WHERE s = 'x' INTO @zz3
+REFUSED	REFUSED	no	SELECT id INTO @zz4 FROM zz_lock LIMIT 1
+REFUSED	REFUSED	no	SELECT id FROM zz_lock LIMIT 1 INTO DUMPFILE '/tmp/zz_guard_dumpfile'
+SENT	SENT	no	SELECT id FROM zz_lock FOR UPDATE
+SENT	SENT	no	SELECT id FROM zz_lock LOCK IN SHARE MODE
+SENT	SENT	no	SELECT SLEEP(0)
+SENT	SENT	no	SELECT GET_LOCK('zz_g', 0)
+SENT	SENT	no	SELECT RELEASE_LOCK('zz_g')
+SENT	SENT	no	SELECT LAST_INSERT_ID(5)
+SENT	SENT	no	SELECT @zzv := 5
+SENT	SENT	no	SELECT NEXTVAL(zz_seq)
+SENT	SENT	yes	SELECT zz_writer()
+SENT	SENT	no	/*! SELECT 1 */
+REFUSED	SENT	no	/*M! SELECT 1 */
+SENT	SENT	no	/*!50000 SELECT 1 */
+REFUSED	REFUSED	no	(SELECT 1 INTO @zz6)
+REFUSED	REFUSED	no	SELECT (1) INTO @zz7
+SENT	REFUSED	no	WITH w AS (SELECT 1 a) SELECT a FROM w INTO @zz8
+SENT	SENT	no	SELECT "INTO"
+SENT	SENT	no	SELECT 'a''b INTO c'
+SENT	SENT	no	SELECT 'a\' INTO b'
+SENT	SENT	no	SELECT 1 -- INTO x
+SENT	SENT	no	SELECT 1 # INTO x
+REFUSED	REFUSED	no	SELECT 1 FROM zz_lock WHERE s = 'x'INTO @zz9
+REFUSED	REFUSED	no	SELECT 1 /* x */ INTO /* y */ @zz10
+REFUSED	REFUSED	no	SELECT 1\nINTO\n@zz11
+REFUSED	REFUSED	no	SELECT 1\tINTO\t@zz12
+SENT	SENT	no	Select 1
+SENT	SENT	no	sElEcT 1
+SENT	SENT	no	SHOW/**/TABLES
+SENT	SENT	no	XA  RECOVER
+SENT	SENT	no	xa recover
+SENT	SENT	no	XA\nRECOVER
+SENT	SENT	no	EXPLAIN INSERT INTO zz_lock (id, v) VALUES (920, 1)
+SENT	SENT	no	DESCRIBE UPDATE zz_lock SET v = v + 1
+SENT	SENT	yes	ANALYZE INSERT INTO zz_lock (id, v) VALUES (921, 1)
+SENT	SENT	yes	CALL zz_writer_proc()
+REFUSED	REFUSED	no	SELECT 1 FROM zz_lock INTO OUTFILE '/tmp/zz_guard_outfile'
+SENT	SENT	no	SELECT * FROM zz_lock WHERE s = 'INSERT INTO x'
+SENT	SENT	no	SELECT 1 FROM DUAL WHERE 'a' = 'UPDATE'
+SENT	SENT	no	SELECT
+SENT	SENT	no	SELECT;
+REFUSED	REFUSED	no	(
+REFUSED	REFUSED	no	()
+SENT	SENT	no	WITH
+SENT	SENT	no	CALL
+SENT	SENT	no	EXECUTE
+REFUSED	REFUSED	no	XA
+SENT	SENT	no	DESC
+SENT	SENT	no	SHOW
+REFUSED	REFUSED	no	select * from zz_lock where id in (select id from zz_lock) into @zz13, @zz14, @zz15
+SENT	SENT	no	SELECT `a` FROM (SELECT 1 AS `a`) `into`
+SENT	SENT	no	SELECT 1 AS "into"
+SENT	SENT	no	SELECT 1 AS intox
+REFUSED	SENT	no	SELECT 1 AS x_into
+SENT	SENT	no	SELECT 1 INTOX
+REFUSED	REFUSED	no	SELECT 1,2 INTO@zz16,@zz17
+SENT	SENT	no	VALUES (1),(2)
+SENT	SENT	no	(VALUES (1))
+SENT	SENT	no	((VALUES (1)) UNION (SELECT 2))
+SENT	SENT	no	SELECT 1 UNION ALL (SELECT 2)
+SENT	SENT	no	  (  SELECT 1  )  
+REFUSED	REFUSED	yes	INSERT INTO zz_lock (id, v) VALUES (901, 1)
+REFUSED	REFUSED	yes	insert into zz_lock (id, v) values (902, 1)
+REFUSED	REFUSED	yes	  INSERT INTO zz_lock (id, v) VALUES (903, 1)
+REFUSED	REFUSED	no	(INSERT INTO zz_lock (id, v) VALUES (904, 1))
+REFUSED	REFUSED	yes	/* c */ INSERT INTO zz_lock (id, v) VALUES (905, 1)
+REFUSED	REFUSED	yes	/*! INSERT INTO zz_lock (id, v) VALUES (906, 1) */
+REFUSED	REFUSED	yes	/*!50000 INSERT INTO zz_lock (id, v) VALUES (907, 1) */
+REFUSED	REFUSED	yes	/*M! INSERT INTO zz_lock (id, v) VALUES (908, 1) */
+REFUSED	REFUSED	yes	/*M!100000 INSERT INTO zz_lock (id, v) VALUES (909, 1) */
+REFUSED	REFUSED	yes	-- c\nINSERT INTO zz_lock (id, v) VALUES (910, 1)
+REFUSED	REFUSED	yes	# c\nINSERT INTO zz_lock (id, v) VALUES (911, 1)
+REFUSED	REFUSED	yes	INSERT INTO zz_lock (id, v) VALUES (912, 1) RETURNING id
+REFUSED	REFUSED	yes	INSERT INTO zz_lock (id, v) SELECT 913, 1
+REFUSED	REFUSED	yes	UPDATE zz_lock SET v = v + 1
+REFUSED	REFUSED	yes	update zz_lock set v = v + 1
+REFUSED	REFUSED	yes	DELETE FROM zz_lock WHERE id = 3
+REFUSED	REFUSED	yes	DELETE FROM zz_lock WHERE id = 3 RETURNING id
+REFUSED	REFUSED	yes	REPLACE INTO zz_lock (id, v, s) VALUES (914, 1, 'r')
+REFUSED	REFUSED	yes	CREATE TABLE zz_guard_created (a int)
+REFUSED	REFUSED	no	CREATE TEMPORARY TABLE zz_guard_tmp (a int)
+REFUSED	REFUSED	yes	DROP TABLE zz_guard_victim
+REFUSED	REFUSED	yes	TRUNCATE TABLE zz_guard_victim
+REFUSED	REFUSED	yes	ALTER TABLE zz_guard_victim ADD COLUMN b int
+REFUSED	REFUSED	yes	RENAME TABLE zz_guard_victim TO zz_guard_created
+REFUSED	REFUSED	yes	CREATE OR REPLACE VIEW zz_guard_view AS SELECT 1 a
+REFUSED	REFUSED	no	SET @zz = 1
+REFUSED	REFUSED	no	SET SESSION group_concat_max_len = 2048
+REFUSED	REFUSED	no	SET STATEMENT max_statement_time=5 FOR SELECT 1
+REFUSED	REFUSED	yes	SET STATEMENT max_statement_time=5 FOR UPDATE zz_lock SET v = v + 1
+REFUSED	REFUSED	no	DO SLEEP(0)
+REFUSED	REFUSED	no	USE carlos
+REFUSED	REFUSED	no	BEGIN
+REFUSED	REFUSED	no	START TRANSACTION
+REFUSED	REFUSED	no	COMMIT
+REFUSED	REFUSED	no	ROLLBACK
+REFUSED	REFUSED	no	SAVEPOINT zzs
+REFUSED	REFUSED	no	LOCK TABLES zz_lock WRITE
+REFUSED	REFUSED	no	UNLOCK TABLES
+REFUSED	REFUSED	no	FLUSH TABLES
+REFUSED	REFUSED	no	GRANT USAGE ON *.* TO 'probe'@'127.0.0.1'
+REFUSED	REFUSED	no	KILL QUERY 999999999
+REFUSED	REFUSED	no	PREPARE zzp FROM 'SELECT 1'
+REFUSED	REFUSED	no	DEALLOCATE PREPARE zzp
+REFUSED	REFUSED	no	LOAD DATA LOCAL INFILE '/etc/hostname' INTO TABLE zz_lock
+REFUSED	REFUSED	no	
+REFUSED	REFUSED	no	   
+REFUSED	REFUSED	no	/* only a comment */
+REFUSED	REFUSED	no	garbage
+REFUSED	REFUSED	no	1
+REFUSED	REFUSED	no	SELEC 1
+SENT	REFUSED	no	SELECTED
+SENT	SENT	no	SELECT/**/1
+SENT	SENT	no	SELECT\n1
+SENT	SENT	no	SELECT(1)
+SENT	SENT	no	SELECT.1
+REFUSED	REFUSED	no	WITH w AS (SELECT 1 a) DELETE FROM zz_lock WHERE id IN (SELECT a FROM w)
+SENT	SENT	no	SHOW CREATE TABLE zz_lock
+REFUSED	REFUSED	no	BINLOG ''
+REFUSED	REFUSED	no	RESET QUERY CACHE
+REFUSED	REFUSED	no	SIGNAL SQLSTATE '45000'
+REFUSED	REFUSED	no	SELECT 1 UNION SELECT 2 INTO @zz5
+SENT	SENT	no	SELECT 1 PROCEDURE ANALYSE()
+SENT	SENT	yes	EXECUTE IMMEDIATE 'UPDATE zz_lock SET v = v + 1'
+SENT	SENT	no	EXECUTE IMMEDIATE 'SELECT 1'
+REFUSED	REFUSED	yes	BEGIN NOT ATOMIC UPDATE zz_lock SET v = v + 1; END
+unrecorded	SENT	no	SELECT @into
+unrecorded	SENT	no	SELECT t.into FROM (SELECT 1 AS `into`) t
+unrecorded	SENT	no	SELECT @@session.sql_mode
+unrecorded	SENT	no	WITH w AS (SELECT 1 a) SELECT a FROM w FOR UPDATE
+unrecorded	SENT	no	WITH w AS (SELECT 1 a) SELECT REPLACE('a','a','b'), INSERT('abc',1,1,'x') FROM w
+unrecorded	REFUSED	no	WITH w AS (SELECT 1 a) UPDATE zz_lock SET v = 1
+unrecorded	REFUSED	no	WITH w AS (SELECT 1 a) INSERT INTO zz_lock (id) SELECT a FROM w
+unrecorded	SENT	no	WITH w AS (SELECT 'DELETE' a) SELECT a FROM w
+unrecorded	SENT	no	WITH RECURSIVE w AS (SELECT 1 a UNION ALL SELECT a+1 FROM w WHERE a < 3) SELECT a FROM w
+unrecorded	REFUSED	no	WITH w AS (SELECT 1 a) REPLACE INTO zz_lock (id) SELECT a FROM w
+unrecorded	SENT	no	{call zz_proc()}
+unrecorded	SENT	no	{ ?= call zz_fn() }
+unrecorded	REFUSED	no	{d '2020-01-01'}
+unrecorded	REFUSED	no	select_1
+unrecorded	REFUSED	no	SELECT1
+unrecorded	SENT	no	SELECT`a` FROM (SELECT 1 AS a) t
+unrecorded	SENT	no	SELECT'x'
+unrecorded	SENT	no	SELECT-1
+unrecorded	SENT	no	SELECT*FROM zz_lock
+unrecorded	SENT	no	SELECT@a
+unrecorded	SENT	no	SHOW TABLES
+unrecorded	SENT	no	DESCRIBE zz_lock
+unrecorded	SENT	no	EXPLAIN SELECT 1
+unrecorded	SENT	no	CALL p()
+unrecorded	REFUSED	no	-- only\n
+unrecorded	REFUSED	no	#x
+unrecorded	REFUSED	no	/* unterminated
+unrecorded	SENT	no	SELECT 1 FROM t WHERE a = 'it''s' /* INTO */ -- INTO\n
+unrecorded	REFUSED	no	SELECT 'x\'' , 1 INTO @a
+unrecorded	REFUSED	no	SELECT "a""b" INTO @a
+unrecorded	REFUSED	no	SELECT `a``b` FROM t INTO @a
