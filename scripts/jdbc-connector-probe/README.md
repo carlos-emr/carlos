@@ -23,7 +23,7 @@ must not be added to `pom.xml`, to a lock file or to any package.
 | `gen_setup.py` | Writes the fixture SQL: table `zz_probe` with one column per column type the CARLOS schema uses (and a few it does not), plus scratch tables. |
 | `Probe.java` | The probe. Sections: `SESSION`, `DBMETA`, `RSMETA` (every column of every table), `VALUES` (column type x getter), `EXPR`, `LABELS`, `WRITE` (setter x target column), `STMT`, `TIMEOUT`, `EXC`, `PARSE`, `DMLQ` (write statements through query APIs), `READONLY`, `FORMS` (legacy form save/load/update over every `form*` table). |
 | `GuardOracle.java` | Records, per statement, whether `Statement.executeQuery` was refused by the driver and whether the database changed. Source of `src/test/resources/jdbc/connector-j-9.6.0-executequery-oracle.tsv`. |
-| `guard_reference.py` | Reference model of the adapter's `executeQuery` statement rule; checks it against the `GuardOracle` output and writes the fixture. |
+| `guard_reference.py` | Reference model of the adapter's `executeQuery` statement rule. `check ORACLE.tsv` verifies the model against every row of the fixture; `record CJ.tsv ADAPTER.tsv` prints rows from two `GuardOracle` outputs. |
 | `diff.py`, `matrix.py` | Compare two probe outputs (`summary`, `list`, `rsmeta`, `values` modes; compact column-type x getter matrix). |
 
 ## Running it
@@ -60,6 +60,17 @@ must not be added to `pom.xml`, to a lock file or to any package.
    Arguments: driver (`cj`, `adapter`, `adapter-native`, `raw`), protocol
    (`text`, `binary`), fetch (`buffered`, `stream`), output file, optional
    comma-separated section list. `-Dprobe.extra=&name=value` appends URL options.
+
+To check the statement rule against the recorded oracle, with no database:
+
+```bash
+python3 guard_reference.py check ../../src/test/resources/jdbc/connector-j-9.6.0-executequery-oracle.tsv
+```
+
+It prints the row counts and exits with status 1 if the model disagrees with a
+row, or if a statement that MySQL Connector/J refused and that changes data
+would be sent. The fixture's `unrecorded` rows were written by hand and were
+not run against MySQL Connector/J.
 
 The probe uses the packaged URL options
 (`zeroDateTimeBehavior=round&useOldAliasMetadataBehavior=true&jdbcCompliantTruncation=false`).

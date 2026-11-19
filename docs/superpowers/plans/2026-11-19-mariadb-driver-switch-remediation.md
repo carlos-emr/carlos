@@ -6,21 +6,23 @@
 
 **Goal:** One pull request on `release/2026.08` that closes the seven open driver-switch issues (#5922, #5968, #5969, #5770, #5863, #5744, #6088), does the driver part of the documentation work now tracked in #3053 (formerly #5768), and corrects the eight further differences (N1 to N8) found by the differential review.
 
-**Architecture:** The branch starts from the release head and merges the three open pull requests that already fix four of the issues. Everything else is small: three additions to the JDBC adapter (a statement guard for `executeQuery`, session defaults, two value and exception parities), four call-site corrections, documentation, and the same adapter mirrored into DrugRef with a build check that keeps the two copies identical. Every new physical-MariaDB case goes into a test class the MariaDB CI lane already runs, so no workflow file changes.
+**Architecture:** The branch is based on the release head and merges the three open pull requests that already fix four of the issues. Everything else is small: three additions inside the existing JDBC adapter classes (a statement guard for `executeQuery`, session defaults, two value and exception parities), four call-site corrections, documentation, and the same adapter mirrored into DrugRef with a build check that keeps the two copies identical. Every new physical-MariaDB case goes into a test class the MariaDB CI lane already runs, so no workflow file changes.
 
 **Tech Stack:** Java 25, MariaDB Connector/J 3.5.11 behind `MariaDbCompatibilityDriver`, MariaDB 11.8.8, Spring 7.0.10, Hibernate 7.4.14, JUnit 5 / AssertJ / Mockito, Maven; Python 3 for CI bookkeeping and packaging tests.
 
 **Spec:** `docs/superpowers/specs/2026-11-19-mariadb-driver-switch-findings.md` (read it first; section numbers below refer to it)
 
+**Dry run:** Tasks 2 to 8, the test of Task 9 and the counts of Task 11 were carried out once in a scratch clone, on top of the merges of Task 1, and run on MariaDB 11.8.8 (spec section 10). The test code below is the code that compiled and passed there. The production changes are described, not transcribed: the dry run shows they can be written from these descriptions. The documentation edits of Task 9, Task 10 and the coverage records of Task 11 were not dry-run.
+
 ## Global Constraints
 
-- Target branch `release/2026.08`. Work branch `claude/brave-ptolemy-yfxbw5`, based on `origin/release/2026.08`, never on `main` (`main` has three commits the release branch lacks). The branch already exists on the remote: the release head of 2026-11-19 (`8872cdd3`) plus one commit that holds this plan, the spec, the probe and the oracle fixture. Bring it up to date by merging; never rebase or force-push it.
+- Target branch `release/2026.08`. Work branch `claude/brave-ptolemy-yfxbw5`, based on `origin/release/2026.08`, never on `main` (`main` has three commits the release branch lacks). The branch already exists on the remote: the release head of 2026-11-19 (`8872cdd3`) plus commits that hold this plan, the spec, the probe and the oracle fixture. Bring it up to date by merging; never rebase or force-push it.
 - Do not edit anything under `.github/` or `database/`. Consequences: new physical cases go only into `JdbcConnectorMariaDbIntegrationTest` and `MariaDbDaoHarnessIntegrationTest` (the MariaDB lane's class list is duplicated in `.github/workflows/maven-project.yml`); the one workflow line PR #6295 changes arrives by merging that PR, not by editing; the assistant files under `.github/` named in #3053 are left for a maintainer and listed in the pull request body.
+- **The adapter is three source files and stays three:** `MariaDbCompatibilityDriver`, `MariaDbJdbcCompatibility`, `MariaDbPreferredTlsPlugin`. New adapter code goes inside them; a nested class is fine, a new top-level class is not. `debian/build-flyway-runner.sh`, `CdsRulesetFingerprint` and the DrugRef package check each name exactly these three and take their nested classes with them (spec section 6). The three files must be identical in `carlos` and `drugref2026` apart from the package name (`io.github.carlos_emr.carlos.utility` / `io.github.carlos_emr.drugref2026.util`).
 - MariaDB Connector/J stays at 3.5.11. MySQL Connector/J must not appear in `pom.xml`, a lock file or a package. The guard is written from spec section 6 and the recorded oracle; do not copy code from MySQL Connector/J.
 - No statement text, URL, credential or row value in any exception message or log line this work adds.
-- The four adapter sources (`MariaDbCompatibilityDriver`, `MariaDbJdbcCompatibility`, `MariaDbPreferredTlsPlugin`, `MariaDbQueryStatementValidator`) must be identical in `carlos` and `drugref2026` apart from the package name (`io.github.carlos_emr.carlos.utility` / `io.github.carlos_emr.drugref2026.util`).
 - Exact values: refusal SQLState `S1009`, message `executeQuery() cannot run a statement that does not produce a result set`; session statement and its rules as in spec section 8 (`net_write_timeout=600`); lock-wait mapping error `1205` to SQLState `40001`; option message `Invalid database connection configuration: option <name>; <requirement>` with SQLState `08001`.
-- Tests: JUnit 5, AssertJ, names `should<Action>_<context>` with exactly one underscore, `@Tag("unit")` or `@Tag("integration")`. New files carry the CARLOS copyright header (`docs/copyright-header-carlos.md`), no `@author`. New classes follow `docs/architecture/layer-names.md` (no `*Helper`, `*Utils`, `*Manager`).
+- Tests: JUnit 5, AssertJ, names `should<Action>_<context>` with exactly one underscore, `@Tag("unit")` or `@Tag("integration")`. `java.sql.SQLException` is an `Iterable`, so `assertThat(sqlException)` does not compile: assert on `getMessage()`, `getSQLState()` and `getCause()`. New files carry the CARLOS copyright header (`docs/copyright-header-carlos.md`), no `@author`. New classes follow `docs/architecture/layer-names.md` (no `*Helper`, `*Utils`, `*Manager`).
 - Conventional Commits. End every commit message with the attribution trailers the session supplies. Commit after each task; push only when the maintainer asks; do not open the pull request until asked.
 
 ## Review Focus
@@ -35,8 +37,7 @@
 
 | File | Responsibility | Task |
 |---|---|---|
-| `src/main/java/io/github/carlos_emr/carlos/utility/MariaDbQueryStatementValidator.java` (new) | Decides whether `executeQuery` may send a statement (spec section 6). | 2 |
-| `src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java` | Calls the validator; SMALLINT objects; error 1205. | 2, 5 |
+| `src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java` | Gains the nested `QueryStatementValidator` and the call to it; SMALLINT objects; error 1205. | 2, 5 |
 | `src/main/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibility.java` | Session defaults; names a refused option. | 4, 6 |
 | `src/main/java/io/github/carlos_emr/carlos/utility/OscarTrackingBasicDataSource.java` | Stops replacing the option message. | 6 |
 | `src/main/java/io/github/carlos_emr/carlos/report/data/RptResultStruct.java` | Reads binary cells as text. | 3 |
@@ -44,15 +45,16 @@
 | `src/main/java/io/github/carlos_emr/carlos/commn/dao/OscarAppointmentDaoImpl.java` | Recognises both product names. | 8 |
 | `src/test/java/io/github/carlos_emr/carlos/utility/JdbcConnectorMariaDbIntegrationTest.java` | All new physical JDBC cases (13). | 2, 3, 4, 5, 9 |
 | `src/test/java/io/github/carlos_emr/carlos/commn/dao/MariaDbDaoHarnessIntegrationTest.java` | One physical JPA case. | 2 |
-| `src/test/resources/jdbc/connector-j-9.6.0-executequery-oracle.tsv`, `scripts/jdbc-connector-probe/` (already on the branch) | Oracle fixture; the probe that produced it. | 2 |
+| `debian/assets/flyway-runner/src/test/java/io/github/carlos_emr/carlos/deb/FlywayRunnerJdbcTest.java` | Proves at package build that the launcher carries the statement rule. | 2 |
+| `src/test/resources/jdbc/connector-j-9.6.0-executequery-oracle.tsv`, `scripts/jdbc-connector-probe/` (already on the branch) | Oracle fixture (212 rows); the probe and reference model behind it. | 2 |
 | `docs/mariadb-connector-migration.md`, `docs/release-notes-2026.08.md`, packaging READMEs, `CLAUDE.md`, `GEMINI.md` | Documentation. | 9 |
-| `debian/check-drugref-adapter-sources.py` (new), `debian/check-drugref-jdbc.py`, `debian/rules`, `debian/drugref.pin` | DrugRef copy check and pin. | 10 |
-| `scripts/ci/verify-mariadb-dao-reports.py`, `scripts/ci/test_mariadb_report_evidence.py`, `scripts/ci/test_release_plan_5700.py`, `docs/testing/release-2026.08-verification.json`, `scripts/coverage/floors/**` | Required-case counts and coverage floors. | 11 |
+| `debian/check-drugref-adapter-sources.py` (new), `debian/rules`, `debian/drugref.pin` | DrugRef copy check and pin. | 10 |
+| `scripts/ci/verify-mariadb-dao-reports.py`, `scripts/ci/test_mariadb_report_evidence.py`, `scripts/ci/test_release_plan_5700.py`, `docs/testing/release-2026.08-verification.json`, `scripts/coverage/floors/**`, `docs/testing/coverage-floor-policy.md` | Required-case counts and coverage floors. | 11 |
 
-Commands used throughout:
+Commands used throughout (JDK 25 is required; the build does not run on an older JDK):
 
 - Unit tests: `mvn -B -ntp test -Dtest='<Class>'`
-- Physical cases: `CARLOS_TEST_MARIADB_URL=jdbc:mariadb://127.0.0.1:3306/ CARLOS_TEST_MARIADB_USER=root CARLOS_TEST_MARIADB_PASSWORD=<password> mvn -B -ntp test -Dtest=JdbcConnectorMariaDbIntegrationTest -Dgroups=mariadb-native` against a disposable MariaDB 11.8.8 (the devcontainer database is suitable; each test creates and drops its own schema).
+- Physical cases: `CARLOS_TEST_MARIADB_URL=jdbc:mariadb://127.0.0.1:3306/ CARLOS_TEST_MARIADB_USER=<user> CARLOS_TEST_MARIADB_PASSWORD=<password> mvn -B -ntp test -Dtest=JdbcConnectorMariaDbIntegrationTest -Dgroups=mariadb-native` against a disposable MariaDB 11.8.8. The account needs `CREATE` and `DROP` on any database; each test creates and drops its own schema.
 
 ---
 
@@ -96,27 +98,31 @@ Run `git merge --no-ff --no-edit origin/codex/release-2026-08-report-connection-
 ```bash
 python3 -m unittest discover -s scripts/ci -p 'test_mariadb_report_evidence.py'
 python3 -m unittest discover -s scripts/ci -p 'test_release_plan_5700.py'
+python3 scripts/coverage/check-coverage-floors.py --freshness-only \
+  --floors scripts/coverage/release-coverage-floors.json \
+  --base "$(python3 -c 'import json; print(json.load(open("docs/testing/release-2026.08-verification.json"))["baselines"]["currentMain"])')" \
+  --output /tmp/freshness.json
 mvn -B -ntp test -Dtest='MariaDb*UnitTest,OscarTrackingBasicDataSourceUnitTest,ReportBinaryReadersUnitTest,RptResultStructUnitTest'
 ```
 
-Expected: `OK` twice, then `BUILD SUCCESS`. The merges are this task's commits; there is nothing else to commit.
+Expected: `OK` twice, then `{"fresh": true, …, "problems": []}`, then `BUILD SUCCESS`. The merges are this task's commits; there is nothing else to commit.
 
 ### Task 2: Refuse statements that produce no result set in `executeQuery` (N1)
 
 **Files:**
-- Create: `src/main/java/io/github/carlos_emr/carlos/utility/MariaDbQueryStatementValidator.java`
+- Modify: `src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java` (`wrap` :116, `JdbcHandler` :122-135, `invoke` :138-178, `wrapResult` :500-510, and a new nested class at the end of the file)
 - Create: `src/test/java/io/github/carlos_emr/carlos/utility/MariaDbQueryStatementValidatorUnitTest.java`
 - Create: `src/test/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriverQueryGuardUnitTest.java`
-- Modify: `src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java` (`wrap` :116, `JdbcHandler` :122-135, `invoke` :138-178, `wrapResult` :500-510)
 - Modify: `src/test/java/io/github/carlos_emr/carlos/utility/JdbcConnectorMariaDbIntegrationTest.java`
 - Modify: `src/test/java/io/github/carlos_emr/carlos/commn/dao/MariaDbDaoHarnessIntegrationTest.java`
+- Modify: `debian/assets/flyway-runner/src/test/java/io/github/carlos_emr/carlos/deb/FlywayRunnerJdbcTest.java`
 - Uses (already on the branch): `src/test/resources/jdbc/connector-j-9.6.0-executequery-oracle.tsv`
 
 **Interfaces:**
-- Produces (package-private; DrugRef gets its own copy in Task 10):
+- Produces, nested in `MariaDbCompatibilityDriver` (DrugRef gets its copy in Task 10):
 
 ```java
-final class MariaDbQueryStatementValidator {
+static final class QueryStatementValidator {
     static final String REFUSAL_STATE = "S1009";
     static final String REFUSAL_MESSAGE = "executeQuery() cannot run a statement that does not produce a result set";
     static boolean producesResultSet(String sql);   // spec section 6; null is refused
@@ -126,9 +132,11 @@ final class MariaDbQueryStatementValidator {
 
 - [ ] **Step 1: Write the failing validator test**
 
-The fixture has 207 data rows: tab-separated `connectorj`, `carlos`, `changes`, `statement`; `#` lines and the header are skipped; `\n` and `\t` in the statement are escaped.
+The fixture has 212 data rows: tab-separated `connectorj`, `carlos`, `changes`, `statement`; `#` lines and the header are skipped; `\n` and `\t` in the statement are escaped.
 
 ```java
+import io.github.carlos_emr.carlos.utility.MariaDbCompatibilityDriver.QueryStatementValidator;
+
 @Tag("unit")
 class MariaDbQueryStatementValidatorUnitTest {
     record Row(String connectorJ, String carlos, boolean changes, String statement) { }
@@ -147,16 +155,16 @@ class MariaDbQueryStatementValidatorUnitTest {
     @ParameterizedTest
     @MethodSource("oracle")
     void shouldMatchTheRecordedDecision_forEveryOracleStatement(Row row) {
-        assertThat(MariaDbQueryStatementValidator.producesResultSet(row.statement()))
+        assertThat(QueryStatementValidator.producesResultSet(row.statement()))
                 .as(row.statement()).isEqualTo(row.carlos().equals("SENT"));
     }
 
     @Test
     void shouldRefuseEveryRecordedWrite_whenConnectorJRefusedIt() throws IOException {
-        assertThat(oracle()).hasSize(207);
+        assertThat(oracle()).hasSize(212);
         var writes = oracle().stream().filter(row -> row.changes() && row.connectorJ().equals("REFUSED")).toList();
-        assertThat(writes).hasSize(25).allSatisfy(row ->
-                assertThat(MariaDbQueryStatementValidator.producesResultSet(row.statement())).as(row.statement()).isFalse());
+        assertThat(writes).hasSize(26).allSatisfy(row ->
+                assertThat(QueryStatementValidator.producesResultSet(row.statement())).as(row.statement()).isFalse());
     }
 
     @ParameterizedTest
@@ -168,20 +176,20 @@ class MariaDbQueryStatementValidatorUnitTest {
             "SELECT last_name FROM demographic WHERE last_name = 'INSERT INTO'",
             "SELECT `into` FROM t", "SELECT t.into FROM t"})
     void shouldSendTheReadShapesCarlosUses_withoutRefusal(String sql) {
-        assertThat(MariaDbQueryStatementValidator.producesResultSet(sql)).isTrue();
+        assertThat(QueryStatementValidator.producesResultSet(sql)).isTrue();
     }
 
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"   ", "/* only */", "-- only", "# only"})
     void shouldRefuseText_withNoStatementInIt(String sql) {
-        assertThat(MariaDbQueryStatementValidator.producesResultSet(sql)).isFalse();
+        assertThat(QueryStatementValidator.producesResultSet(sql)).isFalse();
     }
 
     @Test
     void shouldCarryNoStatementText_inTheRefusal() {
-        SQLException refusal = MariaDbQueryStatementValidator.refusal();
-        assertThat(refusal).hasMessage("executeQuery() cannot run a statement that does not produce a result set");
+        SQLException refusal = QueryStatementValidator.refusal();
+        assertThat(refusal.getMessage()).isEqualTo("executeQuery() cannot run a statement that does not produce a result set");
         assertThat(refusal.getSQLState()).isEqualTo("S1009");
     }
 }
@@ -190,66 +198,153 @@ class MariaDbQueryStatementValidatorUnitTest {
 - [ ] **Step 2: Run it and see it fail**
 
 Run: `mvn -B -ntp test -Dtest=MariaDbQueryStatementValidatorUnitTest`
-Expected: compilation failure, `MariaDbQueryStatementValidator` not found.
+Expected: compilation failure, `QueryStatementValidator` not found.
 
-- [ ] **Step 3: Implement `MariaDbQueryStatementValidator`**
+- [ ] **Step 3: Implement `MariaDbCompatibilityDriver.QueryStatementValidator`**
 
-One left-to-right scan of the characters, no regular expressions over the whole text, following spec section 6 exactly. `scripts/jdbc-connector-probe/guard_reference.py` is a working model of the same rule in Python (it is ours; reading it is fine). Class Javadoc: what the guard restores, that it mirrors a driver refusal rather than replacing any application validator, the pointer to the oracle, and that the statement text must never reach a message or a log.
+A `static final class` at the end of `MariaDbCompatibilityDriver`, with a private constructor. One left-to-right scan of the characters, no regular expression over the whole text, following spec section 6 exactly. `scripts/jdbc-connector-probe/guard_reference.py` is a working model of the same rule in Python (it is ours; reading it is fine). Class Javadoc: what the guard restores, that it mirrors a driver refusal and is not a read-only guarantee, why it is nested (spec section 6), the pointer to the oracle, and that the statement text must never reach a message or a log.
 
 - [ ] **Step 4: Run it and see it pass**
 
 Run: `mvn -B -ntp test -Dtest=MariaDbQueryStatementValidatorUnitTest`
-Expected: PASS (207 oracle cases and the others).
+Expected: PASS, 234 cases (212 oracle rows and the others). Also run `python3 scripts/jdbc-connector-probe/guard_reference.py check src/test/resources/jdbc/connector-j-9.6.0-executequery-oracle.tsv`; expected: `rows=212 recorded=181 deviations-from-connectorj=5 model-disagreements=0 unsafe=0`.
 
 - [ ] **Step 5: Write the failing adapter test**
 
-`MariaDbCompatibilityDriverQueryGuardUnitTest` (`@Tag("unit")`) opens the adapter over a mocked MariaDB driver exactly as `MariaDbCompatibilityDriverNumberUnitTest.withNativeRows` does (`mockConstruction(org.mariadb.jdbc.Driver.class, …)`, a deep-stub `org.mariadb.jdbc.Connection` that unwraps to itself, `connect("jdbc:mysql://127.0.0.1:3306/probe", new Properties())`). Cases:
+`MariaDbCompatibilityDriverQueryGuardUnitTest` opens the adapter over a mocked MariaDB driver, as `MariaDbCompatibilityDriverNumberUnitTest.withNativeRows` does.
 
 ```java
-@Test
-void shouldRefuseBeforeSending_whenStatementExecuteQueryIsGivenAWrite() throws Exception {
-    // physical.createStatement() returns nativeStatement, a mock of org.mariadb.jdbc.Statement
-    assertThatThrownBy(() -> statement.executeQuery("UPDATE demographic SET last_name = 'x'"))
-            .isInstanceOfSatisfying(SQLException.class, refusal -> {
-                assertThat(refusal.getSQLState()).isEqualTo("S1009");
-                assertThat(refusal).hasMessage("executeQuery() cannot run a statement that does not produce a result set");
-            });
-    verify(nativeStatement, never()).executeQuery(anyString());
-}
+@Tag("unit")
+class MariaDbCompatibilityDriverQueryGuardUnitTest {
+    private static final String WRITE = "INSERT INTO t VALUES (1)";
+    private static final String READ = "SELECT 1";
 
-@Test
-void shouldRefuseBeforeSending_whenAPreparedWriteIsRunAsAQuery() throws Exception {
-    // physical.prepareStatement("DELETE FROM log WHERE id = ?") returns nativePrepared, a mock of PreparedStatement
-    assertThatThrownBy(prepared::executeQuery)
-            .isInstanceOfSatisfying(SQLException.class, refusal -> assertThat(refusal.getSQLState()).isEqualTo("S1009"));
-    verify(nativePrepared, never()).executeQuery();
-    prepared.executeUpdate();
-    verify(nativePrepared).executeUpdate();
+    @FunctionalInterface
+    interface Check {
+        void accept(Connection connection, org.mariadb.jdbc.Connection physical) throws Exception;
+    }
+
+    private static void withConnection(Check check) throws Exception {
+        org.mariadb.jdbc.Connection physical = mock(org.mariadb.jdbc.Connection.class, Answers.RETURNS_DEEP_STUBS);
+        when(physical.getContext().getConnectionTimeZone()).thenReturn(TimeZone.getTimeZone("UTC"));
+        when(physical.unwrap(org.mariadb.jdbc.Connection.class)).thenReturn(physical);
+        try (MockedConstruction<org.mariadb.jdbc.Driver> drivers = mockConstruction(org.mariadb.jdbc.Driver.class,
+                (driver, context) -> when(driver.connect(anyString(), any(Properties.class))).thenReturn(physical))) {
+            Connection connection = new MariaDbCompatibilityDriver().connect("jdbc:mysql://127.0.0.1:3306/probe", new Properties());
+            assertThat(drivers.constructed()).isNotEmpty();
+            check.accept(connection, physical);
+        }
+    }
+
+    private static void assertRefused(ThrowableAssert.ThrowingCallable call) {
+        assertThatThrownBy(call).isInstanceOfSatisfying(SQLException.class, refusal -> {
+            assertThat(refusal.getSQLState()).isEqualTo("S1009");
+            assertThat(refusal.getMessage()).isEqualTo("executeQuery() cannot run a statement that does not produce a result set");
+        });
+    }
+
+    @Test
+    void shouldRefuseBeforeSending_whenStatementExecuteQueryIsGivenAWrite() throws Exception {
+        withConnection((connection, physical) -> {
+            org.mariadb.jdbc.Statement nativeStatement = mock(org.mariadb.jdbc.Statement.class);
+            when(physical.createStatement()).thenReturn(nativeStatement);
+            Statement statement = connection.createStatement();
+            assertRefused(() -> statement.executeQuery("UPDATE demographic SET last_name = 'x'"));
+            verify(nativeStatement, never()).executeQuery(anyString());
+        });
+    }
+
+    @Test
+    void shouldRefuseBeforeSending_whenAPreparedWriteIsRunAsAQuery() throws Exception {
+        withConnection((connection, physical) -> {
+            PreparedStatement nativePrepared = mock(PreparedStatement.class);
+            when(physical.prepareStatement("DELETE FROM log WHERE id = ?")).thenReturn(nativePrepared);
+            PreparedStatement prepared = connection.prepareStatement("DELETE FROM log WHERE id = ?");
+            assertRefused(prepared::executeQuery);
+            verify(nativePrepared, never()).executeQuery();
+            prepared.executeUpdate();
+            verify(nativePrepared).executeUpdate();
+        });
+    }
+
+    /** Every prepare overload of java.sql.Connection, given the statement text. */
+    private static List<Statement> prepareEveryWay(Connection connection, String sql) throws SQLException {
+        return List.of(
+                connection.prepareStatement(sql),
+                connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS),
+                connection.prepareStatement(sql, 1003, 1007),
+                connection.prepareStatement(sql, 1003, 1007, 2),
+                connection.prepareStatement(sql, new int[]{1}),
+                connection.prepareStatement(sql, new String[]{"id"}),
+                connection.prepareCall(sql),
+                connection.prepareCall(sql, 1003, 1007),
+                connection.prepareCall(sql, 1003, 1007, 2));
+    }
+
+    private static PreparedStatement stubEveryPrepare(org.mariadb.jdbc.Connection physical) throws SQLException {
+        // One native statement answers all nine overloads; a CallableStatement is also a PreparedStatement.
+        CallableStatement nativeStatement = mock(CallableStatement.class);
+        when(physical.prepareStatement(anyString())).thenReturn(nativeStatement);
+        when(physical.prepareStatement(anyString(), anyInt())).thenReturn(nativeStatement);
+        when(physical.prepareStatement(anyString(), anyInt(), anyInt())).thenReturn(nativeStatement);
+        when(physical.prepareStatement(anyString(), anyInt(), anyInt(), anyInt())).thenReturn(nativeStatement);
+        when(physical.prepareStatement(anyString(), any(int[].class))).thenReturn(nativeStatement);
+        when(physical.prepareStatement(anyString(), any(String[].class))).thenReturn(nativeStatement);
+        when(physical.prepareCall(anyString())).thenReturn(nativeStatement);
+        when(physical.prepareCall(anyString(), anyInt(), anyInt())).thenReturn(nativeStatement);
+        when(physical.prepareCall(anyString(), anyInt(), anyInt(), anyInt())).thenReturn(nativeStatement);
+        return nativeStatement;
+    }
+
+    @Test
+    void shouldSendAPreparedRead_forEveryPrepareOverload() throws Exception {
+        withConnection((connection, physical) -> {
+            PreparedStatement nativeStatement = stubEveryPrepare(physical);
+            for (Statement prepared : prepareEveryWay(connection, READ)) ((PreparedStatement) prepared).executeQuery();
+            verify(nativeStatement, times(9)).executeQuery();
+        });
+    }
+
+    @Test
+    void shouldRefuseAPreparedWrite_forEveryPrepareOverload() throws Exception {
+        withConnection((connection, physical) -> {
+            PreparedStatement nativeStatement = stubEveryPrepare(physical);
+            for (Statement prepared : prepareEveryWay(connection, WRITE)) assertRefused(((PreparedStatement) prepared)::executeQuery);
+            verify(nativeStatement, never()).executeQuery();
+        });
+    }
+
+    @Test
+    void shouldLeaveExecuteAndExecuteUpdateAlone_forWrites() throws Exception {
+        withConnection((connection, physical) -> {
+            org.mariadb.jdbc.Statement nativeStatement = mock(org.mariadb.jdbc.Statement.class);
+            when(physical.createStatement()).thenReturn(nativeStatement);
+            Statement statement = connection.createStatement();
+            statement.execute("UPDATE t SET a = 1");
+            statement.executeUpdate("UPDATE t SET a = 1");
+            verify(nativeStatement).execute("UPDATE t SET a = 1");
+            verify(nativeStatement).executeUpdate("UPDATE t SET a = 1");
+        });
+    }
 }
 ```
-
-and three more in the same style:
-
-- `shouldSendAPreparedRead_forEveryPrepareOverload`: `"SELECT 1"` through `prepareStatement(sql)`, `(sql, int)`, `(sql, int, int)`, `(sql, int, int, int)`, `(sql, int[])`, `(sql, String[])`, `prepareCall(sql)`, `(sql, int, int)`, `(sql, int, int, int)`; `executeQuery()` reaches the native statement each time.
-- `shouldRefuseAPreparedWrite_forEveryPrepareOverload`: the same nine with `"INSERT INTO t VALUES (1)"`; none reaches the native `executeQuery()`.
-- `shouldLeaveExecuteAndExecuteUpdateAlone_forWrites`: `statement.execute("UPDATE t SET a = 1")` and `statement.executeUpdate("UPDATE t SET a = 1")` reach the native statement.
 
 - [ ] **Step 6: Run it and see it fail**
 
 Run: `mvn -B -ntp test -Dtest=MariaDbCompatibilityDriverQueryGuardUnitTest`
-Expected: FAIL; the refusal cases see no exception.
+Expected: FAIL; the three refusal cases see no exception.
 
 - [ ] **Step 7: Call the validator from the adapter**
 
 In `MariaDbCompatibilityDriver`:
 
-- `JdbcHandler` gains `private final boolean refusesExecuteQuery;`, set by a sixth constructor argument. `wrap(Object, Class<?>, Connection, Statement, ConversionPolicy)` keeps its signature and passes `false`; add an overload with a trailing `boolean refusesExecuteQuery`.
-- `wrapResult(Object result, Object proxy)` becomes `wrapResult(Object result, Object proxy, String name, Object[] args)`. When `target` is a `Connection` and `name` is `prepareStatement` or `prepareCall`, the new statement proxy is created with `!MariaDbQueryStatementValidator.producesResultSet((String) args[0])`. The statement is classified once, here; the handler keeps the flag, not the text.
-- In `invoke`, after the `setFetchSize` block: when `target` is a `Statement` and `name` is `executeQuery`, throw `MariaDbQueryStatementValidator.refusal()` if the call has a `String` argument that does not produce a result set, or has no argument and `refusesExecuteQuery` is set.
+- `JdbcHandler` gains `private final boolean refusesExecuteQuery;`, set by a fifth constructor argument. `wrap(Object, Class<?>, Connection, Statement, ConversionPolicy)` keeps its signature and passes `false`; add an overload with a trailing `boolean refusesExecuteQuery`.
+- `wrapResult(Object result, Object proxy)` becomes `wrapResult(Object result, Object proxy, String name, Object[] args)`. When `target` is a `Connection` and `name` is `prepareStatement` or `prepareCall`, the new statement proxy is created with `!QueryStatementValidator.producesResultSet((String) args[0])`. The statement is classified once, here; the handler keeps the answer, not the text.
+- In `invoke`, after the `setFetchSize` block: when `target` is a `Statement` and `name` is `executeQuery`, throw `QueryStatementValidator.refusal()` if the call has a `String` argument that does not produce a result set, or has no argument (`args` is then `null`) and `refusesExecuteQuery` is set.
 
 - [ ] **Step 8: Run the adapter unit tests**
 
-Run: `mvn -B -ntp test -Dtest='MariaDb*UnitTest'`
+Run: `mvn -B -ntp test -Dtest='MariaDb*UnitTest,CdsRulesetFingerprintMappingUnitTest'`
 Expected: PASS, including the classes that existed before.
 
 - [ ] **Step 9: Add the physical JDBC case**
@@ -264,12 +359,12 @@ void shouldRefuseWritesThroughQueryApis_andLeaveTheRowUnchanged(boolean legacy) 
          Connection connection = source.getConnection(); Statement statement = connection.createStatement()) {
         statement.executeUpdate("CREATE TABLE guard_probe (id INT PRIMARY KEY, v INT)");
         statement.executeUpdate("INSERT INTO guard_probe VALUES (1, 1)");
-        for (String write : List.of("UPDATE guard_probe SET v = 2", "/* c */ DELETE FROM guard_probe",
+        for (String write : java.util.List.of("UPDATE guard_probe SET v = 2", "/* c */ DELETE FROM guard_probe",
                 "/*! INSERT INTO guard_probe VALUES (2, 2) */", "INSERT INTO guard_probe VALUES (3, 3) RETURNING id",
                 "DROP TABLE guard_probe", "SET @guard_probe = 1", "SELECT v INTO @guard_probe FROM guard_probe")) {
             assertThatThrownBy(() -> statement.executeQuery(write)).as(write)
                     .isInstanceOfSatisfying(SQLException.class, e -> assertThat(e.getSQLState()).isEqualTo("S1009"));
-            try (PreparedStatement prepared = connection.prepareStatement(write)) {
+            try (java.sql.PreparedStatement prepared = connection.prepareStatement(write)) {
                 assertThatThrownBy(prepared::executeQuery).as(write)
                         .isInstanceOfSatisfying(SQLException.class, e -> assertThat(e.getSQLState()).isEqualTo("S1009"));
             }
@@ -277,7 +372,7 @@ void shouldRefuseWritesThroughQueryApis_andLeaveTheRowUnchanged(boolean legacy) 
         assertThatThrownBy(() -> new org.springframework.jdbc.core.JdbcTemplate(source)
                 .queryForList("UPDATE guard_probe SET v = 9"))
                 .isInstanceOf(org.springframework.dao.DataAccessException.class);
-        for (String read : List.of("SELECT v FROM guard_probe", "(SELECT 1) UNION (SELECT 2)",
+        for (String read : java.util.List.of("SELECT v FROM guard_probe", "(SELECT 1) UNION (SELECT 2)",
                 "WITH c AS (SELECT 1 AS a) SELECT a FROM c", "SHOW TABLES", "/* c */ SELECT 1", "EXPLAIN SELECT 1")) {
             try (ResultSet rows = statement.executeQuery(read)) {
                 assertThat(rows.next()).as(read).isTrue();
@@ -304,7 +399,7 @@ void shouldRefuseANativeWrite_whenItIsRunAsAQuery() {
     try {
         assertThatThrownBy(() -> manager
                 .createNativeQuery("UPDATE measurements SET dataField = dataField WHERE 1 = 0").getResultList())
-                .rootCause().isInstanceOf(SQLException.class)
+                .rootCause().isInstanceOf(java.sql.SQLException.class)
                 .hasMessage("executeQuery() cannot run a statement that does not produce a result set");
     } finally {
         manager.close();
@@ -312,20 +407,30 @@ void shouldRefuseANativeWrite_whenItIsRunAsAQuery() {
 }
 ```
 
-- [ ] **Step 11: Run both physical cases**
+- [ ] **Step 11: Make the package build prove the launcher jar carries the rule**
 
-Run the physical command from the top of this plan, then the same with `-Dtest=MariaDbDaoHarnessIntegrationTest -Dgroups=integration` and `CARLOS_TEST_MARIADB_DAO=true CARLOS_TEST_MARIADB_SCHEMA=generated`.
-Expected: PASS. If either refusal case had passed before Step 7, stop: the case is not testing the guard.
+In `FlywayRunnerJdbcTest.main`, before the first `FlywayRunner.jdbcUrl` call. `debian/build-flyway-runner.sh` runs this test with exactly the launcher jar's contents on the class path.
 
-- [ ] **Step 12: Commit**
+```java
+// The launcher jar carries the driver and its nested classes by name (debian/build-flyway-runner.sh).
+// The executeQuery statement rule must be one of them, so that the jar holds the whole driver and does
+// not depend on the WAR's classes also being on the class path.
+Class.forName("io.github.carlos_emr.carlos.utility.MariaDbCompatibilityDriver$QueryStatementValidator");
+```
+
+- [ ] **Step 12: Run both physical cases**
+
+Run the physical command from the top of this plan (expected: 49 cases pass), then the same with `-Dtest=MariaDbDaoHarnessIntegrationTest -Dgroups=integration` and `CARLOS_TEST_MARIADB_DAO=true CARLOS_TEST_MARIADB_SCHEMA=generated` (expected: 2 pass). If either refusal case had passed before Step 7, stop: the case is not testing the guard.
+
+- [ ] **Step 13: Commit**
 
 ```bash
-git add src/main/java/io/github/carlos_emr/carlos/utility/MariaDbQueryStatementValidator.java \
-  src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java \
+git add src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java \
   src/test/java/io/github/carlos_emr/carlos/utility/MariaDbQueryStatementValidatorUnitTest.java \
   src/test/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriverQueryGuardUnitTest.java \
   src/test/java/io/github/carlos_emr/carlos/utility/JdbcConnectorMariaDbIntegrationTest.java \
-  src/test/java/io/github/carlos_emr/carlos/commn/dao/MariaDbDaoHarnessIntegrationTest.java
+  src/test/java/io/github/carlos_emr/carlos/commn/dao/MariaDbDaoHarnessIntegrationTest.java \
+  debian/assets/flyway-runner/src/test/java/io/github/carlos_emr/carlos/deb/FlywayRunnerJdbcTest.java
 git commit -m "fix(db): refuse statements that produce no result set in executeQuery"
 ```
 
@@ -341,12 +446,22 @@ git commit -m "fix(db): refuse statements that produce no result set in executeQ
 
 - [ ] **Step 1: Write the failing unit tests**
 
-Each stubs `rows.getMetaData()` with one column (`getColumnCount()` 1, `getColumnLabel(1)` `"query"`, `getColumnType(1)` the type under test) and `rows.next()` returning `true, false`.
-
 ```java
+private static ResultSet oneBinaryCell(int type) throws Exception {
+    var rows = mock(ResultSet.class);
+    var metadata = mock(ResultSetMetaData.class);
+    when(rows.getMetaData()).thenReturn(metadata);
+    when(metadata.getColumnCount()).thenReturn(1);
+    when(metadata.getColumnLabel(1)).thenReturn("query");
+    when(metadata.getColumnType(1)).thenReturn(type);
+    when(rows.next()).thenReturn(true, false);
+    return rows;
+}
+
 @ParameterizedTest
 @ValueSource(ints = {Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY, Types.BLOB})
 void shouldRenderBinaryCellsAsUtf8Text_withoutTheCharacterCodec(int type) throws Exception {
+    var rows = oneBinaryCell(type);
     when(rows.getBinaryStream(1)).thenReturn(new ByteArrayInputStream("select <1> é".getBytes(StandardCharsets.UTF_8)));
     when(rows.getCharacterStream(1)).thenThrow(new SQLDataException("Data type BLOB cannot be decoded as Reader"));
     assertThat(RptResultStruct.getStructure(rows)).contains("<td>select &lt;1&gt; é</td>");
@@ -355,14 +470,14 @@ void shouldRenderBinaryCellsAsUtf8Text_withoutTheCharacterCodec(int type) throws
 
 @Test
 void shouldRenderAnEmptyCell_whenTheBinaryValueIsNull() throws Exception {
-    when(metadata.getColumnType(1)).thenReturn(Types.BLOB);
+    var rows = oneBinaryCell(Types.BLOB);
     when(rows.getBinaryStream(1)).thenReturn(null);
     assertThat(RptResultStruct.getStructure(rows)).contains("<td></td>");
 }
 
 @Test
 void shouldRenderWithinTheBudget_whenBinaryBytesAreNotText() throws Exception {
-    when(metadata.getColumnType(1)).thenReturn(Types.BLOB);
+    var rows = oneBinaryCell(Types.BLOB);
     when(rows.getBinaryStream(1)).thenReturn(new ByteArrayInputStream(new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 'A'}));
     assertThat(RptResultStruct.getStructure(rows)).contains("A</td>");
 }
@@ -379,7 +494,7 @@ In `appendCell`, replace `resultSet.getCharacterStream(column)` with `ReportJdbc
 
 - [ ] **Step 4: Run them and see them pass**
 
-Run: `mvn -B -ntp test -Dtest='RptResultStructUnitTest,RptByExampleDataUnitTest'`
+Run: `mvn -B -ntp test -Dtest='RptResultStructUnitTest,RptByExampleDataUnitTest,ReportBinaryReadersUnitTest'`
 Expected: PASS.
 
 - [ ] **Step 5: Add the physical case**
@@ -430,9 +545,15 @@ private static void applySessionDefaults(Properties properties);
 
 - [ ] **Step 1: Write the failing unit tests**
 
-`PACKAGED` is `"jdbc:mysql://db/carlos?zeroDateTimeBehavior=round&useOldAliasMetadataBehavior=true&jdbcCompliantTruncation=false"`; `DEFAULTS` is `"SET SESSION net_write_timeout=600, sql_mode=" + MariaDbJdbcCompatibility.SESSION_SQL_MODE`; `initSql(url)` is `MariaDbJdbcCompatibility.settings(url, new Properties()).properties().getProperty("initSql")`.
-
 ```java
+private static final String PACKAGED =
+        "jdbc:mysql://db/carlos?zeroDateTimeBehavior=round&useOldAliasMetadataBehavior=true&jdbcCompliantTruncation=false";
+private static final String DEFAULTS = "SET SESSION net_write_timeout=600, sql_mode=" + MariaDbJdbcCompatibility.SESSION_SQL_MODE;
+
+private static String initSql(String url) throws Exception {
+    return MariaDbJdbcCompatibility.settings(url, new Properties()).properties().getProperty("initSql");
+}
+
 @Test
 void shouldRestoreConnectorJSessionDefaults_forPackagedOptions() throws Exception {
     assertThat(initSql(PACKAGED)).isEqualTo(DEFAULTS);
@@ -472,16 +593,16 @@ void shouldAddNothing_whenTheOperatorSetsBoth() throws Exception {
 - [ ] **Step 2: Run them and see them fail**
 
 Run: `mvn -B -ntp test -Dtest=MariaDbJdbcCompatibilityUnitTest`
-Expected: the six new cases fail (`initSql` is null or `SESSION_SQL_MODE` does not compile).
+Expected: compilation failure, `SESSION_SQL_MODE` not found.
 
 - [ ] **Step 3: Implement**
 
-`canonicalOptionKey` maps `initsql` to `initSql` and `sessionvariables` to `sessionVariables`. `settings()` calls `applySessionDefaults(properties)` directly after `properties.putIfAbsent("permitRedirect", FALSE)`. `applySessionDefaults` follows spec section 8: it looks for `net_write_timeout` and `sql_mode` (ASCII case-insensitive substring) in the operator's `sessionVariables` and `initSql`, builds `SET SESSION ` plus the parts not claimed, joined by `", "`, and stores it in `initSql` followed by `";"` and the operator's `initSql` when there is one. A comment says why `sessionVariables` cannot carry the expression.
+`canonicalOptionKey` maps `initsql` to `initSql` and `sessionvariables` to `sessionVariables`. `settings()` calls `applySessionDefaults(properties)` directly after `properties.putIfAbsent("permitRedirect", FALSE)`. `applySessionDefaults` follows spec section 8: it looks for `net_write_timeout` and `sql_mode` (lower-cased substring) in the operator's `sessionVariables` and `initSql`, builds `SET SESSION ` plus the parts not claimed, joined by `", "`, and stores it in `initSql` followed by `";"` and the operator's `initSql` when there is one. A comment says why `sessionVariables` cannot carry the expression.
 
 - [ ] **Step 4: Run them and see them pass**
 
 Run: `mvn -B -ntp test -Dtest='MariaDb*UnitTest,OscarTrackingBasicDataSourceUnitTest,JdbcMetadataDefaultUnitTest,CdsJdbcConnectionTimeoutsUnitTest'`
-Expected: PASS. A test elsewhere that lists every property `settings()` returns needs `initSql` added to its expectation; nothing else may change.
+Expected: PASS. In the dry run no existing test needed a change for this task.
 
 - [ ] **Step 5: Add the physical cases**
 
@@ -578,7 +699,12 @@ void shouldReturnIntegerObjects_forSmallIntColumns() throws Exception {
 
 @Test
 void shouldKeepSqlNull_forSmallIntObjects() throws Exception {
-    // as above, with nativeRows.getInt(1) returning 0 and nativeRows.wasNull() returning true
+    ResultSet nativeRows = mock(ResultSet.class);
+    ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+    when(nativeRows.getMetaData()).thenReturn(metadata);
+    when(metadata.getColumnType(1)).thenReturn(Types.SMALLINT);
+    when(nativeRows.getInt(1)).thenReturn(0);
+    when(nativeRows.wasNull()).thenReturn(true);
     withNativeRows(nativeRows, rows -> {
         assertThat(rows.getObject(1)).isNull();
         assertThat(rows.wasNull()).isTrue();
@@ -588,32 +714,65 @@ void shouldKeepSqlNull_forSmallIntObjects() throws Exception {
 
 - [ ] **Step 2: Write the failing lock-wait tests**
 
-`MariaDbCompatibilityDriverLockTimeoutUnitTest` (`@Tag("unit")`), same mocked-driver harness as Task 2 Step 5. `server` is `new SQLException("(conn=7) Lock wait timeout exceeded; try restarting transaction", "HY000", 1205)`.
-
 ```java
-@Test
-void shouldReportALockWaitTimeoutAsARollback_whenTheServerSendsHy000() throws Exception {
-    when(nativeStatement.executeUpdate(anyString())).thenThrow(server);
-    assertThatThrownBy(() -> statement.executeUpdate("UPDATE t SET a = 1"))
-            .isInstanceOfSatisfying(SQLTransactionRollbackException.class, timeout -> {
-                assertThat(timeout.getSQLState()).isEqualTo("40001");
-                assertThat(timeout.getErrorCode()).isEqualTo(1205);
-                assertThat(timeout).hasMessage(server.getMessage()).hasCause(server);
-                assertThat(new org.springframework.jdbc.support.SQLExceptionSubclassTranslator().translate("task", null, timeout))
-                        .isInstanceOf(org.springframework.dao.ConcurrencyFailureException.class);
-            });
-}
+@Tag("unit")
+class MariaDbCompatibilityDriverLockTimeoutUnitTest {
+    @FunctionalInterface
+    interface Check {
+        void accept(Statement statement, org.mariadb.jdbc.Statement nativeStatement) throws Exception;
+    }
 
-@Test
-void shouldPassOtherFailuresThrough_unchanged() throws Exception {
-    // new SQLException("Lock table full", "HY000", 1206) and
-    // new SQLTransactionRollbackException("Deadlock", "40001", 1213): each is thrown as the same instance
-}
+    private static void withStatement(Check check) throws Exception {
+        org.mariadb.jdbc.Statement nativeStatement = mock(org.mariadb.jdbc.Statement.class);
+        org.mariadb.jdbc.Connection physical = mock(org.mariadb.jdbc.Connection.class, Answers.RETURNS_DEEP_STUBS);
+        when(physical.createStatement()).thenReturn(nativeStatement);
+        when(physical.getContext().getConnectionTimeZone()).thenReturn(TimeZone.getTimeZone("UTC"));
+        when(physical.unwrap(org.mariadb.jdbc.Connection.class)).thenReturn(physical);
+        try (MockedConstruction<org.mariadb.jdbc.Driver> drivers = mockConstruction(org.mariadb.jdbc.Driver.class,
+                (driver, context) -> when(driver.connect(anyString(), any(Properties.class))).thenReturn(physical))) {
+            Connection connection = new MariaDbCompatibilityDriver().connect("jdbc:mysql://127.0.0.1:3306/probe", new Properties());
+            assertThat(drivers.constructed()).isNotEmpty();
+            check.accept(connection.createStatement(), nativeStatement);
+        }
+    }
 
-@Test
-void shouldKeepABatchFailure_withItsUpdateCounts() throws Exception {
-    // new BatchUpdateException("Lock wait timeout exceeded", "HY000", 1205, new int[]{1, -3}) from executeBatch():
-    // thrown as the same instance
+    @Test
+    void shouldReportALockWaitTimeoutAsARollback_whenTheServerSendsHy000() throws Exception {
+        SQLException server = new SQLException("(conn=7) Lock wait timeout exceeded; try restarting transaction", "HY000", 1205);
+        withStatement((statement, nativeStatement) -> {
+            when(nativeStatement.executeUpdate(anyString())).thenThrow(server);
+            assertThatThrownBy(() -> statement.executeUpdate("UPDATE t SET a = 1"))
+                    .isInstanceOfSatisfying(SQLTransactionRollbackException.class, timeout -> {
+                        assertThat(timeout.getSQLState()).isEqualTo("40001");
+                        assertThat(timeout.getErrorCode()).isEqualTo(1205);
+                        assertThat(timeout.getMessage()).isEqualTo(server.getMessage());
+                        assertThat(timeout.getCause()).isSameAs(server);
+                        assertThat(new org.springframework.jdbc.support.SQLExceptionSubclassTranslator().translate("task", null, timeout))
+                                .isInstanceOf(org.springframework.dao.ConcurrencyFailureException.class);
+                    });
+        });
+    }
+
+    @Test
+    void shouldPassOtherFailuresThrough_unchanged() throws Exception {
+        SQLException lockTableFull = new SQLException("The total number of locks exceeds the lock table size", "HY000", 1206);
+        SQLException deadlock = new SQLTransactionRollbackException("Deadlock found when trying to get lock", "40001", 1213);
+        withStatement((statement, nativeStatement) -> {
+            when(nativeStatement.executeUpdate("a")).thenThrow(lockTableFull);
+            when(nativeStatement.executeUpdate("b")).thenThrow(deadlock);
+            assertThatThrownBy(() -> statement.executeUpdate("a")).isSameAs(lockTableFull);
+            assertThatThrownBy(() -> statement.executeUpdate("b")).isSameAs(deadlock);
+        });
+    }
+
+    @Test
+    void shouldKeepABatchFailure_withItsUpdateCounts() throws Exception {
+        BatchUpdateException batch = new BatchUpdateException("Lock wait timeout exceeded", "HY000", 1205, new int[]{1, -3});
+        withStatement((statement, nativeStatement) -> {
+            when(nativeStatement.executeBatch()).thenThrow(batch);
+            assertThatThrownBy(statement::executeBatch).isSameAs(batch);
+        });
+    }
 }
 ```
 
@@ -639,12 +798,12 @@ Expected: PASS.
 @ParameterizedTest
 @ValueSource(booleans = {false, true})
 void shouldReturnIntegerObjects_forSmallIntColumns(boolean legacy) throws Exception {
-    for (String options : List.of("jdbcCompliantTruncation=false", "jdbcCompliantTruncation=false&useServerPrepStmts=true")) {
+    for (String options : java.util.List.of("jdbcCompliantTruncation=false", "jdbcCompliantTruncation=false&useServerPrepStmts=true")) {
         try (var source = source(legacy, options); Connection connection = source.getConnection();
              Statement statement = connection.createStatement()) {
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS small_probe (id INT PRIMARY KEY, s SMALLINT, u SMALLINT UNSIGNED)");
             statement.executeUpdate("REPLACE INTO small_probe VALUES (1, -32768, 65535), (2, NULL, NULL)");
-            try (PreparedStatement query = connection.prepareStatement("SELECT s, u FROM small_probe ORDER BY id");
+            try (java.sql.PreparedStatement query = connection.prepareStatement("SELECT s, u FROM small_probe ORDER BY id");
                  ResultSet rows = query.executeQuery()) {
                 assertThat(rows.getMetaData().getColumnClassName(1)).isEqualTo("java.lang.Integer");
                 assertThat(rows.getMetaData().getColumnClassName(2)).isEqualTo("java.lang.Integer");
@@ -673,7 +832,7 @@ void shouldReportLockWaitTimeoutsAsTransactionRollbacks_forWaitingAndNowaitLocks
             assertThat(locked.next()).isTrue();
         }
         waiting.execute("SET SESSION innodb_lock_wait_timeout = 1");
-        for (String blocked : List.of("UPDATE lock_probe SET v = 2 WHERE id = 1",
+        for (String blocked : java.util.List.of("UPDATE lock_probe SET v = 2 WHERE id = 1",
                 "SELECT v FROM lock_probe WHERE id = 1 FOR UPDATE NOWAIT")) {
             assertThatThrownBy(() -> waiting.execute(blocked)).as(blocked)
                     .isInstanceOfSatisfying(java.sql.SQLTransactionRollbackException.class, timeout -> {
@@ -707,10 +866,10 @@ git commit -m "fix(db): return Integer for SMALLINT objects and report lock-wait
 **Files:**
 - Modify: `src/main/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibility.java` (`settings` :209, `put` :471-472, `validateTlsSettings` :546 and :551-553, `putCollation` :621, `invalid` :814)
 - Modify: `src/main/java/io/github/carlos_emr/carlos/utility/OscarTrackingBasicDataSource.java:341-348`
-- Test: `MariaDbJdbcCompatibilityUnitTest`, `MariaDbTlsOriginUnitTest`, `JdbcMetadataDefaultUnitTest`, `OscarTrackingBasicDataSourceUnitTest`
+- Test: `src/test/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibilityUnitTest.java`, `OscarTrackingBasicDataSourceUnitTest.java`
 
 **Interfaces:**
-- Produces: `private static SQLException invalidOption(String option, String requirement)` returning `new SQLException("Invalid database connection configuration: option " + option + "; " + requirement, "08001")`. It is called only with the fixed names below, never with text taken from the URL. The same five messages are in draft PR #6133, so that pull request merges without a conflict of meaning later.
+- Produces: `private static SQLException invalidOption(String option, String requirement)` returning `new SQLException("Invalid database connection configuration: option " + option + "; " + requirement, "08001")`. It is called only with the fixed names below, never with text taken from the URL. Draft PR #6133 has the same five calls with the same text, so it will merge later without a conflict of meaning.
 
 | Refusal | `option` | `requirement` |
 |---|---|---|
@@ -756,19 +915,29 @@ Expected: FAIL; the messages are the bare text.
 
 - [ ] **Step 3: Implement**
 
-Add `invalidOption` beside `invalid()` and use it at the five refusals in the table. Every other `invalid()` stays (malformed URLs, hosts, reserved names, conflicting spellings, unknown values of other options): those can involve text the operator typed. In `OscarTrackingBasicDataSource.hasExplicitTimezone`, rethrow `new IllegalArgumentException(invalid.getMessage())` instead of the fixed text.
+Add `invalidOption` beside `invalid()` and use it at the five refusals in the table. Every other `invalid()` stays (malformed URLs, hosts, reserved names, conflicting spellings, unknown values of other options): those can involve text the operator typed. In `OscarTrackingBasicDataSource.hasExplicitTimezone`, rethrow `new IllegalArgumentException(invalid.getMessage())` instead of the fixed text. `FlywayRunner` is not changed: it keeps its one fixed line for any refused URL (spec section 9).
 
-- [ ] **Step 4: Run the affected classes and update their expectations**
+- [ ] **Step 4: Update the four existing assertions of the old message**
 
 Run: `mvn -B -ntp test -Dtest='MariaDb*UnitTest,OscarTrackingBasicDataSourceUnitTest,JdbcMetadataDefaultUnitTest'`
-Expected: the new cases pass. Existing assertions of the bare message fail only where they exercise one of the five refusals; change each of those to the exact new message from the table. Any other failure is a defect in Step 3.
+Expected: the new cases pass and exactly these existing methods of `MariaDbJdbcCompatibilityUnitTest` fail (11 cases). Give each its new message from the table:
+
+| Method | Assertion to change |
+|---|---|
+| `shouldRejectUnsupportedConfiguration_withoutEchoingCredentials` | the first one (`characterEncoding=latin1`); the `password=%invalid` one keeps the bare message |
+| `shouldDistinguishLegacyPreferredTls_fromExplicitVerifiedModes` | the last one (`dnsSrv=true`) |
+| `shouldRejectUnsupportedCollation_withoutEchoingOptionValues` | both, for every value: `option connectionCollation; use a utf8mb4 collation` |
+| `shouldRejectUnsupportedSecurityProviders_withoutIgnoringTheRequestedPolicy` | per parameter: the FIPS text for `fipsCompliantJsse`, the provider text with the option's own name for the other four |
+
+Any other failure is a defect in Step 3. Rerun; expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add src/main/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibility.java \
   src/main/java/io/github/carlos_emr/carlos/utility/OscarTrackingBasicDataSource.java \
-  src/test/java/io/github/carlos_emr/carlos/utility
+  src/test/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibilityUnitTest.java \
+  src/test/java/io/github/carlos_emr/carlos/utility/OscarTrackingBasicDataSourceUnitTest.java
 git commit -m "fix(db): name the JDBC option a connection configuration is refused for"
 ```
 
@@ -803,12 +972,12 @@ Expected: compilation failure, `schemaName` not found.
 
 - [ ] **Step 3: Implement**
 
-`schemaName` returns `""` for null, otherwise the trimmed text before the first `?` (the split `QueryByExampleSqlValidator.applicationSchema` uses). The field becomes `String dbName = schemaName(CarlosProperties.getInstance().getProperty("db_name"));`. `purgeAuditLog` throws `new Exception("No database name has been defined. Please set db_name in the properties file")`, in the style of its `mysqldump` check, when `dbName` is empty. Nothing else in the class changes; the purge rewrite belongs to draft PR #6133.
+`schemaName` returns `""` for null, otherwise the trimmed text before the first `?` (the split `QueryByExampleSqlValidator.applicationSchema` uses). The field becomes `String dbName = schemaName(CarlosProperties.getInstance().getProperty("db_name"));`. `purgeAuditLog` throws `new Exception("No database name has been defined. Please set db_name in the properties file")`, after its `mysqldump` check and in the same style, when `dbName` is empty. Nothing else in the class changes; the purge rewrite belongs to draft PR #6133.
 
 - [ ] **Step 4: Run it and see it pass**
 
 Run: `mvn -B -ntp test -Dtest=AuditLogManagerUnitTest`
-Expected: PASS.
+Expected: PASS, 7 cases.
 
 - [ ] **Step 5: Commit**
 
@@ -854,12 +1023,12 @@ Expected: compilation failure.
 
 - [ ] **Step 3: Implement**
 
-`streamPatientAppointments` passes the product name from `connection.getMetaData().getDatabaseProductName()` to `streamingFetchSize` and gives the result to `query.setFetchSize`. Rewrite the comment: the adapter reports `MariaDB` and maps the sentinel to MariaDB's streaming fetch size.
+`streamPatientAppointments` passes the product name from `connection.getMetaData().getDatabaseProductName()` to `streamingFetchSize` and gives the result to `query.setFetchSize`. Rewrite the comment: the adapter reports `MariaDB` and maps the sentinel to MariaDB's row-by-row streaming. This changes the export on MariaDB from 500 rows per read to one row per read, as `LegacyJdbcQuery` already reads reports; the rows are the same.
 
 - [ ] **Step 4: Run it and see it pass**
 
-Run: `mvn -B -ntp test -Dtest='OscarAppointmentDaoStreamingUnitTest,OscarAppointmentDaoQueryIntegrationTest,PatientListByApptExportUnitTest'`
-Expected: PASS.
+Run: `mvn -B -ntp test -Dtest='OscarAppointmentDaoStreamingUnitTest,PatientListByApptExportUnitTest'`
+Expected: PASS. The MariaDB lane of Task 12 runs the export's DAO test on the physical server.
 
 - [ ] **Step 5: Commit**
 
@@ -873,70 +1042,123 @@ git commit -m "fix(appointment): ask for a streamed export on MariaDB by name"
 
 **Files:**
 - Modify: `src/test/java/io/github/carlos_emr/carlos/utility/JdbcConnectorMariaDbIntegrationTest.java`
-- Modify: `docs/mariadb-connector-migration.md`, `docs/release-notes-2026.08.md` ("JDBC and packaged installation", :417)
+- Modify: `docs/mariadb-connector-migration.md`, `docs/release-notes-2026.08.md` ("JDBC and packaged installation")
 - Modify: `debian/carlos-emr-drugref.README.Debian:86-109`, `debian/carlos-emr.README.Debian:46-61`, `debian/assets/jdbc-defaults.properties:5-6`, `debian/assets/drugref-hibernate.properties:8-22`, `.devcontainer/docker-compose.yml:59-67` (comments only)
-- Modify: `docs/cds-import-jdbc-timeouts.md`, `docs/test/report-template-budgets.md:172`, `CLAUDE.md`, `GEMINI.md`
+- Modify: `docs/cds-import-jdbc-timeouts.md`, `docs/test/report-template-budgets.md`, `CLAUDE.md`, `GEMINI.md`
 
 - [ ] **Step 1: Add the physical pin for the deterministic differences**
 
-One case; each line is a soft assertion so a connector upgrade reports every changed row at once. The fixture is `CREATE TABLE diff_probe (id INT PRIMARY KEY AUTO_INCREMENT, big BIGINT, ubig BIGINT UNSIGNED, n INT, txt VARCHAR(20), t TIME, body TEXT, bin BLOB, u INT UNIQUE)` with one row `(1, 5510719487, 18446744073709551615, 7, '12.5', '23:30:00', 'x', 'x', 1)`.
+One case; every line is a soft assertion, so a connector upgrade reports each changed row at once.
 
 ```java
 @ParameterizedTest
 @ValueSource(booleans = {false, true})
 void shouldKeepTheDocumentedDifferencesFromConnectorJ_forDeterministicCases(boolean legacy) throws Exception {
+    var softly = new org.assertj.core.api.SoftAssertions();
     try (var source = source(legacy, "jdbcCompliantTruncation=false");
          Connection connection = source.getConnection(); Statement statement = connection.createStatement()) {
-        // create and fill diff_probe as described above
-        SoftAssertions.assertSoftly(softly -> {
-            try (ResultSet row = statement.executeQuery("SELECT big, ubig, n, txt, t, body, bin FROM diff_probe")) {
-                softly.assertThat(row.next()).isTrue();
-                softly.assertThatThrownBy(() -> row.getInt(1)).as("getInt above the int range").isInstanceOf(SQLDataException.class);
-                softly.assertThatThrownBy(() -> row.getLong(2)).as("getLong above the long range").isInstanceOf(SQLDataException.class);
-                softly.assertThat(row.getInt(4)).as("getInt on decimal text").isEqualTo(12);
-                softly.assertThatThrownBy(() -> row.getLong(4)).as("getLong on decimal text").isInstanceOf(SQLException.class);
-                softly.assertThatThrownBy(() -> row.getBytes(3)).as("getBytes on INT").isInstanceOf(SQLException.class);
-                softly.assertThatThrownBy(() -> row.getDate(5)).as("getDate on TIME").isInstanceOf(SQLException.class);
-                softly.assertThatThrownBy(() -> row.getString("missing")).as("unknown label").isExactlyInstanceOf(SQLException.class);
-                softly.assertThat(row.getMetaData().getColumnType(6)).as("TEXT type").isEqualTo(Types.VARCHAR);
-                softly.assertThat(row.getMetaData().getColumnType(7)).as("BLOB type").isEqualTo(Types.VARBINARY);
-                softly.assertThat(row.getMetaData().getColumnTypeName(3)).as("INT type name").isEqualTo("INTEGER");
+        statement.executeUpdate("CREATE TABLE diff_probe (id INT PRIMARY KEY AUTO_INCREMENT, big BIGINT, ubig BIGINT UNSIGNED,"
+                + " n INT, txt VARCHAR(20), t TIME, body TEXT, bin BLOB, u INT UNIQUE)");
+        statement.executeUpdate("INSERT INTO diff_probe VALUES (1, 5510719487, 18446744073709551615, 7, '12.5', '23:30:00', 'x', 'x', 1)");
+        try (ResultSet row = statement.executeQuery("SELECT big, ubig, n, txt, t, body, bin FROM diff_probe")) {
+            softly.assertThat(row.next()).isTrue();
+            softly.assertThatThrownBy(() -> row.getInt(1)).as("getInt above the int range").isInstanceOf(java.sql.SQLDataException.class);
+            softly.assertThatThrownBy(() -> row.getLong(2)).as("getLong above the long range").isInstanceOf(java.sql.SQLDataException.class);
+            softly.assertThat(row.getInt(4)).as("getInt on decimal text").isEqualTo(12);
+            softly.assertThatThrownBy(() -> row.getLong(4)).as("getLong on decimal text").isInstanceOf(SQLException.class);
+            softly.assertThatThrownBy(() -> row.getBytes(3)).as("getBytes on INT").isInstanceOf(SQLException.class);
+            softly.assertThatThrownBy(() -> row.getDate(5)).as("getDate on TIME").isInstanceOf(SQLException.class);
+            softly.assertThatThrownBy(() -> row.getString("missing")).as("unknown label").isExactlyInstanceOf(SQLException.class);
+            softly.assertThat(row.getMetaData().getColumnType(6)).as("TEXT type").isEqualTo(java.sql.Types.VARCHAR);
+            softly.assertThat(row.getMetaData().getColumnType(7)).as("BLOB type").isEqualTo(java.sql.Types.VARBINARY);
+            softly.assertThat(row.getMetaData().getColumnTypeName(3)).as("INT type name").isEqualTo("INTEGER");
+        }
+        statement.executeUpdate("INSERT INTO diff_probe (u) VALUES (2), (3)", Statement.RETURN_GENERATED_KEYS);
+        try (ResultSet keys = statement.getGeneratedKeys()) {
+            softly.assertThat(keys.getMetaData().getColumnLabel(1)).as("generated key label").isEqualTo("insert_id");
+            softly.assertThat(keys.next()).as("first generated key").isTrue();
+            softly.assertThat(keys.next()).as("one key for a two-row insert").isFalse();
+        }
+        try (java.sql.PreparedStatement batch = connection.prepareStatement("INSERT INTO diff_probe (u) VALUES (?)")) {
+            for (int value : new int[]{10, 10, 11}) {
+                batch.setInt(1, value);
+                batch.addBatch();
             }
-            // the remaining rows, each written the same way:
-        });
+            softly.assertThatThrownBy(batch::executeBatch).as("batch with a failing row")
+                    .isInstanceOfSatisfying(java.sql.BatchUpdateException.class,
+                            failure -> assertThat(failure.getUpdateCounts()).containsExactly(-3, -3, -3));
+        }
+        try (ResultSet count = statement.executeQuery("SELECT COUNT(*) FROM diff_probe WHERE u IN (10, 11)")) {
+            count.next();
+            softly.assertThat(count.getInt(1)).as("rows a failed batch leaves").isZero();
+        }
+        try (Statement streaming = connection.createStatement(); Statement second = connection.createStatement()) {
+            streaming.setFetchSize(Integer.MIN_VALUE);
+            try (ResultSet rows = streaming.executeQuery("SELECT id FROM diff_probe ORDER BY id")) {
+                softly.assertThat(rows.next()).isTrue();
+                try (ResultSet other = second.executeQuery("SELECT 1")) {
+                    softly.assertThat(other.next()).as("second statement while streaming").isTrue();
+                }
+                int remaining = 0;
+                while (rows.next()) remaining++;
+                softly.assertThat(remaining).as("rows still delivered after the second statement").isEqualTo(2);
+            }
+        }
+        try (java.sql.PreparedStatement unbound = connection.prepareStatement("SELECT ?")) {
+            softly.assertThatThrownBy(unbound::executeQuery).as("missing parameter")
+                    .isInstanceOfSatisfying(java.sql.SQLTransientConnectionException.class,
+                            failure -> assertThat(failure.getSQLState()).isEqualTo("07004"));
+        }
+        try (java.sql.PreparedStatement extra = connection.prepareStatement("SELECT ?")) {
+            extra.setInt(1, 7);
+            softly.assertThatCode(() -> extra.setInt(2, 9)).as("extra parameter index").doesNotThrowAnyException();
+            try (ResultSet row = extra.executeQuery()) {
+                row.next();
+                softly.assertThat(row.getInt(1)).as("value with an extra parameter bound").isEqualTo(7);
+            }
+        }
+        try (Connection strict = source.getConnection(); Statement strictStatement = strict.createStatement()) {
+            strictStatement.execute("SET SESSION sql_mode='STRICT_TRANS_TABLES'");
+            softly.assertThatThrownBy(() -> strictStatement.executeUpdate("INSERT INTO diff_probe (n) VALUES ('abc')"))
+                    .as("strict-mode bad integer").isInstanceOfSatisfying(java.sql.SQLSyntaxErrorException.class,
+                            failure -> assertThat(failure.getErrorCode()).isEqualTo(1366));
+            strictStatement.execute("SET SESSION sql_mode=''");
+        }
+        for (Object refused : new Object[]{Calendar.getInstance(), 'c'}) {
+            try (java.sql.PreparedStatement bound = connection.prepareStatement("SELECT ?")) {
+                softly.assertThatThrownBy(() -> {
+                    bound.setObject(1, refused);
+                    bound.executeQuery().close();
+                }).as("setObject " + refused.getClass().getSimpleName()).isInstanceOf(SQLException.class);
+            }
+        }
+        softly.assertThatCode(connection::commit).as("commit in autocommit mode").doesNotThrowAnyException();
+        try (ResultSet session = statement.executeQuery("SELECT @@SESSION.character_set_results")) {
+            session.next();
+            softly.assertThat(session.getString(1)).as("character_set_results").isEqualTo("utf8mb4");
+        }
+        softly.assertThat(connection.getMetaData().getDatabaseProductName()).isEqualTo("MariaDB");
     }
+    softly.assertAll();
 }
 ```
 
-The remaining rows, with the outcome the probe recorded:
+Run the physical command. Expected: 60 cases pass. This case uses the default text protocol; do not add `useServerPrepStmts=true` to it (an extra parameter corrupts the binary protocol's values, spec section 4). A row that fails is a finding: record what was observed in the pull request body and correct spec section 4 and the migration document rather than the assertion's meaning.
 
-| Case | Do | Expect |
-|---|---|---|
-| Generated keys, two-row insert | `executeUpdate("INSERT INTO diff_probe (u) VALUES (2), (3)", Statement.RETURN_GENERATED_KEYS)`, read `getGeneratedKeys()` | exactly one row; `getMetaData().getColumnLabel(1)` is `insert_id` |
-| Batch with a failing row | on `prepareStatement("INSERT INTO diff_probe (u) VALUES (?)")`, `addBatch` for `10`, `10`, `11`; `executeBatch()` | `BatchUpdateException` with `getUpdateCounts()` equal to `{-3, -3, -3}`; no row with `u` 10 or 11 afterwards |
-| Second statement while streaming | `setFetchSize(Integer.MIN_VALUE)` on a statement running `SELECT id FROM diff_probe`, read one row, run `SELECT 1` on another statement of the same connection, read on | the second query returns; the first result still delivers every remaining row |
-| Missing parameter | `prepareStatement("SELECT ?").executeQuery()` | `SQLTransientConnectionException`, SQLState `07004` |
-| Strict-mode bad integer | on a second connection: `SET SESSION sql_mode='STRICT_TRANS_TABLES'`, then `INSERT INTO diff_probe (n) VALUES ('abc')` | `SQLSyntaxErrorException`, error code `1366` |
-| Objects the driver will not bind | `setObject(1, Calendar.getInstance())`, then `setObject(1, 'c')`, on `prepareStatement("SELECT ?")` | each is refused with a `SQLException`, at the bind or at `executeQuery()` |
-| `commit()` in autocommit mode | `connection.commit()` | no exception |
-| Session and product | `SELECT @@SESSION.character_set_results`; `getMetaData().getDatabaseProductName()` | `utf8mb4`; `MariaDB` |
-
-Run the physical command. Expected: PASS. A row that fails is a finding: record what was observed in the pull request body and correct spec section 4 and the migration document rather than the assertion's meaning.
-
-- [ ] **Step 2: Rewrite `docs/mariadb-connector-migration.md` additions**
+- [ ] **Step 2: Extend `docs/mariadb-connector-migration.md`**
 
 Add these sections, in plain operator-facing prose, from the spec:
 
-- "Statements `executeQuery` refuses": spec section 6 in three or four sentences, the exact message and SQLState, that MariaDB Connector/J 3.5.11 would otherwise execute them (CONJ-1306), and that the statement text is never logged.
-- "Session defaults": spec section 8, including how an operator overrides either default.
-- "Connection options that are refused": the five rows of Task 6 with the message format.
+- "Statements `executeQuery` refuses": spec section 6 in three or four sentences, the exact message and SQLState, that MariaDB Connector/J 3.5.11 would otherwise execute them (CONJ-1306), what the guard does not stop, and that the statement text is never logged.
+- "Session defaults": spec section 8, including how an operator overrides either default, and that saved report text which puts a space between a function name and its parenthesis needs the space removed.
+- "Connection options that are refused": the five rows of Task 6 with the message format, and that `carlos-ctl db-migrate` reports any refused URL with one fixed line.
 - "Known differences from MySQL Connector/J": the table of spec section 4, marking which rows the physical test pins.
-- "Lock-wait timeouts" and "SMALLINT objects": one sentence each (spec N5, N6).
-- Correct "pinned carlos-ctl 1.3.1" (:29) to the tag in `debian/carlos-ctl.pin`.
+- "Lock-wait timeouts" and "SMALLINT objects": one or two sentences each (spec N5, N6).
+- Where it says `carlos-ctl` 1.3.1 writes the MySQL driver name, name the version in `debian/carlos-ctl.pin` instead.
 
 - [ ] **Step 3: Update `docs/release-notes-2026.08.md`**
 
-Under "JDBC and packaged installation" add one entry each for: the `executeQuery` refusal; the session defaults; named refused options (#5770 asks for these in the release notes); Query by Example on binary columns; lock-wait timeouts answered as "retry"; `db_name` without options. Correct the carlos-ctl version at :390 as in Step 2.
+Under "JDBC and packaged installation" add one entry each for: the `executeQuery` refusal; the session defaults and the note about a space before a function's parenthesis in saved report text; named refused options (#5770 asks for these in the release notes); Query by Example on binary columns, and that accented text in binary columns now reads correctly in report cells where the previous driver showed it garbled; lock-wait timeouts answered as "retry"; `db_name` without options. Correct the `carlos-ctl` version there as in Step 2.
 
 - [ ] **Step 4: Correct the packaging documentation**
 
@@ -952,7 +1174,7 @@ Expected: `OK` (some packaging tests read these files).
 - [ ] **Step 5: Correct the remaining documents**
 
 - `docs/cds-import-jdbc-timeouts.md`: every "Connector/J" says "MariaDB Connector/J".
-- `docs/test/report-template-budgets.md:172`: re-run the measurement procedure that document describes on this branch's build and replace the table and its "Revalidated with" line. If the procedure cannot be run where this plan is executed, do not edit the numbers; change the line to say the table was measured with MySQL Connector/J 9.6.0 and has not been re-measured on MariaDB Connector/J 3.5.11, and list it under "Not verified" in the pull request body.
+- `docs/test/report-template-budgets.md`, the line "Revalidated with … Connector/J 9.6.0": re-run the measurement procedure that document describes on this branch's build and replace the table and that line. If the procedure cannot be run where this plan is executed, do not edit the numbers; change the line to say the table was measured with MySQL Connector/J 9.6.0 and has not been re-measured on MariaDB Connector/J 3.5.11, and list it under "Not verified" in the pull request body.
 - `CLAUDE.md` and `GEMINI.md`, version numbers and driver description only, no rule text: Spring 7.0.10, Spring Security 7.1.2, Struts 7.4.0, Hibernate 7.4.14.Final, Apache CXF 4.1.9, Drools 10.2.0 (DRL/MVEL compiler path, not "executable model"), OWASP Encoder 1.6.0, MariaDB Connector/J 3.5.11 behind `MariaDbCompatibilityDriver`. Confirm each against `pom.xml` before writing it.
 
 - [ ] **Step 6: Commit**
@@ -968,16 +1190,15 @@ git commit -m "docs: describe the MariaDB connector as shipped and pin its known
 
 **Files (drugref2026, branch `claude/brave-ptolemy-yfxbw5` created from `origin/claude/jolly-albattani-aotrv2`, the head of its PR #19):**
 - Modify: `src/main/java/io/github/carlos_emr/drugref2026/util/MariaDbCompatibilityDriver.java`, `MariaDbJdbcCompatibility.java`
-- Create: `src/main/java/io/github/carlos_emr/drugref2026/util/MariaDbQueryStatementValidator.java`
 - Create: `src/test/java/io/github/carlos_emr/drugref2026/util/MariaDbQueryStatementValidatorUnitTest.java`, `src/test/resources/jdbc/connector-j-9.6.0-executequery-oracle.tsv`
 
 **Files (carlos):**
 - Create: `debian/check-drugref-adapter-sources.py`, `debian/assets/tests/test_drugref_adapter_sources.py`
-- Modify: `debian/check-drugref-jdbc.py:50-51`, `debian/rules:148-149`, `debian/drugref.pin`
+- Modify: `debian/rules:146-151`, `debian/drugref.pin`
 
 **Interfaces:**
-- Consumes: the four adapter sources as they stand after Tasks 2, 4, 5 and 6.
-- Produces: `python3 debian/check-drugref-adapter-sources.py <drugref-source-dir> <carlos-source-dir>`; exit 0 when the four sources match after the package name is replaced, exit 1 naming each class that differs (never its content).
+- Consumes: the three adapter sources as they stand after Tasks 2, 4, 5 and 6.
+- Produces: `python3 debian/check-drugref-adapter-sources.py <drugref-source-dir> <carlos-source-dir>`; exit 0 when the three sources match after the package name is replaced, exit 1 naming each class that differs (never its content).
 
 - [ ] **Step 1: Write the failing check test (carlos)**
 
@@ -988,7 +1209,7 @@ class DrugrefAdapterSourcesTest(unittest.TestCase):
     def test_identical_sources_pass(self): ...            # exit 0
     def test_package_name_is_the_only_allowed_difference(self): ...   # exit 0
     def test_a_changed_line_names_the_class(self): ...    # exit 1, stderr contains "MariaDbCompatibilityDriver", not the changed line
-    def test_a_missing_class_fails(self): ...             # exit 1, stderr contains "MariaDbQueryStatementValidator"
+    def test_a_missing_class_fails(self): ...             # exit 1, stderr contains "MariaDbPreferredTlsPlugin"
 ```
 
 Run: `cd debian/assets && python3 -m unittest tests.test_drugref_adapter_sources`
@@ -996,14 +1217,14 @@ Expected: FAIL, the script does not exist.
 
 - [ ] **Step 2: Write `debian/check-drugref-adapter-sources.py` and wire it in**
 
-It compares the four classes named in Global Constraints byte for byte after replacing each tree's package name with a placeholder. In `debian/rules`, call it after `fetch-drugref.sh` in the branch that builds DrugRef from source (:148-149); a supplied `DRUGREF_WAR` has no sources and skips it. Add `MariaDbQueryStatementValidator` to the classes `debian/check-drugref-jdbc.py` requires in the staged WAR.
+It compares the three classes named in Global Constraints byte for byte after replacing each tree's package name with a placeholder. In `debian/rules`, call it in the branch that builds DrugRef from source, after `src` is set and before the dependency-lock line: `python3 $(CURDIR)/debian/check-drugref-adapter-sources.py "$$src" $(CURDIR); \`. A supplied `DRUGREF_WAR` has no sources and skips it. `debian/check-drugref-jdbc.py` needs no change: the statement rule is a nested class of a class it already requires.
 
 Run: `cd debian/assets && python3 -m unittest discover -s tests -t .`
 Expected: `OK`.
 
 - [ ] **Step 3: Mirror the adapter into drugref2026**
 
-Copy the four sources from `carlos`, changing only the package line and the package in imports of each other. This brings the DATE-write correction of #6275 that DrugRef's copy lacks (spec N8) as well as Tasks 2, 4, 5 and 6. Copy `MariaDbQueryStatementValidatorUnitTest` and the oracle fixture the same way. DrugRef's own adapter tests then fail where they assert the bare option message or list every property `settings()` returns; change those expectations exactly as in Task 4 Step 4 and Task 6 Step 4. The mirror adds no dependency, so `debian/drugref-dependencies-lock.json` in `carlos` does not change.
+Copy the three sources from `carlos`, changing only the package line. This brings the DATE-write correction of #6275 that DrugRef's copy lacks (spec N8) as well as Tasks 2, 4, 5 and 6. Copy `MariaDbQueryStatementValidatorUnitTest` and the oracle fixture the same way. DrugRef's own `MariaDbJdbcCompatibilityUnitTest` then fails in the four methods of Task 6 Step 4; change those expectations the same way. The mirror adds no dependency, so `debian/drugref-dependencies-lock.json` in `carlos` does not change.
 
 ```bash
 python3 ../carlos/debian/check-drugref-adapter-sources.py . ../carlos   # expected: exit 0
@@ -1011,9 +1232,11 @@ mvn -B -ntp test                                                       # expecte
 git add src && git commit -m "fix(db): match the CARLOS MariaDB adapter: query guard, session defaults, DATE writes"
 ```
 
-- [ ] **Step 4: Pin the mirrored commit and build the package check (carlos)**
+DrugRef's statements were read for this plan: every query-API statement is a `SELECT`, every write uses `execute` or `executeUpdate`, and none puts a space before a function's parenthesis.
 
-Set `ref=` in `debian/drugref.pin` to the full SHA of the Step 3 commit (it must be pushed first; push only when the maintainer asks). Rewrite the comment block: what the revision adds, and this restored warning: "The pinned commit must be reachable from drugref2026 `master`. Merge the DrugRef pull request with a merge commit, or repin after a squash merge; do not ship a package pinned to a branch head."
+- [ ] **Step 4: Pin the mirrored commit (carlos)**
+
+Set `ref=` in `debian/drugref.pin` to the full SHA of the Step 3 commit (it must be pushed first, or the package build cannot fetch it; push only when the maintainer asks). Rewrite the comment block: what the revision adds, and this restored warning: "The pinned commit must be reachable from drugref2026 `master`. Merge the DrugRef pull request with a merge commit, or repin after a squash merge; do not ship a package pinned to a branch head."
 
 Run: `cd debian/assets && python3 -m unittest tests.test_packaging`
 Expected: `OK`.
@@ -1033,7 +1256,7 @@ Expected: `reachable`. If the merges were squashed, set `ref=` to the resulting 
 
 ```bash
 git add debian/check-drugref-adapter-sources.py debian/assets/tests/test_drugref_adapter_sources.py \
-  debian/check-drugref-jdbc.py debian/rules debian/drugref.pin
+  debian/rules debian/drugref.pin
 git commit -m "fix(deb): keep the DrugRef adapter copy identical and pin its mirrored revision"
 ```
 
@@ -1041,7 +1264,7 @@ git commit -m "fix(deb): keep the DrugRef adapter copy identical and pin its mir
 
 **Files:**
 - Modify: `scripts/ci/verify-mariadb-dao-reports.py`, `scripts/ci/test_mariadb_report_evidence.py`, `scripts/ci/test_release_plan_5700.py`, `docs/testing/release-2026.08-verification.json`
-- Create or modify: `scripts/coverage/floors/src/main/java/io/github/carlos_emr/carlos/**/<Source>.java.json` and their `scripts/coverage/evidence/` run documents
+- Create or modify: `scripts/coverage/floors/src/main/java/io/github/carlos_emr/carlos/**/<Source>.java.json`, their `scripts/coverage/evidence/` run document, `docs/testing/coverage-floor-policy.md`
 
 **Interfaces:**
 - Consumes: the thirteen cases added to `JdbcConnectorMariaDbIntegrationTest` and the one added to `MariaDbDaoHarnessIntegrationTest`:
@@ -1059,37 +1282,43 @@ git commit -m "fix(deb): keep the DrugRef adapter copy identical and pin its mir
 
 - [ ] **Step 1: Raise the counts**
 
-- `JdbcConnectorMariaDbIntegrationTest`: 47 becomes 60 everywhere it is a required count (`REQUIRED` in `verify-mariadb-dao-reports.py`; `requiredFamilies` in the verification JSON; the `47` in `test_release_plan_5700.py`). Parameterized methods: 23 becomes 29 (`test_release_plan_5700.py:114`). The plain-case list there gains `shouldKeepIgnoreSpace_whenTheServerDefaultHasIt`.
-- `MariaDbDaoHarnessIntegrationTest`: 1 becomes 2 everywhere it is a required count.
-- `REQUIRED_CASES["JdbcConnectorMariaDbIntegrationTest"]` and `JDBC_REQUIRED_CASES` gain the thirteen names (`name(boolean)[1]` and `[2]` for parameterized methods).
-- In the verification JSON, the `java-all` `routedSkips` entries for both classes gain the new methods in the shape of their neighbours, and each `minimumCases` of a check that runs these classes rises by the cases added to it.
+- `scripts/ci/verify-mariadb-dao-reports.py`: in `CRITICAL`, `"MariaDbDaoHarnessIntegrationTest": 1` becomes `2` (it applies to the generated and the Flyway lane; the new case runs in both). In `REQUIRED["generated"]`, `"JdbcConnectorMariaDbIntegrationTest": 47` becomes `60`. `REQUIRED_CASES["JdbcConnectorMariaDbIntegrationTest"]` gains the thirteen names: `name(boolean)[1]` and `name(boolean)[2]` for each parameterized method, the bare name for the plain one.
+- `scripts/ci/test_mariadb_report_evidence.py`: `JDBC_REQUIRED_CASES` gains the same thirteen names.
+- `scripts/ci/test_release_plan_5700.py`, in `test_jdbc_parameterized_routes_require_both_native_invocations`: `23` becomes `29`, `47` becomes `60`, and the expected plain list becomes the existing name followed by `shouldKeepIgnoreSpace_whenTheServerDefaultHasIt`.
+- `docs/testing/release-2026.08-verification.json`, three checks. `java-all`: in `routedSkips`, the `JdbcConnectorMariaDbIntegrationTest` entry gains the six parameterized methods (each with its two `destinations`, in the shape of its neighbours) and then the plain one (`{"name": …, "container": ""}`), and the `MariaDbDaoHarnessIntegrationTest` entry gains the new case. `java-native-generated`: `minimumCases` rises by 14, `requiredFamilies` becomes 60 and 2 for the two classes. `java-native-flyway`: `minimumCases` rises by 1, the harness family becomes 2.
 
-- [ ] **Step 2: Run the bookkeeping tests**
+- [ ] **Step 2: Run the gates that CI runs on every pull request**
 
 ```bash
-python3 -m unittest discover -s scripts/ci -p 'test_mariadb_report_evidence.py'
-python3 -m unittest discover -s scripts/ci -p 'test_release_plan_5700.py'
+python3 scripts/ci/run-python-release-tests.py --start scripts/ci --output /tmp/python.json
+python3 scripts/ci/run-python-release-tests.py --start scripts/coverage --output /tmp/coverage-tests.json
+python3 scripts/ci/verify-release-evidence.py validate-plan
 ```
 
-Expected: `OK` twice.
+Expected: `Python release tests: … readiness PASS` twice, then `Validated 40 workstreams and 100 checks`.
 
-- [ ] **Step 3: Refresh the coverage floors**
+- [ ] **Step 3: Record coverage floor evidence, last**
 
-Changed production sources: `MariaDbCompatibilityDriver`, `MariaDbJdbcCompatibility`, `MariaDbQueryStatementValidator` (new), `OscarTrackingBasicDataSource`, `RptResultStruct`, `AuditLogManager`, `OscarAppointmentDaoImpl`. Follow `docs/testing/coverage-floor-policy.md`, "To update floors after a measured run": produce the measured run document from a passing run that includes the unit tests above and the physical lane, then
+Do this after every source change is final: a floor record is bound to the exact bytes of its source. On pull requests to the release branch CI runs the freshness check of Task 1 Step 4, and it fails until this step is done. In the dry run it listed exactly these six sources: `MariaDbCompatibilityDriver`, `MariaDbJdbcCompatibility`, `OscarTrackingBasicDataSource`, `AuditLogManager`, `OscarAppointmentDaoImpl` (records whose source changed) and `RptResultStruct` (no record yet).
+
+Follow `docs/testing/coverage-floor-policy.md`, "To update floors after a measured run", in the way that document records for PR #6113:
+
+1. Measure with JaCoCo on the final sources. For the two adapter files use the focused union PR #6113 used: every H2 test class that names either adapter, plus `JdbcConnectorMariaDbIntegrationTest` on MariaDB 11.8.8, written to one execution file. For the other four files use the lane that covers them (the full H2 `tests` job of CI, or its JaCoCo artifact for this branch's head).
+2. Each metric takes the highest of the retained floor and the new measurement; never lower one. The retained floors are 94.00 / 92.18 / 85.04 (lines / instructions / branches) for the driver and 98.27 / 98.14 / 90.45 for the configuration class. The dry run measured 96.30 / 95.06 / 88.33 and 98.34 / 98.31 / 91.14 over the whole files with this plan's tests; the configuration class has little margin. If a metric on the changed lines falls below its floor, add the unit case that covers the missed branch; do not add a waiver.
+3. Write the run document in the shape of the existing ones in `scripts/coverage/evidence/`, then import it and check freshness:
 
 ```bash
 python3 scripts/coverage/manage-coverage-floors.py --import-from <run>/measured-floors.json \
   --source src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java   # one --source per file above
-python3 scripts/coverage/check-coverage-floors.py --freshness-only \
-  --floors scripts/coverage/release-coverage-floors.json --base <the base that manifest pins> --output <run>/freshness.json
 ```
 
-Expected: the freshness check passes. Keep every existing higher floor; no zero floor on a changed executable line; no waiver.
+   Then run the freshness command of Task 1 Step 4. Expected: `"fresh": true` and no problems.
+4. Add a paragraph to `docs/testing/coverage-floor-policy.md` in the form of the existing refresh paragraphs: the measured head, the test counts, the measured figures for the six files, and that no floor was lowered and no waiver added.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add scripts/ci docs/testing/release-2026.08-verification.json scripts/coverage
+git add scripts/ci docs/testing scripts/coverage
 git commit -m "test(ci): require the new MariaDB connector cases and refresh coverage floors"
 ```
 
@@ -1100,28 +1329,57 @@ git commit -m "test(ci): require the new MariaDB connector cases and refresh cov
 - [ ] **Step 1: Run the unit suite**
 
 Run: `mvn -B -ntp test -Dgroups=unit`
-Expected: `BUILD SUCCESS`. Search the output for `S1009` and for `executeQuery() cannot run`: any hit outside the guard's own tests is a statement the guard refused somewhere it should not, and blocks the pull request until explained.
+Expected: `BUILD SUCCESS`. Search the output and the Surefire reports for `S1009` and for `executeQuery() cannot run`: a hit outside the guard's own tests is a statement the guard refused somewhere it should not, and blocks the pull request until explained.
 
-- [ ] **Step 2: Run both MariaDB lanes**
+- [ ] **Step 2: Run the four MariaDB lanes and the report verifier**
 
-Run the `java-native-generated` command recorded in `docs/testing/release-2026.08-verification.json` against MariaDB 11.8.8 with `CARLOS_TEST_MARIADB_URL`, `CARLOS_TEST_MARIADB_USER`, `CARLOS_TEST_MARIADB_PASSWORD`, `CARLOS_TEST_MARIADB_DAO=true`, `CARLOS_TEST_MARIADB_SCHEMA=generated`; then the Flyway-schema lane recorded beside it. Then `python3 scripts/ci/verify-mariadb-dao-reports.py` with the arguments that file's `main` documents, on each lane's reports.
-Expected: every required family and case reported as passed; the same `S1009` search as Step 1 finds nothing unexpected.
+Against MariaDB 11.8.8, with `CARLOS_TEST_MARIADB_DAO=true` and the user and password variables set, run the commands of these steps of `.github/workflows/maven-project.yml` (each `-Dtest=` list is there; the first two are also recorded as `java-native-generated` and `java-native-flyway` in `docs/testing/release-2026.08-verification.json`):
 
-- [ ] **Step 3: Run the packaging and probe checks**
+| Lane | Environment | Extra arguments | Dry-run result |
+|---|---|---|---|
+| Generated schema | `CARLOS_TEST_MARIADB_SCHEMA=generated`, URL `jdbc:mariadb://…/` | `-Dcarlos.test.schema.expected=generated -DexcludedGroups=flyway-schema` | 3,328 passed |
+| Flyway schema, Ontario | `CARLOS_TEST_MARIADB_SCHEMA=flyway` | `-Dcarlos.test.schema.expected=flyway -Dsurefire.reportNameSuffix=flyway` | 368 passed |
+| Flyway schema, British Columbia | `CARLOS_TEST_MARIADB_SCHEMA=flyway CARLOS_TEST_MARIADB_PROVINCE=bc` | `-Dsurefire.reportNameSuffix=bc-flyway` | 266 passed |
+| Packaged legacy URLs | `CARLOS_TEST_MARIADB_SCHEMA=flyway`, URL `jdbc:mysql://…/` | `-Dcarlos.test.schema.expected=flyway -Dtest.reportsDirectory=target/surefire-mariadb-legacy-url` | 29 passed |
+
+Then `python3 scripts/ci/verify-mariadb-dao-reports.py` (it reads `target/surefire-reports`).
+Expected: no failure, error or skip in any lane; the verifier exits 0 and reports 60 and 2 for the two classes; the `S1009` search of Step 1 finds nothing unexpected.
+
+- [ ] **Step 3: Run the packaged Flyway runner through the adapter**
+
+Build the WAR (`mvn -B -ntp -DskipTests package`), then, with `JAVA_TOOL_OPTIONS` and `_JAVA_OPTIONS` unset (the launcher's test compares its error output exactly):
+
+```bash
+sh debian/build-flyway-runner.sh target/<carlos>.war /tmp/runner
+```
+
+Expected: `PASS Flyway existing-object notes…`, `PASS Flyway MariaDB driver, legacy URL compatibility and TLS policy`, `built /tmp/runner/carlos-flyway-runner.jar`. Then migrate two empty schemas with that launcher on the class path `carlos-ctl` uses (the launcher jar, then the unpacked WAR's classes and libraries) and the packaged URL options, once with `classpath:db/migration/common,classpath:db/migration/on` and once with `…/bc`:
+
+```bash
+FLYWAY_URL='jdbc:mysql://127.0.0.1:3306/<empty schema>?zeroDateTimeBehavior=round&useOldAliasMetadataBehavior=true&jdbcCompliantTruncation=false&characterEncoding=UTF-8&connectionCollation=utf8mb4_general_ci' \
+FLYWAY_USER=<user> FLYWAY_PASSWORD=<password> \
+java -cp '/tmp/runner/carlos-flyway-runner.jar:<unpacked WAR>/WEB-INF/classes:<unpacked WAR>/WEB-INF/lib/*' \
+  io.github.carlos_emr.carlos.deb.FlywayRunner migrate <locations>
+```
+
+Expected: exit 0 both times and every row of `flyway_schema_history` successful. The dry run did this with the launcher compiled from source against the prototype's classes, not with a built WAR: 91 migrations applied for Ontario and 90 for British Columbia. An exit with `executeQuery() cannot run a statement…` blocks the pull request.
+
+- [ ] **Step 4: Run the packaging tests and the reference model**
 
 ```bash
 cd debian/assets && python3 -m unittest discover -s tests -t . && cd ../..
-python3 -m py_compile scripts/jdbc-connector-probe/*.py
+python3 scripts/jdbc-connector-probe/guard_reference.py check src/test/resources/jdbc/connector-j-9.6.0-executequery-oracle.tsv
 ```
 
-Expected: `OK`, then no output. Where a MariaDB 11.8.8 and the reference driver are available, re-run the probe (`scripts/jdbc-connector-probe/README.md`) against the adapter and confirm the `SESSION` section now shows `sql_mode` empty and `net_write_timeout` 600, and the `DMLQ` section shows every write refused.
+Expected: `OK`, then `rows=212 recorded=181 deviations-from-connectorj=5 model-disagreements=0 unsafe=0`. Where the reference driver is available on a developer machine, re-run the probe (`scripts/jdbc-connector-probe/README.md`) against the adapter and confirm the `SESSION` section now shows `sql_mode` empty and `net_write_timeout` 600, and the `DMLQ` section shows every write refused.
 
-- [ ] **Step 4: Write the pull request body (do not open it until asked)**
+- [ ] **Step 5: Write the pull request body (do not open it until asked)**
 
 Follow the repository's pull request template. It must state:
 
 - Closes #5922, #5968, #5969, #5770, #5863, #6088. Refs #3053 (the documentation work that was #5768). #5744: "Closes" only if Task 10 Step 5 printed `reachable`, otherwise "Refs" with what remains.
 - That it contains pull requests #6113, #6238 and #6295, which can be closed in its favour, and takes the #5770 and #5863 corrections from draft #6133 in their narrow form.
 - The eight findings N1 to N8 with one line each and the spec path.
-- What was verified and how (the commands of Steps 1 to 3 and their results), and what was not: no browser run; the report-budget table if it was not re-measured; anything a failing pin row changed.
+- What users will notice: saved report text with a space before a function's parenthesis stops parsing; accented text from binary columns reads correctly in report cells; the appointment export reads row by row.
+- What was verified and how (the commands of Steps 1 to 4 and their results), and what was not: no browser run; the report-budget table if it was not re-measured; anything a failing pin row changed.
 - Left for maintainers: the files under `.github/` named in #3053; the drugref2026 merges; follow-ups in `carlos-ctl` and `carlos-podman` (spec section 9).

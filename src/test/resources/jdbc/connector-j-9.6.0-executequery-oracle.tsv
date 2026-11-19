@@ -67,7 +67,7 @@ SENT	SENT	no	SELECT @zzv := 5
 SENT	SENT	no	SELECT NEXTVAL(zz_seq)
 SENT	SENT	yes	SELECT zz_writer()
 SENT	SENT	no	/*! SELECT 1 */
-REFUSED	SENT	no	/*M! SELECT 1 */
+REFUSED	REFUSED	no	/*M! SELECT 1 */
 SENT	SENT	no	/*!50000 SELECT 1 */
 REFUSED	REFUSED	no	(SELECT 1 INTO @zz6)
 REFUSED	REFUSED	no	SELECT (1) INTO @zz7
@@ -212,3 +212,9 @@ unrecorded	SENT	no	SELECT 1 FROM t WHERE a = 'it''s' /* INTO */ -- INTO\n
 unrecorded	REFUSED	no	SELECT 'x\'' , 1 INTO @a
 unrecorded	REFUSED	no	SELECT "a""b" INTO @a
 unrecorded	REFUSED	no	SELECT `a``b` FROM t INTO @a
+# Second recorded run, 2026-11-19: version-conditional executable comments and backslashes in literals.
+SENT	SENT	yes	/*!99999 SELECT 1 */ DELETE FROM zz_extra WHERE id=1
+SENT	SENT	yes	/*!99999 SELECT 1 */ UPDATE zz_extra SET v=v+1
+REFUSED	REFUSED	yes	/*M!999999 SELECT 1 */ DELETE FROM zz_extra WHERE id=1
+SENT	SENT	no	SELECT 'a\' INTO @zzx
+SENT	SENT	no	SELECT 'it\'s moved into storage'
