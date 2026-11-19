@@ -113,7 +113,7 @@ public class OscarJobUtils {
     }
 
 
-    public static boolean scheduleJob(OscarJob job) throws Exception {
+    public static boolean scheduleJob(OscarJob job) {
         synchronized (OscarJobExecutingManager.schedulingLock(job.getId())) {
             try {
                 // Keep cancellation, registration and publication together for this job ID.

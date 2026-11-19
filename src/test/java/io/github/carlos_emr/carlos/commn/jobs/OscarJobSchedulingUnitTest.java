@@ -8,11 +8,14 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.Trigger;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -21,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
@@ -100,6 +104,28 @@ class OscarJobSchedulingUnitTest {
 
         assertThat(schedule(job, mock(TaskScheduler.class), providers)).isFalse();
         assertThat(OscarJobExecutingManager.getFutures()).doesNotContainKey(job.getId());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldCancelThePreviousTimer_whenAJobIsDisabledOrItsTypeWasRemoved(boolean enabled) {
+        var job = new OscarJob();
+        job.setId(51026);
+        job.setEnabled(enabled);
+        job.setCronExpression("0 * * * * *");
+        job.setOscarJobTypeId(5);
+        @SuppressWarnings("unchecked")
+        ScheduledFuture<Object> previous = mock(ScheduledFuture.class);
+        when(previous.cancel(false)).thenReturn(true);
+        var futures = OscarJobExecutingManager.getFutures();
+        futures.put(job.getId(), previous);
+        try {
+            assertThat(OscarJobUtils.scheduleJob(job)).isFalse();
+            verify(previous).cancel(false);
+            assertThat(futures).doesNotContainKey(job.getId());
+        } finally {
+            futures.remove(job.getId());
+        }
     }
 
     private static boolean schedule(OscarJob job, TaskScheduler scheduler, ProviderDao providers) throws Exception {

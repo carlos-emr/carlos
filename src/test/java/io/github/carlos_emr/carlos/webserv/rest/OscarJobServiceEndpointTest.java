@@ -167,7 +167,7 @@ class OscarJobServiceEndpointTest extends CarlosRestTestBase {
     }
 
     @Test
-    void shouldEnableAndReturnAnExistingJobThroughTheSharedScheduler() throws Exception {
+    void shouldEnableAndReturnAnExistingJobThroughTheSharedScheduler() {
         int jobId = 3047;
         var type = createTestJobType(1, "TestType", "com.example.TestJob");
         var stored = createTestJob(jobId, "Scheduled job", type);
@@ -387,7 +387,7 @@ class OscarJobServiceEndpointTest extends CarlosRestTestBase {
 
         @ParameterizedTest
         @ValueSource(booleans = {true, false})
-        void shouldConfirmActivationOnlyWhenThePersistedJobWasScheduled(boolean activated) throws Exception {
+        void shouldConfirmActivationOnlyWhenThePersistedJobWasScheduled(boolean activated) {
             OscarJob stored = persistedEdit(true);
             try (var scheduler = mockStatic(OscarJobUtils.class)) {
                 scheduler.when(() -> OscarJobUtils.scheduleJob(stored)).thenReturn(activated);

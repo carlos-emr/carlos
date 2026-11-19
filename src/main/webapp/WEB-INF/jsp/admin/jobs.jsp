@@ -682,7 +682,7 @@
         <p class="validateTips"></p>
         <p class="save-error text-danger" role="alert" aria-live="polite"></p>
         <button type="button" class="btn btn-secondary check-saved-job" hidden><fmt:message key="admin.jobs.checkSavedJob"/></button>
-        <pre class="saved-job-values text-wrap" role="status"></pre>
+        <output class="saved-job-values d-block text-wrap"></output>
 
         <form id="jobForm">
             <input type="hidden" name="job.id" id="jobId" value="0"/>
@@ -735,7 +735,7 @@
         <p class="validateTips"></p>
         <p class="save-error text-danger" role="alert" aria-live="polite"></p>
         <button type="button" class="btn btn-secondary check-saved-job" hidden><fmt:message key="admin.jobs.checkSavedJob"/></button>
-        <pre class="saved-job-values text-wrap" role="status"></pre>
+        <output class="saved-job-values d-block text-wrap"></output>
 
         <form id="crontab-form">
             <input type="hidden" name="scheduleJobId" id="scheduleJobId" value="0"/>
