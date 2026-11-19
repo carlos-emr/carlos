@@ -19604,6 +19604,21 @@
       "notes": "#5999: six converted field lengths refuse REST create/update before side effects; exact schema limits and supplementary Unicode boundary values persist without truncation."
     },
     {
+      "name": "privacy-static-html-metadata",
+      "script": "scripts/privacy-static-html-metadata-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "manual": true,
+      "notes": "#5936: run on the host serving the packaged install, with a configured confidentiality statement. Verifies static HTML GET/HEAD metadata, conditional file-date requests, wildcard existence conditions, a two-mebibyte owned static page and same-URL AJAX/ordinary browser cache variants.",
+      "fixtures": "Reads installed gpl.htm bytes and modification time; creates and removes one marker-named synthetic large HTML file beside it. Honors CARLOS_INSTALLED_WEBAPP_DIR. No clinical fixtures or configuration changes."
+    },
+    {
       "name": "report-daysheet-selection",
       "script": "scripts/report-daysheet-selection-playwright-checks.js",
       "tiers": [
