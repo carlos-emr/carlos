@@ -1052,7 +1052,7 @@
                                         d2 = d3;
                                     }
                                 } else {
-                                    d1 = pDose;
+                                    d1 = dose;
                                 }
 
                                 // mL is only the default for a new record that names no unit. An existing
