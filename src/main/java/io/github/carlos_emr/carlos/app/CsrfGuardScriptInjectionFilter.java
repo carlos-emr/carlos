@@ -227,13 +227,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         }
 
         if (wrapper.isWriterPassthrough()) {
-            LOGGER.debug("CsrfGuard: writer passthrough for {} contentType={}",
-                    safeRequestUri, wrapper.getContentType());
-            wrapper.flushPassthroughWriter();
-            if (wrapper.isScriptStillPending()) {
-                LOGGER.warn("CSRF script not injected into a large HTML response: it has no </head> or "
-                        + "</body>; uri={}", safeRequestUri);
-            }
+            finishWriterPassthrough(wrapper, safeRequestUri);
             return;
         }
 
@@ -259,6 +253,17 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         String modified = injectScript(captured, scriptTag);
 
         writeToResponse(httpResponse, modified, safeRequestUri);
+    }
+
+    private static void finishWriterPassthrough(CaptureResponseWrapper wrapper, String safeRequestUri)
+            throws IOException {
+        LOGGER.debug("CsrfGuard: writer passthrough for {} contentType={}",
+                safeRequestUri, wrapper.getContentType());
+        wrapper.flushPassthroughWriter();
+        if (wrapper.isScriptStillPending()) {
+            LOGGER.warn("CSRF script not injected into a large HTML response: it has no </head> or "
+                    + "</body>; uri={}", safeRequestUri);
+        }
     }
 
     /**
