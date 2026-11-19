@@ -220,11 +220,15 @@
                                 refused();
                                 return;
                             }
-                            finish();
                             if (data.scheduleActivation === 'FAILED') {
+                                if (!schedule && expectedId === '0') {
+                                    form.find('#jobId').val(String(saved.id));
+                                }
+                                finish();
                                 dialog.find('.save-error').text(jobsScheduleActivationFailedLabel);
                                 return;
                             }
+                            finish();
                             dialog.dialog('close');
                             listJobs();
                         }).fail(refused);

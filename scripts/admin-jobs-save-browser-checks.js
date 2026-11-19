@@ -136,6 +136,25 @@ for (const id of ['scheduleDialog', 'new-job']) {
     assert.match(await page.locator('#' + id + ' .save-error').innerText(), /jobsScheduleActivationFailedLabel/);
   }));
 }
+test('shouldRetryTheSavedRow_whenNewJobActivationFails', async () => withPage(async (page, state) => {
+  await page.evaluate(() => addNewJob());
+  await page.locator('#jobName').fill('FAKE new job with a removed type');
+  await page.locator('#jobType').selectOption('7');
+  await page.locator('#jobProvider').selectOption('999998');
+  await page.locator('#jobEnabled').check();
+  state.mode = 'activationFailed';
+  await button(page, 'new-job').click();
+  await posted(state);
+  await page.waitForFunction(() => jQuery.active === 0);
+  assert.equal(state.saves[0].fields['job.id'], '0');
+  assert.equal(await page.locator('#jobId').inputValue(), '41');
+  assert.equal(await button(page, 'new-job').isEnabled(), true);
+
+  state.mode = 'success';
+  await button(page, 'new-job').click();
+  await page.waitForFunction(() => !jQuery('#new-job').dialog('isOpen') && jQuery.active === 0);
+  assert.deepEqual(state.saves.map(save => save.fields['job.id']), ['0', '41']);
+}));
 test('shouldReleaseTheDialog_andKeepTheDraft_whenAnAcceptedPostTimesOut',async()=>withPage(async(page,state)=>{
   await open(page,'new-job');state.mode='defer';
   await page.locator('#jobName').fill('FAKE timed-out draft');

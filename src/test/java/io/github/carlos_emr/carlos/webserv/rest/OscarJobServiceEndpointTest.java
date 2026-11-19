@@ -373,6 +373,16 @@ class OscarJobServiceEndpointTest extends CarlosRestTestBase {
                 verify(mockOscarJobManager).updateJob(any(LoggedInInfo.class), any(OscarJob.class));
                 scheduler.verify(() -> OscarJobUtils.cancelJob(JOB_ID, false));
             }
+
+            when(mockOscarJobManager.getAllJobs(any(LoggedInInfo.class))).thenReturn(List.of(stored));
+            try (Response readback = request().path("/jobs/all").get()) {
+                assertThat(readback.getStatus()).isEqualTo(200);
+                var listed = readback.readEntity(OscarJobResponse.class).getJobs();
+                assertThat(listed).singleElement().satisfies(job -> {
+                    assertThat(job.getId()).isEqualTo(JOB_ID);
+                    assertThat(job.getNextPlannedExecutionDate()).isNull();
+                });
+            }
         }
 
         @ParameterizedTest
@@ -428,6 +438,23 @@ class OscarJobServiceEndpointTest extends CarlosRestTestBase {
     @Nested
     @DisplayName("GET /jobs/all")
     class GetAllJobs {
+
+        @ParameterizedTest
+        @ValueSource(booleans = {true, false})
+        void shouldReportTheNextRunOnlyWhenAnExistingJobWithATypeIsEnabled(boolean enabled) {
+            OscarJobType jobType = createTestJobType(1, "TestType", "com.example.TestJob");
+            OscarJob job = createTestJob(10, "Scheduled job", jobType);
+            job.setEnabled(enabled);
+            job.setCronExpression("0 */5 * * * *");
+            when(mockOscarJobManager.getAllJobs(any(LoggedInInfo.class))).thenReturn(List.of(job));
+
+            try (Response response = request().path("/jobs/all").get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                var listed = response.readEntity(OscarJobResponse.class).getJobs();
+                assertThat(listed).singleElement()
+                        .satisfies(item -> assertThat(item.getNextPlannedExecutionDate() != null).isEqualTo(enabled));
+            }
+        }
 
         @Test
         @DisplayName("should return 200 with jobs list")

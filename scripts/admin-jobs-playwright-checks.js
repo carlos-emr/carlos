@@ -11,10 +11,10 @@
  * edit-by-name without a page error, the schedule dialog
  * reopening with the stored choice, a job name listed as text, and the Job Type
  * editor saving without alerts (OscarJobType round trip).
- * Fixtures: a DISABLED type seeded with a nonexistent CARLOS-package class (never
- * schedulable) plus UI-created job/type, all carrying the marker; no job is ever
- * enabled. No delete control exists; cleanup removes only marker rows above the
- * pre-run id high-water marks and asserts they are gone.
+ * Fixtures: disabled types seeded with a nonexistent CARLOS-package class and
+ * UI-created jobs and types, all carrying the marker. The only enabled job has a
+ * removed type and cannot run. No delete control exists; cleanup removes only
+ * marker rows above the pre-run id high-water marks and asserts they are gone.
  */
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
@@ -104,6 +104,11 @@ async function workflow(s) {
     VALUES(${h.sqlString(seedName)},${h.sqlString(`${marker} never runs`)},${h.sqlString(className)},0,NOW());
     SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(typeId) && Number(typeId) > typeHigh, 'The job type fixture was not created');
+  const staleTypeName = `${marker} type removed between form open and save`;
+  const staleTypeId = sql.value(`INSERT INTO OscarJobType(name,description,className,enabled,updated)
+    VALUES(${h.sqlString(staleTypeName)},${h.sqlString(staleTypeName)},${h.sqlString(className)},0,NOW());
+    SELECT LAST_INSERT_ID()`);
+  h.assert(/^[1-9]\d*$/.test(staleTypeId) && Number(staleTypeId) > typeHigh, 'The stale type fixture was not created');
   await s.step('Job Type Management lists the disabled type as an invalid class and reloads it in the editor', async () => {
     types = await openSection('Job Type Management', '/admin/ViewJobTypes', typesLoaded);
     const row = types.locator('#jobTypeTable tbody tr', {hasText: seedName});
@@ -244,6 +249,37 @@ async function workflow(s) {
     await jobRow().waitFor({timeout: TIMEOUT});
     h.assert(await jobRow().locator('b').count() === 0 && (await jobRow().locator('td').nth(1).innerText()).trim() === markupName,
       'Jobs Management renders a stored job name as HTML instead of text');
+  });
+  await s.step('retrying a confirmed create with failed activation updates the saved job', async () => {
+    const missingTypeJobName = `${marker} job with a removed type`;
+    const savedJob = `${ownedJob} AND name=${h.sqlString(missingTypeJobName)}`;
+    await jobs.getByRole('button', {name: 'Add New', exact: true}).click();
+    await jobs.locator('#jobName').fill(missingTypeJobName);
+    await jobs.locator('#jobType').selectOption(String(staleTypeId));
+    await jobs.locator('#jobEnabled').check();
+    sql.execute(`DELETE FROM OscarJobType WHERE id=${staleTypeId} AND ${ownedType}`);
+
+    const save = dialogButton(jobs, 'new-job', 'Save Job');
+    const created = await clickAwaiting(isRest('saveJob'), save);
+    const confirmation = await created.json();
+    const id = confirmation.jobs?.[0]?.id;
+    h.assert(confirmation.scheduleActivation === 'FAILED' && Number(id) > jobHigh,
+      'The server did not confirm the created job and failed activation');
+    await jobs.waitForFunction(() => window.jQuery && window.jQuery.active === 0, null, {timeout: TIMEOUT});
+    h.assert(await jobs.locator('#new-job').isVisible() && await save.isEnabled(),
+      'The confirmed create with failed activation did not leave an editable dialog');
+    h.assert(await jobs.locator('#jobId').inputValue() === String(id),
+      'The dialog kept a create ID after the server confirmed the saved row');
+
+    await jobs.locator('#jobType').selectOption(String(typeId));
+    await jobs.locator('#jobEnabled').uncheck();
+    const retried = await clickAwaiting(isRest('saveJob'), save);
+    h.assert(new URLSearchParams(retried.request().postData()).get('job.id') === String(id),
+      'The retry did not submit the confirmed job ID');
+    await jobs.locator('#new-job').waitFor({state: 'hidden', timeout: TIMEOUT});
+    await expectValue(sql, `SELECT COUNT(*) FROM OscarJob WHERE ${savedJob}`, '1', 'The retry created another job row');
+    h.assert(sql.value(`SELECT id FROM OscarJob WHERE ${savedJob}`) === String(id),
+      'The retry did not update the originally created job');
   });
   await s.step('Job Type Management creates a disabled job type and edits the same row', async () => {
     types = await openSection('Job Type Management', '/admin/ViewJobTypes', typesLoaded);

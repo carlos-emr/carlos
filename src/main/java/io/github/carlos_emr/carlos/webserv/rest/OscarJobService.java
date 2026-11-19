@@ -153,13 +153,9 @@ public class OscarJobService extends AbstractServiceImpl {
         for (OscarJob result : results) {
             OscarJobTo1 to = jobSummary(result);
 
-            if (result.getCronExpression() != null) {
+            if (result.isEnabled() && result.getOscarJobType() != null && result.getCronExpression() != null) {
                 CronTrigger trigger = new CronTrigger(result.getCronExpression());
-
-                if (result.isEnabled()) {
-                    to.setNextPlannedExecutionDate(trigger.nextExecutionTime(new SimpleTriggerContext()));
-                }
-
+                to.setNextPlannedExecutionDate(trigger.nextExecutionTime(new SimpleTriggerContext()));
             }
             response.getJobs().add(to);
         }
