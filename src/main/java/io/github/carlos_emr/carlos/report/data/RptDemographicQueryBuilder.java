@@ -524,10 +524,13 @@ public class RptDemographicQueryBuilder {
                         } else {
                             MiscUtils.getLogger().debug("Report row kept: rostered to the selected provider on the as-of date");
                         }
-                    } catch (NumberFormatException e) {
-                        MiscUtils.getLogger().error("Error", e);
-                    } catch (ParseException e) {
-                        MiscUtils.getLogger().error("Error", e);
+                    } catch (NumberFormatException | ParseException e) {
+                        // An unreadable patient number or as-of date means the history cannot be
+                        // checked; such a row is not reported for the date, so it cannot use up
+                        // the row limit either. The exception text can carry the patient number.
+                        MiscUtils.getLogger().error("Roster history check failed ({}); report row left out",
+                                e.getClass().getSimpleName());
+                        continue;
                     }
                 }
 

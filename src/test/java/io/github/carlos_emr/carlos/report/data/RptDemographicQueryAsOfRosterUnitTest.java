@@ -208,6 +208,24 @@ class RptDemographicQueryAsOfRosterUnitTest extends CarlosUnitTestBase {
         assertThat(capturedParams()).containsEntry("limitValue", 5);
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("builders")
+    @DisplayName("should leave out rows whose history cannot be checked, so they never use up the limit")
+    void shouldLeaveOutUncheckedRows_whenAsOfDateIsUnreadable(
+            String name, BiFunction<RptDemographicReport2Form, String, List<?>> build) {
+        List<Object[]> rows = new ArrayList<>();
+        rows.add(new Object[] {"11", 11});
+        rows.add(new Object[] {"12", 12});
+        when(formsDao.runParameterizedNativeQuery(anyString(), anyMap())).thenReturn(rows);
+        RptDemographicReport2Form frm = form();
+        frm.setResultNum("1");
+
+        List<?> result = build.apply(frm, "not-a-date");
+
+        assertThat(result).as("no row can be confirmed for an unreadable as-of date").isEmpty();
+        history.verifyNoInteractions();
+    }
+
     private void rosteredToDrA(int demographicNo) {
         history.when(() -> PreventionReportUtil.wasRosteredToThisProvider(
                         any(), eq(demographicNo), any(Date.class), eq(DR_A)))
