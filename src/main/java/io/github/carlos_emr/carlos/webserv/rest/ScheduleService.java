@@ -348,6 +348,12 @@ public class ScheduleService extends AbstractServiceImpl {
     }
 
     private Map<Integer, BillingDetailTo1> getAppointmentIdToBillingDetailMap(Integer demographicNo) {
+        // The billing detail comes from billing_on_cheader1, which only the Ontario schema creates
+        // (migration/on). Elsewhere the read would fail on the missing table and take the whole
+        // appointment history down with it, so history is returned without billing detail (#3642).
+        if (!io.github.carlos_emr.CarlosProperties.getInstance().isOntarioBillingRegion()) {
+            return Map.of();
+        }
         LoggedInInfo actor = getLoggedInInfo();
         if (!securityInfoManager.hasPrivilegeReadOnly(actor, "_billing", "r", (String) null)
                 || !securityInfoManager.hasPrivilegeReadOnly(actor, "_billing", "r", demographicNo.toString())
