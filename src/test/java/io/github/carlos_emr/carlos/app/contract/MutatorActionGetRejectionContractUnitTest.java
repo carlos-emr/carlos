@@ -974,7 +974,11 @@ class MutatorActionGetRejectionContractUnitTest {
                     // delete deletes the
                     // message and must be a POST. Covered by
                     // MsgHandleMessages2ActionDeleteGuardUnitTest.
-                    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action");
+                    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action",
+                    // Key Manager Create Key: a GET without `name` opens the form; a request that
+                    // names a service creates a key pair and must be a POST (#6321). Covered by
+                    // KeygenCreateKeyMethodUnitTest.
+                    "io.github.carlos_emr.carlos.admin.gate.ViewKeygenCreateKey2Action");
 
     /**
      * Actions whose source contains both {@code SC_METHOD_NOT_ALLOWED} and a
@@ -1236,7 +1240,10 @@ class MutatorActionGetRejectionContractUnitTest {
                     // parameters other than `method` (#3394; conditional mutators).
                     "io.github.carlos_emr.carlos.admin.web.ProviderPrivilege2Action",
                     "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action",
-                    "io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action");
+                    "io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action",
+                    // admin.gate is not in IN_SCOPE_PACKAGE_PREFIXES; Key Manager Create Key
+                    // registers explicitly (conditional on `name`, #6321).
+                    "io.github.carlos_emr.carlos.admin.gate.ViewKeygenCreateKey2Action");
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")
     @MethodSource("unconditionalMutators")
@@ -1365,7 +1372,9 @@ class MutatorActionGetRejectionContractUnitTest {
                     "io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action",
                             new String[] {"_form", "w"},
                     "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.GenerateTeleplanFile2Action",
-                            new String[] {"_billing", "w"});
+                            new String[] {"_billing", "w"},
+                    "io.github.carlos_emr.carlos.admin.gate.ViewKeygenCreateKey2Action",
+                            new String[] {"_admin", "w"});
 
     /**
      * One case per route and write parameter in {@link HttpMethodGuardFilter#MUTATION_INTENT_PARAMS_BY_ROUTE},
