@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "45ac2a223b3dd62a22da5bee62776a15361f1dd2",
+  "comparisonSha256": "223ab71826a556721fc025892ac724670fea76a5f56f13017123bd95683e9332",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/eform/EFormImagePublicationLock.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "cd10236d79349cff544adf23e4c1d9403d89ed66",
+      "requiredRefusalLines": [
+        74
+      ]
+    }
+  },
+  "baselineCommit": "d6d97ad6066dc63cc7fe120051359b1c0737a808",
+  "baselineSourceTree": "45ac2a223b3dd62a22da5bee62776a15361f1dd2",
+  "baselineReportSha256": "168ad78a08a1996711a07573a8c384a7d19554ef53e1e931be0f5c986001de28",
+  "baselineLane": "eForm publication lock unit tests",
+  "baselineTestCounts": {
+    "tests": 17,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "55bb2a719af47f8afd7526e4a014b1cb7632246f3216d9e9cbefbfabf44bd41a",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.eform.EFormImagePublicationLockUnitTest"
+  ],
+  "refusalLineMappings": {
+    "src/main/java/io/github/carlos_emr/carlos/eform/EFormImagePublicationLock.java": {
+      "fromSourceBlob": "ca9528be3bd66eb4fac610e2abdff19eae2210e8",
+      "lines": {
+        "73": 74
+      }
+    }
+  }
+}

@@ -69,6 +69,16 @@ APPOINTMENT_REQUIRED_CASES = {
     "shouldAllowAssignedPatientWrite_withoutReadPermission",
 }
 
+JDBC_REQUIRED_CASES = {
+    "shouldConnectAndApplyConnectorJYesNo_forLegacyBooleanOptions",
+    "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)[1]",
+    "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)[2]",
+    "shouldCheckFloatRange_inBothPreparedProtocols(boolean)[1]",
+    "shouldCheckFloatRange_inBothPreparedProtocols(boolean)[2]",
+    "shouldPreserveZeroFilledTextAndUnsignedTinyIntegers_inBothPreparedProtocols(boolean)[1]",
+    "shouldPreserveZeroFilledTextAndUnsignedTinyIntegers_inBothPreparedProtocols(boolean)[2]",
+}
+
 RX_REQUIRED_CASES = {
     "shouldCommitPrescriptionAndDrugs_whenNativeWritesSucceed",
     "shouldRequireReconciliation_whenCommitSucceedsButAcknowledgementIsLost",
@@ -217,6 +227,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     "RxPrescribeMariaDbIntegrationTest": RX_REQUIRED_CASES,
                     "TicklerPatientAccessMariaDbIntegrationTest": TICKLER_REQUIRED_CASES,
                     "AppointmentUpdateDaoIntegrationTest": APPOINTMENT_REQUIRED_CASES,
+                    "JdbcConnectorMariaDbIntegrationTest": JDBC_REQUIRED_CASES,
                     "ProgramAdmissionAuditMariaDbIntegrationTest": ADMISSION_REQUIRED_CASES,
                     "ReportingPatientListAuditMariaDbIntegrationTest": REPORTING_REQUIRED_CASES,
                 }.get(family, set()) | MODULE.REQUIRED_CASES.get(family, set()))
@@ -287,9 +298,13 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
         self.seed()
         for mode in MODULE.REQUIRED:
             suffix = "" if mode == "generated" else "-" + mode
-            families = [("AppointmentUpdateDaoIntegrationTest", APPOINTMENT_REQUIRED_CASES)] if mode == "generated" else []
-            if mode != "generated":
-                families.append(("CaseManagementNoteLegacyFlagsMariaDbIntegrationTest", LEGACY_NOTE_FLAG_REQUIRED_CASES))
+            if mode == "generated":
+                families = [
+                    ("AppointmentUpdateDaoIntegrationTest", APPOINTMENT_REQUIRED_CASES),
+                    ("JdbcConnectorMariaDbIntegrationTest", JDBC_REQUIRED_CASES),
+                ]
+            else:
+                families = [("CaseManagementNoteLegacyFlagsMariaDbIntegrationTest", LEGACY_NOTE_FLAG_REQUIRED_CASES)]
             for family, names in families + [("SoapTokenHousekeepingDaoIntegrationTest", TOKEN_REQUIRED_CASES),
                                   ("DemographicMergeMariaDbIntegrationTest", MERGE_REQUIRED_CASES),
                                   ("DemographicWebUnmergeIntegrationTest", UNMERGE_REQUIRED_CASES),

@@ -122,8 +122,71 @@ class EFormExportZipConcurrentImportUnitTest {
         }
     }
 
+    @Test
+    void shouldRemoveOnlyOwnedPublishedAssets_whenLaterPublicationFails() throws Exception {
+        Path blocked = Files.createDirectory(images.resolve("blocked"));
+        byte[] archive = zip(Map.of("first.bin", "FAKE first", "second.bin", "FAKE second"));
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        var refused = new java.util.concurrent.atomic.AtomicInteger();
+        var denied = new java.nio.file.AccessDeniedException(blocked.toString());
+        // Root CI bypasses directory permissions. Inject only the later failed link;
+        // the earlier hard link, inode identity checks and rollback remain real.
+        try (MockedStatic<ImageUpload2Action> folder = mockStatic(ImageUpload2Action.class);
+             var _ = mockStatic(Files.class, call -> {
+                 if (call.getMethod().getName().equals("createLink")
+                         && calls.incrementAndGet() == 2) {
+                     refused.incrementAndGet();
+                     throw denied;
+                 }
+                 return call.callRealMethod();
+             })) {
+            folder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            assertThatThrownBy(() -> new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(archive)))
+                    .isSameAs(denied);
+            assertThat(refused.get()).isEqualTo(1);
+            try (var files = Files.list(images)) {
+                assertThat(files.filter(file -> file.getFileName().toString().endsWith(".bin")).toList()).isEmpty();
+            }
+            assertThat(stagingDirectories()).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldLeaveMissingAndReplacedAssetsAlone_duringRollback() throws Exception {
+        Path source = Files.writeString(images.resolve("source.bin"), "FAKE owned inode");
+        Path owned = Files.createLink(images.resolve("owned.bin"), source);
+        Path replaced = Files.writeString(images.resolve("replaced.bin"), "FAKE other inode");
+        Path absent = images.resolve("absent.bin");
+        var failure = new IOException("FAKE publication failure");
+        EFormExportZip.rollbackPublishedAssets(Map.of(owned, source, replaced, source, absent, source), failure);
+        assertThat(owned).doesNotExist();
+        assertThat(Files.readString(replaced)).isEqualTo("FAKE other inode");
+        assertThat(absent).doesNotExist();
+        assertThat(source).exists();
+        assertThat(failure.getSuppressed()).isEmpty();
+    }
+
+    @Test
+    void shouldRetainCleanupDiagnostics_whenTheFilesystemRefusesRollback() throws Exception {
+        Path source = Files.writeString(images.resolve("source.bin"), "FAKE owned inode");
+        Path blocked = Files.createDirectory(images.resolve("blocked"));
+        Path owned = Files.createLink(blocked.resolve("owned.bin"), source);
+        var denied = new java.nio.file.AccessDeniedException(owned.toString());
+        // Keep a real published inode and refuse only its unlink, independently of UID.
+        try (var _ = mockStatic(Files.class, call -> {
+            if (call.getMethod().getName().equals("deleteIfExists") && owned.equals(call.getArgument(0))) throw denied;
+            return call.callRealMethod();
+        })) {
+            var failure = new IOException("FAKE publication failure");
+            EFormExportZip.rollbackPublishedAssets(Map.of(owned, source), failure);
+            assertThat(failure.getSuppressed()).containsExactly(denied);
+            assertThat(owned).exists();
+        }
+    }
+
     private List<Path> stagingDirectories() throws IOException {
         try (Stream<Path> paths = Files.list(images.resolve("extractFolder"))) {
+            // The persistent empty lease inode is coordination metadata, not extracted data.
             return paths.filter(path -> !path.getFileName().toString()
                     .equals(EFormImagePublicationLock.LOCK_FILE_NAME)).toList();
         }
@@ -236,7 +299,7 @@ class EFormExportZipConcurrentImportUnitTest {
              MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
             imageFolder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
             paths.when(() -> PathValidationUtils.validateGeneratedChildPath("shared.png", images.toFile())).thenReturn(stale);
-            List<String> errors = new EFormExportZip().importForm(new ByteArrayInputStream(zip(Map.of("shared.png", "REPLACEMENT"))));
+            List<String> errors = new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(zip(Map.of("shared.png", "REPLACEMENT"))));
             assertThat(errors).singleElement().asString().contains("shared.png", "already exists");
         }
         assertThat(Files.readString(destination)).isEqualTo("OTHER-WRITERS-COMPLETE-IMAGE");
@@ -278,7 +341,7 @@ class EFormExportZipConcurrentImportUnitTest {
                 assertThat(Files.isSameFile(destination, source)).isTrue();
                 return published;
             });
-            assertThat(new EFormExportZip().importForm(new ByteArrayInputStream(
+            assertThat(new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(
                     zip(Map.of("complete.png", completeBytes))))).isEmpty();
         }
         assertThat(staged.get()).isNotNull().doesNotExist();

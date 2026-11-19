@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "eab070b357cb79211a9c66aafad0e69f721dd44c",
+  "comparisonSha256": "02d2662e4c7b6586e1fca4e46cc3b115e2cc4436cca548f04e6be3a61d811186",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementEntry2Action.java": {
+      "lines": 65.97938144329896,
+      "instructions": 64.83931947069944,
+      "branches": 62.35294117647059,
+      "sourceBlob": "c7a77839195e74de81d7cb9e44cef63022e0242b"
+    }
+  },
+  "baselineCommit": "5ec2cb79928680af33e8a279aded554e222dbeb6",
+  "baselineSourceTree": "eab070b357cb79211a9c66aafad0e69f721dd44c",
+  "baselineReportSha256": "9ff9333ad32aafff7254fcd99f52471456da54b9c762243cfcebfaabd1254ed7",
+  "baselineLane": "Focused Java 25 recompilation of the changed chart action and four test classes against clean Ubuntu 26.04 release build classes at 92d23f93169, followed by Maven Surefire chart issue authorization, encounter date, revision conflict, and H2 save transaction tests",
+  "baselineTestCounts": {
+    "tests": 425,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "6fe7347115794780e0253dfc95df6561aaad79e1f37b8c111f7b3c9262a0a653",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

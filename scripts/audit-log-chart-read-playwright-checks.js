@@ -29,6 +29,7 @@ const fs = require('node:fs');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { auditProbe, phiLeaks, incomplete, label } = require('./lib/audit-log-helpers');
+const { watchChartPrintDownload } = require('./lib/chart-print-download');
 
 const isEntry = method => r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/CaseManagementEntry')
   && new URLSearchParams(r.request().postData() || '').get('method') === method;
@@ -107,15 +108,20 @@ async function workflow(s) {
   await s.step('the chart Print icon downloads a PDF of all notes (audit rows observed)', async () => {
     const chart = await s.chart();
     const before = probe.mark();
-    const download = chart.waitForEvent('download', { timeout: 40000 });
     await chart.locator('#imgPrintEncounter').click();
     await chart.locator('#printOps').waitFor({ state: 'visible' });
     await chart.locator('#printopAll').check();
-    await chart.locator('#printOp').click();
-    const file = await download;
-    const bytes = fs.readFileSync(await file.path());
-    h.assert(bytes.subarray(0, 5).toString('latin1') === '%PDF-', 'The chart print did not download a PDF');
-    h.assert(bytes.subarray(-1024).toString('latin1').includes('%%EOF'), 'The chart print PDF is truncated (no %%EOF trailer)');
+    const downloaded = watchChartPrintDownload(chart.context(), h.appUrl(s.config.baseUrl, '/CaseManagementEntry'));
+    try {
+      await chart.locator('#printOp').click();
+      const file = await downloaded.promise;
+      h.assert(file, 'The native chart print did not produce a PDF download');
+      const bytes = fs.readFileSync(await file.path());
+      h.assert(bytes.subarray(0, 5).toString('latin1') === '%PDF-', 'The chart print did not download a PDF');
+      h.assert(bytes.subarray(-1024).toString('latin1').includes('%%EOF'), 'The chart print PDF is truncated (no %%EOF trailer)');
+    } finally {
+      downloaded.cancel();
+    }
     await probe.settle(3000);
     const printed = probe.since(before).filter(r => /print|export|reprint/i.test(r.action));
     expect(printed.length === 1, `Printing the whole chart as a PDF wrote ${printed.length} audit rows, expected 1`);

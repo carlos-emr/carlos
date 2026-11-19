@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/report/data/ReportJdbcTextReader.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "7670a7203985143fe52544784b19c86398a5a279"
+  },
+  "evidenceSha256": "f5081399605fc9a73819bf80ea3b4e9050026a6696ddca157fd7c3d8ead89fb8"
+}
