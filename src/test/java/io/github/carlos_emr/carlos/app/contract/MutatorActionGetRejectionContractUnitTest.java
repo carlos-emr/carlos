@@ -156,6 +156,11 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     static Stream<Arguments> unconditionalMutators() {
         return Stream.of(
+                // Destructive audit-log purge (#5864): POST-only; GET must not dump or delete.
+                Arguments.of(
+                        "io.github.carlos_emr.carlos.admin.web.AuditLogPurge2Action",
+                        "_admin.auditLogPurge",
+                        "w"),
                 Arguments.of(
                         "io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsUpload2Action",
                         "_demographic",
@@ -1246,6 +1251,19 @@ class MutatorActionGetRejectionContractUnitTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    @DisplayName("AuditLogPurge2Action rejects purge-triggering GET and HEAD requests")
+    void shouldRejectUnsafeMethod_forAuditLogPurgeWithDateBegin(String httpMethod)
+            throws Exception {
+        assertRejectsUnsafeMethod(
+                "io.github.carlos_emr.carlos.admin.web.AuditLogPurge2Action",
+                "_admin.auditLogPurge",
+                "w",
+                httpMethod,
+                Map.of("dateBegin", "2026-01-01"));
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"add", "delete"})
     @DisplayName("ClientManage2Action should reject GET for mutation dispatches")
     void shouldRejectGet_forClientManageMutationDispatch(String method) throws Exception {
@@ -1648,6 +1666,12 @@ class MutatorActionGetRejectionContractUnitTest {
                 assertThat(response.getStatus())
                         .as("%s to mutator %s must send 405", httpMethod, className)
                         .isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                if (className.equals(
+                        "io.github.carlos_emr.carlos.admin.web.AuditLogPurge2Action")) {
+                    assertThat(response.getHeader("Allow"))
+                            .as("%s to the audit-log purge must advertise POST", httpMethod)
+                            .isEqualTo("POST");
+                }
             }
 
             // No mutation dependency — DAOs, managers, event publishers —

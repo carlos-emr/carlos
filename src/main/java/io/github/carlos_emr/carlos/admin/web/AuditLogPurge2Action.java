@@ -57,6 +57,14 @@ public class AuditLogPurge2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin.auditLogPurge)");
         }
 
+        // The purge is destructive and must never run on GET/HEAD: CSRFGuard does not validate
+        // those methods, and a cross-site top-level GET can carry the admin's SameSite=Lax session.
+        // Refuse before any dump or delete fires.
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
 
         String dt = request.getParameter("dateBegin");
         if (dt == null || dt.length() == 0) {
