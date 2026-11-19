@@ -106,6 +106,102 @@ class CsrfGuardScriptInjectionFilterUnitTest {
         assertThat(countOccurrences(content, "/csrfguard")).isEqualTo(1);
     }
 
+    // ---- #5937: the FORWARD capture is bounded ----
+
+    /** Writes a page whose body pushes it past the capture bound, in JSP-sized chunks. */
+    private static void writeLargePage(jakarta.servlet.ServletResponse response, String head, int bodyChars)
+            throws java.io.IOException {
+        response.setContentType("text/html;charset=UTF-8");
+        var writer = response.getWriter();
+        writer.write(head);
+        String chunk = "x".repeat(8192);
+        for (int written = 0; written < bodyChars; written += chunk.length()) {
+            writer.write(chunk);
+        }
+        writer.write("</body></html>");
+    }
+
+    @Test
+    @DisplayName("should inject the script into the head and stream a page larger than the capture bound")
+    void shouldInjectIntoPrefixAndStream_whenPageExceedsCaptureBound() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/WEB-INF/jsp/big.jsp");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        int body = CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS * 2;
+        boolean[] committedWhileWriting = new boolean[1];
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+            writeLargePage(res, "<html><head><title>Big</title></head><body>", body);
+            res.flushBuffer();
+            committedWhileWriting[0] = res.isCommitted();
+            res.setContentLength(7);
+        }));
+
+        String content = response.getContentAsString();
+        assertThat(content).startsWith("<html><head><title>Big</title><script src=\"/carlos/csrfguard\"></script>\n</head><body>")
+                .endsWith("</body></html>");
+        assertThat(countOccurrences(content, "/csrfguard")).isEqualTo(1);
+        assertThat(content.length()).isGreaterThan(body);
+        // Past the bound the wrapper streams: flushBuffer reaches the response and commits it.
+        assertThat(committedWhileWriting[0]).isTrue();
+        // A length set after the injected prefix was written would be stale; it is not published.
+        assertThat(response.getContentLength()).isNotEqualTo(7);
+    }
+
+    @Test
+    @DisplayName("should not inject twice into a large page that already loads the script")
+    void shouldNotInjectTwice_whenLargePageAlreadyLoadsScript() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/WEB-INF/jsp/big.jsp");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) ->
+                writeLargePage(res, "<html><head><script src=\"/carlos/csrfguard\"></script></head><body>",
+                        CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS + 1)));
+
+        assertThat(countOccurrences(response.getContentAsString(), "/csrfguard")).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("should inject into a page written in one chunk larger than the capture bound")
+    void shouldInjectIntoHead_whenOneWriteCrossesTheBound() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/WEB-INF/jsp/big.jsp");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        String page = "<html><head></head><body>" + "y".repeat(CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS) + "</body></html>";
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            res.getWriter().write(page);
+        }));
+
+        String content = response.getContentAsString();
+        assertThat(content).startsWith("<html><head><script src=\"/carlos/csrfguard\"></script>\n</head><body>");
+        assertThat(content.length()).isEqualTo(page.length() + "<script src=\"/carlos/csrfguard\"></script>\n".length());
+    }
+
+    @Test
+    @DisplayName("should keep replaying a page within the capture bound as one injected document")
+    void shouldReplayCapturedPage_whenWithinTheBound() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/WEB-INF/jsp/small.jsp");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        boolean[] committedWhileWriting = new boolean[1];
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+            writeLargePage(res, "<html><head></head><body>", CsrfGuardScriptInjectionFilter.MAX_CAPTURE_CHARS / 2);
+            res.flushBuffer();
+            committedWhileWriting[0] = res.isCommitted();
+        }));
+
+        assertThat(committedWhileWriting[0]).isFalse();
+        assertThat(countOccurrences(response.getContentAsString(), "/csrfguard")).isEqualTo(1);
+    }
+
     @Test
     @DisplayName("should pass through unchanged when CSRFGuard is disabled")
     void shouldPassThroughUnchanged_whenCsrfGuardDisabled() throws Exception {

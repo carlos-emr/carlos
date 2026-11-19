@@ -16,7 +16,7 @@ reads those mappings, including their dispatchers; it does not invent a new orde
 | --- | --- | --- |
 | ResponseSanitizationFilter | Owns writer capture and streams opened with an error status; inspects status/body after the downstream chain returns; replays or replaces the body | REQUEST and ERROR; deliberately surrounds every downstream failure |
 | JavaMelody MonitoringFilter | In 2.9.0, forwards writer calls to the downstream writer and counts them; stream calls use its counting stream; drains its writer at forward completion | REQUEST and ASYNC; JSP/writer output reaches the sanitizer writer capture |
-| CsrfGuardScriptInjectionFilter | Captures HTML writer output, injects one CSRF script, replays on unwind | FORWARD; already-injected pages are replayed unchanged |
+| CsrfGuardScriptInjectionFilter | Captures HTML writer output, injects one CSRF script, replays on unwind | FORWARD; already-injected pages are replayed unchanged; a page past 512 Ki characters is injected in its prefix and streamed |
 | LogoutBroadcastFilter | Shields completion, defers entity length and adds heartbeat/logout script once for authenticated HTML writer responses | REQUEST and FORWARD; the request marker prevents nested injection |
 | PrivacyStatementAppendingFilter | Shields writer flush/close, appends the print notice, then flushes its delegate | REQUEST; binary and AJAX bypass decoration |
 
@@ -65,6 +65,17 @@ uncommitted. At the default sizes, crossing the limit fills the buffer and
 commits the writer's response first. Already-committed bytes cannot be
 retracted. This is the existing bounded-capture guarantee, not whole-response
 buffering.
+
+The CSRF FORWARD capture is bounded at the same 512 Ki characters (#5937). A page
+that crosses it is not replayed: the captured prefix, together with the write that
+crossed the limit, gets the CSRF script injected before `</head>` (or `</body>`)
+and is written through, and every later write streams straight to the response.
+The page keeps CSRF protection because its head lies within the prefix; a page
+with neither closing tag in its first 512 Ki characters is streamed without the
+script and logged at WARN. After the switch the wrapper is in writer pass-through,
+so `isCommitted()` and `flushBuffer()` reach the real response, and any
+Content-Length, deferred or set later, is dropped because the injection changed
+the body.
 
 ## Proven corrections
 

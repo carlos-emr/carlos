@@ -60,6 +60,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *
  * <p>The filter uses a {@link CharArrayWriter}-based {@link HttpServletResponseWrapper}
  * to capture {@link PrintWriter} output, then inserts the script tag before {@code </head>}.
+ * The capture is bounded by {@link #MAX_CAPTURE_CHARS}: a larger page has the script injected
+ * into its captured prefix and the rest streamed (#5937).
  * Responses using {@link ServletOutputStream} (binary content like PDFs, images) pass
  * through untouched.</p>
  *
@@ -101,6 +103,15 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
     private static final AtomicBoolean HTML_LOOKING_PASSTHROUGH_WARNED = new AtomicBoolean(false);
     /** Upper bound on response wrapper layers unwrapped by {@link #isInnermostResponseCommitted}. */
     private static final int MAX_WRAPPER_DEPTH = 32;
+
+    /**
+     * Most characters an HTML forward is held in memory before it is streamed (#5937), the same
+     * bound {@code ResponseSanitizationFilter} applies to its own capture. A page past it gets the
+     * script injected into the captured prefix, which holds {@code </head>} on any real page, and
+     * the rest is written straight through, so memory stays bounded and the page keeps CSRF
+     * protection. Package-private for tests.
+     */
+    static final int MAX_CAPTURE_CHARS = 512 * 1024;
 
     /** Servlet path of the loopback server-side eForm PDF renderer route (see web.xml). */
     private static final String RENDERER_ROUTE_SERVLET_PATH = "/EFormViewForPdfGenerationServlet";
@@ -178,7 +189,8 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             return;
         }
 
-        CaptureResponseWrapper wrapper = new CaptureResponseWrapper(httpResponse, safeRequestUri);
+        String scriptTag = "<script src=\"" + httpRequest.getContextPath() + "/csrfguard\"></script>";
+        CaptureResponseWrapper wrapper = new CaptureResponseWrapper(httpResponse, safeRequestUri, scriptTag);
         LOGGER.debug("CsrfGuard: wrapping request {}", safeRequestUri);
         chain.doFilter(request, wrapper);
         LOGGER.debug("CsrfGuard: chain completed for {} committed={} writer={} stream={}",
@@ -235,7 +247,6 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             return;
         }
 
-        String scriptTag = "<script src=\"" + httpRequest.getContextPath() + "/csrfguard\"></script>";
         String modified = injectScript(captured, scriptTag);
 
         writeToResponse(httpResponse, modified, safeRequestUri);
@@ -249,7 +260,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
      * page already has CSRFGuard loaded; returning them unchanged avoids inserting
      * semantically incorrect markup into table rows, list items, or similar partials.
      */
-    private String injectScript(String html, String scriptTag) {
+    static String injectScript(String html, String scriptTag) {
         // Try </head> (case-insensitive)
         int headIdx = indexOfIgnoreCase(html, "</head>");
         if (headIdx >= 0) {
@@ -271,7 +282,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
      * Case-insensitive indexOf using {@link String#regionMatches(boolean, int, String, int, int)}
      * to avoid allocating a lowercase copy of the entire HTML body.
      */
-    private int indexOfIgnoreCase(String source, String target) {
+    private static int indexOfIgnoreCase(String source, String target) {
         int targetLength = target.length();
         int searchLength = source.length() - targetLength;
         for (int i = 0; i <= searchLength; i++) {
@@ -416,16 +427,20 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         private boolean usingOutputStream;
         private boolean usingWriter;
         private boolean writerPassthrough;
+        /** The capture passed MAX_CAPTURE_CHARS and is streaming; its injected prefix changed the length. */
+        private boolean captureOverflowed;
         private boolean committed;
         /** The shared defer/publish/retract rules; its two delegate calls are its only access to the response. */
         private final DeferredContentLength contentLength = new DeferredContentLength(
                 super::setContentLengthLong,
                 () -> super.setHeader(DeferredContentLength.HEADER, null));
         private final String requestUri;
+        private final String scriptTag;
 
-        public CaptureResponseWrapper(HttpServletResponse response, String requestUri) {
+        public CaptureResponseWrapper(HttpServletResponse response, String requestUri, String scriptTag) {
             super(response);
             this.requestUri = requestUri;
+            this.scriptTag = scriptTag;
             // Do not call setBufferSize() here. Tomcat 11 forwards can reject late buffer-size
             // changes after a JSP has obtained its writer, so the capture boundary is the
             // CharArrayWriter below rather than the servlet container's response buffer.
@@ -501,6 +516,10 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
         @Override
         public void setContentLengthLong(long len) {
+            if (captureOverflowed) {
+                // The streamed body carries the injected script, so a downstream length is stale.
+                return;
+            }
             if (usingOutputStream || writerPassthrough) {
                 // Passthrough: the real response owns the content, so pass the length through
                 contentLength.publishNow(len);
@@ -795,7 +814,103 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                     return CaptureResponseWrapper.super.getWriter();
                 }
                 captureWriter = new CharArrayWriter();
-                return captureWriter;
+                return new BoundedCaptureWriter(captureWriter);
+            }
+        }
+
+        /**
+         * Captures writer output up to {@link #MAX_CAPTURE_CHARS}; past that, writes the captured
+         * prefix (with the CSRFGuard script injected when it is HTML and holds {@code </head>} or
+         * {@code </body>}) and every later write straight to the response (#5937).
+         *
+         * <p>After the switch the wrapper is in writer passthrough: {@code isCommitted()} and
+         * {@code flushBuffer()} reach the real response, and the filter flushes instead of
+         * replaying a capture. A Content-Length deferred before the writer opened is not
+         * published, exactly as on the captured path, because the injection changes the length.</p>
+         */
+        private class BoundedCaptureWriter extends Writer {
+            private final CharArrayWriter buffer;
+            private Writer overflow;
+
+            BoundedCaptureWriter(CharArrayWriter buffer) {
+                this.buffer = buffer;
+            }
+
+            @Override
+            public void write(int character) throws IOException {
+                write(new char[]{(char) character}, 0, 1);
+            }
+
+            @Override
+            public void write(char[] chars, int offset, int length) throws IOException {
+                if (overflow == null && (long) buffer.size() + length <= MAX_CAPTURE_CHARS) {
+                    buffer.write(chars, offset, length);
+                    return;
+                }
+                if (overflow == null) {
+                    // Inspect the prefix together with the write that crossed the bound, so a page
+                    // written in one large chunk still gets the script in its head.
+                    buffer.write(chars, offset, length);
+                    startStreaming();
+                    return;
+                }
+                overflow.write(chars, offset, length);
+            }
+
+            @Override
+            public void write(String string, int offset, int length) throws IOException {
+                if (overflow == null && (long) buffer.size() + length <= MAX_CAPTURE_CHARS) {
+                    buffer.write(string, offset, length);
+                    return;
+                }
+                if (overflow == null) {
+                    buffer.write(string, offset, length);
+                    startStreaming();
+                    return;
+                }
+                overflow.write(string, offset, length);
+            }
+
+            private void startStreaming() throws IOException {
+                String prefix = buffer.toString();
+                buffer.reset();
+                String content = prefix;
+                if (RequestNegotiation.isHtmlContentType(getContentType())
+                        && !CSRFGUARD_SCRIPT_PATTERN.matcher(prefix).find()) {
+                    content = injectScript(prefix, scriptTag);
+                    if (content.equals(prefix)) {
+                        LOGGER.warn("CSRF script not injected into a large HTML response: no </head> or </body> "
+                                + "in its first {} characters; uri={}", prefix.length(), requestUri);
+                    }
+                }
+                LOGGER.debug("CsrfGuard: capture limit reached for {}; streaming the rest", requestUri);
+                // The capture's own buffer is all the body there is; clear any container buffer as
+                // the replay path does, while the response can still accept it.
+                if (!CaptureResponseWrapper.super.isCommitted()) {
+                    try {
+                        CaptureResponseWrapper.super.resetBuffer();
+                    } catch (IllegalStateException alreadyCommitted) {
+                        LOGGER.debug("CsrfGuard: buffer reset rejected before streaming {}", requestUri);
+                    }
+                }
+                writerPassthrough = true;
+                captureOverflowed = true;
+                overflow = CaptureResponseWrapper.super.getWriter();
+                overflow.write(content);
+            }
+
+            @Override
+            public void flush() throws IOException {
+                if (overflow != null) {
+                    overflow.flush();
+                }
+            }
+
+            @Override
+            public void close() throws IOException {
+                if (overflow != null) {
+                    overflow.close();
+                }
             }
         }
 
