@@ -313,6 +313,7 @@ class DocumentReviewPersistenceIntegrationTest extends CarlosTestBase {
             action.setFunctionId(String.valueOf(PATIENT));
             action.setDocDesc("Synthetic review document");
             action.setDocType("Lab");
+            action.setResponsibleId(FIRST);
             action.setAppointmentNo("0");
             action.setReviewDoc(reviewDoc);
             action.setExtraReviewDoc(extraReviewDoc);
