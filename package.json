@@ -1044,6 +1044,7 @@
     "test:server-table-installed-playwright": "node scripts/server-table-installed-playwright-checks.js",
     "test:admin-keygen-create-key-retry-playwright": "node scripts/admin-keygen-create-key-retry-playwright-checks.js",
     "test:report-blob-text-readers-playwright": "node scripts/report-blob-text-readers-playwright-checks.js",
+    "test:privacy-html-range": "node scripts/privacy-html-range-playwright-checks.js",
     "test:fax-configuration-save-playwright": "node scripts/fax-configuration-save-playwright-checks.js",
     "test:playwright:provider-document-queue-security": "node scripts/provider-document-queue-security-playwright-checks.js",
     "test:consultation-health-care-team-playwright": "node scripts/consultation-health-care-team-playwright-checks.js",
