@@ -110,11 +110,20 @@ class RequiredExecutionsTest(unittest.TestCase):
         checks = {check['id']: check for check in plan['checks']}
         source = checks['java-all']['routedSkips']['io.github.carlos_emr.carlos.utility.JdbcConnectorMariaDbIntegrationTest']
         self.assertEqual(source['check'], 'java-native-generated')
-        self.assertEqual(len(source['cases']), 20)
-        self.assertEqual(checks['java-native-generated']['requiredFamilies']['JdbcConnectorMariaDbIntegrationTest'], 40)
-        for case in source['cases']:
-            self.assertEqual([row['name'] for row in case['destinations']],
-                             [case['name'] + '[1]', case['name'] + '[2]'])
+        parameterized = [case for case in source['cases'] if case['name'].endswith('(boolean)')]
+        self.assertEqual(len(parameterized), 23)
+        self.assertEqual(checks['java-native-generated']['requiredFamilies']['JdbcConnectorMariaDbIntegrationTest'], 47)
+        for case in parameterized:
+            name = case['name']
+            with self.subTest(case=name):
+                self.assertEqual(case.get('container', ''), '')
+                self.assertEqual([(row.get('container', ''), row['name']) for row in case['destinations']],
+                                 [('', name + '[1]'), ('', name + '[2]')])
+        # A plain @Test runs once natively under its own name, so it routes without destinations.
+        plain = [case for case in source['cases'] if case not in parameterized]
+        self.assertEqual([(case.get('container', ''), case['name']) for case in plain],
+                         [('', 'shouldConnectAndApplyConnectorJYesNo_forLegacyBooleanOptions')])
+        self.assertTrue(all('destinations' not in case for case in plain))
         self.assertIn('JdbcConnectorMariaDbIntegrationTest', ' '.join(checks['java-native-generated']['command']))
 
     def test_browser_smoke_routes_match_the_lane_selection_and_test_sources(self):

@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -44,6 +45,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.EChartDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException;
 import io.github.carlos_emr.carlos.commn.model.EChart;
 import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -106,6 +108,19 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
     private boolean renderFails;
     /** What the converter returns for every rendered item. */
     private String base64Pdf = "JVBERi0xLjQ=";
+    /** Patients the current encounter was printed for, in order. */
+    private final List<Integer> printedEncounters = new ArrayList<>();
+    /** The byte cap each chart print was given, in order. */
+    private final List<Long> printBudgets = new ArrayList<>();
+    /** PDF bytes streamed as a preview by an item that printed its own PDF. */
+    private final List<byte[]> streamedPdfs = new ArrayList<>();
+    /** What the current encounter's print does: returns these bytes, or throws. */
+    private byte[] encounterPdf = "%PDF-1.4 FAKE current encounter".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    private RuntimeException encounterFailure;
+    /** Patients whose attached chart notes were recorded, in order. */
+    private final List<Integer> recordedAttachments = new ArrayList<>();
+    private final List<Integer> recordedPreviews = new ArrayList<>();
+    private RuntimeException recordFailure;
 
     @BeforeEach
     void setUp() {
@@ -133,6 +148,7 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
         allow("_demographic", "r");
         allow("_eChart", "r");
         allow("_rx", "r");
+        allow("_casemgmt.notes", "r");
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, PATIENT)).thenReturn(true);
 
         Demographic patient = new Demographic();
@@ -193,9 +209,34 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
                 convertedHtml.add(html);
                 return base64Pdf;
             }
+
+            @Override
+            public void streamPdfBytes(HttpServletResponse res, byte[] pdf) {
+                streamedPdfs.add(pdf);
+                res.setContentType("application/pdf");
+            }
+        };
+        MsgAttachPDF2Action.EncounterPrinter encounterPrinter = (req, login, demographicNo, maxBytes) -> {
+            printedEncounters.add(demographicNo);
+            printBudgets.add(maxBytes);
+            if (encounterFailure != null) {
+                throw encounterFailure;
+            }
+            // As the composer does: a print longer than the cap is stopped and refused, never returned.
+            // A null print is handed back as it is, so the action itself meets "printed nothing".
+            if (encounterPdf != null && encounterPdf.length > maxBytes) {
+                throw new MsgEncounterPdfComposer.PrintTooLargeException(maxBytes);
+            }
+            return encounterPdf;
+        };
+        MsgAttachPDF2Action.ChartNotesAudit recorder = (login, demographicNo, preview) -> {
+            if (recordFailure != null) {
+                throw recordFailure;
+            }
+            (preview ? recordedPreviews : recordedAttachments).add(demographicNo);
         };
         MsgAttachPDF2Action action = new MsgAttachPDF2Action(securityInfoManager, demographicManager,
-                new MsgPdfAttachmentResolver(eChartDao), renderer, converter);
+                new MsgPdfAttachmentResolver(eChartDao), renderer, converter, encounterPrinter, recorder);
         action.setDemographic_no(String.valueOf(PATIENT));
         action.setAttachmentKey(key);
         return action;
@@ -316,6 +357,7 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(request.getAttribute("carlosMessengerAttachmentUnavailable")).isNull();
             assertThat(renderedRoutes).isEmpty();
         }
 
@@ -678,6 +720,399 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
                         .noneMatch(message -> message.contains(String.valueOf(PATIENT)))
                         .noneMatch(message -> message.contains("FAKE-Doe"));
             }
+        }
+    }
+
+    /** #5856: the patient's current notes and CPP, printed by the modern chart's own print. */
+    @Nested
+    @DisplayName("current encounter")
+    class CurrentEncounter {
+
+        @Test
+        @DisplayName("should preview the chart print's PDF for the named patient, with no route or HTML")
+        void shouldStreamTheChartPrint_forACurrentEncounterPreview() throws Exception {
+            MsgAttachPDF2Action action = newAction();
+            action.setIsPreview(true);
+            action.setPreviewItem("currentEncounter");
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(printedEncounters).containsExactly(PATIENT);
+            assertThat(streamedPdfs).containsExactly(encounterPdf);
+            assertThat(renderedRoutes).isEmpty();
+            assertThat(convertedHtml).isEmpty();
+            verify(eChartDao, never()).getLatestChart(anyInt());
+        }
+
+        @Test
+        @DisplayName("should attach the chart print's PDF with its title, beside the other ticked items")
+        void shouldAttachTheChartPrint_withItsTitle() throws Exception {
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"prescriptions", "currentEncounter", "encounter"});
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+            String stored = stagedPdfs();
+            String printed = java.util.Base64.getEncoder().encodeToString(encounterPdf);
+            // Chooser order: the current encounter, then the historical one, then prescriptions.
+            assertThat(stored).containsSubsequence(
+                    "<TITLE>All current chart notes and CPP</TITLE>", "<CONTENT>" + printed + "</CONTENT>",
+                    "<TITLE>Historical encounter:", "<TITLE>Current ")
+                    .containsPattern("(?i)<TITLE>Current prescriptions</TITLE>");
+            assertThat(stored.split("<STATUS>OK</STATUS>", -1)).hasSize(4);
+            assertThat(renderedRoutes).containsExactly(
+                    "/encounter/ViewEcharthistoryprint?echartid=77&demographic_no=" + PATIENT,
+                    "/rx/ViewPrintDrugProfile2?demographic_no=" + PATIENT);
+        }
+
+        @Test
+        @DisplayName("should refuse without note read, as the chart print does, before printing anything")
+        void shouldRefuse_withoutNoteRead() {
+            deny("_casemgmt.notes", "r");
+            MsgAttachPDF2Action action = newAction();
+            action.setIsPreview(true);
+            action.setPreviewItem("currentEncounter");
+
+            assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("_casemgmt.notes");
+            assertThat(printedEncounters).isEmpty();
+            assertThat(streamedPdfs).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should refuse a patient whose record is restricted, keeping the message's attachments")
+        void shouldRefuse_whenThePatientsDemographicIsRestricted() {
+            denyForPatient("_demographic");
+            givenEarlierAttachment();
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"currentEncounter"});
+
+            assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("_demographic");
+            assertThat(printedEncounters).isEmpty();
+            assertThat(stagedPdfs()).contains("FAKE earlier attachment");
+        }
+
+        @Test
+        @DisplayName("should answer 409 and stage nothing for a chart the print cannot show in full")
+        void shouldRefuseWith409_whenTheChartPrintCannotShowTheRecord() throws Exception {
+            encounterFailure = new CdsLegacyProjectionException();
+            givenEarlierAttachment();
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic", "currentEncounter"});
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
+            assertThat(stagedPdfs()).contains("FAKE earlier attachment").doesNotContain("Information");
+        }
+
+        @Test
+        @DisplayName("should answer 500 to a preview, and record a BAD entry on attach, when the print fails")
+        void shouldReportAFailedPrint_withoutItsContentOrThePatient() throws Exception {
+            encounterFailure = new IllegalStateException("FAKE print failure for FAKE-Doe " + PATIENT);
+            try (LogCapture logs = LogCapture.forLogger(MsgAttachPDF2Action.class)) {
+                MsgAttachPDF2Action preview = newAction();
+                preview.setIsPreview(true);
+                preview.setPreviewItem("currentEncounter");
+                assertThat(preview.execute()).isEqualTo(ActionSupport.NONE);
+                assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                assertThat(streamedPdfs).isEmpty();
+
+                response = new MockHttpServletResponse();
+                servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+                MsgAttachPDF2Action attach = newAction();
+                attach.setItem(new String[]{"currentEncounter"});
+                assertThat(attach.execute()).isEqualTo(ActionSupport.SUCCESS);
+                assertThat(stagedPdfs()).contains("<STATUS>BAD</STATUS>").contains("<CONTENT></CONTENT>");
+
+                assertThat(logs.messages())
+                        .isNotEmpty()
+                        .noneMatch(message -> message.contains(String.valueOf(PATIENT)))
+                        .noneMatch(message -> message.contains("FAKE-Doe"));
+            }
+        }
+
+        @Test
+        @DisplayName("should record attached chart notes once, before staging, and a preview as a preview")
+        void shouldRecordAttachedChartNotes_andAPreviewAsAPreview() throws Exception {
+            MsgAttachPDF2Action preview = newAction();
+            preview.setIsPreview(true);
+            preview.setPreviewItem("currentEncounter");
+            preview.execute();
+            assertThat(recordedPreviews).as("the preview is the full chart print").containsExactly(PATIENT);
+            assertThat(recordedAttachments).isEmpty();
+
+            MsgAttachPDF2Action attach = newAction();
+            attach.setItem(new String[]{"demographic", "currentEncounter"});
+            assertThat(attach.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(recordedAttachments).containsExactly(PATIENT);
+            assertThat(stagedPdfs()).contains("<TITLE>All current chart notes and CPP</TITLE>");
+
+            // Other items alone are not chart notes.
+            recordedAttachments.clear();
+            MsgAttachPDF2Action others = newAction();
+            others.setItem(new String[]{"demographic", "prescriptions"});
+            others.execute();
+            assertThat(recordedAttachments).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should send no preview when it cannot be recorded, as the chart print sends nothing")
+        void shouldSendNothing_whenThePreviewCannotBeRecorded() {
+            recordFailure = new IllegalStateException("FAKE audit failure");
+            MsgAttachPDF2Action preview = newAction();
+            preview.setIsPreview(true);
+            preview.setPreviewItem("currentEncounter");
+
+            assertThatThrownBy(preview::execute).isInstanceOf(IllegalStateException.class);
+            assertThat(printedEncounters).containsExactly(PATIENT);
+            assertThat(streamedPdfs).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should stage nothing when the attachment cannot be recorded")
+        void shouldStageNothing_whenTheAttachmentCannotBeRecorded() {
+            recordFailure = new IllegalStateException("FAKE audit failure");
+            givenEarlierAttachment();
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"currentEncounter"});
+
+            assertThatThrownBy(action::execute).isInstanceOf(IllegalStateException.class);
+            assertThat(stagedPdfs()).contains("FAKE earlier attachment").doesNotContain("All current chart notes");
+        }
+
+        @Test
+        @DisplayName("should answer 413, keep the earlier attachments and record nothing for a chart too large to send")
+        void shouldReturn413AndKeepEarlierAttachments_whenTheChartPrintPassesItsCap() throws Exception {
+            // One byte more than a whole message can carry once Base64-encoded.
+            encounterPdf = new byte[chartNotesOnlyByteBudget() + 1];
+            givenEarlierAttachment();
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic", "currentEncounter"});
+
+            try (LogCapture logs = LogCapture.forLogger(MsgAttachPDF2Action.class)) {
+                assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+                assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
+                assertThat(response.getErrorMessage()).isEqualTo(MsgAttachPDF2Action.PDFS_TOO_LARGE);
+                assertThat(stagedPdfs()).contains("FAKE earlier attachment").doesNotContain("All current chart notes");
+                assertThat(recordedAttachments).as("nothing left the chart").isEmpty();
+                assertThat(logs.messages()).isNotEmpty()
+                        .noneMatch(message -> message.contains(String.valueOf(PATIENT)))
+                        .noneMatch(message -> message.contains("FAKE-Doe"));
+            }
+        }
+
+        @Test
+        @DisplayName("should cap the chart print at what the message has left after the other ticked items")
+        void shouldCapTheChartPrint_atWhatTheOtherItemsLeave() throws Exception {
+            base64Pdf = "A".repeat(1_000_000);
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"currentEncounter", "demographic", "prescriptions"});
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+            // The stored order is still the chooser's (demographic, current encounter, prescriptions), although the
+            // chart notes were printed last. Positions only: a failure must not print megabytes of records.
+            String stored = stagedPdfs();
+            long bytesWithoutChartPayload = MsgMessageData.pdfAttachmentStorageBytes(stored)
+                    - Base64.getEncoder().encodeToString(encounterPdf).length();
+            assertThat(printBudgets).containsExactly(
+                    (MessageTbl.PDF_ATTACHMENT_MAX_BYTES - bytesWithoutChartPayload) / 4 * 3);
+            int demographic = stored.indexOf("<TITLE>FAKE-Doe");
+            int chartNotes = stored.indexOf("<TITLE>All current chart notes and CPP</TITLE>");
+            int prescriptions = stored.toLowerCase(java.util.Locale.ROOT).indexOf("<title>current prescriptions</title>");
+            assertThat(demographic).isNotNegative();
+            assertThat(chartNotes).isGreaterThan(demographic);
+            assertThat(prescriptions).isGreaterThan(chartNotes);
+        }
+
+        @Test
+        @DisplayName("should refuse the chart print once the other ticked items fill the message")
+        void shouldReturn413_whenTheOtherItemsLeaveTooLittleForTheChartPrint() throws Exception {
+            base64Pdf = "A".repeat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES / 2);
+            givenEarlierAttachment();
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"currentEncounter", "demographic", "prescriptions"});
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(printBudgets).containsExactly(0L);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
+            assertThat(stagedPdfs()).contains("FAKE earlier attachment");
+            assertThat(recordedAttachments).isEmpty();
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.NullAndEmptySource
+        void shouldReserveRecordSpace_whenAnotherSelectedPdfFailsToRender(String failedPdf) throws Exception {
+            base64Pdf = failedPdf;
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic", "currentEncounter"});
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+            String stored = stagedPdfs();
+            assertThat(stored).contains("<STATUS>BAD</STATUS>", "<CONTENT></CONTENT>", "<STATUS>OK</STATUS>");
+            long bytesWithoutChartPayload = MsgMessageData.pdfAttachmentStorageBytes(stored)
+                    - Base64.getEncoder().encodeToString(encounterPdf).length();
+            assertThat(printBudgets).containsExactly(
+                    (MessageTbl.PDF_ATTACHMENT_MAX_BYTES - bytesWithoutChartPayload) / 4 * 3);
+        }
+
+        @Test
+        @DisplayName("should preview and attach the largest chart PDF that fits its message record")
+        void shouldPreviewAndAttach_theLargestChartPdfThatFits() throws Exception {
+            int largestPdf = chartNotesOnlyByteBudget();
+            encounterPdf = new byte[largestPdf];
+            MsgAttachPDF2Action preview = newAction();
+            preview.setIsPreview(true);
+            preview.setPreviewItem("currentEncounter");
+
+            assertThat(preview.execute()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(streamedPdfs).hasSize(1);
+            assertThat(streamedPdfs.getFirst()).hasSize(largestPdf);
+            assertThat(recordedPreviews).containsExactly(PATIENT);
+
+            MsgAttachPDF2Action attach = newAction();
+            attach.setItem(new String[]{"currentEncounter"});
+
+            assertThat(attach.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(printBudgets).containsExactly((long) largestPdf, (long) largestPdf);
+            assertThat(recordedAttachments).containsExactly(PATIENT);
+            assertThat(MsgMessageData.pdfAttachmentFits(stagedPdfs())).isTrue();
+        }
+
+        @Test
+        @DisplayName("should answer 413 to preview and attach for a chart PDF one byte over the limit")
+        void shouldReturn413_forAChartPdfOneByteOverTheLimit() throws Exception {
+            encounterPdf = new byte[chartNotesOnlyByteBudget() + 1];
+            MsgAttachPDF2Action action = newAction();
+            action.setIsPreview(true);
+            action.setPreviewItem("currentEncounter");
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
+            assertThat(streamedPdfs).isEmpty();
+            assertThat(recordedPreviews).isEmpty();
+
+            response = new MockHttpServletResponse();
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+            MsgAttachPDF2Action attach = newAction();
+            attach.setItem(new String[]{"currentEncounter"});
+            assertThat(attach.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
+            assertThat(recordedAttachments).isEmpty();
+            assertThat(stagedPdfs()).isNull();
+        }
+
+        private int chartNotesOnlyByteBudget() {
+            MsgSessionBean record = new MsgSessionBean();
+            record.setAppendPDFAttachment("A", "All current chart notes and CPP");
+            int framingBytes = MsgMessageData.pdfAttachmentStorageBytes(record.getPDFAttachment()) - 1;
+            return (MessageTbl.PDF_ATTACHMENT_MAX_BYTES - framingBytes) / 4 * 3;
+        }
+
+        @Test
+        @DisplayName("should record nothing when the attachment is refused as too large")
+        void shouldRecordNothing_whenTheAttachmentIsTooLarge() throws Exception {
+            encounterPdf = new byte[MessageTbl.PDF_ATTACHMENT_MAX_BYTES];
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"currentEncounter"});
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
+            assertThat(recordedAttachments).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should refuse, not fail, when the chart print refuses the user")
+        void shouldRefuse_whenTheChartPrintRefuses() {
+            encounterFailure = new SecurityException("FAKE chart context refused");
+            givenEarlierAttachment();
+            MsgAttachPDF2Action preview = newAction();
+            preview.setIsPreview(true);
+            preview.setPreviewItem("currentEncounter");
+            assertThatThrownBy(preview::execute).isInstanceOf(SecurityException.class);
+            assertThat(streamedPdfs).isEmpty();
+            assertThat(recordedPreviews).as("nothing was printed, so nothing is recorded").isEmpty();
+
+            MsgAttachPDF2Action attach = newAction();
+            attach.setItem(new String[]{"currentEncounter"});
+            assertThatThrownBy(attach::execute).isInstanceOf(SecurityException.class);
+            assertThat(stagedPdfs()).contains("FAKE earlier attachment");
+            assertThat(recordedAttachments).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should answer a preview with 409 for a chart the print cannot show in full")
+        void shouldRefusePreviewWith409_whenTheChartPrintCannotShowTheRecord() throws Exception {
+            encounterFailure = new CdsLegacyProjectionException();
+            MsgAttachPDF2Action action = newAction();
+            action.setIsPreview(true);
+            action.setPreviewItem("currentEncounter");
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
+            assertThat(streamedPdfs).isEmpty();
+            assertThat(recordedPreviews).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should treat a print that wrote nothing as a failed print")
+        void shouldTreatAnEmptyPrint_asAFailedPrint() throws Exception {
+            for (byte[] nothing : new byte[][]{null, new byte[0]}) {
+                encounterPdf = nothing;
+                response = new MockHttpServletResponse();
+                servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+                MsgAttachPDF2Action action = newAction();
+                action.setIsPreview(true);
+                action.setPreviewItem("currentEncounter");
+
+                assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+                assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
+            assertThat(streamedPdfs).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should stream a printed PDF as it is, with the PDF content type, by default")
+        void shouldStreamThePrintedBytes_forTheDefaultConverter() throws Exception {
+            MsgAttachPDF2Action.PdfConverter converter = new MsgAttachPDF2Action.PdfConverter() {
+                @Override
+                public void streamPdf(HttpServletRequest req, HttpServletResponse res, String html) {
+                    throw new AssertionError("not for a printed PDF");
+                }
+
+                @Override
+                public String toBase64Pdf(HttpServletRequest req, HttpServletResponse res, String html) {
+                    throw new AssertionError("not for a printed PDF");
+                }
+            };
+
+            converter.streamPdfBytes(response, encounterPdf);
+
+            assertThat(response.getContentType()).startsWith("application/pdf");
+            assertThat(response.getContentAsByteArray()).isEqualTo(encounterPdf);
+        }
+
+        @Test
+        @DisplayName("should offer the current encounter only with read on chart, record and notes")
+        void shouldRequireEveryChartPrintRead_forTheChooserRow() {
+            assertThat(MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,
+                    MsgPdfAttachmentResolver.Item.CURRENT_ENCOUNTER, PATIENT)).isTrue();
+
+            denyForPatient("_casemgmt.notes");
+            assertThat(MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,
+                    MsgPdfAttachmentResolver.Item.CURRENT_ENCOUNTER, PATIENT)).isFalse();
+            assertThat(MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,
+                    MsgPdfAttachmentResolver.Item.ENCOUNTER, PATIENT)).as("the historical item needs chart read only")
+                    .isTrue();
         }
     }
 

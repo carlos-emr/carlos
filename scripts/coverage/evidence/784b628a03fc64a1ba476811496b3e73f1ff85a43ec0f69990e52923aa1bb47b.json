@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "1834ae5d28198f2cdb88f288f996106ba15b90a7",
+  "comparisonSha256": "8da168531dd8d2c97ca6b709582af56f46adaa6bb89aaea7e7fdc809b46803f5",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/PMmodule/web/admin/ProgramManager2Action.java": {
+      "lines": 92.3076923076923,
+      "instructions": 81.15942028985508,
+      "branches": 70.0,
+      "sourceBlob": "a1759560ffe9704247be04a090ccbc6566db4438"
+    }
+  },
+  "baselineCommit": "02936d1211c6f58117d8fc0d3eaa01161dcf704f",
+  "baselineSourceTree": "1834ae5d28198f2cdb88f288f996106ba15b90a7",
+  "baselineReportSha256": "4e109d04c77dab295165a2ea236d388f6623c1ec4fecd38d72696009ba0b2e4a",
+  "baselineLane": "Program Manager write routing, rendered form controls, vacancy and Team wiring",
+  "baselineTestCounts": {
+    "tests": 52,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "3d9bfd7f7d2b92a26f447001698171cd73282e74f0ee6f9b42bf7d342da9e708",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.PMmodule.service.ProgramManagerWiringUnitTest",
+    "io.github.carlos_emr.carlos.PMmodule.service.VacancyTemplateManagerUnitTest",
+    "io.github.carlos_emr.carlos.PMmodule.web.admin.PmmoduleJspMigrationActionRoutingTest",
+    "io.github.carlos_emr.carlos.PMmodule.web.admin.ProgramFormControlsIntegrationTest"
+  ]
+}

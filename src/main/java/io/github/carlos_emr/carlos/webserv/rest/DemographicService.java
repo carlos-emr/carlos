@@ -671,7 +671,7 @@ public class DemographicService extends AbstractServiceImpl {
         LoggedInInfo loggedInInfo = requireDemographicPrivilege("u", data.getDemographicNo());
         Demographic demographic = demoConverter.getAsDomainObject(loggedInInfo, data);
         // Reject the whole request before custom fields or waiting-list entries can be changed.
-        validateFieldLengths(demographic);
+        validateFieldLengths(demographic, data);
         applyIdentifierWritePolicy(data, demographic);
         //update demographiccust
         if (data.getNurse() != null || data.getResident() != null || data.getAlert() != null || data.getMidwife() != null || data.getNotes() != null) {
@@ -723,7 +723,28 @@ public class DemographicService extends AbstractServiceImpl {
     }
 
     private static void validateFieldLengths(Demographic demographic) {
-        List<String> errors = demographic.validateFieldLengths();
+        refuseFieldLengthErrors(demographic.validateFieldLengths());
+    }
+
+    /**
+     * The update also writes the custom fields and, when a list is named, the waiting-list note;
+     * both are VARCHAR(255) and are checked with the patient row before anything is written (#5869).
+     */
+    private static void validateFieldLengths(Demographic demographic, DemographicTo1 data) {
+        List<String> errors = new ArrayList<>(demographic.validateFieldLengths());
+        DemographicCust posted = new DemographicCust();
+        posted.setNurse(data.getNurse());
+        posted.setResident(data.getResident());
+        posted.setAlert(data.getAlert());
+        posted.setMidwife(data.getMidwife());
+        errors.addAll(posted.validateFieldLengths());
+        if (data.getWaitingListID() != null) {
+            errors.addAll(WaitingList.validateNoteLength(data.getWaitingListNote()));
+        }
+        refuseFieldLengthErrors(errors);
+    }
+
+    private static void refuseFieldLengthErrors(List<String> errors) {
         if (!errors.isEmpty()) {
             // The validator names fields and limits; it never includes submitted patient values.
             throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)

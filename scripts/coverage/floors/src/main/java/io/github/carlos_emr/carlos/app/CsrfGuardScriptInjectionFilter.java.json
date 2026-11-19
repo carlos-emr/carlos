@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/app/CsrfGuardScriptInjectionFilter.java",
   "kind": "floor",
   "floor": {
+    "sourceBlob": "7cab012a9838c653d091b3bef9da8f8fc7571c99",
     "lines": 100.0,
     "instructions": 100.0,
-    "branches": 95.45454545454545,
-    "sourceBlob": "7fc476b35fd792210ce75ba4b9d49881abbc10a2"
+    "branches": 98.86363636363636
   },
-  "evidenceSha256": "0be2dd5bff1899209ef819c476c9d0da3be2a7c36f32ffa301500a06794be578"
+  "evidenceSha256": "f3f19ebc525d65bfe9eec090655f32c59dee815d4be7c6ca53766328af0b0a16"
 }

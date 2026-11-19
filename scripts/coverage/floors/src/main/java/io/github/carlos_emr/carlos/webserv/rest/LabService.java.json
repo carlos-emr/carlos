@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/webserv/rest/LabService.java",
+  "kind": "floor",
+  "floor": {
+    "sourceBlob": "c2c3800816573e05834d19382d74d4313d7fd71f",
+    "lines": 50.0,
+    "instructions": 37.5,
+    "branches": 100.0
+  },
+  "evidenceSha256": "e899ecfb32e3881c56bb3277fa710b661a1ba480b90fcecf672b3f5e3af8fead"
+}

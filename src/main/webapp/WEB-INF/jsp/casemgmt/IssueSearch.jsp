@@ -98,7 +98,7 @@
     <input type="hidden" name="method" value="issueSearch"/>
     <input type="hidden" name="lastPage" value="true"/>
     <input type="hidden" name="change_diagnosis" value="${carlos:forHtmlAttribute(change_diagnosis)}"/>
-    <input type="hidden" name="change_diagnosis_id" value="${carlos:forHtmlAttribute(change_diagnosis_id)}"/>
+    <input type="hidden" name="changeDiagnosisIssueId" value="${carlos:forHtmlAttribute(changeDiagnosisIssueId)}"/>
 
     <c:if test="${param.from=='casemgmt'||requestScope.from=='casemgmt'}">
         <input type="hidden" name="from" value="casemgmt"/>

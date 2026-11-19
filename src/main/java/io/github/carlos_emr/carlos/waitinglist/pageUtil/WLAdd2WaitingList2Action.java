@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.waitinglist.pageUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import java.util.List;
+
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.owasp.encoder.Encode;
@@ -87,6 +89,14 @@ public final class WLAdd2WaitingList2Action extends ActionSupport {
                 .isSelectable(providerPreference, Integer.parseInt(listId))) {
             response.sendError(HttpServletResponse.SC_CONFLICT,
                     "The selected waiting list is no longer available. Reload the patient record and choose a current list.");
+            return NONE;
+        }
+
+        // The Master Record save checks the note before it posts here; a direct POST is checked
+        // here, so a longer note is refused rather than cut at the column (#6141).
+        List<String> noteErrors = WLWaitingListUtil.noteLengthErrors(waitingListNote);
+        if (!noteErrors.isEmpty()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, String.join(" ", noteErrors));
             return NONE;
         }
 
