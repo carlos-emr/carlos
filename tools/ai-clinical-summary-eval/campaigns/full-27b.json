@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "campaign_id": "clinical-summary-full-27b-v1",
+  "model": "qwen3.5:27b",
+  "seeds": [42],
+  "repetitions": 3,
+  "timeout_seconds": 14400,
+  "cases": [
+    "../cases/medication-conflict.json",
+    "../cases/repetitive-discharge.json",
+    "../cases/single-source.json",
+    "../cases/adversarial-source.json"
+  ],
+  "candidates": [
+    {"id": "current-20x240", "max_claims": 20, "max_chars": 240, "num_ctx": 65536, "num_predict": 4096},
+    {"id": "concise-16x200", "max_claims": 16, "max_chars": 200, "num_ctx": 32768, "num_predict": 3072},
+    {"id": "compact-12x180", "max_claims": 12, "max_chars": 180, "num_ctx": 16384, "num_predict": 2048},
+    {"id": "focused-12x180", "max_claims": 12, "max_chars": 180, "num_ctx": 16384, "num_predict": 2048, "prompt_suffix": "Final check: delete claims that only describe missing chart content, such as no allergy listed, no results provided, or no plan documented. Keep explicit clinical negatives and no-change statements when the source states them. Do not populate a section unless a supported clinical fact belongs there."}
+  ]
+}

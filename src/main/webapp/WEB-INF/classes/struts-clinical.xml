@@ -38,6 +38,14 @@
             <exception-mapping exception="java.lang.Exception" result="error"/>
         </global-exception-mappings>
 
+        <action name="clinical/AiSummaryPrototype" class="io.github.carlos_emr.carlos.clinical.summary.web.AiClinicalSummaryPrototype2Action">
+            <result name="success">/WEB-INF/jsp/clinical/aiSummaryPrototype.jsp</result>
+        </action>
+        <action name="clinical/GenerateAiSummary" class="io.github.carlos_emr.carlos.clinical.summary.web.AiClinicalSummaryPrototype2Action" method="generate">
+            <result name="success">/WEB-INF/jsp/clinical/aiSummaryPrototype.jsp</result>
+            <allowed-methods>generate</allowed-methods>
+        </action>
+
         <!-- Pregnancy navigation is read-only; its allowlisted create/complete operations require POST. -->
         <action name="Pregnancy" class="io.github.carlos_emr.carlos.commn.web.Pregnancy2Action" method="execute">
             <result name="list">/WEB-INF/jsp/pregnancy/list.jsp</result>

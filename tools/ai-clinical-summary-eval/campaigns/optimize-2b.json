@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "campaign_id": "clinical-summary-prompt-optimization-2b-v1",
+  "model": "qwen3.5:2b",
+  "seeds": [42],
+  "repetitions": 1,
+  "timeout_seconds": 600,
+  "cases": [
+    "../cases/medication-conflict.json",
+    "../cases/single-source.json"
+  ],
+  "candidates": [
+    {
+      "id": "baseline-10x180-8k",
+      "max_claims": 10,
+      "max_chars": 180,
+      "num_ctx": 8192,
+      "num_predict": 1024
+    },
+    {
+      "id": "deletion-checklist-10x180-8k",
+      "max_claims": 10,
+      "max_chars": 180,
+      "num_ctx": 8192,
+      "num_predict": 1024,
+      "prompt_suffix": "Before returning JSON, apply this deletion check to every proposed claim: delete it if it only says information was not provided, unavailable, unknown, absent from the record, or not documented. Delete scheduling and other administrative facts. Do not create filler for an empty section. Keep an explicit clinical negative or no-change statement only when a source directly states it."
+    },
+    {
+      "id": "few-shot-conflict-10x180-8k",
+      "max_claims": 10,
+      "max_chars": 180,
+      "num_ctx": 8192,
+      "num_predict": 1024,
+      "prompt_suffix": "Claim-boundary example (illustrative only; never copy its facts): if source-a says 'cough for two days; denies fever', make separate claims for the cough and the explicit no-fever finding. If source-b lists losartan active and a later source-c says the patient stopped losartan, make one conflict claim such as 'Losartan is listed active, but the patient later reported stopping it' and cite both source-b and source-c. Do not split the two sides of a medication conflict into separate claims."
+    },
+    {
+      "id": "few-shot-plus-checklist-10x180-8k",
+      "max_claims": 10,
+      "max_chars": 180,
+      "num_ctx": 8192,
+      "num_predict": 1024,
+      "prompt_suffix": "Before returning JSON, apply this deletion check to every proposed claim: delete it if it only says information was not provided, unavailable, unknown, absent from the record, or not documented. Delete scheduling and other administrative facts. Do not create filler for an empty section. Keep an explicit clinical negative or no-change statement only when a source directly states it. Claim-boundary example (illustrative only; never copy its facts): if source-a says 'cough for two days; denies fever', make separate claims for the cough and the explicit no-fever finding. If source-b lists losartan active and a later source-c says the patient stopped losartan, make one conflict claim such as 'Losartan is listed active, but the patient later reported stopping it' and cite both source-b and source-c. Do not split the two sides of a medication conflict into separate claims."
+    }
+  ]
+}

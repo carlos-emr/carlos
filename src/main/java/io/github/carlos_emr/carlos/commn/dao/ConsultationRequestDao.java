@@ -44,6 +44,9 @@ import io.github.carlos_emr.carlos.consultation.dto.ConsultationMrpOptionDto;
 import io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemDTO;
 
 public interface ConsultationRequestDao extends AbstractDao<ConsultationRequest> {
+    /** Complete patient-scoped history, including completed records and records without a linked provider. */
+    List<ConsultationRequest> findByDemographicNo(Integer demographicNo);
+
 
     /**
      * Returns scalar rows with the same filters, visibility, order and paging as
