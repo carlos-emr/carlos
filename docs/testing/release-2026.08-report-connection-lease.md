@@ -8,8 +8,11 @@ executing report before its own deadline.
 The default is now 360 seconds: the maximum supported report query deadline plus
 one minute for cancellation and cleanup. Reclamation on borrow and maintenance,
 and abandoned-lease logging, remain enabled. Explicit site overrides still win.
-Choose an override above the longest legitimate query/transaction lifetime;
-existing explicitly configured 15-second values must be adjusted by the operator.
+Choose an override above the longest legitimate query or transaction lifetime.
+Earlier Debian packages copied the 15-second default to
+`/etc/carlos-emr/carlos.properties`. The upgrade warns when that file still
+sets 15 and leaves the file intact. Remove the setting or set it to 360, then
+run `sudo carlos-ctl restart` to adopt the new default.
 This trades slower recovery of genuinely leaked leases for allowing bounded
 legitimate work to finish. It does not extend the report query deadline.
 Historical O19 defaults and migration fixtures remain historical records.
