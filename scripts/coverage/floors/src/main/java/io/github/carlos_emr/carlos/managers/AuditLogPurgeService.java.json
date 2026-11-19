@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/managers/AuditLogPurgeService.java",
   "kind": "floor",
   "floor": {
-    "lines": 89.74358974358974,
-    "instructions": 83.16473988439306,
-    "branches": 61.63522012578616,
-    "sourceBlob": "33a708ea085014f4e6ba2f6234a47aeec14b8126"
+    "lines": 90.3225806451613,
+    "instructions": 85.0,
+    "branches": 65.70048309178743,
+    "sourceBlob": "d426f6bc59c025a67b9ba50eb68a907d4df50eaa"
   },
-  "evidenceSha256": "c245822b9d361d478202f4a7fc3d4f1dbdace8b054af71a643e30a461c4bcf51"
+  "evidenceSha256": "b2971056d236fab15f870ebe9e5c21fffd2f13c9902d6ed28353a256c8e2c95c"
 }
