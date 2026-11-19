@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.ScheduleDate;
  * then validate and insert the replacement as separate DAO calls, so a rejected or failed Save
  * left the date with no override at all (#5297).</p>
  *
+ * <p>Changes for one provider are serialized on the provider's row, which exists before the
+ * date's first override. Without that, two overlapping Saves for a date with no override both
+ * found nothing to retire and both inserted an active override. Every active override for the
+ * date is then retired, so a date that already holds two is left with exactly the
+ * replacement.</p>
+ *
  * @since 2026-11-19
  */
 @Service
@@ -50,21 +56,27 @@ public class ScheduleDateOverrideService {
     }
 
     /**
-     * Retires the provider's active override for the date and inserts the replacement, atomically.
+     * Retires the provider's active overrides for the date and inserts the replacement, atomically
+     * and one change per provider at a time.
      *
      * @param providerNo the provider whose schedule is changed
      * @param date the schedule date
      * @param replacement the new active override, or {@code null} to leave the date with none
+     * @return {@code false}, with nothing written, when no such provider exists
      */
     @Transactional
-    public void replaceOverride(String providerNo, Date date, ScheduleDate replacement) {
-        ScheduleDate current = scheduleDateDao.findByProviderNoAndDate(providerNo, date);
-        if (current != null) {
+    public boolean replaceOverride(String providerNo, Date date, ScheduleDate replacement) {
+        if (!scheduleDateDao.lockProviderForScheduleChange(providerNo)) {
+            return false;
+        }
+        // Read under the lock, so a change that committed while this one waited is seen and retired.
+        for (ScheduleDate current : scheduleDateDao.findActiveForUpdate(providerNo, date)) {
             current.setStatus('D');
             scheduleDateDao.merge(current);
         }
         if (replacement != null) {
             scheduleDateDao.persist(replacement);
         }
+        return true;
     }
 }

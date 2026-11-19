@@ -25,11 +25,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
+import java.time.DateTimeException;
+import java.time.LocalDate;
 import java.util.Hashtable;
 import java.util.ResourceBundle;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import io.github.carlos_emr.HScheduleDate;
-import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.RscheduleBean;
 import io.github.carlos_emr.carlos.commn.model.ScheduleDate;
 import io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideService;
@@ -60,6 +63,8 @@ public final class ScheduleDateSave2Action extends ActionSupport {
     static final String SCHEDULE_DATE_CACHE = "scheduleDateBean";
     /** Session attribute of the JSP {@code scheduleRscheduleBean} (provider rule schedule). */
     static final String RULE_SCHEDULE = "scheduleRscheduleBean";
+    /** The popup's hidden {@code date} field: {@code year-month-day}, month and day unpadded. */
+    private static final Pattern CALENDAR_DATE = Pattern.compile("(\\d{4})-(\\d{1,2})-(\\d{1,2})");
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private transient ScheduleDateOverrideService overrideService;
@@ -98,9 +103,12 @@ public final class ScheduleDateSave2Action extends ActionSupport {
         // Validate the whole command before anything is written.
         String providerNo = request.getParameter("provider_no");
         String dateParam = request.getParameter("date");
-        java.sql.Date date = MyDateFormat.getSysDate(dateParam);
-        if (providerNo == null || providerNo.isBlank() || date == null) {
+        if (providerNo == null || providerNo.isBlank() || dateParam == null || dateParam.isBlank()) {
             return badRequest(request, "error.refusal.scheduleDateIncomplete", "The schedule date or provider is missing.");
+        }
+        java.sql.Date date = calendarDate(dateParam);
+        if (date == null) {
+            return badRequest(request, "error.refusal.scheduleDateInvalid", "The schedule date is not a calendar date.");
         }
         ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
         String submit = request.getParameter("Submit");
@@ -135,7 +143,9 @@ public final class ScheduleDateSave2Action extends ActionSupport {
                     ruleSchedule.active.charAt(0));
         }
 
-        overrideService().replaceOverride(providerNo, date, replacement);
+        if (!overrideService().replaceOverride(providerNo, date, replacement)) {
+            return badRequest(request, "error.refusal.scheduleDateIncomplete", "The schedule's provider does not exist.");
+        }
 
         // The transaction has committed: only now update the session's calendar cache.
         @SuppressWarnings("unchecked")
@@ -145,6 +155,24 @@ public final class ScheduleDateSave2Action extends ActionSupport {
             dateCache.put(dateParam, cached);
         }
         return SUCCESS;
+    }
+
+    /**
+     * The popup's {@code year-month-day} as a date, or {@code null} unless it names a real calendar
+     * day. {@code MyDateFormat.getSysDate} is lenient and rolled an impossible day forward, so a Save
+     * for February 30 changed March 2.
+     */
+    static java.sql.Date calendarDate(String value) {
+        Matcher parts = CALENDAR_DATE.matcher(value.trim());
+        if (!parts.matches()) {
+            return null;
+        }
+        try {
+            return java.sql.Date.valueOf(LocalDate.of(Integer.parseInt(parts.group(1)),
+                    Integer.parseInt(parts.group(2)), Integer.parseInt(parts.group(3))));
+        } catch (DateTimeException impossible) {
+            return null;
+        }
     }
 
     private static ScheduleDate override(java.sql.Date date, String providerNo, char available, char priority,

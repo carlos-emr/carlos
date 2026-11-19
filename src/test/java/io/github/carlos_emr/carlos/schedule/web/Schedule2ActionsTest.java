@@ -250,15 +250,71 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
 
         /** An authorized POST of the popup form, with the override service mocked. */
         private ScheduleDateSave2Action postedSave(String submit) throws Exception {
+            return postedSave(submit, "2031-05-14");
+        }
+
+        /** An authorized POST of the popup form for the given date, with the override service mocked. */
+        private ScheduleDateSave2Action postedSave(String submit, String date) throws Exception {
             allowPrivilege("_appointment", "w");
             mockRequest.setMethod("POST");
             addRequestParameter("provider_no", "999998");
-            addRequestParameter("date", "2031-05-14");
+            addRequestParameter("date", date);
             addRequestParameter("Submit", submit);
             overrides = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideService.class);
+            when(overrides.replaceOverride(any(), any(), any())).thenReturn(true);
             ScheduleDateSave2Action action = inject(new ScheduleDateSave2Action());
             injectField(action, "overrideService", overrides);
             return action;
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {
+                "2031-02-30", "2031-2-29", "2031-13-01", "2031-00-10", "2031-05-00", "14/05/2031", "2031-05-14x"})
+        @DisplayName("should refuse a date that is not a calendar day before anything is written (#5297)")
+        void shouldRefuseImpossibleDate_beforeAnyWrite(String date) throws Exception {
+            ScheduleDateSave2Action action = postedSave("Save", date);
+            addRequestParameter("available", "1");
+            java.util.Hashtable<String, Object> cache = new java.util.Hashtable<>();
+            cache.put(date, "cached");
+            setSessionAttribute("scheduleDateBean", cache);
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(mockRequest.getAttribute(io.github.carlos_emr.carlos.utility.RefusalNotice.KEY_ATTRIBUTE))
+                    .isEqualTo("error.refusal.scheduleDateInvalid");
+            org.mockito.Mockito.verifyNoInteractions(overrides);
+            assertThat(cache).containsOnlyKeys(date).containsEntry(date, "cached");
+        }
+
+        @Test
+        @DisplayName("should read the popup's unpadded month and day (#5297)")
+        void shouldReplaceOverride_forTheUnpaddedPopupDate() throws Exception {
+            ScheduleDateSave2Action action = postedSave("Save", "2032-2-29");
+            addRequestParameter("available", "1");
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+            verify(overrides).replaceOverride(org.mockito.ArgumentMatchers.eq("999998"),
+                    org.mockito.ArgumentMatchers.eq(java.sql.Date.valueOf("2032-02-29")), any());
+        }
+
+        @Test
+        @DisplayName("should refuse, and keep the session cache, when the provider does not exist (#5297)")
+        void shouldRefuseAndKeepCache_whenTheProviderDoesNotExist() throws Exception {
+            ScheduleDateSave2Action action = postedSave("Save");
+            addRequestParameter("available", "1");
+            when(overrides.replaceOverride(any(), any(), any())).thenReturn(false);
+            java.util.Hashtable<String, Object> cache = new java.util.Hashtable<>();
+            cache.put("2031-05-14", "cached");
+            setSessionAttribute("scheduleDateBean", cache);
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(mockRequest.getAttribute(io.github.carlos_emr.carlos.utility.RefusalNotice.KEY_ATTRIBUTE))
+                    .isEqualTo("error.refusal.scheduleDateIncomplete");
+            assertThat(cache).containsEntry("2031-05-14", "cached");
         }
 
         @Test
