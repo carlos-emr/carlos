@@ -2145,11 +2145,14 @@ if (!DigitalSignatureUtils.isIssued(session, signatureRequestId)) {
     signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(session);
 }
 ConsultationSignatureService consultationSignatureService = SpringUtils.getBean(ConsultationSignatureService.class);
+// ConsultationSignatureService decides it (tested there): a lost capture must be announced, or a
+// further submit saves the consultation unsigned without the server's warning.
 boolean signatureCaptureLost = false;
 if (retryManualSignature) {
-    boolean captured = consultationSignatureService.wasManualSignatureCaptured(session, signatureRequestId);
-    signatureCaptureLost = !captured && !signatureImgValue.isEmpty() && !SignatureReference.isStoredId(signatureImgValue);
-    signatureImgValue = captured ? signatureRequestId : "";
+    ConsultationSignatureService.ManualSignatureRetry signatureRetryState =
+            consultationSignatureService.retryManualSignature(session, signatureRequestId, signatureImgValue);
+    signatureCaptureLost = signatureRetryState.captureLost();
+    signatureImgValue = signatureRetryState.signatureImg();
 }
 String imageUrl=request.getContextPath()+"/imageRenderingServlet?source="+ImageRenderingServlet.Source.signature_preview.name()+"&"+DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY+"="+SafeEncode.forUriComponent(signatureRequestId);
 String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+ImageRenderingServlet.Source.signature_stored.name()+"&digitalSignatureId=";

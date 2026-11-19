@@ -382,6 +382,56 @@ class ConsultationSignatureServiceUnitTest {
     }
 
     @Test
+    @DisplayName("keeps the pad id and announces nothing when a rejected form's capture is still there")
+    void shouldKeepThePadId_whenTheRejectedFormsCaptureIsStillThere() throws Exception {
+        String requestId = DigitalSignatureUtils.generateSignatureRequestId(session);
+        Path tempSignature = Path.of(DigitalSignatureUtils.getTempFilePath(requestId));
+        Files.write(tempSignature, new byte[] {1, 2, 3});
+
+        try {
+            assertThat(service.retryManualSignature(session, requestId, requestId))
+                    .isEqualTo(new ConsultationSignatureService.ManualSignatureRetry(requestId, false));
+        } finally {
+            Files.deleteIfExists(tempSignature);
+        }
+    }
+
+    @Test
+    @DisplayName("announces a lost capture and clears the field when a rejected form's drawing is gone")
+    void shouldAnnounceALostCapture_whenTheRejectedFormsDrawingIsGone() {
+        String requestId = DigitalSignatureUtils.generateSignatureRequestId(session);
+
+        assertThat(service.retryManualSignature(session, requestId, " " + requestId + " "))
+                .isEqualTo(new ConsultationSignatureService.ManualSignatureRetry("", true));
+    }
+
+    @Test
+    @DisplayName("announces nothing when the rejected form carried no capture or a stored signature id")
+    void shouldAnnounceNothing_whenTheRejectedFormCarriedNoCapture() {
+        String requestId = DigitalSignatureUtils.generateSignatureRequestId(session);
+        var unsigned = new ConsultationSignatureService.ManualSignatureRetry("", false);
+
+        assertThat(service.retryManualSignature(session, requestId, "")).isEqualTo(unsigned);
+        assertThat(service.retryManualSignature(session, requestId, null)).isEqualTo(unsigned);
+        assertThat(service.retryManualSignature(session, requestId, "42")).isEqualTo(unsigned);
+    }
+
+    @Test
+    @DisplayName("treats another session's capture as lost, not as this form's signature")
+    void shouldAnnounceALostCapture_whenTheCaptureBelongsToAnotherSession() throws Exception {
+        String otherSessionsId = DigitalSignatureUtils.generateSignatureRequestId(new MockHttpSession());
+        Path tempSignature = Path.of(DigitalSignatureUtils.getTempFilePath(otherSessionsId));
+        Files.write(tempSignature, new byte[] {1, 2, 3});
+
+        try {
+            assertThat(service.retryManualSignature(session, otherSessionsId, otherSessionsId))
+                    .isEqualTo(new ConsultationSignatureService.ManualSignatureRetry("", true));
+        } finally {
+            Files.deleteIfExists(tempSignature);
+        }
+    }
+
+    @Test
     @DisplayName("resolves only numeric provider numbers for consultation stamps")
     void shouldResolveOnlyNumericProviderNumbers_fromSubmittedValues() {
         assertThat(service.resolveSignatureProviderNo("../123", "abc", "999998")).isEqualTo("999998");
