@@ -472,13 +472,18 @@ keytool -genkeypair -alias carlos-pdf-signing -keyalg EC -groupname secp256r1 \
   -sigalg SHA256withECDSA -validity 1825 \
   -dname "CN=<Clinic name> document signing, O=<Clinic name>" \
   -storetype PKCS12 -keystore /etc/carlos-emr/pdf-signing.p12
-chown root:carlos /etc/carlos-emr/pdf-signing.p12 && chmod 640 /etc/carlos-emr/pdf-signing.p12
+chown carlos:carlos /etc/carlos-emr/pdf-signing.p12 && chmod 600 /etc/carlos-emr/pdf-signing.p12
 ```
 
-A packaged install runs CARLOS as the `carlos` account: these commands let it read
-the key while only root can change it. Where CARLOS runs in a plain Tomcat, give the
-file to that service's account instead (for example `chown tomcat:tomcat` and
-`chmod 600`).
+A packaged install runs CARLOS as the `carlos` account, so the key belongs to it, as
+the email archive keyring does. Do not make it group-readable: the `carlos-backup`
+account is a member of the `carlos` group. CARLOS itself cannot change the file, since
+its service sees `/etc` read-only. The nightly backup still carries the key, which a
+restore needs so that myCarlos keeps recognizing the clinic's key ID: like the
+keyring, the backup service reads it through its `CAP_DAC_READ_SEARCH` capability.
+So treat the backup repository, which also holds `carlos.properties` and the keystore
+password, as able to sign as the clinic. Where CARLOS runs in a plain Tomcat, give
+the file to that service's account instead (for example `chown tomcat:tomcat`).
 
 Then set the `pdf.signing.*` properties above, restart, and send a test message
 with no patient information in it. Note the certificate's expiry date. The key

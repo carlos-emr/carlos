@@ -9,12 +9,20 @@
  *
  *   1. Signing on, keystore missing: the send fails closed with "Failed to sign email PDF
  *      attachment". Nothing reaches the transport and nothing is audited as signed.
- *   2. A FAKE ECDSA P-256 keystore provisioned at that path (read on every send, so no restart): the
- *      eForm PDF the transport received carries one PAdES (ETSI.CAdES.detached) signature whose
- *      ByteRange covers the whole file and whose CMS verifies over exactly those bytes (openssl,
- *      chain trust not checked: the certificate is self-signed). The send has one
- *      EmailManager.signAttachment audit row naming the email log, the eForm record and the key ID
- *      computed from the keystore's certificate.
+ *   2. A FAKE ECDSA P-256 keystore provisioned at that path (read on every send, so no restart), and
+ *      the compose window's default, encrypted send: the message travels as a password-protected
+ *      message.pdf beside the password-protected eForm, so encryption runs first and signing opens
+ *      each PDF with the send password. Every PDF the transport received is still encrypted and
+ *      carries one PAdES (ETSI.CAdES.detached) signature whose ByteRange covers the whole file and
+ *      whose CMS verifies over exactly those bytes (openssl; chain trust is not checked, the
+ *      certificate is self-signed). Each has one EmailManager.signAttachment audit row naming the
+ *      email log, its record and the key ID computed from the keystore's certificate.
+ *   3. The same with encryption turned off in the compose window (confirming its warning): the one
+ *      eForm PDF is signed in the clear and audited as not encrypted.
+ *
+ * The audit rows' document ID and version are empty unless the install sets
+ * pdf.signing.document_id.secret (the profile does not); with it set, a chart record's row must name
+ * a 43-character document ID at version 1, and the message PDF's row never names one.
  *
  * Fixtures: the workflow's FAKE patient, an owned eForm template, an owned sender account pointing at
  * the sink, the FAKE keystore and, when none is saved, a FAKE clinic email footer. Cleanup removes the
@@ -82,9 +90,12 @@ function provisionKeystore(settings, marker, scratch) {
   const pem = execFileSync(keytool(), ['-exportcert', '-rfc', '-alias', settings['pdf.signing.key.alias'],
     '-storetype', 'PKCS12', '-keystore', staged, '-storepass:env', 'CARLOS_FAKE_STOREPASS'],
   { env: { ...process.env, CARLOS_FAKE_STOREPASS: password }, encoding: 'utf8', timeout: 60000 });
-  fs.copyFileSync(staged, keystore, fs.constants.COPYFILE_EXCL);
-  execFileSync('chown', ['root:carlos', keystore], { timeout: 10000 });
-  fs.chmodSync(keystore, 0o640);
+  // Created owner-only and exclusive, then given to the application account as the operations guide
+  // tells an operator to (carlos:carlos 0600, like the email archive keyring): readable by CARLOS,
+  // not by the carlos group's backup member outside its own service.
+  fs.writeFileSync(keystore, fs.readFileSync(staged), { mode: 0o600, flag: 'wx' });
+  execFileSync('chown', ['carlos:carlos', keystore], { timeout: 10000 });
+  fs.chmodSync(keystore, 0o600);
   // The key ID myCarlos pins and the audit row records: b64url(SHA-256(SubjectPublicKeyInfo DER)).
   const spki = new crypto.X509Certificate(pem).publicKey.export({ type: 'spki', format: 'der' });
   return crypto.createHash('sha256').update(spki).digest('base64url');
@@ -118,9 +129,13 @@ function derLength(der) {
 }
 
 /** Verifies the one signature in a PDF over exactly the bytes its ByteRange names. */
-function verifySignedPdf(pdf, scratch, label) {
+function verifySignedPdf(pdf, scratch, label, { encrypted } = {}) {
   const text = pdf.toString('latin1');
   h.assert(text.startsWith('%PDF-'), `The ${label} attachment is not a PDF`);
+  if (encrypted !== undefined) {
+    h.assert(/\/Encrypt\s/.test(text) === encrypted,
+      `The ${label} PDF is ${encrypted ? 'not ' : ''}password-protected; signing must not change that`);
+  }
   const ranges = [...text.matchAll(/\/ByteRange\s*\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]/g)];
   h.assert(ranges.length === 1, `The ${label} PDF carries ${ranges.length} signatures; expected exactly one`);
   h.assert(/\/SubFilter\s*\/ETSI\.CAdES\.detached/.test(text), `The ${label} PDF signature is not PAdES (ETSI.CAdES.detached)`);
@@ -212,7 +227,7 @@ async function workflow(s) {
     AND demographic_no=${patient} ORDER BY id`);
 
   // E-Chart ▸ eForms "+" ▸ owned eForm ▸ Email, answering the opt-in prompt as a clinician does.
-  async function compose(label) {
+  async function compose(label, { encrypted }) {
     const chart = await s.chart();
     const list = await s.popup(chart, chart.locator('#menuTitleeforms a').first(), `${label}-eform-list`);
     await list.locator('#efmTable').waitFor();
@@ -232,6 +247,22 @@ async function workflow(s) {
     await form.locator('#consentOverride').check();
     await form.locator('#consentOverrideReason').fill(`${marker} synthetic consent confirmation`);
     await form.locator('#doNotAddAsNoteOption').check();
+    // An eForm email is encrypted unless the eForm opts out; this template does not.
+    h.assert(await form.locator('#encryptionSwitch').isChecked()
+      && await form.locator('#encryptAttachmentSwitch').isChecked()
+      && await form.locator('#isEmailEncrypted').inputValue() === 'true',
+    `The ${label} composer did not open with message and attachment encryption on`);
+    if (!encrypted) {
+      // Turning encryption off asks the provider to confirm the risk first.
+      await form.locator('#encryptionSwitch').click();
+      const modal = form.locator('#disableEncryptionModal');
+      await modal.waitFor({ state: 'visible', timeout: TIMEOUT });
+      await form.locator('#confirmDisableEncryptionBtn').click();
+      await modal.waitFor({ state: 'hidden', timeout: TIMEOUT });
+      h.assert(await form.locator('#isEmailEncrypted').inputValue() === 'false'
+        && await form.locator('#isEmailAttachmentEncrypted').inputValue() === 'false',
+      `The ${label} composer still sends encrypted after encryption was turned off`);
+    }
     return form;
   }
 
@@ -241,10 +272,11 @@ async function workflow(s) {
   }
 
   await s.step('with signing on and no keystore, the send fails closed and nothing reaches the transport', async () => {
-    const composer = await compose('unsigned');
+    const composer = await compose('unsigned', { encrypted: true });
     h.assert(await send(composer) === 'false', 'A send that could not be signed was reported as sent');
-    const alert = (await composer.locator('.alert-danger').innerText()).replace(/\s+/g, ' ');
-    h.assert(alert.includes(SIGNING_FAILURE), `The refused send does not say signing failed: ${alert}`);
+    const refusal = composer.locator('.alert-danger[role="alert"]', { hasText: SIGNING_FAILURE });
+    const shown = (await composer.locator('.alert-danger:visible').allTextContents()).join(' ').replace(/\s+/g, ' ');
+    h.assert(await refusal.count() === 1, `The refused send does not say signing failed: ${shown}`);
     h.assert(sink.messages.length === 0, `An unsigned attachment reached the transport (${sink.messages.length} messages)`);
     h.assert(sql.value(`SELECT status FROM emailLog WHERE demographicNo=${patient} ORDER BY id DESC LIMIT 1`) === 'FAILED',
       'The refused send did not record a definite FAILED status');
@@ -252,35 +284,73 @@ async function workflow(s) {
     await composer.close();
   });
 
-  let keyId;
-  await s.step('with the keystore provisioned, the transport receives a verifiable PAdES-signed eForm and the send is audited', async () => {
-    keystoreOwned = true;
-    keyId = provisionKeystore(settings, marker, scratch);
-    const composer = await compose('signed');
-    const errors = () => composer.locator('.alert-danger:visible').allTextContents();
-    h.assert(await send(composer) === 'true', `The signed send was refused: ${(await errors()).join(' ')}`);
-    await composer.locator('#successMessage').waitFor({ timeout: TIMEOUT });
-    h.assert(sink.messages.length === 1, `The transport received ${sink.messages.length} messages; expected exactly one`);
-    const pdfs = pdfAttachments(sink.messages[0]);
-    h.assert(pdfs.length === 1, `The delivered email carries ${pdfs.length} PDF attachments; expected the eForm`);
-    verifySignedPdf(pdfs[0], scratch, 'eform');
+  // The rows a send audits, as sorted "source:recordId:encrypted=..." keys. The document ID and version are checked
+  // here: empty without pdf.signing.document_id.secret, or a 43-character ID at version 1 for a chart
+  // record with it. The message PDF is not a chart record and never carries one.
+  async function auditedSend(log, keyId, expectedRows) {
+    const rowsFor = () => auditRows().filter(([contentId]) => contentId === log);
+    // LogAction writes audit rows in the background: wait for the expected count, then once more
+    // so a late extra row is still seen.
+    const deadline = Date.now() + TIMEOUT;
+    while (rowsFor().length < expectedRows && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const rows = rowsFor();
+    return rows.map(([, data]) => {
+      const fields = new URLSearchParams(data);
+      h.assert([...fields.keys()].join(',') === 'emailLogId,source,recordId,kid,documentId,version,encrypted',
+        `A signing audit row has unexpected fields: ${data}`);
+      h.assert(fields.get('emailLogId') === log && fields.get('kid') === keyId,
+        `A signing audit row does not name this send and key: ${data}`);
+      const documentId = fields.get('documentId');
+      const version = fields.get('version');
+      const chartRecord = fields.get('recordId') !== '-1';
+      h.assert((documentId === '' && version === '')
+        || (chartRecord && /^[A-Za-z0-9_-]{43}$/.test(documentId) && version === '1'),
+      `A signing audit row has an unexpected document ID or version: ${data}`);
+      return `${fields.get('source')}:${fields.get('recordId')}:encrypted=${fields.get('encrypted')}`;
+    }).sort();
+  }
 
+  async function signedSend(label, { encrypted, before }) {
+    const composer = await compose(label, { encrypted });
+    const errors = () => composer.locator('.alert-danger:visible').allTextContents();
+    h.assert(await send(composer) === 'true', `The ${label} send was refused: ${(await errors()).join(' ')}`);
+    await composer.locator('#successMessage').waitFor({ timeout: TIMEOUT });
+    h.assert(sink.messages.length === before + 1,
+      `The transport received ${sink.messages.length - before} messages for the ${label} send; expected one`);
     const log = sql.value(`SELECT id FROM emailLog WHERE demographicNo=${patient} AND status='SUCCESS' ORDER BY id DESC LIMIT 1`);
-    h.assert(/^[1-9]\d*$/.test(log), 'The signed send has no SUCCESS email log');
+    h.assert(/^[1-9]\d*$/.test(log), `The ${label} send has no SUCCESS email log`);
     const record = sql.value(`SELECT a.documentId FROM emailAttachment a JOIN eform_data d ON d.fdid=a.documentId
       WHERE a.logId=${log} AND a.documentType='EFORM' AND d.demographic_no=${patient}`);
-    h.assert(/^[1-9]\d*$/.test(record), 'The signed send did not log its own patient\'s eForm');
-    // LogAction writes audit rows in the background.
-    const deadline = Date.now() + TIMEOUT;
-    let rows = auditRows();
-    while (rows.length === 0 && Date.now() < deadline) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      rows = auditRows();
-    }
-    h.assert(rows.length === 1, `The signed send has ${rows.length} ${AUDIT_ACTION} audit rows; expected one`);
-    const [contentId, data] = rows[0];
-    const expected = `emailLogId=${log}&source=eForm&recordId=${record}&kid=${keyId}&documentId=&version=&encrypted=false`;
-    h.assert(contentId === log && data === expected, `The signing audit row does not match the send: ${data}`);
+    h.assert(/^[1-9]\d*$/.test(record), `The ${label} send did not log its own patient's eForm`);
+    const pdfs = pdfAttachments(sink.messages[before]);
+    pdfs.forEach((pdf, index) => verifySignedPdf(pdf, scratch, `${label}-${index}`, { encrypted }));
+    // The next eForm reuses a fixed popup name; wait until this successful composer releases it.
+    if (!composer.isClosed()) await composer.waitForEvent('close', { timeout: TIMEOUT });
+    return { log, record, pdfs };
+  }
+
+  let keyId;
+  await s.step('with the keystore provisioned, an encrypted send delivers password-protected PAdES-signed PDFs and audits each', async () => {
+    keystoreOwned = true;
+    keyId = provisionKeystore(settings, marker, scratch);
+    const { log, record, pdfs } = await signedSend('encrypted', { encrypted: true, before: 0 });
+    // The message text travels as its own protected PDF beside the eForm.
+    h.assert(pdfs.length === 2, `The encrypted send carries ${pdfs.length} PDF attachments; expected message.pdf and the eForm`);
+    const expected = [`doc:-1:encrypted=true`, `eForm:${record}:encrypted=true`].sort();
+    const audited = await auditedSend(log, keyId, expected.length);
+    h.assert(JSON.stringify(audited) === JSON.stringify(expected),
+      `The encrypted send's signing audit rows were ${JSON.stringify(audited)}; expected ${JSON.stringify(expected)}`);
+  });
+
+  await s.step('with encryption turned off, the eForm is delivered PAdES-signed in the clear and audited as not encrypted', async () => {
+    const { log, record, pdfs } = await signedSend('clear', { encrypted: false, before: 1 });
+    h.assert(pdfs.length === 1, `The unencrypted send carries ${pdfs.length} PDF attachments; expected the eForm`);
+    const audited = await auditedSend(log, keyId, 1);
+    h.assert(JSON.stringify(audited) === JSON.stringify([`eForm:${record}:encrypted=false`]),
+      `The unencrypted send's signing audit rows were ${JSON.stringify(audited)}`);
   });
 }
 
