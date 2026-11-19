@@ -205,7 +205,7 @@
         "scripts/admin-jobs-save-browser-checks.js"
       ],
       "source": "scripts/admin-jobs-save-browser-checks.js",
-      "sourceSha256": "178940f36951183d96318713b579c57a0c9134b221a666637d8b96b287ddaa6d",
+      "sourceSha256": "990f9ad6b3e2972263f157d1dadfdc73afd366d5a23f01a6df096cc83245783d",
       "minimumAssertions": 98,
       "requiredCases": [
         "shouldKeepJobDialogOpen_whileItsSaveIsPending",
@@ -220,7 +220,8 @@
         "shouldKeepTheEditorOpen_forNullAcknowledgement",
         "shouldBlockBlindCreationRetry_whenTheInsertCannotBeConfirmed",
         "shouldIgnoreAnOldEditorLoad_afterOpeningANewDraft",
-        "shouldReportAStoredSchedule_whenActivationFails",
+        "shouldKeepTheDialogOpen_whenSavedChangesCannotBeScheduled (scheduleDialog)",
+        "shouldKeepTheDialogOpen_whenSavedChangesCannotBeScheduled (new-job)",
         "shouldReleaseTheDialog_andKeepTheDraft_whenAnAcceptedPostTimesOut"
       ]
     }
