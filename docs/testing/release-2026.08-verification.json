@@ -5152,7 +5152,7 @@
         "RxPrescribeMariaDbIntegrationTest": 4,
         "TicklerPatientAccessMariaDbIntegrationTest": 12,
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
-        "AppointmentUpdateDaoIntegrationTest": 17,
+        "AppointmentUpdateDaoIntegrationTest": 18,
         "ReportingPatientListAuditMariaDbIntegrationTest": 4,
         "ReportConnectionLeaseIntegrationTest": 3,
         "RxSaveReceiptCommitIntegrationTest": 19,
