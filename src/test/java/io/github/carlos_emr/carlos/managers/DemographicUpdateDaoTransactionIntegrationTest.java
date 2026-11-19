@@ -345,13 +345,16 @@ class DemographicUpdateDaoTransactionIntegrationTest {
     @DisplayName("should refuse custom fields changed on the stored row itself, whose previous values are gone")
     void shouldRefuseTheStoredRow_whenCustomFieldsWereChangedInPlace() {
         long customFieldAuditsBefore = audits(CUSTOM_FIELD_AUDIT);
+        TransactionTemplate callerTransaction = new TransactionTemplate(transactions);
 
-        assertThatThrownBy(() -> new TransactionTemplate(transactions).executeWithoutResult(status -> {
+        // The message pins the refusal to the manager's own check, not to any IllegalArgumentException.
+        assertThatThrownBy(() -> callerTransaction.executeWithoutResult(status -> {
             // Inside a transaction this is the managed row, the same object the manager finds.
             DemographicCust stored = manager.getDemographicCust(actor, patientId);
             stored.setAlert("Changed alert");
             manager.createUpdateDemographicCust(actor, stored);
-        })).isInstanceOf(IllegalArgumentException.class);
+        })).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Custom fields must be saved from a copy, not from the stored row.");
 
         assertNoCompanionWriteRemains(customFieldAuditsBefore);
     }
