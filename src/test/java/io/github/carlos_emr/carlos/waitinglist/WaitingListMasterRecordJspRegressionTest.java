@@ -106,9 +106,9 @@ class WaitingListMasterRecordJspRegressionTest {
     void shouldEncodeWaitingListValues_inTheEditForm() throws IOException {
         String jsp = read(EDIT_FORM_CLINICAL_JSP);
 
-        assertThat(jsp).contains("<carlos:encode value='<%= wln.getName() %>'/>")
-                .contains("value=\"<carlos:encode value='<%= wlnote %>' context=\"htmlAttribute\"/>\"")
-                .contains("value=\"<carlos:encode value='<%= wlReferralDate %>' context=\"htmlAttribute\"/>\"")
+        assertThat(jsp).contains("<%=SafeEncode.forHtmlContent(wln.getName())%>")
+                .contains("value=\"<%=SafeEncode.forHtmlAttribute(wlnote)%>\"")
+                .contains("value=\"<%=SafeEncode.forHtmlAttribute(wlReferralDate)%>\"")
                 .doesNotContain("<%=wln.getName()%>")
                 .doesNotContain("value=\"<%=wlnote%>\"");
     }
