@@ -632,6 +632,178 @@ case "$1" in
         fi
 
         # --- configuration files --------------------------------------------
+        migrate_lab_filter() {
+            python3 - "$1" "$2" "$3" "$4" <<'PY'
+import errno
+import fcntl
+import json
+import os
+import re
+import stat
+import sys
+
+path, old, new, marker = map(os.fsencode, sys.argv[1:])
+recovery = path + b".lab-filter-recovery"
+staged = recovery + b".tmp"
+directory = os.path.dirname(path) or b"."
+# Properties accepts an indented key and '=', ':' or whitespace as separators.
+definition = re.compile(rb"^HL7_LAB_MEASUREMENT_FILTER(?:[ \t\f=:]|$)")
+
+def filter_definitions(content):
+    start = None
+    parts = []
+    for physical in re.finditer(rb"[^\r\n]*(?:\r\n|\r|\n|$)", content):
+        if not physical[0]:
+            break
+        line = physical[0].rstrip(b"\r\n").lstrip(b" \t\f")
+        if start is None:
+            if not line or line.startswith((b"#", b"!")):
+                continue
+            start = physical.start()
+        if (len(line) - len(line.rstrip(b"\\"))) % 2:
+            parts.append(line[:-1])
+            continue
+        logical = b"".join([*parts, line])
+        if definition.match(logical):
+            yield start, physical.end(), logical
+        start = None
+        parts.clear()
+    if start is not None:
+        logical = b"".join(parts)
+        if definition.match(logical):
+            yield start, len(content), logical
+
+def open_configuration():
+    try:
+        return os.open(path, os.O_RDWR | os.O_NONBLOCK), "r+b"
+    except OSError as error:
+        if error.errno not in (errno.EACCES, errno.EPERM, errno.EROFS):
+            raise
+        return os.open(path, os.O_RDONLY | os.O_NONBLOCK), "rb"
+
+def write_configuration(configuration, content):
+    configuration.seek(0)
+    configuration.write(content)
+    configuration.flush()
+    configuration.truncate(len(content))
+    os.fsync(configuration.fileno())
+
+def sync_directory():
+    fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+def save_recovery(opened, original, updated):
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+    fd = os.open(staged, flags, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="ascii") as backup:
+            json.dump([opened.st_dev, opened.st_ino, original.hex(), updated.hex()], backup)
+            backup.flush()
+            os.fsync(backup.fileno())
+        os.replace(staged, recovery)
+        sync_directory()
+    finally:
+        if os.path.exists(staged):
+            os.unlink(staged)
+
+def clear_recovery():
+    os.unlink(recovery)
+    sync_directory()
+
+def recover_configuration(configuration, opened, writable, content):
+    try:
+        fd = os.open(recovery, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except FileNotFoundError:
+        return content
+    with os.fdopen(fd, "r", encoding="ascii") as backup:
+        info = os.fstat(fd)
+        if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
+                or info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) & 0o077):
+            raise OSError("the lab filter recovery file is not a private regular file")
+        try:
+            device, inode, before, after = json.load(backup)
+            original, updated = bytes.fromhex(before), bytes.fromhex(after)
+        except (TypeError, ValueError):
+            raise OSError("the lab filter recovery file is invalid") from None
+    if (device, inode) != (opened.st_dev, opened.st_ino) or not writable:
+        raise OSError("the lab filter recovery file describes another or read-only configuration")
+    # An interrupted rewrite or rollback can leave bytes from either version.
+    # Refuse to overwrite a separate change made while the process was down.
+    if (not min(len(original), len(updated)) <= len(content) <= max(len(original), len(updated))
+            or any((index >= len(original) or original[index] != byte)
+                   and (index >= len(updated) or updated[index] != byte)
+                   for index, byte in enumerate(content))):
+        raise OSError("the configuration was edited after an interrupted lab filter migration")
+    if content != original:
+        write_configuration(configuration, original)
+    clear_recovery()
+    return original
+
+def migrate():
+    try:
+        fd, mode = open_configuration()
+    except FileNotFoundError:
+        if any(os.path.lexists(name) for name in (path, recovery, staged)):
+            raise
+        return "unchanged"
+    with os.fdopen(fd, mode) as configuration:
+        opened = os.fstat(fd)
+        if not stat.S_ISREG(opened.st_mode):
+            raise OSError("the configuration target is not a regular file")
+        writable = mode == "r+b"
+        fcntl.lockf(configuration, fcntl.LOCK_EX if writable else fcntl.LOCK_SH)
+        if not os.path.samestat(opened, os.stat(path)):
+            raise OSError("the configuration target changed while waiting for its lock")
+        if os.path.lexists(staged):
+            os.unlink(staged)
+        original = recover_configuration(configuration, opened, writable, configuration.read())
+        if not marker:
+            return "unchanged"
+        definitions = list(filter_definitions(original))
+        if old != new and len(definitions) == 1:
+            start, end, _ = definitions[0]
+            if original[start:end] in (old, old + b"\n"):
+                if not writable:
+                    raise OSError("the configuration target is read-only")
+                updated = original[:start] + new + b"\n" + original[end:]
+                save_recovery(opened, original, updated)
+                try:
+                    write_configuration(configuration, updated)
+                    if not os.path.samestat(opened, os.stat(path)):
+                        raise OSError("the configuration target changed during the update")
+                except (OSError, KeyboardInterrupt):
+                    write_configuration(configuration, original)
+                    clear_recovery()
+                    raise
+                clear_recovery()
+                return "updated"
+        return "custom" if definitions and marker in definitions[-1][2] else "unchanged"
+
+try:
+    print(migrate())
+except OSError as error:
+    print(str(error), file=sys.stderr)
+    sys.exit(1)
+PY
+        }
+
+        # Recover a stopped lab-filter write before this configure reads or
+        # rewrites the properties through another migration. Take the usual
+        # provisioning lock and let the helper lock the configuration inode.
+        if [ -e "${PROPERTIES}.lab-filter-recovery" ] || [ -L "${PROPERTIES}.lab-filter-recovery" ] \
+            || [ -e "${PROPERTIES}.lab-filter-recovery.tmp" ] || [ -L "${PROPERTIES}.lab-filter-recovery.tmp" ]; then
+            if ! (
+                acquire_provision_lock || exit 1
+                migrate_lab_filter "${PROPERTIES}" "" "" "" >/dev/null
+            ); then
+                echo "carlos-emr: ERROR: could not recover the pending lab-filter update in ${PROPERTIES}" >&2
+                exit 1
+            fi
+        fi
+
         # Recorded BEFORE install_once lays down the skeleton: the province
         # guard below must distinguish "fresh install" from "operator already
         # chose", and once the skel (whose default is CARLOS_PROVINCE=on)
@@ -1102,156 +1274,6 @@ OAUTH_ACCESS_DEFAULTS
         # scripts/deb-upgrade-verify.sh holds the old line's digest
         # (LAB_FILTER_OLD_SHA); scripts/deb-upgrade-snapshot.test.js and
         # debian/assets/tests/test_lab_filter_migration.py hold them together.
-        migrate_lab_filter() {
-            python3 - "$1" "$2" "$3" "$4" <<'PY'
-import errno
-import fcntl
-import json
-import os
-import re
-import stat
-import sys
-import tempfile
-
-path, old, new, marker = map(os.fsencode, sys.argv[1:])
-recovery = path + b".lab-filter-recovery"
-directory = os.path.dirname(path) or b"."
-# Properties accepts an indented key and '=', ':' or whitespace as separators.
-definition = re.compile(rb"^\s*HL7_LAB_MEASUREMENT_FILTER(?:[\s=:]|$)")
-
-def logical_definitions(content):
-    definitions = []
-    logical = b""
-    continued = False
-    for physical in content.splitlines():
-        line = physical.lstrip(b" \t\f")
-        if not continued and (not line or line.startswith((b"#", b"!"))):
-            continue
-        continued = (len(line) - len(line.rstrip(b"\\"))) % 2 != 0
-        logical += line[:-1] if continued else line
-        if not continued:
-            if definition.match(logical):
-                definitions.append(logical)
-            logical = b""
-    if logical and definition.match(logical):
-        definitions.append(logical)
-    return definitions
-
-def open_configuration():
-    try:
-        return os.open(path, os.O_RDWR | os.O_NONBLOCK), "r+b"
-    except OSError as error:
-        if error.errno not in (errno.EACCES, errno.EPERM, errno.EROFS):
-            raise
-        return os.open(path, os.O_RDONLY | os.O_NONBLOCK), "rb"
-
-def write_configuration(configuration, content):
-    configuration.seek(0)
-    configuration.write(content)
-    configuration.flush()
-    configuration.truncate(len(content))
-    os.fsync(configuration.fileno())
-
-def sync_directory():
-    fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
-    try:
-        os.fsync(fd)
-    finally:
-        os.close(fd)
-
-def save_recovery(opened, original, updated):
-    fd, staged = tempfile.mkstemp(prefix=b".lab-filter-recovery-", dir=directory)
-    try:
-        with os.fdopen(fd, "w", encoding="ascii") as backup:
-            json.dump([opened.st_dev, opened.st_ino, original.hex(), updated.hex()], backup)
-            backup.flush()
-            os.fsync(backup.fileno())
-        os.replace(staged, recovery)
-        sync_directory()
-    finally:
-        if os.path.exists(staged):
-            os.unlink(staged)
-
-def clear_recovery():
-    os.unlink(recovery)
-    sync_directory()
-
-def recover_configuration(configuration, opened, writable, content):
-    try:
-        fd = os.open(recovery, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-    except FileNotFoundError:
-        return content
-    with os.fdopen(fd, "r", encoding="ascii") as backup:
-        info = os.fstat(fd)
-        if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
-                or info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) & 0o077):
-            raise OSError("the lab filter recovery file is not a private regular file")
-        try:
-            device, inode, before, after = json.load(backup)
-            original, updated = bytes.fromhex(before), bytes.fromhex(after)
-        except (TypeError, ValueError):
-            raise OSError("the lab filter recovery file is invalid") from None
-    if (device, inode) != (opened.st_dev, opened.st_ino) or not writable:
-        raise OSError("the lab filter recovery file describes another or read-only configuration")
-    # An interrupted rewrite or rollback can leave bytes from either version.
-    # Refuse to overwrite a separate change made while the process was down.
-    if (not min(len(original), len(updated)) <= len(content) <= max(len(original), len(updated))
-            or any((index >= len(original) or original[index] != byte)
-                   and (index >= len(updated) or updated[index] != byte)
-                   for index, byte in enumerate(content))):
-        raise OSError("the configuration was edited after an interrupted lab filter migration")
-    if content != original:
-        write_configuration(configuration, original)
-    clear_recovery()
-    return original
-
-def migrate():
-    try:
-        fd, mode = open_configuration()
-    except FileNotFoundError:
-        if os.path.lexists(path) or os.path.lexists(recovery):
-            raise
-        return "unchanged"
-    with os.fdopen(fd, mode) as configuration:
-        opened = os.fstat(fd)
-        if not stat.S_ISREG(opened.st_mode):
-            raise OSError("the configuration target is not a regular file")
-        writable = mode == "r+b"
-        fcntl.lockf(configuration, fcntl.LOCK_EX if writable else fcntl.LOCK_SH)
-        if not os.path.samestat(opened, os.stat(path)):
-            raise OSError("the configuration target changed while waiting for its lock")
-        original = recover_configuration(configuration, opened, writable, configuration.read())
-        lines = original.split(b"\n")
-        definitions = [index for index, line in enumerate(lines) if definition.match(line)]
-        logical = logical_definitions(original)
-        if old != new and logical == [old] and len(definitions) == 1 and lines[definitions[0]] == old:
-            if not writable:
-                raise OSError("the configuration target is read-only")
-            lines[definitions[0]] = new
-            updated = b"\n".join(lines)
-            if not updated.endswith(b"\n"):
-                updated += b"\n"
-            save_recovery(opened, original, updated)
-            try:
-                write_configuration(configuration, updated)
-                if not os.path.samestat(opened, os.stat(path)):
-                    raise OSError("the configuration target changed during the update")
-            except (OSError, KeyboardInterrupt):
-                write_configuration(configuration, original)
-                clear_recovery()
-                raise
-            clear_recovery()
-            return "updated"
-        return "custom" if logical and marker in logical[-1] else "unchanged"
-
-try:
-    print(migrate())
-except OSError as error:
-    print(str(error), file=sys.stderr)
-    sys.exit(1)
-PY
-        }
-
         LAB_FILTER_SENTINEL="${STATE}/.lab-measurement-filter-migrated"
         if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${LAB_FILTER_SENTINEL}" ]; then
             LAB_FILTER_OLD='HL7_LAB_MEASUREMENT_FILTER=[0-9]{4}([- /.])(((0[13578]|(10|12))\\1(0[1-9]|[1-2][0-9]|3[0-1]))|(02\\1(0[1-9]|[1-2][0-9]))|((0[469]|11)\\1(0[1-9]|[1-2][0-9]|30)))|[0-9]{4}-(((0[13578]|(10|12))-(0[1-9]|[1-2][0-9]|3[0-1]))|(02-(0[1-9]|[1-2][0-9]))|((0[469]|11)-(0[1-9]|[1-2][0-9]|30)))|^([+-\\?]{1,4})|^\\b(t)\\b|^\\b(tr)\\b|^\\b(cpr\\s{1}[a-z]{1}[0-9]{1})\\b|^\\b(dnr\\s{1}[a-z]{1}[0-9]{1})\\b|^\\b(iud)\\b|^\\b(sent\\s{1}to\\s{1}bccdc)\\b|^\\b(large)\\b|^\\b(small)\\b|^\\b(no\\s{1}lmp)\\b|^\\b(mod)\\b|^\\b(no\\s{1}growth)\\b|^\\b(marked)\\b|^\\b(immune)\\b|^\\b(indeterminate)\\b|^\\b(indeterminant)\\b|^\\b(moderate)\\b|^\\b(trace)\\b|^\\b(undefined)\\b|^\\b(defined)\\b|^\\b(reactive)\\b|^\\b(non[\\s-]?reactive)\\b|^\\b(negative)\\b|^\\b(positive)\\b|^\\b(neg)\\b|^\\b(pos)\\b|^\\b(normal)\\b|^\\b(abnormal)\\b|^\\b(ab)\\b|^\\b(a)\\b|^\\b(yes)\\b|^\\b(no)\\b|^\\b(nill)\\b|^\\b(y)\\b|^\\b(regular)\\b|^\\b(irregular)\\b|^\\b(screen\\s{1}negative)\\b|^\\b(unsatisfactory\\s{1}sample)\\b|^\\b(n)\\b|^\\b(equivocal)\\b|^\\b(unequivocal)\\b|^\\b(post[\\s-]{1}meno)\\b|^\\b(not[\\s]{1}reported)\\b|^\\b(lrg)([+]{1,3})|^\\b(test[\\s]{1}not[\\s]{1}performed)\\b|^[-+<>=]{0,2}\\s?(\\d*[\\./:]?\\d+)[-+=]?'

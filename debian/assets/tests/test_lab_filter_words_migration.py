@@ -39,7 +39,7 @@ SENTINEL = ".lab-measurement-filter-words-migrated"
 KEY = "HL7_LAB_MEASUREMENT_FILTER="
 
 
-def migration_block():
+def migration_block(package_retry=False):
     """The postinst's whole-word block, from its sentinel to its closing fi."""
     text = POSTINST.read_text(encoding="utf-8")
     m = re.search(
@@ -48,7 +48,15 @@ def migration_block():
         raise AssertionError(
             "no LAB_FILTER_WORDS_SENTINEL block in carlos-emr.postinst -- this "
             "contract has lost its subject")
-    return locked_rewrite_function(text) + m.group(0)
+    startup = ""
+    if package_retry:
+        recovery = re.search(r'^        # Recover a stopped lab-filter write.*?^        fi\n', text, re.S | re.M)
+        normalizer = re.search(r'^        # Normalise the legacy yes/no spellings.*?^        fi\n', text, re.S | re.M)
+        if not recovery or not normalizer or recovery.end() >= normalizer.start():
+            raise AssertionError("lab-filter recovery must precede the other configuration migrations")
+        startup = ('acquire_provision_lock() { [ "${PROVISION_LOCK_HELD}" = 1 ]; }\n'
+                   + recovery.group(0) + normalizer.group(0))
+    return locked_rewrite_function(text) + startup + m.group(0)
 
 
 def old_line():
@@ -98,13 +106,13 @@ class TestLabFilterWordsMigration(unittest.TestCase):
         self.skel.write_text("other=stock\n{0}\n".format(shipped_line()),
                              encoding="utf-8")
 
-    def run_block(self, lock_held="1", *, extra_env=None):
+    def run_block(self, lock_held="1", *, extra_env=None, package_retry=False):
         env = dict(os.environ, PROVISION_LOCK_HELD=lock_held,
                    STATE=str(self.state), SHARE=str(self.share),
                    PROPERTIES=str(self.properties))
         if extra_env:
             env.update(extra_env)
-        return subprocess.run(["sh", "-c", "set -e\n" + migration_block()],
+        return subprocess.run(["sh", "-c", "set -e\n" + migration_block(package_retry)],
                               env=env, capture_output=True, text=True,
                               check=False, timeout=10)
 
@@ -241,6 +249,18 @@ class TestLabFilterWordsMigration(unittest.TestCase):
         self.assertIn("still matches its words at the start of a result", result.stderr)
         self.assertTrue((self.state / SENTINEL).exists())
 
+    def test_keeps_a_stock_looking_physical_line_inside_another_property(self):
+        self.write_properties("other=prefix\\", old_line(), "HL7_LAB_MEASUREMENT_\\",
+                              "  FILTER=" + old_line()[len(KEY):], "after=kept")
+        before = self.properties.read_bytes()
+
+        result = self.run_block()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.properties.read_bytes(), before)
+        self.assertIn("still matches its words at the start of a result", result.stderr)
+        self.assertTrue((self.state / SENTINEL).exists())
+
     def test_restores_the_inode_contents_when_sync_fails(self):
         fixture = Path(self.tmp.name) / "python-fixture"
         fixture.mkdir()
@@ -271,12 +291,7 @@ class TestLabFilterWordsMigration(unittest.TestCase):
                          "the temporary file is left behind")
         self.assertFalse((self.state / SENTINEL).exists())
 
-    def test_recovers_a_partial_write_after_the_process_is_killed(self):
-        self.write_properties("before=1", old_line(), "after=retain-this-setting")
-        before = self.properties.read_bytes()
-        alias = self.etc / "hardlinked.properties"
-        os.link(self.properties, alias)
-        opened = self.properties.stat()
+    def interrupt_configuration_write(self):
         fixture = Path(self.tmp.name) / "kill-fixture"
         fixture.mkdir()
         (fixture / "sitecustomize.py").write_text(
@@ -302,8 +317,16 @@ class TestLabFilterWordsMigration(unittest.TestCase):
             "os.fdopen = interrupt_target\n",
             encoding="utf-8",
         )
+        return self.run_block(extra_env={"PYTHONPATH": str(fixture)})
 
-        interrupted = self.run_block(extra_env={"PYTHONPATH": str(fixture)})
+    def test_recovers_a_partial_write_after_the_process_is_killed(self):
+        self.write_properties("before=1", old_line(), "after=retain-this-setting")
+        before = self.properties.read_bytes()
+        alias = self.etc / "hardlinked.properties"
+        os.link(self.properties, alias)
+        opened = self.properties.stat()
+
+        interrupted = self.interrupt_configuration_write()
 
         self.assertEqual(interrupted.returncode, 1, interrupted.stderr)
         self.assertNotEqual(self.properties.read_bytes(), before)
@@ -319,6 +342,33 @@ class TestLabFilterWordsMigration(unittest.TestCase):
         self.assertTrue(os.path.samestat(opened, self.properties.stat()))
         self.assertTrue((self.state / SENTINEL).exists())
         self.assertFalse(recovery.exists())
+
+    def test_recovers_before_a_package_retry_can_replace_the_inode(self):
+        self.write_properties("consultation_fax_enabled=yes", old_line(), "after=keep")
+        failed = self.interrupt_configuration_write()
+        self.assertEqual(failed.returncode, 1, failed.stderr)
+        self.assertFalse((self.state / SENTINEL).exists())
+
+        retry = self.run_block(package_retry=True)
+
+        self.assertEqual(retry.returncode, 0, retry.stderr)
+        self.assertEqual(self.properties.read_text(encoding="utf-8"),
+                         f"consultation_fax_enabled=true\n{shipped_line()}\nafter=keep\n")
+        self.assertEqual(list(self.etc.iterdir()), [self.properties])
+        self.assertTrue((self.state / SENTINEL).exists())
+
+    def test_removes_the_private_staging_file_from_an_interrupted_journal_write(self):
+        self.write_properties(KEY + "^custom$")
+        before = self.properties.read_bytes()
+        staged = self.properties.with_suffix(".properties.lab-filter-recovery.tmp")
+        staged.write_bytes(b"unfinished recovery record")
+        staged.chmod(0o600)
+
+        retry = self.run_block(package_retry=True)
+
+        self.assertEqual(retry.returncode, 0, retry.stderr)
+        self.assertEqual(self.properties.read_bytes(), before)
+        self.assertEqual(list(self.etc.iterdir()), [self.properties])
 
     def test_updates_the_target_of_a_managed_symlink(self):
         self.write_properties(old_line())
