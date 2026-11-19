@@ -32,6 +32,9 @@ class HRMUtilAttachmentHistoryUnitTest extends CarlosUnitTestBase {
         when(info.getLocale()).thenReturn(Locale.ENGLISH);
         var security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(info, "_hrm", "r", null)).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(info, 5)).thenReturn(true);
+        when(security.hasPrivilege(info, "_demographic", "r", "5")).thenReturn(true);
+        when(security.hasPrivilege(info, "_hrm", "r", "5")).thenReturn(true);
         var documents = mock(HRMDocumentDao.class);
         var patients = mock(HRMDocumentToDemographicDao.class);
         var subclasses = mock(HRMDocumentSubClassDao.class);

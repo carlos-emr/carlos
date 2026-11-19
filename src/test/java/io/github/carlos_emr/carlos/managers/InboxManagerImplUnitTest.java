@@ -48,21 +48,12 @@ class InboxManagerImplUnitTest {
         when(user.getLoggedInProviderNo()).thenReturn("74");
         when(roles.getUserRoles("74")).thenReturn(List.of());
 
-        var document = new LabResultData();
-        document.setSegmentID("52");
-        document.setAcknowledgedStatus("N");
-        document.setLabPatientId("13");
-        document.patientName = "Synthetic patient";
-        document.labType = "DOC";
         var link = new QueueDocumentLink();
         link.setDocId(52);
         link.setQueueId(Queue.DEFAULT_QUEUE_ID);
         when(queues.getQueueDocLinks()).thenReturn(List.of(link));
         when(documents.isSentToValidProvider("52")).thenReturn(true);
         when(documents.isSentToProvider("52", "74")).thenReturn(true);
-        when(inbox.readDocumentResults("74", null, null, null, null, "N", true, 0, 20,
-                false, null, null, null, null)).thenReturn(new InboxDocumentResults(List.of(document), 1));
-
         try (var spring = mockStatic(SpringUtils.class);
              var labs = mockConstruction(CommonLabResultData.class);
              var hrm = mockConstruction(HRMResultsData.class, (reader, context) -> when(
@@ -70,6 +61,14 @@ class InboxManagerImplUnitTest {
                     .thenReturn(List.of()))) {
             spring.when(() -> SpringUtils.getBean(InboxResultsDao.class)).thenReturn(inbox);
             spring.when(() -> SpringUtils.getBean(DocumentResultsDao.class)).thenReturn(documents);
+            var document = new LabResultData();
+            document.setSegmentID("52");
+            document.setAcknowledgedStatus("N");
+            document.setLabPatientId("13");
+            document.patientName = "Synthetic patient";
+            document.labType = "DOC";
+            when(inbox.readDocumentResults("74", null, null, null, null, "N", true, 0, 20,
+                    false, null, null, null, null)).thenReturn(new InboxDocumentResults(List.of(document), 1));
 
             var response = manager.getInboxResults(user, query);
 
