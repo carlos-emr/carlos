@@ -1194,8 +1194,6 @@ public class EForm extends EFormBase {
      * whatever its other attributes are. Unterminated markup (comment, quote or tag) stops the search: the
      * select is left untouched.</p>
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of a template option value with a database value; not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an eForm option value with a database value; not a security or authorization decision")
     static int selectedOptionInsertAt(CharSequence html, int from, int to, String wanted) {
         SelectEdit edit = selectedOptionEdit(html, from, to, wanted, false);
         return edit == null ? -1 : edit.insertAt;
@@ -1218,6 +1216,8 @@ public class EForm extends EFormBase {
      *
      * @return the edit, or null when no option matches
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of a template option value with a database value; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an eForm option value with a database value; not a security or authorization decision")
     static SelectEdit selectedOptionEdit(CharSequence html, int from, int to, String wanted, boolean single) {
         if (wanted == null) return null;
         boolean collect = single && !wanted.isEmpty();
@@ -1331,6 +1331,8 @@ public class EForm extends EFormBase {
      * space before it) and whether {@code multiple} is there; or null for an unterminated tag or an
      * unclosed quote, where nothing can be trusted.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive match of HTML attribute names (value, selected, multiple) in eForm markup, as a browser matches them; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive match of HTML attribute names in eForm markup; not a security or authorization decision")
     private static TagAttributes readTagAttributes(String region, int p) {
         int length = region.length();
         int bodyStart = p;
