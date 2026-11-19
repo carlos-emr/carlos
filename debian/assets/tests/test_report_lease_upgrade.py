@@ -19,7 +19,7 @@ KEY = "db_remove_abandoned_timeout"
 class TestReportLeaseUpgrade(unittest.TestCase):
     def warning_for(self, installed):
         block = re.search(
-            r"^        REPORT_LEASE_TIMEOUT_KEY_RE=.*?^        fi\n",
+            r"^        REPORT_LEASE_TIMEOUT_KEY=.*?^        fi\n",
             POSTINST.read_text(encoding="utf-8"),
             re.M | re.S,
         )
@@ -54,6 +54,16 @@ class TestReportLeaseUpgrade(unittest.TestCase):
         custom = b"\tdb_remove_abandoned_timeout 420\r\n"
         self.assertEqual(self.warning_for(old + custom), "")
         self.assertIn(KEY, self.warning_for(custom + old))
+
+    def test_warns_for_a_continued_effective_timeout(self):
+        installed = b"db_remove_abandoned_timeout=360\r\ndb_remove_abandoned_timeout = \\\r\n\t15\r\n"
+        self.assertIn(KEY, self.warning_for(installed))
+
+    def test_uses_the_effective_spelling_of_an_escaped_key(self):
+        stock = b"db_remove_abandoned_timeout=15\n"
+        custom = b"db_remove_abandoned_time\\u006fut : 420\n"
+        self.assertEqual(self.warning_for(stock + custom), "")
+        self.assertIn(KEY, self.warning_for(custom + stock))
 
     def test_current_skeleton_does_not_warn(self):
         self.assertEqual(self.warning_for(SHIPPED.read_bytes()), "")

@@ -657,11 +657,45 @@ case "$1" in
 
         # Earlier packages copied the 15-second default into this override.
         # The last definition wins, and an operator may have set 15 too.
-        REPORT_LEASE_TIMEOUT_KEY_RE='^[[:space:]]*db_remove_abandoned_timeout'
+        REPORT_LEASE_TIMEOUT_KEY=db_remove_abandoned_timeout
         if [ -f "${PROPERTIES}" ] \
-            && grep -E "${REPORT_LEASE_TIMEOUT_KEY_RE}([[:space:]=:]|$)" "${PROPERTIES}" \
-                | tail -n 1 \
-                | grep -Eq "${REPORT_LEASE_TIMEOUT_KEY_RE}([[:space:]]*[=:][[:space:]]*|[[:space:]]+)15[[:space:]]*$"; then
+            && python3 - "${PROPERTIES}" "${REPORT_LEASE_TIMEOUT_KEY}" <<'PY'
+import re
+import sys
+
+definition = re.compile(r"^((?:\\.|[^\\ \t\f=:])*)[ \t\f]*(?:[=:][ \t\f]*)?(.*)$")
+escape = re.compile(r"\\(u[0-9a-fA-F]{4}|.)")
+escaped_whitespace = str.maketrans("tnrf", "\t\n\r\f")
+
+def decode_escape(match):
+    value = match[1]
+    if len(value) == 5:
+        return chr(int(value[1:], 16))
+    return value.translate(escaped_whitespace)
+
+def logical_lines(source):
+    parts = []
+    for physical in source:
+        line = physical.rstrip("\r\n").lstrip(" \t\f")
+        if not parts and (not line or line.startswith(("#", "!"))):
+            continue
+        if (len(line) - len(line.rstrip("\\"))) % 2:
+            parts.append(line[:-1])
+            continue
+        yield "".join([*parts, line])
+        parts.clear()
+    if parts:
+        yield "".join(parts)
+
+value = ""
+with open(sys.argv[1], encoding="latin-1") as properties:
+    for logical in logical_lines(properties):
+        match = definition.fullmatch(logical)
+        if match and escape.sub(decode_escape, match[1]) == sys.argv[2]:
+            value = escape.sub(decode_escape, match[2])
+sys.exit(0 if value.strip() == "15" else 1)
+PY
+        then
             echo "carlos-emr: WARNING: db_remove_abandoned_timeout is set to 15 in ${PROPERTIES}. Abandoned lease cleanup can end a running report early." >&2
             echo "carlos-emr: To adopt the 360-second default, remove the setting or change it to 360, then run sudo carlos-ctl restart." >&2
         fi
