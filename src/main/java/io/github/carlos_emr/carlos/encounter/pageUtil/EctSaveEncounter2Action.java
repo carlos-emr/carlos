@@ -222,7 +222,8 @@ public class EctSaveEncounter2Action extends ActionSupport {
         // authorization, method and identifier checks above and before any clinical or layout
         // change. The historical write below is unreachable until its removal in #5599.
         if (CarlosProperties.getInstance().isPropertyActive("AbandonOldChart")) {
-            response.sendError(HttpServletResponse.SC_GONE,
+            io.github.carlos_emr.carlos.utility.RefusalNotice.send(request, response, HttpServletResponse.SC_GONE,
+                    "error.refusal.legacyEncounterEditorRetired",
                     "The legacy encounter editor is retired. Use the modern chart to save notes.");
             return NONE;
         }

@@ -6,13 +6,14 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/web/dashboard/display/drilldownDisplayController.js'), 'utf8');
+const providerContext = fs.readFileSync(path.join(__dirname, '../src/main/webapp/web/dashboard/display/dashboard-provider-context.js'), 'utf8');
 
 /** Run the shipped controller and retain the handlers it installs on the page. */
-function controller(selected = ['101', '102'], contextPath = '/clinic', ticklerFields = []) {
+function controller(selected = ['101', '102'], contextPath = '/clinic', ticklerFields = [], provider = '') {
   const handlers = new Map();
   const requests = [];
   const alerts = [];
-  const document = {getElementById: id => ({id})};
+  const document = {getElementById: id => id === 'dashboardProviderNo' ? {id, value: provider} : {id}};
   const buttons = new Map();
   const hidden = [];
   const rows = ['101', '102', '103'].map(id => ({ id, checked: selected.includes(id) }));
@@ -38,7 +39,11 @@ function controller(selected = ['101', '102'], contextPath = '/clinic', ticklerF
   $.fn = { dataTableExt: { afnFiltering: [] }, dataTable: { moment() {}, ext: { order: {} } } };
   $.ajax = request => { requests.push(request); };
   const bootstrap = {Modal: {getOrCreateInstance: element => ({hide: () => hidden.push(element.id)})}};
-  vm.runInNewContext(source, { $, document, bootstrap, ctx: contextPath, alert: message => alerts.push(message), console });
+  const window = {document, location: {href: `https://clinic.invalid${contextPath}/web/dashboard/display/DrilldownDisplay`}};
+  const sandbox = { $, document, window, URL, bootstrap, ctx: contextPath, alert: message => alerts.push(message), console };
+  vm.runInNewContext(providerContext, sandbox);
+  sandbox.dashboardProviderUrl = window.dashboardProviderUrl;
+  vm.runInNewContext(source, sandbox);
   function click(id, form) {
     let prevented = false;
     if (!buttons.has(id)) buttons.set(id, {id, form});
@@ -149,3 +154,19 @@ test('a failed tickler request leaves the dialog open and releases the pending g
   assert.match(run.alerts[0], /could not be confirmed/);
   assert.equal(run.buttons.get('saveTicklerBtn').disabled, false);
 });
+
+for (const [button, method] of cases) {
+  test(`${button} keeps its window provider while preserving protected fields and selected patients`, () => {
+    const a = controller(['101'], '/clinic', [], 'FAKE-provider-A');
+    const b = controller(['102'], '/clinic', [], 'FAKE-provider-B');
+    const form = {action: '/clinic/web/dashboard/display/BulkPatientAction',
+      fields: [{name: 'method', value: method}, {name: 'CSRF-TOKEN', value: 'FAKE owned token'}]};
+    b.click(button, form); a.click(button, form);
+    for (const [run, provider, selected] of [[a, 'FAKE-provider-A', '101'], [b, 'FAKE-provider-B', '102']]) {
+      assert.equal(new URL(run.requests[0].url).searchParams.get('dashboardProviderNo'), provider);
+      assert.equal(new URL(run.requests[0].url).pathname, form.action);
+      assert.deepEqual(JSON.parse(JSON.stringify(run.requests[0].data)),
+        [...form.fields, {name: 'patientIds', value: selected}]);
+    }
+  });
+}

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "dd67199f9ea01ac06e40e5cdf3d4c8dd1ddd6b9b",
+  "comparisonSha256": "47a0837a5cebc5f2d643d044be722e4c591fbbd57e6f9cce9be7d066b7bcc33c",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementEntry2Action.java": {
+      "lines": 9.859154929577464,
+      "instructions": 10.921052631578947,
+      "branches": 7.777777777777778,
+      "sourceBlob": "d4298183e4b2672d64f668fb1181e4e9a8bc3c76"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "6ce8f1e379a20f6e37ec3a2bd4a27f6471974c8f",
+  "baselineSourceTree": "dd67199f9ea01ac06e40e5cdf3d4c8dd1ddd6b9b",
+  "baselineReportSha256": "861b8f2baa72ac53fc3a16fb0b1cdb9f7c9fe18a56fdf05f770d4f2d098d7283",
+  "baselineLane": "Java 25 CaseManagementNoteRevisionConflictUnitTest with JaCoCo. The confirmed lock-loss header is covered. This targeted run retains the existing release coverage floors.",
+  "baselineTestCounts": {
+    "tests": 83,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "68168ce81c8e811a9a1fced6b21331988d62191b512952289c8db126dd042c1d",
+  "baselineTestReportsHashFormat": "SHA-256 of the Surefire XML report for CaseManagementNoteRevisionConflictUnitTest."
+}

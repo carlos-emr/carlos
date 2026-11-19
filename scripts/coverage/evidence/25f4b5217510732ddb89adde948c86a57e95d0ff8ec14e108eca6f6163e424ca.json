@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "66480c51ed4aefdd66547e2ad21a81e127013ef1",
+  "comparisonSha256": "36ecce4d465a25cf4b6f326211006f796973f1562324035991c368bf3875d2c4",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/app/CsrfGuardScriptInjectionFilter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 95.83333333333333,
+      "sourceBlob": "b8c697685c0843dbdf422cb28d0d91a04e9ce809"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/SecurityInfoManagerImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "851efbf941fa94eac907ed2b0455153c077bcdba"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/pageUtil/RptDownloadCSVServlet.java": {
+      "lines": 98.54545454545455,
+      "instructions": 97.97257006559332,
+      "branches": 83.52272727272727,
+      "sourceBlob": "0190f99c07dab319943083b15500a81c36efb116"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleService.java": {
+      "lines": 88.88888888888889,
+      "instructions": 85.91836734693878,
+      "branches": 75.40983606557377,
+      "sourceBlob": "644fa5d96cf63f5812eb8d30991412ac4f3c598f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/util/PatientApiPages.java": {
+      "lines": 100.0,
+      "instructions": 95.55555555555556,
+      "branches": 84.78260869565217,
+      "sourceBlob": "6c2f157eed611a3ef45f330e96138f40457d7846"
+    }
+  },
+  "baselineCommit": "9e16bb3393684ec6735231e31fe92f5d13ccc41e",
+  "baselineSourceTree": "66480c51ed4aefdd66547e2ad21a81e127013ef1",
+  "baselineReportSha256": "72a22090de93a83ebb73a1d3780a9255e66ab6fdb0bcdf944271847692c5340c",
+  "baselineLane": "Java 25 unit and H2 data tests plus embedded Tomcat response-filter lifecycle tests, with coverage for CSV dates, patient authorization, scheduling and large HTML responses",
+  "baselineTestCounts": {
+    "tests": 1241,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "8a96e68c374ba338be42f96d0f59632d324e2d57935386ba868727ddc6f5faef",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

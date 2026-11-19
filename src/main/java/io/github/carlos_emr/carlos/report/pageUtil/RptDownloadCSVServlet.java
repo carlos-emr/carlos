@@ -23,6 +23,9 @@
 
 package io.github.carlos_emr.carlos.report.pageUtil;
 
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.RefusalNotice;
 import io.github.carlos_emr.carlos.utility.SpreadsheetCsv;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -61,6 +64,20 @@ import io.github.carlos_emr.carlos.report.data.RptReportItem;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 
+/**
+ * CSV download of a configured form report, and of the legacy demographic/antenatal report
+ * ({@code demoReport}), at {@code /report/reportDownload}.
+ *
+ * <p>The report filter page posts to {@code report/ViewReportResult}, whose JSP forwards the
+ * "Report in CSV" submission here by servlet name. The servlet is also mapped directly, so it
+ * enforces the same access rule itself: {@code _report} or {@code _admin.reporting} read, as
+ * {@code reportResult.jsp} requires (#5831).</p>
+ *
+ * <p>Both branches build their WHERE clause from the stored filter definitions of the report
+ * named by {@code id}: the request only ticks {@code filter_<n>} and supplies the bound
+ * {@code ${...}} placeholder values. SQL text posted in {@code value_<n>} is ignored, and a
+ * ticked filter the report does not define is answered 400 (see {@link RptFormQuery#checkedFilters}).</p>
+ */
 public class RptDownloadCSVServlet extends HttpServlet {
 
     private static final Logger _logger = MiscUtils.getLogger();
@@ -70,27 +87,85 @@ public class RptDownloadCSVServlet extends HttpServlet {
 
     String DELIMETER = "\t";
 
+    private final transient SecurityInfoManager securityInfoManager;
+
+    /** Container constructor; authorization uses the security manager from the current Spring context. */
+    public RptDownloadCSVServlet() {
+        this(null);
+    }
+
+    /** Test constructor. */
+    RptDownloadCSVServlet(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
+
+    /** The report filter page's own rule: {@code _report} or {@code _admin.reporting} read. */
+    private boolean mayReadReports(LoggedInInfo loggedInInfo) {
+        SecurityInfoManager security = securityInfoManager == null
+                ? SpringUtils.getBean(SecurityInfoManager.class) : securityInfoManager;
+        return security.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)
+                || security.hasPrivilege(loggedInInfo, "_admin.reporting", SecurityInfoManager.READ, null);
+    }
+
+    /** The filter selection named a filter the report does not define, anywhere in the cause chain. */
+    private static RptFormQuery.UnknownReportFilterException unknownFilter(Throwable failure) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof RptFormQuery.UnknownReportFilterException unknown) {
+                return unknown;
+            }
+        }
+        return null;
+    }
+
     private record GeneratedCsv(String reportName, String content) { }
     private record ExtensionColumn(String key, String caption) { }
     private record ExtensionValueKey(String demographic, String key) { }
+
+    /**
+     * Answers a download whose report could not be generated: status 500, nothing partial sent.
+     *
+     * <p>A configured_report.* limit refusal is the user's to fix (narrow the report, or ask for the limit
+     * to be raised), not a defect: this servlet logs it once, as a warning naming the setting and its value
+     * without the trace, and the error page names the limit. Any other failure is logged as an error with its
+     * trace. (The container's error page adds its own generic line for every error status.)</p>
+     */
+    private static void reportFailed(HttpServletRequest request, HttpServletResponse response, String failureMessage,
+                                     Exception failure) throws IOException {
+        var refusal = ReportLimitNotice.find(failure);
+        if (refusal != null) {
+            _logger.warn("Report download refused by its {} limit of {}", refusal.limit().setting(), refusal.value());
+            ReportLimitNotice.publish(request, refusal.limit(), refusal.value());
+        } else {
+            _logger.error(failureMessage, failure);
+        }
+        response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate report");
+    }
 
     public void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpSession session = request.getSession(false);
         if (session == null)
             return;
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(session);
+        if (loggedInInfo == null || !mayReadReports(loggedInInfo)) {
+            RefusalNotice.send(request, response, HttpServletResponse.SC_FORBIDDEN,
+                    "error.refusal.reportAccess", "missing required sec object (_report)");
+            return;
+        }
         GeneratedCsv report;
         try {
             report = request.getParameter("demoReport") != null ? demoReport(request) : formReport(request);
-        } catch (ServletException e1) {
-            _logger.error("RptDownloadCSVServlet service() - form report failed", e1);
-            // A report stopped by a limit is named on the error page; the status is unchanged.
-            ReportLimitNotice.publish(request, e1);
-            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate report");
-            return;
         } catch (Exception e1) {
-            _logger.error("RptDownloadCSVServlet service() - report generation failed", e1);
-            ReportLimitNotice.publish(request, e1);
-            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate report");
+            RptFormQuery.UnknownReportFilterException unknown = unknownFilter(e1);
+            if (unknown != null) {
+                // A stale or hand-built selection: the user can reload the filter page and retry.
+                _logger.warn("Report download refused: the selected filters are not this report's active filters");
+                RefusalNotice.send(request, response, HttpServletResponse.SC_BAD_REQUEST,
+                        "error.refusal.reportFilterSelection", unknown.getMessage());
+            } else if (e1 instanceof ServletException) {
+                reportFailed(request, response, "RptDownloadCSVServlet service() - form report failed", e1);
+            } else {
+                reportFailed(request, response, "RptDownloadCSVServlet service() - report generation failed", e1);
+            }
             return;
         }
 
@@ -102,6 +177,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
         // configured_report.max_csv_mb, read for each download; MAX_CSV_EXPORT_BYTES is its default.
         int maximumMb = ConfiguredReportQuery.Limit.CSV.configured();
         if (bytes.length > (long) maximumMb * 1024 * 1024) {
+            // The same refusal as a query limit: one warning naming the setting, no trace.
+            _logger.warn("Report download refused by its {} limit of {}", ConfiguredReportQuery.Limit.CSV.setting(), maximumMb);
             ReportLimitNotice.publish(request, ConfiguredReportQuery.Limit.CSV, maximumMb);
             response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
                     ConfiguredReportQuery.Limit.CSV.english(maximumMb));
@@ -147,15 +224,17 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 .build();
             CSVPrinter csvp = new CSVPrinter(swr, format);
 
+            // Every header and cell goes through the spreadsheet formula guard, as the
+            // demographic branch below does: these values include patient-entered text (#5846).
             for (int i = 0; i < vecFieldCaption.size(); i++) {
-                csvp.print((String) vecFieldCaption.get(i));
+                csvp.print(SpreadsheetCsv.sanitizeCell((String) vecFieldCaption.get(i)));
             }
 
             for (int i = 0; i < vecFieldValue.size(); i++) {
                 Properties prop = (Properties) vecFieldValue.get(i);
                 csvp.println();
                 for (int j = 0; j < vecFieldCaption.size(); j++) {
-                    csvp.print(prop.getProperty((String) vecFieldCaption.get(j), ""));
+                    csvp.print(SpreadsheetCsv.sanitizeCell(prop.getProperty((String) vecFieldCaption.get(j), "")));
                 }
             }
             csvp.flush();
@@ -198,8 +277,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
         private final ReportColumns antenatalColumns = new ReportColumns();
         private final String antenatalTable;
         private final java.util.Set<String> selectedDemographics = new java.util.HashSet<>();
-        private final List<String> filterValues = new ArrayList<>();
-        private final List<String> dateFormats = new ArrayList<>();
+        private final List<RptFormQuery.CheckedFilter> filters = new ArrayList<>();
         private final Vector<String> fieldCaptions = new Vector<>();
         private final Vector<String> fieldNames = new Vector<>();
         private final List<ExtensionColumn> selectedExtensionColumns = new ArrayList<>();
@@ -230,6 +308,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
 
         private GeneratedCsv generate() throws Exception {
             readSelections();
+            // The predicates are the stored filters of the report named by id; the request only
+            // ticks them and supplies their bound placeholder values (#5831).
+            String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
+            filters.addAll(new RptFormQuery().checkedFilters(reportId, request));
             readFilters();
             queryDemographics();
             queryDemographicExtensions();
@@ -241,15 +323,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
         private void readSelections() {
             Enumeration<String> names = request.getParameterNames();
             while (names.hasMoreElements()) {
-                String name = names.nextElement();
-                selectField(name);
-                if (name.startsWith("value_")) {
-                    String serial = name.substring("value_".length());
-                    if (request.getParameter("filter_" + serial) != null) {
-                        filterValues.add(request.getParameter(name));
-                        dateFormats.add(request.getParameter("dateFormat_" + serial));
-                    }
-                }
+                selectField(names.nextElement());
             }
             for (String field : DEMOGRAPHIC_FIELDS) {
                 if (selectedDemographics.contains(field)) {
@@ -276,8 +350,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
         }
 
         private void readFilters() throws Exception {
-            for (int i = 0; i < filterValues.size(); i++) {
-                ParameterizedSql filter = bindFilter(filterValues.get(i), dateFormats.get(i));
+            for (RptFormQuery.CheckedFilter checked : filters) {
+                ParameterizedSql filter = bindFilter(checked.predicate(), checked.dateFormat());
                 String sql = filter.getSql();
                 if (sql.contains(DEMOGRAPHIC_PREFIX)) {
                     demographicColumns.filtered = true;
@@ -304,7 +378,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
             for (Object variable : variables) {
                 String name = (String) variable;
                 String parameter = request.getParameter(name);
-                if (name.matches("startDate\\d|endDate\\d") && dateFormat.length() > 1) {
+                if (name.matches("startDate\\d|endDate\\d") && dateFormat != null && dateFormat.length() > 1) {
                     parameter = RptReportCreator.getDiffDateFormat(parameter, dateFormat, "yyyy-MM-dd");
                 }
                 values.add(parameter);

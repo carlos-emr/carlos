@@ -102,3 +102,14 @@ MOXy birthday profile selects its historical date-only spelling. CDS import
 writes the year/month/day fields directly, and CDS export builds its XMLBeans
 date from `DemographicData.getDob`; neither uses the model's JAXB birthday
 adapter. JSON and native storage mappings are unchanged.
+
+## Case-management equality reader recheck
+
+The `CaseManagementNote` reader fingerprint is refreshed for #6031's reference
+identity check in `equals`. The provider, observation date, note content,
+precision extensions, getters and field mappings retain their reviewed behavior.
+The sibling `CaseManagementIssue` change preserves persisted identifier
+comparisons. Validation passed 66 equality/revision/access/persistence cases and
+91 CDS core projection, category-boundary and schema-crosswalk cases. The schema
+pins, 407 paths, 130 choice arms and synthetic fixture bytes are retained;
+regeneration updates the reader fingerprint and canonical review binding.

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "3193d56b840cae0dfdfebbefecf20d8e0612eb47",
+  "comparisonSha256": "e383025e2ff9936eb69d029a0a71cb86acb28075ec1034d33346b524d863f8ea",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/QueueDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "4c6b7ad1a64f8341dace4478881379b7c5adf63e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/service/ProviderDocumentQueueService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "b6e44906f30315851274171624c3b9ec0c408d5a"
+    }
+  },
+  "baselineCommit": "067f29db639cf64090c7d40cd47d2fb3384a064e",
+  "baselineSourceTree": "3193d56b840cae0dfdfebbefecf20d8e0612eb47",
+  "baselineReportSha256": "2d79c74b67df169cf11bb011e5b4fbfa274838198a693a1902ca8643285d514e",
+  "baselineLane": "217 queue, action and physical MariaDB preference controls",
+  "baselineTestCounts": {
+    "tests": 217,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "3f129497faf46846e93570d2f55ec26d197e40153722449ed04addeb10b817fa",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

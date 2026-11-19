@@ -23,6 +23,8 @@ import urllib.request
 import uuid
 import zipfile
 
+from cds_database_readiness import database_client, wait_for_database
+
 SPEC = importlib.util.spec_from_file_location(
     "cds_war_manifest", Path(__file__).with_name("cds_war_manifest.py")
 )
@@ -251,17 +253,8 @@ def main() -> int:
                 ]
             )
             owned_db = True
-            mysql = docker + [
-                "exec",
-                database,
-                "mariadb",
-                "--defaults-extra-file=/run/cds-ci/client.cnf",
-            ]
-            deadline = time.monotonic() + 90
-            while execute(mysql + ["-e", "SELECT 1"], check=False).returncode:
-                if time.monotonic() > deadline:
-                    raise RuntimeError("Owned MariaDB startup timeout")
-                time.sleep(1)
+            mysql = database_client(docker, database, "/run/cds-ci/client.cnf")
+            wait_for_database(mysql, execute)
             execute(
                 mysql
                 + [

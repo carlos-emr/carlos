@@ -11,11 +11,24 @@ package io.github.carlos_emr.carlos.report.ClinicalReports;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.util.Hashtable;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mockStatic;
 
+import java.sql.SQLException;
+import java.sql.SQLTimeoutException;
+import java.util.Hashtable;
+import java.util.List;
+
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 
 @Tag("unit")
 @DisplayName("Clinical report SQL JDBC boundary")
@@ -151,4 +164,69 @@ class ClinicalReportSqlJdbcUnitTest {
         org.mockito.Mockito.verify(rows).close();
     }
 
+    /** The ERROR lines a capture holds, as their messages. */
+    private static List<String> errors(LogCapture log) {
+        return log.events().stream().filter(event -> event.getLevel() == Level.ERROR)
+                .map(event -> event.getMessage().getFormattedMessage()).toList();
+    }
+
+    /**
+     * A row refusal or a deadline refusal (the user's to fix), or an ordinary query failure. Built before the
+     * query class is mocked, so the refusal's own message is real.
+     */
+    private static SQLException failure(boolean refused, boolean timeout) {
+        if (!refused) {
+            return new SQLException("synthetic failure");
+        }
+        return timeout
+                ? new ConfiguredReportQuery.LimitExceededException(ConfiguredReportQuery.Limit.TIME, 30,
+                        new SQLTimeoutException("synthetic timeout"))
+                : new ConfiguredReportQuery.LimitExceededException(ConfiguredReportQuery.Limit.ROWS, 10_000);
+    }
+
+    @ParameterizedTest(name = "refused: {0}")
+    @ValueSource(booleans = {true, false})
+    @DisplayName("should log a denominator failure as an error, but not a refusal, which the action logs as a warning")
+    void shouldLogAnErrorOnlyForAFailure_whenTheDenominatorQueryThrows(boolean refused) {
+        SQLDenominator denominator = new SQLDenominator();
+        denominator.setSQL("select demographic_no from demographic");
+        SQLException failure = failure(refused, false);
+        try (LogCapture log = LogCapture.forLogger(SQLDenominator.class);
+             var queries = mockStatic(ConfiguredReportQuery.class)) {
+            queries.when(() -> ConfiguredReportQuery.identifierColumn(anyString(), anyString(), any(Object[].class)))
+                    .thenThrow(failure);
+            assertThatThrownBy(denominator::getDenominatorList).isInstanceOf(IllegalStateException.class).hasCause(failure);
+            assertThat(errors(log)).isEqualTo(refused ? List.of() : List.of("Clinical report denominator query failed"));
+        }
+    }
+
+    @ParameterizedTest(name = "refused: {0}")
+    @ValueSource(booleans = {true, false})
+    @DisplayName("should log a numerator failure as an error, but not a deadline refusal")
+    void shouldLogAnErrorOnlyForAFailure_whenTheNumeratorQueryThrows(boolean refused) {
+        SQLNumerator numerator = new SQLNumerator();
+        numerator.setSQL("select demographic_no from demographic");
+        SQLException failure = failure(refused, true);
+        try (LogCapture log = LogCapture.forLogger(SQLNumerator.class);
+             var queries = mockStatic(ConfiguredReportQuery.class)) {
+            queries.when(() -> ConfiguredReportQuery.readFirst(anyString(), any(Object[].class))).thenThrow(failure);
+            assertThatThrownBy(() -> numerator.evaluate(null, "42")).isInstanceOf(IllegalStateException.class).hasCause(failure);
+            assertThat(errors(log)).isEqualTo(refused ? List.of() : List.of("Clinical report numerator query failed"));
+        }
+    }
+
+    @ParameterizedTest(name = "refused: {0}")
+    @ValueSource(booleans = {true, false})
+    @DisplayName("should log a count-based numerator failure as an error, but not a refusal")
+    void shouldLogAnErrorOnlyForAFailure_whenTheCountNumeratorQueryThrows(boolean refused) {
+        SQLNumerator numerator = new SQLNumerator();
+        numerator.setSQL("select count(*) as count from demographic");
+        SQLException failure = failure(refused, false);
+        try (LogCapture log = LogCapture.forLogger(SQLNumerator.class);
+             var queries = mockStatic(ConfiguredReportQuery.class)) {
+            queries.when(() -> ConfiguredReportQuery.read(anyString(), any(Object[].class))).thenThrow(failure);
+            assertThatThrownBy(() -> numerator.evaluateOLD("42")).isInstanceOf(IllegalStateException.class).hasCause(failure);
+            assertThat(errors(log)).isEqualTo(refused ? List.of() : List.of("Clinical report numerator query failed"));
+        }
+    }
 }

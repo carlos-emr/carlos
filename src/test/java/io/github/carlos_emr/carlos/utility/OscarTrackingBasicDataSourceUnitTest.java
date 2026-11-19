@@ -150,6 +150,63 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldTransferOnlyTheOriginalOwnersLease_whileRetainingDiagnosticsUntilClose() throws Exception {
+        Connection delegate = mock(Connection.class);
+        Connection unrelatedDelegate = mock(Connection.class);
+        try (var ownerThread = Executors.newSingleThreadExecutor()) {
+            Connection transferred = ownerThread.submit(() -> track(delegate)).get(5, TimeUnit.SECONDS);
+            Object owner = ownerThread.submit(this::currentOwner).get(5, TimeUnit.SECONDS);
+            Connection unrelated = track(unrelatedDelegate);
+
+            OscarTrackingBasicDataSource.detachFromRequestCleanup(transferred);
+            OscarTrackingBasicDataSource.detachFromRequestCleanup(transferred);
+
+            assertThat(ownedConnections(owner)).isEmpty();
+            assertThat(ownedConnections(currentOwner())).containsExactly(unrelated);
+            assertThat(OscarTrackingBasicDataSource.debugMap).containsKey(transferred);
+            ownerThread.submit(OscarTrackingBasicDataSource::releaseThreadConnections).get(5, TimeUnit.SECONDS);
+            OscarTrackingBasicDataSource.releaseThreadConnections();
+            verify(delegate, never()).close();
+            verify(unrelatedDelegate).close();
+            assertThat(OscarTrackingBasicDataSource.debugMap).containsOnlyKeys(transferred);
+
+            transferred.close();
+            verify(delegate).close();
+            assertThat(OscarTrackingBasicDataSource.debugMap).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldRetainShutdownCleanup_forATransferredLease() throws Exception {
+        Connection delegate = mock(Connection.class);
+        Connection transferred = track(delegate);
+        OscarTrackingBasicDataSource.detachFromRequestCleanup(transferred);
+        OscarTrackingBasicDataSource.releaseThreadConnections();
+        verify(delegate, never()).close();
+
+        OscarTrackingBasicDataSource.clearTrackingState();
+
+        verify(delegate).close();
+        assertThat(OscarTrackingBasicDataSource.debugMap).isEmpty();
+    }
+
+    @Test
+    void shouldLeaveOtherDataSourcesAndOwnerlessWrappersUnchanged_whenTransferringCleanup() throws Exception {
+        Connection ordinary = mock(Connection.class);
+        Connection delegate = mock(Connection.class);
+        // No lease has been tracked on this thread, so this public wrapper has no owner.
+        Connection ownerless = new OscarTrackingBasicDataSource.TrackingJdbcConnection(delegate);
+
+        OscarTrackingBasicDataSource.detachFromRequestCleanup(ordinary);
+        OscarTrackingBasicDataSource.detachFromRequestCleanup(ownerless);
+        OscarTrackingBasicDataSource.detachFromRequestCleanup(null);
+
+        org.mockito.Mockito.verifyNoInteractions(ordinary, delegate);
+        ownerless.close();
+        verify(delegate).close();
+    }
+
     private Connection track(Connection delegate) throws Exception {
         Method trackConnection = OscarTrackingBasicDataSource.class
                 .getDeclaredMethod("trackConnection", Connection.class);

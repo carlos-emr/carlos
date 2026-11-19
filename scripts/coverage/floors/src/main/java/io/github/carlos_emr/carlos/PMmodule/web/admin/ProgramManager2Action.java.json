@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/PMmodule/web/admin/ProgramManager2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 92.3076923076923,
+    "instructions": 81.15942028985508,
+    "branches": 70.0,
+    "sourceBlob": "a1759560ffe9704247be04a090ccbc6566db4438"
+  },
+  "evidenceSha256": "784b628a03fc64a1ba476811496b3e73f1ff85a43ec0f69990e52923aa1bb47b"
+}

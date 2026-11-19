@@ -82,7 +82,7 @@ class AddPreventionDataBrandCatalogueUnitTest {
     void shouldDefaultToMl_onlyWhenANewRecordNamesNoUnit() throws Exception {
         String form = Files.readString(FORM);
         assertThat(form)
-                .contains("String d2 = PreventionFormCodes.doseUnitCode(pUnit);")
+                .contains("String d2 = (existingPrevention == null || hasSubmittedDose) ? PreventionFormCodes.doseUnitCode(pUnit) : \"\";")
                 .contains("if (existingPrevention == null && \"\".equals(dose) && \"\".equals(d2)) {")
                 .contains("PreventionFormCodes.routeCode(storedRoute != null ? storedRoute : pRoute)");
     }

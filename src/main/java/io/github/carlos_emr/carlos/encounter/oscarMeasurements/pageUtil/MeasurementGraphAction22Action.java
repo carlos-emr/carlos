@@ -130,8 +130,9 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         try {
             MeasurementChart chart = requestedChart(demographicNo, typeIdName, typeIdName2, chartTitle, method);
             String[] drugs = request.getParameterValues("drug");
-            if ("ChartMeds".equals(method) && drugs != null && drugs.length > 10) {
-                height = drugs.length * 30;
+            if ("ChartMeds".equals(method) && drugs != null) {
+                // About 30 px per medication row, but never shorter than the default height (#6165).
+                height = Math.max(height, drugs.length * 30);
             }
             BrowserChartRenderer.write(request.getServletContext(), image, chart, width, height, "png");
         } catch (IOException | ParseException | RuntimeException unavailable) {
@@ -141,8 +142,10 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             if (!response.isCommitted()) {
                 response.resetBuffer();
                 int status = io.github.carlos_emr.carlos.eform.util.ChartRenderFailure.status(unavailable);
-                if (status == 503) response.setHeader("Retry-After", "5");
-                response.sendError(status, "Graph unavailable; " + (status == 503 ? "retry shortly." : "review the source history or contact your administrator."));
+                // An <img> gets the status only (its page shows the message); a graph opened as a
+                // window gets a short page saying what went wrong (#5853).
+                GraphFailurePage.send(request, response, unavailable, "Graph unavailable; "
+                        + (status == 503 ? "retry shortly." : "review the source history or contact your administrator."));
             }
             return NONE;
         }
@@ -214,7 +217,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         for (RxPrescriptionData.Prescription prescription : prescriptions) {
             Date start = prescription.getRxDate() != null ? prescription.getRxDate() : prescription.getWrittenDate();
             if (start == null) {
-                throw new IllegalArgumentException("Prescription has no interval start date");
+                throw new GraphDataException(GraphDataException.Problem.PRESCRIPTION_START, null,
+                        "Prescription has no interval start date");
             }
             Date end = prescription.getEndDate() != null ? prescription.getEndDate() : new Date();
             values.add(Map.of("row", row, "name", name, "start", start.getTime(), "end", end.getTime()));
@@ -225,28 +229,25 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         List<EctMeasurementsDataBean> measurements = getList(demographicNo, typeIdName);
         SeriesCollection dataset = measurementSeries(measurements, typeIdName);
         // Preserve the legacy high-low chart's title and dataset order.
-        return withNotShown(MeasurementChart.highLow("HighLowChartDemo2", "Time", "Value", dataset,
-                "DREFERENCE RANGE", measurementReferenceRanges(measurements, typeIdName)),
-                unplottedMeasurements(measurements, typeIdName));
+        return MeasurementChart.highLow("HighLowChartDemo2", "Time", "Value", dataset,
+                "DREFERENCE RANGE", measurementReferenceRanges(measurements, typeIdName));
     }
 
     private MeasurementChart rxAndLabChart(Integer demographicNo, String typeIdName) {
         List<EctMeasurementsDataBean> measurements = getList(demographicNo, typeIdName);
-        return withNotShown(MeasurementChart.lines("MED + LAB CHART", "Days", measurementUnits(measurements),
+        return MeasurementChart.lines("MED + LAB CHART", "Days", measurementUnits(measurements),
                         measurementSeries(measurements, typeIdName))
                 .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.2).withPlotBackground(WHITE)
                 .withShapes().withItemLabels(VALUE_DATE_LABEL, "0.00", 8)
-                .withMedications(getDrugDataSet(demographicNo, request.getParameterValues("drug"))),
-                unplottedMeasurements(measurements, typeIdName));
+                .withMedications(getDrugDataSet(demographicNo, request.getParameterValues("drug")));
     }
 
     private MeasurementChart labChart(Integer demographicNo, String typeIdName, String chartTitle) {
         List<EctMeasurementsDataBean> measurements = getList(demographicNo, typeIdName);
-        return withNotShown(MeasurementChart.lines(chartTitle, "Days", measurementUnits(measurements),
+        return MeasurementChart.lines(chartTitle, "Days", measurementUnits(measurements),
                         measurementSeries(measurements, typeIdName))
                 .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground(WHITE)
-                .withShapes().withItemLabels(VALUE_DATE_LABEL, "0.00", 8),
-                unplottedMeasurements(measurements, typeIdName));
+                .withShapes().withItemLabels(VALUE_DATE_LABEL, "0.00", 8);
     }
 
     private MeasurementChart labChartRef(Integer demographicNo, String typeIdName, String chartTitle) {
@@ -255,59 +256,19 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                         measurementSeries(measurements, typeIdName))
                 .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground(WHITE)
                 .withShapes().withItemLabels(VALUE_DATE_LABEL, "0.00", 12)
-                .withGreenReferenceRanges("Reference Range", measurementReferenceRanges(measurements, typeIdName))
-                .withNote(notShownNoteOrNull(unplottedMeasurements(measurements, typeIdName)));
+                .withGreenReferenceRanges("Reference Range", measurementReferenceRanges(measurements, typeIdName));
     }
 
     MeasurementChart defaultChart(Integer demographicNo, String typeIdName, String typeIdName2, String chartTitle) {
         List<EctMeasurementsDataBean> measurements = getList(demographicNo, typeIdName);
         MeasurementChart chart = MeasurementChart.lines(chartTitle, "Days", measurementUnits(measurements),
                 measurementSeries(measurements, typeIdName));
-        int notShown = unplottedMeasurements(measurements, typeIdName);
         if (typeIdName2 != null) {
             List<EctMeasurementsDataBean> secondary = getList(demographicNo, typeIdName2);
             // The legacy secondary axis is a single numeric series, including for a BP request.
             chart.withSecondAxis(measurementUnits(secondary), numericMeasurementSeries(secondary));
-            notShown += unplottedMeasurements(secondary, null);
         }
-        return withNotShown(chart, notShown);
-    }
-
-    /**
-     * The chart's note when values could not be plotted (#6122): a result filed as text, such as
-     * {@code Pending} or {@code Not detected}, or any other value without one number. The image cannot
-     * show them, so it says how many it leaves out and where to read them.
-     */
-    String notShownNote(int notShown) {
-        return getText("lab.graph.resultsNotShown", new String[]{String.valueOf(notShown)});
-    }
-
-    private String notShownNoteOrNull(int notShown) {
-        return notShown > 0 ? notShownNote(notShown) : null;
-    }
-
-    private MeasurementChart withNotShown(MeasurementChart chart, int notShown) {
-        return notShown > 0 ? chart.withNote(notShownNote(notShown)) : chart;
-    }
-
-    /** Counts measurements the chart cannot plot, including incomplete or nonnumeric BP pairs. */
-    static int unplottedMeasurements(List<EctMeasurementsDataBean> measurements, String typeIdName) {
-        boolean bloodPressure = "BP".equals(typeIdName);
-        int notShown = 0;
-        for (EctMeasurementsDataBean measurement : measurements) {
-            String value = measurement.getDataField();
-            if (bloodPressure ? bloodPressurePair(value) == null : numericResult(value) == null) notShown++;
-        }
-        return notShown;
-    }
-
-    /** Lab values the chart cannot plot: results with no single number, such as a text result (#6122). */
-    static int unplottedLabValues(List<Map<String, Serializable>> values) {
-        int notShown = 0;
-        for (Map<String, Serializable> value : values) {
-            if (numericResult((String) value.get("result")) == null) notShown++;
-        }
-        return notShown;
+        return chart;
     }
 
     private static String measurementUnits(List<EctMeasurementsDataBean> measurements) {
@@ -321,11 +282,21 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         Series systolic = new Series(SYSTOLIC);
         Series diastolic = new Series(DIASTOLIC);
         for (EctMeasurementsDataBean measurement : measurements) {
-            BloodPressure pair = bloodPressurePair(measurement.getDataField());
-            if (pair == null) continue;
-            Day day = new Day(measurement.getDateObservedAsDate().toInstant());
-            systolic.addOrUpdate(day, pair.systolic());
-            diastolic.addOrUpdate(day, pair.diastolic());
+            if (StringUtils.isNotEmpty(measurement.getDataField())) {
+                String[] values = measurement.getDataField().split("/");
+                if (values.length != 2) {
+                    throw new GraphDataException(GraphDataException.Problem.BLOOD_PRESSURE_FORMAT,
+                            typeName(measurement), "Invalid blood pressure measurement");
+                }
+                Day day = observedDay(measurement);
+                try {
+                    systolic.addOrUpdate(day, Double.parseDouble(values[0]));
+                    diastolic.addOrUpdate(day, Double.parseDouble(values[1]));
+                } catch (NumberFormatException notANumber) {
+                    throw new GraphDataException(GraphDataException.Problem.BLOOD_PRESSURE_FORMAT,
+                            typeName(measurement), "Invalid blood pressure measurement", notANumber);
+                }
+            }
         }
         SeriesCollection dataset = new SeriesCollection();
         dataset.addSeries(diastolic);
@@ -333,20 +304,27 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         return dataset;
     }
 
-    private record BloodPressure(double systolic, double diastolic) {}
+    /** The name the graph window shows for a measurement's type: its display name, else its code. */
+    static String typeName(EctMeasurementsDataBean measurement) {
+        return StringUtils.defaultIfBlank(measurement.getTypeDisplayName(), measurement.getType());
+    }
 
-    private static BloodPressure bloodPressurePair(String value) {
-        if (value == null) return null;
-        String[] values = value.split("/", -1);
-        if (values.length != 2) return null;
-        try {
-            double systolic = Double.parseDouble(values[0]);
-            double diastolic = Double.parseDouble(values[1]);
-            return Double.isFinite(systolic) && Double.isFinite(diastolic)
-                    ? new BloodPressure(systolic, diastolic) : null;
-        } catch (NumberFormatException invalidReading) {
-            return null;
+    /** The day a measurement was observed; a measurement without one cannot be placed on the graph. */
+    static Day observedDay(EctMeasurementsDataBean measurement) {
+        return new Day(observedDate(measurement).toInstant());
+    }
+
+    /**
+     * When a measurement was observed. Its value and its stored reference range are both placed by
+     * this date, so a measurement without one cannot be drawn.
+     */
+    static Date observedDate(EctMeasurementsDataBean measurement) {
+        Date observed = measurement.getDateObservedAsDate();
+        if (observed == null) {
+            throw new GraphDataException(GraphDataException.Problem.NO_DATE, typeName(measurement),
+                    "Measurement has no observation date");
         }
+        return observed;
     }
 
     private static SeriesCollection numericMeasurementSeries(List<EctMeasurementsDataBean> measurements) {
@@ -358,7 +336,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         for (EctMeasurementsDataBean measurement : measurements) {
             String result = numericResult(measurement.getDataField());
             if (result != null) {
-                series.addOrUpdate(new Day(measurement.getDateObservedAsDate().toInstant()), plottedValue(measurement.getType(), result));
+                series.addOrUpdate(observedDay(measurement), plottedValue(measurement.getType(), result));
             }
         }
         dataset.addSeries(series);
@@ -476,7 +454,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             Double minimum = storedBound(extensions.get("minimum"));
             Double maximum = storedBound(extensions.get("maximum"));
             if (minimum != null && maximum != null) {
-                ranges.add(new ReferenceRange(measurement.getDateObservedAsDate().toInstant(), minimum, maximum));
+                ranges.add(new ReferenceRange(observedDate(measurement).toInstant(), minimum, maximum));
             }
         }
         return ranges;
@@ -498,7 +476,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
     private MeasurementChart actualLabChartRef(Integer demographicNo, String labType, String identifier,
                                                String testName, String chartTitle) throws ParseException {
         List<Map<String, Serializable>> values = CommonLabTestValues.findValuesForTest(labType, demographicNo, testName, identifier);
-        return withNotShown(actualLabChart(values, null, chartTitle, 10), unplottedLabValues(values));
+        return actualLabChart(values, null, chartTitle, 10);
     }
 
     private MeasurementChart actualLabChartRefPlusMeds(Integer demographicNo, String labType, String identifier,
@@ -516,8 +494,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             List<Map<String, Serializable>> found = CommonLabTestValues.findValuesForTest(labType, demographicNo, testName, identifier);
             if (found != null) values = found;
         }
-        return withNotShown(actualLabChart(values, testName, chartTitle, 6)
-                .withMedications(getDrugDataSet(demographicNo, drugs)), unplottedLabValues(values));
+        return actualLabChart(values, testName, chartTitle, 6)
+                .withMedications(getDrugDataSet(demographicNo, drugs));
     }
 
     /** {@code labelBand}: the former lab-only chart chose item labels by tens of points, the lab-plus-medication chart by sixes. */
@@ -535,8 +513,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         Series series = new Series(name);
         List<ReferenceRange> ranges = new ArrayList<>();
         for (Map<String, Serializable> value : values) {
-            addLabValue(series, value);
-            addLabReferenceRange(ranges, value);
+            addLabValue(series, value, name);
+            addLabReferenceRange(ranges, value, name);
         }
         SeriesCollection dataset = new SeriesCollection();
         dataset.addSeries(series);
@@ -546,30 +524,63 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                 .withReferenceRanges("Normal Reference Range", ranges);
     }
 
-    private static void addLabValue(Series series, Map<String, Serializable> value) throws ParseException {
+    private static void addLabValue(Series series, Map<String, Serializable> value, String testName)
+            throws ParseException {
         String result = numericResult((String) value.get("result"));
-        Day collectionDate = collectionDay(value);
+        Day collectionDate = collectionDay(value, testName);
         if (result != null && collectionDate != null) {
             series.addOrUpdate(collectionDate, Double.parseDouble(result));
         }
     }
 
-    private static void addLabReferenceRange(List<ReferenceRange> ranges, Map<String, Serializable> value) throws ParseException {
+    private static void addLabReferenceRange(List<ReferenceRange> ranges, Map<String, Serializable> value,
+                                             String testName) throws ParseException {
         String range = (String) value.get("range");
-        Day collectionDate = collectionDay(value);
+        Day collectionDate = collectionDay(value, testName);
         if (range == null || !range.contains("-") || collectionDate == null) {
             return;
         }
-        String[] bounds = range.split("-");
-        if (bounds.length != 2) {
-            throw new IllegalArgumentException("Invalid laboratory reference range");
+        // A comparison operator marks a single threshold.
+        if ("<>≤≥".indexOf(range.stripLeading().charAt(0)) >= 0) {
+            return;
         }
-        double low = Double.parseDouble(bounds[0].replace("%", "").trim());
-        double high = Double.parseDouble(bounds[1].replace("%", "").trim());
+        int separator = labReferenceSeparator(range);
+        if (separator < 0) {
+            throw new GraphDataException(GraphDataException.Problem.REFERENCE_RANGE, testName,
+                    "Invalid laboratory reference range");
+        }
+        double low;
+        double high;
+        try {
+            low = Double.parseDouble(range.substring(0, separator).replace("%", "").trim());
+            high = Double.parseDouble(range.substring(separator + 1).replace("%", "").trim());
+        } catch (NumberFormatException notANumber) {
+            throw new GraphDataException(GraphDataException.Problem.REFERENCE_RANGE, testName,
+                    "Invalid laboratory reference range", notANumber);
+        }
         ranges.add(new ReferenceRange(collectionDate.getStart(), low, high));
     }
 
-    private static Day collectionDay(Map<String, Serializable> value) throws ParseException {
+    /** Finds the sole separator in one pass, keeping a bound's leading sign and exponent sign. */
+    private static int labReferenceSeparator(String range) {
+        int separator = -1;
+        char previous = '-';
+        for (int i = 0; i < range.length(); i++) {
+            char current = range.charAt(i);
+            if (current == '-' && "+-eEpP".indexOf(previous) < 0) {
+                if (separator >= 0) {
+                    return -1;
+                }
+                separator = i;
+            }
+            if (" \t\n\r\f\u000B".indexOf(current) < 0) {
+                previous = current;
+            }
+        }
+        return separator;
+    }
+
+    private static Day collectionDay(Map<String, Serializable> value, String testName) throws ParseException {
         // CML and HL7 already supply a normalized Date; LOINC supplies its timestamp as text.
         // Prefer the typed date because the provider's display date may use a different format.
         Serializable normalized = value.get("collDateDate");
@@ -607,7 +618,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             return new Day(java.time.LocalDateTime.parse(collectionDate.replace(' ', 'T'), format)
                     .atZone(java.time.ZoneId.systemDefault()).toInstant());
         } catch (java.time.format.DateTimeParseException invalid) {
-            throw new ParseException("Unsupported observation date", 0);
+            throw new GraphDataException(GraphDataException.Problem.UNREADABLE_DATE, testName,
+                    "Unsupported observation date", invalid);
         }
     }
 

@@ -124,6 +124,45 @@ async function workflow(s) {
     }
   });
 
+  await s.step('legacy NULL note fields load with defaults and remain unchanged until saved', async () => {
+    const parameters = [ids.C, patient];
+    let ticklerId;
+    s.cleanup(() => {
+      if (ticklerId) sql.execute('DELETE FROM casemgmt_note_link WHERE table_name=10 AND table_id=? AND note_id=?', [ticklerId, parameters[0]]);
+      sql.execute('DELETE FROM tickler WHERE demographic_no=? AND creator=? AND message=?', [patient, provider, marker]);
+      h.assert(sql.value('SELECT COUNT(*) FROM tickler WHERE demographic_no=? AND message=?', [patient, marker]) === '0',
+        'The owned note-read tickler remains');
+    });
+    ticklerId = sql.insertId('INSERT INTO tickler(demographic_no,message,status,update_date,service_date,creator,priority,task_assigned_to) VALUES (?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,?,?,?)',
+      [patient, marker, 'A', provider, 'Normal', provider]);
+    h.assert(/^[1-9]\d*$/.test(ticklerId), 'The owned note-read tickler has no identifier');
+    // CaseManagementNoteLink.TICKLER=10; the real reader calls CaseManagementNoteDAO.getNote.
+    sql.insertId('INSERT INTO casemgmt_note_link(table_name,table_id,note_id) VALUES (?,?,?)', [10, ticklerId, parameters[0]]);
+    const snapshot = () => sql.rows('SELECT note,provider_no,demographic_no,uuid,archived,position FROM casemgmt_note WHERE note_id=? AND demographic_no=?', parameters);
+    try {
+      for (const archived of [0, null]) {
+        sql.execute('UPDATE casemgmt_note SET position=NULL, archived=? WHERE note_id=? AND demographic_no=?', [archived, ...parameters]);
+        h.assert(sql.value('SELECT position IS NULL AND archived <=> ? FROM casemgmt_note WHERE note_id=? AND demographic_no=?', [archived, ...parameters]) === '1',
+          'The owned note does not contain the intended legacy NULL values');
+        const before = snapshot();
+        const query = new URLSearchParams({method:'ticklerGetNote', ticklerNo:ticklerId});
+        const response = await chart.request.get(`${s.config.baseUrl}/CaseManagementEntry?${query}`);
+        h.assert(response.status() === 200, `The server note reader answered HTTP ${response.status()}`);
+        const data = await response.json();
+        h.assert(data.noteId === parameters[0] && data.note === text('C'), 'The server did not return the owned note');
+        await response.dispose();
+        await openItem('C');
+        h.assert((await positionOptions()).find(option => option.selected)?.value === '0',
+          'The legacy NULL note did not open at the existing first-position default');
+        await button('Exit').click();
+        await dialog.waitFor({state:'hidden', timeout:TIMEOUT});
+        h.assert(JSON.stringify(snapshot()) === JSON.stringify(before), 'Opening the legacy note rewrote stored fields');
+      }
+    } finally {
+      sql.execute('UPDATE casemgmt_note SET archived=0, position=0 WHERE note_id=? AND demographic_no=?', parameters);
+    }
+  });
+
   await s.step('moving the last item to Position 1 puts it first and moves the others down', async () => {
     await openItem('A');
     const options = await positionOptions();

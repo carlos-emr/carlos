@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/model/EmailLog.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "0e74e96803ac14f9e797bdc5d1aaca186a9f5879"
+  },
+  "evidenceSha256": "610bf02a26932b42a643c7922a3c02b80ed73f62d1282bb6e654bd99ddcedf89"
+}

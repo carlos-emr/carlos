@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "dd45155cf6f7e50f10ed2ec5fefc7e742a9f3569",
+  "comparisonSha256": "f51385a0013555c1fb8fad7d9fa3a3c7e083a3878eca991e50c509a38494220e",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/CaseManagementManager.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "70f74b2a59ed36c3c3d6d1491676333f8d5191c7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/CaseManagementManagerImpl.java": {
+      "lines": 72.72727272727273,
+      "instructions": 66.0,
+      "branches": 100.0,
+      "sourceBlob": "fcc9d0e28b7b20dc3f8396c607e49becf1381995"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementEntry2Action.java": {
+      "lines": 31.25,
+      "instructions": 34.306569343065696,
+      "branches": 35.294117647058826,
+      "sourceBlob": "b292b2badbfc4cf399764be08b50f0e9fed69590"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CasemgmtNoteLockDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "4e1f27df9d9f7a1831264f7b3f446c9d119b6ced"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CasemgmtNoteLockDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "df056137809ff00bc1497aa77376dddf739854f0"
+    }
+  },
+  "baselineCommit": "5ece5d572c87f4b190ef551b16e06360dff24c4b",
+  "baselineSourceTree": "dd45155cf6f7e50f10ed2ec5fefc7e742a9f3569",
+  "baselineReportSha256": "a0d9ce2a6b9fbc69a4c839b871497fafe303662271ee430e4561f11050cecb7d",
+  "baselineLane": "Focused Java 25 chart and write-route verification on H2 plus a separate five-case MariaDB Flyway retake; manager and DAO interface edits declare methods only",
+  "baselineTestCounts": {
+    "tests": 454,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "9d6a5df9fdb9806bb7cd7b3e8968ad746a4b8a7586d61ea184cb8e4b9b9af56a",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

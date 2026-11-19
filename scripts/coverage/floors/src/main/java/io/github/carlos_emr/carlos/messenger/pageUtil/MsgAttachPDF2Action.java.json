@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgAttachPDF2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "13a960b4645e1c24a2b1f4e427e820d46b2ec4a6"
+  },
+  "evidenceSha256": "c6c42ca7cff6bcfdc3bba8b530bf562fd11ed41825d26a8f89c60ae087d3d12f"
+}

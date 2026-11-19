@@ -25,6 +25,8 @@ class ProviderProperty2ActionDocQueueUnitTest extends CarlosUnitTestBase {
     private final MockHttpServletRequest request = new MockHttpServletRequest();
     private final MockHttpServletResponse response = new MockHttpServletResponse();
     private final QueueDao queues = mock(QueueDao.class);
+    private final io.github.carlos_emr.carlos.daos.security.SecObjectNameDao securityObjects =
+            mock(io.github.carlos_emr.carlos.daos.security.SecObjectNameDao.class);
     private final UserPropertyDAO properties = mock(UserPropertyDAO.class);
     private MockedStatic<ServletActionContext> servlet;
     private MockedStatic<LoggedInInfo> loggedIn;
@@ -34,7 +36,10 @@ class ProviderProperty2ActionDocQueueUnitTest extends CarlosUnitTestBase {
     void setUp() {
         request.setMethod("POST");
         registerMock(QueueDao.class, queues);
+        registerMock(io.github.carlos_emr.carlos.daos.security.SecObjectNameDao.class, securityObjects);
         registerMock(UserPropertyDAO.class, properties);
+        registerMock(io.github.carlos_emr.carlos.commn.service.ProviderDocumentQueueService.class,
+                new io.github.carlos_emr.carlos.commn.service.ProviderDocumentQueueService(queues, securityObjects, properties));
         registerMock(ProviderManager2.class, mock(ProviderManager2.class));
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         servlet = mockStatic(ServletActionContext.class);
@@ -60,6 +65,7 @@ class ProviderProperty2ActionDocQueueUnitTest extends CarlosUnitTestBase {
     @ValueSource(strings = {"new", "NEW"})
     void savesTheCreatedIdWhenAnotherRequestCreatesAHigherQueue(String mode) {
         request.setParameter("chooseMode", mode);
+        when(properties.lockProviderPreferences("owner")).thenReturn(true);
         when(queues.addNewQueueAndGetId("Other")).thenReturn(99);
         when(queues.addNewQueueAndGetId("Mine")).thenAnswer(call -> {
             assertThat(queues.addNewQueueAndGetId("Other")).isEqualTo(99);
@@ -68,6 +74,7 @@ class ProviderProperty2ActionDocQueueUnitTest extends CarlosUnitTestBase {
 
         assertThat(action.saveDefaultDocQueue()).isEqualTo("genDefaultDocQueue");
 
+        verify(properties).lockProviderPreferences("owner");
         verify(properties).saveProp(argThat(prop -> "42".equals(prop.getValue())
                 && "owner".equals(prop.getProviderNo()) && UserProperty.DOC_DEFAULT_QUEUE.equals(prop.getName())));
         verify(queues, never()).getLastId();
@@ -78,10 +85,12 @@ class ProviderProperty2ActionDocQueueUnitTest extends CarlosUnitTestBase {
     @ValueSource(booleans = {false, true})
     void leavesThePreviousDefaultUntouchedWhenCreationFails(boolean hasPreviousDefault) {
         request.setParameter("chooseMode", "new");
+        when(properties.lockProviderPreferences("owner")).thenReturn(true);
         UserProperty previous = new UserProperty();
         previous.setValue("7");
         if (hasPreviousDefault) {
-            lenient().when(properties.getProp("owner", UserProperty.DOC_DEFAULT_QUEUE)).thenReturn(previous);
+            lenient().when(properties.getAllProperties(UserProperty.DOC_DEFAULT_QUEUE, java.util.List.of("owner")))
+                    .thenReturn(java.util.List.of(previous));
         }
         when(queues.addNewQueueAndGetId("Mine")).thenThrow(new PersistenceException("insert failed"));
 
@@ -94,6 +103,7 @@ class ProviderProperty2ActionDocQueueUnitTest extends CarlosUnitTestBase {
     @Test
     void doesNotSaveADefaultWithoutAnAssignedId() {
         request.setParameter("chooseMode", "new");
+        when(properties.lockProviderPreferences("owner")).thenReturn(true);
         when(queues.addNewQueueAndGetId("Mine")).thenReturn(null);
 
         action.saveDefaultDocQueue();
@@ -101,23 +111,50 @@ class ProviderProperty2ActionDocQueueUnitTest extends CarlosUnitTestBase {
         assertNotSaved();
     }
 
-    @Test
-    void preservesSelectionOfAnExistingQueue() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void preservesSelectionOfAnExistingQueue(boolean hasPreviousDefault) {
         request.setParameter("chooseMode", "existing");
+        when(properties.lockProviderPreferences("owner")).thenReturn(true);
+        when(queues.lockExistingQueue(7)).thenReturn(true);
         UserProperty choice = new UserProperty();
         choice.setValue("7");
         action.setExistingDefaultDocQueueProperty(choice);
+        if (hasPreviousDefault) {
+            UserProperty previous = new UserProperty();
+            previous.setProviderNo("owner");
+            previous.setName(UserProperty.DOC_DEFAULT_QUEUE);
+            previous.setValue("3");
+            when(properties.getAllProperties(UserProperty.DOC_DEFAULT_QUEUE, java.util.List.of("owner")))
+                    .thenReturn(java.util.List.of(previous));
+        }
 
         action.saveDefaultDocQueue();
 
-        verify(properties).saveProp(argThat(prop -> "7".equals(prop.getValue())));
-        verifyNoInteractions(queues);
+        var writes = inOrder(properties, queues);
+        writes.verify(properties).lockProviderPreferences("owner");
+        writes.verify(queues).lockExistingQueue(7);
+        writes.verify(properties).getAllProperties(UserProperty.DOC_DEFAULT_QUEUE, java.util.List.of("owner"));
+        writes.verify(properties).saveProp(argThat(prop -> "7".equals(prop.getValue())));
+        assertThat(request.getAttribute("status")).isEqualTo("success");
+        verifyNoMoreInteractions(queues);
     }
 
     @Test
     void reportsMissingModeAsNotSaved() {
         action.saveDefaultDocQueue();
         assertNotSaved();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"new", "existing", "unknown"})
+    void refusesMissingChoicesOrAnUnknownMode(String mode) {
+        request.setParameter("chooseMode", mode);
+        action.setNewDefaultDocQueueProperty(null);
+        action.setExistingDefaultDocQueueProperty(null);
+        action.saveDefaultDocQueue();
+        assertNotSaved();
+        verifyNoInteractions(queues, securityObjects);
     }
 
     @Test
@@ -137,9 +174,35 @@ class ProviderProperty2ActionDocQueueUnitTest extends CarlosUnitTestBase {
     }
 
     private void assertNotSaved() {
-        verifyNoInteractions(properties);
+        verify(properties, never()).saveProp(any(UserProperty.class));
         verify(queues, never()).getLastId();
         assertThat(request.getAttribute("status")).isEqualTo("error");
         assertThat(request.getAttribute("providermsgSuccess")).isEqualTo("provider.setDefaultDocumentQueue.msgNotSaved");
     }
+    @Test
+    void createsTheGrantableSecurityObject_withThePersistedQueueId() {
+        request.setParameter("chooseMode", "new");
+        when(properties.lockProviderPreferences("owner")).thenReturn(true);
+        when(queues.addNewQueueAndGetId("Mine")).thenReturn(42);
+        assertThat(action.saveDefaultDocQueue()).isEqualTo("genDefaultDocQueue");
+        verify(properties).lockProviderPreferences("owner");
+        verify(properties).saveProp(argThat(prop -> "42".equals(prop.getValue())));
+        verify(securityObjects).saveOrUpdate(argThat(object -> "_queue.42".equals(object.getObjectname())
+                && "Mine".equals(object.getDescription()) && object.getOrgapplicable() == 0));
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @ValueSource(strings = {"", " ", "\t", "\r\n"})
+    void refusesBlankNewQueueNames_beforeCreatingRowsOrChangingTheDefault(String blank) {
+        request.setParameter("chooseMode", "new");
+        action.getNewDefaultDocQueueProperty().setValue(blank);
+        lenient().when(queues.addNewQueueAndGetId(blank)).thenReturn(42);
+        action.saveDefaultDocQueue();
+        assertNotSaved();
+        verify(queues, never()).addNewQueueAndGetId(anyString());
+        verify(properties, never()).saveProp(any(UserProperty.class));
+        verifyNoInteractions(securityObjects);
+    }
+
 }

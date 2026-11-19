@@ -112,7 +112,7 @@ class EFormExportZipCopyUnitTest {
                 saved.add(invocation.getArgument(0));
                 return "synthetic-fixture";
             });
-            assertThat(new EFormExportZip().importForm(new ByteArrayInputStream(archive.toByteArray()))).isEmpty();
+            assertThat(new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(archive.toByteArray()))).isEmpty();
         }
         assertThat(saved).singleElement().satisfies(form -> {
             assertThat(form.getFormName()).isEqualTo(original.getFormName());
@@ -120,7 +120,8 @@ class EFormExportZipCopyUnitTest {
         });
         assertThat(Files.readAllBytes(images.resolve("fixture.png"))).isEqualTo(asset);
         try (var staging = Files.list(images.resolve("extractFolder"))) {
-            assertThat(staging.toList()).isEmpty();
+            assertThat(staging.map(path -> path.getFileName().toString()))
+                    .containsExactly(EFormImagePublicationLock.LOCK_FILE_NAME);
         }
     }
 
@@ -155,7 +156,7 @@ class EFormExportZipCopyUnitTest {
         try (var imageFolder = mockStatic(ImageUpload2Action.class);
              var forms = mockStatic(EFormUtil.class)) {
             imageFolder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
-            assertThatThrownBy(() -> new EFormExportZip().importForm(failing)).isInstanceOf(IOException.class);
+            assertThatThrownBy(() -> new EFormExportZip(Runnable::run).importForm(failing)).isInstanceOf(IOException.class);
             forms.verify(() -> EFormUtil.saveEForm(any(EForm.class)), never());
         }
         try (var staging = Files.list(images.resolve("extractFolder"))) {
