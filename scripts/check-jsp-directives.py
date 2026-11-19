@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later.
-"""Conservatively detect dead JSP imports/taglibs using the build's classpath.
+"""Detect dead JSP imports/taglibs and undeclared tag prefixes.
 
-Static includes share a translation unit; dynamic jsp:include pages do not.
+Static includes share a translation unit. Dynamic JSP dispatch uses a separate unit.
 Every includer's unit is considered when checking a shared fragment. Names in
-HTML, strings and Java comments deliberately count as uses. JSP comments and
-directives do not. This is a maintenance check, not a Java/EL type resolver:
-Jasper must still compile every page after any cleanup (#5478).
+HTML, strings and Java comments deliberately keep directives live. Checks for
+undeclared tag prefixes only consider template markup. Jasper still compiles
+every page after cleanup and validates Java, EL and JSP syntax (#5478).
 
 Example (after Maven has compiled the application):
   mvn dependency:build-classpath -DincludeScope=compile -Dmdep.outputFile=target/jsp-classpath.txt
   python3 scripts/check-jsp-directives.py --classpath-file target/jsp-classpath.txt
 
-Exit codes: 0 clean; 1 dead directives; 2 missing/unsupported analysis inputs.
+Exit with 0 for a clean audit, 1 for findings or 2 for unavailable analysis inputs.
 """
 
 import argparse
-from collections import defaultdict
+from collections import Counter, defaultdict
 from html import unescape
 import os
 from pathlib import Path
@@ -33,10 +33,43 @@ ATTRIBUTE = re.compile(r'([\w:-]+)\s*=\s*([\"\'])(.*?)\2', re.S)
 COMMENT = re.compile(r'<%--.*?--%>', re.S)
 TOKEN = re.compile(r'\b[A-Za-z_$][\w$]*\b')
 XML_NAMESPACE = re.compile(r'\bxmlns(?::[\w.-]+)?\s*=\s*([\"\'])(.*?)\1', re.S)
+JSP_BLOCK = re.compile(r'<%.*?%>', re.S)
+QUALIFIED_TAG = re.compile(r'</?([\w.-]+):([\w.-]+)(?=[\s/>])')
+DYNAMIC_DISPATCH = re.compile(r'''<jsp:(?:include|forward)\b((?:[^>"']|"[^"]*"|'[^']*')*)>''', re.S)
+
+# Existing Struts 1 markup tracked by #6050. Limit exemptions by file and tag
+# name and count closing tags as well. The gate accepts fewer occurrences.
+LEGACY_HTML_TAGS = {
+    'WEB-INF/jsp/PMmodule/Admin/ProgramEdit/access.jsp': (
+        'select', 'options', 'select', 'hidden', 'hidden', 'checkbox', 'cancel',
+    ),
+    'WEB-INF/jsp/PMmodule/Admin/ProgramEdit/client_status.jsp': ('hidden', 'text', 'cancel'),
+    'WEB-INF/jsp/PMmodule/Admin/ProgramEdit/queue.jsp': ('hidden',),
+    'WEB-INF/jsp/PMmodule/Admin/ProgramEdit/service_restrictions.jsp': ('text', 'text', 'hidden'),
+    'WEB-INF/jsp/PMmodule/Admin/ProgramEdit/staff.jsp': (
+        'rewrite', 'hidden', 'hidden', 'select', 'options', 'select', 'cancel',
+    ),
+    'WEB-INF/jsp/PMmodule/Admin/ProgramEdit/teams.jsp': ('hidden', 'text', 'cancel'),
+    'WEB-INF/jsp/PMmodule/Admin/ProgramView/queue.jsp': (
+        'hidden', 'hidden', 'radio', 'radio', 'radio', 'radio', 'radio',
+    ),
+}
 
 
 def attributes(text):
     return {name: value for name, quote, value in ATTRIBUTE.findall(text)}
+
+
+def jsp_path(webapp, source, name):
+    base = webapp if name.startswith('/') else source.parent
+    return (base / name.lstrip('/')).resolve()
+
+
+def dispatched_pages(template):
+    for match in DYNAMIC_DISPATCH.finditer(template):
+        name = attributes(match[1]).get('page', '').partition('?')[0]
+        if name:
+            yield name
 
 
 def reachable(start, edges):
@@ -97,8 +130,7 @@ def check_web_xml(descriptor):
 
 
 def translation_units(webapp):
-    """Return each page/fragment and all source that can use its directives."""
-    webapp = webapp.resolve()
+    """Return each source file, its directive uses and its shared tag prefixes."""
     if not webapp.is_dir():
         raise ValueError(f'webapp does not exist: {webapp}')
     descriptor = webapp / 'WEB-INF/web.xml'
@@ -110,9 +142,10 @@ def translation_units(webapp):
         raise ValueError(f'no JSPs found in {webapp}')
     children, parents = defaultdict(set), defaultdict(set)
     pending = list(texts)
+    directives, templates = {}, {}
     while pending:
         path = pending.pop()
-        active = COMMENT.sub('', texts[path])
+        active = COMMENT.sub(lambda m: ' ' * len(m[0]), texts[path])
         # JSP documents can bind the JSP namespace to any prefix, including the
         # default namespace. Do not silently audit them as classic JSP syntax.
         if (path.suffix in ('.jspx', '.tagx')
@@ -120,14 +153,15 @@ def translation_units(webapp):
                        for quote, value in XML_NAMESPACE.findall(active))
                 or re.search(r'<jsp:directive\.', active)):
             raise ValueError(f'XML JSP directives need analysis support: {path}')
-        for match in DIRECTIVE.finditer(active):
-            attrs = attributes(match[0])
+        directives[path] = [(match, attributes(match[0])) for match in DIRECTIVE.finditer(active)]
+        templates[path] = JSP_BLOCK.sub(lambda m: ' ' * len(m[0]), active)
+        for match, attrs in directives[path]:
             if match[1] != 'include':
                 continue
             name = attrs.get('file')
             if not name:
                 raise ValueError(f'include without a literal file: {path}')
-            target = (webapp / name.lstrip('/') if name.startswith('/') else path.parent / name).resolve()
+            target = jsp_path(webapp, path, name)
             if not target.is_relative_to(webapp) or not target.is_file():
                 raise ValueError(f'missing or outside-webapp static include: {path}: {name}')
             if target not in texts:
@@ -150,9 +184,32 @@ def translation_units(webapp):
 
     bodies = {p: DIRECTIVE.sub(directive_body, COMMENT.sub('', data)) for p, data in texts.items()}
     closures = {p: reachable(p, children) for p in texts}
+    roots = {p for p in texts if p.suffix in ('.jsp', '.tag') or not parents[p]}
+    dispatches = {path: tuple(dispatched_pages(template)) for path, template in templates.items()}
+    pending_roots = list(roots)
+    while pending_roots:
+        root = pending_roots.pop()
+        # Relative dispatch uses the executing JSP's path, including for
+        # actions written in one of its statically included fragments.
+        names = {name for member in closures[root] for name in dispatches[member]}
+        for name in names:
+            target = jsp_path(webapp, root, name)
+            if target in texts and target not in roots:
+                roots.add(target)
+                pending_roots.append(target)
+
+    declared = {
+        p: {attrs['prefix'] for match, attrs in matches if match[1] == 'taglib' and 'prefix' in attrs}
+        for p, matches in directives.items()
+    }
+    prefixes = {p: set().union(*(declared[member] for member in unit)) for p, unit in closures.items()}
     for path, data in texts.items():
-        unit = set().union(*(closures[p] for p in reachable(path, parents)))
-        yield path, data, '\n'.join(bodies[p] for p in sorted(unit))
+        includers = reachable(path, parents)
+        unit = set().union(*(closures[p] for p in includers))
+        # One use keeps a shared declaration live. A shared use needs its
+        # declaration in every unit that compiles the fragment.
+        common_prefixes = set.intersection(*(prefixes[p] for p in (roots & includers or {path})))
+        yield path, data, '\n'.join(bodies[p] for p in sorted(unit)), directives[path], templates[path], common_prefixes
 
 
 class ClassIndex:
@@ -198,11 +255,10 @@ class ClassIndex:
 
 
 def inspect(webapp, index):
-    for path, data, body in translation_units(webapp):
+    webapp = webapp.resolve()
+    for path, data, body, directives, template, common_prefixes in translation_units(webapp):
         tokens = set(TOKEN.findall(body))
-        active = COMMENT.sub(lambda m: ' ' * len(m[0]), data)
-        for match in DIRECTIVE.finditer(active):
-            attrs = attributes(match[0])
+        for match, attrs in directives:
             line = data.count('\n', 0, match.start()) + 1
             if match[1] in ('page', 'tag'):
                 for entry in attrs.get('import', '').split(','):
@@ -222,6 +278,17 @@ def inspect(webapp, index):
                 prefix = re.escape(attrs['prefix'])
                 if not re.search(r'(?:</?\s*' + prefix + r':|\b' + prefix + r'\s*:\s*\w+\s*\()', body):
                     yield path, line, 'unused taglib', attrs['prefix'] + ': ' + attrs.get('uri', '')
+
+        legacy = Counter(LEGACY_HTML_TAGS.get(path.relative_to(webapp).as_posix(), ()))
+        for match in QUALIFIED_TAG.finditer(template):
+            prefix, tag = match.groups()
+            if prefix == 'jsp' or prefix in common_prefixes:
+                continue
+            if prefix == 'html' and legacy[tag] > 0:
+                legacy[tag] -= 1
+                continue
+            line = data.count('\n', 0, match.start()) + 1
+            yield path, line, 'undeclared tag prefix', f'{prefix}:{tag}'
 
 
 def main():
@@ -249,7 +316,7 @@ def main():
         findings = list(inspect(args.webapp, index))
         for path, line, kind, value in findings:
             print(f'{path}:{line}: {kind}: {value}')
-        print(f'JSP directive audit: {len(findings)} dead directives')
+        print(f'JSP directive audit: {len(findings)} findings')
         return int(bool(findings))
     except (OSError, ValueError, zipfile.BadZipFile, subprocess.CalledProcessError) as error:
         print(f'JSP directive audit unavailable: {error}', file=sys.stderr)
