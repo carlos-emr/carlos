@@ -547,6 +547,24 @@ were removed or restored to the reviewed base. No executable exclusion, lower
 floor or zero-coverage waiver was added. Passing PR source freshness does not
 certify those outstanding release-wide coverage requirements.
 
+The PR #6133 checkpoint at `5a02e389bda` records a fresh complete H2 execution:
+36,211 actual cases, zero failures/errors and 219 exact registered routed or
+prerequisite skips. Seven physical MariaDB audit-purge cases and five permission
+cases pass separately without skips against identical production/test classes.
+All 6,311 production class hashes match the isolated source-built WAR. Fifteen
+packaging fixtures also exercise a byte-identical preflight helper with JaCoCo.
+Two CDS families abort in `BeforeAll` without their protected native selector;
+their required 12 and 7 cases remain in `java-cds-native` and are explicitly
+recorded in the baseline rather than counted as H2 executions.
+
+The refreshed metadata binds 739 floors and the same six nonexecutable exclusions
+to the final Java tree, report and testcase inventory. Every Java file changed by
+this PR meets its retained floors. Higher historical metrics and every required
+refusal line remain intact. The wider comparison still refuses 194 assertions,
+including 79 existing unreviewed zero floors, pending the complete native-lane
+union and review. This adds no waiver or lower threshold and does not qualify
+the full release matrix.
+
 PR #6135 refreshes the inbox/review source at `3e6960be26b` from a complete
 36,223-case H2 run with zero failures/errors and 212 registered routed/prerequisite
 skips. Complete final retakes of four augmented action/upload/report-identity

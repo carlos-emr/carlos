@@ -9,6 +9,7 @@ on:
       - 'scripts/ci/**'
       - '.devcontainer/development/Dockerfile'
   push:
+    tags: ['20*']
     branches: [main, develop, 'release/**']
     paths:
       - '.github/**'

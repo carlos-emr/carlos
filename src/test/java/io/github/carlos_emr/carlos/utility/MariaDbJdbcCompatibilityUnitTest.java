@@ -81,7 +81,9 @@ class MariaDbJdbcCompatibilityUnitTest {
     void shouldRejectUnsupportedConfiguration_withoutEchoingCredentials() {
         assertThatThrownBy(() -> MariaDbJdbcCompatibility.settings(
                 "jdbc:mysql:///test?characterEncoding=latin1&password=do-not-log", new Properties())) // ggignore - synthetic JDBC parsing/trust-store fixture, never a deployed credential
-                .isInstanceOf(SQLException.class).hasMessage("Invalid database connection configuration").hasNoCause();
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Invalid database connection configuration: option characterEncoding; use UTF-8, UTF8 or utf8mb4")
+                .hasNoCause();
         assertThatThrownBy(() -> MariaDbJdbcCompatibility.settings(
                 "jdbc:mysql:///test?password=%invalid", new Properties())) // ggignore - synthetic JDBC parsing/trust-store fixture, never a deployed credential
                 .isInstanceOf(SQLException.class).hasMessage("Invalid database connection configuration").hasNoCause();
@@ -147,7 +149,8 @@ class MariaDbJdbcCompatibilityUnitTest {
         assertThat(hostPreferred.properties()).containsEntry("sslMode", "allow")
                 .containsEntry("carlosLegacyPreferredTls", "true");
         assertThatThrownBy(() -> MariaDbJdbcCompatibility.settings("jdbc:mysql://db/test?dnsSrv=true", new Properties()))
-                .isInstanceOf(SQLException.class).hasMessage("Invalid database connection configuration");
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Invalid database connection configuration: option dnsSrv; DNS SRV is unsupported; configure an explicit host");
     }
 
     @ParameterizedTest
@@ -196,9 +199,11 @@ class MariaDbJdbcCompatibilityUnitTest {
             Properties properties = new Properties();
             properties.setProperty(key, collation);
             assertThatThrownBy(() -> MariaDbJdbcCompatibility.settings("jdbc:mysql://db/test", properties))
-                    .isInstanceOf(SQLException.class).hasMessage("Invalid database connection configuration");
+                    .isInstanceOf(SQLException.class)
+                    .hasMessage("Invalid database connection configuration: option connectionCollation; use a utf8mb4 collation");
             assertThatThrownBy(() -> MariaDbJdbcCompatibility.settings("jdbc:mysql://db/test?" + key + "=" + collation, new Properties()))
-                    .isInstanceOf(SQLException.class).hasMessage("Invalid database connection configuration");
+                    .isInstanceOf(SQLException.class)
+                    .hasMessage("Invalid database connection configuration: option connectionCollation; use a utf8mb4 collation");
         }
     }
 
@@ -301,7 +306,28 @@ class MariaDbJdbcCompatibilityUnitTest {
             "trustManagerFactoryProvider=explicit", "keyStoreProvider=explicit", "sslContextProvider=explicit"})
     void shouldRejectUnsupportedSecurityProviders_withoutIgnoringTheRequestedPolicy(String option) {
         assertThatThrownBy(() -> MariaDbJdbcCompatibility.settings("jdbc:mysql://db/test?" + option, new Properties()))
-                .isInstanceOf(SQLException.class).hasMessage("Invalid database connection configuration");
+                .isInstanceOf(SQLException.class)
+                .hasMessageStartingWith("Invalid database connection configuration: option " + option.split("=")[0] + "; ")
+                .hasMessageContaining("unsupported");
+    }
+
+    @ParameterizedTest
+    @CsvSource({"characterEncoding=latin1,characterEncoding", "connectionCollation=latin1_ci,connectionCollation",
+            "dnsSrv=true,dnsSrv", "fipsCompliantJsse=true,fipsCompliantJsse"})
+    void shouldNameOnlyRecognizedOptions_whenRejectingConfiguredValues(String option, String expected) {
+        String url = "jdbc:mysql://FAKE-user:FAKE-secret@db/test?" + option;
+        assertThatThrownBy(() -> MariaDbJdbcCompatibility.settings(url, new Properties()))
+                .isInstanceOf(SQLException.class).hasMessageContaining("option " + expected + ";")
+                .hasMessageNotContaining("FAKE-user").hasMessageNotContaining("FAKE-secret")
+                .hasMessageNotContaining("jdbc:")
+                .satisfies(failure -> assertThat(((SQLException) failure).getSQLState()).isEqualTo("08001"));
+        try (var source = new OscarTrackingBasicDataSource()) {
+            assertThatThrownBy(() -> source.setUrl(url)).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("option " + expected + ";")
+                    .hasMessageNotContaining("FAKE-user").hasMessageNotContaining("FAKE-secret");
+        } catch (SQLException failure) {
+            throw new AssertionError(failure);
+        }
     }
 
     @Test

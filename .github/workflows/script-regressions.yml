@@ -6,6 +6,7 @@ name: Script Regressions
 on:
   pull_request:
   push:
+    tags: ['20*']
     branches:
       - main
       - develop
@@ -33,6 +34,11 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+      - name: Set up Java Properties fixture runtime
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '25'
       - name: Install supported npm
         run: npm install --global npm@10.9.9 --ignore-scripts --no-audit --no-fund
       - name: Install locked dependencies without lifecycle scripts
