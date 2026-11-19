@@ -843,7 +843,7 @@ class PrivacyStatementAppendingFilterUnitTest {
 
     @Test
     void shouldKeepMetadataLength_whenAConfiguredNoticeHasNoBodyChannel() throws Exception {
-        try (var notice = configuredStatement("FAKE metadata notice")) {
+        try (var _ = configuredStatement("FAKE metadata notice")) {
             var request = new MockHttpServletRequest("GET", "/fixture.html");
             var response = new MockHttpServletResponse();
             filter.doFilter(request, response, (req, res) -> {
@@ -857,7 +857,7 @@ class PrivacyStatementAppendingFilterUnitTest {
 
     @Test
     void shouldKeepOtherIntegerHeaders_whenDecoratingHtml() throws Exception {
-        try (var notice = configuredStatement("FAKE integer-header notice")) {
+        try (var _ = configuredStatement("FAKE integer-header notice")) {
             var request = new MockHttpServletRequest("GET", "/fixture.html");
             var response = new MockHttpServletResponse();
             filter.doFilter(request, response, (req, res) -> {
