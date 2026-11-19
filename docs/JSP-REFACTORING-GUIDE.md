@@ -274,7 +274,7 @@ If JSTL cannot handle the logic, document why:
 
 | Old Pattern (Scriptlet) | New Pattern (JSTL/EL) |
 |-------------------------|------------------|
-| `<%= variable %>` | `${e:forHtml(variable)}` |
+| `<%= variable %>` | `${carlos:forHtml(variable)}` |
 | `<%= request.getParameter("x") %>` | `${param.x}` |
 | `<%= session.getAttribute("x") %>` | `${sessionScope.x}` |
 | `<%= obj.getProperty() %>` | `${obj.property}` |
@@ -283,32 +283,35 @@ If JSTL cannot handle the logic, document why:
 
 **Taglib declaration** (add to taglib block at top of JSP):
 ```jsp
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 ```
 
-For **all** data displayed in JSPs, use OWASP Encoder with context-appropriate encoding. The Jakarta EL functions are the preferred approach — they are cleaner than scriptlets and provide better encoding than `<c:out>`:
+Do not declare the OWASP encoder taglib (`owasp.encoder.jakarta`): CARLOS no longer ships it
+(#5477), so a page that declares it fails to translate, and the encoder lint fails CI on it.
+
+For **all** data displayed in JSPs, use OWASP Encoder with context-appropriate encoding. The null-safe CARLOS EL functions (`carlos-tag.tld`, which delegate to OWASP Encoder through `SafeEncode`) are the preferred approach — they are cleaner than scriptlets and provide better encoding than `<c:out>`:
 
 | Context | EL Function (Preferred) | Scriptlet Alternative |
 |---------|------------------------|----------------------|
-| HTML body | `${e:forHtml(value)}` | `<%= Encode.forHtml(value) %>` |
-| HTML attributes | `${e:forHtmlAttribute(value)}` | `<%= Encode.forHtmlAttribute(value) %>` |
-| JavaScript | `${e:forJavaScript(value)}` | `<%= Encode.forJavaScript(value) %>` |
-| CSS | `${e:forCssString(value)}` | `<%= Encode.forCssString(value) %>` |
-| URLs | `${e:forUriComponent(value)}` | `<%= Encode.forUriComponent(value) %>` |
+| HTML body | `${carlos:forHtml(value)}` | `<%= Encode.forHtml(value) %>` |
+| HTML attributes | `${carlos:forHtmlAttribute(value)}` | `<%= Encode.forHtmlAttribute(value) %>` |
+| JavaScript | `${carlos:forJavaScript(value)}` | `<%= Encode.forJavaScript(value) %>` |
+| CSS | `${carlos:forCssString(value)}` | `<%= Encode.forCssString(value) %>` |
+| URLs | `${carlos:forUriComponent(value)}` | `<%= Encode.forUriComponent(value) %>` |
 
-> **Why `${e:forHtml()}` over `<c:out>`?**
+> **Why `${carlos:forHtml()}` over `<c:out>`?**
 > - `<c:out>` and `fn:escapeXml()` only do basic XML entity escaping (`<>&"'`)
-> - `${e:forHtml()}` uses OWASP Encoder which handles additional edge cases
+> - `${carlos:forHtml()}` uses OWASP Encoder which handles additional edge cases
 > - OWASP Encoder provides context-specific variants (HTML, JS, CSS, URL) — `<c:out>` does not
-> - `${e:forHtml()}` is a **drop-in replacement**: `<c:out value="${name}"/>` → `${e:forHtml(name)}`
-> - **`<c:out>` is legacy** — still acceptable in existing code, but use `${e:forHtml()}` for all new code
+> - `${carlos:forHtml()}` is a **drop-in replacement**: `<c:out value="${name}"/>` → `${carlos:forHtml(name)}`
+> - **`<c:out>` is legacy** — still acceptable in existing code, but use `${carlos:forHtml()}` for all new code
 
 **Example — preferred EL approach:**
 ```jsp
 <%-- All data — use OWASP Encoder EL functions --%>
-<div>${e:forHtml(userEnteredName)}</div>
-<input value="${e:forHtmlAttribute(userEnteredAddress)}">
-<span>${e:forHtml(systemGeneratedId)}</span>
+<div>${carlos:forHtml(userEnteredName)}</div>
+<input value="${carlos:forHtmlAttribute(userEnteredAddress)}">
+<span>${carlos:forHtml(systemGeneratedId)}</span>
 ```
 
 **Example — scriptlet approach (when already in scriptlet-heavy JSP):**
@@ -380,7 +383,7 @@ For **all** data displayed in JSPs, use OWASP Encoder with context-appropriate e
 ```jsp
 <c:forEach items="${allStatuses}" var="status" varStatus="loop">
     <option value="${status.status}">
-        ${e:forHtml(status.description)}
+        ${carlos:forHtml(status.description)}
     </option>
 </c:forEach>
 ```
@@ -390,9 +393,9 @@ For **all** data displayed in JSPs, use OWASP Encoder with context-appropriate e
 **Preferred — OWASP Encoder EL functions (for all data):**
 ```jsp
 <%-- OWASP Encoder EL — preferred for all attribute values --%>
-<input value="${e:forHtmlAttribute(userName)}">
-<div title="${e:forHtmlAttribute(userComment)}">
-<input value="${e:forHtmlAttribute(systemId)}">
+<input value="${carlos:forHtmlAttribute(userName)}">
+<div title="${carlos:forHtmlAttribute(userComment)}">
+<input value="${carlos:forHtmlAttribute(systemId)}">
 ```
 
 **Scriptlet alternative (when in scriptlet-heavy JSP):**
@@ -402,7 +405,7 @@ For **all** data displayed in JSPs, use OWASP Encoder with context-appropriate e
 <div title="<%= Encode.forHtmlAttribute(userComment) %>">
 ```
 
-> **Note**: `fn:escapeXml()` and `<c:out>` are legacy for attribute encoding. Prefer `${e:forHtmlAttribute()}` which provides proper HTML attribute encoding rather than basic XML escaping.
+> **Note**: `fn:escapeXml()` and `<c:out>` are legacy for attribute encoding. Prefer `${carlos:forHtmlAttribute()}` which provides proper HTML attribute encoding rather than basic XML escaping.
 
 ### Step 2.5: Set Context Path Variable
 
@@ -438,7 +441,7 @@ before `<!DOCTYPE html>`. Never repeat it inline before each `fmt:message`.
 ```jsp
 <%@ taglib uri="jakarta.tags.fmt"      prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core"     prefix="c"   %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e"   %>
+<%@ taglib uri="carlos"                prefix="carlos" %>
 
 <%-- Single bundle declaration — place here, before DOCTYPE --%>
 <fmt:setBundle basename="oscarResources"/>
@@ -481,7 +484,7 @@ For attribute values, capture to a variable first:
 
 ```jsp
 <fmt:message key="appointment.addAppointment.tooltipHelp" var="tooltipHelp"/>
-<button title="${e:forHtmlAttribute(tooltipHelp)}">?</button>
+<button title="${carlos:forHtmlAttribute(tooltipHelp)}">?</button>
 ```
 
 #### Parameterized Messages
@@ -489,7 +492,7 @@ For attribute values, capture to a variable first:
 ```jsp
 <%-- Properties: appointment.welcome=Welcome, {0}. You have {1} appointments today. --%>
 <fmt:message key="appointment.welcome">
-    <fmt:param value="${e:forHtml(providerName)}"/>
+    <fmt:param value="${carlos:forHtml(providerName)}"/>
     <fmt:param value="${apptCount}"/>
 </fmt:message>
 ```
@@ -556,7 +559,7 @@ When embedding server values in JavaScript, use OWASP Encoder:
     var patientName = "${patientName}";
 
     // CORRECT (EL) - Use OWASP Encoder EL function
-    var patientName = "${e:forJavaScript(patientName)}";
+    var patientName = "${carlos:forJavaScript(patientName)}";
 
     // CORRECT (Scriptlet) - Use Encode.forJavaScript in scriptlet-heavy JSPs
     var patientName = "<%= Encode.forJavaScript((String) pageContext.getAttribute("patientName")) %>";
@@ -566,8 +569,8 @@ When embedding server values in JavaScript, use OWASP Encoder:
 **Better approach** - use data attributes with OWASP encoding (recommended):
 ```jsp
 <div id="appointmentData"
-     data-provider-no="${e:forHtmlAttribute(providerNo)}"
-     data-date="${e:forHtmlAttribute(appointmentDate)}">
+     data-provider-no="${carlos:forHtmlAttribute(providerNo)}"
+     data-date="${carlos:forHtmlAttribute(appointmentDate)}">
 </div>
 
 <script>
@@ -1084,7 +1087,7 @@ value='<%=request.getParameter("start_time")%>'
 ${pageContext.request.contextPath}
 
 <%-- JSTL tag --%>
-${e:forHtml(reason.label)}
+${carlos:forHtml(reason.label)}
 ```
 
 #### 3. Table-Based Layout

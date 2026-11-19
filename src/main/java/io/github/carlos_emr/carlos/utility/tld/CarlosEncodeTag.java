@@ -33,8 +33,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *
  * <p>Delegates to {@link SafeEncode}, which coalesces {@code null} to {@code ""}
  * before calling {@link org.owasp.encoder.Encode}. Renders non-null input
- * bit-identically to {@code <e:forXxx>} from {@code owasp.encoder.jakarta.advanced};
- * renders {@code null} input as empty (matching JSTL {@code <c:out>}).
+ * bit-identically to {@code <e:forXxx>} from {@code owasp.encoder.jakarta.advanced}
+ * (the OWASP JSP taglib, which CARLOS no longer ships, #5477); renders {@code null}
+ * input as empty (matching JSTL {@code <c:out>}).
  *
  * <h2>Usage</h2>
  * <pre>

@@ -164,42 +164,30 @@ When the converted file is a `.jsp` (not a static `.html`):
    You will need to add an explicit `<meta charset="UTF-8">`
    and remove explicit Bootstrap `<link>`, and `<script src="global.js">` tags.
 
-2. **Add OWASP encoding** for every value rendered from server-side data:
+2. **Add null-safe CARLOS encoding** for every value rendered from server-side data:
 
    ```jsp
-   <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+   <%@ taglib uri="carlos" prefix="carlos" %>
    ...
-   ${e:forHtml(someValue)}
-   ${e:forHtmlAttribute(someAttr)}
+   ${carlos:forHtml(someValue)}
+   ${carlos:forHtmlAttribute(someAttr)}
    ```
 
-   **JavaScript encoding in JSP — important limitation:**
-   The `encoder-jakarta-jsp` TLD exposes `forJavaScript()` but **not** `forJavaScriptAttribute()`.
-   Calling `${e:forJavaScriptAttribute(value)}` causes a JSP compilation error (HTTP 500):
-   `The function [forJavaScriptAttribute] cannot be located with the specified prefix`.
-
-   Use `${e:forJavaScript(value)}` for **all** JavaScript string contexts in JSP EL, including
-   values placed inside HTML `onclick` / `onchange` attribute strings:
+   **JavaScript encoding in JSP:**
+   Use `${carlos:forJavaScript(value)}` inside `<script>` blocks. For a value placed inside an HTML
+   `onclick` / `onchange` attribute string, use `${carlos:forJavaScriptAttribute(value)}`, which adds
+   the HTML-attribute encoding layer on top of the JavaScript string encoding:
 
    ```jsp
-   <%-- Correct — forJavaScript covers both <script> blocks and inline event attributes in JSP --%>
-   onclick="if (confirm('${e:forJavaScript(confirmMsg)}')) { ... }"
+   onclick="if (confirm('${carlos:forJavaScriptAttribute(confirmMsg)}')) { ... }"
    ```
 
-   If you need the additional HTML-attribute encoding layer that `forJavaScriptAttribute` provides
-   (JS + HTML double-encoding), call `Encode.forJavaScriptAttribute(value)` from a scriptlet
-   or write the value into a `data-*` attribute first and read it from JavaScript:
-
-   ```jsp
-   <%-- Scriptlet alternative --%>
-   onclick="if (confirm('<%= Encode.forJavaScriptAttribute(confirmMsg) %>')) { ... }"
-   ```
-
-   > **CLAUDE.md note:** The main `CLAUDE.md` OWASP encoding table lists `forJavaScriptAttribute`
-   > as the recommended EL function for "JS in HTML attr" context. That entry refers to the Java
-   > method `Encode.forJavaScriptAttribute()`. The EL function equivalent is **not available** in
-   > the `encoder-jakarta-jsp` library — use `${e:forJavaScript()}` in EL or the Java method in
-   > scriptlets.
+   Both are declared in `carlos-tag.tld` (`<%@ taglib uri="carlos" prefix="carlos" %>`) and map to
+   `SafeEncode`, which renders null as an empty string. Do not declare the OWASP encoder taglib
+   (`owasp.encoder.jakarta`): CARLOS no longer ships it (#5477), a page that declares it fails to
+   translate, and the encoder lint fails CI on it. Its basic `owasp.encoder.jakarta` URI, which
+   older pages declared, had no `forJavaScriptAttribute` EL function (only the `.advanced` URI
+   did), which is why those pages fell back to `forJavaScript` in event attributes.
 
 
 3. **CSRF tokens are auto-injected** by `CsrfGuardScriptInjectionFilter` — do not manually add
@@ -292,7 +280,7 @@ to all rules in `CLAUDE.md`**:
 9. **Preserve GPL copyright headers** at the top of JSP files. Do not remove or alter them.
 
 10. **OWASP encoding is mandatory** for every server-side value rendered into HTML.
-    Use `${e:forHtml(value)}` (EL) or `Encode.forHtml(value)` (scriptlet) as appropriate.
+    Use `${carlos:forHtml(value)}` (EL) or `Encode.forHtml(value)` (scriptlet) as appropriate.
     See the OWASP Encoding section in `CLAUDE.md` for the full context-specific reference.
 
 11. **Security checks must be preserved.** Do not remove or weaken `SecurityInfoManager

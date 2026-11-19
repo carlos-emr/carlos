@@ -17,16 +17,16 @@ For JSPs with zero existing `fmt:message` usage.
 ### Step 1: Add the `fmt` Taglib Declaration
 
 Add `<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>` to the taglib block at the
-top of the file. Place it alongside existing `c:`, `fn:`, and OWASP encoder declarations.
+top of the file. Place it alongside existing `c:`, `fn:`, and CARLOS encoder (`carlos:`) declarations.
 
 ```jsp
 <%@ taglib uri="jakarta.tags.fmt"      prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core"     prefix="c"   %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e"   %>
+<%@ taglib uri="carlos"                prefix="carlos" %>
 ```
 
 - [ ] `fmt` taglib declaration added after other taglib declarations
-- [ ] OWASP encoder taglib present: `<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>` (required for `${e:forHtmlAttribute(...)}` and related EL functions used in Steps 6–7)
+- [ ] CARLOS encoder taglib present: `<%@ taglib uri="carlos" prefix="carlos" %>` (required for `${carlos:forHtmlAttribute(...)}` and related EL functions used in Steps 6–7). Do not add the OWASP `owasp.encoder.jakarta` taglib: it is not shipped (#5477).
 
 ### Step 2: Add the Bundle Declaration
 
@@ -126,7 +126,7 @@ Working top-to-bottom through the file, replace hardcoded text with `fmt:message
 For attribute values (`title=`, `placeholder=`), use `fmt:message var`:
 ```jsp
 <fmt:message key="admin.configureFax.tooltipHelp" var="tooltipHelp"/>
-<button title="${e:forHtmlAttribute(tooltipHelp)}">?</button>
+<button title="${carlos:forHtmlAttribute(tooltipHelp)}">?</button>
 ```
 
 - [ ] All `<title>` and heading text replaced

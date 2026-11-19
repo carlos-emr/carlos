@@ -187,7 +187,7 @@ and before `<!DOCTYPE html>`. Do **not** repeat it inline before each `fmt:messa
 <%-- Taglib declarations --%>
 <%@ taglib uri="jakarta.tags.fmt"   prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core"  prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%-- i18n bundle — SINGLE declaration, placed here, before DOCTYPE --%>
 <fmt:setBundle basename="oscarResources"/>
@@ -245,7 +245,7 @@ For text inside HTML attributes, use `fmt:message` with `var` to capture then en
 ```jsp
 <%-- Capture the message into a variable first --%>
 <fmt:message key="admin.configureFax.tooltipHelp" var="tooltipText"/>
-<button title="${e:forHtmlAttribute(tooltipText)}">?</button>
+<button title="${carlos:forHtmlAttribute(tooltipText)}">?</button>
 ```
 
 Alternatively, use the scriptlet form only when inside a scriptlet-heavy legacy block:
@@ -290,7 +290,7 @@ tickler.ticklerList.msgFoundCount=Found {0} ticklers for {1}.
 ```jsp
 <fmt:message key="tickler.ticklerList.msgFoundCount">
     <fmt:param value="${ticklerCount}"/>
-    <fmt:param value="${e:forHtml(providerName)}"/>
+    <fmt:param value="${carlos:forHtml(providerName)}"/>
 </fmt:message>
 ```
 
