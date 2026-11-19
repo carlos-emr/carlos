@@ -654,7 +654,18 @@ public class DemographicService extends AbstractServiceImpl {
     }
 
     /**
-     * Updates demographic information.
+     * Updates demographic information as one command (issue #5298).
+     *
+     * <p>Everything this method writes is one transaction, committed together or not at all: the
+     * custom fields and their archive copy, the waiting-list entry, the archive copy of the stored
+     * patient, the patient row, each extension with its archive copy, and the audit rows the
+     * manager writes for them. The patient row is locked first, so the identifiers kept from the
+     * stored row are the committed ones. A request refused for missing privilege, an invalid
+     * field, or a failed write changes nothing.</p>
+     *
+     * <p>One record is deliberately outside that transaction: the web-service access log row
+     * ({@code WebServiceLoggingAdvice}), which is written after the transaction has ended so that a
+     * failed request is still recorded.</p>
      *
      * @param data Detailed demographic data to be updated
      * @return Returns the updated demographic data
@@ -675,11 +686,14 @@ public class DemographicService extends AbstractServiceImpl {
         applyIdentifierWritePolicy(data, demographic);
         //update demographiccust
         if (data.getNurse() != null || data.getResident() != null || data.getAlert() != null || data.getMidwife() != null || data.getNotes() != null) {
-            DemographicCust demoCust = demographicManager.getDemographicCust(loggedInInfo, data.getDemographicNo());
-            if (demoCust == null) {
-                demoCust = new DemographicCust();
-                demoCust.setId(data.getDemographicNo());
-            }
+            // The stored row used to be read here and changed in place. Inside this transaction that
+            // row is the managed one the manager compares the new values with, so the comparison
+            // found nothing changed and the previous custom fields were overwritten without being
+            // archived. The new values now go in an object of their own; the read privilege that
+            // read required is still checked.
+            demographicManager.checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+            DemographicCust demoCust = new DemographicCust();
+            demoCust.setId(data.getDemographicNo());
             demoCust.setNurse(data.getNurse());
             demoCust.setResident(data.getResident());
             demoCust.setAlert(data.getAlert());

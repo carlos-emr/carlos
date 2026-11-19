@@ -107,6 +107,15 @@ public interface DemographicManager {
 
     public DemographicCust getDemographicCust(LoggedInInfo loggedInInfo, Integer id);
 
+    /**
+     * Saves a patient's custom fields, archiving the stored ones first when they differ, as one
+     * transaction. {@code demoCust} must be the caller's own copy, not the row
+     * {@link #getDemographicCust} returned changed in place.
+     *
+     * @param loggedInInfo {@link LoggedInInfo} the acting provider
+     * @param demoCust {@link DemographicCust} the custom fields to save
+     * @throws IllegalArgumentException if {@code demoCust} is the stored row itself, changed in place
+     */
     public void createUpdateDemographicCust(LoggedInInfo loggedInInfo, DemographicCust demoCust);
 
     public List<DemographicContact> getDemographicContacts(LoggedInInfo loggedInInfo, Integer id, String category);
@@ -122,6 +131,15 @@ public interface DemographicManager {
 
     public void createDemographic(LoggedInInfo loggedInInfo, Demographic demographic, Integer admissionProgramId);
 
+    /**
+     * Updates a patient as one transaction: the archive copy of the stored row, the patient row,
+     * its extensions and their archive copies are saved all together or not at all. Joins the
+     * caller's transaction when there is one.
+     *
+     * @param loggedInInfo {@link LoggedInInfo} the acting provider
+     * @param demographic {@link Demographic} the patient's new values, with optional extras
+     * @throws IllegalArgumentException if the birth date cannot be parsed or the patient does not exist
+     */
     public void updateDemographic(LoggedInInfo loggedInInfo, Demographic demographic);
 
     public Demographic findExactMatchToDemographic(LoggedInInfo loggedInInfo, Demographic demographic);

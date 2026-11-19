@@ -342,12 +342,32 @@ public class DemographicManagerImpl implements DemographicManager {
         return result;
     }
 
+    /**
+     * Saves a patient's custom fields (alert, notes, nurse, resident, midwife) and, when they differ
+     * from the stored ones, archives the stored ones first. The archive row, the saved row and the
+     * audit row are one transaction: a failure leaves none of them. Called from a transaction that
+     * is already open, such as the REST demographic update, it joins that one.
+     *
+     * <p>{@code demoCust} must be the caller's own copy of the fields. Inside a transaction the row
+     * returned by {@link #getDemographicCust} is the stored row itself, and changing it in place
+     * leaves no previous values to compare or archive; such a call is refused.</p>
+     *
+     * @param loggedInInfo {@link LoggedInInfo} the acting provider; must hold write access to the demographic security object
+     * @param demoCust {@link DemographicCust} the custom fields to save, keyed by the patient's demographic number
+     * @throws IllegalArgumentException if {@code demoCust} is the stored row itself, changed in place
+     */
     @Override
+    @Transactional
     public void createUpdateDemographicCust(LoggedInInfo loggedInInfo, DemographicCust demoCust) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.WRITE);
         if (demoCust != null) {
             // Archive previous demoCust
             DemographicCust prevCust = demographicCustDao.find(demoCust.getId());
+            if (prevCust == demoCust) {
+                // Fail loudly: comparing the stored row with itself always finds it unchanged, so the
+                // previous values would be overwritten without an archive row and without an error.
+                throw new IllegalArgumentException("Custom fields must be saved from a copy, not from the stored row.");
+            }
             if (prevCust != null) {
                 if (!(Objects.equals(prevCust.getAlert(), demoCust.getAlert())
                         && Objects.equals(prevCust.getMidwife(), demoCust.getMidwife())
@@ -543,7 +563,26 @@ public class DemographicManagerImpl implements DemographicManager {
 
     }
 
+    /**
+     * Updates a patient as one transaction: the archive copy of the stored row, the patient row,
+     * each extension with its own archive copy, and the audit rows are saved all together or not
+     * at all (issue #5298). A caller that already has a transaction open, such as the REST update
+     * with its custom fields and waiting-list entry, has these writes join it.
+     *
+     * <p>The stored merge links are kept whatever the caller supplied, and the row is attributed
+     * to the signed-in provider. The audit rows are written in the same transaction, so a failed
+     * update leaves no record claiming that it happened.</p>
+     *
+     * <p>Pass a copy of the patient, not the stored row changed in place: a caller already inside
+     * a transaction holds the stored row itself, and the archive would then record the new values
+     * (see {@code DemographicProviderReassignmentService}).</p>
+     *
+     * @param loggedInInfo {@link LoggedInInfo} the acting provider; must hold update access to the demographic security object
+     * @param demographic {@link Demographic} the patient's new values, with optional extras; must name an existing patient
+     * @throws IllegalArgumentException if the birth date cannot be parsed or the patient does not exist
+     */
     @Override
+    @Transactional
     public void updateDemographic(LoggedInInfo loggedInInfo, Demographic demographic) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.UPDATE);
         try {
