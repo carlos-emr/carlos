@@ -322,24 +322,6 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
 
     @SuppressWarnings("unchecked")
     @Override
-    public List<PatientLabRouting> findLabNosByDemographic(Integer demographicNo, String[] labTypes) {
-
-        StringBuilder sb = new StringBuilder();
-        for (String t : labTypes) {
-            sb.append("'" + t + "'");
-        }
-
-        String query = "select x from " + this.modelClass.getName() + " x where x.labNo=?1 and x.labType in (" + sb.toString()
-                + ")";
-        Query q = entityManager.createQuery(query);
-
-        q.setParameter(1, demographicNo);
-
-        return q.getResultList();
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
     public List<Integer> findDemographicIdsSince(Date date) {
         String query = "select x.demographicNo from " + this.modelClass.getName() + " x where x.dateModified > ?1";
         Query q = entityManager.createQuery(query);

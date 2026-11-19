@@ -79,8 +79,6 @@ public interface PatientLabRoutingDao extends AbstractDao<PatientLabRouting>, Cd
 
     public List<Object[]> findRoutingsAndMdsMshByDemoNo(Integer demographicNo);
 
-    public List<PatientLabRouting> findLabNosByDemographic(Integer demographicNo, String[] labTypes);
-
     public List<Integer> findDemographicIdsSince(Date date);
 
     /**
