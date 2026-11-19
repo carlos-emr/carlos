@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import ca.ontario.health.edt.UploadData;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -35,7 +36,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 @Tag("unit")
 @Tag("mcedt")
 @DisplayName("MCEDT outbox upload reads")
-class Upload2ActionOutboxReadUnitTest {
+class Upload2ActionOutboxReadUnitTest extends CarlosUnitTestBase {
 
     /** Larger than any single-read buffer a file stream is likely to fill in one call. */
     private static final int LARGE = 512 * 1024 + 7;
