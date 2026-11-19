@@ -928,7 +928,8 @@
         "manual-shared-outcomes-launch",
         "browser-process-oracle",
         "packaged-profile-first-nations",
-        "packaged-profile-first-nations-encoding"
+        "packaged-profile-first-nations-encoding",
+        "packaged-profile-consult-health-care-team"
       ]
     },
     {
@@ -5188,7 +5189,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,RxStrictAuditIntegrationTest,RxSaveReceiptCommitIntegrationTest,RxConcurrencyIntegrationTest,RxFavoriteGroupIntegrationTest,RxFavoriteCopyIntegrationTest,RxRestPrescriptionRollbackIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest",
+        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,RxStrictAuditIntegrationTest,RxSaveReceiptCommitIntegrationTest,RxConcurrencyIntegrationTest,RxFavoriteGroupIntegrationTest,RxFavoriteCopyIntegrationTest,RxRestPrescriptionRollbackIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,AppointmentFieldAuditTransactionIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -5229,7 +5230,8 @@
         "RxPrescribeMariaDbIntegrationTest": 4,
         "TicklerPatientAccessMariaDbIntegrationTest": 12,
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
-        "AppointmentUpdateDaoIntegrationTest": 18,
+        "AppointmentUpdateDaoIntegrationTest": 19,
+        "AppointmentFieldAuditTransactionIntegrationTest": 3,
         "ReportingPatientListAuditMariaDbIntegrationTest": 4,
         "RxSaveReceiptCommitIntegrationTest": 19,
         "RxConcurrencyIntegrationTest": 6,
@@ -8425,6 +8427,39 @@
         "--junit",
         "{run}/browser.xml"
       ],
+      "requireLockedChromium": true
+    },
+    {
+      "id": "packaged-profile-consult-health-care-team",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--profile",
+        "consult-health-care-team",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "packaged": true,
+      "propertyProfile": "consult-health-care-team",
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST"
+      ],
+      "timeoutSeconds": 7200,
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
       "requireLockedChromium": true
     },
     {

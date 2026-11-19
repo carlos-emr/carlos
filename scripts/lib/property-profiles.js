@@ -12,6 +12,7 @@ const PROFILES = Object.freeze({
   multisite: {multisites: 'on', rma_enabled: 'true', moh_file_management_enabled: 'true'},
   'caisi-admin': {caisi: 'on', 'caisi.search.workflow': 'false',ModuleNames:'Caisi'},
   'legacy-contacts': {NEW_CONTACTS_UI: 'false'},
+  'consult-health-care-team': {ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS: 'true'},
   'private-consent': {privateConsentEnabled: 'true',STUDENT_PARTICIPATION_CONSENT:'false'},
   'appointment-options': {mc_number: 'true', emailApptReminder: 'yes'},
   'appointment-lock-expiry': {appointment_locking_timeout: '20', allowMultipleSameDayGroupAppt: 'yes'},
