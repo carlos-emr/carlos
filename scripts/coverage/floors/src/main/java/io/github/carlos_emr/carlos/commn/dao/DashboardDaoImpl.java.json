@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/DashboardDaoImpl.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 98.75,
+    "branches": 92.3076923076923,
+    "sourceBlob": "983201677f55d4f7d37358a18d6443105a26c972"
+  },
+  "evidenceSha256": "82fc40c4571648627f4ed21b5ba3eccaddc26d9588afbabb5221803ca20d57c6"
+}

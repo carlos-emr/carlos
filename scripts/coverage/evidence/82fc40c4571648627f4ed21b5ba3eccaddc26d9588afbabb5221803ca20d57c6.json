@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "9890d378a7ad07e7d9a8b5968aaeade6f58ace29",
+  "comparisonSha256": "42bcdda06c4994e5e1f2deb9cc12692a720d76c64ff0560a46f229aa0932fb6c",
+  "baselineCommit": "40175be06e5bf76741f70f667f4acebf90411971",
+  "baselineSourceTree": "9890d378a7ad07e7d9a8b5968aaeade6f58ace29",
+  "baselineReportSha256": "50379c0ff924b5953bb81e6871bad4424f2452ae76b36d361be17b366e7e9b77",
+  "baselineLane": "Focused Java 25 dashboard, persistence, authorization and submission guard tests",
+  "baselineTestCounts": {
+    "tests": 402,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "ce2922e803818afe24ed1e9cb65adc6012649660ab0b84b3d1454e499db4622c",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/app/HttpMethodGuardFilter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "8ee18da63707ff6bf0711363e8d400d64d03acaa"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DashboardDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "4ff048149f72770aa899ab3e63d4bb7a070208a2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DashboardDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 98.75,
+      "branches": 92.3076923076923,
+      "sourceBlob": "983201677f55d4f7d37358a18d6443105a26c972"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Dashboard.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "900b4c9c5b0655aa02902a11d3b26820aba391a9"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/dashboard/admin/DashboardManager2Action.java": {
+      "lines": 96.22641509433963,
+      "instructions": 96.80365296803653,
+      "branches": 88.75,
+      "sourceBlob": "409be1577f82416134299ee7f9701eb865623ba8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/DashboardManager.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "fea593de2451c4c0745dba466e96f54001e6d210"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/DashboardManagerImpl.java": {
+      "lines": 88.0952380952381,
+      "instructions": 87.67123287671232,
+      "branches": 84.61538461538461,
+      "sourceBlob": "a572fbdd5e60964c531c413828c6152ebabcd6ef"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/FormSubmissionGuard.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "847fa705ef9b1e5dd2524f37fac250b9da669c83"
+    }
+  }
+}
