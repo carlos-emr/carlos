@@ -11,10 +11,13 @@ custom fields (alert, notes, nurse, resident, midwife) with their archive copy.
 `PUT /ws/rs/demographics` has run as one transaction since 2026.08.0-beta8, including
 the custom fields and the waiting-list entry it changes. Inside that transaction the
 previous alert and notes were overwritten without an archive row; they are archived
-again. A request that fails returns an error and changes nothing; reload the patient
-before resubmitting. An update whose audit row cannot be written is not saved.
-Existing records are unchanged. Custom fields overwritten through this endpoint on
-2026.08.0-beta8 were not archived and cannot be reconstructed.
+again. When an update is refused or one of its writes fails, the transaction is rolled
+back and nothing of it is saved. When the outcome is uncertain, because no response
+arrived or the server reported a failure while committing, the update may have been
+saved: reload the patient before deciding whether to resubmit. An update whose audit
+row cannot be written is not saved. Existing records are unchanged. Custom fields
+overwritten through this endpoint on 2026.08.0-beta8 were not archived and cannot be
+reconstructed.
 
 ## Note lock recovery
 
