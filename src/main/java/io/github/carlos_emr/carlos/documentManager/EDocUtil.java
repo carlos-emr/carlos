@@ -1111,14 +1111,11 @@ public final class EDocUtil {
         byte[] fdata = null;
         FileInputStream fis = null;
         try {
-            // first we get length of file and allocate mem for file
             File file = validateResolvedDocumentOrTempFile(fpath);
-            long length = file.length();
-            fdata = new byte[(int) length];
-
-            // now we read file into array buffer
+            // Read to end of file: a single read(byte[]) into a length-sized buffer may stop short
+            // and leave the tail zero-filled (#3027).
             fis = new FileInputStream(file);
-            fis.read(fdata);
+            fdata = fis.readAllBytes();
 
         } catch (NullPointerException ex) {
             logger.error("Error: {}", LogSafe.exceptionTrace(ex));
