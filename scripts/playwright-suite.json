@@ -8836,6 +8836,21 @@
       "notes": "Checks observed-date and received-date modes. Native LocalDateTime received values must retain the legacy space-separated timestamp display and remain parseable."
     },
     {
+      "name": "inbox-date-mode-counts",
+      "script": "scripts/inbox-date-mode-counts-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "EXCLUSIVE=1: snapshots and restores the global SystemPreferences row inboxDateSearchType (changes every user's Inbox date mode while it runs). Owns four documents (document, ctl_document, providerLabRouting) and three HL7 labs (hl7TextMessage, hl7TextInfo, providerLabRouting, patientLabRouting) for the run's FAKE- patient, whose HIN is set to ''; cleanup removes every row by id and run marker and asserts none remain.",
+      "notes": "Issue #5772. In serviceObservation and receivedCreated modes, the Inbox Hub lists exactly the fixtures dated in the window by that mode, and the Documents, Labs, total and patient-sidebar counts equal the rows listed."
+    },
+    {
       "name": "gap-provider-account-expiry",
       "script": "scripts/gap-provider-account-expiry-playwright-checks.js",
       "tiers": [
