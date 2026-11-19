@@ -254,7 +254,7 @@ class PreventionReportUtilUnitTest extends CarlosUnitTestBase {
         earlier.setRosterDate(archived.getRosterDate());
         earlier.setProviderNo(THIRD_PROVIDER);
         var sameTimeOtherPeriod = new DemographicArchive();
-        sameTimeOtherPeriod.setId(3L);
+        sameTimeOtherPeriod.setId(5L);
         sameTimeOtherPeriod.setLastUpdateDate(archived.getLastUpdateDate());
         sameTimeOtherPeriod.setRosterDate(day(2020, 1, 1));
         sameTimeOtherPeriod.setRosterTerminationDate(day(2021, 12, 31));
@@ -264,6 +264,10 @@ class PreventionReportUtilUnitTest extends CarlosUnitTestBase {
 
         assertThat(PreventionReportUtil.wasRosteredToThisProvider(
                 loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, ARCHIVED_PROVIDER)).isTrue();
+
+        archived.setRosterTerminationDate(day(2024, 1, 1));
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, THIRD_PROVIDER)).isFalse();
     }
 
     @Test
@@ -302,6 +306,26 @@ class PreventionReportUtilUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should use an undated predecessor until the effective date of a later archived assignment")
+    void shouldUseUndatedPredecessor_beforeALaterDatedArchive() {
+        current.setLastUpdateDate(day(2025, 2, 1));
+        archived.setRosterTerminationDate(null);
+        var later = new DemographicArchive();
+        later.setLastUpdateDate(day(2024, 9, 1));
+        later.setProviderNo(THIRD_PROVIDER);
+        later.setRosterDate(archived.getRosterDate());
+        later.setRosterTerminationDate(day(2024, 12, 31));
+        when(archiveDao.findByDemographicNo(DEMOGRAPHIC_NO)).thenReturn(List.of(archived, later));
+
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, ARCHIVED_PROVIDER)).isTrue();
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, THIRD_PROVIDER)).isFalse();
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, day(2024, 9, 1), THIRD_PROVIDER)).isTrue();
+    }
+
+    @Test
     @DisplayName("should omit an undated reassignment when its effective date cannot be determined")
     void shouldLeaveOutAmbiguousUnversionedOpenPeriods() {
         current.setRosterDate(archived.getRosterDate());
@@ -336,6 +360,8 @@ class PreventionReportUtilUnitTest extends CarlosUnitTestBase {
         assertThat(PreventionReportUtil.wasRostered(loggedInInfo, DEMOGRAPHIC_NO, IN_CURRENT_PERIOD)).isTrue();
         assertThat(PreventionReportUtil.wasRostered(loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD)).isTrue();
         assertThat(PreventionReportUtil.wasRostered(loggedInInfo, DEMOGRAPHIC_NO, beforeRoster)).isFalse();
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, beforeRoster, CURRENT_PROVIDER)).isFalse();
         current.setLastUpdateDate(day(2022, 1, 1));
         assertThat(PreventionReportUtil.wasRosteredToThisProvider(
                 loggedInInfo, DEMOGRAPHIC_NO, beforeRoster, CURRENT_PROVIDER)).isFalse();
