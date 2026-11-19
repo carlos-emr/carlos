@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "4689d9905f55d763d011f9fab05a2a5b16447fd3",
+  "comparisonSha256": "71b57797dabca661daa6adeb06bb6836d9eb2001c1c694b4fb802f3f94e263bb",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/schedule/service/ScheduleDateOverrideService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6e470bbdd4b61de6e33da3ed7fa39a3abcf133e8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/schedule/web/ScheduleDateSave2Action.java": {
+      "lines": 97.05882352941177,
+      "instructions": 96.5625,
+      "branches": 82.3529411764706,
+      "sourceBlob": "f9b659cea881e88be6b0ca936bf9add1d9c016b4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ScheduleDateDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "31a6c23850d8d5cef83a3a4fae5422534b9e96c3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ScheduleDateDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "46887fb1723b1bb6333c2cbc188f1877d62c3962"
+    }
+  },
+  "baselineCommit": "71fce0d3878d01c5eda5135d9b2bee3cdc847dce",
+  "baselineSourceTree": "4689d9905f55d763d011f9fab05a2a5b16447fd3",
+  "baselineReportSha256": "6ca65721283ed2e259d6da27a1918c179263a7e74db3c40ca96858326357435f",
+  "baselineLane": "Java 25 schedule date override service (H2 integration, two-thread overlapping Saves, committed-override read), schedule action, schedule date DAO, scheduledatesave JSP and mutator contract tests, for the calendar key and committed-refresh review fixes",
+  "baselineTestCounts": {
+    "tests": 221,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "b48515d814f7f0ace5bb2d9780fd807ef0a0eeefe1b432cc70a2a921acc93521",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "860cda509907d1829d3f6994c6372c97bbeb52d6",
+  "comparisonSha256": "0e5663648296171dca466bad291b73a974bb5e3ccfde1366f314be804e49945e",
+  "baselineCommit": "02dceae321e6d3707cda1ac732bb9b918bb7d942",
+  "baselineSourceTree": "860cda509907d1829d3f6994c6372c97bbeb52d6",
+  "baselineReportSha256": "0e0ebe0e01d142511ee294ca9e42045c6134f138ac55f9d4d611904cc25da3ee",
+  "baselineLane": "Focused Java 25 and JaCoCo test run for the merged source and tests of PR #6139; only the selected Java file is covered by this record.",
+  "baselineTestCounts": {
+    "tests": 220,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "90b14433d72ef0ea3f034b175101f5882a11810192f9c422ac0fcfdfc60cb9ba",
+  "baselineTestReportsHashFormat": "SHA-256 of a filename-to-SHA-256 JSON object with sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "Demographic write field lengths",
+    "DemographicAddRecord2Action Tests",
+    "DemographicAddRecord2Action repeated submissions",
+    "DemographicCust field length validation",
+    "DemographicService REST endpoint tests",
+    "DemographicUpdate2Action Tests",
+    "GET /demographics",
+    "GET /demographics/quickSearch",
+    "GET /demographics/{dataId}",
+    "Identifier write policy under the row lock",
+    "Imported optional clinical projections",
+    "Name Used on save",
+    "POST /demographics/search validation",
+    "Read privilege (r)",
+    "Update privilege (u) -- PUT /demographics",
+    "Write privilege (w) -- POST /demographics and DELETE /demographics/{id}",
+    "io.github.carlos_emr.carlos.commn.model.DemographicBirthDayTimezoneUnitTest",
+    "io.github.carlos_emr.carlos.webserv.rest.DemographicConvertedFieldLimitsUnitTest",
+    "waiting-list selection on save"
+  ],
+  "priorSourceEvidenceSha256": [
+    "552a5b7d69e3df133c28638a51b2effd9df5b162350d9a54fa419c66c37a6376",
+    "6a90d4fe2bb1a2a1ffba3915c0dba9ad33c9d31910dd7f24b76f8a3b42687699"
+  ],
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Demographic.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "2d64e14f610e68fe39b171f4a16839e335291db3"
+    }
+  }
+}

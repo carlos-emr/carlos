@@ -25,13 +25,16 @@ import java.io.ByteArrayOutputStream;
 
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.openpdf.text.DocumentException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockServletConfig;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -145,6 +148,30 @@ class FrmPDFServletUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
         assertThat(response.getContentAsByteArray()).isEmpty();
+    }
+
+    @Test
+    void shouldFailTheResponse_whenPageGenerationFails() throws Exception {
+        FrmPDFServlet servlet = new FrmPDFServlet() {
+            @Override
+            protected ByteArrayOutputStream generatePDFDocumentBytes(
+                    HttpServletRequest request, ServletContext context, ByteArrayOutputStream output, int page)
+                    throws DocumentException {
+                throw new DocumentException("Synthetic form rendering failure");
+            }
+        };
+        servlet.init(new MockServletConfig());
+        MockHttpServletRequest request = authenticatedRequest("123");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        when(securityInfoManager.hasPrivilege(
+                nullable(LoggedInInfo.class), eq("_form"), eq("r"), eq("123"))).thenReturn(true);
+
+        servlet.doPost(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        logActionMock.verifyNoInteractions();
     }
 
     /**

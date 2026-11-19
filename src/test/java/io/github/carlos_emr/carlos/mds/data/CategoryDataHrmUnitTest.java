@@ -31,7 +31,8 @@ class CategoryDataHrmUnitTest extends CarlosUnitTestBase {
         Query query = mock(Query.class);
         Tuple count = mock(Tuple.class);
         registerMock(EntityManagerFactory.class, factory);
-        registerMock(SystemPreferencesDao.class, mock(SystemPreferencesDao.class));
+        registerMock(io.github.carlos_emr.carlos.commn.service.InboxDateSearchTypeResolver.class,
+                new io.github.carlos_emr.carlos.commn.service.InboxDateSearchTypeResolver(mock(SystemPreferencesDao.class)));
         when(factory.createEntityManager()).thenReturn(manager);
         when(manager.createNativeQuery(anyString(), eq(Tuple.class))).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of(count));
@@ -39,7 +40,7 @@ class CategoryDataHrmUnitTest extends CarlosUnitTestBase {
         when(count.get("demographic_no", Integer.class)).thenReturn(7);
         when(count.get("first_name", String.class)).thenReturn("Synthetic");
         when(count.get("last_name", String.class)).thenReturn("Patient");
-        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao(mock(SystemPreferencesDao.class));
+        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao();
         org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", manager);
         registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class, dao);
         CategoryData data = new CategoryData("", "", "", false, true, "999998", status, "all", null, null);
@@ -65,7 +66,8 @@ class CategoryDataHrmUnitTest extends CarlosUnitTestBase {
         Tuple locked = mock(Tuple.class);
         Tuple readable = mock(Tuple.class);
         registerMock(EntityManagerFactory.class, factory);
-        registerMock(SystemPreferencesDao.class, mock(SystemPreferencesDao.class));
+        registerMock(io.github.carlos_emr.carlos.commn.service.InboxDateSearchTypeResolver.class,
+                new io.github.carlos_emr.carlos.commn.service.InboxDateSearchTypeResolver(mock(SystemPreferencesDao.class)));
         when(factory.createEntityManager()).thenReturn(manager);
         when(manager.createNativeQuery(anyString(), eq(Tuple.class))).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of(locked, readable));
@@ -77,7 +79,7 @@ class CategoryDataHrmUnitTest extends CarlosUnitTestBase {
         when(readable.get("demographic_no", Integer.class)).thenReturn(8);
         when(readable.get("first_name", String.class)).thenReturn("Synthetic");
         when(readable.get("last_name", String.class)).thenReturn("Readable");
-        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao(mock(SystemPreferencesDao.class));
+        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao();
         org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", manager);
         registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class, dao);
         CategoryData data = new CategoryData("", "", "", false, true, "999998", "N", "all", null, null);

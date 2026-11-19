@@ -527,7 +527,8 @@
         "scripts/form-growth-clinical-geometry-playwright-checks.js",
         "scripts/form-rourke2020-growth-playwright-checks.js",
         "scripts/lib/growth-clinical-oracle.js",
-        "docs/testing/growth-clinical-geometry-inventory.md"
+        "docs/testing/growth-clinical-geometry-inventory.md",
+        "scripts/privacy-static-html-metadata-playwright-checks.js"
       ],
       "implementation": "Rerun the established before/after PDF corpus on the final packaged WAR; extend renderer security and concurrency, and preserve the already-added half-letter browser dimension/content assertions.",
       "cases": "A4/Letter/A6/396x612 half-letter, print/reprint/fax, auto-print, signatures, long patient/pharmacy headers, all Rourke/BC/legacy forms, long notes and checked marks, CJK/emoji/accents, no host fonts/unwritable font cache, PDF 2.0 consumers, Brotli input, warm-cache two-patient parallel rendering; Flying Saucer resource/network/path refusals. Native Rourke/Growth output for fixed male/female infant birth dates, independent WHO grid/curve/unit/age-axis and median relationships, irregular and birth/24-month-edge observations, form/module inclusion and exact duplicate representation, complete saved-history and unrelated-control preservation.",
@@ -541,7 +542,8 @@
         "packaged-full",
         "http-client-compatibility",
         "java-browser-pdf",
-        "manual-jasper-production"
+        "manual-jasper-production",
+        "manual-privacy-static-html-metadata"
       ]
     },
     {
@@ -886,7 +888,9 @@
         "packaged-full",
         "installed-package-reinstall",
         "manual-report-configured-jasper",
+        "manual-report-blob-text-readers",
         "manual-fax-configuration-save",
+        "manual-provider-document-queue-security",
         "manual-log-provider-order"
       ]
     },
@@ -2626,6 +2630,52 @@
               ]
             },
             {
+              "name": "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldConnectAndApplyConnectorJYesNo_forLegacyBooleanOptions",
+              "container": ""
+            },
+            {
+              "name": "shouldPreserveZeroFilledTextAndUnsignedTinyIntegers_inBothPreparedProtocols(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldPreserveZeroFilledTextAndUnsignedTinyIntegers_inBothPreparedProtocols(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldPreserveZeroFilledTextAndUnsignedTinyIntegers_inBothPreparedProtocols(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldCheckFloatRange_inBothPreparedProtocols(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldCheckFloatRange_inBothPreparedProtocols(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldCheckFloatRange_inBothPreparedProtocols(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
               "name": "shouldPreserveDateWrites_whenJvmAndConnectionZonesDiffer(boolean)",
               "container": "",
               "destinations": [
@@ -2829,6 +2879,10 @@
             },
             {
               "name": "shouldCountDistinctHrmReports_byPatientProviderAndSignoffIndependentlyOfViewed",
+              "container": ""
+            },
+            {
+              "name": "shouldCompareTheFiltersDateColumns_forLabAndDocumentBoundsOnPhysicalMariaDb",
               "container": ""
             }
           ]
@@ -3162,6 +3216,15 @@
             }
           ]
         },
+        "io.github.carlos_emr.carlos.eform.util.StaticHtmlPrivacyCacheBrowserIntegrationTest": {
+          "check": "java-browser-pdf",
+          "cases": [
+            {
+              "name": "shouldFetchTheCurrentPage_whenThePrintStatementIsEnabledAndDisabled",
+              "container": ""
+            }
+          ]
+        },
         "io.github.carlos_emr.carlos.managers.RxPrescribeMariaDbIntegrationTest": {
           "check": "java-native-generated",
           "cases": [
@@ -3274,6 +3337,19 @@
             {
               "name": "shouldRollbackEarlierNameAudits_whenLaterCheckedFailureEscapes",
               "container": ""
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecAlertDaoMariaDbIntegrationTest": {
+          "check": "java-native-generated",
+          "cases": [
+            {
+              "name": "shouldLeaveTheStoredAlertWhole_whenTheMessageWouldMakeItTooLong(String)[2]",
+              "container": "OBEC apply and the patient alert column, on the database"
+            },
+            {
+              "name": "shouldStoreTheAlertWhole_whenItFillsTheLimitAsTheFormCountsIt(String)[2]",
+              "container": "OBEC apply and the patient alert column, on the database"
             }
           ]
         },
@@ -5129,7 +5205,7 @@
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
         "DemographicMergeMariaDbIntegrationTest": 9,
-        "JdbcConnectorMariaDbIntegrationTest": 40,
+        "JdbcConnectorMariaDbIntegrationTest": 47,
         "BilledProviderReportDaoIntegrationTest": 2,
         "MariaDbDaoHarnessIntegrationTest": 1,
         "MeasurementDaoIntegrationTest": 1,
@@ -5163,6 +5239,7 @@
         "RxRestPrescriptionRollbackIntegrationTest": 1,
         "RxStrictAuditIntegrationTest": 1,
         "DemographicWebUnmergeIntegrationTest": 19,
+        "BillingObecAlertDaoMariaDbIntegrationTest": 4,
         "SiteRenameClockMariaDbIntegrationTest": 8
       },
       "requiresEnvironment": [
@@ -5218,7 +5295,7 @@
         "BillingONCHeader1DaoIntegrationTest": 1,
         "LegacyLabUploadDaoIntegrationTest": 8,
         "LabRoutingLookupDaoIntegrationTest": 6,
-        "LegacyLabNativeMariaDbIntegrationTest": 7,
+        "LegacyLabNativeMariaDbIntegrationTest": 8,
         "ArchiveAuditTimestampIntegrationTest": 2,
         "Growth0To36FormPersistenceIntegrationTest": 19,
         "FixedJasperReportDaoIntegrationTest": 2,
@@ -5282,7 +5359,7 @@
         "CaseManagementNoteLockMariaDbIntegrationTest": 15,
         "ConsultationArchiveDaoIntegrationTest": 1,
         "LabRoutingLookupDaoIntegrationTest": 6,
-        "LegacyLabNativeMariaDbIntegrationTest": 7,
+        "LegacyLabNativeMariaDbIntegrationTest": 8,
         "ArchiveAuditTimestampIntegrationTest": 2,
         "FormXmlImportServiceIntegrationTest": 7,
         "EFormApColumnLookupIntegrationTest": 2,
@@ -6178,14 +6255,14 @@
         "all"
       ],
       "repetitions": 1,
-      "minimumCases": 5,
+      "minimumCases": 6,
       "command": [
         "mvn",
         "-B",
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest,DhirReviewJspBrowserIntegrationTest,MeasurementChartSmokeIntegrationTest",
+        "-Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest,DhirReviewJspBrowserIntegrationTest,MeasurementChartSmokeIntegrationTest,StaticHtmlPrivacyCacheBrowserIntegrationTest",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
         "-Djacoco.destFile={run}/jacoco.exec",
@@ -8278,6 +8355,43 @@
       "timeoutSeconds": 3600
     },
     {
+      "id": "manual-report-blob-text-readers",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "report-blob-text-readers"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "report-blob-text-readers",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
+    },
+    {
       "id": "manual-fax-configuration-save",
       "kind": "browser",
       "profiles": [
@@ -8348,6 +8462,43 @@
       "requireLockedChromium": true
     },
     {
+      "id": "manual-provider-document-queue-security",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "provider-document-queue-security"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "provider-document-queue-security",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
+    },
+    {
       "id": "manual-log-provider-order",
       "kind": "browser",
       "profiles": [
@@ -8413,6 +8564,40 @@
         "--strict-release",
         "--only",
         "demographic-converted-limits",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
+    },
+    {
+      "id": "manual-privacy-static-html-metadata",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "privacy-static-html-metadata"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "privacy-static-html-metadata",
         "--province",
         "{profile}",
         "--residue-audit",

@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsLegacyProjectionDao;
 import io.github.carlos_emr.carlos.commn.dao.ContactDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao;
@@ -54,6 +55,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicTo1;
 import io.github.carlos_emr.carlos.webserv.rest.util.SecurityExceptionMapper;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -513,6 +516,73 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
             // auth must fire before the null-body check, even in the missing-demographicNo branch
             loggedInInfo = null;
             assertThrowsWithStatus(() -> service.updateDemographicData(null), Response.Status.UNAUTHORIZED);
+        }
+    }
+
+    /**
+     * Before it changes anything, the update locks the stored row through the DAO it was built with or,
+     * for a resource built without one, the application's. A lock failure that is not a write conflict is
+     * passed on unchanged, and a patient that is no longer there is a 404. Outside a REST call the write
+     * profile is the default, which keeps identifiers the request leaves out.
+     */
+    @Nested
+    @DisplayName("Identifier write policy under the row lock")
+    class IdentifierWritePolicy {
+
+        private final Demographic posted = new Demographic();
+        private DemographicTo1 data;
+        private DemographicDao records;
+
+        @BeforeEach
+        void setUpRecords() {
+            data = new DemographicTo1();
+            data.setDemographicNo(42);
+            records = createAndRegisterMock(DemographicDao.class);
+        }
+
+        @Test
+        void shouldKeepTheStoredIdentifiers_whenBuiltWithoutItsOwnDao() throws Exception {
+            Demographic stored = new Demographic();
+            stored.setSin("FAKE-SIN");
+            stored.setHin("FAKE-HIN");
+            when(records.findFreshForUpdate(42)).thenReturn(stored);
+
+            assertThat(applyIdentifierWritePolicy()).isNull();
+
+            assertThat(posted.getSin()).isEqualTo("FAKE-SIN");
+            assertThat(posted.getHin()).isEqualTo("FAKE-HIN");
+            verify(records).findFreshForUpdate(42);
+        }
+
+        @Test
+        void shouldPassOnALockFailure_whenItIsNotAWriteConflict() throws Exception {
+            RuntimeException failure = new IllegalStateException(new java.sql.SQLException("FAKE-SQL", "HY000", 1064));
+            when(records.findFreshForUpdate(42)).thenThrow(failure);
+
+            assertThat(applyIdentifierWritePolicy()).isSameAs(failure);
+        }
+
+        @Test
+        void shouldAnswerNotFound_whenThePatientIsGone() throws Exception {
+            when(records.findFreshForUpdate(42)).thenReturn(null);
+
+            Throwable thrown = applyIdentifierWritePolicy();
+
+            assertThat(thrown).isInstanceOf(WebApplicationException.class);
+            assertThat(statusOf(thrown)).isEqualTo(Response.Status.NOT_FOUND.getStatusCode());
+        }
+
+        /** Runs the private policy step on the posted record; returns what it threw, or null. */
+        private Throwable applyIdentifierWritePolicy() throws Exception {
+            Method policy = DemographicService.class.getDeclaredMethod(
+                    "applyIdentifierWritePolicy", DemographicTo1.class, Demographic.class);
+            policy.setAccessible(true);
+            try {
+                policy.invoke(service, data, posted);
+                return null;
+            } catch (InvocationTargetException e) {
+                return e.getCause();
+            }
         }
     }
 

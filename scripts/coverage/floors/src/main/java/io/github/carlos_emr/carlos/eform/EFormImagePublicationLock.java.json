@@ -3,10 +3,13 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/eform/EFormImagePublicationLock.java",
   "kind": "floor",
   "floor": {
-    "lines": 62.06896551724138,
-    "instructions": 76.84210526315789,
-    "branches": 25.0,
-    "sourceBlob": "b088d37865cff1bd1aacbb14a7e990dbe350f520"
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "1382362a1a90def1b050a0c77f9c354c3afe805e",
+    "requiredRefusalLines": [
+      74
+    ]
   },
-  "evidenceSha256": "f162b33e5c4a3c33d4e3fe918831a47c334d6d249e6e4598f33e338e6e9fe642"
+  "evidenceSha256": "837ccfe540decf5972f1f2d67609541f195dd922b6eb7a2b6a8b23e38fbbfc7a"
 }
