@@ -289,6 +289,31 @@ class DashboardManager2ActionUnitTest {
     }
 
     @Test
+    void shouldRejectAnEditWithoutItsOriginalRevision() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("operation", "save");
+        request.setParameter("dashboardId", "17");
+        request.setParameter("name", "Renamed");
+
+        assertThat(execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        verify(manager, never()).addDashboard(any(), any(), any());
+    }
+
+    @Test
+    void shouldRejectAnInvalidActiveStatusWithoutUpdatingTheDashboard() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("operation", "status");
+        request.setParameter("dashboardId", "17");
+        request.setParameter("dashboardRevision", existing.getAdministrationRevision());
+        request.setParameter("active", "unknown");
+
+        assertThat(execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        verify(manager, never()).toggleDashboardActive(any(), anyInt(), any(), any());
+    }
+
+    @Test
     @DisplayName("should not turn a nonexistent edit into a new dashboard")
     void shouldRejectEdit_whenMissing() throws Exception {
         request.setMethod("POST");
