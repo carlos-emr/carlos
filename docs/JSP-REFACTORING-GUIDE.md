@@ -88,7 +88,7 @@ Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%-- ... all other imports ... --%>
 
 <%-- NOTE: CARLOS EMR uses io.github.carlos_emr.carlos.* namespace (new)

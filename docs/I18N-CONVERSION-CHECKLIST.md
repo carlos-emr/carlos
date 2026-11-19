@@ -143,7 +143,7 @@ For strings used in `alert()`, `confirm()`, or dynamic DOM manipulation:
 
 1. Add the ResourceBundle scriptlet to the top scriptlet block:
    ```jsp
-   <%@ page import="org.owasp.encoder.Encode" %>
+   <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
    <%
        java.util.ResourceBundle oscarResources =
            java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
@@ -154,8 +154,8 @@ For strings used in `alert()`, `confirm()`, or dynamic DOM manipulation:
    ```jsp
    <script>
        var i18n = {
-           msgConfirmDelete: '<%= Encode.forJavaScript(oscarResources.getString("admin.configureFax.msgConfirmDelete")) %>',
-           msgSaveSuccess:   '<%= Encode.forJavaScript(oscarResources.getString("admin.configureFax.msgSaveSuccess")) %>'
+           msgConfirmDelete: '<%= SafeEncode.forJavaScript(oscarResources.getString("admin.configureFax.msgConfirmDelete")) %>',
+           msgSaveSuccess:   '<%= SafeEncode.forJavaScript(oscarResources.getString("admin.configureFax.msgSaveSuccess")) %>'
        };
    </script>
    ```
@@ -165,9 +165,9 @@ For strings used in `alert()`, `confirm()`, or dynamic DOM manipulation:
 4. In JavaScript, replace `alert("Hardcoded text")` with `alert(i18n.msgKey)`.
 
 - [ ] ResourceBundle scriptlet added if JS strings are needed
-- [ ] `org.owasp.encoder.Encode` import added for `Encode.forJavaScript()` calls
+- [ ] `io.github.carlos_emr.carlos.utility.SafeEncode` import added for `SafeEncode.forJavaScript()` calls
 - [ ] All `alert("...")` and `confirm("...")` calls use i18n variables
-- [ ] All JS strings encoded with `Encode.forJavaScript()`
+- [ ] All JS strings encoded with `SafeEncode.forJavaScript()`
 - [ ] i18n keys for JS strings added to all five locale files
 
 ### Step 8: Remove Any Legacy Inline Bundle Calls

@@ -251,7 +251,7 @@ For text inside HTML attributes, use `fmt:message` with `var` to capture then en
 Alternatively, use the scriptlet form only when inside a scriptlet-heavy legacy block:
 
 ```jsp
-<input placeholder="<%= Encode.forHtmlAttribute(oscarResources.getString("admin.configureFax.placeholder")) %>">
+<input placeholder="<%= SafeEncode.forHtmlAttribute(oscarResources.getString("admin.configureFax.placeholder")) %>">
 ```
 
 ### In JavaScript Strings — DO NOT use fmt:message
@@ -310,7 +310,7 @@ object. This keeps all translations in one place and avoids scattered inline scr
 
 ```jsp
 <%@ page import="java.util.ResourceBundle" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
     // Load the locale-appropriate resource bundle once
@@ -320,12 +320,12 @@ object. This keeps all translations in one place and avoids scattered inline scr
 
 <script>
     // Pre-computed i18n strings, safely encoded for JavaScript embedding.
-    // Encode.forJavaScript() prevents XSS and broken JS string literals.
+    // SafeEncode.forJavaScript() prevents XSS and broken JS string literals.
     var i18n = {
-        msgSaveSuccess:    '<%= Encode.forJavaScript(oscarResources.getString("admin.configureFax.msgSaveSuccess")) %>',
-        msgTestFailed:     '<%= Encode.forJavaScript(oscarResources.getString("admin.configureFax.msgTestFailed")) %>',
-        btnCancel:         '<%= Encode.forJavaScript(oscarResources.getString("global.btnCancel")) %>',
-        msgConfirmDelete:  '<%= Encode.forJavaScript(oscarResources.getString("admin.configureFax.msgConfirmDelete")) %>'
+        msgSaveSuccess:    '<%= SafeEncode.forJavaScript(oscarResources.getString("admin.configureFax.msgSaveSuccess")) %>',
+        msgTestFailed:     '<%= SafeEncode.forJavaScript(oscarResources.getString("admin.configureFax.msgTestFailed")) %>',
+        btnCancel:         '<%= SafeEncode.forJavaScript(oscarResources.getString("global.btnCancel")) %>',
+        msgConfirmDelete:  '<%= SafeEncode.forJavaScript(oscarResources.getString("admin.configureFax.msgConfirmDelete")) %>'
     };
 </script>
 ```
@@ -342,7 +342,7 @@ When a file needs only one or two translated strings:
 
 ```jsp
 <%@ page import="java.util.ResourceBundle" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
     java.util.ResourceBundle oscarBundle =
@@ -350,20 +350,20 @@ When a file needs only one or two translated strings:
 %>
 
 <script>
-    const i18nSaveError = '<%= Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.errorSaveFailed")) %>';
-    const i18nNetworkError = '<%= Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.errorNetworkFailed")) %>';
+    const i18nSaveError = '<%= SafeEncode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.errorSaveFailed")) %>';
+    const i18nNetworkError = '<%= SafeEncode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.errorNetworkFailed")) %>';
 </script>
 ```
 
 ### Security Requirement
 
-**Always** use `Encode.forJavaScript()` (from `org.owasp.encoder.Encode`) when embedding
+**Always** use `SafeEncode.forJavaScript()` (from `io.github.carlos_emr.carlos.utility.SafeEncode`, the null-safe wrapper over OWASP `Encode`) when embedding
 strings into JavaScript. Never use `${someVar}` directly inside `<script>` blocks.
 
 | Context | Correct encoding |
 |---------|-----------------|
-| JS string literal | `Encode.forJavaScript(value)` |
-| JS in HTML event attribute | `Encode.forJavaScriptAttribute(value)` |
+| JS string literal | `SafeEncode.forJavaScript(value)` |
+| JS in HTML event attribute | `SafeEncode.forJavaScriptAttribute(value)` |
 
 ### Reference Implementations
 
