@@ -20,6 +20,7 @@ import io.github.carlos_emr.carlos.commn.model.WaitingList;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
@@ -31,6 +32,43 @@ import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class WLWaitingListConcurrencyUnitTest {
+    @Test
+    void shouldRepositionActiveEntries_whenRemovingAPatient() {
+        WaitingListDao dao = mock(WaitingListDao.class);
+        WaitingList removed = new WaitingList();
+        WaitingList remaining = new WaitingList();
+        remaining.setPosition(2);
+        when(dao.findByWaitingListIdAndDemographicId(7, 101)).thenReturn(List.of(removed));
+        when(dao.findByWaitingListId(7)).thenReturn(List.of(remaining));
+
+        try (var spring = mockStatic(SpringUtils.class)) {
+            spring.when(() -> SpringUtils.getBean(WaitingListDao.class)).thenReturn(dao);
+            WLWaitingListUtil.removeFromWaitingList("7", "101");
+        }
+
+        assertThat(removed.getIsHistory()).isEqualTo(WaitingList.IS_HISTORY_YES);
+        assertThat(remaining.getPosition()).isOne();
+        verify(dao).merge(same(removed));
+        verify(dao).merge(same(remaining));
+    }
+
+    @Test
+    void shouldRepositionWhileAnotherThreadHoldsThePublicClassMonitor() throws Exception {
+        WaitingListDao dao = mock(WaitingListDao.class);
+        try (var worker = Executors.newSingleThreadExecutor()) {
+            synchronized (WLWaitingListUtil.class) {
+                var reposition = worker.submit(() -> {
+                    try (var spring = mockStatic(SpringUtils.class)) {
+                        spring.when(() -> SpringUtils.getBean(WaitingListDao.class)).thenReturn(dao);
+                        WLWaitingListUtil.rePositionWaitingList("7");
+                    }
+                });
+                reposition.get(5, TimeUnit.SECONDS);
+            }
+        }
+        verify(dao).findByWaitingListId(7);
+    }
+
     @Test
     void shouldSerializePublicReposition_withConcurrentWaitingListInsertion() throws Exception {
         WaitingListDao dao = mock(WaitingListDao.class);

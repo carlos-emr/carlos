@@ -42,6 +42,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class WLWaitingListUtil {
 
+    /** Serializes all waiting-list updates, including position changes. */
+    private static final Object MUTATION_LOCK = new Object();
+
     /**
      * Why a waiting-list note cannot be saved: it is longer than {@code waitingList.note} holds
      * ({@link WaitingList#validateNoteLength}, counted in Unicode code points). Under the packaged
@@ -65,7 +68,13 @@ public class WLWaitingListUtil {
 
 
     // Modified this method in Feb 2007 to ensure that all records cannot be deleted except hidden.
-    static public synchronized void removeFromWaitingList(String waitingListID, String demographicNo) {
+    public static void removeFromWaitingList(String waitingListID, String demographicNo) {
+        synchronized (MUTATION_LOCK) {
+            removeEntries(waitingListID, demographicNo);
+        }
+    }
+
+    private static void removeEntries(String waitingListID, String demographicNo) {
         MiscUtils.getLogger().debug("WLWaitingListUtil.removeFromWaitingList(): removing waiting list: " + waitingListID + " for patient " + demographicNo);
 
         WaitingListDao dao = SpringUtils.getBean(WaitingListDao.class);
@@ -73,12 +82,18 @@ public class WLWaitingListUtil {
             wl.setHistory(true);
             dao.merge(wl);
         }
-        rePositionWaitingList(waitingListID);
+        repositionEntries(waitingListID);
+    }
+
+    public static void add2WaitingList(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+        synchronized (MUTATION_LOCK) {
+            addEntry(waitingListID, waitingListNote, demographicNo, onListSince);
+        }
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    static public synchronized void add2WaitingList(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+    private static void addEntry(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
         requireNoteFits(waitingListNote);
         MiscUtils.getLogger().debug("WLWaitingListUtil.add2WaitingList(): adding to waitingList: " + waitingListID + " for patient " + demographicNo);
 
@@ -106,7 +121,7 @@ public class WLWaitingListUtil {
         dao.persist(list);
 
         // update the waiting list positions
-        rePositionWaitingList(waitingListID);
+        repositionEntries(waitingListID);
     }
 
     /*
@@ -117,7 +132,7 @@ public class WLWaitingListUtil {
      * after a removal counts here, as it always has: the patient edit form then puts the patient
      * back on the list.
      */
-    public static synchronized boolean updateWaitingListRecord(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+    public static boolean updateWaitingListRecord(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
         return recordNote(waitingListID, waitingListNote, demographicNo, onListSince, false);
     }
 
@@ -130,13 +145,19 @@ public class WLWaitingListUtil {
      * @return {@code true} when the note was recorded; {@code false} when nothing was written
      *         because no list was named (id "0") or the patient is not on the named list now
      */
-    public static synchronized boolean updateCurrentWaitingListRecord(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+    public static boolean updateCurrentWaitingListRecord(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
         return recordNote(waitingListID, waitingListNote, demographicNo, onListSince, true);
+    }
+
+    private static boolean recordNote(String waitingListID, String waitingListNote, String demographicNo, String onListSince, boolean currentEntryRequired) {
+        synchronized (MUTATION_LOCK) {
+            return recordEntryNote(waitingListID, waitingListNote, demographicNo, onListSince, currentEntryRequired);
+        }
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private static boolean recordNote(String waitingListID, String waitingListNote, String demographicNo, String onListSince, boolean currentEntryRequired) {
+    private static boolean recordEntryNote(String waitingListID, String waitingListNote, String demographicNo, String onListSince, boolean currentEntryRequired) {
         requireNoteFits(waitingListNote);
         MiscUtils.getLogger().debug("WLWaitingListUtil.updateWaitingListRecord(): waitingListID: " + waitingListID + " for patient " + demographicNo);
         boolean isWatingIdSet = !waitingListID.equalsIgnoreCase("0") && !demographicNo.equalsIgnoreCase("0");
@@ -179,16 +200,22 @@ public class WLWaitingListUtil {
         dao.saveEntity(wl);
 
         // update the waiting list positions
-        rePositionWaitingList(waitingListID);
+        repositionEntries(waitingListID);
         return true;
     }
 
     /*
      * This method adds the Waiting List note to the same position in the waitingList table but do not delete previous ones - later on DisplayWaitingList.jsp will display only the most current Waiting List Note record.
      */
+    public static void updateWaitingList(String id, String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+        synchronized (MUTATION_LOCK) {
+            updateEntry(id, waitingListID, waitingListNote, demographicNo, onListSince);
+        }
+    }
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    static public synchronized void updateWaitingList(String id, String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+    private static void updateEntry(String id, String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
         requireNoteFits(waitingListNote);
         MiscUtils.getLogger().debug("WLWaitingListUtil.updateWaitingList(): waitingListID: " + waitingListID + " for patient " + demographicNo);
         boolean idsSet = !waitingListID.equalsIgnoreCase("0") && !demographicNo.equalsIgnoreCase("0");
@@ -218,7 +245,13 @@ public class WLWaitingListUtil {
     }
 
     /** Shares the mutation monitor, including when called directly by an action. */
-    public static synchronized void rePositionWaitingList(String waitingListID) {
+    public static void rePositionWaitingList(String waitingListID) {
+        synchronized (MUTATION_LOCK) {
+            repositionEntries(waitingListID);
+        }
+    }
+
+    private static void repositionEntries(String waitingListID) {
         int i = 1;
         WaitingListDao dao = SpringUtils.getBean(WaitingListDao.class);
         for (WaitingList waitingList : dao.findByWaitingListId(ConversionUtils.fromIntString(waitingListID))) {
