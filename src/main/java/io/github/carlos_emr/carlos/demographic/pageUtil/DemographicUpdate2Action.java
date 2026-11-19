@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.DemographicExtArchive;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import io.github.carlos_emr.carlos.commn.model.WaitingList;
+import io.github.carlos_emr.carlos.demographic.DemographicCustomFieldSelect;
 import io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
@@ -68,6 +69,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -200,9 +202,17 @@ public class DemographicUpdate2Action extends ActionSupport {
 
         // The extension rows this form writes. Their ids are resolved from the patient's existing
         // rows when they are saved, not taken from the form (see the write phase below).
+        CarlosProperties properties = CarlosProperties.getInstance();
+        Set<String> configuredSelects = DemographicCustomFieldSelect.configuredKeys(
+                properties.getProperty("demographicExt"), properties.getProperty("demographicExtForm"));
         List<DemographicExt> extensions = new ArrayList<>();
         for (String key : DemographicEditVersion.editedExtensionKeys()) {
-            extensions.add(new DemographicExt(proNo, demographicNo, key, request.getParameter(key)));
+            String value = request.getParameter(key);
+            // Browsers omit a select whose current choice is disabled. An empty submitted value
+            // still means the clinician deliberately cleared the field.
+            if (value != null || !configuredSelects.contains(key)) {
+                extensions.add(new DemographicExt(proNo, demographicNo, key, value));
+            }
         }
 
         // --- HIN duplicate check must run before any persistence to prevent partial updates ---
@@ -266,8 +276,12 @@ public class DemographicUpdate2Action extends ActionSupport {
                     // used to insert them a second time (uk_demo_ext), and a posted id could name
                     // another patient's row.
                     Map<String, Integer> rowIds = new HashMap<>();
+                    List<DemographicExt> archivedExtensions = new ArrayList<>(extensions);
                     for (DemographicExt row : demographicExtDao.getDemographicExtByDemographicNo(patientNo)) {
                         rowIds.putIfAbsent(row.getKey(), row.getId());
+                        if (configuredSelects.contains(row.getKey()) && request.getParameter(row.getKey()) == null) {
+                            archivedExtensions.add(row);
+                        }
                     }
                     for (DemographicExt extension : extensions) {
                         extension.setId(rowIds.get(extension.getKey()));
@@ -278,10 +292,9 @@ public class DemographicUpdate2Action extends ActionSupport {
                     OtherIdManager.saveIdDemographic(patientNo, "meditech_id", request.getParameter("meditech_id"));
 
                     Long archiveId = demographicArchiveDao.archiveRecord(current);
-                    for (DemographicExt extension : extensions) {
+                    for (DemographicExt extension : archivedExtensions) {
                         DemographicExtArchive archive = new DemographicExtArchive(extension);
                         archive.setArchiveId(archiveId);
-                        archive.setValue(request.getParameter(archive.getKey()));
                         demographicExtArchiveDao.saveEntity(archive);
                     }
 
