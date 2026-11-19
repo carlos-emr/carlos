@@ -25,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import java.util.List;
 
@@ -92,6 +93,21 @@ class WLWaitingListUtilNoteLengthUnitTest extends CarlosUnitTestBase {
         ArgumentCaptor<WaitingList> saved = ArgumentCaptor.forClass(WaitingList.class);
         verify(dao).persist(saved.capture());
         assertThat(saved.getValue().getNote()).isEqualTo(longest);
+    }
+
+    @Test
+    void shouldStoreTheNoteWhole_whenAnEntryUpdatedByItsIdGetsANoteThatFillsTheColumn() {
+        // The by-id writer is otherwise only driven with a note it refuses; this is the note it
+        // must let through, stored on the entry it was asked to change.
+        String longest = "N".repeat(WaitingList.NOTE_MAX_LENGTH);
+        WaitingList entry = new WaitingList();
+        when(dao.find((Object) Integer.valueOf(3))).thenReturn(entry);
+
+        WLWaitingListUtil.updateWaitingList("3", "7", longest, "42", "2026-11-11");
+
+        verify(dao).merge(entry);
+        assertThat(entry.getNote()).isEqualTo(longest);
+        assertThat(entry.getListId()).isEqualTo(7);
     }
 
     @Test
