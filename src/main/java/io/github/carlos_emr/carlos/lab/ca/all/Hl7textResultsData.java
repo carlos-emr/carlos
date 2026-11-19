@@ -79,6 +79,9 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class Hl7textResultsData {
 
+    /** Property: file final word results the result filter does not match (default on; see {@link #fileTextResults()}). */
+    static final String FILE_TEXT_RESULTS_PROPERTY = "HL7_LAB_FILE_TEXT_RESULTS";
+
     private static Logger logger = MiscUtils.getLogger();
     private static MeasurementsDeletedDao measurementsDeletedDao = (MeasurementsDeletedDao) SpringUtils.getBean(MeasurementsDeletedDao.class);
     private static MeasurementDao measurementDao = SpringUtils.getBean(MeasurementDao.class);
@@ -335,7 +338,7 @@ public class Hl7textResultsData {
                 String value = projectableValue(result, lab_no, i, j);
                 // A final or corrected result the filter does not match is filed whole, as text (#6122).
                 boolean textResult = false;
-                if (value == null) {
+                if (value == null && fileTextResults()) {
                     value = textResultValue(result, olis_status, "lab " + LogSafe.sanitize(lab_no) + ", OBX " + i + "-" + j);
                     textResult = value != null;
                 }
@@ -534,6 +537,24 @@ public class Hl7textResultsData {
             return null;
         }
         return value;
+    }
+
+    /**
+     * The operator's switch for filing final word results the filter does not match (#6122): the property
+     * {@value #FILE_TEXT_RESULTS_PROPERTY}. On unless it is set to {@code false}, {@code no} or {@code off}, so an
+     * install that never sets it, or sets something else, files them. Off keeps exactly the filing from before
+     * #6122: only what {@code HL7_LAB_MEASUREMENT_FILTER} matches becomes a measurement.
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an operator's on/off word in the properties file; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "Case-insensitive comparison of an operator's on/off word in the properties file; not a security or authorization decision")
+    static boolean fileTextResults() {
+        String configured = CarlosProperties.getInstance().getProperty(FILE_TEXT_RESULTS_PROPERTY, "true");
+        if (configured == null) {
+            return true;
+        }
+        String value = configured.trim();
+        return !(value.equalsIgnoreCase("false") || value.equalsIgnoreCase("no") || value.equalsIgnoreCase("off"));
     }
 
     /**

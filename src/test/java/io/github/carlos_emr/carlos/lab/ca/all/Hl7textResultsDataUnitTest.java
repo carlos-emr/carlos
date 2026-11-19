@@ -528,6 +528,9 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                 mockedBeans.get(MeasurementMapDao.class));
     }
 
+    /** The HL7_LAB_FILE_TEXT_RESULTS value a test sets before filing; {@code null} leaves the property unset. */
+    private String textResultsSwitch;
+
     /**
      * Files one A1C result through {@link Hl7textResultsData#populateMeasurementsTable} with the given
      * {@code HL7_LAB_MEASUREMENT_FILTER}, and returns the measurement it persisted, or {@code null} when it
@@ -575,6 +578,9 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         CarlosProperties properties = mock(CarlosProperties.class);
         when(properties.getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).thenReturn(filter);
         when(properties.getProperty("MAP_BY_IDENTIFIER_AND_NAME", "false")).thenReturn("false");
+        if (textResultsSwitch != null) {
+            when(properties.getProperty("HL7_LAB_FILE_TEXT_RESULTS", "true")).thenReturn(textResultsSwitch);
+        }
         Calendar entryCalendar = GregorianCalendar.from(entryTimestamp.atZone(ZoneId.systemDefault()));
 
         try (MockedStatic<Factory> factory = mockStatic(Factory.class);
@@ -739,6 +745,55 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         void shouldLeaveTheResultUnfiled_whenItIsNotFinal(String status) throws IOException {
             assertThat(fileResult("Pending", shippedFilter(), OBSERVED, ENTERED, status)).isNull();
             verify(measurementDao, never()).persist(any(Measurement.class));
+        }
+
+        // HL7_LAB_FILE_TEXT_RESULTS (the operator's switch, #6122): absent or anything but false/no/off files
+        // the word as the PR does; off is exactly the filing from before #6122.
+        @ParameterizedTest(name = "switch [{0}] still files a final word the filter does not match")
+        @ValueSource(strings = {"true", "TRUE", "yes", "on", "", "  ", "banana"})
+        void shouldFileTheWordAsText_whenTheSwitchIsOnOrNotUnderstood(String value) throws IOException {
+            textResultsSwitch = value;
+
+            Measurement measurement = fileResult("Pending", shippedFilter(), OBSERVED, ENTERED, "F");
+
+            assertThat(measurement).isNotNull();
+            assertThat(measurement.getDataField()).isEqualTo("Pending");
+            assertThat(filedExtensions()).filteredOn(Hl7textResultsDataUnitTest::isTextMarker).hasSize(1);
+        }
+
+        @ParameterizedTest(name = "switch [{0}] files no word result")
+        @ValueSource(strings = {"false", "FALSE", "no", "off", " false "})
+        void shouldFileNoWordResult_whenTheSwitchIsOff(String value) throws IOException {
+            textResultsSwitch = value;
+
+            try (LogCapture log = LogCapture.forLogger(Hl7textResultsData.class)) {
+                assertThat(fileResult("FAKE-WORD-RESULT", shippedFilter(), OBSERVED, ENTERED, "F")).isNull();
+                // Nothing is logged about a result at all, let alone its text.
+                assertThat(log.messages()).noneSatisfy(message -> assertThat(message).contains("FAKE-WORD-RESULT"));
+            }
+            verify(measurementDao, never()).persist(any(Measurement.class));
+        }
+
+        @Test
+        void shouldFileTheMatchedValue_whenTheFilterMatchesAndTheSwitchIsOff() throws IOException {
+            textResultsSwitch = "false";
+
+            Measurement measurement = fileResult("Negative", ".*", OBSERVED, ENTERED, "F");
+
+            assertThat(measurement.getDataField()).isEqualTo("Negative");
+            assertThat(filedExtensions()).noneMatch(Hl7textResultsDataUnitTest::isTextMarker);
+        }
+
+        @ParameterizedTest(name = "switch [{0}] still files a word the filter matches")
+        @ValueSource(strings = {"true", "false"})
+        void shouldFileAWordTheFilterMatches_whateverTheSwitchSays(String value) throws IOException {
+            textResultsSwitch = value;
+
+            Measurement measurement = fileResult("Pending", "pending", OBSERVED, ENTERED, "F");
+
+            assertThat(measurement).isNotNull();
+            assertThat(measurement.getDataField()).isEqualTo("Pending");
+            assertThat(filedExtensions()).noneMatch(Hl7textResultsDataUnitTest::isTextMarker);
         }
 
         @Test
