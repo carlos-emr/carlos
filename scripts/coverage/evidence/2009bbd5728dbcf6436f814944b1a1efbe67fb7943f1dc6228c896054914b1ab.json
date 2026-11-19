@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "8b0d627f28ef07014abf0c2e8acff7b55b6ac6ab",
+  "comparisonSha256": "58b78032fe5bd51746ecc9e0ec1f362756fd3d44893a454aa6688ea2f6db1d6a",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/utility/DigitalSignatureUtils.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "ab013db9641d733f64be57771a5d0003eb27e12c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/signature/action/SaveSignatureUpload2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "71631071ef3b2d696f4deda0a79f01a9d3002260"
+    }
+  },
+  "baselineCommit": "95351859ef3c11ccc80716761fec50f45db28e71",
+  "baselineSourceTree": "8b0d627f28ef07014abf0c2e8acff7b55b6ac6ab",
+  "baselineReportSha256": "1d040fe1bd180cba590a872df9aeb0648d46b38d6888fc744df7cdd478255232",
+  "baselineLane": "PR #5141 Java 25 signature retry and active pad limits",
+  "baselineTestCounts": {
+    "tests": 56,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "6da7176c06d6d41d0b82105d6790d0f2f46af849e70a5d8cc563c7addf04dfe2",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.eform.data.EFormSignatureCodeUnitTest",
+    "io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2ActionIssuedKeyUnitTest",
+    "io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2ActionTest",
+    "io.github.carlos_emr.carlos.signature.gate.ViewTabletSignature2ActionTest",
+    "io.github.carlos_emr.carlos.utility.DigitalSignatureUtilsUnitTest"
+  ]
+}
