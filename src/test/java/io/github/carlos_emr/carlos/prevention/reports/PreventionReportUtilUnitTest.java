@@ -239,6 +239,34 @@ class PreventionReportUtilUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should ignore undated, differently timed and non-covering archives when checking a timestamp tie")
+    void shouldCreditProvider_whenNoOtherArchiveCompetesAtItsTimestamp() {
+        current.setLastUpdateDate(day(2025, 2, 1));
+        archived.setId(4L);
+        archived.setLastUpdateDate(day(2023, 2, 1));
+        var undated = new DemographicArchive();
+        undated.setId(1L);
+        undated.setRosterDate(archived.getRosterDate());
+        undated.setProviderNo(THIRD_PROVIDER);
+        var earlier = new DemographicArchive();
+        earlier.setId(2L);
+        earlier.setLastUpdateDate(day(2022, 1, 1));
+        earlier.setRosterDate(archived.getRosterDate());
+        earlier.setProviderNo(THIRD_PROVIDER);
+        var sameTimeOtherPeriod = new DemographicArchive();
+        sameTimeOtherPeriod.setId(3L);
+        sameTimeOtherPeriod.setLastUpdateDate(archived.getLastUpdateDate());
+        sameTimeOtherPeriod.setRosterDate(day(2020, 1, 1));
+        sameTimeOtherPeriod.setRosterTerminationDate(day(2021, 12, 31));
+        sameTimeOtherPeriod.setProviderNo(THIRD_PROVIDER);
+        when(archiveDao.findByDemographicNo(DEMOGRAPHIC_NO))
+                .thenReturn(List.of(undated, earlier, sameTimeOtherPeriod, archived));
+
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, ARCHIVED_PROVIDER)).isTrue();
+    }
+
+    @Test
     @DisplayName("should still credit the provider when archived versions sharing a timestamp agree on it")
     void shouldCreditProvider_whenArchivedVersionsShareATimestampAndProvider() {
         current.setLastUpdateDate(day(2025, 2, 1));
