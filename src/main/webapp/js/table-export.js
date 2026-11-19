@@ -141,9 +141,12 @@ var TableExport = (function () {
                 for (var c = 0; c < row.cells.length; c++) {
                     if (c > 0) output += CSV_SEP;
                     var cell = row.cells[c];
-                    var text = cell.textContent.trim();
+                    var text = cell.textContent;
+                    // Preserve its initial control prefix for the spreadsheet cell guard.
+                    var controlPrefix = text.match(/^[\t\r\n]+/);
+                    text = text.trim();
                     if (cell.tagName === "TH") text = text.replace(/\s+/g, " ");
-                    output += escapeCsvCell(text);
+                    output += escapeCsvCell(controlPrefix ? controlPrefix[0] + text : text);
                 }
                 output += CSV_NEWLINE;
             }
