@@ -128,6 +128,22 @@ async function workflow(s) {
     h.assert(found[0].current&&!found[1].current&&found[2].current&&found[3].current,'Nullable dates changed the current-form labels');
     await assertContext([],null);
   });
+
+  await s.step('the chart note timeline keeps an encounter form with no dates', async () => {
+    const [notes] = await Promise.all([
+      chart.waitForResponse(response => {
+        const request = response.request();
+        return new URL(request.url()).pathname.endsWith('/CaseManagementView')
+          && new URLSearchParams(request.postData() || '').get('method') === 'viewNotesOpt';
+      }),
+      chart.reload({ waitUntil: 'domcontentloaded' }),
+    ]);
+    h.assert(notes.status() === 200, `The chart timeline returned HTTP ${notes.status()} for the undated form`);
+    const name = encodeURIComponent(nullableName);
+    const undated = chart.locator(`.view-links a[onclick*="formname=${name}&"][onclick*="formId=${nullableIds[3]}'"]`);
+    await undated.first().waitFor({ state: 'attached' });
+    h.assert(await undated.count() === 1, 'The chart timeline did not show exactly one link to the undated form');
+  });
 }
 if(require.main===module)runWorkflow('echart-forms-list-paging',workflow,{openPatient:true});
 module.exports={workflow};

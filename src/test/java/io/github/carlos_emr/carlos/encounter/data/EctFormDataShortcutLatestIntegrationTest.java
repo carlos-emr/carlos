@@ -48,6 +48,7 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.Arrays;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -158,6 +159,27 @@ class EctFormDataShortcutLatestIntegrationTest {
         assertThat(forms.get(0).getEdited()).isEqualTo("09-03-2026 00:00:00");
         assertThat(EctFormData.getGroupedPatientFormsAsArrayList(PATIENT, "XML", "form", null))
                 .extracting(EctFormData.PatientForm::getFormId).containsExactly("21");
+    }
+
+    @Test
+    void shouldKeepBpmhFormsWithMissingDates_whenReadingAndSortingPatientHistory() {
+        String table = "formBPMH";
+        var registration = new EncounterForm();
+        registration.setFormName("BPMH");
+        registration.setFormTable(table);
+        registration.setFormValue("../formBPMH.do?demographic_no=");
+        var forms = nativeDatabase.dao(io.github.carlos_emr.carlos.commn.dao.EncounterFormDaoImpl.class);
+        nativeDatabase.transaction(() -> forms.persist(registration));
+        jdbc.execute("CREATE TABLE formBPMH (ID INT PRIMARY KEY, demographic_no INT, formCreated DATE, formEdited DATE)");
+        jdbc.update("INSERT INTO formBPMH VALUES (23,101,NULL,NULL),(24,101,'2026-03-09',NULL),"
+                + "(25,101,NULL,'2026-03-10'),(26,202,NULL,'2026-03-11')");
+
+        var history = Arrays.asList(EctFormData.getPatientFormsFromLocalAndRemote(null, PATIENT, table, true));
+        assertThat(history).extracting(EctFormData.PatientForm::getFormId).containsExactly("25", "24", "23");
+        assertThat(history).extracting(EctFormData.PatientForm::getEdited)
+                .containsExactly("10-03-2026 00:00:00", null, null);
+        assertThat(history).extracting(EctFormData.PatientForm::getCreated)
+                .containsExactly(null, "09-03-2026", null);
     }
 
     @Test
