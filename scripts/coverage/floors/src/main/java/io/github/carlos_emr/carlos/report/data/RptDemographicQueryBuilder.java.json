@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/report/data/RptDemographicQueryBuilder.java",
   "kind": "floor",
   "floor": {
-    "lines": 94.28571428571429,
-    "instructions": 92.96875,
-    "branches": 76.66666666666667,
-    "sourceBlob": "967d59ed1c79f7b2b2e4b7fbb3f2c11a98cc307c"
+    "lines": 97.36842105263158,
+    "instructions": 97.97297297297297,
+    "branches": 79.41176470588235,
+    "sourceBlob": "690b6da539b72fd3e3a96fa8cba77c79396f4da2"
   },
-  "evidenceSha256": "7988d00e87b1ae847fb06b1b4e86f6bb65d2bc2e408d1a34e53c55c1b8889c44"
+  "evidenceSha256": "b73ad5ba3ec066df200ee226feb660fa46f49d61702a1c9bf519cc8037f5a6d2"
 }
