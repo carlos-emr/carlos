@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "fbdcc775797ef63e29df941df0e05166f8e4d99c",
+  "comparisonSha256": "d95bed4531d1fb4aa420f303a459ec6bde9352839ac49bb054d0135a4349f535",
+  "baselineCommit": "e75d17bf0fea89926d0d70a8da34002937318efc",
+  "baselineSourceTree": "fbdcc775797ef63e29df941df0e05166f8e4d99c",
+  "baselineReportSha256": "a1c312120dcf364fc959fbd9bd7dc1dff2278d99e732c3a23d850033ab960f0f",
+  "baselineLane": "Java 25 H2 and physical MariaDB 11.8.8 credential migration, rotation and request feedback",
+  "baselineTestCounts": {
+    "tests": 122,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "bf15ea35f94ce5153414fae6f6770d2ed8972046b7bcb942477a2497e3faf1cb",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/McedtCredentialService.java": {
+      "sourceBlob": "7146d7efa3dfa72c85b16af2dc320e26eefdb3ae",
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/mailbox/User2Action.java": {
+      "sourceBlob": "41c25512d97d210bcbbb901f10cc84772913e10e",
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    }
+  }
+}
