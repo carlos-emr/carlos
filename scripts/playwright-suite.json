@@ -15605,6 +15605,21 @@
       }
     },
     {
+      "name": "waiting-list-row-links",
+      "script": "scripts/waiting-list-row-links-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "fixtures": "Owned marker-named lists in the login schedule group and two synthetic patients; no clinic preferences changed.",
+      "notes": "Issue #5477: the manager's patient-name link moved from the OWASP encoder taglib (e:forUriComponent) to carlos:forUriComponent, and encoder-jakarta-jsp left the WAR. For each existing entry the Master Record, Make Appointment and Remove links name that row's own patient (and list), the Master Record onclick is byte-for-byte the one the old expression rendered, and following it opens that patient's Master Record. Read-only apart from its own fixtures."
+    },
+    {
       "name": "waiting-list-booking",
       "script": "scripts/waiting-list-booking-playwright-checks.js",
       "tiers": [
