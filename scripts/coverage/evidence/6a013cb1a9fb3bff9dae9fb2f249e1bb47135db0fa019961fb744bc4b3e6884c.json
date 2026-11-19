@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "dedaded0fe96ac040a8134c3ec8eca134323a8a8",
+  "comparisonSha256": "8e938b06081fa552360e0e39033c6ca573bf5073b94b0013e04acb235c7f1f3c",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/DemographicService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "2c73573605b3567bcaf0fa7d5cb614f921afc2d2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingObecOutputApplyService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "e5e24125be51b56d76980446e0022ecc55fae0cf"
+    }
+  },
+  "baselineCommit": "f500b7022038b6555430ccf4e52bedf16a6e15ad",
+  "baselineSourceTree": "dedaded0fe96ac040a8134c3ec8eca134323a8a8",
+  "baselineReportSha256": "fd6c45aac139c276718a6de975b3431405a3c3b93e8026fe359d6ed13547599c",
+  "baselineLane": "Fresh JDK25 compilation at the measured commit, clean tree. Selected-source evidence for the REST demographic resource and the OBEC apply service, which both this branch (#5298) and the release branch (#6139, #6140) changed, measured on the merged files after release/2026.08 was merged in: 803 H2 cases (manager unit and transaction tests, REST unit and endpoint tests, the twenty-three update-transaction cases, reassignment, OBEC apply, the waiting-list helper, note-length, mutation and JSP tests, the patient add and edit form tests, the mutator GET-rejection contract, schedule controls) and 73 native MariaDB 11.8.8 cases with 32K pages on the generated schema (the same twenty-three update-transaction cases, merge, web unmerge, identifier preservation, schedule sync, reporting audit, OBEC alert). All 876 executed JUnit cases pass with zero failures, errors or skips. Existing higher floors retained; not full release qualification.",
+  "baselineTestCounts": {
+    "tests": 876,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "98e7cdc73a8c446c4abb4bd24bd17b2b79a792a3becba1513ef5c782c1cfceff",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 1
+}
