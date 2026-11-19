@@ -8,6 +8,16 @@ The draft remains available, and autosave stops for that editor. Opening a diffe
 editor restores its own saving. Close still asks before discarding unsaved text,
 dates or issue changes, including after a lock is lost.
 
+## New-appointment day-sheet acknowledgment
+
+Opening or printing the new-appointments day sheet is read-only. Appointment
+writers must use **Acknowledge new appointments** to mark the displayed rows as
+Daysheet Printed. The form now carries the displayed appointment IDs and versions.
+Appointments booked or edited after preview are left unchanged, with a skipped
+count in the result; preview again before acknowledging them. Repeating the same
+submission does not acquire newly booked appointments or create duplicate archives.
+Incomplete, malformed or oversized selections are refused before any update.
+
 ## Audit identifiers after model diagnostic redaction
 
 Demographic-extension, consent-type, appointment and disease-registry creation audit
