@@ -198,9 +198,25 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
         }
 
         @ParameterizedTest
-        @CsvSource({"POST,pronoun,A", "POST,gender,A", "PUT,pronoun,A", "PUT,gender,A",
-                "POST,pronoun,😀", "POST,gender,😀", "PUT,pronoun,😀", "PUT,gender,😀"})
-        void shouldRejectOverlongFields_beforeAnyWrite(String method, String field, String character) {
+        @CsvSource({
+                "POST,pronoun,A,application/json",
+                "POST,pronoun,A,application/xml",
+                "POST,gender,A,application/json",
+                "POST,gender,A,application/xml",
+                "PUT,pronoun,A,application/json",
+                "PUT,pronoun,A,application/xml",
+                "PUT,gender,A,application/json",
+                "PUT,gender,A,application/xml",
+                "POST,pronoun,😀,application/json",
+                "POST,pronoun,😀,application/xml",
+                "POST,gender,😀,application/json",
+                "POST,gender,😀,application/xml",
+                "PUT,pronoun,😀,application/json",
+                "PUT,pronoun,😀,application/xml",
+                "PUT,gender,😀,application/json",
+                "PUT,gender,😀,application/xml"
+        })
+        void shouldRejectOverlongFields_beforeAnyWrite(String method, String field, String character, String accept) {
             DemographicTo1 data = payload(method);
             String invalid = character.repeat(26);
             if ("pronoun".equals(field)) data.setPronoun(invalid);
@@ -209,8 +225,10 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             data.setNotes("FAKE-NOTES");
             data.setWaitingListID(7);
 
-            try (Response response = request().path("/demographics").invoke(method, data)) {
+            try (Response response = request().path("/demographics")
+                    .replaceHeader("Accept", accept).invoke(method, data)) {
                 assertThat(response.getStatus()).isEqualTo(400);
+                assertThat(response.getMediaType().toString()).startsWith("text/plain");
                 assertThat(response.readEntity(String.class))
                         .contains("exceeds maximum length of 25 characters.")
                         .doesNotContain(invalid, "FAKE-NOTES");

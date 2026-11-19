@@ -74,6 +74,26 @@ public class RptDownloadCSVServlet extends HttpServlet {
     private record ExtensionColumn(String key, String caption) { }
     private record ExtensionValueKey(String demographic, String key) { }
 
+    /**
+     * Answers a download whose report could not be generated: status 500, nothing partial sent.
+     *
+     * <p>A configured_report.* limit refusal is the user's to fix (narrow the report, or ask for the limit
+     * to be raised), not a defect: this servlet logs it once, as a warning naming the setting and its value
+     * without the trace, and the error page names the limit. Any other failure is logged as an error with its
+     * trace. (The container's error page adds its own generic line for every error status.)</p>
+     */
+    private static void reportFailed(HttpServletRequest request, HttpServletResponse response, String failureMessage,
+                                     Exception failure) throws IOException {
+        var refusal = ReportLimitNotice.find(failure);
+        if (refusal != null) {
+            _logger.warn("Report download refused by its {} limit of {}", refusal.limit().setting(), refusal.value());
+            ReportLimitNotice.publish(request, refusal.limit(), refusal.value());
+        } else {
+            _logger.error(failureMessage, failure);
+        }
+        response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate report");
+    }
+
     public void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpSession session = request.getSession(false);
         if (session == null)
@@ -82,15 +102,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
         try {
             report = request.getParameter("demoReport") != null ? demoReport(request) : formReport(request);
         } catch (ServletException e1) {
-            _logger.error("RptDownloadCSVServlet service() - form report failed", e1);
-            // A report stopped by a limit is named on the error page; the status is unchanged.
-            ReportLimitNotice.publish(request, e1);
-            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate report");
+            reportFailed(request, response, "RptDownloadCSVServlet service() - form report failed", e1);
             return;
         } catch (Exception e1) {
-            _logger.error("RptDownloadCSVServlet service() - report generation failed", e1);
-            ReportLimitNotice.publish(request, e1);
-            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate report");
+            reportFailed(request, response, "RptDownloadCSVServlet service() - report generation failed", e1);
             return;
         }
 
@@ -102,6 +117,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
         // configured_report.max_csv_mb, read for each download; MAX_CSV_EXPORT_BYTES is its default.
         int maximumMb = ConfiguredReportQuery.Limit.CSV.configured();
         if (bytes.length > (long) maximumMb * 1024 * 1024) {
+            // The same refusal as a query limit: one warning naming the setting, no trace.
+            _logger.warn("Report download refused by its {} limit of {}", ConfiguredReportQuery.Limit.CSV.setting(), maximumMb);
             ReportLimitNotice.publish(request, ConfiguredReportQuery.Limit.CSV, maximumMb);
             response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
                     ConfiguredReportQuery.Limit.CSV.english(maximumMb));

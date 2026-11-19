@@ -47,4 +47,7 @@ public interface CasemgmtNoteLockDao extends AbstractDao<CasemgmtNoteLock> {
     int removeAllForSession(String sessionId);
 
     List<CasemgmtNoteLock> findBySession(String sessionId);
+
+    /** Locks the matched lease for the caller's transaction if its observed ownership still holds. */
+    boolean lockOwnedNote(Long id, String providerNo, Integer demographicNo, Long noteId, String sessionId);
 }

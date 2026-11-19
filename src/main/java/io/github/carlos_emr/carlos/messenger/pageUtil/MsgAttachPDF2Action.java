@@ -278,8 +278,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
         }
         Optional<Attachment> attachment = resolver.resolve(item.get(), demographicNo, patientName, labels);
         if (attachment.isEmpty()) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Unknown attachment item");
-            return NONE;
+            return attachmentUnavailable();
         }
         if (item.get().printsOwnPdf()) {
             // A preview must fit the same record as attaching the chart notes by themselves.
@@ -353,8 +352,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
             Optional<Attachment> attachment = resolver.resolve(item, demographicNo, patientName, labels);
             if (attachment.isEmpty()) {
                 // A stale chooser must not silently remove an item the sender explicitly selected.
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Attachment item is unavailable");
-                return NONE;
+                return attachmentUnavailable();
             }
             attachments.add(attachment.get());
         }
@@ -443,6 +441,12 @@ public class MsgAttachPDF2Action extends ActionSupport {
         records.setCurrentAttachmentCount(index);
         // A failed render still has a BAD record with an empty <CONTENT> for the sender to see.
         records.setAppendPDFAttachment(pdf == null ? "" : pdf, title);
+    }
+
+    private String attachmentUnavailable() throws IOException {
+        request.setAttribute("carlosMessengerAttachmentUnavailable", true);
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+        return NONE;
     }
 
     /**

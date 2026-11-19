@@ -357,6 +357,7 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(request.getAttribute("carlosMessengerAttachmentUnavailable")).isNull();
             assertThat(renderedRoutes).isEmpty();
         }
 

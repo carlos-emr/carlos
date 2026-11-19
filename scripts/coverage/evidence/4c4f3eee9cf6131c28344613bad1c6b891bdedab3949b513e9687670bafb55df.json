@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "5b928912749fa7c6d9a38e423bcb0e1e95f880d9",
+  "comparisonSha256": "84cf2719381fd620c39ee8015f2695d7093375f5e14ea4f5eeacc8b47343b045",
+  "baselineCommit": "fc7cca516fa8a1d545d3106d867e7b3efd2e40d5",
+  "baselineSourceTree": "5b928912749fa7c6d9a38e423bcb0e1e95f880d9",
+  "baselineReportSha256": "9d794923768885ed7ea7e6e723725da4b6622489bd8097a0c9a5c013c88a8481",
+  "baselineLane": "Focused Java 25 and JaCoCo test run for the merged source and tests of PR #6242; only the selected Java file is covered by this record.",
+  "baselineTestCounts": {
+    "tests": 107,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "d162b4d67390864a7d2d096c461148c04f464ffc19995b16f78f8037a7971d9f",
+  "baselineTestReportsHashFormat": "SHA-256 of a filename-to-SHA-256 JSON object with sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "ConfigureFax2Action unit tests",
+    "FaxImporter poll() Orchestration Tests",
+    "io.github.carlos_emr.carlos.fax.core.FaxPollBackoffUnitTest"
+  ],
+  "priorSourceEvidenceSha256": [
+    "6b9258bd75daa47cf684c6a06e1c826478045ab2c2fce2ac3beb76bec98fe83a",
+    "7f3bb091b3216e89a5b93c2ec565b813ac76df4f2a590df1746d4fc005ed1fd3"
+  ],
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/fax/core/FaxImporter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d23ab779bdcdbfdd6e6759334713f2ab973a9615"
+    }
+  }
+}

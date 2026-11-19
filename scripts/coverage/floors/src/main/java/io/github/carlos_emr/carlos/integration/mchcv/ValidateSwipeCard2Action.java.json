@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/integration/mchcv/ValidateSwipeCard2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "597bb9a039b69007c56d3abfaa8c2989f612ff79"
+  },
+  "evidenceSha256": "1d73696a2282fcb32f49ca20ac33bbef79a955a551566711bc329a98afb5d41f"
+}

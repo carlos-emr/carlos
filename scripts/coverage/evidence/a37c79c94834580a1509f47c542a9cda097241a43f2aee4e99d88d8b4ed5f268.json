@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "4f8651895511639b6cf3464c2ce226cb424449e3",
+  "comparisonSha256": "c7ec14892b16252e7deb963c85c725c981b0dd936f8f737f3d0fd225243014a6",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ReportConfigDaoImpl.java": {
+      "lines": 86.66666666666667,
+      "instructions": 87.64044943820225,
+      "branches": 100.0,
+      "sourceBlob": "3cfbc7b4fd0fa58a7bf7faa8a81b1a4309eb6d47"
+    }
+  },
+  "baselineCommit": "cdc99caa00ac70e76009e4cbd6eb376944af827f",
+  "baselineSourceTree": "4f8651895511639b6cf3464c2ce226cb424449e3",
+  "baselineReportSha256": "94336f46a55796a1951e26c6ad2edbc8837de6d04e8208072f32e917faf62940",
+  "baselineLane": "Fresh exact JDK25 selected-source classes and existing/regression controls. All26 unique actual JUnit cases pass with zero failures/errors/skips. Component inputs and exact JUnit hashes retained; selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 26,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "02e2e7c83e534cdbb66798001fcaf48c6beb2a77e76fc1c25abf1daa34fff0dd",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}
