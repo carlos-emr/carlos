@@ -92,3 +92,8 @@ ERROR action.EmailCompose2Action (EmailCompose2Action.java:312) @EmailComposeMan
 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:460) uri=/carlos/ws/rs/__test-error-b7b14930bf56c8b606643af113d2dc35
 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:349) uri=/carlos/__test-error-b7b14930bf56c8b606643af113d2dc35.jsp @carlostest5794.ErrorSanitizationFaultServlet.doGet :: jakarta.servlet.ServletException
 ERROR utility.DbConnectionFilter (DbConnectionFilter.java:87) @carlostest5794.ErrorSanitizationFaultServlet.doGet :: jakarta.servlet.ServletException
+# Added with demographic-rest-update-atomicity (#5298): the deliberate colliding extension key on PUT, and on POST by
+# demographic-rest-create-extras (#5119), as the REST fault is logged since #6098. Captured on the installed
+# 2026.09.0~snapshot30 package (Ubuntu 26.04); no exception message or patient data.
+ERROR exceptionMapping.RestErrorDiagnostics (RestErrorDiagnostics.java:54) @AbstractDaoImpl.persist
+ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:460) uri=/carlos/ws/rs/demographics
