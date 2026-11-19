@@ -26,16 +26,59 @@ public class McedtCredentialService {
 
     private record LegacyPassword(int id, String value) {}
 
+    private enum CurrentStatement {
+        LOCK_CREDENTIAL(
+                "SELECT id FROM mcedt_credential WHERE id = 1 FOR UPDATE",
+                """
+                        SET STATEMENT innodb_snapshot_isolation=OFF FOR
+                        SELECT id FROM mcedt_credential WHERE id = 1 FOR UPDATE
+                        """),
+        READ_PASSWORD(
+                "SELECT encrypted_password FROM mcedt_credential WHERE id = 1 FOR UPDATE",
+                """
+                        SET STATEMENT innodb_snapshot_isolation=OFF FOR
+                        SELECT encrypted_password FROM mcedt_credential WHERE id = 1 FOR UPDATE
+                        """),
+        LOCK_LEGACY(
+                "SELECT p.id, p.value FROM property p WHERE p.name = :name ORDER BY p.id FOR UPDATE",
+                """
+                        SET STATEMENT innodb_snapshot_isolation=OFF FOR
+                        SELECT p.id, p.value FROM property p WHERE p.name = :name ORDER BY p.id FOR UPDATE
+                        """),
+        STORE_PASSWORD(
+                """
+                        UPDATE mcedt_credential SET encrypted_password = :password,
+                        lastUpdateUser = :actor, lastUpdateDate = CURRENT_TIMESTAMP WHERE id = 1
+                        """,
+                """
+                        SET STATEMENT innodb_snapshot_isolation=OFF FOR
+                        UPDATE mcedt_credential SET encrypted_password = :password,
+                        lastUpdateUser = :actor, lastUpdateDate = CURRENT_TIMESTAMP WHERE id = 1
+                        """),
+        DELETE_LEGACY(
+                "DELETE FROM property WHERE id = :id AND name = :name",
+                """
+                        SET STATEMENT innodb_snapshot_isolation=OFF FOR
+                        DELETE FROM property WHERE id = :id AND name = :name
+                        """);
+
+        private final String standardSql;
+        private final String mariaDbSql;
+
+        CurrentStatement(String standardSql, String mariaDbSql) {
+            this.standardSql = standardSql;
+            this.mariaDbSql = mariaDbSql;
+        }
+    }
+
     private void lockCredential() {
-        entityManager.createNativeQuery(currentRows("SELECT id FROM mcedt_credential WHERE id = 1 FOR UPDATE"), Integer.class)
+        entityManager.createNativeQuery(currentRows(CurrentStatement.LOCK_CREDENTIAL), Integer.class)
                 .getSingleResult();
     }
 
     private List<LegacyPassword> legacyPasswords(boolean lock) {
-        String sql = "SELECT p.id, p.value FROM property p WHERE p.name = :name ORDER BY p.id";
-        if (lock) {
-            sql = currentRows(sql + " FOR UPDATE");
-        }
+        String sql = lock ? currentRows(CurrentStatement.LOCK_LEGACY)
+                : "SELECT p.id, p.value FROM property p WHERE p.name = :name ORDER BY p.id";
         // Scalar values come from the current row, even if Hibernate already manages an
         // earlier version of the corresponding preference in the caller's transaction.
         return entityManager.unwrap(org.hibernate.Session.class).createNativeQuery(sql, Object[].class)
@@ -58,13 +101,12 @@ public class McedtCredentialService {
     }
 
     /** Use a current row without changing the caller's transaction isolation settings. */
-    private String currentRows(String sql) {
-        return isMariaDb() ? "SET STATEMENT innodb_snapshot_isolation=OFF FOR " + sql : sql;
+    private String currentRows(CurrentStatement statement) {
+        return isMariaDb() ? statement.mariaDbSql : statement.standardSql;
     }
 
     private void store(String encrypted, String actor) {
-        entityManager.createNativeQuery(currentRows("UPDATE mcedt_credential SET encrypted_password = :password, "
-                        + "lastUpdateUser = :actor, lastUpdateDate = CURRENT_TIMESTAMP WHERE id = 1"))
+        entityManager.createNativeQuery(currentRows(CurrentStatement.STORE_PASSWORD))
                 .setParameter("password", encrypted).setParameter("actor", actor).executeUpdate();
     }
 
@@ -73,7 +115,7 @@ public class McedtCredentialService {
             return;
         }
         // Guard the name so a row renamed into an ordinary preference cannot be erased.
-        String delete = currentRows("DELETE FROM property WHERE id = :id AND name = :name");
+        String delete = currentRows(CurrentStatement.DELETE_LEGACY);
         for (LegacyPassword row : rows) {
             // Remove any managed copy without reloading the value or flushing it after the delete.
             entityManager.detach(entityManager.getReference(UserProperty.class, row.id()));
@@ -135,8 +177,7 @@ public class McedtCredentialService {
         try {
             // The singleton is a current locking read, serializing saves and first-read migration.
             String encrypted = (String) entityManager.createNativeQuery(
-                    currentRows("SELECT encrypted_password FROM mcedt_credential WHERE id = 1 FOR UPDATE"),
-                    String.class).getSingleResult();
+                    currentRows(CurrentStatement.READ_PASSWORD), String.class).getSingleResult();
             // A null singleton is normal with a configured or cleared password. Check for
             // migration without taking an index gap lock on the unrelated preference table.
             if (encrypted == null && !hasLegacyPassword()) {
