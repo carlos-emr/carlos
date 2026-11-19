@@ -1046,6 +1046,7 @@
     "test:report-blob-text-readers-playwright": "node scripts/report-blob-text-readers-playwright-checks.js",
     "test:fax-configuration-save-playwright": "node scripts/fax-configuration-save-playwright-checks.js",
     "test:playwright:provider-document-queue-security": "node scripts/provider-document-queue-security-playwright-checks.js",
+    "test:consultation-health-care-team-playwright": "node scripts/consultation-health-care-team-playwright-checks.js",
     "test:admin-issue-editor-save": "node scripts/admin-issue-editor-save-playwright-checks.js",
     "test:admin-facility-disable-playwright": "node scripts/admin-facility-disable-playwright-checks.js",
     "test:playwright:log-provider-order": "node scripts/log-provider-order-playwright-checks.js",
