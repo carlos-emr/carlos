@@ -51,6 +51,8 @@ import io.github.carlos_emr.carlos.commn.model.CVCImmunization;
 import io.github.carlos_emr.carlos.commn.model.Consent;
 import io.github.carlos_emr.carlos.integration.fhir.api.DHIR;
 import io.github.carlos_emr.carlos.integration.fhir.builder.FhirBundleBuilder;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.provider.model.PreventionManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -272,6 +274,13 @@ public class AddPrevention2Action extends ActionSupport {
                     PreventionData.deletePreventionData(recordId, demographic_no);
                     return Integer.valueOf(recordId);
                 }
+                String storedDose = PreventionData.getPreventionKeyValues(recordId).get("dose");
+                for (Map<String, String> extension : extraData) {
+                    if (extension.containsKey("dose")) {
+                        extension.put("dose", io.github.carlos_emr.carlos.prevention.PreventionDoseText
+                                .preserveLineEndings(extension.get("dose"), storedDose));
+                    }
+                }
                 addHashtoArray(extraData, recordId, "previousId");
                 return PreventionData.updatetPreventionData(recordId, sessionUser, demographic_no, prevDate,
                         providerNo, providerName, preventionType, refusedFlag, nextDate, neverWarnFlag, extraData, snomedId);
@@ -314,6 +323,15 @@ public class AddPrevention2Action extends ActionSupport {
             // closes the popup refreshes the opener with the new record in it.
             closeClaim(claim);
         }
+
+        // One audit row per stored write, filed under the patient: which record was added, replaced
+        // or deleted and by whom. Never the type, comment, lot or result (clinical content). A repeat
+        // of a saved form returns above without writing, so it is not audited a second time.
+        String auditAction = id == null ? LogConst.ADD : (deleting ? LogConst.DELETE : LogConst.UPDATE);
+        // An edit stores a new row and retires the edited one: name the row it replaces.
+        String auditData = id != null && !deleting ? "previousId=" + id : null;
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request), auditAction, LogConst.CON_PREVENTION,
+                String.valueOf(preventionId), demographic_no, auditData);
 
         return dhirResult(submitToDhir, snomedId, demographic_no, given, preventionId);
     }

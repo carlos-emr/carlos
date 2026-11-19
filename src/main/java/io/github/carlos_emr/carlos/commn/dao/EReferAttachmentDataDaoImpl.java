@@ -47,6 +47,26 @@ public class EReferAttachmentDataDaoImpl extends AbstractDaoImpl<EReferAttachmen
     }
 
     @Override
+    public void removeFromPendingQueue(EReferAttachmentData data) {
+        Integer queueId = data.geteReferAttachment().getId();
+        Integer documentId = data.getLabId();
+        String type = data.getLabType();
+        // Flush any earlier queue writes, then evict the cascade-PERSIST parent and child.
+        // Mutating its legacy unidirectional collection generates an invalid composite-key
+        // FK-null update in Hibernate 7; leaving the child there can persist it again.
+        entityManager.flush();
+        entityManager.detach(data);
+        entityManager.detach(data.geteReferAttachment());
+        entityManager.createQuery("DELETE FROM EReferAttachmentData d WHERE d.eReferAttachment.id = :queue"
+                        + " AND d.labId = :document AND d.labType = :type")
+                .setParameter("queue", queueId).setParameter("document", documentId).setParameter("type", type)
+                .executeUpdate();
+        entityManager.createQuery("DELETE FROM EReferAttachment q WHERE q.id = :queue"
+                        + " AND NOT EXISTS (SELECT d.labId FROM EReferAttachmentData d WHERE d.eReferAttachment.id = :queue)")
+                .setParameter("queue", queueId).executeUpdate();
+    }
+
+    @Override
     public int removeRecentByDocumentId(int docId, String type, int demographicNo, Date expiry) {
         if (docId <= 0 || demographicNo <= 0 || type == null || type.isBlank() || expiry == null) {
             throw new IllegalArgumentException("Invalid pending attachment scope");

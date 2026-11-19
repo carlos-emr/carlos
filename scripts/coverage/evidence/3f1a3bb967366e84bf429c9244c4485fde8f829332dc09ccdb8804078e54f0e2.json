@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "73241e31fc22cac0e908883a75d0cc479530d67b",
+  "comparisonSha256": "9159c3051ed9101bab678ffcb6c1bf24cf9877e764653c41dada1a152fec0ca6",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/util/ConcatPDF.java": {
+      "lines": 92.1875,
+      "instructions": 95.2991452991453,
+      "branches": 100.0,
+      "sourceBlob": "07636e417f1932f55ad7aa9f02c3c92ca4bf89d5"
+    }
+  },
+  "baselineCommit": "afb46efd88b5580830b05ed628c7bb215e079e8c",
+  "baselineSourceTree": "73241e31fc22cac0e908883a75d0cc479530d67b",
+  "baselineReportSha256": "9c104f62ff68a1c18e48b15328c0f5c78d4cca8bf14f7a78be4b5d49c318fa04",
+  "baselineLane": "PR #6161 Java 25 required PDF components and caller controls",
+  "baselineTestCounts": {
+    "tests": 169,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "a5024d4edbf6e8947768da1bacf3ba87d9b22f380b7947df5f5a4efb3b8ee247",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintAssemblyUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintSizeLimitUnitTest",
+    "io.github.carlos_emr.carlos.commn.web.BillingInvoice2ActionUnitTest",
+    "io.github.carlos_emr.carlos.eform.util.EFormPDFServletUnitTest",
+    "io.github.carlos_emr.carlos.form.pdfservlet.FormPdfMergeFailureUnitTest",
+    "io.github.carlos_emr.carlos.form.pdfservlet.FrmPDFServletUnitTest",
+    "io.github.carlos_emr.carlos.messenger.data.MsgMessageDataUnitTest",
+    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachPDF2ActionUnitTest",
+    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachmentRefusalIntegrationTest",
+    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgEncounterPdfComposerUnitTest",
+    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgPdfAttachmentResolverUnitTest",
+    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBeanPdfTitleUnitTest",
+    "io.github.carlos_emr.carlos.util.ConcatPDFUnitTest"
+  ]
+}

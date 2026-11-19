@@ -210,6 +210,30 @@ public class DemographicManagerImpl implements DemographicManager {
     }
 
     @Override
+    public Map<Integer, String> getReadableDemographicFormattedNames(LoggedInInfo loggedInInfo,
+                                                                    Collection<Integer> demographicIds) {
+        Set<Integer> ids = new LinkedHashSet<>(demographicIds);
+        ids.remove(null);
+        ids.remove(0);
+        Map<Integer, String> names = new HashMap<>();
+        if (ids.isEmpty()) {
+            return names;
+        }
+        // The patient-specific decision for each ID. Only the readable ones reach the name query.
+        Set<Integer> readable = securityInfoManager.getReadableDemographicIds(loggedInInfo, ids);
+        for (Integer id : readable) {
+            // Readable but possibly without a demographic row: present, with no name.
+            names.put(id, "");
+        }
+        if (!readable.isEmpty()) {
+            for (DemographicName patient : demographicDao.getDemographicNames(readable)) {
+                names.put(patient.demographicNo(), patient.formattedName());
+            }
+        }
+        return names;
+    }
+
+    @Override
     public String getDemographicEmail(LoggedInInfo loggedInInfo, Integer demographicId) {
         Demographic result = getDemographic(loggedInInfo, demographicId);
         String email = null;
@@ -541,9 +565,9 @@ public class DemographicManagerImpl implements DemographicManager {
 
         if (demographic.getExtras() != null) {
             for (DemographicExt ext : demographic.getExtras()) {
-                LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.updateDemographic ext",
-                        "id=" + ext.getId() + "(" + ext.toString() + ")");
                 updateExtension(loggedInInfo, ext);
+                LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.updateDemographic ext",
+                        extensionAuditData(ext));
             }
         }
 
@@ -616,9 +640,9 @@ public class DemographicManagerImpl implements DemographicManager {
 
         if (demographic.getExtras() != null) {
             for (DemographicExt ext : demographic.getExtras()) {
-                LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.addDemographic ext",
-                        "id=" + ext.getId() + "(" + ext.toString() + ")");
                 updateExtension(loggedInInfo, ext);
+                LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.addDemographic ext",
+                        extensionAuditData(ext));
             }
         }
 
@@ -634,7 +658,7 @@ public class DemographicManagerImpl implements DemographicManager {
         demographicExtDao.saveEntity(ext);
 
         // --- log action ---
-        LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.createExtension", "id=" + ext.getId());
+        LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.createExtension", extensionAuditData(ext));
     }
 
     @Override
@@ -644,7 +668,12 @@ public class DemographicManagerImpl implements DemographicManager {
         demographicExtDao.saveEntity(ext);
 
         // --- log action ---
-        LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.updateExtension", "id=" + ext.getId());
+        LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.updateExtension", extensionAuditData(ext));
+    }
+
+    /** Identifies the extension field and saved row without recording its clinical value. */
+    private static String extensionAuditData(DemographicExt ext) {
+        return "id=" + ext.getId() + ";key=" + io.github.carlos_emr.carlos.utility.LogSafe.sanitize(ext.getKey());
     }
 
     @Override
@@ -680,7 +709,7 @@ public class DemographicManagerImpl implements DemographicManager {
 
         for (DemographicExt ext : getDemographicExts(loggedInInfo, demographic.getDemographicNo())) {
             LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.deleteDemographic ext",
-                    "id=" + ext.getId() + "(" + ext.toString() + ")");
+                    extensionAuditData(ext));
             deleteExtension(loggedInInfo, ext);
         }
 
@@ -696,7 +725,7 @@ public class DemographicManagerImpl implements DemographicManager {
         demographicExtDao.removeDemographicExt(ext.getId());
 
         // --- log action ---
-        LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.removeDemographicExt", "id=" + ext.getId());
+        LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.removeDemographicExt", extensionAuditData(ext));
     }
 
     @Override
@@ -946,8 +975,9 @@ public class DemographicManagerImpl implements DemographicManager {
                 (offset, size) -> demographicDao.searchPatients(loggedInInfo, searchRequest, offset, size),
                 DemographicSearchResult::getDemographicNo);
 
+        // Rows keep their health card number: search clients confirm a patient by it. Patients the
+        // caller may not read were already left out above.
         for (DemographicSearchResult demographic : results) {
-            demographic.setHin(null);
             LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.searchPatients result",
                     "demographicId=" + demographic.getDemographicNo());
         }

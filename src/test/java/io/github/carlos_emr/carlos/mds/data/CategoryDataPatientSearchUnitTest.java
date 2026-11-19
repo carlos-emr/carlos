@@ -82,8 +82,8 @@ class CategoryDataPatientSearchUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void captureQueries() {
-        registerDateSearchService();
-        registerMock(SystemPreferencesDao.class, mock(SystemPreferencesDao.class));
+        registerMock(io.github.carlos_emr.carlos.commn.service.InboxDateSearchTypeResolver.class,
+                new io.github.carlos_emr.carlos.commn.service.InboxDateSearchTypeResolver(mock(SystemPreferencesDao.class)));
         EntityManagerFactory factory = mock(EntityManagerFactory.class);
         entityManager = mock(EntityManager.class);
         registerMock(EntityManagerFactory.class, factory);

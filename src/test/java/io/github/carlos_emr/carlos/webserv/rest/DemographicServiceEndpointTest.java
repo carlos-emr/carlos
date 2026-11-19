@@ -198,9 +198,25 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
         }
 
         @ParameterizedTest
-        @CsvSource({"POST,pronoun,A", "POST,gender,A", "PUT,pronoun,A", "PUT,gender,A",
-                "POST,pronoun,😀", "POST,gender,😀", "PUT,pronoun,😀", "PUT,gender,😀"})
-        void shouldRejectOverlongFields_beforeAnyWrite(String method, String field, String character) {
+        @CsvSource({
+                "POST,pronoun,A,application/json",
+                "POST,pronoun,A,application/xml",
+                "POST,gender,A,application/json",
+                "POST,gender,A,application/xml",
+                "PUT,pronoun,A,application/json",
+                "PUT,pronoun,A,application/xml",
+                "PUT,gender,A,application/json",
+                "PUT,gender,A,application/xml",
+                "POST,pronoun,😀,application/json",
+                "POST,pronoun,😀,application/xml",
+                "POST,gender,😀,application/json",
+                "POST,gender,😀,application/xml",
+                "PUT,pronoun,😀,application/json",
+                "PUT,pronoun,😀,application/xml",
+                "PUT,gender,😀,application/json",
+                "PUT,gender,😀,application/xml"
+        })
+        void shouldRejectOverlongFields_beforeAnyWrite(String method, String field, String character, String accept) {
             DemographicTo1 data = payload(method);
             String invalid = character.repeat(26);
             if ("pronoun".equals(field)) data.setPronoun(invalid);
@@ -209,8 +225,10 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             data.setNotes("FAKE-NOTES");
             data.setWaitingListID(7);
 
-            try (Response response = request().path("/demographics").invoke(method, data)) {
+            try (Response response = request().path("/demographics")
+                    .replaceHeader("Accept", accept).invoke(method, data)) {
                 assertThat(response.getStatus()).isEqualTo(400);
+                assertThat(response.getMediaType().toString()).startsWith("text/plain");
                 assertThat(response.readEntity(String.class))
                         .contains("exceeds maximum length of 25 characters.")
                         .doesNotContain(invalid, "FAKE-NOTES");
@@ -240,6 +258,82 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             }
             assertThat(saved.getValue().getPronoun()).isEqualTo(exact);
             assertThat(saved.getValue().getGender()).isEqualTo(exact);
+        }
+
+        @ParameterizedTest
+        @CsvSource({"alert,Alert,A", "nurse,Nurse,A", "resident,Resident,A", "midwife,Midwife,A",
+                "alert,Alert,😀", "waitingListNote,Waiting list note,A", "waitingListNote,Waiting list note,😀"})
+        void shouldRejectOverlongCustomFieldsAndNote_beforeAnyWrite(String field, String label, String character) {
+            // Issue #5869: these VARCHAR(255) fields were cut silently under an empty sql_mode.
+            // WLWaitingListUtil reaches the DAO through SpringUtils, so register it there too: the
+            // no-interaction check below then covers the waiting-list write, not only the service field.
+            registerMock(WaitingListDao.class, mockWaitingListDao);
+            DemographicTo1 data = payload("PUT");
+            String invalid = character.repeat(256);
+            switch (field) {
+                case "alert" -> data.setAlert(invalid);
+                case "nurse" -> data.setNurse(invalid);
+                case "resident" -> data.setResident(invalid);
+                case "midwife" -> data.setMidwife(invalid);
+                default -> data.setWaitingListNote(invalid);
+            }
+            data.setWaitingListID(7);
+
+            try (Response response = request().path("/demographics").invoke("PUT", data)) {
+                assertThat(response.getStatus()).isEqualTo(400);
+                assertThat(response.readEntity(String.class))
+                        .isEqualTo(label + " exceeds maximum length of 255 characters.");
+            }
+            verifyNoInteractions(mockDemographicManager, mockWaitingListDao, updateRecords);
+        }
+
+        @ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"A", "😀"})
+        void shouldKeepCustomFieldsAndNoteWhole_whenTheyAreAtTheLimit(String character) {
+            registerMock(WaitingListDao.class, mockWaitingListDao);
+            // The patient is on list 7, so the note is written and can be read back.
+            io.github.carlos_emr.carlos.commn.model.WaitingList onTheList = new io.github.carlos_emr.carlos.commn.model.WaitingList();
+            onTheList.setListId(7);
+            onTheList.setDemographicNo(42);
+            onTheList.setPosition(3);
+            when(mockWaitingListDao.findByWaitingListIdAndDemographicId(7, 42)).thenReturn(List.of(onTheList));
+            DemographicTo1 data = payload("PUT");
+            String exact = character.repeat(255);
+            data.setAlert(exact);
+            data.setNurse(exact);
+            data.setResident(exact);
+            data.setMidwife(exact);
+            data.setWaitingListID(7);
+            data.setWaitingListNote(exact);
+
+            try (Response response = request().path("/demographics").invoke("PUT", data)) {
+                assertThat(response.getStatus()).isEqualTo(200);
+            }
+            ArgumentCaptor<io.github.carlos_emr.carlos.commn.model.DemographicCust> cust =
+                    ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.DemographicCust.class);
+            verify(mockDemographicManager).createUpdateDemographicCust(any(LoggedInInfo.class), cust.capture());
+            assertThat(cust.getValue().getAlert()).isEqualTo(exact);
+            assertThat(cust.getValue().getNurse()).isEqualTo(exact);
+            assertThat(cust.getValue().getResident()).isEqualTo(exact);
+            assertThat(cust.getValue().getMidwife()).isEqualTo(exact);
+            ArgumentCaptor<io.github.carlos_emr.carlos.commn.model.WaitingList> note =
+                    ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.WaitingList.class);
+            verify(mockWaitingListDao).saveEntity(note.capture());
+            assertThat(note.getValue().getNote()).isEqualTo(exact);
+            assertThat(note.getValue().getListId()).isEqualTo(7);
+        }
+
+        @Test
+        void shouldNotCheckTheNote_whenNoWaitingListIsNamed() {
+            // The note is written only with a list, so without one a long note is not a reason to refuse.
+            registerMock(WaitingListDao.class, mockWaitingListDao);
+            DemographicTo1 data = payload("PUT");
+            data.setWaitingListNote("A".repeat(256));
+
+            try (Response response = request().path("/demographics").invoke("PUT", data)) {
+                assertThat(response.getStatus()).isEqualTo(200);
+            }
+            verifyNoInteractions(mockWaitingListDao);
         }
     }
 
@@ -357,6 +451,25 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             try (Response response = request().path("/demographics").get()) {
                 assertThat(response.getStatus()).isEqualTo(200);
                 verify(mockDemographicManager).getActiveDemographics(any(), eq(0), eq(0));
+            }
+        }
+
+        @Test
+        @DisplayName("should return the health card number and no SIN for each listed demographic")
+        void shouldReturnTheHealthCardNumberAndNoSin_forEachListedDemographic() {
+            Demographic demo = createTestDemographic(1, "John", "Smith");
+            demo.setHin("FAKE-HIN");
+            demo.setSin("FAKE-SIN");
+            when(mockDemographicManager.getActiveDemographicCount(any(LoggedInInfo.class))).thenReturn(1L);
+            when(mockDemographicManager.getActiveDemographics(any(LoggedInInfo.class), eq(0), eq(10)))
+                .thenReturn(List.of(demo));
+
+            try (Response response = request().path("/demographics").query("offset", 0).query("limit", 10).get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                var wireJson = responseJson(response);
+                // Existing list clients read the HIN from this response; it is part of the published contract.
+                assertThat(wireJson.at("/Item/0/hin").textValue()).isEqualTo("FAKE-HIN");
+                assertThat(wireJson.toString()).doesNotContain("FAKE-SIN");
             }
         }
 

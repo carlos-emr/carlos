@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "33c99704724fe4888b119962258a0b7e08ff7434",
+  "comparisonSha256": "14471184ca9371dff29049fa41836906e7eff7a883cc3840dc1ed314893d5c72",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/util/ConcatPDF.java": {
+      "lines": 91.52542372881356,
+      "instructions": 94.93087557603687,
+      "branches": 100.0,
+      "sourceBlob": "7b1f5280b929b0cbeceb442dee3249ae9bef7d92"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/eform/util/EFormPDFServlet.java": {
+      "lines": 63.63636363636363,
+      "instructions": 57.69230769230769,
+      "branches": 100.0,
+      "sourceBlob": "2f8da7c3aa08d2239b5bc212d9fd92a65088844c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pdfservlet/FrmPDFServlet.java": {
+      "lines": 17.647058823529413,
+      "instructions": 19.047619047619047,
+      "branches": 100.0,
+      "sourceBlob": "85f09ff326951d627867ab14b52e8b1f3e22cceb"
+    }
+  },
+  "baselineCommit": "fca8e228c602ea88f01a0b225c794a4bd87f1e4f",
+  "baselineSourceTree": "33c99704724fe4888b119962258a0b7e08ff7434",
+  "baselineReportSha256": "2b1ffa8819d28ae7d81f82e6db8bc2a52c13fc46e90417bae3014713e10f1a5a",
+  "baselineLane": "PR #6161 Java 25 required pages in form PDF exports",
+  "baselineTestCounts": {
+    "tests": 166,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "c620e06a09463ae19dbf4f5311d52a8b869bb98b3faf58767ac0c2c1b09c0643",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintAssemblyUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintSizeLimitUnitTest",
+    "io.github.carlos_emr.carlos.commn.web.BillingInvoice2ActionUnitTest",
+    "io.github.carlos_emr.carlos.eform.util.EFormPDFServletUnitTest",
+    "io.github.carlos_emr.carlos.form.pdfservlet.FormPdfMergeFailureUnitTest",
+    "io.github.carlos_emr.carlos.form.pdfservlet.FrmPDFServletUnitTest",
+    "io.github.carlos_emr.carlos.messenger.data.MsgMessageDataUnitTest",
+    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachPDF2ActionUnitTest",
+    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachmentRefusalIntegrationTest",
+    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgEncounterPdfComposerUnitTest",
+    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgPdfAttachmentResolverUnitTest",
+    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBeanPdfTitleUnitTest",
+    "io.github.carlos_emr.carlos.util.ConcatPDFUnitTest"
+  ]
+}

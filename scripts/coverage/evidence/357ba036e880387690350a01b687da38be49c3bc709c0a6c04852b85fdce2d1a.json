@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "originalEvidenceSha256": "67e413d18fd418119333df73295a7e82928280f6e38938beed88121e3ded1f59",
+  "exclusionSourceBlobs": {
+    "src/main/java/io/github/carlos_emr/carlos/PMmodule/model/package-info.java": "aeeb4d60473cb3b8eb8563c50747f021fac42e0f",
+    "src/main/java/io/github/carlos_emr/carlos/admin/service/package-info.java": "afe5c7dc9d6a0d77a588801053db766205610a09",
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/package-info.java": "13384f58bca4fce4c54ca83b277dc26d20e24425",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/package-info.java": "f1668a253df257df541dd5d12c663e6df342de08",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/package-info.java": "81fce7e8a54c38ddefc8e9b777d099b9075c84a2",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/validator/package-info.java": "d3888dbcdffb40e73d0754c24327ab607441fd45",
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/htmlpdf/support/package-info.java": "15546e8c6b035d0c3ae3a20fdbf32855e6ad1bef",
+    "src/main/java/io/github/carlos_emr/carlos/model/package-info.java": "49986ba50c783680d24d755ed1b34001a2b05134",
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/package-info.java": "c2297acbd17e32e11ed8768410f37f2868fb9b17",
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/package-info.java": "e14b011c38d1ce2dea51e882103cd1bea9e81a77",
+    "src/main/java/io/github/carlos_emr/carlos/webserv/transfer_objects/package-info.java": "035e9f65f21994e4743f12f813d092c485aca977"
+  }
+}

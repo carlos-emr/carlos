@@ -120,7 +120,10 @@ async function workflow(s) {
     }
     h.assert(await chart.locator('#notes2print').inputValue() === '', 'The note printer icons did not unqueue the notes');
     for (const id of [ids.old, ids.now]) {
-      h.assert((await chart.locator(`#print${id}`).getAttribute('src')).endsWith('/printer.png'),
+      // A note's print control is a button holding the icon (notePrintButton, since #6103), no longer the icon itself.
+      const control = chart.locator(`#print${id}`);
+      h.assert(await control.getAttribute('aria-pressed') === 'false', 'Clear left a note print control pressed');
+      h.assert((await control.locator('img').getAttribute('src')).endsWith('/printer.png'),
         'Clear left a note printer icon selected');
     }
     await print.openPrintDialog(chart);

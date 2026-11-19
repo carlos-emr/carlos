@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "d93a5e9f6a0b9d14bfbc93f97c16a5aaf9c24ec5",
+  "comparisonSha256": "fb368175d0f7503f6ccb35aa1e8cb47eb777bf4f08d6403fae6b9b181043a2bf",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/login/Login2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6d49673a0bc4cc1afbd422af3fcb091b5c121e70"
+    }
+  },
+  "baselineCommit": "99a8ec1d7dcf9e747cf350885b6a06c112f9be52",
+  "baselineSourceTree": "d93a5e9f6a0b9d14bfbc93f97c16a5aaf9c24ec5",
+  "baselineReportSha256": "fbe0d7d02f40ad9dc1f8d1465d600765e35afb9faccdb3507132c8cb20bd051e",
+  "baselineLane": "Fresh exact JDK25 selected-source classes and existing/regression controls. All85 unique actual JUnit cases pass with zero failures/errors/skips. Component inputs and exact JUnit hashes retained; selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 85,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "8674e8dc3e5cd2d25103bdd7e09dcefa95d83fd339616c70a9a3f8fbf0d11972",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}

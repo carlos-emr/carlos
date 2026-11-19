@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/schedule/web/ScheduleDateSave2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 98.33333333333333,
+    "instructions": 98.31649831649831,
+    "branches": 97.36842105263158,
+    "sourceBlob": "aaf21b6322a256eca79315b3c74de68f9ee0d3a7"
+  },
+  "evidenceSha256": "3e491eddd802abca53c262dc442b107ddb4ec7c88fe2a483b3289d2e3dd3effc"
+}

@@ -65,6 +65,7 @@ jobs:
               && DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::https::No-Cache=true install -y --no-install-recommends \
                 build-essential debhelper devscripts lintian fakeroot maven \
                 openjdk-25-jdk-headless tomcat11 git ca-certificates curl xz-utils unzip \
+                python3 python3-bcrypt groff-base \
               && break
             test "$attempt" -lt 3 || exit 1
             rm -rf /var/lib/apt/lists/*
@@ -90,6 +91,25 @@ jobs:
           cp ../carlos-emr_*_amd64.deb ../carlos-emr-drugref_*_all.deb target/pr-debs/
           cd target/pr-debs
           sha256sum ./*.deb > SHA256SUMS
+      - name: Read the independent companion candidate
+        id: cli
+        run: python3 scripts/ci/candidate_cli_package.py describe --github-output "$GITHUB_OUTPUT"
+      - name: Check out the exact unpublished companion source
+        if: steps.cli.outputs.source_built == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: carlos-emr/carlos-ctl
+          # Manual/default-branch jobs must not execute a runtime-selected external ref.
+          # The package verifier independently requires this reviewed commit and its exact bytes.
+          ref: 6525c85234c29f9c9e3fb599865b599ec32c373f
+          path: target/companion-cli/source
+          persist-credentials: false
+      - name: Build and verify the unpublished companion package
+        if: steps.cli.outputs.source_built == 'true'
+        run: |
+          python3 scripts/ci/candidate_cli_package.py build \
+            --source target/companion-cli/source --destination target/pr-debs
+          (cd target/pr-debs && sha256sum ./*.deb > SHA256SUMS)
       - name: Retain candidate packages
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -123,22 +143,46 @@ jobs:
         with:
           name: pr-debs
           path: ${{ env.DEBS_DIR }}
+      - name: Read the independent companion candidate
+        id: cli
+        run: python3 scripts/ci/candidate_cli_package.py describe --github-output "$GITHUB_OUTPUT"
       - name: Verify candidate bytes and obtain pinned CLI
         env:
           GH_TOKEN: ${{ github.token }}
+          CANDIDATE_SOURCE_BUILT: ${{ steps.cli.outputs.source_built }}
         run: |
           set -euo pipefail
           (cd "$DEBS_DIR" && sha256sum -c SHA256SUMS)
-          debian/fetch-carlos-ctl.sh "$DEBS_DIR"
+          if [ "$CANDIDATE_SOURCE_BUILT" = true ]; then
+            python3 scripts/ci/candidate_cli_package.py verify --destination "$DEBS_DIR"
+          else
+            debian/fetch-carlos-ctl.sh "$DEBS_DIR"
+            python3 scripts/ci/candidate_cli_package.py verify --destination "$DEBS_DIR"
+          fi
       - name: Install complete packages and reset the initial account
         run: bash scripts/deb-docker-validation.sh up
       - name: Exercise installed HTTPS and database contracts
+        id: installed_browser
         run: |
           bash scripts/deb-docker-validation.sh suite \
             --only application-health --only drug-search --only schedule-links \
             --only eform-visual-widgets --only audit-log-chart-read \
             --only lab-version-ingestion --only lab-qualified-results \
             --only report-cdm --only cdm-measurement-report
+      - name: Capture server errors after an installed browser failure
+        if: failure() && steps.installed_browser.outcome == 'failure'
+        run: |
+          mkdir -p "$LOG_DIR"
+          set +e
+          bash scripts/deb-docker-validation.sh audit > "$LOG_DIR/server-error-audit.log" 2>&1
+          audit_exit=$?
+          set -e
+          printf '{"exit":%s}\n' "$audit_exit" > "$LOG_DIR/server-error-audit-exit.json"
+          # Unknown application errors are diagnostic evidence for the failed
+          # browser job. An operational failure of the collector also fails.
+          if [ "$audit_exit" -gt 1 ]; then
+            exit "$audit_exit"
+          fi
       - name: Retain install and browser diagnostics
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

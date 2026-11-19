@@ -45,6 +45,8 @@ function harness(checked = [true], issueChange = '') {
     },
     $: id => fields[id], alert: message => alerts.push(message),
     console: { error: (...args) => errors.push(args) },
+    // A save is accepted only when its response URL is the action's own (#5868).
+    URL, URLSearchParams, window: { location: { href: 'https://emr.example.invalid/carlos/CaseManagementEntry?method=edit' } },
   };
   vm.createContext(context);
   vm.runInContext(chartHelper, context);
@@ -118,6 +120,58 @@ test('a failed CPP save restores the editor without requesting issue refreshes',
   assert.deepEqual(h.alerts, ['CPP save failed; retry CPP Save 500']);
   assert.deepEqual(h.errors, []);
 });
+
+// After the inactivity limit (or with a facility still to be chosen) the login filter
+// redirects the CPP save, and the browser follows it to that page as HTTP 200 (#5868).
+// A saved item is answered by issueNoteSave's own redirect, to the refreshed CPP listing.
+const SIGNED_OUT = 'not saved; sign in again';
+for (const [name, landing] of [['the sign-in page', '/carlos/logoutPage'], ['facility selection', '/carlos/select_facility']]) {
+  test(`a CPP save redirected to ${name} is not saved and reopens the editor with the typed text`, () => {
+    const h = harness();
+    h.context.sessionEndedNotSavedError = SIGNED_OUT;
+    h.context.updateCPPNote();
+    assert.equal(h.fields.showEditNote.style.display, 'none');
+    h.requests[0].options.onSuccess({ status: 200, responseText: '<form id="loginForm">sign in</form>',
+      responseURL: `https://emr.example.invalid${landing}` });
+    assert.equal(h.fields.cppText, undefined, 'the CPP panel is not replaced by the sign-in page');
+    assert.equal(h.fields.frmIssueNotes.elements.noteEditTxt.value, 'synthetic CPP item', 'the typed CPP text is kept');
+    assert.equal(h.fields.showEditNote.style.display, 'block');
+    assert.equal(h.fields.channel.style.visibility, 'hidden');
+    assert.equal(h.updates.length, 0, 'no issue refresh for an unsaved item');
+    assert.equal(h.requests.length, 1);
+    assert.deepEqual(h.alerts, [SIGNED_OUT]);
+    assert.deepEqual(h.errors, []);
+  });
+}
+
+test('a CPP save refused with 401 reopens the editor and says to sign in again', () => {
+  const h = harness();
+  h.context.sessionEndedNotSavedError = SIGNED_OUT;
+  h.context.updateCPPNote();
+  h.requests[0].options.onFailure({ status: 401 });
+  assert.equal(h.fields.showEditNote.style.display, 'block');
+  assert.equal(h.fields.cppText, undefined);
+  assert.equal(h.fields.frmIssueNotes.elements.noteEditTxt.value, 'synthetic CPP item', 'the typed CPP text is kept');
+  assert.equal(h.updates.length, 0);
+  assert.deepEqual(h.alerts, [SIGNED_OUT]);
+});
+
+for (const [name, landing] of [
+  // issueNoteSave answers a saved item with listCPPNotes, a 302 to the refreshed listing.
+  ['the redirect to its refreshed CPP listing', '/carlos/CaseManagementView?method=listNotes&providerNo=1&demographicNo=123&issue_code=SocHistory'],
+  ['the save action itself', '/carlos/CaseManagementEntry?method=issueNoteSave'],
+]) {
+  test(`a CPP save answered by ${name} is saved and refreshed`, () => {
+    const h = harness();
+    h.context.sessionEndedNotSavedError = SIGNED_OUT;
+    h.context.updateCPPNote();
+    h.requests[0].options.onSuccess({ status: 200, responseText: '<p>saved CPP item</p>',
+      responseURL: `https://emr.example.invalid${landing}` });
+    assert.equal(h.fields.cppText, '<p>saved CPP item</p>');
+    assert.equal(h.updates.length, 1);
+    assert.deepEqual(h.alerts, []);
+  });
+}
 
 test('CPP refresh preserves the latest unsaved selections by issue id before a queued save resumes', () => {
   const h = harness();
@@ -437,6 +491,57 @@ for (const method of ['issueChange', 'makeIssue', 'issueDelete', 'edit']) {
     assert.deepEqual(h.alerts, []);
   });
 }
+
+test('a delayed CPP refresh preserves queued status choices and deletion across checklist reordering', () => {
+  const h = harness();
+  delete h.fields.unresolvedIssues;
+  h.context.removeIssue = () => {};
+  function control(issueId, index, flag, value) {
+    const row = {querySelector: selector => selector.includes('checkbox')
+      ? {getAttribute: () => issueId} : {id: `noteIssueDetails${issueId}`}};
+    return {name: `issueCheckList[${index}].issue.${flag}`, value,
+      closest: selector => selector === 'td' ? row : {id: 'sig01'}};
+  }
+
+  h.context.updateCPPNote();
+  h.requests[0].options.onSuccess({status: 200, responseText: ''});
+  const first = control('41', 0, 'major', 'true');
+  h.context.queueIssueMutation('issueChange', first);
+  h.context.queueIssueMutation('issueChange', control('42', 1, 'resolved', 'true'));
+  h.context.queueIssueMutation('issueChange', control('41', 0, 'major', 'false'));
+  h.context.queueIssueMutation('issueDelete', control('43', 2));
+  h.context.queueIssueMutation('issueDelete', control('43', 2));
+  h.context.queueIssueMutation('issueChange', control('43', 2, 'acute', 'true'));
+  assert.equal(h.updates.length, 1, 'the CPP editor refresh holds the statuses and deletion');
+  assert.equal(h.context.document.forms.caseManagementEntryForm.method.value, 'edit');
+
+  // The refresh and the next responses re-render the checklist. Its indexes
+  // and live radio fields no longer describe any of the queued clicks.
+  first.value = 'false';
+  h.context.Form.serialize = form => `method=${form.method.value}&observation_date=current&issueCheckList%5B0%5D.issue.major=false`;
+  const complete = index => {
+    h.updates[index].options.onSuccess({status: 200});
+    h.updates[index].options.onComplete({status: 200, updateSucceeded: true});
+  };
+  const posted = [];
+  for (let index = 1; index <= 4; index++) {
+    complete(index - 1);
+    assert.equal(h.updates.length, index + 1, `queue must start its next request (${h.alerts.join(', ')})`);
+    const body = new URLSearchParams(h.updates[index].options.postBody);
+    assert.equal(body.get('observation_date'), 'current', 'use the current editor fields');
+    posted.push([body.get('method'), body.get('caseIssueId'), body.get('issueMajor'), body.get('issueResolved')]);
+  }
+  complete(4);
+  assert.deepEqual(posted, [
+    ['issueChange', '41', 'true', null],
+    ['issueChange', '42', null, 'true'],
+    ['issueChange', '41', 'false', null],
+    ['issueDelete', '43', null, null],
+  ]);
+  assert.equal(h.updates.length, 5, 'the pending delete supersedes later clicks on the same issue');
+  assert.equal(h.context.issueUpdatesPending, 0);
+  assert.deepEqual(h.alerts, []);
+});
 
 test('sidebar refresh retains the stored module colour and collapsed display limit', () => {
   const h = harness();

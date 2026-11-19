@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "05aab8c924573fcdf1bf74c301e3197540db7acd",
+  "comparisonSha256": "c8e3cd4cc0c0bf67e55bcfdecdaeb9694aea61cbdc495303200fe1d562f5309f",
+  "baselineCommit": "96db6a51bb95e0d52522d9a41914823b8f329811",
+  "baselineSourceTree": "05aab8c924573fcdf1bf74c301e3197540db7acd",
+  "baselineReportSha256": "51476934a0af3703c8e384c24367b579cb47745137d8a0da1aa209d1df5adb63",
+  "baselineLane": "Java 25 focused regression recompilation against unchanged release classes and locked dependencies. Three changed Java sources; eight JUnit cases including the BPMH H2 query, note timeline date filters, and attachment HTML. This measurement covers the issue patch, with prior full-lane floors retained by the importer.",
+  "baselineTestCounts": {
+    "tests": 8,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "02fcb9fd00d4fe88069d33c975d6ac41b50ab3c17177259fdce192dfb0b29041",
+  "baselineTestReportsHashFormat": "SHA-256 of the focused JUnit Platform launcher output",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/impl/DefaultNoteService.java": {
+      "sourceBlob": "a6101fa0b02ac1a92410aa024116a9916fa4e8c0",
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/eform/data/EForm.java": {
+      "sourceBlob": "1843ad6c86f550f48a75381f5a4c423317eca66a",
+      "lines": 4.761904761904762,
+      "instructions": 3.937007874015748,
+      "branches": 0.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/data/EctFormData.java": {
+      "sourceBlob": "b54e228bf49386ffeeea5f4ac504836c652b32d4",
+      "lines": 35.714285714285715,
+      "instructions": 36.328125,
+      "branches": 37.5
+    }
+  }
+}

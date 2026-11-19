@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "cc8ff75aaf2bb36f1880ef4d84c8ddbebc2f849d",
+  "comparisonSha256": "6c683e17896716bf72d3fc938b47efe9b68a1e388b905361bb045c708cae4089",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/dashboard/display/DisplayDrilldown2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "c5ee2194d7459b9d1c76aa93d6cbfa26646f447f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/dashboard/display/DisplayDashboard2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0ea56361d144892a4a65478813547515573a254e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/DashboardManagerImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "3e2f244dbe1a249f98be649c0f9b435c485d636d"
+    }
+  },
+  "baselineCommit": "42961265e39ffde0381b8641ce24c299a2eaa36b",
+  "baselineSourceTree": "cc8ff75aaf2bb36f1880ef4d84c8ddbebc2f849d",
+  "baselineReportSha256": "3dce5f3bab0a223884f7a5b2699169dc4123a0e3e24da061e3ce2770e12e56d3",
+  "baselineLane": "Fresh exact JDK25 selected-source classes and existing/regression controls. All57 unique actual JUnit cases pass with zero failures/errors/skips. Component inputs and exact JUnit hashes retained; selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 57,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "822fb7c1fc028ef6a5eca5f396874680a05d48a5b81509c9aa9f39fbeaa7e959",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}

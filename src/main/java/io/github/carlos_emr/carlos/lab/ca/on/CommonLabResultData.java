@@ -827,7 +827,8 @@ public class CommonLabResultData {
      * Moves imported measurements with their source result on a corrected patient match.
      * Re-importing every version duplicated current measurements and left the old patient's
      * values visible. Existing values and annotations are retained; an unmatched result with
-     * no imported values imports only the final version in the existing clinical version order.
+     * no imported values imports only its current version (see
+     * {@code Hl7textResultsData.populateCurrentVersionMeasurements}).
      * Must join the patient-match transaction.
      */
     private static void reconcileMatchedLabMeasurements(String[] labIds, String demographicNo, String labType) {
@@ -1182,7 +1183,11 @@ public class CommonLabResultData {
 
     public static void populateMeasurementsTable(String labId, String demographicNo, String labType) {
         if (labType.equals(LabResultData.HL7TEXT)) {
-            Hl7textResultsData.populateMeasurementsTable(labId, demographicNo);
+            // A patient match names the last version of the display order. Which version's results
+            // become the measurements is decided by the same rule as at upload: for a source without
+            // revision evidence that is the newest delivery, which a correction with fewer final
+            // results is even though it sorts before the report it corrects.
+            Hl7textResultsData.populateCurrentVersionMeasurements(labId, demographicNo);
         }
     }
 

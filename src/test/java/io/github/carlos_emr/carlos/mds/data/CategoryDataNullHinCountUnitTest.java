@@ -96,6 +96,8 @@ class CategoryDataNullHinCountUnitTest extends CarlosUnitTestBase {
         var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao();
         org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", manager);
         registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class, dao);
+        registerMock(io.github.carlos_emr.carlos.commn.service.InboxDateSearchTypeResolver.class,
+                new io.github.carlos_emr.carlos.commn.service.InboxDateSearchTypeResolver(mock(SystemPreferencesDao.class)));
     }
 
     private void insert(String sql, Object... values) throws SQLException {

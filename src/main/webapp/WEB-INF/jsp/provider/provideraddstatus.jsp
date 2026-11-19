@@ -38,6 +38,7 @@
   - Validates appointment and provider identifiers before applying updates.
   - Applies stale-status validation, archival, and update under one appointment row lock.
   - Publishes authoritative appointment provider/status values only after commit.
+  - The service audits the committed change (update/appointment) for the appointment and its patient.
   - URI-encodes provider-control redirect parameters.
   - Returns the refreshed day-view URL for AJAX callers and redirects legacy callers.
 
@@ -153,7 +154,9 @@
       providerNoParam,
       submittedCurrentStatus,
       appointmentStatus,
-      curUser_no
+      curUser_no,
+      // The audit row of the change carries this login's client address and names the patient.
+      io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request)
     );
   } catch (AppointmentStatusTransitionException e) {
     if (e.getReason() == AppointmentStatusTransitionException.Reason.APPOINTMENT_NOT_FOUND) {

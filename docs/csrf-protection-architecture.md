@@ -27,7 +27,7 @@ plus one request wrapper instantiated internally by the validation filter.
 **Class**: `io.github.carlos_emr.carlos.app.CsrfGuardScriptInjectionFilter`
 
 Auto-injects `<script src="contextPath/csrfguard"></script>` into HTML JSP responses before
-`</head>`. The filter mapping is intentionally limited to `FORWARD` dispatches so injection
+`</head>` (or `</body>` when the page has no `</head>`). The filter mapping is intentionally limited to `FORWARD` dispatches so injection
 happens at the JSP render layer without wrapping the top-level Struts `REQUEST` response.
 Do not re-add `REQUEST` dispatch unless the Struts/JSP wrapper interaction has been retested;
 double-wrapping has previously produced blank schedule pages even when the Struts action itself
@@ -48,6 +48,14 @@ completed successfully.
 - The response already contains a `/csrfguard` script reference (idempotency)
 - The response used `getOutputStream()` instead of `getWriter()`
 - The response was committed by `sendRedirect()` or `sendError()` during downstream processing
+- The response contains neither `</head>` nor `</body>` and is treated as a fragment.
+
+A JSP opened as its own document in a popup, tab or Administration iframe must render
+`<html><head>…</head><body>…</body>`, or bootstrap its token explicitly inside the form.
+Otherwise its classic POST has no client-populated token and is refused with HTTP 403.
+The Issue Editor repair for #6078 uses the full document pattern from #6116.
+`CaisicoreJspCsrfTokenRegressionUnitTest` checks the CAISI POST forms through the real filter;
+`admin-issue-editor-save` verifies native Save, Cancel and continued refusal of token-less POSTs.
 
 **Operational invariant:** CSRF validation still runs on protected Struts POST requests through
 `CarlosCsrfGuardFilter`. The `FORWARD`-only script-injection mapping changes where the client

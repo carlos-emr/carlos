@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/report/data/RptReportConfigData.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 34.375,
+    "instructions": 32.340425531914896,
+    "branches": 21.428571428571427,
+    "sourceBlob": "8ded803372910969c90bd2fe2c0338ac5f3d4441"
+  },
+  "evidenceSha256": "741e675860e324ba74906527b0fa1f75030d12dcfd1b55d45c02da72c68992ec"
+}

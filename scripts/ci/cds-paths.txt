@@ -1,0 +1,83 @@
+# Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
+# Shared by all six CDS workflows. Python fnmatch patterns: * also spans /.
+# Keep CDS dependencies here instead of selecting every src/main or Java change.
+# The coordinated test-class inventory is also included by select-cds-tests.py.
+
+# Import/export engines, shared contracts, adapters and tests.
+src/*/java/*/demographic/cds*/*
+src/*/java/*/Cds*.java
+src/*/java/*/LegacyCds*.java
+src/*/java/*/demographic/pageUtil/DemographicExport*.java
+src/*/java/*/demographic/pageUtil/SpokenLangProperties.java
+src/main/resources/*cds*
+src/main/resources/*Cds*
+src/test/resources/*cds*
+src/main/webapp/*cds*
+src/main/webapp/*Cds*
+src/main/webapp/WEB-INF/jsp/demographic/demographicImport.jsp
+src/main/webapp/WEB-INF/jsp/demographic/demographicExport.jsp
+src/main/webapp/WEB-INF/jsp/demographic/rourkeExport.jsp
+docs/cds-spec*
+scripts/*cds*
+scripts/ci/*Cds*
+
+# Shared persistence, clinical records and renderers used by the CDS engines.
+# These packages deliberately remain conservative: changing a clinical model,
+# DAO or guarded datasource can invalidate an import/export without a CDS edit.
+src/*/java/io/github/carlos_emr/CarlosProperties.java
+src/*/java/*/commn/dao/*
+src/*/java/*/commn/model/*
+src/*/java/*/commn/dto/*
+src/*/java/*/commn/IsPropertiesOn.java
+src/*/java/*/PMmodule/dao/ProviderDao*.java
+src/*/java/*/casemgmt/dao/*
+src/*/java/*/casemgmt/model/*
+src/*/java/*/daos/security/*
+src/*/java/*/db/*
+src/*/java/*/documentManager/htmlpdf/*
+src/*/java/*/eform/util/EFormBrowserPdf*.java
+src/*/java/*/encounter/oscarConsultationRequest/pageUtil/ConsultationLetterDto.java
+src/*/java/*/encounter/oscarConsultationRequest/pageUtil/ConsultationPDFCreator.java
+src/*/java/*/form/*Rourke*.java
+src/*/java/*/form/model/FormBooleanValue.java
+src/*/java/*/hospitalReportManager/*
+src/*/java/*/lab/ca/all/parsers/*
+src/*/java/*/log/LogConst.java
+src/*/java/*/managers/DigitalSignatureManager*.java
+src/*/java/*/managers/SecurityInfoManager*.java
+src/*/java/*/prescript/util/RxDrugRef.java
+src/*/java/*/util/UtilDateUtilities.java
+src/*/java/*/utility/*
+
+# Wiring, schemas, dependencies and the installed runtime exercised by CDS.
+src/main/resources/spring*
+src/main/resources/struts*
+src/main/resources/carlos*.properties
+src/main/resources/jdbc-defaults.properties
+src/main/resources/spoken_languages_codes.properties
+src/main/resources/META-INF/*
+src/main/webapp/WEB-INF/web.xml
+database/mysql/migration/*
+database/mysql/schema-contract/*
+debian/assets/flyway-runner/*
+debian/build-flyway-runner.sh
+debian/assets/tomcat/*
+debian/assets/config/*
+debian/carlos-ctl.pin
+pom.xml
+dependencies-lock*.json
+local_repo/*
+.devcontainer/development/*
+.github/actions/dev-container/*
+.github/workflows/cds-*.yml
+
+# Shared harness dependencies (CDS-named helpers are already matched above).
+scripts/ci/select-cds-tests.py
+scripts/ci/test_select_cds_tests.py
+scripts/ci/requirements.txt
+scripts/ci/compiled_classes.py
+scripts/ci/clinical_cell_oracle.py
+scripts/ci/candidate_cli_package.py
+scripts/ci/prepare-ubuntu-apt.py
+scripts/ci/fetch-flyway.sh
+scripts/schema-contract.py

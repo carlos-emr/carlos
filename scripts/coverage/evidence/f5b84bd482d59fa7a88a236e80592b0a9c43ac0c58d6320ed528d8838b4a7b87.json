@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "44b1c430394ff944b01cb2ba765172fd20c17fa1",
+  "comparisonSha256": "27214b0cfcfb5f0f808eb1d501a804cfc91ec79a9cfdae26216c8531df5cd797",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementEntry2Action.java": {
+      "lines": 100.0,
+      "instructions": 98.24267782426779,
+      "branches": 86.73469387755102,
+      "sourceBlob": "a96b3c2fc54e6c5ae29eeea5f27aa62f6560cb31"
+    }
+  },
+  "baselineCommit": "4a168f28c9d30d730bf4447715afc88a1bde5fcc",
+  "baselineSourceTree": "44b1c430394ff944b01cb2ba765172fd20c17fa1",
+  "baselineReportSha256": "2e330282be446c995e08cbaaafcdb59fda251b0ef4de4e1826dd471df8003519",
+  "baselineLane": "JDK 25 chart issue, revision, authorization and H2 transaction tests",
+  "baselineTestCounts": {
+    "tests": 876,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "23cefd8f6acfc4ef7a16fea2931300654d00900d39024acef9578a14465cf0c7",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintVisibilityIntegrationTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementAutosaveContextUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementCompactSaveTransactionIntegrationTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementEntry2ActionSanitizationUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementEntryRequestIsolationUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementGroupNoteHistoryUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementIssueHistoryAccessUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementIssueWriteAuthorizationUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementNoteHistoryAccessUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementNoteHistoryAuditUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementNoteRevisionConflictUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementNoteWriteAuthorizationUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementObservationDateUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.ChartPrintReadAccessUnitTest"
+  ]
+}

@@ -1,7 +1,13 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.utility;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -36,6 +42,38 @@ class SpreadsheetCsvUnitTest extends CarlosUnitTestBase {
     @NullSource
     void shouldRepresentNullAsEmpty_forMissingCell(String text) {
         assertThat(SpreadsheetCsv.sanitizeCell(text)).isEmpty();
+    }
+
+    /**
+     * Issue #5846: {@code js/table-export.js} applies the same policy in the browser, and
+     * {@code scripts/table-export.test.js} reads the same fixture, so the two cannot drift apart.
+     */
+    @Test
+    void shouldDecideEverySharedFixtureCase_likeTheBrowserExport() throws IOException {
+        JsonNode cases = new ObjectMapper().readTree(Files.readString(
+                resolveProjectPath(Path.of("scripts", "fixtures", "spreadsheet-csv-cell-cases.json")),
+                StandardCharsets.UTF_8)).get("cases");
+        assertThat(cases).isNotEmpty();
+        for (JsonNode testCase : cases) {
+            String input = testCase.get("input").asText();
+            assertThat(SpreadsheetCsv.sanitizeCell(input))
+                    .as("fixture input %s", input)
+                    .isEqualTo(testCase.get("expected").asText());
+        }
+    }
+
+    private static Path resolveProjectPath(Path relativePath) {
+        Path current = Path.of(System.getProperty(
+                "maven.multiModuleProjectDirectory",
+                System.getProperty("user.dir"))).toAbsolutePath();
+        while (current != null) {
+            Path candidate = current.resolve(relativePath);
+            if (Files.exists(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        return relativePath;
     }
 
     @Test

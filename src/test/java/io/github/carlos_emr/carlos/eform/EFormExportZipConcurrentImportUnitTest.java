@@ -7,11 +7,14 @@ package io.github.carlos_emr.carlos.eform;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -44,6 +47,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
@@ -113,14 +117,78 @@ class EFormExportZipConcurrentImportUnitTest {
                 saved.add(invocation.<EForm>getArgument(0).getFormHtml());
                 return "owned-fixture";
             });
-            List<String> errors = new EFormExportZip().importForm(new PausedZip(bytes, extracted, proceed));
+            List<String> errors = new EFormExportZip(Runnable::run).importForm(new PausedZip(bytes, extracted, proceed));
             return new Result(errors, saved);
+        }
+    }
+
+    @Test
+    void shouldRemoveOnlyOwnedPublishedAssets_whenLaterPublicationFails() throws Exception {
+        Path blocked = Files.createDirectory(images.resolve("blocked"));
+        byte[] archive = zip(Map.of("first.bin", "FAKE first", "second.bin", "FAKE second"));
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        var refused = new java.util.concurrent.atomic.AtomicInteger();
+        var denied = new java.nio.file.AccessDeniedException(blocked.toString());
+        // Root CI bypasses directory permissions. Inject only the later failed link;
+        // the earlier hard link, inode identity checks and rollback remain real.
+        try (MockedStatic<ImageUpload2Action> folder = mockStatic(ImageUpload2Action.class);
+             var _ = mockStatic(Files.class, call -> {
+                 if (call.getMethod().getName().equals("createLink")
+                         && calls.incrementAndGet() == 2) {
+                     refused.incrementAndGet();
+                     throw denied;
+                 }
+                 return call.callRealMethod();
+             })) {
+            folder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            assertThatThrownBy(() -> new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(archive)))
+                    .isSameAs(denied);
+            assertThat(refused.get()).isEqualTo(1);
+            try (var files = Files.list(images)) {
+                assertThat(files.filter(file -> file.getFileName().toString().endsWith(".bin")).toList()).isEmpty();
+            }
+            assertThat(stagingDirectories()).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldLeaveMissingAndReplacedAssetsAlone_duringRollback() throws Exception {
+        Path source = Files.writeString(images.resolve("source.bin"), "FAKE owned inode");
+        Path owned = Files.createLink(images.resolve("owned.bin"), source);
+        Path replaced = Files.writeString(images.resolve("replaced.bin"), "FAKE other inode");
+        Path absent = images.resolve("absent.bin");
+        var failure = new IOException("FAKE publication failure");
+        EFormExportZip.rollbackPublishedAssets(Map.of(owned, source, replaced, source, absent, source), failure);
+        assertThat(owned).doesNotExist();
+        assertThat(Files.readString(replaced)).isEqualTo("FAKE other inode");
+        assertThat(absent).doesNotExist();
+        assertThat(source).exists();
+        assertThat(failure.getSuppressed()).isEmpty();
+    }
+
+    @Test
+    void shouldRetainCleanupDiagnostics_whenTheFilesystemRefusesRollback() throws Exception {
+        Path source = Files.writeString(images.resolve("source.bin"), "FAKE owned inode");
+        Path blocked = Files.createDirectory(images.resolve("blocked"));
+        Path owned = Files.createLink(blocked.resolve("owned.bin"), source);
+        var denied = new java.nio.file.AccessDeniedException(owned.toString());
+        // Keep a real published inode and refuse only its unlink, independently of UID.
+        try (var _ = mockStatic(Files.class, call -> {
+            if (call.getMethod().getName().equals("deleteIfExists") && owned.equals(call.getArgument(0))) throw denied;
+            return call.callRealMethod();
+        })) {
+            var failure = new IOException("FAKE publication failure");
+            EFormExportZip.rollbackPublishedAssets(Map.of(owned, source), failure);
+            assertThat(failure.getSuppressed()).containsExactly(denied);
+            assertThat(owned).exists();
         }
     }
 
     private List<Path> stagingDirectories() throws IOException {
         try (Stream<Path> paths = Files.list(images.resolve("extractFolder"))) {
-            return paths.toList();
+            // The persistent empty lease inode is coordination metadata, not extracted data.
+            return paths.filter(path -> !path.getFileName().toString()
+                    .equals(EFormImagePublicationLock.LOCK_FILE_NAME)).toList();
         }
     }
 
@@ -231,7 +299,7 @@ class EFormExportZipConcurrentImportUnitTest {
              MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
             imageFolder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
             paths.when(() -> PathValidationUtils.validateGeneratedChildPath("shared.png", images.toFile())).thenReturn(stale);
-            List<String> errors = new EFormExportZip().importForm(new ByteArrayInputStream(zip(Map.of("shared.png", "REPLACEMENT"))));
+            List<String> errors = new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(zip(Map.of("shared.png", "REPLACEMENT"))));
             assertThat(errors).singleElement().asString().contains("shared.png", "already exists");
         }
         assertThat(Files.readString(destination)).isEqualTo("OTHER-WRITERS-COMPLETE-IMAGE");
@@ -273,7 +341,7 @@ class EFormExportZipConcurrentImportUnitTest {
                 assertThat(Files.isSameFile(destination, source)).isTrue();
                 return published;
             });
-            assertThat(new EFormExportZip().importForm(new ByteArrayInputStream(
+            assertThat(new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(
                     zip(Map.of("complete.png", completeBytes))))).isEmpty();
         }
         assertThat(staged.get()).isNotNull().doesNotExist();
@@ -315,7 +383,7 @@ class EFormExportZipConcurrentImportUnitTest {
     }
 
     @Test
-    void laterFormSaveFailureCannotEraseAnAlreadyPublishedOrUnrelatedAsset() throws Exception {
+    void formSaveFailureRemovesOnlyAssetPublishedByThisImport() throws Exception {
         Path unrelated = Files.writeString(images.resolve("other.png"), "OTHER-IMPORT-COMPLETE");
         Map<String, String> entries = new LinkedHashMap<>();
         entries.put("fixture/eform.properties", "form.name=Owned\nform.htmlFilename=form.html\n");
@@ -325,11 +393,122 @@ class EFormExportZipConcurrentImportUnitTest {
              MockedStatic<EFormUtil> forms = mockStatic(EFormUtil.class)) {
             imageFolder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
             forms.when(() -> EFormUtil.saveEForm(any(EForm.class))).thenThrow(new IllegalStateException("database unavailable"));
-            assertThatThrownBy(() -> new EFormExportZip().importForm(new ByteArrayInputStream(zip(entries))))
+            assertThatThrownBy(() -> new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(zip(entries))))
                     .isInstanceOf(IllegalStateException.class).hasMessage("database unavailable");
         }
-        assertThat(Files.readString(images.resolve("published.png"))).isEqualTo("COMPLETE-PUBLISHED-ASSET");
+        assertThat(images.resolve("published.png")).doesNotExist();
         assertThat(Files.readString(unrelated)).isEqualTo("OTHER-IMPORT-COMPLETE");
+        assertThat(stagingDirectories()).isEmpty();
+    }
+
+    @Test
+    void shouldKeepReplacementAndReportCleanupFailure_whenRegistrationRollsBack() throws Exception {
+        Path replaced = images.resolve("replacement.png");
+        Path blocked = images.resolve("blocked.png");
+        Path removed = images.resolve("removed.png");
+        IOException cleanupFailure = new IOException("Synthetic cleanup failure");
+        Map<String, String> entries = Map.of(
+                "eform.properties", "form.name=FAKE rollback\nform.htmlFilename=form.html\n",
+                "form.html", "<p>FAKE rollback fixture</p>",
+                "replacement.png", "ORIGINAL", "blocked.png", "BLOCKED", "removed.png", "REMOVED");
+        try (var folders = mockStatic(ImageUpload2Action.class);
+             var forms = mockStatic(EFormUtil.class);
+             MockedStatic<Files> files = mockStatic(Files.class, CALLS_REAL_METHODS)) {
+            folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            files.when(() -> Files.deleteIfExists(blocked)).thenThrow(cleanupFailure);
+            forms.when(() -> EFormUtil.saveEForm(any(EForm.class))).thenAnswer(invocation -> {
+                Files.delete(replaced);
+                Files.writeString(replaced, "REPLACEMENT");
+                Files.delete(removed);
+                throw new IllegalStateException("Synthetic registration failure");
+            });
+
+            assertThatThrownBy(() -> new EFormExportZip(Runnable::run)
+                    .importForm(new ByteArrayInputStream(zip(entries))))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Synthetic registration failure")
+                    .satisfies(failure -> assertThat(failure.getSuppressed()).containsExactly(cleanupFailure));
+        }
+        assertThat(Files.readString(replaced)).isEqualTo("REPLACEMENT");
+        assertThat(Files.readString(blocked)).isEqualTo("BLOCKED");
+        assertThat(removed).doesNotExist();
+        assertThat(stagingDirectories()).isEmpty();
+    }
+
+    @Test
+    void mixedArchiveKeepsTransitiveDependenciesAndSkipsAssetsOwnedOnlyByTheRefusedForm() throws Exception {
+        Map<String, String> entries = new LinkedHashMap<>();
+        entries.put("refused/eform.properties", "form.name=Duplicate\nform.htmlFilename=refused.html\n");
+        entries.put("refused/refused.html", "<img src='orphan.png'><img src='shared.png'>");
+        entries.put("refused/icons/orphan.png", "REFUSED");
+        entries.put("refused/shared.png", "SHARED");
+        entries.put("refused/theme.css", "@import 'shared-theme.css';");
+        entries.put("refused/styles/shared-theme.css", "@import 'theme.css';"
+                + "body { background: url('../icons/background.png'); }");
+        entries.put("refused/icons/background.png", "STYLE-DEPENDENCY");
+        entries.put("refused/styles/loader.js", "new Image().src='/eform/displayImage?imagefile=script%20icon.png';");
+        entries.put("refused/icons/script icon.png", "SCRIPT-DEPENDENCY");
+        entries.put("refused/styles/module.mjs", "import('./loader.js');");
+        entries.put("retained/eform.properties", "form.name=New\nform.htmlFilename=retained.html\n");
+        entries.put("retained/retained.html", "<img src='${oscar_image_path}shared.png'>"
+                + "<link rel='stylesheet' href='theme.css'><script type='module' src='module.mjs'></script>"
+                + "<img src='https://external.test/orphan.png'><img src='//external.test/orphan.png'>"
+                + "<img src='/eform/displayImage?imagefile=orphan%ZZ.png'>");
+        entries.put("retained/icons/indirect.png", "RETAINED");
+        PlatformTransactionManager transactions = mock(PlatformTransactionManager.class);
+        when(transactions.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
+        try (var folders = mockStatic(ImageUpload2Action.class);
+             var forms = mockStatic(EFormUtil.class);
+             var beans = mockStatic(SpringUtils.class)) {
+            folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            forms.when(() -> EFormUtil.formExistsInDB("Duplicate")).thenReturn(true);
+            beans.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactions);
+
+            List<String> errors = new EFormExportZip()
+                    .importForm(new ByteArrayInputStream(zip(entries)));
+
+            assertThat(errors).containsExactly("Skipped form 'Duplicate', form already exists");
+            forms.verify(() -> EFormUtil.saveEForm(any(EForm.class)));
+            verify(transactions).commit(any());
+        }
+        assertThat(images.resolve("orphan.png")).doesNotExist();
+        assertThat(Files.readString(images.resolve("shared.png"))).isEqualTo("SHARED");
+        assertThat(Files.readString(images.resolve("indirect.png"))).isEqualTo("RETAINED");
+        assertThat(images.resolve("theme.css")).exists();
+        assertThat(images.resolve("shared-theme.css")).exists();
+        assertThat(images.resolve("loader.js")).exists();
+        assertThat(images.resolve("module.mjs")).exists();
+        assertThat(Files.readString(images.resolve("background.png"))).isEqualTo("STYLE-DEPENDENCY");
+        assertThat(Files.readString(images.resolve("script icon.png"))).isEqualTo("SCRIPT-DEPENDENCY");
+        assertThat(stagingDirectories()).isEmpty();
+    }
+
+    @Test
+    void shouldKeepIndirectScriptAndStyleAssets_whenFormsShareTheArchiveRoot() throws Exception {
+        Map<String, String> entries = new LinkedHashMap<>();
+        entries.put("refused/eform.properties", "form.name=Duplicate\nform.htmlFilename=refused.html\n");
+        entries.put("retained/eform.properties", "form.name=New\nform.htmlFilename=retained.html\n");
+        entries.put("refused.html", "<p>Refused form</p>");
+        entries.put("retained.html", "<script src='loader.js'></script><link rel='stylesheet' href='theme.css'>");
+        entries.put("loader.js", "new Image().src='/eform/displayImage?imagefile=background.png';");
+        entries.put("theme.css", "body { background-image: url('/eform/displayImage?imagefile=texture.png'); }");
+        entries.put("background.png", "SCRIPT-DEPENDENCY");
+        entries.put("texture.png", "STYLE-DEPENDENCY");
+        try (var folders = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
+            folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            forms.when(() -> EFormUtil.formExistsInDB("Duplicate")).thenReturn(true);
+
+            List<String> errors = new EFormExportZip(Runnable::run)
+                    .importForm(new ByteArrayInputStream(zip(entries)));
+
+            assertThat(errors).containsExactly("Skipped form 'Duplicate', form already exists");
+            forms.verify(() -> EFormUtil.saveEForm(any(EForm.class)));
+        }
+        assertThat(images.resolve("refused.html")).doesNotExist();
+        assertThat(images.resolve("loader.js")).exists();
+        assertThat(images.resolve("theme.css")).exists();
+        assertThat(Files.readString(images.resolve("background.png"))).isEqualTo("SCRIPT-DEPENDENCY");
+        assertThat(Files.readString(images.resolve("texture.png"))).isEqualTo("STYLE-DEPENDENCY");
         assertThat(stagingDirectories()).isEmpty();
     }
 }

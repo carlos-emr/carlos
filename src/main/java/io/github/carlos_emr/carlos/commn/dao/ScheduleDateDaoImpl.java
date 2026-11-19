@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.Date;
 import java.util.List;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.ScheduleDate;
@@ -54,6 +55,25 @@ public class ScheduleDateDaoImpl extends AbstractDaoImpl<ScheduleDate> implement
         query.setParameter(3, 'A');
 
         return (getSingleResultOrNull(query));
+    }
+
+    @Override
+    public boolean lockProviderForScheduleChange(String providerNo) {
+        Query query = entityManager.createNativeQuery(
+                "select provider_no from provider where provider_no = ?1 for update");
+        query.setParameter(1, providerNo);
+        return !query.getResultList().isEmpty();
+    }
+
+    @Override
+    public List<ScheduleDate> findActiveForUpdate(String providerNo, Date date) {
+        Query query = entityManager.createQuery(
+                "select s from ScheduleDate s where s.providerNo=?1 and s.date=?2 and s.status=?3 order by s.id");
+        query.setParameter(1, providerNo);
+        query.setParameter(2, date);
+        query.setParameter(3, 'A');
+        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        return query.getResultList();
     }
 
     @Override

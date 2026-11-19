@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "9ace6ce97404f6151a5112924cc5dba7f8cec810",
+  "comparisonSha256": "77d59d6ffeade3674300fc82fb0de67890f4aa97f08b56eb6f5b8ea99a15f8b6",
+  "baselineCommit": "075901cd93f62162308264f59f02a27f617b3695",
+  "baselineSourceTree": "9ace6ce97404f6151a5112924cc5dba7f8cec810",
+  "baselineReportSha256": "1b319232a2a42fd6e5d72f3934fec758700eda1794ae3d31d2bd28b282793844",
+  "baselineLane": "Java 25 schedule, CSV and Spring context verification",
+  "baselineTestCounts": {
+    "tests": 109,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "f971bc872effdf564de87ab6f2f993831c2c8f9001a88ec236c7654ec2d6976e",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.commn.web.OscarSpringContextLoaderUnitTest",
+    "io.github.carlos_emr.carlos.report.pageUtil.RptDownloadCSVServletTest",
+    "io.github.carlos_emr.carlos.report.pageUtil.RptFormQueryTest",
+    "io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideServiceIntegrationTest",
+    "io.github.carlos_emr.carlos.schedule.web.Schedule2ActionsTest"
+  ],
+  "observedChangedSourceCoverage": {
+    "src/main/java/io/github/carlos_emr/carlos/schedule/web/ScheduleDateSave2Action.java": {
+      "lineCounts": {
+        "covered": 53,
+        "missed": 2
+      },
+      "instructionBranchCounts": {
+        "covered_instructions": 235,
+        "missed_instructions": 11,
+        "covered_branches": 19,
+        "missed_branches": 5,
+        "partial_lines": [],
+        "missed_branch_lines": [
+          68,
+          102,
+          122
+        ]
+      },
+      "percentages": {
+        "lines": 96.36363636363636,
+        "instructions": 95.52845528455285,
+        "branches": 79.16666666666667
+      }
+    }
+  },
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/schedule/web/ScheduleDateSave2Action.java": {
+      "lines": 96.36363636363636,
+      "instructions": 95.52845528455285,
+      "branches": 70.83333333333333,
+      "sourceBlob": "e6c75be3c5f3ccd9d758d9cdbb3cb4e62aac5f95"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {}
+}

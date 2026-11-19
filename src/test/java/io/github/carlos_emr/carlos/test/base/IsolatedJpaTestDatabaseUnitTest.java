@@ -26,11 +26,19 @@ class IsolatedJpaTestDatabaseUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"jdbc:mariadb://127.0.0.1/clinical", "jdbc:mariadb://127.0.0.1/?database=clinical",
-            "jdbc:mariadb://127.0.0.1/;database=clinical", "jdbc:h2:file:clinical", "jdbc:mariadb://user:synthetic@127.0.0.1/"})
+            "jdbc:mariadb://127.0.0.1/;database=clinical", "jdbc:h2:file:clinical", "jdbc:mariadb://user:synthetic@127.0.0.1/",
+            "jdbc:mysql://127.0.0.1/clinical", "jdbc:mysql://127.0.0.1/?database=clinical",
+            "jdbc:mysql://user:synthetic@127.0.0.1/", "jdbc:mysql://address=(host=127.0.0.1)(password=synthetic)/"})
     void shouldRefuseDatabaseSelection_beforeAnyNativeConnection(String server) {
         assertThatThrownBy(() -> new IsolatedJpaTestDatabase("guard", Map.of(
                 "CARLOS_TEST_MARIADB_DAO", "true", "CARLOS_TEST_MARIADB_URL", server)))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class).hasMessageNotContaining(server);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"jdbc:mariadb://host.docker.internal:3306/", "jdbc:mysql://127.0.0.1:3306/", "jdbc:mysql://[::1]:3306/"})
+    void shouldAcceptCredentialFreeServerUrl_forBothSchemes(String server) {
+        assertThat(MariaDbTestUrl.requireServerUrl(server)).isEqualTo(server);
     }
 
     @Test

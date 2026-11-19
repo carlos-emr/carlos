@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "83746587b8d7ed6f6c2c3562f63616bf06a21edc",
+  "comparisonSha256": "530376fb6d864a8ab078731697fccd528c24ef5b72ee4e3b760814970c595c71",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/eform/upload/ImageUpload2Action.java": {
+      "lines": 63.29113924050633,
+      "instructions": 58.93617021276596,
+      "branches": 41.30434782608695,
+      "sourceBlob": "69a4ca5fa476a33b1458df9b4bcf235990c39188"
+    }
+  },
+  "baselineCommit": "5fd07d8639f59bcd43fdff7b1ad26223d4ba2664",
+  "baselineSourceTree": "83746587b8d7ed6f6c2c3562f63616bf06a21edc",
+  "baselineReportSha256": "58833ae5508481972d082b960c22e8f3849e539088559450a67806c35b4ae939",
+  "baselineLane": "Java 25 eForm publication, ZIP and lock tests with JaCoCo. Existing image user attributes and required metadata failures are covered. Previously reviewed release thresholds are retained.",
+  "baselineTestCounts": {
+    "tests": 105,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "eca67e45a1e2943af8d7e1fb99110140553ad132b3711de9737232711b252b9e",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

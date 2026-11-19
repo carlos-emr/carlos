@@ -108,6 +108,20 @@ class CaseManagementAppointmentArchiveUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldAuditTheSavedRevisionWithoutItsText_whenANoteIsSaved() throws Exception {
+        save(false);
+
+        // The saved revision, its patient and the client address; the note text stays in the chart.
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(
+                org.mockito.ArgumentMatchers.eq("999998"), org.mockito.ArgumentMatchers.eq(io.github.carlos_emr.carlos.log.LogConst.ADD),
+                org.mockito.ArgumentMatchers.eq(io.github.carlos_emr.carlos.log.LogConst.CON_CME_NOTE),
+                org.mockito.ArgumentMatchers.eq("502"), org.mockito.ArgumentMatchers.eq("192.0.2.1"),
+                org.mockito.ArgumentMatchers.eq("101"),
+                org.mockito.ArgumentMatchers.argThat((String data) -> data != null && data.contains("signed=true")
+                        && !data.contains("Assessment") && !data.contains("signature"))));
+    }
+
+    @Test
     void shouldRefuseAnotherPatientsAppointment_beforeSavingTheRevision() {
         appointment.setDemographicNo(202);
         assertThatThrownBy(() -> save(false)).isInstanceOf(SecurityException.class);

@@ -57,6 +57,7 @@
         <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
         <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
+        <link href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/reportByTemplateLayout.css" rel="stylesheet">
     </head>
     <%
         String templateid = request.getParameter("templateid");
@@ -69,7 +70,7 @@
         pageContext.setAttribute("curreport", curreport);
     %>
 
-    <body>
+    <body class="rbt-page">
 
     <%@ include file="rbtTopNav.jspf" %>
     <h3>

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/eform/EFormExportZip.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 97.45762711864407,
+    "sourceBlob": "05cc2b51938ab81f9c7ee873a735d8c3a86716b1"
+  },
+  "evidenceSha256": "837ccfe540decf5972f1f2d67609541f195dd922b6eb7a2b6a8b23e38fbbfc7a"
+}
