@@ -607,6 +607,28 @@ class DemographicUpdateDaoTransactionIntegrationTest {
     }
 
     @Test
+    @DisplayName("should refuse the REST update when only a waiting-list row with a NULL history flag exists")
+    void shouldRefuseAndPreserveTheWaitingListRow_whenItsHistoryFlagIsNull() {
+        long updateAuditsBefore = audits(UPDATE_AUDIT);
+        long customAuditsBefore = audits(CUSTOM_FIELD_AUDIT);
+        DemographicTo1 data = restPayload("Changed");
+        jdbc.update("UPDATE waitingList SET is_history=NULL WHERE listID=? AND demographic_no=?", waitingListId, patientId);
+
+        assertThatThrownBy(() -> put(data)).isInstanceOfSatisfying(WebApplicationException.class,
+                refusal -> assertConflict(refusal, "WAITING_LIST_ENTRY_NOT_FOUND"));
+
+        assertNothingOfTheUpdateRemains(updateAuditsBefore);
+        assertThat(customFieldAlert()).isEqualTo("Original alert");
+        assertThat(archivedCustomFieldAlerts()).isEmpty();
+        assertThat(audits(CUSTOM_FIELD_AUDIT)).isEqualTo(customAuditsBefore);
+        assertThat(jdbc.queryForList(
+                "SELECT note FROM waitingList WHERE listID=? AND demographic_no=? AND is_history IS NULL",
+                String.class, waitingListId, patientId)).containsExactly("Original note");
+        assertThat(waitingListNotes("N")).isEmpty();
+        assertThat(waitingListNotes("Y")).isEmpty();
+    }
+
+    @Test
     @DisplayName("should save the patient and leave the waiting list alone when the request names no list")
     void shouldSaveThePatient_whenTheRequestNamesNoWaitingList() {
         DemographicTo1 data = restPayload("Changed");
@@ -660,7 +682,8 @@ class DemographicUpdateDaoTransactionIntegrationTest {
     @Test
     @DisplayName("should archive the previous version code when an OBEC response invalidates it")
     void shouldArchiveThePreviousVersionCode_whenAnObecResponseInvalidatesIt() {
-        jdbc.update("UPDATE demographic SET hin=?, ver=? WHERE demographic_no=?", "9999999999", "AB", patientId);
+        jdbc.update("UPDATE demographic SET hin=?, ver=?, pref_name=?, alias=? WHERE demographic_no=?",
+                "9999999999", "AB", "Stored preferred name", "Displayed alias", patientId);
         when(privileges.getReadableDemographicIds(eq(actor), any())).thenReturn(Set.of(patientId));
         ProxyFactory factory = new ProxyFactory(
                 new BillingObecOutputApplyService(mock(BatchEligibilityDao.class), customFields, manager));
@@ -677,6 +700,10 @@ class DemographicUpdateDaoTransactionIntegrationTest {
                 .as("the stored version code").isEqualTo("##");
         assertThat(jdbc.queryForList("SELECT ver FROM demographicArchive WHERE demographic_no=?", String.class, patientId))
                 .as("the archive holds the row as it was").containsExactly("AB");
+        assertThat(jdbc.queryForObject("SELECT pref_name FROM demographic WHERE demographic_no=?", String.class, patientId))
+                .isEqualTo("Stored preferred name");
+        assertThat(jdbc.queryForObject("SELECT alias FROM demographic WHERE demographic_no=?", String.class, patientId))
+                .isEqualTo("Displayed alias");
     }
 
     @Test

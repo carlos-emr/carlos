@@ -127,13 +127,12 @@ public class WLWaitingListUtil {
     /*
      * This method adds the Waiting List note to the same position in the waitingList table but do not delete previous ones - later on DisplayWaitingList.jsp will display only the most current Waiting List Note record.
      *
-     * Returns true when the note was recorded, and false when nothing was written: no list was
-     * named (id "0"), or the patient has no entry on the named list. An entry kept as history
-     * after a removal counts here, as it always has: the patient edit form then puts the patient
+     * This is a no-op when no list was named (id "0") or the patient has no entry on the
+     * named list. The patient edit form can also use a historical entry to put the patient
      * back on the list.
      */
-    public static boolean updateWaitingListRecord(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
-        return recordNote(waitingListID, waitingListNote, demographicNo, onListSince, false);
+    public static void updateWaitingListRecord(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+        recordNote(waitingListID, waitingListNote, demographicNo, onListSince, false);
     }
 
     /**

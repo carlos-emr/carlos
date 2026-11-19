@@ -30,19 +30,20 @@
  * Step 6: an update that names a waiting list the patient was taken off after the form was loaded
  * (the application keeps the removed entry as history) is refused (409,
  * WAITING_LIST_ENTRY_NOT_FOUND) and rolled back. It used to put the patient back on the list.
- * Step 7: the same refusal for a list on which the patient has no entry at all. That update used
- * to save the patient and answer success while dropping the waiting-list note.
+ * Steps 7 and 8: the same refusal for a list on which the patient has a NULL history flag or no
+ * entry at all. Those rows do not qualify as current.
  *
  * The patient is the runWorkflow fixture (last name = this run's FAKE-PW<hex> marker, which the
  * updates keep). The waiting list is a list of its own, named by the marker, so renumbering it
  * touches no other patient's entry. Step 5's second patient has this run's marker plus "-V" as its
  * last name. Cleanup removes the patient's rows from each table the update writes, the second
  * patient and its extension, then the list, and verifies them gone. Environment: the common contract (BASE_URL,
- * TEST_USER, TEST_PASSWORD, TEST_PIN, MYSQL_*).
+ * TEST_USER, TEST_PASSWORD, TEST_PIN, MYSQL_*) and EXCLUSIVE=1.
  */
 'use strict';
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
+const { createRecoverablePatientFixture } = require('./lib/owned-patient');
 
 const UPDATE_AUDIT = 'DemographicManager.updateDemographic';
 const ACCESS_SUCCESS = 'REST WS: DemographicService.updateDemographicData';
@@ -53,6 +54,12 @@ const PATIENT_TABLES = [
   ['demographicExt', 'demographic_no'], ['demographiccustArchive', 'demographic_no'],
   ['demographiccust', 'demographic_no'], ['demographicArchive', 'demographic_no'],
 ];
+
+function preflightConfig() {
+  if (process.env.EXCLUSIVE !== '1') {
+    throw new h.SkipCheck('Requires an exclusive run because its waiting list is visible clinic-wide');
+  }
+}
 
 async function workflow(s) {
   const endpoint = h.appUrl(s.config.baseUrl, '/ws/rs/demographics');
@@ -251,16 +258,26 @@ async function workflow(s) {
       'WAITING_LIST_ENTRY_NOT_FOUND', 'the removed waiting-list entry', `${s.marker}-stale6`);
   });
 
+  await s.step('an update naming a list with only a NULL history flag is refused', async () => {
+    s.sql.execute('UPDATE waitingList SET is_history=NULL WHERE listID=? AND demographic_no=?', [list, patient]);
+    h.assert(count('SELECT COUNT(*) FROM waitingList WHERE listID=? AND demographic_no=? AND is_history IS NULL',
+      [list, patient]) > 0, 'No waiting-list rows with a NULL history flag were created');
+    await expectRefusal('an update naming a list with only a NULL history flag',
+      update('Stale', 7, [extra('wPhoneExt', `${s.marker}-stale7`)]),
+      'WAITING_LIST_ENTRY_NOT_FOUND', 'the NULL history flag', `${s.marker}-stale7`);
+  });
+
   await s.step('an update naming a waiting list the patient has no entry on is refused, not half saved', async () => {
     s.sql.execute('DELETE FROM waitingList WHERE listID=? AND demographic_no=?', [list, patient]);
     h.assert(count('SELECT COUNT(*) FROM waitingList WHERE listID=? AND demographic_no=?', [list, patient]) === 0,
       'The waiting-list entries were not removed');
 
     await expectRefusal('an update naming a waiting list the patient has no entry on',
-      update('Stale', 7, [extra('wPhoneExt', `${s.marker}-stale7`)]),
-      'WAITING_LIST_ENTRY_NOT_FOUND', 'the missing waiting-list entry', `${s.marker}-stale7`);
+      update('Stale', 8, [extra('wPhoneExt', `${s.marker}-stale8`)]),
+      'WAITING_LIST_ENTRY_NOT_FOUND', 'the missing waiting-list entry', `${s.marker}-stale8`);
   });
 }
 
 module.exports = { workflow };
-if (require.main === module) runWorkflow('demographic-rest-update-atomicity', workflow, { openMaster: false });
+if (require.main === module) runWorkflow('demographic-rest-update-atomicity', workflow,
+  {openMaster: false, preflightConfig, patientFixtureFactory: createRecoverablePatientFixture});

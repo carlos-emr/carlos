@@ -27,7 +27,7 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
  *
  * <p>The helper is a no-op when no list is named or the patient has no entry on the named list.
  * The patient edit form relies on that; the REST demographic update must instead refuse, because it
- * was asked to save the note. Both read the result these cases pin.</p>
+ * was asked to save the note. The REST-only helper reports whether it wrote the note.</p>
  *
  * <p>The helper finds its DAO through {@code SpringUtils}, which {@link CarlosUnitTestBase} mocks:
  * a bean that was not registered is refused, so a case that registers no DAO also proves that
@@ -39,29 +39,35 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 @DisplayName("WLWaitingListUtil.updateWaitingListRecord result")
 class WLWaitingListUpdateRecordUnitTest extends CarlosUnitTestBase {
 
+    @Test
+    void shouldKeepTheVoidReturnType_forPreviouslyCompiledCallers() throws NoSuchMethodException {
+        assertThat(WLWaitingListUtil.class.getMethod("updateWaitingListRecord",
+                String.class, String.class, String.class, String.class).getReturnType()).isEqualTo(void.class);
+    }
+
     @ParameterizedTest(name = "list {0}, patient {1}")
     @CsvSource({"0, 101", "7, 0"})
-    @DisplayName("should report that nothing was written when no list or no patient is named")
-    void shouldReportNothingWritten_whenNoListOrPatientIsNamed(String listId, String demographicNo) {
+    @DisplayName("should write nothing when no list or no patient is named")
+    void shouldWriteNothing_whenNoListOrPatientIsNamed(String listId, String demographicNo) {
         // No WaitingListDao is registered: looking one up would fail this case.
-        assertThat(WLWaitingListUtil.updateWaitingListRecord(listId, "FAKE note", demographicNo, null)).isFalse();
+        WLWaitingListUtil.updateWaitingListRecord(listId, "FAKE note", demographicNo, null);
     }
 
     @Test
-    @DisplayName("should report that nothing was written when the patient has no entry on the list")
-    void shouldReportNothingWritten_whenThePatientHasNoEntryOnTheList() {
+    @DisplayName("should write nothing when the patient has no entry on the list")
+    void shouldWriteNothing_whenThePatientHasNoEntryOnTheList() {
         WaitingListDao dao = createAndRegisterMock(WaitingListDao.class);
         when(dao.findByWaitingListIdAndDemographicId(7, 101)).thenReturn(List.of());
 
-        assertThat(WLWaitingListUtil.updateWaitingListRecord("7", "FAKE note", "101", null)).isFalse();
+        WLWaitingListUtil.updateWaitingListRecord("7", "FAKE note", "101", null);
 
         verify(dao, never()).saveEntity(any(WaitingList.class));
         verify(dao, never()).merge(any(WaitingList.class));
     }
 
     @Test
-    @DisplayName("should record the note at the entry's position and report it when the patient is on the list")
-    void shouldRecordTheNoteAndReportIt_whenThePatientIsOnTheList() {
+    @DisplayName("should record the note at the entry's position when the patient is on the list")
+    void shouldRecordTheNote_whenThePatientIsOnTheList() {
         WaitingListDao dao = createAndRegisterMock(WaitingListDao.class);
         WaitingList current = new WaitingList();
         current.setListId(7);
@@ -70,7 +76,7 @@ class WLWaitingListUpdateRecordUnitTest extends CarlosUnitTestBase {
         current.setHistory(false);
         when(dao.findByWaitingListIdAndDemographicId(7, 101)).thenReturn(List.of(current));
 
-        assertThat(WLWaitingListUtil.updateWaitingListRecord("7", "FAKE note", "101", null)).isTrue();
+        WLWaitingListUtil.updateWaitingListRecord("7", "FAKE note", "101", null);
 
         assertThat(current.getIsHistory()).as("the replaced entry is kept as history").isEqualTo("Y");
         ArgumentCaptor<WaitingList> saved = ArgumentCaptor.forClass(WaitingList.class);
@@ -86,7 +92,7 @@ class WLWaitingListUpdateRecordUnitTest extends CarlosUnitTestBase {
         WaitingListDao dao = createAndRegisterMock(WaitingListDao.class);
         when(dao.findByWaitingListIdAndDemographicId(7, 101)).thenReturn(List.of(entry(4, true)));
 
-        assertThat(WLWaitingListUtil.updateWaitingListRecord("7", "FAKE note", "101", null)).isTrue();
+        WLWaitingListUtil.updateWaitingListRecord("7", "FAKE note", "101", null);
 
         ArgumentCaptor<WaitingList> saved = ArgumentCaptor.forClass(WaitingList.class);
         verify(dao).saveEntity(saved.capture());
