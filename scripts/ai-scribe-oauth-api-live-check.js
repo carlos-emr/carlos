@@ -547,8 +547,12 @@ async function main(state = {}) {
     'The OAuth token is not bound to the provider who approved it');
   recordEndpoint('GET', '/ws/services/oauth/info', infoResponse, 'signed token identity verified');
 
+  // The patient's first name as CARLOS currently stores it. The demographics group renames the
+  // patient; later fixtures that identify the patient by name (the HL7 PID segment) read this
+  // instead of assuming that rename ran, so a focused run (AI_SCRIBE_API_ONLY=labs) matches too.
+  let patientFirstName = 'AI-Scribe';
   const createDemographicResponse = await signedRequest('POST', '/ws/services/demographics/', fullToken, {
-    firstName: 'AI-Scribe',
+    firstName: patientFirstName,
     lastName: marker,
     dobYear: '1980',
     dobMonth: '01',
@@ -672,6 +676,7 @@ async function main(state = {}) {
   const reloadedDemographic = await demographicReload.json();
   assert(reloadedDemographic.firstName === 'AI-Scribe Updated',
     'OAuth demographic update was not persisted');
+  patientFirstName = reloadedDemographic.firstName;
   recordEndpoint('GET', '/ws/services/demographics/{demographicNo}', demographicReload,
     'updated field persisted on read-after-write');
 
@@ -804,7 +809,7 @@ async function main(state = {}) {
     const hl7Timestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
     const hl7Segments = [
       `MSH|^~\\&|PATHL7|CW|CARLOS|TEST|${hl7Timestamp}||ORU^R01|${runMarker}|P|2.3|||ER|AL`,
-      `PID|1||||${marker}^AI-Scribe Updated||19800102|F`,
+      `PID|1||||${marker}^${patientFirstName}||19800102|F`,
       `ORC|NW|${state.labAccession}|${state.labAccession}||F|||||||999998^DR. PROBE|||${hl7Timestamp}`,
       `OBR|1|${state.labAccession}||ML70^SYNTHETIC PANEL||${hl7Timestamp}|${hl7Timestamp}|||||||||999998^DR. PROBE|||||||||F`,
       'OBX|1|ST|7010^SYNTHETIC RESULT|^^CHEMISTRY|NORMAL|||N|||F||765^1007010||70',
