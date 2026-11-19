@@ -156,6 +156,11 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     static Stream<Arguments> unconditionalMutators() {
         return Stream.of(
+                // Destructive audit-log purge (#5864): POST-only; GET must not dump or delete.
+                Arguments.of(
+                        "io.github.carlos_emr.carlos.admin.web.AuditLogPurge2Action",
+                        "_admin.auditLogPurge",
+                        "w"),
                 Arguments.of(
                         "io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsUpload2Action",
                         "_demographic",
