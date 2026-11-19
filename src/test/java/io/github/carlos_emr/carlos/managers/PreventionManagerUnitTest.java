@@ -172,6 +172,24 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
             // Then
             verify(mockPreventionDao).find(id);
         }
+
+        @Test
+        @DisplayName("should throw SecurityException when _prevention read is denied")
+        void shouldThrowSecurityException_whenPreventionReadDenied() {
+            // Given
+            Prevention expected = createTestPreventionWithId(TEST_PREVENTION_ID);
+            when(mockPreventionDao.find(TEST_PREVENTION_ID)).thenReturn(expected);
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_prevention"), anyString(), any()))
+                    .thenReturn(false);
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_prevention"), anyString(), anyInt()))
+                    .thenReturn(false);
+
+            // When / Then
+            assertThatThrownBy(() ->
+                    preventionManager.getPrevention(mockLoggedInInfo, TEST_PREVENTION_ID)
+            ).isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("missing required sec object");
+        }
     }
 
     /**
@@ -917,8 +935,59 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
 
             // Then
             assertThat(results).hasSize(1);
-            verify(mockPreventionDao).findByProviderDemographicLastUpdateDate(
+                        verify(mockPreventionDao).findByProviderDemographicLastUpdateDate(
                 eq(TEST_PROVIDER), eq(TEST_DEMO_NO), any(Date.class), eq(50));
+        }
+
+        @Test
+        @DisplayName("should throw SecurityException when _prevention read is denied for updated-after-date query")
+        void shouldThrowSecurityException_whenPreventionReadDeniedForUpdatedAfterDate() {
+            // Given - must deny BOTH String and int overloads of hasPrivilege
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_prevention"), anyString(), any()))
+                    .thenReturn(false);
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_prevention"), anyString(), anyInt()))
+                    .thenReturn(false);
+
+            // When / Then
+            assertThatThrownBy(() ->
+                    preventionManager.getUpdatedAfterDate(mockLoggedInInfo, new Date(), 10)
+            ).isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("missing required sec object");
+            verify(mockPreventionDao, never()).findByUpdateDate(any(), anyInt());
+        }
+
+        @Test
+        @DisplayName("should throw SecurityException when _prevention read is denied for demographic date query")
+        void shouldThrowSecurityException_whenPreventionReadDeniedForDemographicDate() {
+            // Given - must deny BOTH String and int overloads of hasPrivilege
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_prevention"), anyString(), any()))
+                    .thenReturn(false);
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_prevention"), anyString(), anyInt()))
+                    .thenReturn(false);
+
+            // When / Then
+            assertThatThrownBy(() ->
+                    preventionManager.getByDemographicIdUpdatedAfterDate(mockLoggedInInfo, TEST_DEMO_NO, new Date())
+            ).isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("missing required sec object");
+            verify(mockPreventionDao, never()).findByDemographicIdAfterDatetimeExclusive(any(), any());
+        }
+
+        @Test
+        @DisplayName("should throw SecurityException when _prevention read is denied for program/provider/demographic query")
+        void shouldThrowSecurityException_whenPreventionReadDeniedForProgramProviderDemographicDate() {
+            // Given - must deny BOTH String and int overloads of hasPrivilege
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_prevention"), anyString(), any()))
+                    .thenReturn(false);
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_prevention"), anyString(), anyInt()))
+                    .thenReturn(false);
+
+            // When / Then
+            assertThatThrownBy(() ->
+                    preventionManager.getPreventionsByProgramProviderDemographicDate(mockLoggedInInfo, 1, TEST_PROVIDER, TEST_DEMO_NO, Calendar.getInstance(), 50)
+            ).isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("missing required sec object");
+            verify(mockPreventionDao, never()).findByProviderDemographicLastUpdateDate(any(), any(), any(), anyInt());
         }
     }
 
