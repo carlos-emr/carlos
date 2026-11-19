@@ -44,6 +44,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.math.BigInteger;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.List;
 
 import static io.github.carlos_emr.carlos.integration.mcedt.ActionUtils.*;
@@ -97,17 +98,30 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
             addActionError(getText("updateAction.addUpdateRequest.missingFile"));
             return "initial";
         }
-        List<UpdateRequest> updates = getUpdateList(request);
-
-        UpdateRequest update = this.toUpdateRequest();
-        updates.add(update);
-
+        // Only a resource on the list this page loaded may be replaced. A missing list means the
+        // page's session state is gone; nothing is queued in either case.
         Detail details = (Detail) request.getSession().getAttribute(SESSION_KEY_UPLOAD_DETAILS);
-        for (DetailData d : details.getData()) {
-            if (d.getResourceID().equals(update.getResourceID())) {
-                markUpdated(d);
+        BigInteger requested = BigInteger.valueOf(ConversionUtils.fromIntString(resourceId));
+        List<DetailData> listed = new ArrayList<>();
+        if (details != null) {
+            for (DetailData d : details.getData()) {
+                if (requested.equals(d.getResourceID())) {
+                    listed.add(d);
+                }
             }
         }
+        if (listed.isEmpty()) {
+            addActionError(getText("updateAction.addUpdateRequest.unknownResource"));
+            return "initial";
+        }
+
+        UpdateRequest update = this.toUpdateRequest();
+        List<UpdateRequest> updates = getUpdateList(request);
+        // A repeated add for the same resource (a retry, double click or second tab) replaces the
+        // queued file instead of sending two updates for one resource.
+        updates.removeIf(queued -> requested.equals(queued.getResourceID()));
+        updates.add(update);
+        listed.forEach(this::markUpdated);
         return "initial";
     }
 

@@ -13,6 +13,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import ca.ontario.health.edt.Detail;
+import ca.ontario.health.edt.DetailData;
 import ca.ontario.health.edt.UpdateRequest;
 import java.io.File;
 import java.math.BigInteger;
@@ -97,8 +98,7 @@ class Update2ActionUploadUnitTest {
     @Test
     @DisplayName("should queue the uploaded bytes for the resource being updated")
     void shouldQueueUpdate_withUploadedBytes() {
-        Detail details = new Detail();
-        request.getSession().setAttribute(SESSION_KEY_UPLOAD_DETAILS, details);
+        Detail details = listedResources(42);
         Update2Action action = new Update2Action();
         action.setResourceId("42");
         action.withUploadedFiles(List.of(uploaded("content", upload)));
@@ -110,6 +110,68 @@ class Update2ActionUploadUnitTest {
         assertThat(queued.get(0).getResourceID()).isEqualTo(BigInteger.valueOf(42));
         assertThat(new String(queued.get(0).getContent(), StandardCharsets.UTF_8))
                 .isEqualTo("SYNTHETIC REPLACEMENT CONTENT");
+        assertThat(details.getData().get(0).getModifyTimestamp()).as("the listed resource is marked updated").isNotNull();
+    }
+
+    @Test
+    @DisplayName("should replace, not repeat, a resource that is already queued")
+    void shouldReplaceQueuedUpdate_whenSameResourceIsAddedAgain() throws Exception {
+        listedResources(42);
+        Update2Action first = new Update2Action();
+        first.setResourceId("42");
+        first.withUploadedFiles(List.of(uploaded("content", upload)));
+        first.addUpdateRequest();
+        Files.writeString(upload.toPath(), "SYNTHETIC SECOND CONTENT", StandardCharsets.UTF_8);
+        Update2Action second = new Update2Action();
+        second.setResourceId("42");
+        second.withUploadedFiles(List.of(uploaded("content", upload)));
+
+        second.addUpdateRequest();
+
+        List<UpdateRequest> queued = ActionUtils.getUpdateList(request);
+        assertThat(queued).hasSize(1);
+        assertThat(new String(queued.get(0).getContent(), StandardCharsets.UTF_8))
+                .isEqualTo("SYNTHETIC SECOND CONTENT");
+    }
+
+    @Test
+    @DisplayName("should refuse a resource that is not on the list the page loaded")
+    void shouldRefuseUpdate_whenResourceIsNotListed() {
+        listedResources(42);
+        Update2Action action = spy(new Update2Action());
+        doReturn("not on the list").when(action).getText("updateAction.addUpdateRequest.unknownResource");
+        action.setResourceId("99");
+        action.withUploadedFiles(List.of(uploaded("content", upload)));
+
+        assertThat(action.addUpdateRequest()).isEqualTo("initial");
+
+        assertThat(action.getActionErrors()).containsExactly("not on the list");
+        assertThat(ActionUtils.getUpdateList(request)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should queue nothing when the page's resource list is no longer in the session")
+    void shouldRefuseUpdate_whenResourceListIsMissing() {
+        Update2Action action = spy(new Update2Action());
+        doReturn("not on the list").when(action).getText("updateAction.addUpdateRequest.unknownResource");
+        action.setResourceId("42");
+        action.withUploadedFiles(List.of(uploaded("content", upload)));
+
+        assertThat(action.addUpdateRequest()).isEqualTo("initial");
+
+        assertThat(action.getActionErrors()).containsExactly("not on the list");
+        assertThat(ActionUtils.getUpdateList(request)).isEmpty();
+    }
+
+    private Detail listedResources(int... ids) {
+        Detail details = new Detail();
+        for (int id : ids) {
+            DetailData data = new DetailData();
+            data.setResourceID(BigInteger.valueOf(id));
+            details.getData().add(data);
+        }
+        request.getSession().setAttribute(SESSION_KEY_UPLOAD_DETAILS, details);
+        return details;
     }
 
     @Test
