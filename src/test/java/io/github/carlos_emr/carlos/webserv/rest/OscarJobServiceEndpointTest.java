@@ -117,6 +117,31 @@ class OscarJobServiceEndpointTest extends CarlosRestTestBase {
         return job;
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"cancelJob", "disableJob"})
+    void shouldStopTrackingTheTimer_whenAnExplicitActionCancelsIt(String action) {
+        int jobId = 3043;
+        OscarJobType type = createTestJobType(1, "TestType", "com.example.TestJob");
+        OscarJob job = createTestJob(jobId, "Scheduled job", type);
+        when(mockOscarJobManager.getJob(any(LoggedInInfo.class), eq(jobId))).thenReturn(job);
+
+        try (var timer = new ScheduledThreadPoolExecutor(1)) {
+            var future = timer.<Object>schedule(() -> null, 1, TimeUnit.HOURS);
+            var futures = OscarJobExecutingManager.getFutures();
+            futures.put(jobId, future);
+            Form form = new Form().param("jobId", Integer.toString(jobId));
+            try (Response response = request().path("/jobs/" + action)
+                    .type(MediaType.APPLICATION_FORM_URLENCODED).post(form)) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                assertThat(future.isCancelled()).isTrue();
+                assertThat(futures).doesNotContainKey(jobId);
+            } finally {
+                futures.remove(jobId, future);
+                timer.shutdownNow();
+            }
+        }
+    }
+
     @Nested
     @DisplayName("POST /jobs/saveJob")
     class SaveJob {

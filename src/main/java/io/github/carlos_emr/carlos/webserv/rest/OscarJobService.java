@@ -30,7 +30,6 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.ScheduledFuture;
 
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.core.MediaType;
@@ -44,7 +43,6 @@ import jakarta.ws.rs.core.MultivaluedMap;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
-import io.github.carlos_emr.carlos.commn.jobs.OscarJobExecutingManager;
 import io.github.carlos_emr.carlos.commn.jobs.OscarJobUtils;
 import io.github.carlos_emr.carlos.commn.model.OscarJob;
 import io.github.carlos_emr.carlos.commn.model.OscarJobType;
@@ -163,7 +161,6 @@ public class OscarJobService extends AbstractServiceImpl {
 
             if (result.getCronExpression() != null) {
                 CronTrigger trigger = new CronTrigger(result.getCronExpression());
-                //ScheduledFuture<Object> future = OscarJobExecutingManager.getFutures().get(result.getId());
 
                 if (result.isEnabled()) {
                     to.setNextPlannedExecutionDate(trigger.nextExecutionTime(new SimpleTriggerContext()));
@@ -241,12 +238,7 @@ public class OscarJobService extends AbstractServiceImpl {
         OscarJobResponse.ScheduleActivation activation = null;
         try {
             if (!persisted.isEnabled()) {
-                OscarJobExecutingManager.getFutures().computeIfPresent(persisted.getId(), (id, scheduled) -> {
-                    if (!scheduled.cancel(false) && !scheduled.isDone()) {
-                        throw new IllegalStateException("The scheduled job could not be cancelled");
-                    }
-                    return null;
-                });
+                OscarJobUtils.cancelJob(persisted.getId(), false);
                 activation = OscarJobResponse.ScheduleActivation.DISABLED;
             } else if (persisted.getCronExpression() != null && !persisted.getCronExpression().isBlank()) {
                 activation = OscarJobUtils.scheduleJob(persisted)
@@ -269,11 +261,7 @@ public class OscarJobService extends AbstractServiceImpl {
     public OscarJobResponse cancelJob(@FormParam(value = "jobId") Integer jobId) {
         requireAdminPrivilege("w");
 
-        ScheduledFuture<Object> future = OscarJobExecutingManager.getFutures().get(jobId);
-        if (future != null) {
-            future.cancel(true);
-            OscarJobExecutingManager.getFutures().remove(jobId);
-        }
+        OscarJobUtils.cancelJob(jobId, true);
         return getJob(jobId);
     }
 
@@ -340,19 +328,20 @@ public class OscarJobService extends AbstractServiceImpl {
         if (job != null) {
             job.setCronExpression(parts[0] + " " + parts[1] + " " + parts[2] + " " + parts[3] + " " + parts[4] + " " + parts[5]);
             oscarJobManager.updateJob(getLoggedInInfo(), job);
-            boolean activated = false;
+            OscarJobResponse.ScheduleActivation activation;
             try {
-                activated = OscarJobUtils.scheduleJob(job);
+                if (OscarJobUtils.scheduleJob(job)) {
+                    activation = OscarJobResponse.ScheduleActivation.ACTIVE;
+                } else {
+                    activation = job.isEnabled() ? OscarJobResponse.ScheduleActivation.FAILED
+                            : OscarJobResponse.ScheduleActivation.DISABLED;
+                }
             } catch (Exception e) {
                 logger.warn("error scheduling job " + e);
+                activation = OscarJobResponse.ScheduleActivation.FAILED;
             }
             OscarJobResponse response = getJob(jobId);
-            if (job.isEnabled()) {
-                response.setScheduleActivation(activated ? OscarJobResponse.ScheduleActivation.ACTIVE
-                        : OscarJobResponse.ScheduleActivation.FAILED);
-            } else {
-                response.setScheduleActivation(OscarJobResponse.ScheduleActivation.DISABLED);
-            }
+            response.setScheduleActivation(activation);
             return response;
         }
 
@@ -467,11 +456,7 @@ public class OscarJobService extends AbstractServiceImpl {
         }
         oscarJobManager.updateJob(getLoggedInInfo(), job);
 
-        ScheduledFuture<Object> future = OscarJobExecutingManager.getFutures().get(job.getId());
-        if (future != null) {
-            future.cancel(false);
-            OscarJobExecutingManager.getFutures().remove(job.getId());
-        }
+        OscarJobUtils.cancelJob(job.getId(), false);
 
 
         return getJob(jobId);
