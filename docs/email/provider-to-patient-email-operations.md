@@ -381,7 +381,7 @@ else about signing changes. RSA and EC keys both work. For myCarlos to show a
 PDF as verified, the key must be ECDSA P-256 (carlos-emr/carlos#4691).
 
 To enable it, provision a PKCS#12 or JKS keystore holding the private key and
-its certificate chain, readable only by the Tomcat user, and set in
+its certificate chain, readable only by the account that runs CARLOS, and set in
 `carlos.properties`:
 
 ```
@@ -461,7 +461,7 @@ myCarlos remembers the key a clinic signed with, by its key ID (`kid`). It
 shows a PDF as verified only when it comes from that key. Handle the key the way
 you would a TLS private key.
 
-**Create.** Use an ECDSA P-256 key in a PKCS#12 file that only the Tomcat user
+**Create.** Use an ECDSA P-256 key in a PKCS#12 file that only the account running CARLOS
 can read. A self-signed certificate is enough for myCarlos. A certificate already
 trusted by the recipient's PDF reader can avoid unknown-signer warnings; a
 CA-issued certificate alone does not guarantee reader trust. See
@@ -472,8 +472,13 @@ keytool -genkeypair -alias carlos-pdf-signing -keyalg EC -groupname secp256r1 \
   -sigalg SHA256withECDSA -validity 1825 \
   -dname "CN=<Clinic name> document signing, O=<Clinic name>" \
   -storetype PKCS12 -keystore /etc/carlos-emr/pdf-signing.p12
-chown tomcat:tomcat /etc/carlos-emr/pdf-signing.p12 && chmod 600 /etc/carlos-emr/pdf-signing.p12
+chown root:carlos /etc/carlos-emr/pdf-signing.p12 && chmod 640 /etc/carlos-emr/pdf-signing.p12
 ```
+
+A packaged install runs CARLOS as the `carlos` account: these commands let it read
+the key while only root can change it. Where CARLOS runs in a plain Tomcat, give the
+file to that service's account instead (for example `chown tomcat:tomcat` and
+`chmod 600`).
 
 Then set the `pdf.signing.*` properties above, restart, and send a test message
 with no patient information in it. Note the certificate's expiry date. The key

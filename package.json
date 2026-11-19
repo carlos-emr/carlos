@@ -1026,6 +1026,7 @@
     "test:email-field-length-playwright": "node scripts/email-field-length-playwright-checks.js",
     "test:admin-security-workflow-playwright": "node scripts/admin-security-workflow-playwright-checks.js",
     "test:email-compose-send-playwright": "node scripts/email-compose-send-playwright-checks.js",
+    "test:email-pdf-signing-playwright": "node scripts/email-pdf-signing-playwright-checks.js",
     "test:admin-login-text-playwright": "node scripts/admin-login-text-playwright-checks.js",
     "test:billing-on-bill-form-code-typeahead-playwright": "node scripts/billing-on-bill-form-code-typeahead-playwright-checks.js",
     "test:billing-on-bill-form-referral-typeahead-playwright": "node scripts/billing-on-bill-form-referral-typeahead-playwright-checks.js",
