@@ -157,7 +157,9 @@ public final class PreventionReportUtil {
             return historicalProviders.size() == 1
                     && historicalProviders.stream().anyMatch(provider -> provider != null && providerNumbers.contains(provider));
         }
-        return (currentRevision == null || archives.isEmpty())
+        // The current roster can fill a legacy gap with no archival period covering the date.
+        return archives.stream().noneMatch(archive -> rosteredDuringThisTimeDemographic(onThisDate,
+                archive.getRosterDate(), archive.getRosterTerminationDate()))
                 && matchesRoster(providerNumbers, current.getProviderNo(), onThisDate,
                         current.getRosterDate(), current.getRosterTerminationDate());
     }
