@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "7e96cbe5be8e20d3e8193a3f457a6cf66fc7568a",
+  "comparisonSha256": "e840b6a8cb3eccabeb150ddd1f84f90f0625bac0f5fa25c856a3fc5115b4758e",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/signature/action/SaveSignatureUpload2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "a154f27d440231b36666dd358ab17a219c562c07"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/DigitalSignatureUtils.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d808679f6456b7da32d53e026e79dd352026e075"
+    }
+  },
+  "baselineCommit": "e8a08a6e3383505e9f17335a14b3044768f49819",
+  "baselineSourceTree": "7e96cbe5be8e20d3e8193a3f457a6cf66fc7568a",
+  "baselineReportSha256": "92226465b77190c94081e223519f0cb5763dda1b98ffaca68fb7ec74cc32420e",
+  "baselineLane": "PR #5141 Java 25 signature upload, issued keys, replay receipts and eForm regression tests",
+  "baselineTestCounts": {
+    "tests": 54,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "2b48e3718d900f7debc796659ff9bde16856a40d29df422f00456b5b1d623350",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.eform.data.EFormSignatureCodeUnitTest",
+    "io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2ActionIssuedKeyUnitTest",
+    "io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2ActionTest",
+    "io.github.carlos_emr.carlos.signature.gate.ViewTabletSignature2ActionTest",
+    "io.github.carlos_emr.carlos.utility.DigitalSignatureUtilsUnitTest"
+  ]
+}
