@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/utility/tld/CarlosEncodeTag.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "537a446f7ccea775bf77a662c4e0e8a3bd0802bf"
+  },
+  "evidenceSha256": "ea79a1c5a103faa4d0234592892c88d25a554a7c4782e739d35b09652e28521f"
+}

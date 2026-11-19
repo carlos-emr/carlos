@@ -45,7 +45,7 @@ function add_team(form) {
 		return false;
 	}
 	
-	form.elements['team.id'].value='0';
+	form.elements['team.id'].value = '';
 	form.elements['method'].value='save_team';
 	form.submit();
 }
@@ -94,13 +94,16 @@ function add_team(form) {
 </c:if>
 <c:if test="${empty teams}">No teams are currently defined for this program.</c:if>
 <br />
+<input type="hidden" name="team.id" />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
-	<html:hidden property="team.id" />
 	<tr class="b">
-		<td width="20%">Name:</td>
-		<td><html:text property="team.name" size="50" maxlength="255"/></td>
+		<td width="20%"><label for="program-team-name">Name:</label></td>
+		<td><input type="text" name="team.name" id="program-team-name" size="50" maxlength="255" value="${carlos:forHtmlAttribute(team.name)}" /></td>
 	</tr>
 	<tr>
-		<td colspan="2"><input type="button" value="Save" onclick="add_team(this.form)" /> <html:cancel /></td>
+		<td colspan="2">
+			<input type="button" value="Save" onclick="add_team(this.form)" />
+			<a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${carlos:forUriComponent(requestScope.id)}&amp;view.tab=Teams">Cancel</a>
+		</td>
 	</tr>
 </table>

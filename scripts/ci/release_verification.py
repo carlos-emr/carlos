@@ -477,7 +477,7 @@ def summarize(check, run_dir: Path, exit_code, root=ROOT):
     return summary
 
 
-def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=None, root=ROOT):
+def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=None, root=ROOT, *, extra_environment=None):
     plan = load_plan(plan_path, root)
     matches = [c for c in plan["checks"] if c["id"] == check_id]
     if len(matches) != 1:
@@ -530,6 +530,7 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
                 argv[0] = sys.executable
             receipt["command"] = check["command"]  # Template only: no expanded credentials/paths.
             environment = separate_checkout_environment()
+            environment.update(extra_environment or {})
             environment.update({key: value.format_map(substitutions) for key, value in check.get("environment", {}).items()})
             if check.get('requireClassIdentity'):
                 # A clean Git checkout alone says nothing about ignored class files.
@@ -602,7 +603,7 @@ def evidence_files(check, directory):
     return sorted(files)
 
 
-def verify(plan_path, evidence: Path, artifact: Path, root=ROOT):
+def verify(plan_path, evidence: Path, artifact: Path, root=ROOT, *, target_package_hash=None):
     plan = load_plan(plan_path, root)
     source = source_identity(root)
     if not source["clean"]:
@@ -659,10 +660,14 @@ def verify(plan_path, evidence: Path, artifact: Path, root=ROOT):
             continue
         if receipt.get("command") != check.get("command") or check["kind"] == "external":
             raise EvidenceError("Receipt was not produced by its reviewed executable check")
-        if check.get('deploymentScope') and validate_lifecycle_inventory(read_json(path.parent / 'lifecycle.json'),
-                source, key[1], artifact_hash, path.parent, read_json, digest, check.get('lifecycleRoles'),
-                target_package_hash=receipt.get('targetPackageSha256')) != receipt.get('deployment'):
-            raise EvidenceError('Lifecycle installed-byte binding changed')
+        if check.get('deploymentScope'):
+            receipt_package_hash = receipt.get('targetPackageSha256')
+            if target_package_hash is not None and receipt_package_hash != target_package_hash:
+                raise EvidenceError('Lifecycle evidence belongs to a different candidate package')
+            if validate_lifecycle_inventory(read_json(path.parent / 'lifecycle.json'),
+                    source, key[1], artifact_hash, path.parent, read_json, digest, check.get('lifecycleRoles'),
+                    target_package_hash=receipt_package_hash) != receipt.get('deployment'):
+                raise EvidenceError('Lifecycle installed-byte binding changed')
         actual_inputs = {str(p.relative_to(path.parent)) for p in evidence_files(check, path.parent)}
         if actual_inputs != set(input_names):
             raise EvidenceError("Evidence file inventory changed")

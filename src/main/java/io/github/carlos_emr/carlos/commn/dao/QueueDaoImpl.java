@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.Query;
 
@@ -47,6 +48,11 @@ import org.springframework.stereotype.Repository;
 public class QueueDaoImpl extends AbstractDaoImpl<Queue> implements QueueDao {
     public QueueDaoImpl() {
         super(Queue.class);
+    }
+
+    @Override
+    public boolean lockExistingQueue(int id) {
+        return entityManager.find(Queue.class, id, LockModeType.PESSIMISTIC_READ) != null;
     }
 
     @Override

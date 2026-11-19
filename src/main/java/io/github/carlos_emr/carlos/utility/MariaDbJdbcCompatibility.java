@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
@@ -36,6 +37,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
+import org.mariadb.jdbc.util.options.OptionAliases;
 
 /** Translates installed Connector/J configuration before passing it to MariaDB Connector/J. */
 public final class MariaDbJdbcCompatibility {
@@ -145,6 +147,9 @@ public final class MariaDbJdbcCompatibility {
             "trustManagerFactoryProvider", "keyStoreProvider", "sslContextProvider");
     private static final Set<String> NATIVE_SECURITY_BOOLEANS = Set.of(ALLOW_LOCAL_INFILE,
             FALLBACK_TO_SYSTEM_KEY_STORE, FALLBACK_TO_SYSTEM_TRUST_STORE);
+    // Booleans this adapter reads or polices itself: a value outside true/false/yes/no/1/0 is refused
+    // here. Every other MariaDB Boolean option in legacy configuration is only given its field's
+    // spelling and has yes/no translated (#5969); MariaDB validates its other values.
     private static final Set<String> BOOLEAN_OPTIONS = Set.of(REQUIRE_SSL, VERIFY_SERVER_CERTIFICATE,
             "useOldAliasMetadataBehavior", TRANSFORMED_BIT_IS_BOOLEAN, PRESERVE_INSTANTS, PURE_LOCAL_DATE_TIME,
             "tinyInt1isBit", ALLOW_LOCAL_INFILE, "useInformationSchema", DNS_SRV, "useUnicode",
@@ -201,7 +206,9 @@ public final class MariaDbJdbcCompatibility {
         }
         Properties properties = parsed.properties();
         validateTlsSettings(properties);
-        if (Boolean.parseBoolean(properties.getProperty(DNS_SRV, FALSE))) throw invalid();
+        if (Boolean.parseBoolean(properties.getProperty(DNS_SRV, FALSE))) {
+            throw invalidOption(DNS_SRV, "DNS SRV is unsupported; configure an explicit host");
+        }
         // These differ between the drivers and affect existing clinical values and metadata.
         properties.putIfAbsent(TRANSFORMED_BIT_IS_BOOLEAN, FALSE);
         properties.putIfAbsent(PRESERVE_INSTANTS, "true");
@@ -444,6 +451,11 @@ public final class MariaDbJdbcCompatibility {
         if (legacyUseSsl) key = USE_SSL;
         if (BOOLEAN_OPTIONS.contains(key) || legacyUseSsl) {
             value = normalizedBoolean(properties, key, value);
+        } else if (properties.containsKey(LEGACY_MYSQL_SCHEME) && NativeBooleanOptions.fieldName(key) != null) {
+            // Connector/J matched names without regard to case and let the later source win. One stored
+            // spelling keeps that precedence; two would leave the choice to MariaDB's map iteration order.
+            key = NativeBooleanOptions.fieldName(key);
+            value = legacyYesNo(value);
         }
         if (asciiEquals(key, "allowLoadLocalInfileInPath") && !value.isEmpty()) throw invalid();
         if (key.equals(SSL_MODE)) {
@@ -459,7 +471,9 @@ public final class MariaDbJdbcCompatibility {
         }
         // MariaDB always uses UTF-8; accepting a different requested encoder would be silent data loss.
         if (key.equals("characterEncoding") && !asciiEquals(value, "UTF-8")
-                && !asciiEquals(value, "UTF8") && !asciiEquals(value, "utf8mb4")) throw invalid();
+                && !asciiEquals(value, "UTF8") && !asciiEquals(value, "utf8mb4")) {
+            throw invalidOption("characterEncoding", "use UTF-8, UTF8 or utf8mb4");
+        }
         if (key.equals("connectionCollation")) {
             putCollation(properties, key, value);
         } else {
@@ -490,15 +504,60 @@ public final class MariaDbJdbcCompatibility {
         };
     }
 
+    /**
+     * Connector/J accepted YES and NO, in any case, for every Boolean property. MariaDB accepts only
+     * true, false, 1, 0 or an empty value and refuses the whole connection otherwise (#5969). Other
+     * values are left unchanged so MariaDB keeps its own validation of them.
+     */
+    private static String legacyYesNo(String value) {
+        if (asciiEquals(value, "yes")) return "true";
+        if (asciiEquals(value, "no")) return FALSE;
+        return value;
+    }
+
+    /**
+     * MariaDB connection options backed by a Boolean setting, read from the driver so that a connector
+     * upgrade cannot leave a newly added option out. MariaDB resolves its alias table first, then
+     * matches {@code Configuration.Builder} fields by name without regard to case; this mirrors both
+     * steps. Loaded on first use so callers that only classify URLs do not need the driver's internals.
+     */
+    private static final class NativeBooleanOptions {
+        /** Every accepted spelling, ASCII lower case and aliases included, to the field it sets. */
+        private static final Map<String, String> FIELDS = load();
+
+        private NativeBooleanOptions() { }
+
+        /** The Builder field a spelling sets, or {@code null} when MariaDB does not parse it as Boolean. */
+        private static String fieldName(String key) {
+            return FIELDS.get(asciiLowerCase(key));
+        }
+
+        private static Map<String, String> load() {
+            Map<String, String> fields = new HashMap<>();
+            for (Field field : org.mariadb.jdbc.Configuration.Builder.class.getDeclaredFields()) {
+                if (field.getType() == Boolean.class) fields.put(asciiLowerCase(field.getName()), field.getName());
+            }
+            for (Map.Entry<String, String> alias : OptionAliases.OPTIONS_ALIASES.entrySet()) {
+                String target = fields.get(asciiLowerCase(alias.getValue()));
+                if (target != null) fields.put(asciiLowerCase(alias.getKey()), target);
+            }
+            return Map.copyOf(fields);
+        }
+    }
+
     /** Never silently replace an explicitly selected JSSE security implementation. */
     private static void validateTlsSettings(Properties properties) throws SQLException {
-        if (Boolean.parseBoolean(properties.getProperty(FIPS_COMPLIANT_JSSE, FALSE))) throw invalid();
+        if (Boolean.parseBoolean(properties.getProperty(FIPS_COMPLIANT_JSSE, FALSE))) {
+            throw invalidOption(FIPS_COMPLIANT_JSSE, "explicit FIPS JSSE selection is unsupported");
+        }
         String protocols = properties.getProperty(TLS_PROTOCOLS);
         if (protocols != null) properties.setProperty(TLS_PROTOCOLS, validatedTlsProtocols(protocols));
         String ciphers = properties.getProperty(TLS_CIPHERS);
         if (ciphers != null && !ciphers.isEmpty()) properties.setProperty(TLS_CIPHERS, validatedTlsCiphers(ciphers));
         for (String provider : UNSUPPORTED_TLS_PROVIDERS) {
-            if (!properties.getProperty(provider, "").isEmpty()) throw invalid();
+            if (!properties.getProperty(provider, "").isEmpty()) {
+                throw invalidOption(provider, "explicit JSSE provider selection is unsupported");
+            }
         }
         normalizeStorePaths(properties);
     }
@@ -567,7 +626,9 @@ public final class MariaDbJdbcCompatibility {
             properties.remove(key);
         } else {
             String normalized = asciiLowerCase(value);
-            if (!normalized.startsWith("utf8mb4_") || !normalized.matches("[a-z0-9_]+")) throw invalid();
+            if (!normalized.startsWith("utf8mb4_") || !normalized.matches("[a-z0-9_]+")) {
+                throw invalidOption("connectionCollation", "use a utf8mb4 collation");
+            }
             properties.setProperty(key, normalized);
         }
     }
@@ -762,5 +823,10 @@ public final class MariaDbJdbcCompatibility {
     /** Configuration errors must never echo connection credentials into application logs. */
     private static SQLException invalid() {
         return new SQLException("Invalid database connection configuration", "08001");
+    }
+
+    /** Called only with the fixed, recognized option names above, never request/URL text. */
+    private static SQLException invalidOption(String option, String requirement) {
+        return new SQLException("Invalid database connection configuration: option " + option + "; " + requirement, "08001");
     }
 }

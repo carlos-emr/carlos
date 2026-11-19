@@ -21,6 +21,7 @@ CRITICAL = {
 # Surefire's default JUnit 5 names distinguish both boolean invocations. Counts
 # alone cannot prove archive-failure or demographic-audit regressions executed.
 REQUIRED_CASES = {
+    "AuditLogPurgeMariaDbIntegrationTest": {'shouldUseLiveCredentials_whenApplicationUserHasQuotedPassword', 'shouldRestoreEveryDeletedValue_whenPurgingThroughTheLastInstantOfTheDay', 'shouldRetainRowsAndReleaseLocks_whenDumpFailsTimesOutOrOmitsRows', 'shouldSerializePurgesAndPreserveLateHistoricalRows_whenAnotherWriterRuns', 'shouldRetainBackedUpRows_whenAuditRecordingFailsBeforeDelete', 'shouldRetainCompletedBackupsAndReportFailure_whenALaterCohortFails', 'shouldRecordPurgeAuditWithoutBlocking_whenAllExistingRowsAreEligible'},
     "EncounterFormDaoGroupedHistoryIntegrationTest": {
         "shouldGroupPhysicalHistory_onTheNativeTable",
         "shouldRejectUnregisteredTableBeforeHistorySql_whenIdentifierIsOtherwiseValid",
@@ -40,9 +41,25 @@ REQUIRED_CASES = {
         'shouldRollbackEarlierNameAudits_whenLaterPatientEnrichmentFails',
     },
     "AppointmentUpdateDaoIntegrationTest": {
+        "shouldReuseReturnedVersion_whenEditEntersTheRepeatedHour",
         "shouldRefuseStoredPatient_beforeArchivalOrMutation",
+        "shouldRollbackArchiveAndMutation_whenFlushFails",
         "shouldRollbackArchiveAndEdit_whenReplacementPatientIsDenied",
+        "shouldRollbackFieldEditAndArchive_whenAuditFails",
         "shouldAllowAssignedPatientWrite_withoutReadPermission",
+    },
+    "AppointmentFieldAuditTransactionIntegrationTest": {
+        f"shouldRollBackFieldAndArchive_whenAuditDaoLookupFails(AppointmentUpdateAction)[{index}]"
+        for index in (1, 2, 3)
+    },
+    "JdbcConnectorMariaDbIntegrationTest": {
+        "shouldConnectAndApplyConnectorJYesNo_forLegacyBooleanOptions",
+        "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)[1]",
+        "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)[2]",
+        "shouldCheckFloatRange_inBothPreparedProtocols(boolean)[1]",
+        "shouldCheckFloatRange_inBothPreparedProtocols(boolean)[2]",
+        "shouldPreserveZeroFilledTextAndUnsignedTinyIntegers_inBothPreparedProtocols(boolean)[1]",
+        "shouldPreserveZeroFilledTextAndUnsignedTinyIntegers_inBothPreparedProtocols(boolean)[2]",
     },
     "ProgramAdmissionAuditMariaDbIntegrationTest": {
         "shouldRollbackReadAudits_whenALaterCheckedFailureEscapes",
@@ -156,8 +173,9 @@ REQUIRED_CASES = {
 # AbstractDaoFindAllOrderingIntegrationTest pins issue #5308 where it matters: MariaDB returns an
 # unordered page in secondary-index order, so its paging cases must execute on the physical server.
 # CaseManagementIssueDAO adds one duplicate-link case on the legacy Flyway schema only.
-REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
-                          "JdbcConnectorMariaDbIntegrationTest": 32,
+REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, "AuditLogPurgeMariaDbIntegrationTest": 7,
+                          "AppointmentUpdateDaoIntegrationTest": 19,**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
+                          "JdbcConnectorMariaDbIntegrationTest": 47,
                           "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1,
                           "AbstractDaoFindAllOrderingIntegrationTest": 6,
                           "CaseManagementIssueDAOIntegrationTest": 21,
@@ -181,7 +199,7 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, 
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
                           "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 2},
             "flyway": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6,
-                       "LegacyLabNativeMariaDbIntegrationTest": 7, "ConsultationArchiveDaoIntegrationTest": 1,
+                       "LegacyLabNativeMariaDbIntegrationTest": 8, "ConsultationArchiveDaoIntegrationTest": 1,
                        "ArchiveAuditTimestampIntegrationTest": 2,
                        "CaseManagementNoteLockMariaDbIntegrationTest": 15,
                        "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
@@ -200,7 +218,7 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, 
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
                        "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 2},
             "bc-flyway": {"FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementTransactionIntegrationTest": 2, "LabRoutingLookupDaoIntegrationTest": 6,
-                           "LegacyLabNativeMariaDbIntegrationTest": 7,
+                           "LegacyLabNativeMariaDbIntegrationTest": 8,
                            "ConsultationArchiveDaoIntegrationTest": 1,
                            "ArchiveAuditTimestampIntegrationTest": 2,
                            "CaseManagementNoteLockMariaDbIntegrationTest": 15,
@@ -208,7 +226,7 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, 
                            "BcBillingNativeMariaDbIntegrationTest": 22,
                            "FormXmlImportServiceIntegrationTest": 7,
                            "EFormApColumnLookupIntegrationTest": 2,
-                           "AppointmentDaySheetServiceIntegrationTest": 4,
+                           "AppointmentDaySheetServiceIntegrationTest": 5,
                            "AntenatalReportDaoIntegrationTest": 5,
                            "EFormGroupDaoIntegrationTest": 9,
                            "BcBillingDaoTransactionIntegrationTest": 4,
@@ -231,11 +249,13 @@ INBOX_CASES = (
     'shouldCountOnlyTheSelectedPatientLabs_andKeepZeroAndMissingPatientsUnmatched',
     'shouldCountDistinctPatientDocuments_andSeparateUnmatchedAndAcknowledgedRouting',
     'shouldCountDistinctHrmReports_byPatientProviderAndSignoffIndependentlyOfViewed',
+    'shouldCompareTheFiltersDateColumns_forLabAndDocumentBoundsOnPhysicalMariaDb',
 )
 INBOX_CLASS = 'io.github.carlos_emr.carlos.commn.dao.LegacyLabNativeMariaDbIntegrationTest'
 BC_PHYSICAL_CASES = {
     'io.github.carlos_emr.carlos.appointment.service.AppointmentDaySheetServiceIntegrationTest': (
-        'shouldReadPhysicalIdsAndEditVersions_beforeAcknowledgingNativeDaySheetRows',),
+        'shouldReadPhysicalIdsAndEditVersions_beforeAcknowledgingNativeDaySheetRows',
+        'shouldAcknowledgeOnlyRenderedVersions_whenRowsAreBookedOrEditedAfterPreview',),
     'io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingNativeMariaDbIntegrationTest': (
         'shouldRetainNumericTimeRules_fromPhysicalTinyintFlags',
         'shouldPreserveCharacterStatusAndCallerWrites_whenReadingCurrentBillState'),

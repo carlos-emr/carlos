@@ -26,7 +26,7 @@ import java.util.List;
  *   <li>Base64-encoded storage of email body and encrypted messages for security</li>
  *   <li>Support for multiple transaction types (eForm, consultation, tickler, direct)</li>
  *   <li>Attachment management with encryption support</li>
- *   <li>Status tracking (success, failed, resolved) for delivery monitoring</li>
+ *   <li>Status tracking for unconfirmed delivery and completed attempts</li>
  *   <li>Patient and provider associations for clinical context</li>
  *   <li>Chart display options for clinical note integration</li>
  *   <li>Password-protected encrypted messages with password clues</li>
@@ -56,7 +56,9 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
         /** Email failed to send due to an error */
         FAILED,
         /** Previously failed email was successfully resent or issue resolved */
-        RESOLVED
+        RESOLVED,
+        /** No result recorded yet. The send may be running or may have been interrupted. */
+        UNCONFIRMED
     }
 
     /**
@@ -295,7 +297,7 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
     /**
      * Gets the current delivery status of the email.
      * 
-     * @return EmailStatus the email delivery status (SUCCESS, FAILED, or RESOLVED)
+     * @return EmailStatus the email delivery status
      */
     public EmailStatus getStatus() {
         return status;

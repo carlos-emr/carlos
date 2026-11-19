@@ -77,6 +77,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleHolidayDao" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@page import="io.github.carlos_emr.carlos.schedule.web.ScheduleCalendarCache" %>
 <%
     ScheduleDateDao scheduleDateDao = SpringUtils.getBean(ScheduleDateDao.class);
     RScheduleDao rScheduleDao = (RScheduleDao) SpringUtils.getBean(RScheduleDao.class);
@@ -186,11 +187,9 @@
             rScheduleDao.persist(rs);
         }
 
-        //create scheduledate record and initial scheduleDateBean
-        scheduleDateBean.clear();
-        for (ScheduleDate sd : scheduleDateDao.search_scheduledate_c(request.getParameter("provider_no"))) {
-            scheduleDateBean.put(ConversionUtils.toDateString(sd.getDate()), new HScheduleDate(String.valueOf(sd.getAvailable()), String.valueOf(sd.getPriority()), sd.getReason(), sd.getHour(), sd.getCreator()));
-        }
+        // Load the provider's custom overrides into scheduleDateBean, recording whose they are so the
+        // date popup can refuse a provider whose calendar is no longer the one open here (#5297).
+        ScheduleCalendarCache.load(session, provider_no, scheduleDateDao.search_scheduledate_c(provider_no));
 
         //initial scheduleHolidayBean record
         if (scheduleHolidayBean.isEmpty()) {
@@ -239,6 +238,9 @@
 
 /////////////////////////////////////
 
+    // A date save that committed but could not read its change back marks scheduleDateBean stale;
+    // reload it, read-only, before drawing the month (#5297).
+    ScheduleCalendarCache.reloadIfStale(session, provider_no, scheduleDateDao);
 %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <%@page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>

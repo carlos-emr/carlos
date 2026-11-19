@@ -40,9 +40,12 @@ maintainer-script-calls-systemctl [postinst:*]
 # Keep the expression specific while allowing unrelated script edits to move it.
 possible-bashism-in-maintainer-script 'sys.stdin.read().strip()' [postinst:*]
 
-# Embedded Python in the MODERN_CHART_CUTOVER heredoc (#4793): a method call
-# whose dotted name checkbashisms reads as a function declaration.
-possible-bashism-in-maintainer-script 'configuration.flush()' [postinst:*]
+# Embedded Python in NGINX_DEFAULT_SITE: method calls checkbashisms mistakes
+# for shell function declarations. Each is inside the quoted python3 heredoc.
+possible-bashism-in-maintainer-script 'link.lstat()' [postinst:*]
+possible-bashism-in-maintainer-script 'link.unlink()' [postinst:*]
+possible-bashism-in-maintainer-script 'query.stdout.splitlines()' [postinst:*]
+possible-bashism-in-maintainer-script 'usedforsecurity=False).hexdigest()' [postinst:*]
 
 # The eForm renderer (folded in from the former carlos-emr-eform-renderer
 # package): an upstream Chromium build, unpacked under

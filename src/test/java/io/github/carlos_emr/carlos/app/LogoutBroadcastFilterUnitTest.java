@@ -94,6 +94,28 @@ class LogoutBroadcastFilterUnitTest {
     }
 
 
+    @ParameterizedTest
+    @ValueSource(strings = {"none", "writer", "stream"})
+    void shouldNotManufactureHeadBody_whenNoDownstreamChannelWasUsed(String channel) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("HEAD", "/gpl.htm");
+        request.getSession().setAttribute("user", "FAKE-5936");
+        MockHttpServletResponse response = spy(new MockHttpServletResponse());
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            res.setContentLength(4);
+            if ("writer".equals(channel)) res.getWriter().write("body");
+            if ("stream".equals(channel)) res.getOutputStream().write("body".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        });
+        if ("none".equals(channel)) {
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            verify(response).setHeader("Content-Length", null);
+        } else if ("writer".equals(channel)) {
+            assertThat(response.getContentAsString()).startsWith("body").contains("window.__carlosLogoutActive=true;");
+        } else {
+            assertThat(response.getContentAsString()).isEqualTo("body");
+        }
+    }
+
     @Test
     @DisplayName("should not inject twice across request and forward dispatches")
     void shouldNotInjectTwice_acrossRequestAndForwardDispatches() throws Exception {

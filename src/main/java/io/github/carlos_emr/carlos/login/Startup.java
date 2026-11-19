@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.login;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.config.PackagedConfigurationPreflight;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -104,28 +105,20 @@ public class Startup implements ServletContextListener {
                 // This has been used to look in the users home directory that started tomcat
                 p.readFromFile(propFileName);
                 logger.info("Loading application configuration");
+                String selectedOverride = System.getProperty("carlos_override_properties");
+                if (selectedOverride != null
+                        && !PathValidationUtils.resolveConfiguredFile(propFileName, "legacy home configuration").getCanonicalPath().equals(
+                                PathValidationUtils.resolveConfiguredFile(selectedOverride, "configured override").getCanonicalPath())) {
+                    logger.warn("Legacy home configuration {} loads after the explicit override {}; "
+                                    + "preserve the existing encryption key and back up the actual effective source.",
+                            LogSafe.sanitize(p.getConfigurationSource()), LogSafe.sanitize(selectedOverride));
+                }
             } catch (java.io.FileNotFoundException ex) {
                 logger.info("Configuration file not found");
             }
-            if (p.isEmpty()) {
-                /* if the file not found in the user root, look in the WEB-INF directory */
-                try {
-                    logger.info("looking up  /WEB-INF/" + propName);
-                    p.readFromFile("/WEB-INF/" + propName);
-                    logger.info("loading properties from /WEB-INF/" + propName);
-                } catch (java.io.FileNotFoundException e) {
-                    /*
-                     * No configuration in either location means the app has no DB connection and,
-                     * critically, no encryption key. Booting on would defer the failure to the first
-                     * PHI/credential operation. Fail fast at startup instead.
-                     */
-                    throw new IllegalStateException("Configuration file " + propName
-                            + " not found in user home or WEB-INF; refusing to start.", e);
-                } catch (Exception e) {
-                    throw new IllegalStateException("Failed to read configuration file " + propName
-                            + "; refusing to start.", e);
-                }
-            }
+            // Bundled defaults are mandatory and already loaded by CarlosProperties.
+            // The old p.isEmpty()/WEB-INF branch was unreachable; /WEB-INF is not
+            // a filesystem/classpath fallback. Keep explicit override -> home order.
             try {
                 // Specify who will see new casemanagement screen
                 ArrayList<String> listUsers;
@@ -150,11 +143,13 @@ public class Startup implements ServletContextListener {
 			// 	Ensure that a secret key for encryption is available when OSCAR starts, either by retrieving a
 			// 	previously saved key or generating a new one and storing it for future use.
 			String secretKey = p.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
+			PackagedConfigurationPreflight.requireVerifiedKey(secretKey);
 			if (Objects.isNull(secretKey) || secretKey.isBlank()) {
 				try {
 					secretKey = p.getOrCreateEncryptionKey();
 					p.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
-					logger.info("Secret Key initialized in persisted configuration...");
+					logger.info("Secret Key initialized in persisted configuration {}; include this file in backups.",
+							LogSafe.sanitize(p.getConfigurationSource()));
 				} catch (IOException | NoSuchAlgorithmException e) {
 					/*
 					 * A usable encryption key is mandatory: it protects stored PHI and provider
@@ -162,7 +157,7 @@ public class Startup implements ServletContextListener {
 					 * failure to the first credential save (an opaque runtime error for clinicians).
 					 */
 					throw new IllegalStateException("Unable to generate and persist a new encryption key at startup: "
-							+ e.getMessage(), e);
+							+ e.getMessage() + "; refusing to start", e);
 				}
 			} else {
 				logger.info("Using existing Secret Key...");

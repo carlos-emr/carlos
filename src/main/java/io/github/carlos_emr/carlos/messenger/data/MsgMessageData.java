@@ -363,7 +363,12 @@ public class MsgMessageData {
      * @return {@code true} for no records, or records that fit {@link MessageTbl#PDF_ATTACHMENT_MAX_BYTES} when stored
      */
     public static boolean pdfAttachmentFits(String pdfRecords) {
-        return pdfRecords == null || MessageTbl.pdfAttachmentFits(quotedPdfRecords(pdfRecords));
+        return pdfAttachmentStorageBytes(pdfRecords) <= MessageTbl.PDF_ATTACHMENT_MAX_BYTES;
+    }
+
+    /** Returns the UTF-8 byte count of the staged records after quoting them for storage. */
+    public static int pdfAttachmentStorageBytes(String pdfRecords) {
+        return pdfRecords == null ? 0 : quotedPdfRecords(pdfRecords).getBytes(StandardCharsets.UTF_8).length;
     }
 
     /** The one place the records are quoted, so that what is checked and what is stored cannot differ. */

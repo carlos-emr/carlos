@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "0fe1f7d5659aa09558feb3b3a02dd10241e29f98",
+  "comparisonSha256": "ff8b82bf2f889bf03be7aa75124e1b697117c17c5279c07a39896b0204645b8b",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/demographic/DemographicCustomFieldSelect.java": {
+      "lines": 94.61538461538461,
+      "instructions": 97.4124809741248,
+      "branches": 81.35593220338983,
+      "sourceBlob": "d409a388704ab56249df507829e7c9ae160f80f9"
+    }
+  },
+  "baselineCommit": "818b916ac4e8eb22fc618cdf94639ff64f334048",
+  "baselineSourceTree": "0fe1f7d5659aa09558feb3b3a02dd10241e29f98",
+  "baselineReportSha256": "bb1281f53ead573ab891b748559ee1a5131bd8c68faba36e6bdbcd109d50cb05",
+  "baselineLane": "Custom-field rendered selects, edit versions and demographic updates (56 tests)",
+  "baselineTestCounts": {
+    "tests": 56,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "cb16bdbc163b871f4c8bc12eb0211d4fe72c615fbda44be5ef1945f03e8a84b8",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.demographic.DemographicCustomFieldSelectUnitTest",
+    "io.github.carlos_emr.carlos.demographic.pageUtil.DemographicEditVersionUnitTest",
+    "io.github.carlos_emr.carlos.demographic.pageUtil.DemographicUpdate2ActionStaleFormUnitTest"
+  ]
+}
