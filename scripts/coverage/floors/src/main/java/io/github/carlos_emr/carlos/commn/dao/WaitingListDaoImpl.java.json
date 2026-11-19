@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/WaitingListDaoImpl.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 75.0,
+    "instructions": 76.19047619047619,
+    "branches": 100.0,
+    "sourceBlob": "03c0e5627e7760bd8f4e3ccd57dfba20ef6faafc"
+  },
+  "evidenceSha256": "58506af9e84fe1e0a9ae4b59145540cb50d1f5033bf9e449dc799d29f0ca69f4"
+}
