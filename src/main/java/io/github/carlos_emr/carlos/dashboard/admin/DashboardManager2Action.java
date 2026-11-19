@@ -138,38 +138,16 @@ public class DashboardManager2Action extends ActionSupport {
                 response.sendError(HttpServletResponse.SC_CONFLICT);
                 return NONE;
             }
-        } else {
-            String name = request.getParameter("name");
-            String description = request.getParameter("description");
-            name = name == null ? "" : name.trim();
-            description = description == null ? "" : description.trim();
-            request.setAttribute("dashboardName", name);
-            request.setAttribute("dashboardDescription", description);
-            if (name.isEmpty() || name.codePointCount(0, name.length()) > 255
-                    || description.codePointCount(0, description.length()) > 255) {
-                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                request.setAttribute("dashboardManagerError", "dashboard.dashboardmanager.invalid");
-                return SUCCESS;
-            }
-            // Pass only editable fields to the manager; never mutate a loaded entity in the action.
-            Dashboard dashboard = new Dashboard();
-            dashboard.setId(selected == null ? null : selected.getId());
-            dashboard.setName(name);
-            dashboard.setDescription(description);
-            if (selected == null) {
-                return createDashboard(request, response, loggedInInfo, dashboard);
-            }
-            if (!dashboardManager.addDashboard(loggedInInfo, dashboard, revision)) {
-                response.setStatus(HttpServletResponse.SC_CONFLICT);
-                request.setAttribute("dashboardManagerError", "dashboard.dashboardmanager.saveFailed");
-                return SUCCESS;
-            }
+            return redirectToDashboardList(request, response);
         }
-        return redirectToDashboardList(request, response);
+        if (selected == null) {
+            return createDashboard(request, response, loggedInInfo);
+        }
+        return saveDashboard(request, response, loggedInInfo, selected.getId(), revision, null);
     }
 
-    private String createDashboard(HttpServletRequest request, HttpServletResponse response, LoggedInInfo loggedInInfo,
-            Dashboard dashboard) throws IOException {
+    private String createDashboard(HttpServletRequest request, HttpServletResponse response, LoggedInInfo loggedInInfo)
+            throws IOException {
         FormSubmissionGuard.Attempt attempt = FormSubmissionGuard.attempt(request.getSession(),
                 request.getParameter(FormSubmissionGuard.PARAMETER), FormSubmissionGuard.Scope.DASHBOARD_CREATE,
                 null, FormSubmissionGuard.DEFAULT_WAIT_MILLIS);
@@ -177,19 +155,48 @@ public class DashboardManager2Action extends ActionSupport {
             return redirectToDashboardList(request, response);
         }
         if (attempt.verdict() != FormSubmissionGuard.Verdict.PROCEED) {
-            response.sendError(HttpServletResponse.SC_CONFLICT);
-            return NONE;
+            return FormSubmissionGuard.refuse(request, response, attempt.verdict());
         }
         try (FormSubmissionGuard.Claim claim = attempt.claim()) {
-            claim.storageStarted();
-            if (!dashboardManager.addDashboard(loggedInInfo, dashboard)) {
-                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                request.setAttribute("dashboardManagerError", "dashboard.dashboardmanager.saveFailed");
-                return SUCCESS;
-            }
-            claim.saved(MANAGER_PATH);
+            return saveDashboard(request, response, loggedInInfo, null, null, claim);
         }
-        return redirectToDashboardList(request, response);
+    }
+
+    private String saveDashboard(HttpServletRequest request, HttpServletResponse response, LoggedInInfo loggedInInfo,
+            Integer dashboardId, String revision, FormSubmissionGuard.Claim claim) throws IOException {
+        String name = request.getParameter("name");
+        String description = request.getParameter("description");
+        name = name == null ? "" : name.trim();
+        description = description == null ? "" : description.trim();
+        request.setAttribute("dashboardName", name);
+        request.setAttribute("dashboardDescription", description);
+        if (name.isEmpty() || name.codePointCount(0, name.length()) > 255
+                || description.codePointCount(0, description.length()) > 255) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            request.setAttribute("dashboardManagerError", "dashboard.dashboardmanager.invalid");
+            return SUCCESS;
+        }
+
+        // Pass only editable fields to the manager; never mutate a loaded entity in the action.
+        Dashboard dashboard = new Dashboard();
+        dashboard.setId(dashboardId);
+        dashboard.setName(name);
+        dashboard.setDescription(description);
+        if (claim != null) {
+            claim.storageStarted();
+            if (dashboardManager.addDashboard(loggedInInfo, dashboard)) {
+                claim.saved(MANAGER_PATH);
+                return redirectToDashboardList(request, response);
+            }
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        } else {
+            if (dashboardManager.addDashboard(loggedInInfo, dashboard, revision)) {
+                return redirectToDashboardList(request, response);
+            }
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+        }
+        request.setAttribute("dashboardManagerError", "dashboard.dashboardmanager.saveFailed");
+        return SUCCESS;
     }
 
     @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNVALIDATED_REDIRECT",

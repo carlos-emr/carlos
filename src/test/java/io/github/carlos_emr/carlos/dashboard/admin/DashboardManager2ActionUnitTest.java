@@ -217,8 +217,9 @@ class DashboardManager2ActionUnitTest {
         request.setParameter("operation", "save");
         request.setParameter("name", "New dashboard");
 
-        assertThat(execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(execute()).isEqualTo(FormSubmissionGuard.REFUSED_RESULT);
         assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
         verify(manager, never()).addDashboard(any(), any());
     }
 
@@ -258,6 +259,7 @@ class DashboardManager2ActionUnitTest {
         request.setMethod("POST");
         request.setParameter("operation", "save");
         request.setParameter("name", "oversize".equals(name) ? "x".repeat(256) : name);
+        issueCreateToken();
         assertThat(execute()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(request.getAttribute("dashboardManagerError")).isNotNull();
@@ -270,6 +272,7 @@ class DashboardManager2ActionUnitTest {
         request.setMethod("POST");
         request.setParameter("operation", "save");
         request.setParameter("name", "Valid");
+        issueCreateToken();
         request.setParameter("description", "x".repeat(256));
         execute();
         assertThat(response.getStatus()).isEqualTo(400);
