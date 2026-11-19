@@ -12802,6 +12802,29 @@
       "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two notes written and signed through the chart's note editor, and the casemgmt_issue row plus its casemgmt_issue_notes link written with SQL for the first note (a fixture isolates filtering from the separately tested assignment controls). Cleanup deletes by the patient key every note (with its link, extension and issue rows), casemgmt_issue row, CPP summary (casemgmt_cpp), draft, note lock and eChart row of the patient and asserts them all gone. The catalog issue (CTCMM1000 'Safety') is only read. No clinic-wide state is changed."
     },
     {
+      "name": "echart-queued-issue-mutations",
+      "script": "scripts/echart-issues-filter-playwright-checks.js",
+      "envSet": {
+        "ECHART_ISSUES_PIN": "queued"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "ECHART_ISSUES_PIN"
+      ],
+      "mutates": [
+        "log"
+      ],
+      "notes": "Queues native status and delete clicks while a CPP-triggered issue-editor refresh is delayed. The refresh changes the checklist order. Verifies the persisted status flags on the first two issues, the last repeated choice, and deletion of the third issue.",
+      "fixtures": "An owned FAKE patient with three synthetic catalog issues and three associated patient issues. Saves one Social History CPP note. Cleanup removes the owned issues, catalog entries, notes, links, summary, drafts and locks."
+    },
+    {
       "name": "inbox-file-forward",
       "script": "scripts/inbox-file-forward-playwright-checks.js",
       "tiers": [
