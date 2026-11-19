@@ -28,8 +28,13 @@ const { settle, shownRows } = require('./inboxhub-filters-playwright-checks');
 const TIMEOUT = 60000;
 const START = '2026-04-01';
 const END = '2026-04-30';
-const PREFERENCE = "name='inboxDateSearchType'";
+const PREFERENCE = 'inboxDateSearchType';
 const SERVICE = 'DATEMODE';
+
+// Every value reaches MariaDB as a bound parameter (sql.* with a parameter array, one statement per call);
+// only fixed SQL and generated `?` lists are ever part of the statement text.
+const placeholders = ids => ids.map(() => '?').join(',');
+const positiveIds = ids => ids.filter(id => /^[1-9]\d*$/.test(String(id))).map(Number);
 
 // Each item is inside April by exactly one of its two dates. Document receipt times stay off the window's
 // edges: the Inbox Hub document list binds its End Date as that day's midnight while the counts include the
@@ -65,32 +70,33 @@ function guardDatePreference(s) {
   // sql.rows() reads the text 'NULL' as JavaScript null, so a SQL NULL value is carried by a separate
   // `value IS NULL` flag rather than a 'NULL' sentinel in the hex column.
   const snapshot = () => sql.rows(`SELECT id, IFNULL(HEX(value),''), value IS NULL FROM SystemPreferences
-    WHERE ${PREFERENCE} ORDER BY id`);
+    WHERE name=? ORDER BY id`, [PREFERENCE]);
   const previous = snapshot();
   for (const [id, hex, isNull] of previous) {
     h.assert(/^\d+$/.test(id) && /^[0-9A-F]*$/i.test(hex || '') && (isNull === '0' || isNull === '1'),
       'Unexpected preference snapshot');
   }
   s.cleanup(() => {
-    const kept = previous.map(([id]) => id);
-    sql.execute(`DELETE FROM SystemPreferences WHERE ${PREFERENCE}${kept.length ? ` AND id NOT IN (${kept.join(',')})` : ''}`);
+    const kept = previous.map(([id]) => Number(id));
+    sql.execute(`DELETE FROM SystemPreferences WHERE name=?${kept.length ? ` AND id NOT IN (${placeholders(kept)})` : ''}`,
+      [PREFERENCE, ...kept]);
     for (const [id, hex, isNull] of previous) {
-      sql.execute(`UPDATE SystemPreferences SET value=${isNull === '1' ? 'NULL' : `UNHEX('${hex || ''}')`} WHERE id=${id} AND ${PREFERENCE}`);
+      if (isNull === '1') sql.execute('UPDATE SystemPreferences SET value=NULL WHERE id=? AND name=?', [Number(id), PREFERENCE]);
+      else sql.execute('UPDATE SystemPreferences SET value=UNHEX(?) WHERE id=? AND name=?', [hex || '', Number(id), PREFERENCE]);
     }
     h.assert(JSON.stringify(snapshot()) === JSON.stringify(previous),
       'inboxDateSearchType was not restored to its state before the check');
   });
   if (!previous.length) {
-    const inserted = sql.value(`INSERT INTO SystemPreferences (name,value,updateDate)
-      VALUES ('inboxDateSearchType','serviceObservation',NOW()); SELECT LAST_INSERT_ID()`);
-    h.assert(/^[1-9]\d*$/.test(inserted), 'Date preference fixture was not inserted');
+    h.insertId(sql, 'INSERT INTO SystemPreferences (name,value,updateDate) VALUES (?,?,NOW())', 'date preference',
+      [PREFERENCE, 'serviceObservation']);
   }
-  return value => sql.execute(`UPDATE SystemPreferences SET value=${h.sqlString(value)} WHERE ${PREFERENCE}`);
+  return value => sql.execute('UPDATE SystemPreferences SET value=? WHERE name=?', [value, PREFERENCE]);
 }
 
 async function workflow(s) {
   const { sql, marker, patient, provider } = s;
-  const q = h.sqlString;
+  const patientNo = Number(patient);
   const surname = marker.slice(0, 30);
   const docs = {};
   const labs = {};
@@ -99,49 +105,56 @@ async function workflow(s) {
 
   s.cleanup(() => {
     // Captured ids plus every row carrying this run's marker: a timed-out mysql call can commit an INSERT
-    // before sql.value returns its id, and such a row must still be removed with its links.
-    const owned = (captured, query) => [...new Set([...captured, ...sql.rows(query).map(([id]) => id)])]
-      .filter(id => /^[1-9]\d*$/.test(String(id)));
-    const docIds = owned(Object.values(docs), `SELECT document_no FROM document WHERE docdesc=${q(marker)}`);
-    const labIds = owned(Object.values(labs), `SELECT lab_id FROM hl7TextMessage WHERE serviceName=${q(SERVICE)} AND message=${q(marker)}`);
+    // before sql.insertId returns its id, and such a row must still be removed with its links.
+    const owned = (captured, query, parameters) => positiveIds([...new Set([...captured,
+      ...sql.rows(query, parameters).map(([id]) => id)])]);
+    const docIds = owned(Object.values(docs), 'SELECT document_no FROM document WHERE docdesc=?', [marker]);
+    const labIds = owned(Object.values(labs), 'SELECT lab_id FROM hl7TextMessage WHERE serviceName=? AND message=?',
+      [SERVICE, marker]);
     if (docIds.length) {
-      sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='DOC' AND lab_no IN (${docIds.join(',')});
-        DELETE FROM ctl_document WHERE module='demographic' AND module_id=${patient} AND document_no IN (${docIds.join(',')});
-        DELETE FROM document WHERE document_no IN (${docIds.join(',')}) AND docdesc=${q(marker)}`);
+      const ids = placeholders(docIds);
+      sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='DOC' AND lab_no IN (${ids})`, docIds);
+      sql.execute(`DELETE FROM ctl_document WHERE module='demographic' AND module_id=? AND document_no IN (${ids})`,
+        [patientNo, ...docIds]);
+      sql.execute(`DELETE FROM document WHERE document_no IN (${ids}) AND docdesc=?`, [...docIds, marker]);
     }
     if (labIds.length) {
-      sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${labIds.join(',')});
-        DELETE FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${labIds.join(',')});
-        DELETE FROM hl7TextInfo WHERE lab_no IN (${labIds.join(',')}) AND last_name=${q(surname)};
-        DELETE FROM hl7TextMessage WHERE lab_id IN (${labIds.join(',')}) AND serviceName=${q(SERVICE)}`);
+      const ids = placeholders(labIds);
+      sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${ids})`, labIds);
+      sql.execute(`DELETE FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${ids})`, labIds);
+      sql.execute(`DELETE FROM hl7TextInfo WHERE lab_no IN (${ids}) AND last_name=?`, [...labIds, surname]);
+      sql.execute(`DELETE FROM hl7TextMessage WHERE lab_id IN (${ids}) AND serviceName=?`, [...labIds, SERVICE]);
     }
-    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM document WHERE docdesc=${q(marker)})
-      + (SELECT COUNT(*) FROM hl7TextInfo WHERE last_name=${q(surname)})
-      + (SELECT COUNT(*) FROM hl7TextMessage WHERE serviceName=${q(SERVICE)} AND message=${q(marker)})`) === '0',
-    'Owned inbox fixtures were not removed');
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM document WHERE docdesc=?)
+      + (SELECT COUNT(*) FROM hl7TextInfo WHERE last_name=?)
+      + (SELECT COUNT(*) FROM hl7TextMessage WHERE serviceName=? AND message=?)`,
+    [marker, surname, SERVICE, marker]) === '0', 'Owned inbox fixtures were not removed');
   });
 
   // UI-created patients carry an empty health number; the runWorkflow fixture leaves it NULL. Give the owned
   // patient the empty HIN so the patient search judges dates only.
-  sql.execute(`UPDATE demographic SET hin='' WHERE demographic_no=${patient} AND last_name=${q(marker)}`);
+  sql.execute('UPDATE demographic SET hin=? WHERE demographic_no=? AND last_name=?', ['', patientNo, marker]);
   for (const [name, dates] of Object.entries(DOCUMENTS)) {
-    docs[name] = sql.value(`INSERT INTO document (doctype,docdesc,docfilename,doccreator,responsible,status,contenttype,public1,number_of_pages,restrictToProgram,observationdate,updatedatetime,contentdatetime)
-      VALUES ('lab',${q(marker)},${q(`${marker}-${name}.pdf`)},${q(provider)},${q(provider)},'A','application/pdf',0,1,0,${q(dates.observed)},${q(dates.created)},${q(dates.created)});
-      SELECT LAST_INSERT_ID()`);
-    h.assert(/^[1-9]\d*$/.test(docs[name]), `Document fixture ${name} was not inserted`);
-    sql.execute(`INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('demographic',${patient},${docs[name]},'A');
-      INSERT INTO providerLabRouting (provider_no,lab_no,lab_type,status) VALUES (${q(provider)},${docs[name]},'DOC','N')`);
+    docs[name] = h.insertId(sql, `INSERT INTO document (doctype,docdesc,docfilename,doccreator,responsible,status,contenttype,public1,number_of_pages,restrictToProgram,observationdate,updatedatetime,contentdatetime)
+      VALUES ('lab',?,?,?,?,'A','application/pdf',0,1,0,?,?,?)`, `document ${name}`,
+    [marker, `${marker}-${name}.pdf`, provider, provider, dates.observed, dates.created, dates.created]);
+    sql.execute(`INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('demographic',?,?,'A')`,
+      [patientNo, Number(docs[name])]);
+    sql.execute(`INSERT INTO providerLabRouting (provider_no,lab_no,lab_type,status) VALUES (?,?,'DOC','N')`,
+      [provider, Number(docs[name])]);
   }
   for (const [name, dates] of Object.entries(LABS)) {
-    const id = sql.value(`INSERT INTO hl7TextMessage (fileUploadCheck_id,message,type,serviceName,created)
-      VALUES (0,${q(marker)},'PATHL7',${q(SERVICE)},${q(dates.created)}); SELECT LAST_INSERT_ID()`);
-    h.assert(/^[1-9]\d*$/.test(id), `Lab message fixture ${name} was not inserted`);
+    const id = h.insertId(sql, `INSERT INTO hl7TextMessage (fileUploadCheck_id,message,type,serviceName,created)
+      VALUES (0,?,'PATHL7',?,?)`, `lab message ${name}`, [marker, SERVICE, dates.created]);
     labs[name] = id;
     sql.execute(`INSERT INTO hl7TextInfo (lab_no,sex,health_no,result_status,final_result_count,obr_date,priority,requesting_client,discipline,last_name,first_name,report_status,accessionNum,label)
-      VALUES (${id},'F','',NULL,1,${q(dates.observed)},'R','','DATEMODE',${q(surname)},'Datemode','F',${q(`${marker}-${name}`)},${q(name)});
-      INSERT INTO providerLabRouting (provider_no,lab_no,lab_type,status) VALUES (${q(provider)},${id},'HL7','N');
-      INSERT INTO patientLabRouting (demographic_no,lab_no,lab_type,created) VALUES (${patient},${id},'HL7',NOW())`);
-    h.assert(sql.value(`SELECT created FROM hl7TextMessage WHERE lab_id=${id}`) === dates.created,
+      VALUES (?,'F','',NULL,1,?,'R','','DATEMODE',?,'Datemode','F',?,?)`,
+    [Number(id), dates.observed, surname, `${marker}-${name}`, name]);
+    sql.execute(`INSERT INTO providerLabRouting (provider_no,lab_no,lab_type,status) VALUES (?,?,'HL7','N')`,
+      [provider, Number(id)]);
+    sql.execute(`INSERT INTO patientLabRouting (demographic_no,lab_no,lab_type,created) VALUES (?,?,'HL7',NOW())`,
+      [patientNo, Number(id)]);
+    h.assert(sql.value('SELECT created FROM hl7TextMessage WHERE lab_id=?', [Number(id)]) === dates.created,
       `Lab fixture ${name} did not preserve its receipt time`);
   }
 
