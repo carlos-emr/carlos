@@ -35,6 +35,9 @@ class DemographicProviderReassignmentTransactionIntegrationTest extends CarlosTe
         io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator.generateTestDataForModelClass(patient);
         patient.setFirstName("FAKE");patient.setLastName("FAKE-REASSIGN");
         patient.setYearOfBirth("1980");patient.setMonthOfBirth("01");patient.setDateOfBirth("02");
+        // Two columns: getPrefName() answers the alias when there is one, so a copy made through
+        // the bean properties used to carry the alias into pref_name.
+        patient.setPrefName("FAKE-PREF");patient.setAlias("FAKE-ALIAS");
         patient.setProviderNo("999998");entityManager.persist(patient);entityManager.flush();
         int id = patient.getDemographicNo();
         DemographicExt resident = new DemographicExt("999998",id,"resident","999998");
@@ -64,6 +67,10 @@ class DemographicProviderReassignmentTransactionIntegrationTest extends CarlosTe
                 .setParameter("id",id).getResultList()).containsExactly("999998");
         entityManager.clear();
         assertThat(patients.getDemographicById(id).getProviderNo()).isEqualTo("999997");
+        assertThat(entityManager.createNativeQuery("select pref_name from demographic where demographic_no = ?1")
+                .setParameter(1,id).getSingleResult()).as("the stored preferred name").isEqualTo("FAKE-PREF");
+        assertThat(entityManager.createNativeQuery("select alias from demographic where demographic_no = ?1")
+                .setParameter(1,id).getSingleResult()).as("the stored alias").isEqualTo("FAKE-ALIAS");
         assertThat(extensions.find(resident.getId()).getValue()).isEqualTo("999997");
     }
 }

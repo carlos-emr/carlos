@@ -26,13 +26,23 @@ that is not one of this patient's stored extensions (`DEMOGRAPHIC_EXTENSION_NOT_
 the id alone could re-point another patient's extension to this patient), and a
 waiting list on which the patient has no current entry (`WAITING_LIST_ENTRY_NOT_FOUND`; the
 patient was saved and the waiting-list note dropped without an error, or, when the entry
-had been removed through the application, the patient was put back on the list). Every extension
+had been removed through the application or carried no history flag, the patient was given
+a current entry on the list). Every extension
 is saved under the patient being updated, whatever patient number the request gives it.
+An update that names a waiting list now locks that list's current entries until it is
+saved. When another update of the same list is in progress or has just changed them, the
+request is refused with HTTP 409 `WAITING_LIST_CHANGED` and nothing is saved.
 Integrations that send extension ids or a waiting-list id should reload the patient on
 these codes.
 
 An Ontario OBEC response that invalidates a health-card version code now archives the
 patient with the code that was replaced; the archive row used to hold the `##` marker.
+
+Reassigning patients to another MRP (Administration, Update Demographic Provider) no
+longer replaces a patient's stored preferred name with the alias. The reassignment
+updates from a copy of the patient, and the copy took the name shown, which is the alias
+when one is set, as the preferred name. Preferred names replaced this way are not
+restored by the upgrade.
 
 ## Note lock recovery
 
