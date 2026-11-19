@@ -119,6 +119,12 @@ public class CaseManagementPrint {
     private boolean leaveOutLockedNotes;
 
     /**
+     * Archived notes, and CPP entries the CPP sections leave out, are left out of the notes body
+     * ({@link #leaveOutArchivedAndHiddenNotes()}).
+     */
+    private boolean leaveOutArchivedAndHiddenNotes;
+
+    /**
      * The most bytes the finished PDF may have ({@link #limitCompletePdfBytes}); no limit unless a caller
      * sets one, so the chart's own Print is unchanged.
      */
@@ -151,6 +157,18 @@ public class CaseManagementPrint {
      */
     public void leaveOutLockedNotes() {
         this.leaveOutLockedNotes = true;
+    }
+
+    /**
+     * Leaves out of the notes body what the chart does not show as a current note: archived notes, and
+     * every CPP entry the CPP sections leave out (archived, locked, or hidden with "Hide Cpp"). Without
+     * it such an entry is not in its CPP section, so it falls through into the notes body, as the
+     * chart's own Print All has always printed it. The Messenger attachment of a patient's chart notes,
+     * sent to a third party as "current" notes, uses this (#5856); it asks for the CPP, which is
+     * where those entries are recognised.
+     */
+    public void leaveOutArchivedAndHiddenNotes() {
+        this.leaveOutArchivedAndHiddenNotes = true;
     }
 
     /**
@@ -265,6 +283,9 @@ public class CaseManagementPrint {
         if (leaveOutLockedNotes) {
             notes = notes.stream().filter(note -> !note.isLocked()).collect(Collectors.toList());
         }
+        if (leaveOutArchivedAndHiddenNotes) {
+            notes = notes.stream().filter(note -> !note.isArchived()).collect(Collectors.toList());
+        }
 
         // we're not guaranteed any ordering of notes given to us, so sort by observation date
         CarlosProperties p = CarlosProperties.getInstance();
@@ -286,6 +307,8 @@ public class CaseManagementPrint {
         HashMap<String, List<CaseManagementNote>> cpp = null;
         if (printCPP) {
             cpp = new HashMap<>();
+            // Every CPP entry of the patient, printed in its section or left out of it.
+            Set<Long> allCppIds = new HashSet<>();
             String[] issueCodes = {"OMeds", "SocHistory", "MedHistory", "Concerns", "Reminders", "FamHistory", "RiskFactors"};
             for (String issueCode : issueCodes) {
                 List<Issue> issues = caseManagementMgr.getIssueInfoByCode(providerNo, issueCode);
@@ -293,6 +316,7 @@ public class CaseManagementPrint {
                 tmpNotes = readableNotes(loggedInInfo, caseManagementMgr.getNotes(demono, issueIds), program);
                 issueNotes = new ArrayList<>();
                 for (CaseManagementNote tmpNote : tmpNotes) {
+                    allCppIds.add(tmpNote.getId());
                     if (!tmpNote.isLocked() && !tmpNote.isArchived()) {
                         List<CaseManagementNoteExt> exts = caseManagementMgr.getExtByNote(tmpNote.getId());
                         boolean exclude = false;
@@ -313,7 +337,10 @@ public class CaseManagementPrint {
             // CPP notes already rendered in their sections must not repeat in the notes body.
             Set<Long> printedCppIds = cpp.values().stream().flatMap(Collection::stream)
                     .map(CaseManagementNote::getId).collect(Collectors.toSet());
-            notes.removeIf(note -> printedCppIds.contains(note.getId()));
+            // A CPP entry left out of its section (archived, locked, "Hide Cpp") stays in the body of the
+            // chart's own print; the Messenger attachment leaves it out too.
+            Set<Long> notInBody = leaveOutArchivedAndHiddenNotes ? allCppIds : printedCppIds;
+            notes.removeIf(note -> notInBody.contains(note.getId()));
         }
         String demoNo = null;
         List<CaseManagementNote> othermeds = null;
