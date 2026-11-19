@@ -9,9 +9,9 @@
     },
     {
       "check": "admin-issue-editor",
-      "finding": 331,
-      "step": "Issue Editor adds a coded issue and lists it",
-      "disposition": "required installed retake; blocks release readiness"
+      "finding": 362,
+      "step": "the refused duplicate shows \"Issue code already exists.\" on the form",
+      "disposition": "Required installed retake; blocks release readiness. After the CSRF repair, native creation, chart assignment, duplicate-row refusal and GET refusal pass, but the duplicate-code error message remains absent (finding362, #5479 item6). The broader check stays a failure; the isolated Save/Cancel/CSRF check must pass."
     },
     {
       "check": "admin-api-keygen",
@@ -78,12 +78,6 @@
       "finding": 82,
       "step": "saving the same patient into the same set twice retains one membership",
       "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "appointment-email-option",
-      "finding": 329,
-      "step": "requested reminder has an implemented and visible persisted outcome",
-      "disposition": "required installed retake; blocks release readiness"
     }
   ],
   "retiredNodeTodos": [
@@ -114,6 +108,12 @@
     }
   ],
   "retiredBrowserExpectations": [
+    {
+      "check": "appointment-email-option",
+      "finding": 329,
+      "step": "requested reminder has an implemented and visible persisted outcome",
+      "disposition": "Source fix for #5887 removes the option until appointment reminder delivery is implemented. The updated installed check exercises Add and Edit with the legacy setting enabled and verifies the appointment writes. A fresh installed PASS is still required."
+    },
     {
       "check": "echart-forms-list-paging",
       "finding": 335,
@@ -197,6 +197,12 @@
       "finding": 323,
       "step": "every dose unit and route the catalogue prefills is shown by the Add Prevention form as given",
       "disposition": "Source fix for issue #5432: the Add Prevention form maps each catalogue route and dose unit to its own code (PreventionFormCodes) and shows any other value as given. Manifest pin retired and retained as an active regression. PASS on a local release/2026.08 server build (2026-11-11); a fresh installed PASS is still required."
+    },
+    {
+      "check": "admin-issue-editor",
+      "finding": 331,
+      "step": "Issue Editor adds a coded issue and lists it",
+      "disposition": "Fixed for #6078 in release PR6258, adapted from PR6116. The isolated admin-issue-editor-save active regression verifies Save/Cancel tokens and token-less POST refusal. Strict exact-JSP component PASS on Ubuntu26.04 (11.828s), zero residue and byte-exact JSP/property restoration. New combined DEB and integrated release retake remain required."
     },
     {
       "check": "chart-informed-consent",

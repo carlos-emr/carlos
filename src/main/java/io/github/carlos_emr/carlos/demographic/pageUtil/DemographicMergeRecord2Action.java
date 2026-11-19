@@ -39,13 +39,13 @@
 
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -72,6 +72,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class DemographicMergeRecord2Action extends ActionSupport {
     public static final String SPRING_BEAN_NAME = "demographicMergeMutation2Action";
     private static final String FAILURE = "failure";
+    private static final String UNMERGE_FAILURE = "failureUnMerge";
 
     Logger logger = MiscUtils.getLogger();
     private final transient SecurityInfoManager securityInfoManager;
@@ -91,20 +92,26 @@ public class DemographicMergeRecord2Action extends ActionSupport {
     public String execute() {
 
         HttpServletRequest request = ServletActionContext.getRequest();
+        if (!"POST".equals(request.getMethod())) {
+            HttpServletResponse response = ServletActionContext.getResponse();
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
-        if (request.getParameterValues("records") == null) {
-            return FAILURE;
+        String action = request.getParameter("mergeAction");
+        String[] selected = request.getParameterValues("records");
+        if (selected == null) {
+            return "unmerge".equals(action) ? UNMERGE_FAILURE : FAILURE;
         }
         String outcome = "success";
-        ArrayList<String> records = new ArrayList<String>(Arrays.asList(request.getParameterValues("records")));
+        List<String> records = Arrays.asList(selected);
         String head = request.getParameter("head");
-        String action = request.getParameter("mergeAction");
-        String provider_no = request.getParameter("provider_no");
         DemographicMerged dmDAO = new DemographicMerged();
 
         if ("merge".equals(action)) {
@@ -113,12 +120,13 @@ public class DemographicMergeRecord2Action extends ActionSupport {
                 outcome = FAILURE;
             }
 
-        } else if ("unmerge".equals(action) && records.size() > 0) {
-            outcome = "successUnMerge";
-            for (int i = 0; i < records.size(); i++) {
-                String demographic_no = records.get(i);
-                dmDAO.UnMerge(loggedInInfo, demographic_no, provider_no);
-
+        } else if ("unmerge".equals(action)) {
+            if (!records.isEmpty()
+                    && Boolean.TRUE.equals(transactions.execute(status -> unmergeRecords(dmDAO, loggedInInfo, records)))) {
+                outcome = "successUnMerge";
+            } else {
+                logger.warn("Rejected demographic unmerge: selection is empty or a selected patient is missing or has no active merge");
+                outcome = UNMERGE_FAILURE;
             }
 
         } else {
@@ -131,6 +139,33 @@ public class DemographicMergeRecord2Action extends ActionSupport {
         }
 
         return outcome;
+    }
+
+    /** Validates and locks the whole selection before any unmerge, privilege, recycle or audit write. */
+    private boolean unmergeRecords(DemographicMerged dmDAO, LoggedInInfo loggedInInfo, List<String> records) {
+        Set<Integer> recordIds = new LinkedHashSet<>();
+        try {
+            for (String record : records) {
+                recordIds.add(Integer.valueOf(record));
+            }
+        } catch (NumberFormatException _) {
+            return false;
+        }
+        if (recordIds.stream().anyMatch(id -> id <= 0)) {
+            return false;
+        }
+        for (Integer id : recordIds.stream().sorted().toList()) {
+            if (!demographicDao.lockForMerge(id)) {
+                return false;
+            }
+        }
+        if (recordIds.stream().anyMatch(id -> !dmDAO.isMergedSource(id))) {
+            return false;
+        }
+        for (Integer id : recordIds) {
+            dmDAO.UnMerge(loggedInInfo, id.toString(), loggedInInfo.getLoggedInProviderNo());
+        }
+        return true;
     }
 
     /**
@@ -155,7 +190,7 @@ public class DemographicMergeRecord2Action extends ActionSupport {
             }
             // Lock the whole selection before any non-locking read establishes a repeatable-read snapshot.
             for (Integer id : recordIds.stream().sorted().toList()) {
-                if (demographicDao.findForUpdate(id) == null) {
+                if (!demographicDao.lockForMerge(id)) {
                     return false;
                 }
             }

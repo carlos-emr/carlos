@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/report/ClinicalReports/ClinicalReportManager.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "2bdb0dc566ce583e33c1009ba0077c3a33629fed"
+  },
+  "evidenceSha256": "4f2717e050718b2bb2c1968330530d10e61deaaf5dc082527a1d58e60aed2487"
+}
