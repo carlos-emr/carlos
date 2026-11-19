@@ -249,6 +249,7 @@ public class FaxImporter {
 
         log.info("CHECKING REMOTE FOR INCOMING FAXES");
 
+        long pollCheckpoint = pollBackoff.checkpoint();
         List<FaxConfig> faxConfigList = faxConfigDao.findAll(null, null);
         pollBackoff.retainAccounts(faxConfigList.stream()
                 .filter(fc -> fc.isActive() && fc.isDownload())
@@ -273,7 +274,8 @@ public class FaxImporter {
         }
 
         for (FaxConfig faxConfig : faxConfigList) {
-            if (!faxConfig.isActive() || !faxConfig.isDownload() || !pollBackoff.isDue(faxConfig.getId())) {
+            Integer accountId = faxConfig.getId();
+            if (!faxConfig.isActive() || !faxConfig.isDownload() || !pollBackoff.isDue(accountId, pollCheckpoint)) {
                 continue;
             }
 
@@ -281,13 +283,19 @@ public class FaxImporter {
             List<FaxJob> faxList;
             try {
                 providerClient = faxProviderClientFactory.getClient(faxConfig);
+                if (!pollBackoff.isCurrent(accountId, pollCheckpoint)) {
+                    continue;
+                }
                 faxList = providerClient.listInboundFaxes(faxConfig);
             } catch (FaxProviderException | RuntimeException e) {
-                recordPollFailure(faxConfig, e);
+                recordPollFailure(faxConfig, e, pollCheckpoint);
                 continue;
             }
-            if (pollBackoff.recovered(faxConfig.getId())) {
-                log.warn("Inbound fax polling recovered for account {} ({})", faxConfig.getId(), faxConfig.getProviderType());
+            if (!pollBackoff.isCurrent(accountId, pollCheckpoint)) {
+                continue;
+            }
+            if (pollBackoff.recovered(accountId)) {
+                log.warn("Inbound fax polling recovered for account {} ({})", accountId, faxConfig.getProviderType());
             }
 
             // Only account setup/listing failures back off the account. A local document failure
@@ -435,8 +443,8 @@ public class FaxImporter {
 
     }
 
-    private void recordPollFailure(FaxConfig faxConfig, Exception failure) {
-        if (pollBackoff.failed(faxConfig.getId())) {
+    private void recordPollFailure(FaxConfig faxConfig, Exception failure, long pollCheckpoint) {
+        if (pollBackoff.failed(faxConfig.getId(), pollCheckpoint)) {
             String httpStatus = failure instanceof FaxProviderException providerFailure && providerFailure.getHttpStatus() > 0
                     ? Integer.toString(providerFailure.getHttpStatus()) : "n/a";
             log.error("Inbound fax polling failed for account {} ({}, HTTP {}, type={}); retries will back off up to one hour. "
@@ -462,6 +470,57 @@ public class FaxImporter {
      */
     public Map<Integer, PollingFailure> getPollingFailures() {
         return pollBackoff.snapshot();
+    }
+
+    /**
+     * Allows an account to retry at the next scheduled poll after an administrator
+     * saves its configuration or successfully verifies its connection.
+     *
+     * @param accountId Integer fax configuration ID. Null and non-positive IDs are ignored.
+     * @since 2026-11-16
+     */
+    public void resetPollingBackoff(Integer accountId) {
+        if (accountId != null && accountId > 0) {
+            pollBackoff.reset(accountId);
+        }
+    }
+
+    /**
+     * Tracks a saved account while an administrator verifies its credentials.
+     *
+     * @param accountId the persisted account identifier
+     * @return a probe to close when verification finishes
+     * @throws NullPointerException if no account identifier is supplied
+     */
+    public PollingBackoffProbe beginPollingBackoffProbe(Integer accountId) {
+        return new PollingBackoffProbe(accountId);
+    }
+
+    /** Keeps the account's reset marker available until a credential probe ends. */
+    public final class PollingBackoffProbe implements AutoCloseable {
+        private final Integer accountId;
+        private final long checkpoint;
+        private boolean closed;
+
+        private PollingBackoffProbe(Integer accountId) {
+            this.accountId = java.util.Objects.requireNonNull(accountId);
+            checkpoint = pollBackoff.beginProbe(accountId);
+        }
+
+        /** Clear the retry deadline only if the verified configuration generation is current. */
+        public synchronized void resetIfCurrent() {
+            if (!closed) {
+                pollBackoff.resetAfterProbe(accountId, checkpoint);
+            }
+        }
+
+        @Override
+        public synchronized void close() {
+            if (!closed) {
+                closed = true;
+                pollBackoff.endProbe(accountId);
+            }
+        }
     }
 
     /**

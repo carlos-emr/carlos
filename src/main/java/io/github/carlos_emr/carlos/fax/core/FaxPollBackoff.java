@@ -40,14 +40,54 @@ final class FaxPollBackoff {
     private static final long MAX_DELAY_MINUTES = 60;
     private final Clock clock;
     private final Map<Integer, PollingFailure> failures = new HashMap<>();
+    private final Map<Integer, Long> resets = new HashMap<>();
+    private final Map<Integer, Integer> activeProbes = new HashMap<>();
+    private long resetSequence;
 
     FaxPollBackoff(Clock clock) {
         this.clock = clock;
     }
 
-    synchronized boolean isDue(Integer accountId) {
+    synchronized boolean isDue(Integer accountId, long checkpoint) {
         PollingFailure failure = failures.get(accountId);
-        return failure == null || !clock.instant().isBefore(failure.nextRetry());
+        return isCurrent(accountId, checkpoint) && (failure == null || !clock.instant().isBefore(failure.nextRetry()));
+    }
+
+    /** Capture before reading configurations so a reset also invalidates a stale configuration snapshot. */
+    synchronized long checkpoint() {
+        return resetSequence;
+    }
+
+    synchronized boolean isCurrent(Integer accountId, long checkpoint) {
+        return resets.getOrDefault(accountId, 0L) <= checkpoint;
+    }
+
+    synchronized boolean failed(Integer accountId, long checkpoint) {
+        if (!isCurrent(accountId, checkpoint)) {
+            return false;
+        }
+        return failed(accountId);
+    }
+
+    /** Clear the deadline and invalidate failures from cycles that started before this reset. */
+    synchronized void reset(Integer accountId) {
+        resets.put(accountId, ++resetSequence);
+        recovered(accountId);
+    }
+
+    synchronized long beginProbe(Integer accountId) {
+        activeProbes.merge(accountId, 1, Integer::sum);
+        return resetSequence;
+    }
+
+    synchronized void endProbe(Integer accountId) {
+        activeProbes.computeIfPresent(accountId, (id, count) -> count == 1 ? null : count - 1);
+    }
+
+    synchronized void resetAfterProbe(Integer accountId, long checkpoint) {
+        if (isCurrent(accountId, checkpoint)) {
+            reset(accountId);
+        }
     }
 
     synchronized boolean failed(Integer accountId) {
@@ -67,6 +107,7 @@ final class FaxPollBackoff {
 
     synchronized void retainAccounts(Set<Integer> accountIds) {
         failures.keySet().retainAll(accountIds);
+        resets.keySet().removeIf(id -> !accountIds.contains(id) && !activeProbes.containsKey(id));
     }
 
     synchronized Map<Integer, PollingFailure> snapshot() {
