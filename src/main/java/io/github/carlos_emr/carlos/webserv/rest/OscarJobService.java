@@ -145,21 +145,13 @@ public class OscarJobService extends AbstractServiceImpl {
     @GET
     @Path("/all")
     @Produces("application/json")
-    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
-    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
-    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
-            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
-                    "known CARLOS types; no user-controlled property name reaches the sink")
     public OscarJobResponse getAllJobs() {
         requireAdminPrivilege("r");
         List<OscarJob> results = oscarJobManager.getAllJobs(getLoggedInInfo());
 
         OscarJobResponse response = new OscarJobResponse();
         for (OscarJob result : results) {
-            OscarJobTo1 to = new OscarJobTo1();
-            BeanUtils.copyProperties(result, to, new String[]{"oscarJobType"});
-            to.setOscarJobType(new OscarJobTypeTo1());
-            BeanUtils.copyProperties(result.getOscarJobType(), to.getOscarJobType());
+            OscarJobTo1 to = jobSummary(result);
 
             if (result.getCronExpression() != null) {
                 CronTrigger trigger = new CronTrigger(result.getCronExpression());
@@ -179,7 +171,13 @@ public class OscarJobService extends AbstractServiceImpl {
     @Produces("application/json")
     public OscarJobResponse getJob(@PathParam("jobId") Integer jobId) {
         requireAdminPrivilege("r");
-        return jobResponse(oscarJobManager.getJob(getLoggedInInfo(), jobId));
+        return jobResponse(requireStoredJob(jobId));
+    }
+
+    private OscarJobResponse jobResponse(OscarJob result) {
+        OscarJobResponse response = new OscarJobResponse();
+        response.getJobs().add(jobSummary(result));
+        return response;
     }
 
     // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
@@ -187,16 +185,15 @@ public class OscarJobService extends AbstractServiceImpl {
     @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
             justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
                     "known CARLOS types; no user-controlled property name reaches the sink")
-    private OscarJobResponse jobResponse(OscarJob result) {
-        OscarJobResponse response = new OscarJobResponse();
-
+    private OscarJobTo1 jobSummary(OscarJob result) {
         OscarJobTo1 to = new OscarJobTo1();
         BeanUtils.copyProperties(result, to, new String[]{"oscarJobType"});
         to.setOscarJobType(new OscarJobTypeTo1());
-        BeanUtils.copyProperties(result.getOscarJobType(), to.getOscarJobType());
-        response.getJobs().add(to);
-
-        return response;
+        OscarJobType type = result.getOscarJobType();
+        if (type != null) {
+            BeanUtils.copyProperties(type, to.getOscarJobType());
+        }
+        return to;
     }
 
 
@@ -253,6 +250,9 @@ public class OscarJobService extends AbstractServiceImpl {
             if (!persisted.isEnabled()) {
                 OscarJobUtils.cancelJob(persisted.getId(), false);
                 activation = OscarJobResponse.ScheduleActivation.DISABLED;
+            } else if (persisted.getOscarJobType() == null) {
+                OscarJobUtils.cancelJob(persisted.getId(), false);
+                activation = OscarJobResponse.ScheduleActivation.FAILED;
             } else if (persisted.getCronExpression() != null && !persisted.getCronExpression().isBlank()) {
                 activation = OscarJobUtils.scheduleJob(persisted)
                         ? OscarJobResponse.ScheduleActivation.ACTIVE : OscarJobResponse.ScheduleActivation.FAILED;
@@ -343,28 +343,10 @@ public class OscarJobService extends AbstractServiceImpl {
     }
 
     private OscarJobResponse updateStoredCron(Integer jobId, String[] parts) {
-        OscarJob job = oscarJobManager.getJob(getLoggedInInfo(), jobId);
-        if (job != null) {
-            job.setCronExpression(parts[0] + " " + parts[1] + " " + parts[2] + " " + parts[3] + " " + parts[4] + " " + parts[5]);
-            oscarJobManager.updateJob(getLoggedInInfo(), job);
-            OscarJobResponse.ScheduleActivation activation;
-            try {
-                if (OscarJobUtils.scheduleJob(job)) {
-                    activation = OscarJobResponse.ScheduleActivation.ACTIVE;
-                } else {
-                    activation = job.isEnabled() ? OscarJobResponse.ScheduleActivation.FAILED
-                            : OscarJobResponse.ScheduleActivation.DISABLED;
-                }
-            } catch (Exception e) {
-                logger.warn("error scheduling job " + e);
-                activation = OscarJobResponse.ScheduleActivation.FAILED;
-            }
-            OscarJobResponse response = getJob(jobId);
-            response.setScheduleActivation(activation);
-            return response;
-        }
-
-        return getJob(jobId);
+        OscarJob job = requireStoredJob(jobId);
+        job.setCronExpression(String.join(" ", parts));
+        oscarJobManager.updateJob(getLoggedInInfo(), job);
+        return applyStoredSchedule(jobId);
     }
 
     /**

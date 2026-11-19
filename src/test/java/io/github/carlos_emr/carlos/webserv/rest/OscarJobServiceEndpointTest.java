@@ -356,6 +356,27 @@ class OscarJobServiceEndpointTest extends CarlosRestTestBase {
 
         @ParameterizedTest
         @ValueSource(booleans = {true, false})
+        void shouldReturnTheSavedJobWithFailedActivation_whenTheStoredTypeIsMissing(boolean hasCron) {
+            OscarJob stored = persistedEdit(true);
+            stored.setOscarJobType(null);
+            stored.setOscarJobTypeId(1);
+            if (!hasCron) {
+                stored.setCronExpression(null);
+            }
+
+            try (var scheduler = mockStatic(OscarJobUtils.class); Response response = post(true)) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                JsonNode json = response.readEntity(JsonNode.class);
+                assertThat(json.path("jobs").get(0).path("id").asInt()).isEqualTo(JOB_ID);
+                assertThat(json.path("jobs").get(0).path("oscarJobTypeId").asInt()).isEqualTo(1);
+                assertThat(json.path("scheduleActivation").asText()).isEqualTo("FAILED");
+                verify(mockOscarJobManager).updateJob(any(LoggedInInfo.class), any(OscarJob.class));
+                scheduler.verify(() -> OscarJobUtils.cancelJob(JOB_ID, false));
+            }
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {true, false})
         void shouldConfirmActivationOnlyWhenThePersistedJobWasScheduled(boolean activated) throws Exception {
             OscarJob stored = persistedEdit(true);
             try (var scheduler = mockStatic(OscarJobUtils.class)) {
@@ -498,10 +519,20 @@ class OscarJobServiceEndpointTest extends CarlosRestTestBase {
         }
 
         @Test
+        void shouldReturnNotFoundWithoutUpdating_whenTheScheduleJobIsMissing() {
+            try (var scheduler = mockStatic(OscarJobUtils.class);
+                    Response response = post(everyPartExcept("minute", "15"))) {
+                assertThat(response.getStatus()).isEqualTo(404);
+                verify(mockOscarJobManager, never()).updateJob(any(LoggedInInfo.class), any(OscarJob.class));
+                scheduler.verifyNoInteractions();
+            }
+        }
+
+        @Test
         @DisplayName("should store the chosen minutes as the job cron expression")
         void shouldStoreCronExpression_withChosenMinutes() {
             OscarJob job = createTestJob(5, "Specific Job", createTestJobType(1, "TestType", "com.example.TestJob"));
-            // Disabled, so OscarJobUtils.scheduleJob never reaches the task scheduler.
+            // A disabled job keeps the saved expression for a later enable.
             job.setEnabled(false);
             when(mockOscarJobManager.getJob(any(LoggedInInfo.class), eq(5))).thenReturn(job);
 
