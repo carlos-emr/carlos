@@ -128,6 +128,86 @@ class MeasurementGraphAction22ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsByteArray()).isEmpty();
     }
 
+    /** A signed-in user who may read this patient's measurements and labs, and the prescriptions only when asked. */
+    private void signInWithRx(boolean mayReadRx, String method, String... drugs) {
+        LoggedInInfo user = new LoggedInInfo();
+        request.getSession().setAttribute("userrole", "doctor");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);
+        request.setParameter("demographic_no", "42");
+        if (method != null) request.setParameter("method", method);
+        if (drugs.length > 0) request.setParameter("drug", drugs);
+        org.mockito.Mockito.lenient().when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        org.mockito.Mockito.lenient().when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class),
+                org.mockito.ArgumentMatchers.eq("_rx"), anyString(), anyString())).thenReturn(mayReadRx);
+        org.mockito.Mockito.lenient().when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class),
+                org.mockito.ArgumentMatchers.eq(42))).thenReturn(true);
+    }
+
+    /** Runs the graph and returns what stopped it: the refusal, or the sentinel thrown by the first patient-data read. */
+    private Throwable runGraph() {
+        try (MockedStatic<io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString> names =
+                     mockStatic(io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString.class)) {
+            names.when(io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString::getInstance)
+                    .thenThrow(new IllegalStateException("past the gate"));
+            return org.assertj.core.api.Assertions.catchThrowable(() -> new MeasurementGraphAction22Action().execute());
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"ChartMeds,", "rxincl,", "rxincl,1234", "actualLab,1234"})
+    @DisplayName("should refuse a medication graph without the prescription read right, before any patient data is read")
+    void shouldRefuseMedicationGraph_whenRxReadIsMissing(String method, String drug) {
+        if (drug == null) signInWithRx(false, method); else signInWithRx(false, method, drug);
+
+        Throwable stopped = runGraph();
+
+        assertThat(stopped).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_rx)");
+        verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), org.mockito.ArgumentMatchers.eq("_rx"),
+                org.mockito.ArgumentMatchers.eq("r"), org.mockito.ArgumentMatchers.eq("42"));
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getContentAsByteArray()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"ChartMeds,", "rxincl,", "rxincl,1234", "actualLab,1234"})
+    @DisplayName("should go on to read the patient's data for a medication graph when the prescription read right is held")
+    void shouldGoOnToDrawMedicationGraph_whenRxReadIsHeld(String method, String drug) {
+        if (drug == null) signInWithRx(true, method); else signInWithRx(true, method, drug);
+
+        Throwable stopped = runGraph();
+
+        assertThat(stopped).isInstanceOf(IllegalStateException.class).hasMessage("past the gate");
+        verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), org.mockito.ArgumentMatchers.eq("_rx"),
+                org.mockito.ArgumentMatchers.eq("r"), org.mockito.ArgumentMatchers.eq("42"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "inclRef", "lab", "labRef", "actualLab"})
+    @DisplayName("should draw a graph without medications from the measurement right alone, never asking about prescriptions")
+    void shouldNotAskForRx_whenTheGraphHasNoMedications(String method) {
+        signInWithRx(false, method.isEmpty() ? null : method);
+
+        Throwable stopped = runGraph();
+
+        assertThat(stopped).isInstanceOf(IllegalStateException.class).hasMessage("past the gate");
+        verify(securityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), org.mockito.ArgumentMatchers.eq("_rx"),
+                anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("should name exactly the medication graph methods as drawing prescriptions")
+    void shouldNameTheMedicationGraphMethods_whenAskedWhichDrawPrescriptions() {
+        assertThat(MeasurementGraphAction22Action.drawsMedications("ChartMeds", null)).isTrue();
+        assertThat(MeasurementGraphAction22Action.drawsMedications("rxincl", null)).isTrue();
+        assertThat(MeasurementGraphAction22Action.drawsMedications("actualLab", new String[] {"1234"})).isTrue();
+        assertThat(MeasurementGraphAction22Action.drawsMedications("actualLab", null)).isFalse();
+        for (String method : new String[] {null, "", "inclRef", "lab", "labRef", "other"}) {
+            assertThat(MeasurementGraphAction22Action.drawsMedications(method, new String[] {"1234"})).as(String.valueOf(method)).isFalse();
+        }
+    }
+
     @ParameterizedTest
     @CsvSource({"<0.1,0.1", ">100,100", "<=5,5", ">=10,10", "≤5,5", "≥10,10",
             "5 mmol/L,5", "5%,5", "'1,234',1234", "+5.2,5.2", "H 7.4,7.4", "2+,2",
