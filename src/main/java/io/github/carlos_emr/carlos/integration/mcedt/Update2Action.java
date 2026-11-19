@@ -200,7 +200,9 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
         }
         for (UploadedFile uploaded : uploadedFiles) {
             if (uploaded != null && "content".equals(uploaded.getInputName()) && uploaded.isFile()) {
-                this.content = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+                // The interceptor's own temp file, checked against the allowed upload locations;
+                // no path is built from a string, as in the other upload actions.
+                this.content = PathValidationUtils.validateUploadContent(uploaded.getContent());
                 return;
             }
         }
