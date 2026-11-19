@@ -65,6 +65,8 @@ class PreventionReportUtilUnitTest extends CarlosUnitTestBase {
     private static final Date IN_CURRENT_PERIOD = day(2025, 6, 15);
 
     private final LoggedInInfo loggedInInfo = new LoggedInInfo();
+    private Demographic current;
+    private DemographicArchive archived;
 
     @BeforeEach
     void registerDependencies() {
@@ -73,14 +75,14 @@ class PreventionReportUtilUnitTest extends CarlosUnitTestBase {
         DemographicManager demographicManager = createAndRegisterMock(DemographicManager.class);
         DemographicArchiveDao archiveDao = createAndRegisterMock(DemographicArchiveDao.class);
 
-        Demographic current = new Demographic();
+        current = new Demographic();
         current.setRosterDate(day(2025, 2, 1));
         current.setRosterTerminationDate(null);
         current.setRosterEnrolledTo(CURRENT_PROVIDER);
         current.setProviderNo(CURRENT_PROVIDER);
         when(demographicManager.getDemographic(same(loggedInInfo), eq(DEMOGRAPHIC_NO))).thenReturn(current);
 
-        DemographicArchive archived = new DemographicArchive();
+        archived = new DemographicArchive();
         archived.setRosterDate(day(2023, 1, 1));
         archived.setRosterTerminationDate(day(2024, 12, 31));
         archived.setRosterEnrolledTo(ARCHIVED_ENROLLED_TO);
@@ -123,6 +125,18 @@ class PreventionReportUtilUnitTest extends CarlosUnitTestBase {
                 loggedInInfo, DEMOGRAPHIC_NO, IN_CURRENT_PERIOD, selected)).isTrue();
         assertThat(PreventionReportUtil.wasRosteredToAnyProvider(
                 loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, Set.of())).isFalse();
+    }
+
+    @Test
+    @DisplayName("should leave periods without a provider out of the selection")
+    void shouldIgnorePeriodsWithoutProviders() {
+        current.setProviderNo(null);
+        archived.setProviderNo(null);
+
+        assertThat(PreventionReportUtil.wasRosteredToAnyProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, Set.of(ARCHIVED_PROVIDER))).isFalse();
+        assertThat(PreventionReportUtil.wasRosteredToThisProvider(
+                loggedInInfo, DEMOGRAPHIC_NO, IN_ARCHIVED_PERIOD, null)).isFalse();
     }
 
     @Test
