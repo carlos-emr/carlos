@@ -34,6 +34,9 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
 import java.util.Date;
+import java.util.Objects;
+
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.Dashboard;
@@ -75,18 +78,71 @@ public class DashboardDaoImpl extends AbstractDaoImpl<Dashboard> implements Dash
 
     @Override
     public boolean updateMetadata(int id, String name, String description, Date edited) {
-        return entityManager.createQuery("UPDATE Dashboard x SET x.name=:name, x.description=:description, "
-                + "x.edited=:edited WHERE x.id=:id AND (x.locked=false OR x.locked IS NULL)")
-                .setParameter("name", name).setParameter("description", description)
-                .setParameter("edited", edited).setParameter("id", id).executeUpdate() == 1;
+        return updateMetadata(id, name, description, edited, null);
+    }
+
+    @Override
+    public boolean updateMetadata(int id, String name, String description, Date edited, String revision) {
+        Dashboard dashboard = findForAdministrationUpdate(id);
+        if (dashboard == null || dashboard.isLocked()) {
+            return false;
+        }
+        if (Objects.equals(dashboard.getName(), name) && Objects.equals(dashboard.getDescription(), description)) {
+            return true;
+        }
+        if (!matchesRevision(dashboard, revision)) {
+            return false;
+        }
+        dashboard.setName(name);
+        dashboard.setDescription(description);
+        dashboard.setEdited(nextEditTime(dashboard.getEdited(), edited));
+        entityManager.flush();
+        return true;
     }
 
     @Override
     public boolean updateActive(int id, boolean active, Date edited) {
-        return entityManager.createQuery("UPDATE Dashboard x SET x.active=:active, x.edited=:edited "
-                + "WHERE x.id=:id AND (x.locked=false OR x.locked IS NULL)")
-                .setParameter("active", active).setParameter("edited", edited)
-                .setParameter("id", id).executeUpdate() == 1;
+        return updateActive(id, active, edited, null);
     }
 
+    @Override
+    public boolean updateActive(int id, boolean active, Date edited, String revision) {
+        Dashboard dashboard = findForAdministrationUpdate(id);
+        if (dashboard == null || dashboard.isLocked()) {
+            return false;
+        }
+        if (dashboard.isActive() == active) {
+            return true;
+        }
+        if (!matchesRevision(dashboard, revision)) {
+            return false;
+        }
+        dashboard.setActive(active);
+        dashboard.setEdited(nextEditTime(dashboard.getEdited(), edited));
+        entityManager.flush();
+        return true;
+    }
+
+    private Dashboard findForAdministrationUpdate(int id) {
+        entityManager.flush();
+        Dashboard dashboard = entityManager.find(Dashboard.class, id, LockModeType.PESSIMISTIC_WRITE);
+        if (dashboard != null) {
+            // The caller can already hold this row in its persistence context.
+            entityManager.refresh(dashboard, LockModeType.PESSIMISTIC_WRITE);
+        }
+        return dashboard;
+    }
+
+    private static boolean matchesRevision(Dashboard dashboard, String revision) {
+        return revision == null || dashboard.getAdministrationRevision().equals(revision);
+    }
+
+    private static Date nextEditTime(Date previous, Date requested) {
+        // The release schema stores edited to whole seconds. Advance on a real change so
+        // rapid updates still get different revisions, even when they restore prior values.
+        long requestedSecond = Math.floorDiv(requested.getTime(), 1000L);
+        long nextSecond = previous == null ? requestedSecond
+                : Math.max(requestedSecond, Math.floorDiv(previous.getTime(), 1000L) + 1L);
+        return new Date(nextSecond * 1000L);
+    }
 }

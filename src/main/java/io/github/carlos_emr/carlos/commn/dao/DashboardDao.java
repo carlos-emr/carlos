@@ -51,9 +51,12 @@ public interface DashboardDao extends AbstractDao<Dashboard> {
      * @param name String dashboard display name
      * @param description String dashboard description
      * @param edited Date timestamp of the metadata edit
-     * @return boolean true when exactly one unlocked row was updated; false when locked or missing
+     * @return boolean true when the unlocked row already matches or was updated; false when locked or missing
      */
     boolean updateMetadata(int id, String name, String description, Date edited);
+
+    /** Update metadata when the form revision is still current or the desired values are already stored. */
+    boolean updateMetadata(int id, String name, String description, Date edited, String revision);
 
     /**
      * Update only status and edit time on an unlocked dashboard, preserving concurrent edits.
@@ -61,7 +64,10 @@ public interface DashboardDao extends AbstractDao<Dashboard> {
      * @param id int identifier of the dashboard to update
      * @param active boolean desired active state
      * @param edited Date timestamp of the status change
-     * @return boolean true when exactly one unlocked row was updated; false when locked or missing
+     * @return boolean true when the unlocked row already matches or was updated; false when locked or missing
      */
     boolean updateActive(int id, boolean active, Date edited);
+
+    /** Update the active flag when the form revision is still current or the desired flag is already stored. */
+    boolean updateActive(int id, boolean active, Date edited, String revision);
 }

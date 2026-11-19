@@ -66,7 +66,7 @@ class DashboardManagerAdministrationUnitTest {
     @DisplayName("should preserve creator, lock, and current active state when editing metadata")
     void shouldPreserveMetadata_whenEditing() {
         when(security.hasPrivilege(info, "_dashboardManager", "w", null)).thenReturn(true);
-        when(dao.updateMetadata(eq(17), eq("Renamed"), eq("Updated description"), any())).thenReturn(true);
+        when(dao.updateMetadata(eq(17), eq("Renamed"), eq("Updated description"), any(), isNull())).thenReturn(true);
         Dashboard submitted = new Dashboard();
         submitted.setId(17);
         submitted.setName("Renamed");
@@ -79,7 +79,7 @@ class DashboardManagerAdministrationUnitTest {
             log.verify(() -> LogAction.addLog(info, "DashboardManager.addDashboard", "Dashboard", "17", null,
                     "Dashboard updated"));
         }
-        verify(dao).updateMetadata(eq(17), eq("Renamed"), eq("Updated description"), any());
+        verify(dao).updateMetadata(eq(17), eq("Renamed"), eq("Updated description"), any(), isNull());
         verifyNoMoreInteractions(dao);
     }
 
@@ -92,8 +92,8 @@ class DashboardManagerAdministrationUnitTest {
         stored.setName("Unchanged");
         stored.setDescription("Original");
         stored.setLocked(true);
-        when(dao.updateMetadata(eq(17), eq("Unchanged"), eq("Original"), any())).thenReturn(false);
-        when(dao.updateActive(eq(17), eq(false), any())).thenReturn(false);
+        when(dao.updateMetadata(eq(17), eq("Unchanged"), eq("Original"), any(), isNull())).thenReturn(false);
+        when(dao.updateActive(eq(17), eq(false), any(), isNull())).thenReturn(false);
         try (var log = mockStatic(LogAction.class)) {
             assertThat(manager.addDashboard(info, stored)).isFalse();
             assertThat(manager.toggleDashboardActive(info, 17, false)).isFalse();
@@ -101,8 +101,8 @@ class DashboardManagerAdministrationUnitTest {
         }
         verify(dao, never()).merge(any());
         verify(dao, never()).persist(any());
-        verify(dao).updateMetadata(eq(17), eq("Unchanged"), eq("Original"), any());
-        verify(dao).updateActive(eq(17), eq(false), any());
+        verify(dao).updateMetadata(eq(17), eq("Unchanged"), eq("Original"), any(), isNull());
+        verify(dao).updateActive(eq(17), eq(false), any(), isNull());
         verifyNoMoreInteractions(dao);
     }
 
@@ -128,13 +128,13 @@ class DashboardManagerAdministrationUnitTest {
     @DisplayName("should audit the dashboard identifier and accepted active state")
     void shouldAuditStatus_whenUpdateAccepted() {
         when(security.hasPrivilege(info, "_dashboardManager", "w", null)).thenReturn(true);
-        when(dao.updateActive(eq(17), eq(false), any())).thenReturn(true);
+        when(dao.updateActive(eq(17), eq(false), any(), isNull())).thenReturn(true);
         try (var log = mockStatic(LogAction.class)) {
             assertThat(manager.toggleDashboardActive(info, 17, false)).isTrue();
             log.verify(() -> LogAction.addLog(info, "DashboardManager.toggleDashboardActive", "Dashboard", "17", null,
                     "Dashboard active state set to false"));
         }
-        verify(dao).updateActive(eq(17), eq(false), any());
+        verify(dao).updateActive(eq(17), eq(false), any(), isNull());
         verifyNoMoreInteractions(dao);
     }
 }

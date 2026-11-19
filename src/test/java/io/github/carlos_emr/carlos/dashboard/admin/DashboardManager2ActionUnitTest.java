@@ -44,8 +44,10 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.model.Dashboard;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.DashboardManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 @Tag("unit")
@@ -109,7 +111,12 @@ class DashboardManager2ActionUnitTest {
         request.setMethod("POST");
         request.setParameter("operation", "save");
         request.setParameter("name", "Submitted");
-        if ("existing".equals(kind)) request.setParameter("dashboardId", "17");
+        if ("existing".equals(kind)) {
+            request.setParameter("dashboardId", "17");
+            request.setParameter("dashboardRevision", existing.getAdministrationRevision());
+        } else {
+            issueCreateToken();
+        }
         assertThat(execute()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(response.getStatus()).isEqualTo("existing".equals(kind) ? 409 : 500);
         assertThat(request.getAttribute("dashboardName")).isEqualTo("Submitted");
@@ -145,8 +152,13 @@ class DashboardManager2ActionUnitTest {
         request.setMethod("POST");
         request.setParameter("operation", "save");
         when(security.hasPrivilege(info, "_dashboardManager", "w", null)).thenReturn(false);
-        assertThatThrownBy(this::execute).isInstanceOf(SecurityException.class)
-                .hasMessage("missing required sec object (_dashboardManager)");
+        try (var audit = mockStatic(LogAction.class)) {
+            assertThatThrownBy(this::execute).isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_dashboardManager)");
+            audit.verify(() -> LogAction.addLog(info, "DashboardManager2Action", "Dashboard", null, null,
+                    "Dashboard write access denied"));
+        }
+        servlet.verify(ServletActionContext::getResponse, never());
         verifyNoInteractions(manager);
     }
 
@@ -154,8 +166,13 @@ class DashboardManager2ActionUnitTest {
     @DisplayName("should deny dashboard enumeration without read access")
     void shouldDenyView_whenUnauthorized() throws Exception {
         when(security.hasPrivilege(info, "_dashboardManager", "r", null)).thenReturn(false);
-        assertThatThrownBy(this::execute).isInstanceOf(SecurityException.class)
-                .hasMessage("missing required sec object (_dashboardManager)");
+        try (var audit = mockStatic(LogAction.class)) {
+            assertThatThrownBy(this::execute).isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_dashboardManager)");
+            audit.verify(() -> LogAction.addLog(info, "DashboardManager2Action", "Dashboard", null, null,
+                    "Dashboard read access denied"));
+        }
+        servlet.verify(ServletActionContext::getResponse, never());
         verifyNoInteractions(manager);
     }
 
@@ -164,6 +181,7 @@ class DashboardManager2ActionUnitTest {
     void shouldSaveNewDashboard_whenValid() throws Exception {
         request.setMethod("POST");
         request.setParameter("operation", "save");
+        issueCreateToken();
         request.setParameter("name", "  New <dashboard> & name  ");
         request.setParameter("description", " Description ");
         when(manager.addDashboard(eq(info), any())).thenReturn(true);
@@ -177,19 +195,53 @@ class DashboardManager2ActionUnitTest {
     }
 
     @Test
+    void shouldRedirectToTheFirstResult_whenTheCreateFormIsRetried() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("operation", "save");
+        request.setParameter("name", "New dashboard");
+        issueCreateToken();
+        when(manager.addDashboard(eq(info), any())).thenReturn(true);
+
+        assertThat(execute()).isEqualTo(ActionSupport.NONE);
+        String redirect = response.getRedirectedUrl();
+        response = new MockHttpServletResponse();
+        servlet.when(ServletActionContext::getResponse).thenReturn(response);
+        assertThat(execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getRedirectedUrl()).isEqualTo(redirect);
+        verify(manager, times(1)).addDashboard(eq(info), any());
+    }
+
+    @Test
+    void shouldRefuseWithoutCreating_whenTheCreateTokenIsMissing() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("operation", "save");
+        request.setParameter("name", "New dashboard");
+
+        assertThat(execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+        verify(manager, never()).addDashboard(any(), any());
+    }
+
+    private void issueCreateToken() {
+        request.setParameter(FormSubmissionGuard.PARAMETER,
+                FormSubmissionGuard.issue(request.getSession(), FormSubmissionGuard.Scope.DASHBOARD_CREATE, null));
+    }
+
+    @Test
     @DisplayName("should pass only editable fields and leave the loaded dashboard untouched")
     void shouldEditMetadataOnly_whenExisting() throws Exception {
         request.setMethod("POST");
         request.setParameter("operation", "save");
         request.setParameter("dashboardId", "17");
+        request.setParameter("dashboardRevision", existing.getAdministrationRevision());
         request.setParameter("name", "Renamed");
         request.setParameter("active", "true");
         request.setParameter("creator", "attacker");
         request.setParameter("locked", "true");
-        when(manager.addDashboard(eq(info), any())).thenReturn(true);
+        when(manager.addDashboard(eq(info), any(), eq(existing.getAdministrationRevision()))).thenReturn(true);
         execute();
         ArgumentCaptor<Dashboard> captured = ArgumentCaptor.forClass(Dashboard.class);
-        verify(manager).addDashboard(eq(info), captured.capture());
+        verify(manager).addDashboard(eq(info), captured.capture(), eq(existing.getAdministrationRevision()));
         assertThat(captured.getValue()).isNotSameAs(existing);
         assertThat(captured.getValue().getId()).isEqualTo(17);
         assertThat(captured.getValue().getCreator()).isNull();
@@ -251,11 +303,12 @@ class DashboardManager2ActionUnitTest {
         request.setMethod("POST");
         request.setParameter("operation", operation);
         request.setParameter("dashboardId", "17");
+        request.setParameter("dashboardRevision", existing.getAdministrationRevision());
         existing.setLocked(true);
         execute();
         assertThat(response.getStatus()).isEqualTo(409);
         verify(manager, never()).addDashboard(any(), any());
-        verify(manager, never()).toggleDashboardActive(any(), anyInt(), any());
+        verify(manager, never()).toggleDashboardActive(any(), anyInt(), any(), any());
     }
 
     @ParameterizedTest
@@ -265,10 +318,11 @@ class DashboardManager2ActionUnitTest {
         request.setMethod("POST");
         request.setParameter("operation", "status");
         request.setParameter("dashboardId", "17");
+        request.setParameter("dashboardRevision", existing.getAdministrationRevision());
         request.setParameter("active", active);
-        when(manager.toggleDashboardActive(info, 17, Boolean.valueOf(active))).thenReturn(true);
+        when(manager.toggleDashboardActive(info, 17, Boolean.valueOf(active), existing.getAdministrationRevision())).thenReturn(true);
         execute();
-        verify(manager).toggleDashboardActive(info, 17, Boolean.valueOf(active));
+        verify(manager).toggleDashboardActive(info, 17, Boolean.valueOf(active), existing.getAdministrationRevision());
         assertThat(response.getStatus()).isEqualTo(302);
     }
 
@@ -278,6 +332,7 @@ class DashboardManager2ActionUnitTest {
         request.setMethod("POST");
         request.setParameter("operation", "status");
         request.setParameter("dashboardId", "17");
+        request.setParameter("dashboardRevision", existing.getAdministrationRevision());
         request.setParameter("active", "false");
         execute();
         assertThat(response.getStatus()).isEqualTo(409);
@@ -292,6 +347,6 @@ class DashboardManager2ActionUnitTest {
         execute();
         assertThat(response.getStatus()).isEqualTo(400);
         verify(manager, never()).addDashboard(any(), any());
-        verify(manager, never()).toggleDashboardActive(any(), anyInt(), any());
+        verify(manager, never()).toggleDashboardActive(any(), anyInt(), any(), any());
     }
 }

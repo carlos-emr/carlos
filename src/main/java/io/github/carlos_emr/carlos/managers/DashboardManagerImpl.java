@@ -221,7 +221,11 @@ public class DashboardManagerImpl implements DashboardManager {
      */
     @Override
     public boolean addDashboard(LoggedInInfo loggedInInfo, Dashboard dashboard) {
+        return addDashboard(loggedInInfo, dashboard, null);
+    }
 
+    @Override
+    public boolean addDashboard(LoggedInInfo loggedInInfo, Dashboard dashboard, String revision) {
         boolean success = Boolean.FALSE;
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardManager", SecurityInfoManager.WRITE, null)) {
@@ -238,7 +242,7 @@ public class DashboardManagerImpl implements DashboardManager {
             dashboard.setEdited(new Date());
             dashboardDao.persist(dashboard);
         } else if (!dashboardDao.updateMetadata(dashboard.getId(), dashboard.getName(),
-                dashboard.getDescription(), new Date())) {
+                dashboard.getDescription(), new Date(), revision)) {
             return false;
         }
 
@@ -257,14 +261,18 @@ public class DashboardManagerImpl implements DashboardManager {
      */
     @Override
     public boolean toggleDashboardActive(LoggedInInfo loggedInInfo, int dashboardId, Boolean state) {
+        return toggleDashboardActive(loggedInInfo, dashboardId, state, null);
+    }
 
+    @Override
+    public boolean toggleDashboardActive(LoggedInInfo loggedInInfo, int dashboardId, Boolean state, String revision) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardManager", SecurityInfoManager.WRITE, null)) {
             LogAction.addLog(loggedInInfo, "DashboardManager.toggleDashboardActive", null, null, null,
                     "User missing _dashboardManager role with write access");
             return false;
         }
 
-        if (dashboardDao.updateActive(dashboardId, state, new Date())) {
+        if (dashboardDao.updateActive(dashboardId, state, new Date(), revision)) {
             LogAction.addLog(loggedInInfo, "DashboardManager.toggleDashboardActive", "Dashboard", dashboardId + "", null,
                     "Dashboard active state set to " + state);
             return true;

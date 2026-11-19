@@ -95,6 +95,11 @@ public class Dashboard extends AbstractModel<Integer> {
         this.creator = creator;
     }
 
+    /** The stored edit revision sent with administration forms, including legacy unedited rows. */
+    public String getAdministrationRevision() {
+        return edited == null ? "none" : Long.toString(edited.getTime());
+    }
+
     public Date getEdited() {
         return edited;
     }

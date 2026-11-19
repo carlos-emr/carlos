@@ -32,6 +32,7 @@
 --%>
 <%@ page contentType="text/html; charset=UTF-8" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.FormSubmissionGuard" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
 <%@ taglib prefix="carlos" uri="carlos" %>
@@ -77,6 +78,7 @@
                         <form method="post" action="${carlos:forHtmlAttribute(managerUrl)}" class="d-inline">
                             <input type="hidden" name="operation" value="status">
                             <input type="hidden" name="dashboardId" value="${dashboard.id}">
+                            <input type="hidden" name="dashboardRevision" value="${carlos:forHtmlAttribute(dashboard.administrationRevision)}">
                             <input type="hidden" name="active" value="${not dashboard.active}">
                             <button type="submit" class="btn btn-sm btn-secondary">
                                 <c:choose>
@@ -100,7 +102,14 @@
         </h2>
         <form method="post" action="${carlos:forHtmlAttribute(managerUrl)}" id="dashboard-editor">
             <input type="hidden" name="operation" value="save">
-            <c:if test="${not empty editedDashboard}"><input type="hidden" name="dashboardId" value="${editedDashboard.id}"></c:if>
+            <c:if test="${not empty editedDashboard}">
+                <input type="hidden" name="dashboardId" value="${editedDashboard.id}">
+                <input type="hidden" name="dashboardRevision" value="${carlos:forHtmlAttribute(editedDashboard.administrationRevision)}">
+            </c:if>
+            <c:if test="${empty editedDashboard}">
+                <input type="hidden" name="<%= FormSubmissionGuard.PARAMETER %>"
+                    value="<carlos:encode value='<%= FormSubmissionGuard.issue(session, FormSubmissionGuard.Scope.DASHBOARD_CREATE, null) %>' context="htmlAttribute"/>">
+            </c:if>
             <div class="mb-3">
                 <label for="dashboard-name" class="form-label"><fmt:message key="dashboard.dashboardmanager.dashboard.name"/></label>
                 <input id="dashboard-name" name="name" class="form-control" required maxlength="255"

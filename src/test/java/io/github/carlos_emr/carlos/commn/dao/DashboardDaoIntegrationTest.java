@@ -43,7 +43,7 @@ import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 @DisplayName("Dashboard partial updates preserve unrelated changes")
 class DashboardDaoIntegrationTest extends CarlosTestBase {
     @Autowired private DashboardDao dao;
-    @PersistenceContext private EntityManager entityManager;
+    @PersistenceContext(unitName = "entityManagerFactory") private EntityManager entityManager;
 
     private Dashboard createDashboard(boolean locked) {
         Dashboard dashboard = new Dashboard();
@@ -125,4 +125,32 @@ class DashboardDaoIntegrationTest extends CarlosTestBase {
         assertThat(stored.isActive()).isTrue();
         assertThat(stored.isLocked()).isTrue();
     }
+
+    @Test
+    void shouldRefuseOutdatedChangesAndAcceptRepeats_inTheSameTimestampSecond() {
+        int id = createDashboard(false).getId();
+        Dashboard before = dao.find(id);
+        Date now = before.getEdited();
+        String firstRevision = before.getAdministrationRevision();
+
+        assertThat(dao.updateMetadata(id, "New name", "New description", now, firstRevision)).isTrue();
+        Dashboard after = dao.find(id);
+        String metadataRevision = after.getAdministrationRevision();
+        assertThat(metadataRevision).isNotEqualTo(firstRevision);
+        assertThat(dao.updateMetadata(id, "New name", "New description", now, firstRevision)).isTrue();
+        assertThat(dao.updateMetadata(id, "Lost update", "Stale description", now, firstRevision)).isFalse();
+
+        assertThat(dao.updateActive(id, false, now, metadataRevision)).isTrue();
+        String inactivatedRevision = dao.find(id).getAdministrationRevision();
+        assertThat(inactivatedRevision).isNotEqualTo(metadataRevision);
+        assertThat(dao.updateActive(id, false, now, metadataRevision)).isTrue();
+        assertThat(dao.updateActive(id, true, now, inactivatedRevision)).isTrue();
+        assertThat(dao.updateActive(id, false, now, metadataRevision)).isFalse();
+
+        Dashboard stored = dao.find(id);
+        assertThat(stored.isActive()).isTrue();
+        assertThat(stored.getName()).isEqualTo("New name");
+        assertThat(stored.getDescription()).isEqualTo("New description");
+    }
+
 }

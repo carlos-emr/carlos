@@ -31,8 +31,10 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.carlos.commn.model.Dashboard;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.DashboardManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -46,6 +48,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * @since 2026-11-03
  */
 public class DashboardManager2Action extends ActionSupport {
+    private static final String MANAGER_PATH = "/web/dashboard/admin/DashboardManager";
     private final transient DashboardManager dashboardManager;
     private final transient SecurityInfoManager securityInfoManager;
 
@@ -67,21 +70,19 @@ public class DashboardManager2Action extends ActionSupport {
      * @throws IOException when an HTTP refusal or redirect cannot be written
      */
     @Override
-    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNVALIDATED_REDIRECT",
-            justification = "Container context path plus a constant application route; no request parameter determines the destination")
     public String execute() throws IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
-        HttpServletResponse response = ServletActionContext.getResponse();
-        String method = request.getMethod();
-        String operation = request.getParameter("operation");
-        boolean post = "POST".equals(method);
-
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        // Saves also need read access: the edit must load and preserve the existing metadata.
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardManager", SecurityInfoManager.READ, null)
-                || (post && !securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardManager", SecurityInfoManager.WRITE, null))) {
-            throw new SecurityException("missing required sec object (_dashboardManager)");
+        requireDashboardPrivilege(loggedInInfo, SecurityInfoManager.READ, "Dashboard read access denied");
+
+        String method = request.getMethod();
+        boolean post = "POST".equals(method);
+        if (post) {
+            requireDashboardPrivilege(loggedInInfo, SecurityInfoManager.WRITE, "Dashboard write access denied");
         }
+
+        HttpServletResponse response = ServletActionContext.getResponse();
+        String operation = request.getParameter("operation");
         if ((!post && !"GET".equals(method) && !"HEAD".equals(method)) || (!post && operation != null)) {
             response.setHeader("Allow", operation == null ? "GET, HEAD, POST" : "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
@@ -122,13 +123,18 @@ public class DashboardManager2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_CONFLICT);
             return NONE;
         }
+        String revision = request.getParameter("dashboardRevision");
+        if (selected != null && (revision == null || revision.isEmpty())) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
         if ("status".equals(operation)) {
             String active = request.getParameter("active");
             if (selected == null || (!"true".equals(active) && !"false".equals(active))) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;
             }
-            if (!dashboardManager.toggleDashboardActive(loggedInInfo, selected.getId(), Boolean.valueOf(active))) {
+            if (!dashboardManager.toggleDashboardActive(loggedInInfo, selected.getId(), Boolean.valueOf(active), revision)) {
                 response.sendError(HttpServletResponse.SC_CONFLICT);
                 return NONE;
             }
@@ -150,15 +156,56 @@ public class DashboardManager2Action extends ActionSupport {
             dashboard.setId(selected == null ? null : selected.getId());
             dashboard.setName(name);
             dashboard.setDescription(description);
-            if (!dashboardManager.addDashboard(loggedInInfo, dashboard)) {
-                response.setStatus(selected == null ? HttpServletResponse.SC_INTERNAL_SERVER_ERROR
-                        : HttpServletResponse.SC_CONFLICT);
+            if (selected == null) {
+                return createDashboard(request, response, loggedInInfo, dashboard);
+            }
+            if (!dashboardManager.addDashboard(loggedInInfo, dashboard, revision)) {
+                response.setStatus(HttpServletResponse.SC_CONFLICT);
                 request.setAttribute("dashboardManagerError", "dashboard.dashboardmanager.saveFailed");
                 return SUCCESS;
             }
         }
-        response.sendRedirect(request.getContextPath() + "/web/dashboard/admin/DashboardManager");
+        return redirectToDashboardList(request, response);
+    }
+
+    private String createDashboard(HttpServletRequest request, HttpServletResponse response, LoggedInInfo loggedInInfo,
+            Dashboard dashboard) throws IOException {
+        FormSubmissionGuard.Attempt attempt = FormSubmissionGuard.attempt(request.getSession(),
+                request.getParameter(FormSubmissionGuard.PARAMETER), FormSubmissionGuard.Scope.DASHBOARD_CREATE,
+                null, FormSubmissionGuard.DEFAULT_WAIT_MILLIS);
+        if (attempt.verdict() == FormSubmissionGuard.Verdict.ALREADY_SAVED) {
+            return redirectToDashboardList(request, response);
+        }
+        if (attempt.verdict() != FormSubmissionGuard.Verdict.PROCEED) {
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
+        }
+        try (FormSubmissionGuard.Claim claim = attempt.claim()) {
+            claim.storageStarted();
+            if (!dashboardManager.addDashboard(loggedInInfo, dashboard)) {
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                request.setAttribute("dashboardManagerError", "dashboard.dashboardmanager.saveFailed");
+                return SUCCESS;
+            }
+            claim.saved(MANAGER_PATH);
+        }
+        return redirectToDashboardList(request, response);
+    }
+
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNVALIDATED_REDIRECT",
+            justification = "Container context path plus a constant application route; no request parameter determines the destination")
+    private static String redirectToDashboardList(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        response.sendRedirect(request.getContextPath() + MANAGER_PATH);
         return NONE;
+    }
+
+    private void requireDashboardPrivilege(LoggedInInfo loggedInInfo, String privilege, String auditMessage) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardManager", privilege, null)) {
+            if (loggedInInfo != null) {
+                LogAction.addLog(loggedInInfo, "DashboardManager2Action", "Dashboard", null, null, auditMessage);
+            }
+            throw new SecurityException("missing required sec object (_dashboardManager)");
+        }
     }
 
     private static Integer positiveId(String raw) {
