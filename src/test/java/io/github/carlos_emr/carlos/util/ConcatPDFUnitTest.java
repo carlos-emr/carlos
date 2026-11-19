@@ -292,6 +292,18 @@ class ConcatPDFUnitTest {
                 assertThat(files).isEmpty();
             }
         }
+
+        @Test
+        void shouldRejectARequiredStream_whenItsPdfHasNoPages() throws Exception {
+            var valid = new ByteArrayInputStream(createPdf(1, "Lab report"));
+            var zeroPagePdf = new ByteArrayInputStream(createPdf(0, ""));
+            var destination = new ByteArrayOutputStream();
+            List<Object> inputs = List.of(valid, zeroPagePdf);
+
+            assertThatThrownBy(() -> ConcatPDF.concatRequired(inputs, destination))
+                    .isInstanceOf(IllegalStateException.class);
+            assertThat(destination.toByteArray()).isEmpty();
+        }
     }
 
     @Nested

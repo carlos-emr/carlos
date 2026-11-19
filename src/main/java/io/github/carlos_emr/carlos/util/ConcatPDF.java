@@ -110,7 +110,7 @@ public class ConcatPDF {
     }
 
     /**
-     * Merges required clinical sections. Any unreadable input fails before writing the destination,
+     * Merges required clinical sections. Any unreadable or zero-page input fails before writing the destination,
      * so a chart or lab report cannot look complete while omitting a requested attachment.
      */
     public static void concatRequired(List<Object> inputs, OutputStream outputStream) {
@@ -128,7 +128,7 @@ public class ConcatPDF {
             for (Object input : fileOrInputStreamPdfList) {
                 File staged = PathValidationUtils.createSecureTempFile("pdf-merge-source-", ".pdf");
                 stagedSources.add(staged);
-                if (stageSource(input, staged)) {
+                if (stageSource(input, staged, requireAll)) {
                     pdfMerger.addSource(staged);
                 } else {
                     skippedFiles++;
@@ -158,11 +158,11 @@ public class ConcatPDF {
     }
 
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "file inputs use the existing trusted-path validation")
-    private static boolean stageSource(Object input, File staged) throws IOException {
+    private static boolean stageSource(Object input, File staged, boolean requireAll) throws IOException {
         if (input instanceof InputStream stream) {
             File source = PathValidationUtils.createSecureTempFile("pdf-merge-input-", ".pdf");
             try {
-                return spoolSource(stream, source.toPath()) && normalizeSource(source, staged);
+                return spoolSource(stream, source.toPath()) && normalizeSource(source, staged, requireAll);
             } finally {
                 deleteStagedSource(source.toPath());
             }
@@ -173,7 +173,7 @@ public class ConcatPDF {
         } catch (SecurityException refused) {
             return skipUnreadableSource(refused);
         }
-        return normalizeSource(source, staged);
+        return normalizeSource(source, staged, requireAll);
     }
 
     private static boolean spoolSource(InputStream stream, Path source) throws IOException {
@@ -192,7 +192,7 @@ public class ConcatPDF {
         }
     }
 
-    private static boolean normalizeSource(File source, File staged) throws IOException {
+    private static boolean normalizeSource(File source, File staged, boolean requireAll) throws IOException {
         PDDocument document;
         try {
             document = Loader.loadPDF(source, IOUtils.createTempFileOnlyStreamCache());
@@ -200,6 +200,10 @@ public class ConcatPDF {
             return skipUnreadableSource(unreadable);
         }
         try (document) {
+            if (requireAll && document.getNumberOfPages() == 0) {
+                MiscUtils.getLogger().error("A required PDF input contains no pages");
+                return false;
+            }
             if (document.isEncrypted()) {
                 document.setAllSecurityToBeRemoved(true);
             }

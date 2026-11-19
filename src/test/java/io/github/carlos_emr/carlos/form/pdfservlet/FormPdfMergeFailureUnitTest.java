@@ -16,6 +16,7 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -33,6 +34,10 @@ import static org.mockito.Mockito.when;
 
 @Tag("unit")
 class FormPdfMergeFailureUnitTest extends CarlosUnitTestBase {
+    private enum SecondComponent {
+        VALID, UNREADABLE, EMPTY
+    }
+
     @TempDir
     Path tempDir;
 
@@ -51,7 +56,7 @@ class FormPdfMergeFailureUnitTest extends CarlosUnitTestBase {
             }
             return call.callRealMethod();
         })) {
-            var response = exportTwoPages(module, false);
+            var response = exportTwoPages(module, SecondComponent.VALID);
 
             assertThat(stagingAttempts).hasValue(2);
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
@@ -62,10 +67,10 @@ class FormPdfMergeFailureUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    @ParameterizedTest(name = "{0} rejects an unreadable required page")
-    @ValueSource(strings = {"form", "eform"})
-    void shouldFailTheResponse_whenTheSecondPageIsUnreadable(String module) throws Exception {
-        var response = exportTwoPages(module, true);
+    @ParameterizedTest(name = "{0} rejects a required {1} component")
+    @CsvSource({"form,UNREADABLE", "eform,UNREADABLE", "form,EMPTY", "eform,EMPTY"})
+    void shouldFailTheResponse_whenARequiredComponentHasNoReadablePages(String module, SecondComponent second) throws Exception {
+        var response = exportTwoPages(module, second);
 
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         assertThat(response.getContentType()).isNull();
@@ -76,7 +81,7 @@ class FormPdfMergeFailureUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest(name = "{0} includes both valid pages")
     @ValueSource(strings = {"form", "eform"})
     void shouldIncludeAllRequestedPages_whenBothPagesAreReadable(String module) throws Exception {
-        var response = exportTwoPages(module, false);
+        var response = exportTwoPages(module, SecondComponent.VALID);
 
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         assertThat(response.getContentType()).isEqualTo("application/pdf");
@@ -85,8 +90,8 @@ class FormPdfMergeFailureUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    private MockHttpServletResponse exportTwoPages(String module, boolean unreadableSecondPage) throws Exception {
-        HttpServlet servlet = servletWithPages(module, unreadableSecondPage);
+    private MockHttpServletResponse exportTwoPages(String module, SecondComponent second) throws Exception {
+        HttpServlet servlet = servletWithPages(module, second);
         servlet.init(new MockServletConfig());
         var request = new MockHttpServletRequest("POST", "/" + module + "/createpdf");
         var response = new MockHttpServletResponse();
@@ -101,13 +106,13 @@ class FormPdfMergeFailureUnitTest extends CarlosUnitTestBase {
         return response;
     }
 
-    private static HttpServlet servletWithPages(String module, boolean unreadableSecondPage) {
+    private static HttpServlet servletWithPages(String module, SecondComponent second) {
         if (module.equals("form")) {
             return new FrmPDFServlet() {
                 @Override
                 protected ByteArrayOutputStream generatePDFDocumentBytes(HttpServletRequest request,
                         ServletContext context, ByteArrayOutputStream output, int page) throws IOException {
-                    return pageBytes(page, unreadableSecondPage);
+                    return pageBytes(page, second);
                 }
             };
         }
@@ -115,16 +120,18 @@ class FormPdfMergeFailureUnitTest extends CarlosUnitTestBase {
             @Override
             protected ByteArrayOutputStream generatePDFDocumentBytes(HttpServletRequest request,
                     ServletContext context, int page) throws IOException {
-                return pageBytes(page, unreadableSecondPage);
+                return pageBytes(page, second);
             }
         };
     }
 
-    private static ByteArrayOutputStream pageBytes(int page, boolean unreadableSecondPage) throws IOException {
+    private static ByteArrayOutputStream pageBytes(int page, SecondComponent second) throws IOException {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        if (unreadableSecondPage && page == 1) return output;
+        if (page == 1 && second == SecondComponent.UNREADABLE) return output;
         try (PDDocument document = new PDDocument()) {
-            document.addPage(new PDPage());
+            if (page == 0 || second != SecondComponent.EMPTY) {
+                document.addPage(new PDPage());
+            }
             document.save(output);
         }
         return output;
