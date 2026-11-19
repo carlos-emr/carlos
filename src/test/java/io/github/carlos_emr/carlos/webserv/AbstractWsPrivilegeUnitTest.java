@@ -285,11 +285,11 @@ class AbstractWsPrivilegeUnitTest extends CarlosUnitTestBase {
         TestScheduleWs service = new TestScheduleWs(loggedInInfo, securityInfoManager);
         ReflectionTestUtils.setField(service, "scheduleManager", scheduleManager);
 
-        service.getAppointmentArchivesUpdatedAfterDate(null, 25, false);
+        service.getAppointmentArchivesUpdatedAfterDate(new java.util.Date(), 25, false);
 
         var inOrder = inOrder(securityInfoManager, scheduleManager);
         inOrder.verify(securityInfoManager).hasPrivilege(loggedInInfo, "_appointment", "r", (String) null);
-        inOrder.verify(scheduleManager).getAppointmentArchiveUpdatedAfterDate(loggedInInfo, null, 25);
+        inOrder.verify(scheduleManager).getAppointmentArchiveUpdatedAfterDate(eq(loggedInInfo), org.mockito.ArgumentMatchers.any(java.util.Date.class), eq(25));
         verify(securityInfoManager, org.mockito.Mockito.never())
                 .hasPrivilege(loggedInInfo, "_appointment.UpdatedAfterDate", "x", (String) null);
     }
@@ -305,7 +305,7 @@ class AbstractWsPrivilegeUnitTest extends CarlosUnitTestBase {
         TestScheduleWs service = new TestScheduleWs(loggedInInfo, securityInfoManager);
         ReflectionTestUtils.setField(service, "scheduleManager", scheduleManager);
 
-        assertThatThrownBy(() -> service.getAppointmentArchivesUpdatedAfterDate(null, 25, false))
+        assertThatThrownBy(() -> service.getAppointmentArchivesUpdatedAfterDate(new java.util.Date(), 25, false))
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_appointment)");
 
@@ -830,6 +830,7 @@ class AbstractWsPrivilegeUnitTest extends CarlosUnitTestBase {
         private final SecurityInfoManager securityInfoManager;
 
         private TestMeasurementWs(LoggedInInfo loggedInInfo, SecurityInfoManager securityInfoManager) {
+            ReflectionTestUtils.setField(this, "projections", mock(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class));
             this.loggedInInfo = loggedInInfo;
             this.securityInfoManager = securityInfoManager;
         }

@@ -27,7 +27,7 @@ plus one request wrapper instantiated internally by the validation filter.
 **Class**: `io.github.carlos_emr.carlos.app.CsrfGuardScriptInjectionFilter`
 
 Auto-injects `<script src="contextPath/csrfguard"></script>` into HTML JSP responses before
-`</head>`. The filter mapping is intentionally limited to `FORWARD` dispatches so injection
+`</head>` (or before `</body>` when the page has no `</head>`). The filter mapping is intentionally limited to `FORWARD` dispatches so injection
 happens at the JSP render layer without wrapping the top-level Struts `REQUEST` response.
 Do not re-add `REQUEST` dispatch unless the Struts/JSP wrapper interaction has been retested;
 double-wrapping has previously produced blank schedule pages even when the Struts action itself
@@ -48,6 +48,16 @@ completed successfully.
 - The response already contains a `/csrfguard` script reference (idempotency)
 - The response used `getOutputStream()` instead of `getWriter()`
 - The response was committed by `sendRedirect()` or `sendError()` during downstream processing
+- The response contains neither `</head>` nor `</body>`. It is treated as a fragment that a
+  parent page (which already has the client) inserts into itself, and is served unchanged.
+
+**A page loaded as its own document must be a full document.** A JSP opened in a popup, a new
+tab or an iframe (every Administration panel page loads in `#dynamic-content iframe`) gets the
+client only if it renders `</head>` or `</body>`. Left as a bare fragment, its classic POST form
+carries no `CSRF-TOKEN` and `CarlosCsrfGuardFilter` refuses every submit with 403: the CAISI
+Issue Editor's add form did exactly this (#6078). Render `<html><head>…</head><body>…</body>`,
+or include `/WEB-INF/jspf/csrf-token.jspf` inside the form. `CaisicoreJspCsrfTokenRegressionUnitTest`
+pushes each `caisicore` page with a POST form through the real filter to pin this.
 
 **Operational invariant:** CSRF validation still runs on protected Struts POST requests through
 `CarlosCsrfGuardFilter`. The `FORWARD`-only script-injection mapping changes where the client
@@ -118,6 +128,15 @@ The `csrfguard.js` script (served by the JavascriptServlet) automatically handle
 - A form built in script and submitted at once (`createElement('form')` … `form.submit()`)
   gets the token at submission time (CARLOS patch 3). Do not hand-roll token copying for new
   code; set `method="post"` and a real same-origin `action`.
+- **Never disable a form's hidden inputs.** A page that makes a form read-only by setting
+  `disabled` on every `form.elements` entry also disables the injected `CSRF-TOKEN` field, and a
+  disabled control is not submitted. CSRFGuard only refreshes an existing token field's value, it
+  never enables the field, so the POST is refused with 403 ("Required Token is missing from the
+  Request") — this is what broke Delete on a saved flowsheet reading (issue #4715,
+  `AddMeasurementData.jsp`). Disable only the visible controls (skip `type="hidden"`), and skip
+  `<fieldset>`: disabling one disables every control nested in it. Do not rely on the token field
+  being absent or present when your script runs; the `MutationObserver` can add it as soon as any
+  script after the form has run.
 - **No manual token handling is needed for `<form>` submissions or `XMLHttpRequest` calls**
 - **`fetch()` calls require manual CSRF token inclusion** — CSRFGuard (as of 4.5) does
   **not** auto-intercept `fetch()`. Use the `getCsrfToken()` helper from `oscarMDSIndex.js`
@@ -469,7 +488,8 @@ The login flow creates the session and generates tokens on the first GET to a pr
 **Check**:
 1. View page source — confirm `<script src="/carlos/csrfguard"></script>` is present in `<head>`
 2. Browser dev tools (Network tab) — confirm the `csrfguard` script loaded successfully
-3. Browser dev tools (Elements tab) — confirm forms have a hidden `CSRF-TOKEN` input
+3. Browser dev tools (Elements tab) — confirm forms have a hidden `CSRF-TOKEN` input, and that it
+   is not `disabled` (a read-only form that disables every control omits the token from the POST)
 4. If the script tag is missing, check `CsrfGuardScriptInjectionFilter` is mapped in `web.xml`
 5. If the hidden input is missing, check browser console for JavaScript errors
 6. If the form is built in JavaScript or arrives inside `.load()`-injected HTML, submit it

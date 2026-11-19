@@ -76,6 +76,15 @@
  *   node scripts/run-playwright-suite.js --only tickler-crud --only login
  *   node scripts/run-playwright-suite.js --only fax-configure --residue-audit
  *   node scripts/run-playwright-suite.js --list
+ *   node scripts/run-playwright-suite.js --province BC --profile legacy-teleplan
+ *
+ * PROFILES. A few checks need the install configured another way than the packaged default, which a
+ * check cannot change for itself (the setting is read at startup). Such a check names its profile in the
+ * manifest (`profile`) and runs only in a run started with that --profile, after the install has been
+ * switched (scripts/deb-docker-validation.sh profile <name>); a run with a --profile runs only that
+ * profile's checks. In its own profile run a check that SKIPs FAILS the run: the skip would mean the
+ * install was not switched, and the profile exists so that this check is never left unrun. Known profiles
+ * are PROFILES below.
  */
 
 const fs = require('node:fs');
@@ -87,8 +96,17 @@ const {
   EXIT_FAIL, EXIT_PASS, EXIT_SKIP, createSqlRunner, isLocalTlsTarget, readConfig, validateBaseUrl, validateMysqlHost,
 } = require('./lib/playwright-harness');
 const { auditResidueDetailed, captureBaseline, describeResidue, formatResidue } = require('./lib/residue-audit');
+const { providerNavigationFixture } = require('./lib/provider-navigation-fixture');
 
 const MANIFEST_PATH = path.join(__dirname, 'playwright-suite.json');
+
+/** Install configurations a check can need, and how to switch a validation container to each. */
+const PROPERTY_PROFILES = require('./lib/property-profiles');
+const PROFILES = Object.freeze({
+  ...Object.fromEntries(Object.keys(PROPERTY_PROFILES.PROFILES).map(name => [name, `disposable ${name} configuration (restored after the run)`])),
+  // Issue #4439: BC remittances are imported through Upload Remittance Files only with NEW_BC_TELEPLAN=no.
+  'legacy-teleplan': 'a BC install with NEW_BC_TELEPLAN=no (scripts/deb-docker-validation.sh profile legacy-teleplan)',
+});
 
 function loadManifest(manifestPath = MANIFEST_PATH) {
   const parsed = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
@@ -100,7 +118,7 @@ function loadManifest(manifestPath = MANIFEST_PATH) {
 
 function parseArguments(argv) {
   const options = {
-    tiers: [], only: [], skip: [], province: '', junit: '', list: false, dryRun: false, residueAudit: false,
+    tiers: [], only: [], skip: [], province: '', profile: '', junit: '', list: false, dryRun: false, residueAudit: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -117,13 +135,24 @@ function parseArguments(argv) {
       case '--only': options.only.push(takeValue()); break;
       case '--skip': options.skip.push(takeValue()); break;
       case '--province': options.province = takeValue(); break;
+      case '--profile': options.profile = takeValue(); break;
       case '--junit': options.junit = takeValue(); break;
       case '--list': options.list = true; break;
       case '--dry-run': options.dryRun = true; break;
       case '--residue-audit': options.residueAudit = true; break;
+      case '--strict-release': options.strictRelease = true; break;
       case '--help': options.help = true; break;
       default: throw new Error(`Unknown argument ${argument}`);
     }
+  }
+  if (options.profile && !PROFILES[options.profile]) {
+    throw new Error(`Unknown profile ${options.profile}; known: ${Object.keys(PROFILES).join(', ')}`);
+  }
+  if (options.strictRelease && options.skip.length) {
+    throw new Error('--strict-release does not permit --skip; select applicable profiles/provinces explicitly');
+  }
+  if (options.strictRelease && options.dryRun) {
+    throw new Error('--strict-release does not permit --dry-run');
   }
   return options;
 }
@@ -132,6 +161,7 @@ function selectChecks(checks, options) {
   // A typo in one --only used to silently omit that check when another name
   // matched. The resulting green report did not cover the requested selection.
   const names = new Set(checks.map(check => check.name));
+  if (names.size !== checks.length) throw new Error('Duplicate check names in the suite manifest');
   for (const name of [...options.only, ...options.skip]) {
     if (!names.has(name)) throw new Error(`Unknown check name: ${name}; use --list for exact names`);
   }
@@ -140,7 +170,23 @@ function selectChecks(checks, options) {
   // input the harness contract does not carry; it runs only when asked for
   // by name, never as part of a tier or of the whole-suite default.
   // --list still shows it, marked, so the name is discoverable.
-  let selected = checks.filter((check) => !check.manual || options.list || options.only.includes(check.name));
+  // A check that needs another install configuration runs only in its profile's run, and a profile run
+  // runs only that profile's checks. Naming one with --only outside its profile is refused rather than
+  // quietly selecting nothing.
+  const profileOf = (check) => check.profile || '';
+  // selectChecks is exported: an options object without profile is the default run.
+  const wanted = options.profile || '';
+  for (const name of options.only) {
+    const check = checks.find((entry) => entry.name === name);
+    // An unknown name is reported where the selection is checked against --only, below.
+    if (check && profileOf(check) !== wanted) {
+      throw new Error(profileOf(check)
+        ? `${name} runs only with --profile ${profileOf(check)} (${PROFILES[profileOf(check)] || 'unknown profile'})`
+        : `${name} has no profile, so it does not run with --profile ${wanted}`);
+    }
+  }
+  let selected = checks.filter((check) => profileOf(check) === wanted);
+  selected = selected.filter((check) => !check.manual || options.list || options.only.includes(check.name));
   if (options.tiers.length) {
     selected = selected.filter((check) => check.tiers.some((tier) => options.tiers.includes(tier)));
   }
@@ -151,7 +197,8 @@ function selectChecks(checks, options) {
     selected = selected.filter((check) => !options.skip.includes(check.name));
   }
   if (options.province) {
-    selected = selected.filter((check) => check.provinces.includes('all') || check.provinces.includes(options.province));
+    selected = selected.filter((check) => check.provinces.some(province => province.toLowerCase() === 'all'
+      || province.toLowerCase() === options.province.toLowerCase()));
   }
   // A check that mutates shared state the others read must not run in the middle
   // of them: login's deliberate failed-password probes can lock the shared test
@@ -181,9 +228,17 @@ function selectChecks(checks, options) {
  * deployment someone else is using. So the opt-in is required for a non-local
  * BASE_URL whatever is selected, and assertsDatabase only sharpens the message.
  */
+function isStandaloneOnly(check) {
+  return check.tiers?.length === 1 && check.tiers[0] === 'standalone'
+    && !check.assertsDatabase && !mutatesOf([check]).length;
+}
+
 function assertSafeTarget(checks, env) {
-  if (!checks.length) {
+  if (!checks.length || checks.every(isStandaloneOnly)) {
     return;
+  }
+  if (env.CARLOS_DISPOSABLE_HOST !== 'true') {
+    throw new Error('CARLOS_DISPOSABLE_HOST=true is required for every live CARLOS suite, including loopback targets');
   }
   // THE DATABASE TARGET IS A SEPARATE QUESTION FROM THE WEB TARGET, and it is
   // the more dangerous one: eleven checks in this suite still read MYSQL_HOST
@@ -376,6 +431,10 @@ function runOne(check, options, run = spawnSync) {
     // with an expectedFailure then reads failed-elsewhere, which fails safe.
   }
   const resultPath = resultDirectory ? path.join(resultDirectory, 'result.json') : null;
+  if (options.strictRelease && !resultPath) {
+    return {name: check.name, outcome: 'FAIL', durationMs: Date.now() - started,
+      detail: 'strict release: cannot create a private structured result'};
+  }
   try {
     const result = run(process.execPath, [script], {
       stdio: 'inherit',
@@ -410,9 +469,18 @@ function runOne(check, options, run = spawnSync) {
     if (result.error && result.error.code === 'ETIMEDOUT') {
       raw = { outcome: 'FAIL', detail: `timed out after ${check.timeoutSec}s` };
     } else if (result.status === EXIT_PASS) {
-      raw = { outcome: 'PASS', detail: '' };
+      raw = options.strictRelease && (!record || record.outcome !== 'PASS' || record.cleanupFailed)
+        ? { outcome: 'FAIL', detail: 'strict release: successful exit lacks a consistent clean structured PASS' }
+        : { outcome: 'PASS', detail: '' };
     } else if (result.status === EXIT_SKIP) {
-      raw = { outcome: 'SKIP', detail: 'a fixture or credential this check needs is not configured' };
+      // The check printed its own reason above; the summary repeats the manifest's fixture
+      // note so the table says what to stage, not just that something was missing (#4412).
+      raw = {
+        outcome: 'SKIP',
+        detail: check.fixtures
+          ? `a fixture or credential this check needs is not configured (its output says which). Fixtures: ${check.fixtures}`
+          : 'a fixture or credential this check needs is not configured',
+      };
     } else {
       // The failing step counts only for an ordinary failure (exit 1) whose record says FAIL:
       // exit 130/143 is an interruption, and a missing record means the child never reached runCheck.
@@ -424,6 +492,14 @@ function runOne(check, options, run = spawnSync) {
         detail: `exit ${result.status === null ? 'signal' : result.status}${failedStep ? ` (failed at step "${failedStep}")` : ''}`,
         failedStep,
         cleanupFailed: Boolean(ordinary && record.cleanupFailed),
+      };
+    }
+    if (raw.outcome === 'SKIP' && options.profile && check.profile === options.profile) {
+      raw = {
+        outcome: 'FAIL',
+        // Keep the check's own reason: the profile is one cause, a missing fixture or tool is another.
+        detail: `skipped in its own --profile ${options.profile} run (${raw.detail || 'no reason given'}); `
+          + `a profile run needs ${PROFILES[options.profile]}`,
       };
     }
     return { name: check.name, ...classifyResult(check, raw), durationMs, ...(browserVersion ? { browserVersion } : {}) };
@@ -438,19 +514,21 @@ function escapeXml(value) {
   }[character]));
 }
 
-function toJUnit(results) {
+function toJUnit(results, { strictRelease = false } = {}) {
   // failed-elsewhere is a failure (it fails the run). known-fail is a skipped testcase whose
   // message names the finding, so CI shows it without counting it as red; unexpected-pass is a
   // passing testcase that carries its warning in <system-out>.
-  const failures = results.filter((result) => FAILING_OUTCOMES.has(result.outcome)).length;
-  const skipped = results.filter((result) => result.outcome === 'SKIP' || result.outcome === 'known-fail').length;
+  const fails = result => FAILING_OUTCOMES.has(result.outcome) || (strictRelease && result.outcome !== 'PASS');
+  const failures = results.filter(fails).length;
+  const skipped = strictRelease ? 0 : results.filter((result) => result.outcome === 'SKIP' || result.outcome === 'known-fail').length;
   const cases = results.map((result) => {
     const time = (result.durationMs / 1000).toFixed(3);
     const open = `    <testcase classname="playwright-suite" name="${escapeXml(result.name)}" time="${time}">`;
     // Only the new outcomes are prefixed, so the original FAIL/SKIP messages are unchanged.
     const message = (fallback) => `${['FAIL', 'SKIP'].includes(result.outcome) ? '' : `${result.outcome}: `}${result.detail || fallback}`;
-    if (FAILING_OUTCOMES.has(result.outcome)) {
-      return `${open}\n      <failure message="${escapeXml(message('failed'))}"/>\n    </testcase>`;
+    if (fails(result)) {
+      const kind = strictRelease && !FAILING_OUTCOMES.has(result.outcome) ? ' type="release.readiness"' : '';
+      return `${open}\n      <failure${kind} message="${escapeXml(message('failed'))}"/>\n    </testcase>`;
     }
     if (result.outcome === 'SKIP' || result.outcome === 'known-fail') {
       return `${open}\n      <skipped message="${escapeXml(message('skipped'))}"/>\n    </testcase>`;
@@ -491,7 +569,8 @@ function summarise(results, out = console) {
 }
 
 /** 1 when any result is FAIL or failed-elsewhere; known-fail and unexpected-pass are reported only. */
-function exitCodeFor(results) {
+function exitCodeFor(results, { strictRelease = false } = {}) {
+  if (strictRelease && (!results.length || results.some(result => result.outcome !== 'PASS'))) return EXIT_FAIL;
   return results.some((result) => FAILING_OUTCOMES.has(result.outcome)) ? EXIT_FAIL : EXIT_PASS;
 }
 
@@ -571,6 +650,7 @@ const databaseResidueAudit = Object.freeze({
       throw error;
     }
     return {
+      preserveNavigation: check => providerNavigationFixture(sql, readConfig({env}).testUser, check.name),
       finish: () => auditResidueDetailed({ sql, since }),
       dispose: () => sql.dispose(),
     };
@@ -630,7 +710,8 @@ function main(argv = process.argv.slice(2), env = process.env, out = console, de
     return EXIT_FAIL;
   }
   if (options.help) {
-    out.log('Usage: node scripts/run-playwright-suite.js [--tier T]... [--only NAME]... [--skip NAME]... [--province ON|BC] [--junit FILE] [--residue-audit] [--list] [--dry-run]');
+    out.log('Usage: node scripts/run-playwright-suite.js [--tier T]... [--only NAME]... [--skip NAME]... [--province ON|BC] [--profile NAME] [--junit FILE] [--residue-audit] [--strict-release] [--list] [--dry-run]');
+    out.log(`Profiles: ${Object.entries(PROFILES).map(([name, what]) => `${name} = ${what}`).join('; ')}`);
     return EXIT_PASS;
   }
 
@@ -676,22 +757,42 @@ function main(argv = process.argv.slice(2), env = process.env, out = console, de
   }
 
   const results = [];
+  // The standalone tier renders repository fixtures without an application.
+  // Mixed tiers and any declared database/mutation work still require deployment identity.
+  const deploymentRequired = selected.some(check => !isStandaloneOnly(check));
   try {
-    const identityBefore = probeIdentity(env);
-    for (const check of selected) {
+    const identityBefore = deploymentRequired ? probeIdentity(env) : null;
+    if (options.strictRelease && deploymentRequired && !identityBefore) {
+      results.push({name: 'application-identity', outcome: 'FAIL',
+        detail: 'strict release: no deployment identity was established before execution', durationMs: 0});
+    }
+    for (const check of options.strictRelease && deploymentRequired && !identityBefore ? [] : selected) {
       out.log(`\n--- ${check.name} (${check.tiers.join(',')}) ---`);
       // `env`, not process.env: main() validated BASE_URL and MYSQL_HOST out of
       // the environment it was HANDED, so the child has to receive that same one
       // or the gate and the run are about different deployments.
-      results.push(runOne(check, { ...options, env }, run));
+      let navigation;
+      try {
+        navigation = audit?.preserveNavigation?.(check);
+        results.push(runOne(check, { ...options, env }, run));
+      } catch (error) {
+        results.push({name: `${check.name}-navigation-fixture`, outcome: 'FAIL', detail: error.message, durationMs: 0});
+      } finally {
+        try { navigation?.cleanup(); }
+        catch (error) {
+          results.push({name: `${check.name}-navigation-cleanup`, outcome: 'FAIL', detail: error.message, durationMs: 0});
+        }
+      }
     }
-    const identityAfter = probeIdentity(env);
+    const identityAfter = deploymentRequired ? probeIdentity(env) : null;
 
-    if (identityBefore && identityAfter && identityBefore !== identityAfter) {
+    if ((identityBefore && identityAfter && identityBefore !== identityAfter)
+        || (options.strictRelease && deploymentRequired && !identityAfter)) {
       results.push({
         name: 'application-identity',
         outcome: 'FAIL',
-        detail: 'the deployment changed while the suite ran, so these results span two different applications',
+        detail: !identityAfter ? 'strict release: deployment identity was unavailable after execution'
+          : 'the deployment changed while the suite ran, so these results span two different applications',
         durationMs: 0,
       });
     }
@@ -703,17 +804,37 @@ function main(argv = process.argv.slice(2), env = process.env, out = console, de
 
   summarise(results, out);
   if (options.junit) {
-    fs.writeFileSync(options.junit, toJUnit(results));
+    fs.writeFileSync(options.junit, toJUnit(results, options));
     out.log(`  JUnit written to ${options.junit}`);
   }
-  return exitCodeFor(results);
+  return exitCodeFor(results, options);
 }
 
 if (require.main === module) {
-  process.exitCode = main();
+  let selectedProfile;
+  try {selectedProfile = parseArguments(process.argv.slice(2));}
+  catch {process.exitCode = main();}
+  if (selectedProfile && Object.hasOwn(PROPERTY_PROFILES.PROFILES, selectedProfile.profile)
+      && !selectedProfile.list && !selectedProfile.dryRun && !selectedProfile.help) {
+    if(process.env.CARLOS_PROPERTY_PROFILE_ACTIVE===selectedProfile.profile) PROPERTY_PROFILES.verifyActiveProfile(selectedProfile.profile).then(
+      ()=>{process.exitCode=main();},error=>{console.error(error.message);process.exitCode=EXIT_FAIL;});
+    // This internal selection/target preflight is diagnostic. The supervised
+    // child below still receives the original strict-release arguments.
+    else if ((process.exitCode=main([...process.argv.slice(2).filter(arg => arg !== '--strict-release'),'--dry-run'])) === EXIT_PASS) PROPERTY_PROFILES.withPropertyProfile(selectedProfile.profile,
+      async ({signal}) => {
+        if(selectedProfile.profile==='caisi-admin' && selectChecks(loadManifest(),selectedProfile).some(check =>
+          ['admin-issue-editor'].includes(check.name))) {
+          console.log('Initializing the CAISI chart definitions required by the selected Issue Editor check');
+          const initialized=await PROPERTY_PROFILES.runProfileChild([path.join(__dirname,'chart-dictionary-initialize.js')],selectedProfile.profile,signal);
+          if(initialized!==0)throw new Error('CAISI native dictionary initialization failed; clinical checks were not started');
+        }
+        return PROPERTY_PROFILES.runProfileChild(process.argv.slice(1),selectedProfile.profile,signal);
+      }).then(
+      code => {process.exitCode = code;}, error => {console.error(error.message); process.exitCode = EXIT_FAIL;});
+  } else if (selectedProfile) process.exitCode = main();
 }
 
 module.exports = {
   assertSafeTarget, browserVersionsOf, classifyResult, cleanBrowserVersion, exitCodeFor, loadManifest, main, mutatesOf,
-  parseArguments, readBuildIdentity, runOne, selectChecks, summarise, toJUnit, validateExpectedFailure,
+  PROFILES, parseArguments, readBuildIdentity, runOne, selectChecks, summarise, toJUnit, validateExpectedFailure,
 };

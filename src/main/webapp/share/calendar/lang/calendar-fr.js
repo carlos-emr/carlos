@@ -18,6 +18,7 @@ Calendar._TT["WK"] = "sem.";
 Calendar._TT["TIME"] = "Heure:";
 Calendar._TT["CLOSE"] = "Fermer";
 Calendar._TT["TODAY"] = "Aujourd'hui";
+Calendar._TT["CHOOSE_DATE"] = "Choisir une date";
 
 Calendar._flatpickrLocale = "fr";
 

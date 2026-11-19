@@ -62,7 +62,7 @@ class ScatterPlotAuthorizationUnitTest extends CarlosUnitTestBase {
     @ValueSource(strings = {"invalid", "2147483648", "0", "-123"})
     void shouldRejectInvalidPatientBeforeClinicalLookup(String patient) throws Exception {
         MockHttpServletResponse response = service(patient, "WT");
-        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getStatus()).isEqualTo(400);
         verifyNoInteractions(security, measurements, types, validations);
     }
 
@@ -113,7 +113,17 @@ class ScatterPlotAuthorizationUnitTest extends CarlosUnitTestBase {
             when(measurements.findObservationDatesByDemographicNoTypeAndMeasuringInstruction(123, type, "FAKE"))
                     .thenReturn(List.of(observed));
         }
-        MockHttpServletResponse response = service("00123", type);
+        MockHttpServletResponse response;
+        try (var renderer = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.eform.util.BrowserChartRenderer.class)) {
+            renderer.when(() -> io.github.carlos_emr.carlos.eform.util.BrowserChartRenderer.write(
+                    any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt(), any()))
+                    .thenAnswer(call -> {
+                        ImageIO.write(new java.awt.image.BufferedImage(2, 2, java.awt.image.BufferedImage.TYPE_INT_RGB),
+                                "jpeg", call.<java.io.OutputStream>getArgument(1));
+                        return null;
+                    });
+            response = service("00123", type);
+        }
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getContentType()).isEqualTo("image/jpeg");
         assertThat(ImageIO.read(new ByteArrayInputStream(response.getContentAsByteArray()))).isNotNull();

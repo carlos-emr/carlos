@@ -262,6 +262,29 @@ class ImagePDFCreatorUnitTest {
         }
 
         @Test
+        @DisplayName("should title each TIFF page with the document description in any script, in an embedded font")
+        void shouldTitleTiffPages_inChineseJapaneseAndKorean() throws Exception {
+            // Issue #5046: the title used OpenPDF's default non-embedded Helvetica, which dropped
+            // every character outside Cp1252. The description is synthetic.
+            Assumptions.assumeTrue(isAwtAvailable(), "AWT graphics not available (no display)");
+            Path tiff = createMultiPageTiff("cjk.tiff", 2);
+            Assumptions.assumeTrue(tiff != null, "TwelveMonkeys TIFF writer not available");
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            new ImagePDFCreator(tiff.toAbsolutePath().toString(), "FAKE-转诊信 さくら 김민준 Łukasz", out).printPdf();
+
+            try (var pdf = org.apache.pdfbox.Loader.loadPDF(out.toByteArray())) {
+                for (var page : pdf.getPages()) {
+                    for (var name : page.getResources().getFontNames()) {
+                        assertThat(page.getResources().getFont(name).isEmbedded()).as("font %s", name).isTrue();
+                    }
+                }
+                assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(pdf))
+                        .contains("FAKE-转诊信 さくら 김민준 Łukasz - page 1", "FAKE-转诊信 さくら 김민준 Łukasz - page 2");
+            }
+        }
+
+        @Test
         @DisplayName("should detect TIFF by .tif extension (case-insensitive)")
         void shouldDetectTiff_byTifExtension() throws Exception {
             Assumptions.assumeTrue(isAwtAvailable(), "AWT graphics not available (no display)");

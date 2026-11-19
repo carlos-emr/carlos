@@ -32,12 +32,13 @@
 <%--
     Provider usage report with patient demographics and activity counts for an inclusive date range.
     Parameters: providerNo, startDate, endDate. Access is restricted to administration.
+    The Billing figure counts Ontario invoices and reads "n/a" on any other billing region.
     DAO-specific date boundaries include the entire selected end date; percentages use two decimals.
     @since 2026-10-02
 --%>
 <%@ page import="io.github.carlos_emr.carlos.report.UsageReportSupport" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -67,10 +68,10 @@
 <%@page import="java.util.Date" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Drug" %>
+
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DrugDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderInboxItem" %>
+
 <%@page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.CustomFilter" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DocumentDao" %>
@@ -223,7 +224,9 @@
         Date exclusiveEndDate = UsageReportSupport.exclusiveEnd(endDate);
         endDate = UsageReportSupport.inclusiveEnd(endDate);
         int scheduledAppts = appointmentDao.findByDateRangeAndProvider(startDate, exclusiveEndDate, providerNo).size();
-        int billing = billingONCHeader1Dao.getNumberOfDemographicsWithInvoicesForProvider(providerNo, startDate, endDate, true);
+        // Counted from the Ontario bill header, which only an Ontario schema has: null (shown as
+        // not available) on any other billing region, where asking for it answered HTTP 500.
+        Integer billing = UsageReportSupport.billedPatientCount(billingONCHeader1Dao, providerNo, startDate, endDate);
         int encounterNote = caseManagementNoteDao.getNoteCountForProviderForDateRange(providerNo, startDate, endDate);
         int problemList = caseManagementNoteDao.getNoteCountForProviderForDateRangeWithIssueId(providerNo, startDate, endDate, "Concerns");
         int storedDocuments = documentDao.getNumberOfDocumentsAttachedToAProviderDemographics(providerNo, startDate, endDate);
@@ -320,8 +323,14 @@
         <tr>
             <td><%=scheduledAppts%>
             </td>
+            <% if (billing != null) { %>
             <td><%=billing%>
             </td>
+            <% } else { %>
+            <fmt:message key="admin.UsageReport.tip.billingNotAvailable" var="billingNotAvailableTip"/>
+            <td title="${carlos:forHtmlAttribute(billingNotAvailableTip)}"><fmt:message key="admin.UsageReport.billingNotAvailable"/>
+            </td>
+            <% } %>
             <td><%=encounterNote%>
             </td>
             <td><%=problemList%>

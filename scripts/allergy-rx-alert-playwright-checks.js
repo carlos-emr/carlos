@@ -96,6 +96,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { randomUUID } = require('node:crypto');
 const { createGracefulSignalCancellation } = require('./graceful-signal-cancellation');
 const h = require('./lib/playwright-harness');
@@ -205,7 +206,9 @@ async function deactivateCreatedAllergies(context) {
             { timeout: 30000 },
           ),
           expectedDialog,
-          cleanupPage.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+          // The link is href="#": waitForNavigation would be satisfied by that same-document step.
+          // The page-level event fires only for a new document, which is the reload the handler does.
+          cleanupPage.waitForEvent('domcontentloaded', { timeout: 30000 }),
           inactivateLink.click(),
         ]);
         assert(deleteResponse.status() === 200,
@@ -243,7 +246,9 @@ async function recordAllergy(page, marker, cancellation) {
   });
 }
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('allergy-rx-alert', async () => {
+  await (async () => {
   const recorder = createRecorder();
   const cancellation = createGracefulSignalCancellation();
   let browser;
@@ -279,7 +284,7 @@ async function recordAllergy(page, marker, cancellation) {
     const loopback = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
     const host = config.baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase();
     context = await browser.newContext({
-      ignoreHTTPSErrors: loopback.has(host),
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(),
       viewport: { width: 1440, height: 1000 },
     });
     context.setDefaultTimeout(30000);
@@ -624,3 +629,4 @@ async function recordAllergy(page, marker, cancellation) {
     }
   }
 })();
+}, {existingSignalHandlers:true});

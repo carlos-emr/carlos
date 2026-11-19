@@ -21,9 +21,9 @@
     https://github.com/carlos-emr/carlos
 
 --%>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
+
 <fmt:setBundle basename="oscarResources"/>
 <%--
     Purpose:
@@ -43,8 +43,6 @@
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key='oscarwaitinglist.removeFromWaitingListResult.title'/></title>
-    <link rel="stylesheet" type="text/css"
-          href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/styles.css">
 </head>
 <body>
 <table>

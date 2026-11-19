@@ -35,6 +35,9 @@ import java.util.Date;
 import java.util.List;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.FlushModeType;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.commn.model.GroupNoteLink;
 import org.springframework.stereotype.Repository;
@@ -44,6 +47,14 @@ public class GroupNoteDaoImpl extends AbstractDaoImpl<GroupNoteLink> implements 
 
     public GroupNoteDaoImpl() {
         super(GroupNoteLink.class);
+    }
+
+    /** Scalar locking read first: no entity hydration or AUTO flush may establish an earlier snapshot. */
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public boolean lockNoteForGroupUpdate(Integer noteId) {
+        return !entityManager.createNativeQuery("SELECT note_id FROM casemgmt_note WHERE note_id=:noteId FOR UPDATE")
+                .setParameter("noteId", noteId).setFlushMode(FlushModeType.COMMIT).getResultList().isEmpty();
     }
 
     @Override

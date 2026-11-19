@@ -38,6 +38,9 @@
     Features:
     - Bootstrap 5 responsive table with sortable columns
     - Fetches one extra match to suppress empty final pages; submitting filters resets the offset
+    - Leaves out the rows of patients the user may not read, with a notice above the table, and
+      keeps the page boundaries where they are; a list that could not be loaded is reported as an
+      error instead of being shown as an empty list (issue #5775)
     - Filter by team, date range (referral or appointment date), and completion status
     - Filter by Consultant (type-ahead over specialists referenced by consult requests, served by
       encounter/consultation/searchConsultants) and by Provider (the patient's MRP). Both values
@@ -47,7 +50,8 @@
       submit, so it can never become a filter (issue #3976).
     - Clickable rows (mouse + keyboard) to open consultation detail popup
     - Overdue consultation highlighting based on user preferences
-    - Bulk tickler creation for "Nothing Done" consultations older than one week
+    - Add Tickler link for each patient with a "Nothing Done" consultation older than one week; it
+      opens the standard Add Tickler form for that patient with the follow-up text filled in
     - Multisite support with site-specific background colours
     - Native HTML5 date inputs replacing legacy calendar widget
     - OWASP-encoded URLs for all popup interactions
@@ -73,8 +77,8 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao" %>
 
-<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.*,java.text.*,java.util.*" %>
-<%@ page import="java.sql.ResultSet" %>
+<%@ page import="java.text.*, java.util.*" %>
+
 <%@ page
         import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.carlos.commn.model.UserProperty, org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -89,13 +93,13 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewConsultationRequestsUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.consultation.dto.ConsultationListFilterDto" %>
 <%@ page import="io.github.carlos_emr.carlos.consultation.dto.ConsultationMrpOptionDto" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -266,7 +270,21 @@
         }
 
 
-        List<String> tickerList = new ArrayList<String>();
+        // Patients with a Nothing Done referral older than a week -> the name the row shows. One entry
+        // per patient however many referrals qualify: the Add Tickler form is single-patient.
+        Map<String, String> overdueTicklerPatients = new LinkedHashMap<String, String>();
+
+        // Loaded here, before the table is written, so that the two outcomes that are not a plain
+        // list can be said above it (issue #5775): the list could not be loaded, which must not look
+        // like a team with no consultations, and rows left out because the user may not read the
+        // patient's record. limit + 1 fetches the lookahead row behind the Next button.
+        EctViewConsultationRequestsUtil theRequests = new EctViewConsultationRequestsUtil();
+        boolean consultationListLoaded = theRequests.estConsultationPageByTeam(
+                LoggedInInfo.getLoggedInInfoFromSession(request),
+                new ConsultationListFilterDto(team, includeCompleted, startDate, endDate, orderby, desc,
+                        searchDate, offset, limit + 1, consultantId, filterProviderNo,
+                        restrictToSiteOrTeam ? providerMap.keySet() : null,
+                        bMultisites && restrictToSiteOrTeam ? new java.util.HashSet<>(mgrSite) : null), limit);
     %>
 
 
@@ -765,6 +783,16 @@
                 <% } %>
             </div>
 
+            <% if (!consultationListLoaded) { %>
+            <div class="alert alert-danger" role="alert" id="consultationListLoadFailed">
+                <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgListLoadFailed"/>
+            </div>
+            <% } else if (theRequests.hasRestrictedRows()) { %>
+            <div class="alert alert-warning" role="status" id="consultationListRestrictedRows">
+                <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgRestrictedRowsOmitted"/>
+            </div>
+            <% } %>
+
             <!-- Consultation Results Table -->
             <div class="table-responsive">
                 <table class="table table-hover table-sm table-bordered consult-table">
@@ -829,13 +857,6 @@
                     </thead>
                     <tbody>
                         <%
-                            EctViewConsultationRequestsUtil theRequests;
-                            theRequests = new EctViewConsultationRequestsUtil();
-                            theRequests.estConsultationVecByTeam(LoggedInInfo.getLoggedInInfoFromSession(request),
-                                    new ConsultationListFilterDto(team, includeCompleted, startDate, endDate, orderby, desc,
-                                            searchDate, offset, limit + 1, consultantId, filterProviderNo,
-                                            restrictToSiteOrTeam ? providerMap.keySet() : null,
-                                            bMultisites && restrictToSiteOrTeam ? new java.util.HashSet<>(mgrSite) : null));
                             boolean overdue;
                             UserPropertyDAO pref = (UserPropertyDAO) WebApplicationContextUtils.getWebApplicationContext(pageContext.getServletContext()).getBean(UserPropertyDAO.class);
                             String user = (String) session.getAttribute("user");
@@ -844,7 +865,10 @@
                             int countback = 0;
 
                             if (up != null && up.getValue() != null && !up.getValue().trim().equals("")) {
-                                timeperiod = up.getValue();
+                                if (io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod.isValid(up.getValue())) {
+                                    timeperiod = up.getValue();
+                                    countback = -Integer.parseInt(timeperiod.trim());
+                                }
                             }
 
                             for (int i = 0; i < Math.min(limit, theRequests.ids.size()); i++) {
@@ -881,31 +905,20 @@
                                 }
                                 if (EctViewConsultationRequestsUtil.isTicklerDemographic(demo)
                                         && "1".equals(status) && dateGreaterThan(date, Calendar.WEEK_OF_YEAR, -1)) {
-                                    tickerList.add(demo);
+                                    overdueTicklerPatients.putIfAbsent(demo, patient == null ? "" : patient);
                                 }
                                 overdue = false;
 
                                 if (timeperiod != null) {
-                                    try {
-                                        countback = Integer.parseInt(timeperiod);
-                                    } catch (NumberFormatException e) {
-                                        timeperiod = null; // fall through to default logic below
-                                    }
-                                }
-                                if (timeperiod != null) {
-                                    countback = countback * -1;
-
                                     if ((status.equals("1") || status.equals("2") || status.equals("3")) && dateGreaterThan(date, Calendar.MONTH, countback)) {
                                         overdue = true;
                                     }
                                 } else {
-                                    countback = -7;  //7 days
-                                    if ((status.equals("1") || status.equals("3")) && dateGreaterThan(date, Calendar.DAY_OF_YEAR, countback)) {
+                                    if ((status.equals("1") || status.equals("3")) && dateGreaterThan(date, Calendar.DAY_OF_YEAR, -7)) {
                                         overdue = true;
                                     }
 
-                                    countback = -30;  //30 days
-                                    if (status.equals("2") && dateGreaterThan(date, Calendar.DAY_OF_YEAR, countback)) {
+                                    if (status.equals("2") && dateGreaterThan(date, Calendar.DAY_OF_YEAR, -30)) {
                                         overdue = true;
                                     }
                                 }
@@ -994,34 +1007,32 @@
                         <i class="fas fa-chevron-left me-1"></i><fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgPrev"/>
                     </button><%
                         }
-                        if (theRequests.ids.size() > limit) {
+                        // Not ids.size(): rows left out for patients the user may not read do not
+                        // end the list.
+                        if (theRequests.hasMoreRows()) {
                     %><button type="button" class="btn btn-secondary btn-sm ms-1" onclick="gotoPage(true);">
                         <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgNext"/><i class="fas fa-chevron-right ms-1"></i>
                     </button><%
                         }
                     %>
                 </div>
-                <div>
-                    <% if (tickerList.size() > 0) {
-                        String queryStr = "";
-                        for (int i = 0; i < tickerList.size(); i++) {
-                            String demo = (String) tickerList.get(i);
-                            if (i == 0) {
-                                queryStr += "demo=" + SafeEncode.forUriComponent(demo);
-                            } else {
-                                queryStr += "&demo=" + SafeEncode.forUriComponent(demo);
-                            }
-                        }%>
+                <div class="d-flex flex-wrap justify-content-end gap-1">
+                    <% if (!overdueTicklerPatients.isEmpty()) { %>
                     <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgAddTicklerConfirm" var="addTicklerConfirmVar"/>
                     <%  String addTicklerConfirmJs = SafeEncode.forJavaScript((String)pageContext.getAttribute("addTicklerConfirmVar"));
-                        String addTicklerUrl = request.getContextPath() + "/tickler/ViewAddTickler?" + queryStr
-                            + "&message=" + java.net.URLEncoder.encode("Patient has Consultation Letter with a status of 'Nothing Done' for over one week", "UTF-8"); %>
+                        for (Map.Entry<String, String> overdueTickler : overdueTicklerPatients.entrySet()) {
+                            String addTicklerUrl = EctViewConsultationRequestsUtil.overdueTicklerPath(
+                                    request.getContextPath(), overdueTickler.getKey()); %>
                     <a class="btn btn-link btn-sm" target="_blank"
                        href="<%= SafeEncode.forHtmlAttribute(addTicklerUrl) %>"
                        onclick="return confirm('<%=addTicklerConfirmJs%>');">
                         <i class="fas fa-bell me-1"></i><fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgAddTicklerBtn"/>
+                        <%-- The form is single-patient, so with several overdue patients each link says whose it is. --%>
+                        <% if (overdueTicklerPatients.size() > 1) { %>
+                        <span class="ms-1">(<carlos:encode value='<%= overdueTickler.getValue() %>' context="html"/>)</span>
+                        <% } %>
                     </a>
-                    <%}%>
+                    <% } } %>
                 </div>
             </div>
 

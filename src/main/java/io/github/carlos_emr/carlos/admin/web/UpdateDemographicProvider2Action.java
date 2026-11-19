@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.admin.web;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -35,8 +34,7 @@ import org.apache.struts2.ServletActionContext;
  * Security gate for the Update Demographic Provider admin page.
  *
  * <p>Requires {@code _admin.misc} read privilege before forwarding to the JSP.
- * Reassignment additionally requires POST and an administrative write privilege
- * before any update logic in the JSP can run.</p>
+ * POST mutations additionally require write privilege and run in a scoped transaction.</p>
  *
  * @since 2026-04-05
  */
@@ -44,8 +42,11 @@ public class UpdateDemographicProvider2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    private final io.github.carlos_emr.carlos.admin.service.DemographicProviderReassignmentService reassignments =
+            SpringUtils.getBean(io.github.carlos_emr.carlos.admin.service.DemographicProviderReassignmentService.class);
+
     @Override
-    public String execute() {
+    public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -53,19 +54,39 @@ public class UpdateDemographicProvider2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin.misc)");
         }
 
-        if (request.getParameter("update") != null) {
+        String operation = request.getParameter("update");
+        if (operation != null) {
+            var response = ServletActionContext.getResponse();
             if (!"POST".equals(request.getMethod())) {
-                HttpServletResponse response = ServletActionContext.getResponse();
                 response.setHeader("Allow", "POST");
-                response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                response.sendError(405, "POST required");
                 return NONE;
             }
-            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "w", null)
-                    && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
-                throw new SecurityException("missing required write privilege (_admin.misc or _admin)");
+            // The blocking CSRFGuard filter validates all POSTs to this route.
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "w", null)) {
+                throw new SecurityException("missing required sec object (_admin.misc w)");
+            }
+            String suffix = switch (operation) {
+                case "UpdateResident" -> "2";
+                case "UpdateNurse" -> "1";
+                case "UpdateMidwife" -> "4";
+                case "UpdateMrp" -> "5";
+                default -> null;
+            };
+            if (suffix == null) {
+                response.sendError(400, "Unknown reassignment operation");
+                return NONE;
+            }
+            try {
+                int count = reassignments.reassign(loggedInInfo, operation,
+                        request.getParameter("oldcust" + suffix), request.getParameter("newcust" + suffix),
+                        request.getParameter("last_name_from"), request.getParameter("last_name_to"));
+                request.setAttribute("reassignedProviderCount", count);
+            } catch (IllegalArgumentException invalid) {
+                response.sendError(400, "Invalid provider or name range");
+                return NONE;
             }
         }
-
         return SUCCESS;
     }
 }

@@ -11,6 +11,15 @@ const { NAVIGATION, REQUIRED_SECTIONS } = require('./lib/playwright-ui');
 
 const VALID_TIERS = new Set(['smoke', 'core', 'extended', 'front-door', 'standalone', 'live-external']);
 const checks = loadManifest();
+// Error qualification now owns two bounded restarts inside its check timeout.
+// The former suite-wide wrapper kept these 1300 seconds outside this budget.
+const SMOKE_BUDGET_SECONDS = 3600 + 1300;
+
+test('every database check reaches a shared signal-aware entry point',()=>{
+  const {hasSignalEntryPoint}=require('./lib/script-signal-safety');
+  const missing=checks.filter(check=>check.assertsDatabase&&!hasSignalEntryPoint(path.resolve(__dirname,'..',check.script))).map(check=>check.name);
+  assert.deepEqual(missing,[],'Database checks must settle writes and clean owned fixtures after interruption');
+});
 
 function suiteScripts(directory = __dirname, prefix = 'scripts') {
   const found = [];
@@ -105,14 +114,14 @@ test('standalone checks never require a database', () => {
 });
 
 test('the smoke tier stays small enough to gate a pull request', () => {
-  const smoke = checks.filter((check) => check.tiers.includes('smoke'));
+  const smoke = selectChecks(checks, parseArguments(['--tier','smoke']));
   assert.ok(smoke.length > 0, 'there must be a smoke tier for CI to run');
   const budgetSeconds = smoke.reduce((total, check) => total + check.timeoutSec, 0);
-  assert.ok(budgetSeconds <= 3600, `the smoke tier's worst case is ${budgetSeconds}s; it is meant to gate a PR`);
+  assert.ok(budgetSeconds <= SMOKE_BUDGET_SECONDS, `the smoke tier's worst case is ${budgetSeconds}s; it is meant to gate a PR`);
 });
 
 test('exactly one check runs last, and it is the one with the destructive probes', () => {
-  const last = checks.filter((check) => check.runLast);
+  const last = checks.filter((check) => !check.profile && check.runLast);
   assert.equal(last.length, 1, 'more than one runLast check means their order is undefined');
   assert.equal(last[0].name, 'login', 'login submits deliberate bad passwords and can lock the shared test account');
 });
@@ -211,10 +220,10 @@ test('a check is spawned by absolute path, so the runner works from any director
 // independent test additions fail only after merging, despite retaining every
 // manifest entry. Completeness and script/alias parity are checked above.
 test('the smoke tier stays within its configured timeout budget', () => {
-  const smoke = checks.filter((check) => check.tiers.includes('smoke'));
+  const smoke = selectChecks(checks, parseArguments(['--tier','smoke']));
   const budgetSeconds = smoke.reduce((total, check) => total + check.timeoutSec, 0);
-  assert.ok(budgetSeconds <= 3600,
-    `smoke timeout budget ${budgetSeconds}s exceeds the 3600s ceiling`);
+  assert.ok(budgetSeconds <= SMOKE_BUDGET_SECONDS,
+    `smoke timeout budget ${budgetSeconds}s exceeds the ${SMOKE_BUDGET_SECONDS}s ceiling`);
 });
 
 test('a partially valid selection cannot silently omit an unknown check', () => {
@@ -477,7 +486,7 @@ test('shouldWriteJUnit_forKnownFailUnexpectedPassAndFailedElsewhere', () => {
 
 function mainWith(checks, run, argv = [], env = {}) {
   const { lines, out } = captured();
-  const code = main(argv, env, out, { checks, run, readBuildIdentity: () => null });
+  const code = main(argv, {...env, CARLOS_DISPOSABLE_HOST: 'true'}, out, { checks, run, readBuildIdentity: () => null });
   return { code, text: lines.join('\n') };
 }
 
@@ -810,7 +819,8 @@ test('shouldTakeTheReportingGuardFromTheScriptsOwnText_notFromWhatItRequires', (
  */
 const { parseMutates } = require('./lib/residue-audit');
 
-const KNOWN_WRITERS = ['fax-configure', 'schedule-setting', 'eform-admin-crud', 'eform-image-delete', 'prevention-add-data'];
+const KNOWN_WRITERS = ['fax-configure', 'schedule-setting', 'eform-admin-crud', 'eform-image-delete', 'prevention-add-data',
+  'consultation-specialty-selection'];
 
 test('shouldDeclareMutates_onTheKnownClinicWideWriters', () => {
   for (const name of KNOWN_WRITERS) {
@@ -820,6 +830,8 @@ test('shouldDeclareMutates_onTheKnownClinicWideWriters', () => {
       `${name} changes clinic-wide state and must list it in mutates`);
   }
   assert.deepEqual(checks.find((entry) => entry.name === 'fax-configure').mutates, ['fax_config']);
+  assert.deepEqual(checks.find((entry) => entry.name === 'consultation-specialty-selection').mutates,
+    ['consultationServices', 'professionalSpecialists']);
 });
 
 test('shouldKeepMutatesWellFormed_whereverItIsDeclared', () => {
@@ -844,4 +856,69 @@ test('shouldDeclareThatFaxConfigureReadsTheDatabase_sinceItNowRestoresTheRow', (
   assert.equal(check.assertsDatabase, true, 'it snapshots and reads back fax_config');
   assert.match(check.fixtures, /fax_config/);
   assert.match(check.fixtures, /restores/);
+});
+
+// Profiles (issue #4439): a check that needs another install configuration runs only in its profile's run.
+const { PROFILES } = require('./run-playwright-suite');
+
+test('shouldNameOnlyKnownProfiles_forEveryManifestEntry', () => {
+  for (const check of checks.filter((entry) => entry.profile !== undefined)) {
+    assert.ok(PROFILES[check.profile], `${check.name} names unknown profile ${check.profile}`);
+  }
+  assert.ok(checks.some((check) => check.profile === 'legacy-teleplan'), 'the legacy-teleplan profile has no check');
+});
+
+test('shouldSelectProfileChecks_onlyInTheirProfileRun', () => {
+  const plain = { name: 'plain', tiers: ['core'], provinces: ['BC'] };
+  const legacy = { name: 'legacy', tiers: ['core'], provinces: ['BC'], profile: 'legacy-teleplan' };
+  const names = (options) => selectChecks([plain, legacy], { ...parseArguments([]), ...options }).map((c) => c.name);
+  assert.deepEqual(names({}), ['plain']);
+  assert.deepEqual(names({ profile: 'legacy-teleplan' }), ['legacy']);
+  assert.throws(() => names({ only: ['legacy'] }), /runs only with --profile legacy-teleplan/);
+  assert.throws(() => names({ only: ['plain'], profile: 'legacy-teleplan' }), /has no profile/);
+  assert.throws(() => parseArguments(['--profile', 'nonesuch']), /Unknown profile nonesuch/);
+});
+
+test('shouldFailASkip_inItsOwnProfileRun', () => {
+  const legacy = expectingCheck({ profile: 'legacy-teleplan', expectedFailure: undefined });
+  const skipped = runOne(legacy, { env: {}, profile: 'legacy-teleplan' }, child({ status: 2 }));
+  assert.equal(skipped.outcome, 'FAIL');
+  assert.match(skipped.detail, /skipped in its own --profile legacy-teleplan run/);
+  assert.match(skipped.detail, /needs a BC install with NEW_BC_TELEPLAN=no/);
+  // The skip's own reason stays: a missing fixture or tool skips a profile check too.
+  assert.match(skipped.detail, /a fixture or credential this check needs is not configured/);
+  const plainSkip = runOne(expectingCheck({ expectedFailure: undefined }), { env: {} }, child({ status: 2 }));
+  assert.equal(plainSkip.outcome, 'SKIP');
+});
+
+test('shouldSelectTheDefaultRun_whenOptionsCarryNoProfile', () => {
+  // selectChecks is exported; an options object built without profile must mean the default run, not no run.
+  const plain = expectingCheck({ name: 'plain-check', expectedFailure: undefined });
+  const legacy = expectingCheck({ name: 'legacy-check', profile: 'legacy-teleplan', expectedFailure: undefined });
+  const { profile, ...withoutProfile } = parseArguments([]);
+  assert.equal(profile, '');
+  assert.deepEqual(selectChecks([plain, legacy], withoutProfile).map((c) => c.name), ['plain-check']);
+  assert.deepEqual(selectChecks([plain, legacy], { ...withoutProfile, only: ['plain-check'] }).map((c) => c.name), ['plain-check']);
+});
+
+test('every automatic browser check reaches a structured result entry point',()=>{
+  const {hasStructuredEntryPoint}=require('./lib/script-signal-safety');
+  const missing=checks.filter(check=>!check.manual&&!hasStructuredEntryPoint(path.resolve(__dirname,'..',check.script))).map(check=>check.name);
+  assert.deepEqual(missing,[], 'A zero exit without a structured result cannot qualify a strict release lane');
+});
+
+test('native-only O19 and BC PathNet checks retain explicit qualification lanes',()=>{
+  const names=options=>selectChecks(checks,parseArguments(options)).map(c=>c.name);
+  for(const province of ['ON','BC']) {
+    const ordinary=names(['--province',province]);
+    for(const name of ['o19-migrated-smoke','pathnet-status','legacy-lab-display-pathnet']) assert(!ordinary.includes(name));
+    assert.deepEqual(names(['--province',province,'--only','o19-migrated-smoke']),['o19-migrated-smoke']);
+  }
+  assert.deepEqual(names(['--province','BC','--profile','native-pathnet']).sort(),['legacy-lab-display-pathnet','pathnet-status']);
+  assert.deepEqual(names(['--province','ON','--profile','native-pathnet']),[]);
+  const matrix=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/testing/release-2026.08-verification.json')));
+  for(const id of ['packaged-native-pathnet','packaged-o19-migrated']) {
+    assert(matrix.checks.some(c=>c.id===id));
+    assert(matrix.workstreams.some(w=>w.requiredChecks.includes(id)),`${id} must remain required`);
+  }
 });

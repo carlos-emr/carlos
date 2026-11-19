@@ -35,14 +35,15 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
 <%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
 <%@page import="io.github.carlos_emr.carlos.managers.PharmacyManager" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+
+
 <%@page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="java.text.SimpleDateFormat" %>
+<%@page import="io.github.carlos_emr.carlos.rx.StaticScriptBean" %>
 <%@page import="java.util.List" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DrugDao,io.github.carlos_emr.carlos.commn.model.Drug,io.github.carlos_emr.carlos.utility.MiscUtils,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao,io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DrugDao, io.github.carlos_emr.carlos.commn.model.Drug, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao, io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -75,6 +76,8 @@
     Drug drug = drugDao.find(drugId);
 
     SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+    // A pick-up date saved without a time is stored at midnight and shows as the date alone, as on the static script.
+    SimpleDateFormat dateOnlyFormatter = new SimpleDateFormat("yyyy-MM-dd");
 
     PartialDateDao partialDateDao = SpringUtils.getBean(PartialDateDao.class);
     DrugReasonDao drugReasonDao = SpringUtils.getBean(DrugReasonDao.class);
@@ -128,7 +131,7 @@
 
 %>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <html>
 <head>
@@ -196,7 +199,9 @@
             <table style="width:100%">
                 <tr>
                     <td class="label">Provider:</td>
-                    <td><carlos:encode value='<%= providerDao.getProviderName(drug.getProviderNo()) %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(drug.getCdsCurrentness() == null
+                            ? providerDao.getProviderName(drug.getProviderNo())
+                            : drug.getOutsideProviderName() == null ? "Unknown source prescriber" : drug.getOutsideProviderName()) %>
                     </td>
                 </tr>
                 <tr>
@@ -257,12 +262,12 @@
                 </tr>
                 <tr>
                     <td class="label">ATC:</td>
-                    <td><carlos:encode value='<%= StringUtils.trimToEmpty(drug.getAtc()) %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getAtc())) %>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">DIN:</td>
-                    <td><carlos:encode value='<%= StringUtils.trimToEmpty(drug.getRegionalIdentifier()) %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getRegionalIdentifier())) %>
                     </td>
                 </tr>
                 <tr style="height:15px">
@@ -280,27 +285,27 @@
                 </tr>
                 <tr>
                     <td class="label">Dosage:</td>
-                    <td><carlos:encode value='<%= drug.getDosageDisplay() %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(drug.getDosageDisplay()) %>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Frequency:</td>
-                    <td><carlos:encode value='<%= drug.getFreqCode() %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(drug.getFreqCode()) %>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Duration:</td>
-                    <td><carlos:encode value='<%= drug.getDuration() %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(drug.getDuration()) %>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Duration Unit:</td>
-                    <td><carlos:encode value='<%= drug.getDurUnit() %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(drug.getDurUnit()) %>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Quantity:</td>
-                    <td><carlos:encode value='<%= drug.getQuantity() %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(drug.getQuantity()) %>
                     </td>
                 </tr>
                 <tr>
@@ -331,39 +336,39 @@
                 </tr>
                 <tr>
                     <td class="label">Pickup Date/Time:</td>
-                    <td><carlos:encode value='<%= drug.getPickUpDateTime() != null ? dateTimeFormatter.format(drug.getPickUpDateTime()) : "" %>' context="html"/>
+                    <td><%=drug.getPickUpDateTime() != null ? (StaticScriptBean.hasPickupTime(drug.getPickUpDateTime()) ? dateTimeFormatter : dateOnlyFormatter).format(drug.getPickUpDateTime()) : ""%>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Unit:</td>
-                    <td><carlos:encode value='<%= StringUtils.trimToEmpty(drug.getUnit()) %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getUnit())) %>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Method:</td>
-                    <td><carlos:encode value='<%= StringUtils.trimToEmpty(drug.getMethod()) %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getMethod())) %>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Route:</td>
-                    <td><carlos:encode value='<%= StringUtils.trimToEmpty(drug.getRoute()) %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getRoute())) %>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Form:</td>
-                    <td><carlos:encode value='<%= StringUtils.trimToEmpty(drug.getDrugForm()) %>' context="html"/> &nbsp; (<a href="javascript:void()"
-                                                                                      onClick="updateForm();return false;">Update</a>)
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getDrugForm())) %> &nbsp; (<button type="button"
+                                                                                      onClick="updateForm();return false;"><fmt:message key="global.update"/></button>)
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Strength:</td>
-                    <td><carlos:encode value='<%= StringUtils.trimToEmpty(drug.getDosage()) %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getDosage())) %>
                     </td>
                 </tr>
                 <% if (drug.getUnitName() != null && !drug.getUnitName().equalsIgnoreCase("null")) { %>
                 <tr>
                     <td class="label">Strength:</td>
-                    <td><carlos:encode value='<%= StringUtils.trimToEmpty(drug.getUnitName()) %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getUnitName())) %>
                     </td>
                 </tr>
                 <%}%>
@@ -419,12 +424,12 @@
                 </tr>
                 <tr>
                     <td class="label">eTreatment:</td>
-                    <td><carlos:encode value='<%= StringUtils.trimToEmpty(drug.getETreatmentType()) %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getETreatmentType())) %>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Status:</td>
-                    <td><carlos:encode value='<%= StringUtils.trimToEmpty(drug.getRxStatus()) %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getRxStatus())) %>
                     </td>
                 </tr>
                 <%if (drug.getOutsideProviderName() != null || drug.getOutsideProviderOhip() != null) { %>
@@ -433,12 +438,12 @@
                 </tr>
                 <tr>
                     <td class="label">Outside Provider Name:</td>
-                    <td><carlos:encode value='<%= StringUtils.trimToEmpty(drug.getOutsideProviderName()) %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getOutsideProviderName())) %>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Outside Provider OHIP:</td>
-                    <td><carlos:encode value='<%= StringUtils.trimToEmpty(drug.getOutsideProviderOhip()) %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getOutsideProviderOhip())) %>
                     </td>
                 </tr>
                 <% } %>
@@ -453,34 +458,41 @@
                 </tr>
                 <tr>
                     <td class="label">Archived Reason:</td>
-                    <td><carlos:encode value='<%= StringUtils.trimToEmpty(drug.getArchivedReason()) %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getArchivedReason())) %>
                     </td>
                 </tr>
                 <% } %>
 
                 <tr>
                     <td class="label">Protocol Reference:</td>
-                    <td><carlos:encode value='<%= StringUtils.trimToEmpty(drug.getProtocol()) %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getProtocol())) %>
                     </td>
                 </tr>
 
 
                 <tr>
                     <td class="label" style="vertical-align:top;">Prior Prescription Reference:</td>
-                    <td><carlos:encode value='<%= StringUtils.trimToEmpty(drug.getPriorRxProtocol()) %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getPriorRxProtocol())) %>
                     </td>
                 </tr>
 
 
+                <% if (drug.getCdsCurrentness() != null) { %>
+                <tr>
+                    <td class="label">Imported medication state:</td>
+                    <td><%= SafeEncode.forHtmlContent(drug.getCdsCurrentness()) %></td>
+                </tr>
+                <% } %>
                 <tr>
                     <td class="label">Non Authorative:</td>
-                    <td><carlos:encode value='<%= StringUtils.trimToEmpty(drug.isNonAuthoritative() != null ? drug.isNonAuthoritative().toString() : "") %>' context="html"/>
+                    <td><%= SafeEncode.forHtmlContent(drug.getCdsCurrentness() != null && drug.getNonAuthoritative() == null
+                            ? "Unknown" : drug.isNonAuthoritative().toString()) %>
                     </td>
                 </tr>
 
                 <tr>
                     <td class="label">Substitution Not Allowed:</td>
-                    <td><carlos:encode value='<%= String.valueOf(drug.isNoSubs()) %>' context="html"/>
+                    <td><%= drug.getCdsCurrentness() != null && drug.getNoSubs() == null ? "Unknown" : Boolean.toString(drug.isNoSubs()) %>
                     </td>
                 </tr>
 
@@ -495,7 +507,7 @@
                 </tr>
                 <tr>
                     <td class="label">Comment:</td>
-                    <td><carlos:encode value='<%= StringUtils.trimToEmpty(drug.getComment()) %>' context="html"/>
+                    <td style="white-space: pre-wrap"><%= SafeEncode.forHtmlContent(drug.getComment()) %>
                     </td>
                 </tr>
             </table>

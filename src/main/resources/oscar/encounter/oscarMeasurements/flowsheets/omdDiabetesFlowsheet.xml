@@ -39,12 +39,9 @@
 				<rule indicationColor="HIGH">
 					<condition type="getDataAsDouble"  value="&gt; 7"/>
 				</rule>
-				<!-- 
-				<rule indicationColor="HIGH">
-					<condition type="getDataAsDouble"  value="&lt; 2" />
-					<condition type="getDataAsDouble"  value="&gt; 0.07"/>
-				</rule>
-				-->
+				<!-- An A1C reported as a fraction (0.095) is scaled to percent (9.5) by
+				     MeasurementDSHelper.getDataAsDouble() before this rule runs (issue #4614),
+				     so one percent threshold covers both forms. -->
 			</ruleset>
 		</item>
 		<item measurement_type="FBS" display_name="Fasting Plasma Glucose" guideline="4-7 mmol/L" graphable="yes" value_name="Fasting Plasma Glucose">

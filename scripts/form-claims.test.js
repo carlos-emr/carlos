@@ -99,6 +99,38 @@ test('shouldLeaveAProblemInTheRecorder_whenAnotherConcernOwnsIt', () => {
   assert.deepEqual(recorder.pageErrors.map((entry) => entry.text), ['ReferenceError: docuemtn is not defined']);
 });
 
+test('shouldRejectTheMentalHealthTypo_whenItOccursDuringReopen', () => {
+  // Given
+  const formChecks = require('./clinical-forms-save-reopen-playwright-checks');
+  let mentalHealthForm;
+  for (const form of formChecks.FORMS) {
+    if (form.key === 'MHC') {
+      mentalHealthForm = form;
+      break;
+    }
+  }
+  const errorMessage = 'ReferenceError: docuemtn is not defined';
+  const recorder = recorderWith([]);
+  recorder.pageErrors.push({ label: 'reopen-MHC', text: errorMessage });
+
+  let leaveKnownProblem;
+  if (mentalHealthForm.known && mentalHealthForm.known.problems) {
+    leaveKnownProblem = function (message) {
+      return mentalHealthForm.known.problems.test(message);
+    };
+  }
+
+  // When
+  const problems = takeProblems(recorder, ['reopen-MHC'], undefined, leaveKnownProblem);
+  const result = claims.outcomeOf(null, problems);
+  const failure = claims.claimFailure(result, 'Mental Health: reopen', mentalHealthForm.known && mentalHealthForm.known.reopen);
+
+  // Then
+  assert.notEqual(failure, null, 'The error must cause a failure.');
+  assert.equal(failure.label, 'Mental Health: reopen');
+  assert.equal(failure.message.includes(errorMessage), true);
+});
+
 test('shouldKeepTheProblemsOfAnAssertionOnlyConcernAwayFromTheConcernThatOwnsThem', () => {
   // Finding 241's `bare` run opens Position Hazard before the fixture is completed. Once 241 is fixed the form opens and
   // its missing stylesheet (finding 235) is raised there too; the `open` concern that runs later must still meet it.
@@ -313,7 +345,9 @@ test('shouldNeverPinAStepThatIsADemotedLabel_inAnyManifestEntry', () => {
   // failure elsewhere into a "known failure".
   const demotions = /\((?:precondition|not reached|other browser problems|no outcome)\)$/;
   const pinned = manifest.checks.filter((check) => check.expectedFailure);
-  assert.ok(pinned.length > 20, 'the manifest pins more than a handful of steps');
+  // At least one pin, or the loop below judges nothing. The number itself is not pinned: it falls each time a
+  // finding is fixed and its pin is retired (it stood at 21 when this required "more than 20").
+  assert.ok(pinned.length > 0, 'the manifest pins no step, so no pin was judged');
   for (const check of pinned) {
     assert.doesNotMatch(check.expectedFailure.step, demotions, `${check.name} pins a demoted label`);
   }

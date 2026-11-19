@@ -35,15 +35,17 @@
  * are ignored on local targets unless STRICT_TLS=1. Remote disposable hosts
  * require ALLOW_NON_LOCAL_BASE_URL=true and a trusted certificate.
  *
- * Exit status: the number of failed checks.
+ * Exit status: 0 on success, 1 for any failed checks (2 is reserved for prerequisites).
  */
 'use strict';
+const legacyHarness=require('./lib/legacy-check');
+
 
 const assert = require('node:assert');
 const fs = require('node:fs');
-const { generatedPassword } = require('./lib/deb-login-password');
+const { generatedPassword, fillResetPasswords } = require('./lib/deb-login-password');
 const { launchBrowser, validateBaseUrl, isLocalTlsTarget } = require('./lib/playwright-harness');
-const { clickAndAwaitReload } = require('./lib/playwright-ui');
+const { LOGIN_NAVIGATION_TIMEOUT_MS, submitLoginDocument, waitForProviderSchedule } = require('./lib/deb-login-navigation');
 
 const baseUrl = (process.env.BASE_URL || 'https://127.0.0.1').replace(/\/+$/, '');
 const parsedBase = validateBaseUrl(baseUrl);
@@ -82,7 +84,7 @@ async function bodyText(page) {
 }
 
 async function fillLogin(page, { user, password, pin }) {
-  await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded' }); // nosemgrep
+  await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded', timeout: LOGIN_NAVIGATION_TIMEOUT_MS }); // nosemgrep
   await page.locator('#username').waitFor({ timeout: 15000 });
   await page.locator('#username').fill(user);
   await page.locator('#password').fill(password);
@@ -90,18 +92,19 @@ async function fillLogin(page, { user, password, pin }) {
   // armed before the click: the login POST always navigates (to the schedule,
   // the forced reset, or the login failure page), and a wait armed after the
   // click could be satisfied by the form that is already there
-  await clickAndAwaitReload(page, page.locator('input[type="submit"], button[type="submit"]').first(),
-    { label: 'the login button', timeout: 30000 });
+  await submitLoginDocument(page, page.locator('input[type="submit"], button[type="submit"]').first(),
+    { label: 'the login button' });
 }
 
 async function expectSchedulePage(page, label) {
-  await page.waitForURL(/provider\/(providercontrol|ViewAppointmentAdminDay)/, { timeout: 30000 });
+  await waitForProviderSchedule(page, appUrl('/'));
   const html = await page.content();
   assert(html.includes('/csrfguard'), `${label}: csrfguard script missing from the schedule page`);
   assert(/Schedule|appointment|provider/i.test(html), `${label}: did not look like a schedule page`);
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('deb-login',async context=>{
+  await (async({cancellation})=>{
   const creds = credentials();
   const newPassword = process.env.NEW_PASSWORD || generatedPassword();
   const strictTls = process.env.STRICT_TLS === '1';
@@ -118,18 +121,21 @@ async function expectSchedulePage(page, label) {
     }
   };
 
-  const browser = await launchBrowser({
-    headless: true,
-    chromePath: process.env.CHROME_PATH || process.env.CHROMIUM_PATH || '',
-  });
-  const context = await browser.newContext({ ignoreHTTPSErrors });
-  const page = await context.newPage();
-  const consoleErrors = [];
-  page.on('console', (msg) => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
-
+  let browser;
+  let resetSubmitted = false;
+  let resetCommitted = false;
   try {
+    browser = await launchBrowser({
+      headless: true,
+      chromePath: process.env.CHROME_PATH || process.env.CHROMIUM_PATH || '',
+    });
+    const context = await browser.newContext({ ignoreHTTPSErrors });
+    const page = await context.newPage();
+    const consoleErrors = [];
+    page.on('console', (msg) => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+
     await record('front door serves the login page over TLS', async () => {
-      const response = await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded' }); // nosemgrep
+      const response = await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded', timeout: LOGIN_NAVIGATION_TIMEOUT_MS }); // nosemgrep
       assert(response && response.status() === 200, `login page status ${response && response.status()}`);
       assert(parsedBase.protocol === 'https:', 'BASE_URL is not https');
       await page.locator('#username').waitFor({ timeout: 15000 });
@@ -138,6 +144,7 @@ async function expectSchedulePage(page, label) {
       const headers = response.headers();
       assert(headers['strict-transport-security'], 'no Strict-Transport-Security header from the front door');
     });
+    cancellation?.throwIfCancelled();
 
     await record('a wrong PIN is refused and the page stays on the login form', async () => {
       await fillLogin(page, { ...creds, pin: creds.pin === '0000' ? '0001' : '0000' });
@@ -147,25 +154,32 @@ async function expectSchedulePage(page, label) {
       assert(/invalid|incorrect|failed|denied|error/i.test(text) || (await page.locator('#username').count()) > 0,
         'wrong PIN produced neither an error nor the login form');
     });
+    cancellation?.throwIfCancelled();
 
     await record('the installer credential signs in and lands on the forced password reset', async () => {
       await fillLogin(page, creds);
-      await page.waitForURL(/forcepasswordreset/, { timeout: 30000 });
+      await page.waitForURL(/forcepasswordreset/, { waitUntil: 'domcontentloaded', timeout: LOGIN_NAVIGATION_TIMEOUT_MS });
       const text = await bodyText(page);
       assert(text.length > 0, 'forced reset page rendered blank');
       const action = await page.locator('form').first().getAttribute('action');
       assert(action && action.endsWith('/forcepasswordresetSubmit'), `reset form action was ${action}`);
       await page.locator('input[name="oldPassword"]').waitFor({ timeout: 10000 });
     });
+    cancellation?.throwIfCancelled();
 
     await record('completing the reset reaches the provider schedule', async () => {
-      await page.locator('input[name="oldPassword"]').fill(creds.password);
-      await page.locator('input[name="newPassword"]').fill(newPassword);
-      await page.locator('input[name="confirmPassword"]').fill(newPassword);
-      await clickAndAwaitReload(page, page.locator('input[type="submit"]').first(),
-        { label: 'the password reset button', timeout: 30000 });
+      await fillResetPasswords(page, creds.password, newPassword);
+      cancellation?.throwIfCancelled();
+      // Keep recovery evidence even when the server commits but navigation fails.
+      console.log('The password reset will use NEW_PASSWORD; retain it until the outcome is confirmed.');
+      if (!process.env.NEW_PASSWORD) console.log(`generated password: ${newPassword}`);
+      resetSubmitted = true;
+      await submitLoginDocument(page, page.locator('input[type="submit"]').first(),
+        { label: 'the password reset button' });
       await expectSchedulePage(page, 'after the forced reset');
+      resetCommitted = true;
     });
+    cancellation?.throwIfCancelled();
 
     await record('a fresh session signs in with the new password straight to the schedule', async () => {
       const fresh = await context.browser().newContext({ ignoreHTTPSErrors });
@@ -177,6 +191,7 @@ async function expectSchedulePage(page, label) {
         await fresh.close();
       }
     });
+    cancellation?.throwIfCancelled();
 
     await record('the old installer password no longer signs in', async () => {
       const fresh = await context.browser().newContext({ ignoreHTTPSErrors });
@@ -189,23 +204,28 @@ async function expectSchedulePage(page, label) {
         await fresh.close();
       }
     });
+    cancellation?.throwIfCancelled();
 
     await record('no uncaught browser errors on the pages visited', async () => {
       const serious = consoleErrors.filter((t) => !/favicon|net::ERR_CERT/i.test(t));
       assert(serious.length === 0, `console errors: ${serious.slice(0, 3).join(' | ')}`);
     });
+    cancellation?.throwIfCancelled();
   } finally {
-    await browser.close();
+    // Report before shutdown: a stuck close must not hide the changed credential.
+    if (resetSubmitted) {
+      console.log(resetCommitted
+        ? 'The administrator password is now the NEW_PASSWORD given or generated for this run.'
+        : 'The password reset was submitted but its outcome is unconfirmed; NEW_PASSWORD may now be active. Retain it for recovery.');
+    }
+    if (browser) await browser.close();
   }
 
   const failed = results.filter((r) => !r.ok).length;
   console.log(`\n== ${results.length - failed} passed, ${failed} failed ==`);
-  if (failed === 0) {
-    console.log(`The administrator password is now the NEW_PASSWORD given or generated for this run.`);
-    if (!process.env.NEW_PASSWORD) console.log(`generated password: ${newPassword}`);
-  }
-  process.exit(failed);
-})().catch((err) => {
+  {process.exitCode=failed ? 1 : 0;return;}
+})(context).catch((err) => {
   console.error(err);
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

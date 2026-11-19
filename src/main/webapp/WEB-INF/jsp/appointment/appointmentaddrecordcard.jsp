@@ -50,6 +50,8 @@
 
 <%@ page
         import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.carlos.commn.OtherIdManager, io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException" %>
 <%@ page import="io.github.carlos_emr.carlos.event.EventService, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -62,6 +64,16 @@
 <%
     AppointmentArchiveDao appointmentArchiveDao = (AppointmentArchiveDao) SpringUtils.getBean(AppointmentArchiveDao.class);
     OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
+    Appointment savedCardAppointment = request.getParameter("appointment_no") == null ? null
+            : appointmentDao.find(Integer.parseInt(request.getParameter("appointment_no")));
+    AppointmentLocationResolver.ResolvedLocation cardLocation;
+    try {
+        cardLocation = AppointmentLocationResolver.resolvePostedLocation(savedCardAppointment, request);
+    } catch (AppointmentLocationUnavailableException ex) {
+        io.github.carlos_emr.carlos.utility.ErrorPageMessage.sendError(request, response,
+                HttpServletResponse.SC_CONFLICT, AppointmentLocationUnavailableException.MESSAGE_KEY);
+        return;
+    }
 %>
 <html>
     <head>
@@ -100,7 +112,7 @@
                     a.setName(request.getParameter("keyword"));
                     a.setNotes(request.getParameter("notes"));
                     a.setReason(request.getParameter("reason"));
-                    a.setLocation(request.getParameter("location"));
+                    cardLocation.applyTo(a);
                     a.setResources(request.getParameter("resources"));
                     a.setType(request.getParameter("type"));
                     a.setStyle(request.getParameter("style"));
@@ -123,7 +135,7 @@
                     rowsAffected = 1;
                 }
                 if (request.getParameter("appointment_no") != null) {
-                    Appointment appt = appointmentDao.find(Integer.parseInt(request.getParameter("appointment_no")));
+                    Appointment appt = savedCardAppointment;
                     if (appt != null) {
                         appt.setProviderNo(request.getParameter("provider_no"));
                         appt.setAppointmentDate(ConversionUtils.fromDateString(request.getParameter("appointment_date")));
@@ -132,7 +144,7 @@
                         appt.setName(request.getParameter("keyword"));
                         appt.setNotes(request.getParameter("notes"));
                         appt.setReason(request.getParameter("reason"));
-                        appt.setLocation(request.getParameter("location"));
+                        cardLocation.applyTo(appt);
                         appt.setResources(request.getParameter("resources"));
                         appt.setType(request.getParameter("type"));
                         appt.setStyle(request.getParameter("style"));

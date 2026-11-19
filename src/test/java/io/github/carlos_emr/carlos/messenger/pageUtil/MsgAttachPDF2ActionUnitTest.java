@@ -45,8 +45,10 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import io.github.carlos_emr.carlos.commn.dao.EChartDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EChart;
+import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.messenger.data.MsgMessageData;
 import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -68,7 +70,8 @@ import static org.mockito.Mockito.when;
 /**
  * Pins the server-side rendering contract of {@code messenger/Doc2PDF} (carlos-emr/carlos#4133):
  * the request names a patient and item keys, the server chooses the route that renders each
- * item, and no request-supplied HTML can reach the PDF.
+ * item, and no request-supplied HTML can reach the PDF. Attached PDFs are staged for the compose
+ * window that opened the chooser only, with the patient they were rendered for (issue #4673).
  */
 @DisplayName("MsgAttachPDF2Action")
 @Tag("unit")
@@ -91,13 +94,18 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
     private LoggedInInfo loggedInInfo;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
+    /** The login's message bean: attachments must never be put on it any more. */
     private MsgSessionBean bean;
+    /** The key of the compose window the chooser was opened from. */
+    private String key;
 
     /** Routes the action asked to render, in order. */
     private final List<String> renderedRoutes = new ArrayList<>();
     /** HTML handed to the PDF converter, in order. */
     private final List<String> convertedHtml = new ArrayList<>();
     private boolean renderFails;
+    /** What the converter returns for every rendered item. */
+    private String base64Pdf = "JVBERi0xLjQ=";
 
     @BeforeEach
     void setUp() {
@@ -111,6 +119,7 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
         response = new MockHttpServletResponse();
         bean = new MsgSessionBean();
         request.getSession().setAttribute("msgSessionBean", bean);
+        key = MsgAttachmentStaging.newKey();
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
@@ -133,6 +142,8 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
 
         EChart chart = new EChart();
         chart.setId(77);
+        chart.setDemographicNo(PATIENT);
+        chart.setEncounter("Historical note");
         chart.setTimestamp(new Date(0));
         when(eChartDao.getLatestChart(PATIENT)).thenReturn(chart);
     }
@@ -180,13 +191,31 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
             @Override
             public String toBase64Pdf(HttpServletRequest req, HttpServletResponse res, String html) {
                 convertedHtml.add(html);
-                return "JVBERi0xLjQ=";
+                return base64Pdf;
             }
         };
         MsgAttachPDF2Action action = new MsgAttachPDF2Action(securityInfoManager, demographicManager,
                 new MsgPdfAttachmentResolver(eChartDao), renderer, converter);
         action.setDemographic_no(String.valueOf(PATIENT));
+        action.setAttachmentKey(key);
         return action;
+    }
+
+    /** The chart PDFs staged for this test's compose window, or null. */
+    private String stagedPdfs() {
+        MsgAttachmentStaging.Staged staged = MsgAttachmentStaging.peek(request.getSession(), key);
+        return staged == null ? null : staged.pdfAttachment();
+    }
+
+    /** Stages one earlier chart PDF for this test's compose window. */
+    private void givenEarlierAttachment() {
+        MsgAttachmentStaging.stagePdfs(request.getSession(), key, PATIENT, pdfRecord("FAKE earlier attachment"));
+    }
+
+    private static String pdfRecord(String title) {
+        MsgSessionBean records = new MsgSessionBean();
+        records.setAppendPDFAttachment("JVBERi0xLjQ=", title);
+        return records.getPDFAttachment();
     }
 
     @Nested
@@ -262,7 +291,7 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
                     .contains("rendered /demographic/DemographicPdfLabel")
                     .doesNotContain(FORGED_MARKUP);
             assertThat(response.getContentType()).isEqualTo("application/pdf");
-            assertThat(bean.getPDFAttachment()).as("preview never attaches").isNull();
+            assertThat(stagedPdfs()).as("preview never attaches").isNull();
         }
 
         @Test
@@ -338,7 +367,7 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should store one PDF per ticked item with server-computed titles, in chooser order")
         void shouldAttachEachTickedItem_withServerTitles() throws Exception {
-            bean.setAppendPDFAttachment("JVBERi0xLjQ=", "FAKE earlier attachment");
+            givenEarlierAttachment();
             MsgAttachPDF2Action action = newAction();
             // Out of order, duplicated, and with a key the chooser never offers.
             action.setItem(new String[]{"prescriptions", "demographic", "prescriptions", "srcText"});
@@ -348,7 +377,7 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(renderedRoutes).containsExactly(
                     "/demographic/DemographicPdfLabel?demographic_no=" + PATIENT,
                     "/rx/ViewPrintDrugProfile2?demographic_no=" + PATIENT);
-            String stored = bean.getPDFAttachment();
+            String stored = stagedPdfs();
             assertThat(stored)
                     .doesNotContain("FAKE earlier attachment")
                     .contains("<TITLE>FAKE-Doe, Pat Information</TITLE>")
@@ -369,7 +398,7 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
 
             action.execute();
 
-            assertThat(bean.getPDFAttachment()).contains("<TITLE>Ordonnances en cours</TITLE>");
+            assertThat(stagedPdfs()).contains("<TITLE>Ordonnances en cours</TITLE>");
         }
 
         @Test
@@ -390,7 +419,7 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should answer 404 and attach nothing when the demographic item's patient does not exist")
         void shouldReturn404_whenDemographicItemPatientMissing() throws Exception {
-            bean.setAppendPDFAttachment("JVBERi0xLjQ=", "FAKE earlier attachment");
+            givenEarlierAttachment();
             when(demographicManager.getDemographic(loggedInInfo, String.valueOf(PATIENT))).thenReturn(null);
             MsgAttachPDF2Action action = newAction();
             action.setItem(new String[]{"demographic", "prescriptions"});
@@ -399,73 +428,158 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
             assertThat(renderedRoutes).isEmpty();
-            assertThat(bean.getPDFAttachment()).contains("FAKE earlier attachment");
+            assertThat(stagedPdfs()).contains("FAKE earlier attachment");
         }
 
         @Test
-        @DisplayName("should number the stored PDFs 0, 1, ... and leave the counters reset")
+        @DisplayName("should number the stored PDFs 0, 1, ... and keep them off the login's message bean")
         void shouldAssignDistinctFileIds_whenAttachingSeveralItems() throws Exception {
             MsgAttachPDF2Action action = newAction();
             action.setItem(new String[]{"demographic", "encounter", "prescriptions"});
 
             action.execute();
 
-            assertThat(bean.getPDFAttachment())
+            assertThat(stagedPdfs())
                     .contains("<FILE_ID>0</FILE_ID>", "<FILE_ID>1</FILE_ID>", "<FILE_ID>2</FILE_ID>");
-            assertThat(bean.getCurrentAttachmentCount()).isZero();
-            assertThat(bean.getTotalAttachmentCount()).isZero();
+            assertThat(bean.getPDFAttachment()).isNull();
+            assertThat(bean.getAttachment()).isNull();
+        }
+
+        @Test
+        @DisplayName("should refuse chart PDFs that together are larger than a message can hold, and keep what was attached before")
+        void shouldReturn413AndKeepExistingAttachments_whenPdfsAreTooLargeForAMessage() throws Exception {
+            givenEarlierAttachment();
+            // Two PDFs that are each just over half of what a message holds.
+            base64Pdf = "A".repeat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES / 2 + 1);
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic", "prescriptions"});
+
+            assertThat(action.execute()).isEqualTo("none");
+
+            assertThat(response.getStatus()).isEqualTo(413);
+            assertThat(response.getErrorMessage()).isEqualTo(MsgAttachPDF2Action.PDFS_TOO_LARGE);
+            assertThat(stagedPdfs()).contains("FAKE earlier attachment").doesNotContain("AAAA");
+        }
+
+        /** How long the record of one attached PDF is besides the PDF's own text, found by attaching a one-character one. */
+        private int recordFramingLength() throws Exception {
+            base64Pdf = "A";
+            MsgAttachPDF2Action probe = newAction();
+            probe.setItem(new String[]{"demographic"});
+            assertThat(probe.execute()).isEqualTo("success");
+            return stagedPdfs().length() - base64Pdf.length();
+        }
+
+        @Test
+        @DisplayName("should judge chart PDFs by the text the send stores, with a backslash doubled, and keep what was attached before")
+        void shouldReturn413_whenPdfsOnlyOverflowOnceQuoted() throws Exception {
+            int framing = recordFramingLength();
+            givenEarlierAttachment();
+            // Not the base64 of a real PDF: a record of exactly the column's size as it is attached, with one backslash in
+            // it, which is one byte over once the send doubles it.
+            base64Pdf = "A".repeat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES - framing - 1) + "\\";
+            assertThat(framing + base64Pdf.length()).isEqualTo(MessageTbl.PDF_ATTACHMENT_MAX_BYTES);
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic"});
+
+            assertThat(action.execute()).isEqualTo("none");
+
+            assertThat(response.getStatus()).isEqualTo(413);
+            assertThat(response.getErrorMessage()).isEqualTo(MsgAttachPDF2Action.PDFS_TOO_LARGE);
+            assertThat(stagedPdfs()).contains("FAKE earlier attachment");
+        }
+
+        @Test
+        @DisplayName("should attach chart PDFs that fill a message exactly once a backslash is doubled, and stage them whole")
+        void shouldStageWhole_whenPdfsFillAMessageExactlyOnceQuoted() throws Exception {
+            int framing = recordFramingLength();
+            base64Pdf = "A".repeat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES - framing - 2) + "\\";
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic"});
+
+            assertThat(action.execute()).isEqualTo("success");
+
+            assertThat(stagedPdfs()).contains(base64Pdf).hasSize(MessageTbl.PDF_ATTACHMENT_MAX_BYTES - 1);
+        }
+
+        @Test
+        @DisplayName("should attach several PDFs of about 40 KB to one message, which its column now holds")
+        void shouldStageAll_whenSeveralPdfsFitAMessage() throws Exception {
+            base64Pdf = "A".repeat(55_000);
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic", "encounter", "prescriptions"});
+
+            assertThat(action.execute()).isEqualTo("success");
+
+            assertThat(stagedPdfs()).contains("<FILE_ID>0</FILE_ID>", "<FILE_ID>1</FILE_ID>", "<FILE_ID>2</FILE_ID>");
+            assertThat(stagedPdfs().length()).isGreaterThan(3 * 55_000);
+            assertThat(MsgMessageData.pdfAttachmentFits(stagedPdfs())).isTrue();
+        }
+
+        @Test
+        @DisplayName("should attach one PDF of about 40 KB, which fits a message, and stage it whole")
+        void shouldStageWhole_whenOnePdfFitsAMessage() throws Exception {
+            base64Pdf = "A".repeat(55_000);
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic"});
+
+            assertThat(action.execute()).isEqualTo("success");
+
+            assertThat(stagedPdfs()).contains("A".repeat(55_000));
+            assertThat(MessageTbl.pdfAttachmentFits(stagedPdfs())).isTrue();
         }
 
         @Test
         @DisplayName("should refuse an item whose module is restricted for this patient, before rendering")
         void shouldThrowSecurityException_whenItemRestrictedForPatient() {
-            bean.setAppendPDFAttachment("JVBERi0xLjQ=", "FAKE earlier attachment");
+            givenEarlierAttachment();
             denyForPatient("_rx");
             MsgAttachPDF2Action action = newAction();
             action.setItem(new String[]{"demographic", "prescriptions"});
 
             assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class).hasMessageContaining("_rx");
             assertThat(renderedRoutes).isEmpty();
-            assertThat(bean.getPDFAttachment()).contains("FAKE earlier attachment");
+            assertThat(stagedPdfs()).contains("FAKE earlier attachment");
         }
 
         @Test
         @DisplayName("should keep the existing PDFs when building the replacement fails part-way")
         void shouldKeepExistingAttachments_whenReplacementFailsMidway() {
-            bean.setAppendPDFAttachment("JVBERi0xLjQ=", "FAKE earlier attachment");
+            givenEarlierAttachment();
             when(eChartDao.getLatestChart(PATIENT)).thenThrow(new IllegalStateException("FAKE lookup failure"));
             MsgAttachPDF2Action action = newAction();
             action.setItem(new String[]{"demographic", "encounter"});
 
             assertThatThrownBy(action::execute).isInstanceOf(IllegalStateException.class);
-            assertThat(bean.getPDFAttachment()).contains("FAKE earlier attachment");
+            assertThat(stagedPdfs()).contains("FAKE earlier attachment");
         }
 
         @Test
         @DisplayName("should keep a non-PDF attachment on the message when replacing the chart PDFs")
         void shouldKeepTransferredAttachment_whenAttachingChartPdfs() throws Exception {
-            bean.setAttachment("<root><table name=\"FAKE\"/></root>");
-            bean.setAppendPDFAttachment("JVBERi0xLjQ=", "FAKE earlier attachment");
+            MsgAttachmentStaging.stageItems(request.getSession(), key, "<root><table name=\"FAKE\"/></root>");
+            givenEarlierAttachment();
             MsgAttachPDF2Action action = newAction();
             action.setItem(new String[]{"demographic"});
 
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
 
-            assertThat(bean.getAttachment()).isEqualTo("<root><table name=\"FAKE\"/></root>");
-            assertThat(bean.getPDFAttachment()).doesNotContain("FAKE earlier attachment").contains("Information");
+            MsgAttachmentStaging.Staged staged = MsgAttachmentStaging.peek(request.getSession(), key);
+            assertThat(staged.itemAttachment()).isEqualTo("<root><table name=\"FAKE\"/></root>");
+            assertThat(staged.pdfAttachment()).doesNotContain("FAKE earlier attachment").contains("Information");
         }
 
         @Test
         @DisplayName("should leave existing attachments untouched when one ticked item is refused")
         void shouldKeepExistingAttachments_whenItemPrivilegeDenied() {
-            bean.setAppendPDFAttachment("JVBERi0xLjQ=", "FAKE earlier attachment");
+            givenEarlierAttachment();
             deny("_eChart", "r");
             MsgAttachPDF2Action action = newAction();
             action.setItem(new String[]{"demographic", "encounter"});
 
             assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class).hasMessageContaining("_eChart");
             assertThat(renderedRoutes).isEmpty();
-            assertThat(bean.getPDFAttachment()).contains("FAKE earlier attachment");
+            assertThat(stagedPdfs()).contains("FAKE earlier attachment");
         }
 
         @Test
@@ -476,47 +590,78 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
             action.setItem(new String[]{"demographic"});
 
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
-            assertThat(bean.getPDFAttachment())
+            assertThat(stagedPdfs())
                     .contains("<STATUS>BAD</STATUS>")
                     .contains("(N/A)")
                     .contains("<CONTENT></CONTENT>");
         }
 
         @Test
-        @DisplayName("should skip the encounter item when the patient has no encounter record")
-        void shouldSkipEncounter_whenPatientHasNoChart() throws Exception {
+        @DisplayName("should preserve existing attachments when a selected encounter is unavailable")
+        void shouldRefuseEncounter_whenPatientHasNoChart() throws Exception {
             when(eChartDao.getLatestChart(anyInt())).thenReturn(null);
+            givenEarlierAttachment();
             MsgAttachPDF2Action action = newAction();
             action.setItem(new String[]{"encounter"});
 
-            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
             assertThat(renderedRoutes).isEmpty();
-            assertThat(bean.getPDFAttachment()).isNull();
+            assertThat(stagedPdfs()).contains("FAKE earlier attachment");
         }
 
         @Test
         @DisplayName("should clear the chart attachments when Attach is pressed with nothing ticked")
         void shouldClearAttachments_whenNothingTicked() throws Exception {
-            bean.setAppendPDFAttachment("JVBERi0xLjQ=", "FAKE earlier attachment");
+            givenEarlierAttachment();
             MsgAttachPDF2Action action = newAction();
 
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
-            assertThat(bean.getPDFAttachment()).isNull();
-            assertThat(bean.getCurrentAttachmentCount()).isZero();
-            assertThat(bean.getTotalAttachmentCount()).isZero();
+            assertThat(stagedPdfs()).isNull();
+            assertThat(MsgAttachmentStaging.peek(request.getSession(), key)).isNull();
             assertThat(renderedRoutes).isEmpty();
         }
 
-        @Test
-        @DisplayName("should answer 400 when no message is being composed")
-        void shouldReturn400_whenNoComposeSession() throws Exception {
-            request.getSession().removeAttribute("msgSessionBean");
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.NullAndEmptySource
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"not-a-key", "AAAAAAAAAAAAAAAAAAAAA!"})
+        @DisplayName("should answer 400 when the chooser names no compose window")
+        void shouldReturn400_whenComposeKeyMissingOrMalformed(String composeKey) throws Exception {
             MsgAttachPDF2Action action = newAction();
+            action.setAttachmentKey(composeKey);
             action.setItem(new String[]{"demographic"});
 
             assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
             assertThat(renderedRoutes).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should stage the PDFs for the patient they were rendered for")
+        void shouldRecordRenderedPatient_whenAttaching() throws Exception {
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic"});
+
+            action.execute();
+
+            assertThat(MsgAttachmentStaging.peek(request.getSession(), key).pdfDemographicNo()).isEqualTo(PATIENT);
+        }
+
+        @Test
+        @DisplayName("should leave another compose window's attachments alone")
+        void shouldKeepOtherWindowsAttachments_whenAttaching() throws Exception {
+            // Window B was opened for another patient and has attached that patient's chart.
+            String otherWindow = MsgAttachmentStaging.newKey();
+            MsgAttachmentStaging.stagePdfs(request.getSession(), otherWindow, 5000, pdfRecord("FAKE other patient"));
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic"});
+
+            action.execute();
+
+            MsgAttachmentStaging.Staged other = MsgAttachmentStaging.peek(request.getSession(), otherWindow);
+            assertThat(other.pdfDemographicNo()).isEqualTo(5000);
+            assertThat(other.pdfAttachment()).contains("FAKE other patient").doesNotContain("Information");
+            assertThat(stagedPdfs()).contains("Information").doesNotContain("FAKE other patient");
         }
 
         @Test
@@ -562,7 +707,7 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(MsgAttachPDF2Action.class.getMethods())
                 .extracting(java.lang.reflect.Method::getName)
                 .doesNotContain("setSrcText", "setAttachmentTitle", "setAttachmentCount")
-                .contains("setItem", "setPreviewItem", "setDemographic_no");
+                .contains("setItem", "setPreviewItem", "setDemographic_no", "setAttachmentKey");
     }
 
     @Nested

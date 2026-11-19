@@ -66,7 +66,7 @@ public class EctDisplayEconsult2Action extends EctDisplayAction {
 
             String demographicNo = bean.getDemographicNo();
             SimpleDateFormat dateFormatter = new SimpleDateFormat("dd-MMM-yyyy");
-            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            LoggedInInfo loggedInInfo = getLoggedInInfo(request);
 
             //set left hand module heading and link 
             Dao.setLeftHeading(cmd);

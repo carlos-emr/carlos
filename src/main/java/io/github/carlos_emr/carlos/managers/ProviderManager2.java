@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference.QuickLink;
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.model.ProviderSettings;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -486,6 +487,8 @@ public class ProviderManager2 {
      * @since 2026-07-21
      */
     public void updateProviderSettings(LoggedInInfo loggedInInfo, String providerNo, ProviderSettings settings) {
+        String warningPeriod = io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod
+                .normalized(settings.getConsultationTimePeriodWarning());
 
         // Defense in depth: keep the self-only authorization rule with the operation so
         // a future non-REST caller cannot bypass the ProviderService endpoint guard.
@@ -579,8 +582,8 @@ public class ProviderManager2 {
         p.setValue(settings.getDefaultHcType());
         p = getMappedOrNewProperty(map, "default_sex", providerNo);
         p.setValue(settings.getDefaultSex());
-        p = getMappedOrNewProperty(map, "consultation_time_period_warning", providerNo);
-        p.setValue(settings.getConsultationTimePeriodWarning());
+        p = getMappedOrNewProperty(map, UserProperty.CONSULTATION_TIME_PERIOD_WARNING, providerNo);
+        p.setValue(warningPeriod);
         p = getMappedOrNewProperty(map, "consultation_team_warning", providerNo);
         p.setValue(settings.getConsultationTeamWarning());
         p = getMappedOrNewProperty(map, "consultation_req_paste_fmt", providerNo);
@@ -696,7 +699,9 @@ public class ProviderManager2 {
 
         for (String key : map.keySet()) {
             Property prop = map.get(key);
-            if (prop.getValue() != null) {
+            // Property normalizes blank to null. Persist that explicit reset for
+            // consultation periods so readers return to their default month.
+            if (prop.getValue() != null || UserProperty.CONSULTATION_TIME_PERIOD_WARNING.equals(key)) {
                 propertyDao.merge(prop);
             }
         }
@@ -753,7 +758,7 @@ public class ProviderManager2 {
 		return propertyDao.isActiveBooleanProperty(Property.PROPERTY_KEY.auto_link_to_mrp);
 	}
 
-	// If no property is found, it returns true by default.
+	// Filing for others is offered only after an explicit opt-in.
 	public boolean isHl7OfferFileForOthers(LoggedInInfo loggedInInfo, String providerNo) {
 		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
 			throw new RuntimeException("missing required security object _lab");
@@ -763,7 +768,7 @@ public class ProviderManager2 {
 				.stream()
 				.findFirst()
 				.map(p -> "true".equals(p.getValue()))
-				.orElse(true); // default to true
+				.orElse(false); // default off
 	}
 
 	public boolean isHl7AllowOthersFileForYou(LoggedInInfo loggedInInfo, String providerNo) {

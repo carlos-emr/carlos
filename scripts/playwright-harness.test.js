@@ -67,6 +67,25 @@ test('insertId reads LAST_INSERT_ID in the same call and refuses a missing id', 
   }
 });
 
+test('bound insertId reads its generated key from the INSERT connection without interpolating values', () => {
+  const calls = [];
+  const runner = createSqlRunner({ host: '127.0.0.1', password: 'secret' }, {
+    exec: (_file, args) => { calls.push(args.at(-1)); return '42\n'; }, env: {},
+  });
+  try {
+    const query = 'INSERT INTO synthetic_only(label) VALUES(?)';
+    const label = "FAKE O'Brien; -- 雪";
+    assert.equal(harness.insertId(runner, query, 'row', [label]), '42');
+    assert.equal(calls.length, 1, 'the generated key must use the same CLI connection');
+    assert.match(calls[0], /EXECUTE carlos_pw_statement USING @carlos_pw_arg_0; DEALLOCATE PREPARE carlos_pw_statement; SELECT LAST_INSERT_ID\(\)$/);
+    assert.doesNotMatch(calls[0], /O'Brien|雪/);
+    const encoded = [...calls[0].matchAll(/CONVERT\(X'([a-f0-9]*)' USING utf8mb4\)/g)]
+      .map(match => Buffer.from(match[1], 'hex').toString('utf8'));
+    assert.deepEqual(encoded, [query, label]);
+  } finally { runner.dispose(); }
+  assert.throws(() => harness.insertId({ insertId: () => '0' }, 'INSERT INTO t VALUES(?)', 'row', ['x']), /not created/);
+});
+
 test('TLS verification is only waived for a demonstrably local target (issue #3598)', () => {
   for (const host of ['localhost', '127.0.0.1', '::1', '10.1.2.3', '192.168.0.9', '172.16.0.1']) {
     assert.equal(isLocalTlsTarget(host), true, `${host} should count as local`);
@@ -127,6 +146,55 @@ test('the sql runner keeps the password out of argv and removes its option file'
   assert.match(fs.readFileSync(optionFile, 'utf8'), /sup3r-secret/);
   runner.dispose();
   assert.equal(fs.existsSync(optionFile), false, 'dispose must remove the credential file');
+});
+
+test('bound SQL keeps query placeholders separate from hostile and Unicode parameter text', () => {
+  const calls = [];
+  const runner = createSqlRunner({ host: '127.0.0.1', password: 'secret' }, {
+    exec: (file, args) => { calls.push(args.at(-1)); return '7\n'; }, env: {},
+  });
+  const query = 'SELECT ? AS text_value, ? AS absent, ? AS enabled, ? AS amount';
+  const hostile = "O'Brien\\path; DROP TABLE drugs; -- 雪\nnext";
+  try {
+    assert.equal(runner.value(query, [hostile, null, false, 1.5]), '7');
+    assert.match(calls[0], /PREPARE carlos_pw_statement FROM @carlos_pw_query/);
+    assert.match(calls[0], /EXECUTE carlos_pw_statement USING @carlos_pw_arg_0,@carlos_pw_arg_1,@carlos_pw_arg_2,@carlos_pw_arg_3/);
+    assert.doesNotMatch(calls[0], /DROP TABLE|O'Brien|雪/);
+    const encoded = [...calls[0].matchAll(/CONVERT\(X'([a-f0-9]*)' USING utf8mb4\)/g)]
+      .map(match => Buffer.from(match[1], 'hex').toString('utf8'));
+    assert.deepEqual(encoded, [query, hostile]);
+    assert.match(calls[0], /SET @carlos_pw_arg_1=NULL; SET @carlos_pw_arg_2=0; SET @carlos_pw_arg_3=1.5/);
+    assert.deepEqual(runner.rows('SELECT ?', ['']), [['7']]);
+    runner.execute('DELETE FROM synthetic_only WHERE id=?', ['123']);
+    assert.equal(calls.length, 3, 'each API must execute its bound statement in one connection');
+  } finally { runner.dispose(); }
+});
+
+test('bound SQL rejects unsupported values before invoking mysql', () => {
+  let calls = 0;
+  const runner = createSqlRunner({ host: '127.0.0.1', password: 'secret' }, {
+    exec: () => { calls++; return ''; }, env: {},
+  });
+  try {
+    for (const value of [undefined, {}, [], NaN, Infinity, -Infinity]) {
+      assert.throws(() => runner.value('SELECT ?', [value]), /Bound SQL values must be/);
+    }
+    assert.throws(() => runner.value('SELECT ?', 'not an array'), /parameter array/);
+    assert.equal(calls, 0);
+  } finally { runner.dispose(); }
+});
+
+test('bound SQL errors withhold the query and its values', () => {
+  const runner = createSqlRunner({ host: '127.0.0.1', password: 'secret' }, {
+    exec: () => { const error = new Error('PRIVATE_VALUE SELECT patient'); error.status = 1; throw error; }, env: {},
+  });
+  try {
+    assert.throws(() => runner.value('SELECT ?', ['PRIVATE_VALUE']), error => {
+      assert.match(error.message, /database query failed \(mysql exit 1\)/);
+      assert.doesNotMatch(error.message, /PRIVATE_VALUE|SELECT|patient/);
+      return true;
+    });
+  } finally { runner.dispose(); }
 });
 
 test('the sql runner refuses a non-loopback host without the explicit opt-in', () => {
@@ -674,7 +742,7 @@ test('native PDF audit requires status, MIME and complete PDF bytes and disposes
   ]) {
     let disposed = false;
     const page = {
-      locator: selector => ({ innerText: async () => '', count: async () => selector.includes('embed[type="application/pdf"]') ? 1 : 0 }),
+      locator: selector => ({ innerText: async () => '', allTextContents: async () => [], count: async () => selector.includes('embed[type="application/pdf"]') ? 1 : 0 }),
       url: () => 'https://127.0.0.1/carlos/document/observed',
       context: () => ({ request: { get: async url => {
         assert.equal(url, page.url());
@@ -1149,6 +1217,8 @@ test('shouldRecordBrowserVersion_whenLaunchBrowserStartedOne', async (t) => {
     processRef,
   });
   assert.equal(launched.length, 1, 'launchBrowser reached the (fake) playwright');
+  assert.equal(launched[0].handleSIGINT,false,'the cooperative entry point owns SIGINT');
+  assert.equal(launched[0].handleSIGTERM,false,'the cooperative entry point owns SIGTERM');
   assert.equal(result.browserVersion, 'chromium 154.0.8025.0');
   assert.equal(JSON.parse(fs.readFileSync(resultPath, 'utf8')).browserVersion, 'chromium 154.0.8025.0');
 });
@@ -1175,4 +1245,312 @@ test('shouldOmitBrowserVersion_whenNoBrowserWasLaunched', async () => {
     processRef: { exitCode: null, env: {}, on() {}, removeListener() {} },
   });
   assert.equal('browserVersion' in result, false, 'a skipped or non-browser check records none rather than a guess');
+});
+
+/**
+ * A browser context double for the teardown logout: a session cookie or none, and a page whose
+ * /logoutPage load either posts to /logout (answering `status`) or fails.
+ */
+function fakeLogoutContext({ signedIn = true, gotoError, status = 302 } = {}) {
+  const calls = { newPage: 0, goto: [], pageClosed: 0, predicates: [] };
+  const logoutPost = {
+    request: () => ({ method: () => 'POST' }), url: () => 'http://127.0.0.1:8080/carlos/logout', status: () => status,
+  };
+  const page = {
+    waitForResponse(predicate) {
+      calls.predicates.push(predicate);
+      return gotoError ? Promise.reject(new Error('no response')) : Promise.resolve(logoutPost);
+    },
+    async goto(url) {
+      calls.goto.push(url);
+      if (gotoError) throw gotoError;
+    },
+    async close() { calls.pageClosed++; },
+  };
+  return {
+    calls,
+    async cookies() { return signedIn ? [{ name: 'JSESSIONID', value: 'ABC' }] : []; },
+    async newPage() { calls.newPage++; return page; },
+  };
+}
+
+const logoutConfig = { baseUrl: new URL('http://127.0.0.1:8080/carlos') };
+const warnings = () => { const lines = []; return { lines, warn: (line) => lines.push(line) }; };
+
+test('shouldLogOutThroughTheLogoutPage_whenTheContextHasASession', async () => {
+  const context = fakeLogoutContext();
+  const log = warnings();
+  assert.equal(await harness.logoutContext(context, logoutConfig, { log }), true);
+  assert.deepEqual(context.calls.goto, ['http://127.0.0.1:8080/carlos/logoutPage'],
+    'the app\'s own logout page, which POSTs its form to /logout (a GET of /logout is refused)');
+  const [isLogoutPost] = context.calls.predicates;
+  assert.equal(isLogoutPost({ request: () => ({ method: () => 'POST' }), url: () => 'http://127.0.0.1:8080/carlos/logout' }), true);
+  assert.equal(isLogoutPost({ request: () => ({ method: () => 'GET' }), url: () => 'http://127.0.0.1:8080/carlos/logout' }), false);
+  assert.equal(context.calls.pageClosed, 1, 'the logout page is closed again');
+  assert.deepEqual(log.lines, []);
+});
+
+test('shouldLeaveTheContextAlone_whenItNeverSignedIn', async () => {
+  const context = fakeLogoutContext({ signedIn: false });
+  assert.equal(await harness.logoutContext(context, logoutConfig, { log: warnings() }), false);
+  assert.equal(context.calls.newPage, 0, 'no session cookie, so nothing to end');
+});
+
+test('shouldWarnAndSwallow_whenTheTeardownLogoutFails', async () => {
+  for (const context of [fakeLogoutContext({ gotoError: new Error('net::ERR_CONNECTION_REFUSED') }),
+    fakeLogoutContext({ status: 403 })]) {
+    const log = warnings();
+    assert.equal(await harness.logoutContext(context, logoutConfig, { log }), false);
+    assert.equal(log.lines.length, 1);
+    assert.match(log.lines[0], /^WARN teardown logout did not complete: /);
+    assert.equal(context.calls.pageClosed, 1, 'the page is closed even when the logout failed');
+  }
+});
+
+/**
+ * A browser double whose contexts are created and closed through it, recording the order of events.
+ * newContext({ session }) gives the context that JSESSIONID (a context made from another one's
+ * storageState shares it); without one the context has no session cookie. Cookie reads are counted
+ * apart from the events.
+ */
+function fakeClosingBrowser() {
+  const events = [];
+  const cookieReads = [];
+  const open = [];
+  const browser = {
+    events,
+    cookieReads,
+    async newContext({ session } = {}) {
+      const context = {
+        name: `context${open.length + 1}`,
+        async cookies() {
+          cookieReads.push(this.name);
+          return session ? [{ name: 'JSESSIONID', value: session }] : [];
+        },
+        async close() { events.push(`close ${this.name}`); },
+      };
+      open.push(context);
+      return context;
+    },
+    contexts: () => open.slice(),
+    async close() { events.push('close browser'); },
+  };
+  return browser;
+}
+
+test('shouldLogEachContextOutOnce_beforeItOrTheBrowserCloses', async () => {
+  const browser = fakeClosingBrowser();
+  const log = warnings();
+  harness.logoutOnClose(browser, logoutConfig, {
+    log, logout: async (context) => { browser.events.push(`logout ${context.name}`); },
+  });
+  const first = await browser.newContext();
+  await browser.newContext();
+  await first.close();
+  await browser.close();
+  assert.deepEqual(browser.events, [
+    'logout context1', 'close context1',
+    // context1 is still listed by the double; it is not logged out a second time.
+    'logout context2', 'close browser',
+  ]);
+  assert.deepEqual(log.lines, []);
+});
+
+test('shouldIgnoreRequestFailures_whenTheTeardownLogoutAbandonsALoad', async () => {
+  // LogoutBroadcastFilter sends every open page to the login page 500 ms after the teardown
+  // logout broadcasts; closing the context then aborts those loads. They are not the check's.
+  const browser = fakeClosingBrowser();
+  const recorder = createRecorder();
+  const aborted = (path) => ({
+    url: () => `https://host/carlos${path}`, resourceType: () => 'script', failure: () => ({ errorText: 'net::ERR_ABORTED' }),
+  });
+  let page;
+  harness.logoutOnClose(browser, logoutConfig, {
+    log: warnings(),
+    logout: async () => { await page.emit('requestfailed', aborted('/library/jquery/jquery-3.7.1.min.js')); },
+  });
+  const context = await browser.newContext({ session: 'S1' });
+  page = fakePage();
+  page.context = () => context;
+  wireStrictPage(page, 'reader', recorder, { baseline: [] });
+
+  await page.emit('requestfailed', aborted('/js/app.js'));
+  await context.close();
+  await page.emit('requestfailed', aborted('/share/javascript/Oscar.js'));
+
+  assert.deepEqual(recorder.requestFailures.map((entry) => entry.url), ['https://host/carlos/js/app.js'],
+    'a failure while the check runs still counts; the teardown logout and close abandon loads harmlessly');
+  assert.throws(() => assertStrictPage(recorder), /1 JavaScript-layer problem/);
+});
+
+test('shouldStillCloseTheBrowser_whenALogoutThrows', async () => {
+  const browser = fakeClosingBrowser();
+  const log = warnings();
+  harness.logoutOnClose(browser, logoutConfig, { log, logout: async () => { throw new Error('page crashed'); } });
+  await browser.newContext();
+  await browser.close();
+  assert.deepEqual(browser.events, ['close browser'], 'a failed logout never stops the teardown');
+  assert.deepEqual(log.lines, ['WARN teardown logout did not complete: page crashed']);
+});
+
+test('shouldReachTheEnclosingClose_whenTheTemporaryLogoutPageCannotCloseSeparately', async () => {
+  for (const enclosing of ['browser', 'context']) {
+    const context = fakeLogoutContext();
+    const newPage = context.newPage.bind(context);
+    let releasePage;
+    context.newPage = async () => {
+      const page = await newPage();
+      page.close = () => new Promise(resolve => { releasePage = resolve; });
+      return page;
+    };
+    let confirmClose;
+    const confirmed = new Promise(resolve => { confirmClose = resolve; });
+    let reachedClose;
+    const reached = new Promise(resolve => { reachedClose = resolve; });
+    const close = async () => { reachedClose(true); await confirmed; };
+    context.close = close;
+    const browser = { newContext: async () => context, contexts: () => [context], close };
+    harness.logoutOnClose(browser, logoutConfig, { log: warnings() });
+    await browser.newContext();
+    let completed = false;
+    const closing = (enclosing === 'browser' ? browser.close() : context.close()).then(() => { completed = true; });
+    const wasReached = await Promise.race([reached, new Promise(resolve => setTimeout(() => resolve(false), 100))]);
+    assert.equal(completed, false, 'the enclosing close must still await confirmation');
+    // Also drain the old implementation during the regression run.
+    if (releasePage) releasePage();
+    confirmClose();
+    await closing;
+    assert.equal(wasReached, true, `${enclosing}.close must not wait on the redundant page close`);
+    assert.equal(completed, true);
+    assert.deepEqual(context.calls.goto, ['http://127.0.0.1:8080/carlos/logoutPage']);
+  }
+});
+
+test('shouldPropagateTheEnclosingCloseFailure_afterTheLogoutPagePosts', async () => {
+  for (const enclosing of ['browser', 'context']) {
+    const context = fakeLogoutContext();
+    const close = async () => { throw new Error('browser transport did not close'); };
+    context.close = close;
+    const browser = { newContext: async () => context, contexts: () => [context], close };
+    harness.logoutOnClose(browser, logoutConfig, { log: warnings() });
+    await browser.newContext();
+    await assert.rejects(enclosing === 'browser' ? browser.close() : context.close(), /browser transport did not close/);
+    assert.deepEqual(context.calls.goto, ['http://127.0.0.1:8080/carlos/logoutPage']);
+  }
+});
+
+test('shouldLogOutOnlyWhenNotOptedOut_whenLaunchBrowserClosesTheBrowser', async (t) => {
+  const Module = require('node:module');
+  const load = Module._load;
+  Module._load = function stubbed(request, ...rest) {
+    if (request === 'playwright') return { chromium: { launch: async () => fakeClosingBrowser() } };
+    return load.call(this, request, ...rest);
+  };
+  t.after(() => { Module._load = load; harness.recordBrowserVersion(null); });
+  const config = { ...logoutConfig, chromePath: '', headless: true };
+  const kept = await harness.launchBrowser(config, { logoutOnClose: false });
+  await kept.newContext();
+  await kept.close();
+  assert.deepEqual(kept.events, ['close browser'], 'an opted-out browser closes without a logout');
+  const wrapped = await harness.launchBrowser(config);
+  await wrapped.newContext();
+  await wrapped.close();
+  assert.deepEqual(wrapped.events, ['close browser']);
+  assert.ok(wrapped.cookieReads.includes('context1'), 'by default the session is looked for first');
+  assert.deepEqual(kept.cookieReads, [], 'an opted-out browser does not look for a session at all');
+});
+
+test('shouldKeepTheSession_whenTheCheckMarksTheContextBeforeClosingIt', async () => {
+  // echart-note-draft-recovery closes a context to stand in for a crash, then asserts the lock the session left.
+  const browser = fakeClosingBrowser();
+  const log = warnings();
+  harness.logoutOnClose(browser, logoutConfig, {
+    log, logout: async (context) => { browser.events.push(`logout ${context.name}`); },
+  });
+  const crashed = harness.keepSessionOnClose(await browser.newContext());
+  await browser.newContext();
+  await crashed.close();
+  await browser.close();
+  assert.deepEqual(browser.events, ['close context1', 'logout context2', 'close browser'],
+    'the kept context is closed without a logout, now and when the browser closes');
+});
+
+test('shouldLeaveASharedSessionToItsLastHolder_whenAContextMadeFromItsStorageStateCloses', async () => {
+  // report-age-sex-visit makes a mobile context from the main context's storageState and closes it mid-check.
+  const browser = fakeClosingBrowser();
+  const log = warnings();
+  harness.logoutOnClose(browser, logoutConfig, {
+    log, logout: async (context) => { browser.events.push(`logout ${context.name}`); },
+  });
+  await browser.newContext({ session: 'S1' });
+  const mobile = await browser.newContext({ session: 'S1' });
+  await mobile.close();
+  assert.deepEqual(browser.events, ['close context2'], 'the session the main context still uses is not ended');
+  await browser.close();
+  assert.deepEqual(browser.events, ['close context2', 'logout context1', 'close browser'],
+    'the last holder logs the shared session out, once');
+  assert.deepEqual(log.lines, []);
+});
+
+test('shouldLogEachSessionOut_whenTwoOpenContextsHoldDifferentSessions', async () => {
+  const browser = fakeClosingBrowser();
+  harness.logoutOnClose(browser, logoutConfig, {
+    log: warnings(), logout: async (context) => { browser.events.push(`logout ${context.name}`); },
+  });
+  await browser.newContext({ session: 'S1' });
+  await browser.newContext({ session: 'S2' });
+  await browser.close();
+  assert.deepEqual(browser.events, ['logout context1', 'logout context2', 'close browser']);
+});
+
+test('a CDS route or public qualification property cannot excuse an unproven network failure', () => {
+  const recorder=createRecorder();
+  recorder.requestFailures.push({label:'cds',url:'https://host/carlos/form/cdsImportStatus',resourceType:'fetch',
+    errorText:'net::ERR_ABORTED',cdsMetadataEofEvidence:{classification:'CDS_METADATA_EOF_CONFIRMED'}});
+  assert.throws(() => assertStrictPage(recorder), /fetch request failed/);
+});
+
+test('only Chromium built-in PDF renderer internal aborts are excluded',async()=>{
+ const recorder=createRecorder(),page=fakePage();wireStrictPage(page,'pdf',recorder,{baseline:[]});
+ const internal='chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/06977c87-317a-4972-a20c-7abfa89ea907';
+ const failure=(url,type='other',errorText='net::ERR_ABORTED')=>({url:()=>url,resourceType:()=>type,failure:()=>({errorText})});
+ await page.emit('requestfailed',failure(internal));assert.equal(recorder.requestFailures.length,0);
+ for(const request of [failure('https://host/carlos/pdf'),failure(internal,'script'),failure(internal,'other','net::ERR_FAILED'),failure(internal.replace('mhjfbmdgcfjbbpaeojofohoefgiehjai','anotherextension'))])await page.emit('requestfailed',request);
+ assert.equal(recorder.requestFailures.length,4);
+});
+
+test('diagnostic redaction handles quoted JSON URLs and embedded Playwright addresses',()=>{
+ const input=JSON.stringify({url:'https://host/carlos/route?demographic_no=123#private',nested:{message:'goto("/carlos/chart?demographic_no=456") failed'}},null,2);
+ const output=harness.withoutQueryStrings(input);
+ assert(!/123|456|demographic_no|private/.test(output));
+ const parsed=JSON.parse(output);assert.equal(parsed.url,'https://host/carlos/route');
+ assert.equal(parsed.nested.message,'goto("/carlos/chart") failed');
+});
+
+test('shared credential configuration refuses opted-in remote cleartext before login',()=>{
+ assert.throws(()=>readConfig({env:{BASE_URL:'http://example.invalid/carlos',ALLOW_NON_LOCAL_BASE_URL:'true'}}),/must use https/);
+ assert.doesNotThrow(()=>readConfig({env:{BASE_URL:'https://example.invalid/carlos',ALLOW_NON_LOCAL_BASE_URL:'true'}}));
+ assert.doesNotThrow(()=>readConfig({env:{BASE_URL:'http://127.0.0.1:8080/carlos'}}));
+});
+
+// #6072: exercise the actual detector, including safe clinical/reference text.
+for (const [body, headings, refused] of [
+  ['HTTP Status: 500 Reference ID: synthetic', ['HTTP Status: 500'], true],
+  ['Unable to complete the request', ['HTTP Status: 404'], true],
+  ['HTTP Status 403', ['HTTP Status 403'], true],
+  ['The patient quoted HTTP Status 404 from a portal.', ['Patient chart'], false],
+  ['Portal troubleshooting\nHTTP Status: 500\nCall the clinic', ['Patient chart'], false],
+  ['An error occurred\nReference ID: synthetic', ['An error occurred'], true],
+  ['Clinical reference ID: 123', ['Patient chart'], false],
+  ['An error occurred in the past medical history', ['Patient chart'], false],
+]) {
+  test(`error-page detector: ${body}`, async () => {
+    const page = {url: () => 'https://127.0.0.1/carlos/chart', locator: selector => ({innerText: async () => body, allTextContents: async () => headings})};
+    if (refused) await assert.rejects(harness.assertNotErrorPage(page, 'fixture'), /error page/);
+    else assert.equal(await harness.assertNotErrorPage(page, 'fixture'), body);
+  });
+}
+test('error-page detector preserves a failed body read', async () => {
+  const page = {locator: () => ({innerText: async () => {throw new Error('page closed');}})};
+  await assert.rejects(harness.assertNotErrorPage(page, 'fixture'), /page closed/);
 });

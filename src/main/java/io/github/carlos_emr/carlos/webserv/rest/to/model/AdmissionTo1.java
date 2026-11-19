@@ -30,6 +30,8 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 public class AdmissionTo1 {
 
 	/*
@@ -50,6 +52,7 @@ public class AdmissionTo1 {
 
     private String programType;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date admissionDate;
 
     private boolean admissionFromTransfer;
@@ -64,6 +67,7 @@ public class AdmissionTo1 {
 
     private Integer clientStatusId = null;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date dischargeDate;
 
     private boolean dischargeFromTransfer;
@@ -84,6 +88,7 @@ public class AdmissionTo1 {
 
     private boolean temporaryAdmissionFlag;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date lastUpdateDate = null;
 
     private DemographicTo1 demographic = null;

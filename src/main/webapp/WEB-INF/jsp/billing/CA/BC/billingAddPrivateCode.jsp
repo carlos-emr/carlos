@@ -33,7 +33,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ page import="java.util.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -87,7 +87,7 @@
     <h3>Add Private Billing Code</h3>
     <div class="container-fluid card card-body bg-body-tertiary">
 
-        <form action="${pageContext.request.contextPath}/billing/CA/BC/billingAddCode" method="post" onsubmit="return checkUnits();">
+        <form name="BillingAddCodeForm" action="${pageContext.request.contextPath}/billing/CA/BC/billingAddCode" method="post" onsubmit="return checkUnits();">
             <%
                 if (request.getAttribute("returnMessage") != null) {
             %>
@@ -106,7 +106,7 @@
             Price:<br>
             <input type="text" name="value" id="value" /><br>
 
-            <input type="submit" name="submit" class="btn btn-primary" value="Add"/> <a href="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode" class="btn btn-secondary">Cancel</a>
+            <input type="submit" name="submit" class="btn btn-primary" value="Add"/> <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingPrivateCodeAdjust" class="btn btn-secondary">Cancel</a>
         </form>
     </div>
     </body>

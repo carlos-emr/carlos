@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 public class TicklerTextSuggestTo1 implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -41,6 +43,7 @@ public class TicklerTextSuggestTo1 implements Serializable {
 
     private String suggestedText;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date createDate;
 
     private Boolean active;

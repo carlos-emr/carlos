@@ -22,6 +22,8 @@ const {revealAuditLink} = require('./lib/playwright-link-audit');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
 
 async function workflow(s) {
+  const action = process.env.PATIENT_SET_ACTION || '';
+  h.assert(['', 'repeat', 'empty'].includes(action), 'Unknown PATIENT_SET_ACTION');
   const {sql, patient, marker, context, recorder} = s;
   // demographicSets.set_name is varchar(20): the full FAKE-PW marker does not fit.
   const setName = `PW${marker.slice(-16)}`;
@@ -59,6 +61,18 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM ${setRows}`) === '0', 'Run Query created a patient set');
   });
 
+  if (action === 'empty') {
+    await s.step('saving an empty query does not create a patient-set membership', async () => {
+      await tool.locator('#lastName').fill(`${marker} absent`);
+      await tool.locator('input[name="setName"]').fill(setName);
+      await clickAndAwaitReload(tool, tool.getByRole('button', {name:'Run Query And Save to Patient Set',exact:true}));
+      h.assert((await resultsHeader().innerText()).replace(/\s+/g,' ').includes('Search Returned: 0 Results'), 'Empty-query control returned a patient');
+      h.assert(sql.value(`SELECT COUNT(*) FROM ${setRows}`)==='0','Empty query created set membership');
+      h.assert(await tool.locator('#lastName').inputValue()===`${marker} absent`,'Empty results lost the search for correction');
+    });
+    return;
+  }
+
   await s.step('Run Query And Save to Patient Set creates the set with exactly the owned patient', async () => {
     // The tool repopulates its own form after a run, so the filters are still in place.
     h.assert(await tool.locator('#lastName').inputValue() === marker && await tool.locator('#select_demographic_no').isChecked(),
@@ -70,6 +84,16 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM ${setRows}`) === '1', 'The saved set holds rows other than the owned patient');
     h.assert(sql.value(`SELECT COUNT(*) FROM ${setRows} AND eligibility IS NOT NULL`) === '0', 'A new set member was created with an eligibility flag');
   });
+
+  if (action === 'repeat') {
+    await s.step('saving the same patient into the same set twice retains one membership', async () => {
+      await runQuery('Run Query And Save to Patient Set');
+      h.assert(sql.value(`SELECT COUNT(*) FROM ${setRows} AND demographic_no=${patient} AND archive='0'`)==='1',
+        'Saving the same query twice duplicated an active membership');
+      h.assert(sql.value(`SELECT COUNT(*) FROM ${setRows}`)==='1','Repeat save added another set member');
+    });
+    return;
+  }
 
   await s.step('the new set is offered by name where sets are consumed (Administration ▸ Demographic Export)', async () => {
     // The Report link may have replaced the day sheet with the schedule shell; the
@@ -101,5 +125,6 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('patient-set-cohort', workflow, {openPatient: true, openMaster: false});
+const name=process.env.PATIENT_SET_ACTION==='repeat'?'patient-set-repeat-save':process.env.PATIENT_SET_ACTION==='empty'?'patient-set-empty-query':'patient-set-cohort';
+if (require.main === module) runWorkflow(name, workflow, {openPatient: true, openMaster: false});
 module.exports = {workflow};

@@ -34,6 +34,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.springframework.dao.DataAccessException;
 import io.github.carlos_emr.carlos.casemgmt.model.ClientImage;
 import io.github.carlos_emr.carlos.casemgmt.service.ClientImageManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -48,17 +49,29 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
+import jakarta.persistence.PersistenceException;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
 
+/**
+ * Saves and clears a patient's photo for the Client Image Manager popup ({@code uploadimage.jsp}).
+ *
+ * <p>The patient is the {@code demographicNo} the popup's forms post, and the login's write access to
+ * that patient is checked before anything else touches it. The session's {@code clientId} is never
+ * read: it held whichever popup was opened last, so with two patients' popups open Clear Photo in the
+ * first cleared the second patient's photo (issue #4546).</p>
+ */
 public class ClientImage2Action extends ActionSupport implements UploadedFilesAware {
+    private static final String PHOTO_ERROR = "photoError";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private File clientImage;
     private String clientImageFileName;
+    private boolean frameworkUpload;
 
     private static Logger log = MiscUtils.getLogger();
 
@@ -84,19 +97,17 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
     }
 
     private String doSaveImage() {
-        HttpSession session = request.getSession(true);
-        String id = (String) session.getAttribute("clientId");
+        Integer demographicNo = postedDemographicNo();
 
         log.info("client image upload requested");
 
-        if (id == null || id.isBlank()) {
-            addActionError("No client selected.");
-            return ERROR;
+        if (demographicNo == null) {
+            return imageError("No client selected.", HttpServletResponse.SC_BAD_REQUEST);
         }
+        validatePatientWriteAccess(demographicNo);
 
         if (clientImage == null || clientImageFileName == null || clientImageFileName.isBlank()) {
-            addActionError("Please select an image to upload.");
-            return ERROR;
+            return imageError("Please select an image to upload.", HttpServletResponse.SC_BAD_REQUEST);
         }
 
         // Get file extension from original filename
@@ -108,32 +119,33 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
         log.info("extension = " + type);
 
         if (!"jpeg".equals(type) && !"gif".equals(type)) {
-            addActionError("Only GIF and JPG image types are allowed for the client photo.");
-            return ERROR;
+            return imageError("Only GIF and JPG image types are allowed for the client photo.",
+                    HttpServletResponse.SC_BAD_REQUEST);
         }
 
-        // Ensure that the upload directory is correct and create a new image object that will be saved to the client
+        File validatedImage;
         try {
-            // Validate that the uploaded file is in an allowed temp directory
             if (!PathValidationUtils.isInAllowedTempDirectory(clientImage)) {
-                throw new IllegalArgumentException("Invalid file path: " + clientImage.getPath());
+                return uploadPathError();
             }
+            validatedImage = PathValidationUtils.validateUpload(clientImage);
+        } catch (SecurityException e) {
+            return uploadPathError();
+        }
 
-            // Re-validate at point of use for static analysis visibility
-            File validatedImage = PathValidationUtils.validateUpload(clientImage);
+        try {
             byte[] imageData = Files.readAllBytes(validatedImage.toPath());
 
             ClientImage clientImageObj = new ClientImage();
-            clientImageObj.setDemographic_no(Integer.parseInt(id));
+            clientImageObj.setDemographic_no(demographicNo);
             clientImageObj.setImage_data(imageData);
             clientImageObj.setImage_type(type);
 
             clientImageManager.saveClientImage(clientImageObj);
 
-        } catch (Exception e) {
+        } catch (IOException | DataAccessException | PersistenceException e) {
             log.error("Error saving image", e);
-            addActionError("Error saving image.");
-            return ERROR;
+            return imageError("Error saving image.", HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
 
         request.setAttribute("success", true);
@@ -147,29 +159,47 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
     }
 
     private String doDeleteImage() {
-        HttpSession session = request.getSession(true);
-        String id = (String) session.getAttribute("clientId");
+        Integer demographicNo = postedDemographicNo();
 
         log.info("client image delete requested");
 
-        if (id == null || id.isEmpty()) {
-            log.error("No clientId found in session for image delete");
-            addActionError("No client selected.");
-            return ERROR;
+        if (demographicNo == null) {
+            log.warn("client image delete requested without a valid patient number");
+            return imageError("No client selected.", HttpServletResponse.SC_BAD_REQUEST);
         }
+        validatePatientWriteAccess(demographicNo);
 
         try {
-            clientImageManager.deleteClientImage(Integer.parseInt(id));
-            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-            LogAction.addLogSynchronous(loggedInInfo, "ClientImage2Action.deleteImage", "clientId=" + id);
-        } catch (Exception e) {
+            clientImageManager.deleteClientImage(demographicNo);
+        } catch (DataAccessException | PersistenceException e) {
             log.error("Error deleting image", e);
-            addActionError("Error deleting image.");
-            return ERROR;
+            return imageError("Error deleting image.", HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
+
+        // An unexpected audit failure belongs on the standard incident page, rather than
+        // reporting that storage failed after the photo has already been deleted.
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LogAction.addLogSynchronous(loggedInInfo, "ClientImage2Action.deleteImage", "clientId=" + demographicNo);
 
         request.setAttribute("success", true);
         return SUCCESS;
+    }
+
+    /** Renders the photo manager's error message with the appropriate HTTP failure status. */
+    private String imageError(String message, int status) {
+        addActionError(message);
+        response.setStatus(status);
+        return PHOTO_ERROR;
+    }
+
+    /** A framework-created upload outside the configured temp roots is a server failure. */
+    private String uploadPathError() {
+        if (frameworkUpload) {
+            log.error("framework client image upload failed temp-file validation; check upload temp configuration");
+            return imageError("Error saving image.", HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        }
+        log.warn("client image upload rejected by path validation");
+        return imageError("Invalid image upload.", HttpServletResponse.SC_BAD_REQUEST);
     }
 
     /** Refuses photo mutations from safe-method requests, including direct action entry points. */
@@ -193,7 +223,46 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
             throw new SecurityException("User session is not valid");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
-            throw new SecurityException("missing required security object (_demographic)");
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+    }
+
+    /**
+     * Reads the patient the Client Image Manager was opened for, which both of its forms post as
+     * {@code demographicNo}. A missing, repeated or non-numeric value names no patient: the action
+     * must not guess one, and the session's {@code clientId} is deliberately not a fallback.
+     *
+     * @return the posted demographic number, or {@code null} when the request does not name exactly
+     *         one positive integer patient number
+     */
+    private Integer postedDemographicNo() {
+        String[] values = request.getParameterValues("demographicNo");
+        if (values == null || values.length != 1 || values[0] == null || !values[0].matches("[1-9]\\d{0,9}")) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(values[0]);
+        } catch (NumberFormatException _) {
+            // Ten digits above Integer.MAX_VALUE.
+            return null;
+        }
+    }
+
+    /**
+     * Checks the login may change this patient's record: {@code _demographic} write evaluated for the
+     * patient (a patient-specific override takes priority over the role's general right) and the
+     * patient-record access check that honours patient locks. Runs before the photo is read or written.
+     *
+     * @param demographicNo the posted patient number
+     * @throws SecurityException if either check refuses
+     */
+    private void validatePatientWriteAccess(Integer demographicNo) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", String.valueOf(demographicNo))) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new SecurityException("Unauthorized access to patient record");
         }
     }
 
@@ -211,12 +280,15 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
             UploadedFile uploaded = uploadedFiles.get(0);
             this.clientImage = new File(uploaded.getAbsolutePath());
             this.clientImageFileName = uploaded.getOriginalName();
+            this.frameworkUpload = true;
         }
     }
 
     @StrutsParameter
     public void setClientImage(File clientImage) {
         this.clientImage = clientImage; 
+        // Parameter binding must not retain the provenance of a framework-created file.
+        this.frameworkUpload = false;
     }
 
     @StrutsParameter

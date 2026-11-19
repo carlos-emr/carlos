@@ -47,6 +47,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.lab.service.LabPatientAccess;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -77,10 +79,15 @@ public class PrintLabs2Action extends ActionSupport {
         }
 
         String segmentID = request.getParameter("segmentID");
-        if (segmentID == null || !segmentID.matches("\\d+")) {
+        Integer labNo = LabPatientAccess.positiveIdentity(segmentID);
+        if (labNo == null) {
             logger.warn("PrintLabs2Action called with invalid segmentID: {}", LogSafe.sanitize(segmentID)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            return "error";
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
+        // Resolve the real owner before logging, parsing HL7, setting PDF headers or creating files.
+        LabPatientAccess.requireLab(securityInfoManager, SpringUtils.getBean(PatientLabRoutingDao.class),
+                LoggedInInfo.getLoggedInInfoFromSession(request), labNo, "HL7");
 
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr(), "");
 
@@ -109,16 +116,16 @@ public class PrintLabs2Action extends ActionSupport {
                 } finally {
                     if (f.exists() && !f.delete()) {
                         f.deleteOnExit();
-                        logger.warn("Failed to delete temporary lab report PDF at path [{}] for segmentID [{}]; scheduled deletion on JVM exit", LogSafe.sanitize(f.getAbsolutePath()), segmentID);
+                        logger.warn("Failed to delete temporary lab report PDF for segmentID {}; scheduled deletion on JVM exit", LogSafe.sanitizeObject(labNo));
                     }
                 }
             }
         } catch (IOException ioe) {
-            logger.error("IOException occurred inside PrintLabs2Action", ioe);
+            logger.error("IOException occurred inside PrintLabs2Action: {}", LogSafe.exceptionTrace(ioe));
             request.setAttribute("printError", Boolean.valueOf(true));
             return "error";
         } catch (Exception e) {
-            logger.error("Unknown Exception occurred inside PrintLabs2Action", e);
+            logger.error("Unknown Exception occurred inside PrintLabs2Action: {}", LogSafe.exceptionTrace(e));
             request.setAttribute("printError", Boolean.valueOf(true));
             return "error";
         }

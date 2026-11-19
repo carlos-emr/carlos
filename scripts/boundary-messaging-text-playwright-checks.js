@@ -17,6 +17,7 @@ const ui = require('./lib/playwright-ui');
 const b = require('./lib/boundary-values');
 const { runWorkflow } = require('./lib/workflow-session');
 const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 
 function fillCodePoints(length, parts, pad = 'x') {
@@ -52,6 +53,37 @@ async function pollFor(sql, query, predicate, message) {
   return value;
 }
 
+// Choose the login's existing, native clinic and assignee; never create a site or change a preference.
+async function prepareTicklerAssignee(s, add) {
+  const { patient, provider, sql } = s;
+  h.assert(/^[1-9]\d*$/.test(String(patient)) && /^[1-9]\d{0,5}$/.test(String(provider)),
+    'The tickler fixture identity is invalid');
+  h.assert(await add.locator('form[name="serviceform"] input[name="demographic_no"]').last().inputValue() === String(patient),
+    'The tickler form belongs to another patient');
+  const site = add.locator('select[name="site"]');
+  if (await site.count()) {
+    if (!(await site.isVisible())) await add.locator('#nameWrapper a').click();
+    const authorized = sql.rows(`SELECT s.name FROM site s JOIN providersite ps ON ps.site_id=s.site_id
+      WHERE ps.provider_no=${h.sqlString(provider)} AND s.status<>0 ORDER BY s.site_id`).map(row => row[0]);
+    const offered = await site.locator('option').evaluateAll(options => options
+      .filter(option => !option.disabled && !option.closest('optgroup')?.disabled).map(option => option.value));
+    const clinic = authorized.find(name => name && name !== 'none' && authorized.filter(value => value === name).length === 1
+      && offered.filter(value => value === name).length === 1);
+    h.assert(clinic, 'No unambiguous authorized clinic is offered by the native tickler form');
+    await site.selectOption(clinic);
+  }
+  const assignee = add.locator('select[name="task_assigned_to"]').first();
+  await assignee.locator('option').filter({ hasText: /./ }).first().waitFor({ state: 'attached', timeout: 20000 });
+  h.assert(await assignee.locator('option').evaluateAll((options, value) => options.filter(option => option.value === value && !option.disabled && !option.closest('optgroup')?.disabled).length, String(provider)) === 1,
+    'The native tickler form does not offer the configured login as an assignee');
+  await assignee.selectOption(String(provider));
+  await add.waitForFunction(({ patient, provider }) => {
+    const form = document.forms.namedItem('serviceform');
+    return form && form.elements.namedItem('demographic_no').value === patient
+      && form.elements.namedItem('task_assigned_to').value === provider;
+  }, { patient: String(patient), provider: String(provider) }, { timeout: 20000 });
+}
+
 async function workflow(s) {
   const { sql, marker, patient, provider } = s;
   const T = b.TOKENS;
@@ -81,9 +113,10 @@ async function workflow(s) {
   // allowRefusal exercises an oversized message: require a 400, a length warning, and an editable draft.
   // Returns {list, refusal} with refusal the alert text or null for successful saves.
   async function addTickler(text, { allowRefusal = false } = {}) {
-    const list = await s.popup(s.master, s.master.locator('.patient-nav a[href*="/tickler/ViewTicklerMain"], a[onclick*="/tickler/ViewTicklerMain"]').first(), 'patient-tickler-list');
+    const list = await s.popup(s.master, masterRecordLink(s.master, '/tickler/ViewTicklerMain').first(), 'patient-tickler-list');
     const add = await s.popup(list, list.locator('input.btn-primary[onclick*="/tickler/ViewAddTickler"]').first(), 'tickler-add');
     await add.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 20000 });
+    await prepareTicklerAssignee(s, add);
     await add.locator('textarea[name="ticklerMessage"]').fill(text);
     await add.locator('input[name="xml_appointment_date"]').fill(sql.value('SELECT CURDATE()'));
     const saved = () => add.waitForFunction(() => {
@@ -285,4 +318,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('boundary-messaging-text', workflow, { openPatient: true });
-module.exports = { workflow };
+module.exports = { workflow, prepareTicklerAssignee };

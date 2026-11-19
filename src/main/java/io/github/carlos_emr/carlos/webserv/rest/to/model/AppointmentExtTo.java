@@ -30,6 +30,13 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.util.Date;
 
+@jakarta.xml.bind.annotation.XmlType(propOrder = {
+        "appointmentDate", "appointmentNo", "demoCell", "demographicNo",
+        "email", "firstName", "lastName", "location",
+        "notes", "phone", "phone2", "providerNo",
+        "reminderPreference", "resources", "startTime", "status",
+        "hPhoneExt", "wPhoneExt"
+})
 public class AppointmentExtTo {
     private Integer appointmentNo;
     private String providerNo;

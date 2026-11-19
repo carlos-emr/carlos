@@ -4,14 +4,15 @@ const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const {throwawayLoginFixture} = require('./lib/throwaway-login-fixture');
 
-function fixture() {
+function fixture({occupiedBillingCenter=false}={}) {
   const statements = [];
   const sql = {
     execute(query) { statements.push(query); },
     value(query) {
       statements.push(query);
-      if (query.startsWith('SELECT (SELECT COUNT')) return '0';
+      if (query.startsWith('SELECT (SELECT COUNT')) return occupiedBillingCenter&&query.includes('FROM providerbillcenter WHERE')?'1':'0';
       if (query.startsWith('SELECT COUNT(*) FROM security WHERE user_name=')) return query.includes("'source-login'") ? '1' : '0';
+      if (query.startsWith('SELECT COUNT(*) FROM security WHERE provider_no=')) return '0';
       if (query.startsWith('SELECT COUNT(*) FROM provider')) return '1';
       if (query.startsWith('INSERT INTO security')) return '501';
       if (query.startsWith('SELECT password FROM security')) return 'fixture-hash';
@@ -50,3 +51,34 @@ for (const roleNames of [[], ["bad'role"]]) {
     assert.equal(statements.length, 0);
   });
 }
+
+test('the add-appointment page locks under the throwaway number are part of its rows', () => {
+  const {login, statements} = fixture();
+  login.create();
+  const lock = `FROM PageMonitor WHERE providerNo='${login.providerNo}'`;
+  assert.ok(statements.find(query => query.startsWith('SELECT (SELECT COUNT')).includes(lock), 'the free-number check skips page locks');
+  statements.length = 0;
+  login.cleanup();
+  const deletes = statements.filter(query => query.includes('DELETE FROM'));
+  assert.equal(deletes.length, 1);
+  assert.ok(deletes[0].includes(`DELETE ${lock}`), 'cleanup does not delete the page locks');
+  assert.ok(deletes[0].indexOf(`DELETE ${lock}`) < deletes[0].indexOf('DELETE FROM provider '), 'the page locks are not deleted before the provider row');
+  assert.ok(statements.filter(query => query.startsWith('SELECT (SELECT COUNT')).every(query => query.includes(lock)),
+    'the leftover count skips page locks');
+});
+test('billing-centre rows are reserved and removed before their owned provider',()=>{
+  const {login,statements}=fixture();login.create();
+  const billing=`FROM providerbillcenter WHERE provider_no='${login.providerNo}'`;
+  assert.ok(statements.find(query=>query.startsWith('SELECT (SELECT COUNT')).includes(billing));
+  statements.length=0;login.cleanup();
+  const deletion=statements.find(query=>query.includes('DELETE FROM'));
+  assert.ok(deletion.includes(`DELETE ${billing}`));
+  assert.ok(deletion.indexOf(`DELETE ${billing}`)<deletion.indexOf('DELETE FROM provider '));
+  assert.ok(statements.filter(query=>query.startsWith('SELECT (SELECT COUNT')).every(query=>query.includes(billing)));
+});
+test('an orphan billing-centre row prevents fixture allocation and is never adopted or deleted',()=>{
+  const {login,statements}=fixture({occupiedBillingCenter:true});
+  assert.throws(()=>login.create(),/unused provider/);
+  assert.equal(login.providerNo,null);
+  assert.equal(statements.some(query=>query.startsWith('INSERT')||query.includes('DELETE FROM')),false);
+});

@@ -29,8 +29,6 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -43,11 +41,9 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.context.support.WebApplicationContextUtils;
 
 import io.github.carlos_emr.Misc;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
@@ -61,6 +57,7 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
  * @version 1.0
  */
 import org.apache.struts2.ActionSupport;
+import org.springframework.dao.DataAccessException;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -82,68 +79,73 @@ public class ViewWCB2Action extends ActionSupport {
         String providerNo = request.getParameter("provNo");
         BillingFormData data = new BillingFormData();
         String formId = request.getParameter("formId");
-        this.setWcbFormId(formId);
+        // formwcb.jsp reads its fields from this bean (request attribute "WCBForm"); nothing set it since the
+        // page left Struts 1, so every open of the page failed on a null bean (#4864).
+        WCBForm form = new WCBForm();
+        form.setWcbFormId(formId);
         //if the formId is zero, this is a new form
 
         if ("0".equals(formId)) {
-            this.setFormNeeded("1");
+            form.setFormNeeded("1");
             Demographic demographic = demographicManager.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo);
 
             if (demographic != null) {
-                this.setDemographic(demographic.getDemographicNo().toString());
-                this.setW_fname(demographic.getFirstName());
-                this.setW_lname(demographic.getLastName());
-                this.setW_gender(demographic.getSex());
+                // getDemographic() reads demographic_no; setDemographic() sets a field nothing reads.
+                form.setDemographic_no(demographic.getDemographicNo().toString());
+                form.setW_fname(demographic.getFirstName());
+                form.setW_lname(demographic.getLastName());
+                form.setW_gender(demographic.getSex());
                 if (demographic.getPhone() != null && demographic.getPhone().length() > 0) {
-                    this.setW_phone(Misc.phoneNumber(demographic.getPhone().replaceAll("-", "")));
-                    this.setW_area(Misc.areaCode(demographic.getPhone()));
+                    form.setW_phone(Misc.phoneNumber(demographic.getPhone().replace("-", "")));
+                    form.setW_area(Misc.areaCode(demographic.getPhone()));
                 }
 
-                String[] pc = demographic.getPostal().split(" ");
+                // The WCB postal code is stored without spaces; a patient may have none.
+                String postal = demographic.getPostal() == null ? "" : demographic.getPostal().replace(" ", "");
+                form.setW_postal(postal);
 
-                String postal = "";
-                for (int i = 0; i < pc.length; i++) {  // DOES THIS JUST REMOVE SPACES???
-                    postal += pc[i];
-                }
-                this.setW_postal(postal);
-
-                this.setW_phn(demographic.getHin());
+                form.setW_phn(demographic.getHin());
                 String seperator = "-";
                 String dob = demographic.getYearOfBirth() + seperator +
                         demographic.getMonthOfBirth() + seperator + demographic.getDateOfBirth();
-                this.setW_dob(dob);
-                this.setW_address(demographic.getAddress());
-                this.setW_opcity(demographic.getCity());
-                this.setW_city(demographic.getCity());
-                this.setInjuryLocations(data.getInjuryLocationList());
+                form.setW_dob(dob);
+                form.setW_address(demographic.getAddress());
+                form.setW_opcity(demographic.getCity());
+                form.setW_city(demographic.getCity());
+                form.setInjuryLocations(data.getInjuryLocationList());
 
                 //Retrieve provider ohip number and payee number
-                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
-                        "select ohip_no,billing_no from provider where provider_no = ?", providerNo)) {
-                    if (rs != null && rs.next()) {
-                        this.setW_pracno(rs.getString("ohip_no"));
-                        this.setW_payeeno(rs.getString("billing_no"));
+                try {
+                    var provider = SpringUtils.getBean(ProviderDao.class).getProvider(providerNo);
+                    if (provider != null) {
+                        form.setW_pracno(provider.getOhipNo());
+                        form.setW_payeeno(provider.getBillingNo());
                     }
-                } catch (SQLException e) {
-                    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Error retrieving provider data", e);
+                } catch (DataAccessException | jakarta.persistence.PersistenceException | org.springframework.transaction.TransactionException failure) {
+                    // Preserve the form fallback without logging query parameters or patient details.
+                    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger()
+                            .error("Unable to retrieve WCB provider billing details");
                 }
 
-                this.setProviderNo(providerNo);
+                form.setProviderNo(providerNo);
 
                 SimpleDateFormat fm = new SimpleDateFormat("yyyy-MM-dd");
                 String fmtStrDate = fm.format(new Date());
-                this.setW_servicedate(fmtStrDate);
+                form.setW_servicedate(fmtStrDate);
             }
         }
         //If the incoming request is for an existing form, retrieve the WCB form data
         //for readonly viewing on the WCB Form Screen
         else {
             request.setAttribute("readonly", "true");
-            WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-            BillingmasterDAO billingmasterDAO = (BillingmasterDAO) ctx.getBean(BillingmasterDAO.class);
+            // The web context holds two beans of this type (the scanned billingmasterDAO and
+            // applicationContext.xml's), so a lookup by type there fails; SpringUtils resolves the one the
+            // rest of BC billing uses.
+            BillingmasterDAO billingmasterDAO = SpringUtils.getBean(BillingmasterDAO.class);
 
-            this.setWCBForms(billingmasterDAO.getWCBForm(formId));
+            form.setWCBForms(billingmasterDAO.getWCBForm(formId));
         }
+        request.setAttribute("WCBForm", form);
         return SUCCESS;
     }
     private String demographic_no;

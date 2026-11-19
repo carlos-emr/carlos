@@ -18,8 +18,10 @@ function session(responses) {
   return {
     config: { baseUrl: new URL('https://localhost/carlos/') },
     context: {
+      cookies: async () => [{ name: 'JSESSIONID', value: 'synthetic', domain: 'localhost', path: '/carlos', expires: -1 }],
       request: {
-        fetch: async () => {
+        fetch: async (url) => {
+          if(new URL(url).pathname.endsWith('/status/SessionHeartbeat'))return {status:()=>200,json:async()=>({valid:true}),dispose:async()=>{}};
           const next = queue.shift();
           return { status: () => next.status, headers: () => next.headers || {}, text: async () => next.body || '' };
         },
@@ -54,6 +56,47 @@ test('shouldReject_whenA405HasNoApplicationHeaderOrErrorPage', async () => {
 test('shouldAcceptRefusal_whenBothVerbs403CarryTheApplicationHeader', async () => {
   const ledger = await run([{ status: 403, headers: APP, body: '<html>denied</html>' }, { status: 403, headers: APP }]);
   assert.equal(ledger.assertAllRefused(), 1);
+});
+
+for (const [getStatus, headStatus] of [[403, 403], [403, 405], [405, 403]]) {
+  test(`shouldRejectPrivilegeRefusal_when405IsRequiredAndVerbsAnswer${getStatus}And${headStatus}`, async () => {
+    // A billing role failure must not hide a missing GET or HEAD method guard.
+    const ledger = await run([{ status: getStatus, headers: APP }, { status: headStatus, headers: APP }],
+      { expect405: true });
+    assert.equal(ledger.entries[0].open, true);
+    assert.throws(() => ledger.assertAllRefused(), /state-changing route\(s\) did not refuse GET\/HEAD/);
+  });
+}
+
+test('shouldAcceptMethodRefusal_when405IsRequiredAndBothVerbsHaveApplicationEvidence', async () => {
+  const ledger = await run([{ status: 405, body: APP_ERROR_PAGE }, { status: 405, headers: APP }],
+    { expect405: true });
+  assert.equal(ledger.assertAllRefused(), 1);
+});
+
+test('shouldAcceptMethodRefusal_whenBothVerbsAdvertiseTheRequiredPostMethod', async () => {
+  const headers = { ...APP, allow: 'POST' };
+  const ledger = await run([{ status: 405, headers }, { status: 405, headers }],
+    { expect405: true, expectAllow: 'POST' });
+  assert.equal(ledger.assertAllRefused(), 1);
+});
+
+for (const verb of [0, 1]) {
+  for (const allow of [undefined, 'GET', 'GET, POST']) {
+    test(`shouldRejectMethodRefusal_when${verb === 0 ? 'Get' : 'Head'}Advertises${allow ?? 'NoAllowHeader'}`, async () => {
+      const responses = [0, 1].map(() => ({ status: 405, headers: { ...APP, allow: 'POST' } }));
+      responses[verb].headers.allow = allow;
+      const ledger = await run(responses, { expect405: true, expectAllow: 'POST' });
+      assert.throws(() => ledger.assertAllRefused(), /Allow: .*; expected POST/);
+    });
+  }
+}
+
+test('shouldRejectChangedRows_evenWhenBothVerbsAnswerTheRequired405', async () => {
+  let reads = 0;
+  const ledger = await run([{ status: 405, headers: APP }, { status: 405, headers: APP }],
+    { expect405: true, snapshot: () => (++reads > 1 ? 'changed' : 'same') });
+  assert.throws(() => ledger.assertAllRefused(), /CHANGED the owned rows/);
 });
 
 test('shouldReject_whenA403HasNoApplicationHeader', async () => {

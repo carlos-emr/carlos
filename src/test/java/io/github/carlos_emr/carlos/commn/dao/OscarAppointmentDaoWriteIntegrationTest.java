@@ -128,6 +128,38 @@ public class OscarAppointmentDaoWriteIntegrationTest extends CarlosTestBase {
         return appt;
     }
 
+    @Test
+    void shouldPreserveFullMultilineText_whenBookingUpdatingAndArchiving() {
+        String reason = "r".repeat(78) + "\nZ";
+        String notes = "n".repeat(253) + "\nZ";
+        Appointment appointment = createTestAppointment(today, PROVIDER_NO, 100, "t");
+        appointment.setReason(reason.replace("\n", "\r\n"));
+        appointment.setNotes(notes.replace("\n", "\r\n"));
+        oscarAppointmentDao.persist(appointment);
+        entityManager.flush();
+        entityManager.clear();
+
+        appointment = oscarAppointmentDao.find(appointment.getId());
+        assertThat(appointment.getReason()).isEqualTo(reason);
+        assertThat(appointment.getNotes()).isEqualTo(notes);
+        oscarAppointmentDao.archiveAppointment(appointment.getId());
+        // An unchanged browser Update submits CRLF again; it must remain byte-identical.
+        appointment.setReason(reason.replace("\n", "\r\n"));
+        appointment.setNotes(notes.replace("\n", "\r\n"));
+        oscarAppointmentDao.merge(appointment);
+        entityManager.flush();
+        entityManager.clear();
+
+        Appointment saved = oscarAppointmentDao.find(appointment.getId());
+        assertThat(saved.getReason()).isEqualTo(reason);
+        assertThat(saved.getNotes()).isEqualTo(notes);
+        AppointmentArchive archive = entityManager.createQuery(
+                "SELECT a FROM AppointmentArchive a WHERE a.appointmentNo = :id", AppointmentArchive.class)
+                .setParameter("id", appointment.getId()).getSingleResult();
+        assertThat(archive.getReason()).isEqualTo(reason);
+        assertThat(archive.getNotes()).isEqualTo(notes);
+    }
+
     // ========================================================================
     // checkForConflict
     // ========================================================================
@@ -378,6 +410,18 @@ public class OscarAppointmentDaoWriteIntegrationTest extends CarlosTestBase {
             assertThat(updated).isEqualTo(1);
             entityManager.clear();
             assertThat(entityManager.find(Appointment.class, appt.getId()).getStatus()).isEqualTo("B");
+        }
+
+        @Test
+        void shouldUpdateOnlySelectedAppointment_whenIdsContainOverflowAndSqlText() {
+            Appointment selected = createAndPersist(today, PROVIDER_NO, 100, "A");
+            Appointment neighbour = createAndPersist(today, PROVIDER_NO, 101, "A");
+            int updated = oscarAppointmentDao.updateApptStatus(
+                    selected.getId() + ",2147483648,999999999999999999999,1) OR 1=1 --", "B");
+            assertThat(updated).isEqualTo(1);
+            entityManager.clear();
+            assertThat(entityManager.find(Appointment.class, selected.getId()).getStatus()).isEqualTo("B");
+            assertThat(entityManager.find(Appointment.class, neighbour.getId()).getStatus()).isEqualTo("A");
         }
 
         @Test

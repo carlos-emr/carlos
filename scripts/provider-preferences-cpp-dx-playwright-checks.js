@@ -18,6 +18,7 @@
  * Fixtures: the throwaway login, one FAKE- allergy on the owned patient. Cleanup deletes the
  * allergy, the throwaway's ProviderPreference/view rows and the throwaway (property, roles, log).
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
@@ -25,6 +26,7 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const PREF_TABLES = ['ProviderPreferenceAppointmentScreenForm', 'ProviderPreferenceAppointmentScreenEForm',
   'ProviderPreferenceAppointmentScreenQuickLink', 'ProviderPreference'];
@@ -202,7 +204,7 @@ async function workflow(s) {
   });
 
   await s.step('Master Record ▸ Create Invoice preselects the default dx code on the bill form', async () => {
-    const bill = await popup(master, master.locator('a[onclick*="/billing?"][onclick*="apptProvider_no=none"]').first(), 'bill-form');
+    const bill = await popup(master, masterRecordLink(master, '/billing?', 'apptProvider_no=none').first(), 'bill-form');
     await bill.locator('select[name="xml_billtype"]').waitFor({ state: 'visible' });
     h.assert(await bill.locator('input[name="dxCode"]').first().inputValue() === dxCode,
       'The bill form did not preselect the provider\'s default dx code');
@@ -211,10 +213,10 @@ async function workflow(s) {
 
   await s.step('negative probes: GET on saveWorkView and on the CPP save is refused and changes nothing', async () => {
     const before = `${viewValue('ticklerview')}|${property('cpp.pref.enable')}|${property('cpp.allergy.severity')}`;
-    const view = await context.request.get(h.appUrl(config.baseUrl,
+    const view = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl,
       '/saveWorkView?method=save&view_name=tickler&ticklerview=D'), { maxRedirects: 0 });
     h.assert(view.status() === 405, `GET saveWorkView answered HTTP ${view.status()}, expected 405`);
-    const cpp = await context.request.get(h.appUrl(config.baseUrl,
+    const cpp = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl,
       '/provider/CppPreferences?method=save&cpp.pref.enable=off&cpp.allergy.severity=off'), { maxRedirects: 0 });
     h.assert(`${viewValue('ticklerview')}|${property('cpp.pref.enable')}|${property('cpp.allergy.severity')}` === before,
       'A GET request changed a saved preference');

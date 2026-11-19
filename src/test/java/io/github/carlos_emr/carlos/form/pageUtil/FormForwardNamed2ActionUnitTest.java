@@ -99,6 +99,31 @@ class FormForwardNamed2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRefreshOpener_beforeRedisplayingSuccessfulSave() throws Exception {
+        when(mockRequest.getParameter("saved")).thenReturn("true");
+        when(mockRequest.getParameter("formId")).thenReturn("456");
+        when(mockRequest.getContextPath()).thenReturn("/clinic");
+        when(mockRequest.getRequestDispatcher("/WEB-INF/jsp/form/formSaved.jsp")).thenReturn(mockDispatcher);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        verify(mockRequest).setAttribute("savedFormUrl",
+                "/clinic/form/forwardname?form_link=formannual.jsp&demographic_no=123&formId=456");
+        verify(mockDispatcher).forward(mockRequest, mockResponse);
+    }
+
+    @Test
+    void shouldRejectInvalidSavedRecord_beforeRefreshRedirect() throws Exception {
+        when(mockRequest.getParameter("saved")).thenReturn("true");
+        when(mockRequest.getParameter("formId")).thenReturn("1&saved=true");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        verify(mockResponse).sendError(HttpServletResponse.SC_BAD_REQUEST);
+        verify(mockDispatcher, never()).forward(any(), any());
+    }
+
+    @Test
     void shouldForwardResolvedInternalFormView_throughTheCsrfInjectionDispatcher() throws Exception {
         String result = action.execute();
 

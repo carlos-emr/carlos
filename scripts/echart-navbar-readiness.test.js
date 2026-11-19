@@ -5,13 +5,15 @@ const test = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { chartActionUrlSource } = require('./lib/chart-action-url-source');
 const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/newCaseManagementView.js.jsp'), 'utf8');
+const chartHelper = chartActionUrlSource(source);
 const start = source.indexOf('    function updateNavbarLoadState(');
 const end = source.indexOf('// display in place editor', start);
 assert.ok(start > 0 && end > start);
 const script = source.slice(start, end).replace(/<%--[\s\S]*?--%>/g, '');
 
-function harness({ throwFirstSend = false, doctorPanels = [] } = {}) {
+function harness({ throwFirstSend = false, doctorPanels = [], patient = '2', appointment = 0 } = {}) {
   const elements = {}; const requests = []; const errors = [];
   function element(id = '') {
     return {
@@ -29,7 +31,7 @@ function harness({ throwFirstSend = false, doctorPanels = [] } = {}) {
   const context = {
     window: {}, document: { getElementById: id => elements[id], createElement: () => element() },
     $: id => elements[id], Element: { remove: el => { delete elements[el.id]; } },
-    Colour: new Proxy({}, { get: () => '#fff' }), ctx: '/carlos', echartDoctorPanels: doctorPanels, providerNo: '9', demographicNo: '2', appointmentNo: 0,
+    Colour: new Proxy({}, { get: () => '#fff' }), ctx: '/carlos', echartDoctorPanels: doctorPanels, providerNo: '9', demographicNo: patient, appointmentNo: appointment,
     famHistoryLabel: 'Family', oMedsLabel: 'Other', riskFactorsLabel: 'Risk',
     console: { error: (...args) => errors.push(args) },
     CarlosAjax: { request(url, options) {
@@ -39,7 +41,8 @@ function harness({ throwFirstSend = false, doctorPanels = [] } = {}) {
       return xhr;
     } },
   };
-  vm.createContext(context); vm.runInContext(script, context);
+  context.chartContext = '';
+  vm.createContext(context); vm.runInContext(chartHelper + script, context);
   const loader = new context.navBarLoader(); loader.load();
   function complete(index, { status = 200, html = '<a>loaded</a>' } = {}) {
     const options = requests[index].options;
@@ -49,6 +52,21 @@ function harness({ throwFirstSend = false, doctorPanels = [] } = {}) {
   }
   return { context, loader, elements, requests, errors, complete, state: () => context.window.carlosNavbarLoadState };
 }
+
+test('every initial and refreshed navbar request carries its own chart patient and appointment', () => {
+  const first = harness({patient: '101', appointment: 41});
+  const second = harness({patient: '202', appointment: 52});
+  first.context.requestNavbarColumn('/carlos/encounter/displayForms', 'forms', 'cmd=forms', null);
+  second.context.requestNavbarColumn('/carlos/encounter/displayMeasurements', 'measurements', 'cmd=measurements', null);
+  for (const [h, patient, appointment] of [[first, '101', '41'], [second, '202', '52']]) {
+    assert.equal(h.requests.length, 23);
+    for (const request of h.requests) {
+      const body = new URLSearchParams(request.options.postBody);
+      assert.equal(body.get('demographicNo'), patient);
+      assert.equal(body.get('appointmentNo'), appointment);
+    }
+  }
+});
 
 test('a slow last module retains its own column loader after other modules finish', () => {
   const h = harness(); assert.equal(h.requests.length, 22);

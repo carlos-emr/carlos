@@ -142,6 +142,20 @@ test('explicit pre-mutation parse refusal shows its error and permits only an op
   assert.equal(v.navigations.length, 1);
 });
 
+test('an over-long description refusal shows its message and keeps the typed form editable', async () => {
+  // The shape IncomingDocumentCapacityResponse.filingDescriptionTooLong answers before anything is filed.
+  const v = viewer(); const done = v.submit();
+  v.requests[0].resolve(response(422, {success: false, accepted: false, retryable: false, descriptionTooLong: true,
+    error: 'The description is too long'}));
+  await done;
+  assert.equal(v.status.textContent, 'The description is too long');
+  assert.equal(v.inputs[0].disabled, false);
+  assert.equal(v.inputs[0].value, 'owned value');
+  assert.equal(v.timers.length, 0);
+  assert.equal(v.requests.length, 1);
+  assert.equal(v.navigations.length, 0);
+});
+
 test('page-count wait rejects duplicate query parameters', () => {
   assert.equal(capacityPage(next + '&queueId=2').timers.length, 0);
 });

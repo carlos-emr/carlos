@@ -301,6 +301,7 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
     @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD"})
     @DisplayName("Save And Print intent cannot apply a stamp through preview navigation")
     void shouldRefuseSaveIntent_whenMethodIsNotPost(String method) throws Exception {
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
         request.setMethod(method);
         request.setParameter("scriptId", "123");
         request.setParameter("saveAndPrint", "true");
@@ -353,6 +354,7 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
             "post,true", "post,false", "PoSt,true", "PoSt,false", "PO\u017fT,true", "PO\u017fT,false"})
     @DisplayName("should never save or stamp prescription state on preview navigation or non-POST requests")
     void shouldKeepPreviewReadOnly_whenRequestIsNotPost(String method, boolean saved) throws Exception {
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
         request.setMethod(method);
         liveBean.getStashList().add(saved ? savedItem(5, "789") : rePrescribedItem("123"));
         String result = newAction().execute();
@@ -417,6 +419,7 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should redirect to the error page when there is no Rx session")
     void shouldRedirect_whenRxSessionMissing() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
         request.getSession().removeAttribute(RxSessionBeanResolver.BEANS_ATTRIBUTE);
 
         assertThat(newAction().execute()).isNull();
@@ -427,6 +430,7 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should render an empty prescription without persisting or stamping for a read-only caller")
     void shouldRenderEmptyStash_withoutCreatingPrescription() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
         when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq("w"), isNull())).thenReturn(false);
 
         assertThat(newAction().execute()).isEqualTo("viewScript");
@@ -526,6 +530,7 @@ class RxViewScript2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should neither save nor stamp the live stash while the session is in reprint mode")
     void shouldSkipSaveAndStamp_whenSessionIsInReprintMode() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
         // reprint2 leaves the reprinted script in this patient's reprint workspace; the live stash
         // still holds an UNSAVED re-prescription carrying the historical script number 123.
         liveBean.getStashList().add(rePrescribedItem("123"));

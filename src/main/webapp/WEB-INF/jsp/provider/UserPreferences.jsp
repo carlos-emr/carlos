@@ -32,7 +32,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ include file="/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="java.util.Map" %>
 <%@ page import="io.github.carlos_emr.carlos.provider.web.UserPreference2Action" %>
@@ -56,7 +56,7 @@
             //jQuery("#general").hide();
             jQuery("#scheduling").hide();
             jQuery("#encounter").hide();
-            jQuery("#prescript").hide();
+            jQuery("#rx").hide();
             jQuery("#consultation").hide();
             jQuery("#caisi").hide();
             jQuery("#billing").hide();
@@ -155,6 +155,9 @@
 </head>
 
 <body style="font-family:sans-serif;margin:0px 5px 0px 5px">
+<c:if test="${not empty preferenceValidationError}">
+    <div role="alert" class="error">${carlos:forHtmlContent(preferenceValidationError)}</div>
+</c:if>
 <form id="preferenceForm" action="<%=request.getContextPath()%>/provider/UserPreference" method="post"
       onSubmit="return validateForm();">
     <input type="hidden" name="method" value="saveGeneral"/>

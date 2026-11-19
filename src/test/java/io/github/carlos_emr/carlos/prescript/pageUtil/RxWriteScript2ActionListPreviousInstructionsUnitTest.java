@@ -122,13 +122,13 @@ class RxWriteScript2ActionListPreviousInstructionsUnitTest extends CarlosUnitTes
         bean = new RxSessionBean();
         bean.setDemographicNo(123);
         bean.setListMedHistory(new ArrayList<>(List.of(historyEntry("take once daily"))));
-        // Per-patient Rx state (#3875): the request names no patient, so the resolver falls back to
-        // the session's active Rx patient.
+        // Every history read explicitly names its patient (#4811).
+        when(mockRequest.getParameterValues("demographicNo")).thenReturn(new String[]{"123"});
         RxSessionBeanResolver.PatientBeans beans = new RxSessionBeanResolver.PatientBeans();
         beans.put(123, bean);
         when(mockRequest.getSession(false)).thenReturn(mockSession);
         when(mockSession.getAttribute(RxSessionBeanResolver.BEANS_ATTRIBUTE)).thenReturn(beans);
-        when(mockSession.getAttribute(RxSessionBeanResolver.ACTIVE_DEMOGRAPHIC_ATTRIBUTE)).thenReturn(123);
+
 
         // The package-private constructor, not the Struts no-arg one: the latter resolves the
         // signature-stamp service from the Spring context, which a unit test has no business

@@ -45,9 +45,9 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page
-        import="java.util.*,io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.demographic.data.*" %>
+        import="java.util.*, io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -73,8 +73,15 @@
     StringBuffer sb = new StringBuffer();
     Hashtable h = new Hashtable();
     String drugForGraph = "";
-    if (request.getParameterValues("drug") != null) {
+    // The Med List form posts selectionSubmitted. An unticked checkbox sends nothing, so without
+    // it "every box cleared" was indistinguishable from the first visit and graphed (and ticked)
+    // every product again (#5004). Only the first visit defaults to all non-custom products.
+    boolean selectionSubmitted = "true".equals(request.getParameter("selectionSubmitted"));
+    if (selectionSubmitted || request.getParameterValues("drug") != null) {
         String[] drugs = request.getParameterValues("drug");
+        if (drugs == null) {
+            drugs = new String[0];
+        }
         for (String d : drugs) {
             sb.append("&drug=" + SafeEncode.forUriComponent(d));
             h.put(d, "drug");
@@ -97,7 +104,7 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
@@ -147,7 +154,21 @@
             </table>
 
 
-            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements?method=ChartMeds&demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/><%=drugForGraph%>"/>
+            <fmt:message key="clinical.graph.alt" var="graphAlt"/>
+            <img id="measurementGraph" alt="${carlos:forHtmlAttribute(graphAlt)}" src="<%= request.getContextPath() %>/encounter/GraphMeasurements?method=ChartMeds&demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/><%=drugForGraph%>"/>
+            <p id="graphUnavailable" hidden role="alert"><fmt:message key="clinical.graph.unavailable"/>
+                <button type="button" onclick="window.location.reload()"><fmt:message key="clinical.graph.retry"/></button>
+            </p>
+            <script data-carlos-graph-recovery>
+                (function () {
+                    const image = document.getElementById('measurementGraph');
+                    const warning = document.getElementById('graphUnavailable');
+                    if (!image || !warning) throw new Error('Graph recovery markup is missing');
+                    image.addEventListener('error', function () { warning.hidden = false; });
+                    // A cached failure may finish before the listener is attached.
+                    if (image.complete && image.naturalWidth === 0) warning.hidden = false;
+                }());
+            </script>
 
 
             <fieldset>
@@ -157,6 +178,7 @@
                     <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="testName" value="<carlos:encode value='<%= testName %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="identifier" value="<carlos:encode value='<%= identifier %>' context="htmlAttribute"/>"/>
+                    <input type="hidden" name="selectionSubmitted" value="true"/>
                     <input type="submit" value="Add Meds to Graph"/>
                     <ul>
                         <%

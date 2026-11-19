@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
 const { cleanupOwnedWorkflow } = require('./lib/workflow-session');
 
 function fixture({ owned = true, removed = true, childrenRemoved = true } = {}) {
@@ -102,7 +105,7 @@ for (const contextOptions of [undefined, { locale: 'en-US' }]) {
     t.mock.method(h, 'readConfig', () => ({ testUser: 'fixture', mysql: {}, ignoreHTTPSErrors: true }));
     t.mock.method(h, 'createSqlRunner', () => ({ value: () => '999998', dispose() {} }));
     t.mock.method(h, 'launchBrowser', async () => browser);
-    t.mock.method(h, 'login', async () => ({}));
+    t.mock.method(h, 'login', async () => ({url:()=> 'http://fixture.test/provider/providercontrol'}));
     t.mock.method(h, 'runCheck', async ({ run, cleanup }) => {
       try { await run({ cancellation: { run: fn => fn() } }); }
       finally { await cleanup(); }
@@ -116,6 +119,120 @@ for (const contextOptions of [undefined, { locale: 'en-US' }]) {
     assert.equal(closed, true);
   });
 }
+
+// Run the actual session module with browser entry points doubled, preserving its
+// real result reporting and owned cleanup. No browser or database is needed.
+async function runChartSession(t, { options, navbarError, navigationError, searchNavigatesSchedule=false } = {}) {
+  const h = require('./lib/playwright-harness');
+  const realRunCheck = h.runCheck;
+  const f = fixture();
+  const sqlValue = f.sql.value;
+  f.sql.value = query => query.includes('FROM security') ? '999998'
+    : query.includes('INSERT INTO demographic') ? '42' : sqlValue(query);
+  const timeouts = { context: [], navigation: [], navbar: [] };
+  const readiness = [];
+  const context = { setDefaultTimeout(value) { timeouts.context.push(value); }, on() {} };
+  let scheduleUrl='http://fixture.test/provider/providercontrol';
+  f.browser.newContext = async () => context;
+  const master = { url: () => 'http://fixture.test/demographic/edit?demographic_no=42' };
+  const chart = { isClosed: () => false };
+  const chartUi = {
+    async openChart(receivedContext, receivedMaster, recorder, timeout) {
+      assert.equal(receivedContext, context);
+      assert.equal(receivedMaster, master);
+      assert.ok(recorder);
+      timeouts.navigation.push(timeout);
+      readiness.push('navigation');
+      if (navigationError) throw navigationError;
+      return chart;
+    },
+    async waitForNavbars(receivedChart, timeout) {
+      assert.equal(receivedChart, chart);
+      timeouts.navbar.push(timeout);
+      readiness.push('waiting for modules');
+      if (navbarError) throw navbarError;
+      await Promise.resolve();
+      readiness.push('modules ready');
+    },
+  };
+  const processRef = { exitCode: null, env: {}, on() {}, removeListener() {} };
+  t.mock.method(h, 'readConfig', () => ({ testUser: 'fixture', mysql: {}, ignoreHTTPSErrors: true }));
+  t.mock.method(h, 'createSqlRunner', () => f.sql);
+  t.mock.method(h, 'launchBrowser', async () => f.browser);
+  t.mock.method(h, 'login', async () => ({url:()=>scheduleUrl}));
+  t.mock.method(h, 'runCheck', args => realRunCheck({ ...args, processRef, stdout: { log() {} } }));
+  t.mock.method(console, 'log', () => {});
+  t.mock.method(console, 'error', () => {});
+  const sandbox = { module: { exports: {} }, console, URL, setTimeout, require(name) {
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
+    if (name === 'node:crypto') return require(name);
+    if (name === './uncertain-server-writes') return require('./lib/uncertain-server-writes');
+    if (name === './provider-navigation-fixture') return {providerNavigationFixture:()=>null};
+    if (name === './playwright-harness') return h;
+    if (name === './playwright-ui') return require('./lib/playwright-ui');
+    if (name === '../master-record-tabs-playwright-checks') return {
+      openMasterRecord: async () => {
+        if(searchNavigatesSchedule)scheduleUrl='http://fixture.test/PMmodule/ClientSearch2';
+        return {masterPage:master};
+      },
+    };
+    if (name === '../echart-navbar-modules-playwright-checks') return chartUi;
+    throw new Error(`Unexpected workflow dependency: ${name}`);
+  } };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, 'lib/workflow-session.js'), 'utf8'), sandbox);
+  let returned = false,capturedSchedule;
+  const result = await sandbox.module.exports.runWorkflow('chart-timeout', async session => {
+    capturedSchedule=session.scheduleUrl;
+    await session.step('chart setup', async () => {
+      assert.equal(await session.chart(options), chart);
+      returned = true;
+      readiness.push('chart returned');
+      assert.equal(await session.chart(), chart, 'an already-ready chart must be reused');
+    });
+  });
+  return { result, timeouts, readiness, returned, cleanupEvents: f.events,capturedSchedule,scheduleUrl };
+}
+
+test('session preserves the day-sheet URL before CAISI search navigates that tab',async t=>{
+  const actual=await runChartSession(t,{searchNavigatesSchedule:true});
+  assert.equal(actual.result.outcome,'PASS');
+  assert.equal(actual.capturedSchedule,'http://fixture.test/provider/providercontrol');
+  assert.equal(actual.scheduleUrl,'http://fixture.test/PMmodule/ClientSearch2');
+});
+
+for (const options of [undefined, { navbarTimeout: 90000 }]) {
+  const label = options ? 'the requested module timeout' : 'the default module timeout';
+  test(`chart uses ${label} while navigation and context remain at 20 seconds`, async t => {
+    const actual = await runChartSession(t, { options });
+    assert.equal(actual.result.outcome, 'PASS');
+    assert.deepEqual(actual.timeouts, { context: [20000], navigation: [20000], navbar: [options?.navbarTimeout || 20000] });
+    assert.deepEqual(actual.readiness, ['navigation', 'waiting for modules', 'modules ready', 'chart returned']);
+    assert.equal(actual.returned, true);
+    assert.deepEqual(actual.cleanupEvents, ['close browser', 'delete chart support rows', 'delete patient', 'dispose credentials']);
+  });
+
+  test(`chart propagates module failure with ${label} and still cleans its owned fixture`, async t => {
+    const actual = await runChartSession(t, { options, navbarError: new Error('Navigation module failed: rules') });
+    assert.equal(actual.result.outcome, 'FAIL');
+    assert.equal(actual.result.detail, 'Navigation module failed: rules');
+    assert.equal(actual.result.failedStep, 'chart setup');
+    assert.equal(actual.result.cleanupFailed, undefined);
+    assert.equal(actual.returned, false);
+    assert.deepEqual(actual.timeouts, { context: [20000], navigation: [20000], navbar: [options?.navbarTimeout || 20000] });
+    assert.deepEqual(actual.readiness, ['navigation', 'waiting for modules']);
+    assert.deepEqual(actual.cleanupEvents, ['close browser', 'delete chart support rows', 'delete patient', 'dispose credentials']);
+  });
+}
+
+test('a longer module timeout does not extend navigation or hide its failure', async t => {
+  const actual = await runChartSession(t, { options: { navbarTimeout: 90000 }, navigationError: new Error('Chart navigation timed out') });
+  assert.equal(actual.result.outcome, 'FAIL');
+  assert.equal(actual.result.detail, 'Chart navigation timed out');
+  assert.equal(actual.result.failedStep, 'chart setup');
+  assert.equal(actual.returned, false);
+  assert.deepEqual(actual.timeouts, { context: [20000], navigation: [20000], navbar: [] });
+  assert.deepEqual(actual.cleanupEvents, ['close browser', 'delete chart support rows', 'delete patient', 'dispose credentials']);
+});
 
 /*
  * The runner compares a check's failing step with the manifest's expectedFailure.step, so step()
@@ -132,7 +249,7 @@ async function runStepped(t, workflow, { cleanupFails = false } = {}) {
   t.mock.method(h, 'readConfig', () => ({ testUser: 'fixture', mysql: {}, ignoreHTTPSErrors: true }));
   t.mock.method(h, 'createSqlRunner', () => ({ value: () => '999998', dispose() {} }));
   t.mock.method(h, 'launchBrowser', async () => browser);
-  t.mock.method(h, 'login', async () => ({}));
+  t.mock.method(h, 'login', async () => ({url:()=> 'http://fixture.test/provider/providercontrol'}));
   t.mock.method(h, 'runCheck', (options) => realRunCheck({ ...options, processRef, stdout: { log() {} } }));
   t.mock.method(console, 'log', () => {});
   t.mock.method(console, 'error', () => {});
@@ -192,4 +309,10 @@ test('shouldFlagCleanupFailure_whenOwnedCleanupFailsAfterAStepFailure', async (t
   assert.equal(result.outcome, 'FAIL');
   assert.equal(result.failedStep, 'the known step');
   assert.equal(result.cleanupFailed, true);
+});
+
+test('provider preference restoration remains independent when patient ownership changes',async()=>{
+  const f=fixture({owned:false});f.independentCleanups=[()=>f.events.push('restore provider preferences')];
+  await assert.rejects(cleanupOwnedWorkflow(f),/ownership changed/);
+  assert.deepEqual(f.events,['close browser','restore provider preferences','dispose credentials']);
 });

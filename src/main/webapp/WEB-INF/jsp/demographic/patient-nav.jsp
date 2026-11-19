@@ -114,6 +114,11 @@
                                data-popup-height="700" data-popup-width="1000"
                                title="${carlos:forHtmlAttribute(navBillPatientTitle)}"><fmt:message key="demographic.demographiceditdemographic.msgCreateInvoice"/></a></td>
                     </tr>
+                    <tr>
+                        <td><a id="hospitalBillingLink" href="${carlos:forHtmlAttribute(nav.hospitalBillingUrl)}" data-nav-popup="page"
+                               data-popup-height="700" data-popup-width="1000"
+                               title="${carlos:forHtmlAttribute(navBillPatientTitle)}"><fmt:message key="demographic.demographiceditdemographic.msgHospitalBilling"/></a></td>
+                    </tr>
                 </c:when>
                 <c:otherwise>
                     <security:oscarSec roleName="${nav.roleName}" objectName="_billing" rights="w">

@@ -14,8 +14,11 @@ const path = require('node:path');
 const { createHash } = require('node:crypto');
 const { execFileSync, spawnSync } = require('node:child_process');
 const h = require('./playwright-harness');
+const { planDocumentFixtureId } = require('./document-fixture-allocation');
 
 const TOOL_TIMEOUT = 15000;
+/** The document type every owned fixture document is seeded with; the Inbox shows it under Discipline. */
+const OWNED_DOCUMENT_TYPE = 'others';
 
 /**
  * SKIP (not a raw ENOENT mid-workflow) when a Poppler tool is missing or does not answer.
@@ -82,17 +85,38 @@ function ownedPdfDocuments(store, marker, specs) {
 }
 
 /** Write each file (owned like the store) and its document row linked to the patient; sets doc.id. */
-function seedOwnedPdfDocuments({ sql, store, patient, provider, docs }) {
+function seedOwnedPdfDocuments({ sql, store, patient, provider, docs, onFileCreated }) {
   const owner = fs.statSync(store);
   for (const doc of docs) {
-    fs.writeFileSync(doc.file, textPdf(doc.label, doc.pages), { flag: 'wx', mode: 0o640 });
-    fs.chownSync(doc.file, owner.uid, owner.gid);
-    doc.id = sql.value(`INSERT INTO document (doctype,docdesc,docfilename,doccreator,responsible,source,updatedatetime,
+    // Do not inherit a dangling DOC route or a type-less routing lock from an
+    // older document. The planner includes both in its identity ceiling.
+    const plannedId = planDocumentFixtureId(sql).sourceId;
+    const { expectedSplitRecipients } = require('./stored-document-mutation-fixture');
+    const routingProviders = expectedSplitRecipients(sql, plannedId, provider);
+    const fd = fs.openSync(doc.file, 'wx', 0o640);
+    try {
+      if (onFileCreated) onFileCreated(doc.file, fs.fstatSync(fd));
+      fs.writeFileSync(fd, textPdf(doc.label, doc.pages));
+      fs.fchownSync(fd, owner.uid, owner.gid);
+    } finally { fs.closeSync(fd); }
+    doc.id = sql.value(`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;START TRANSACTION;
+      SELECT lab_no FROM providerLabRouting WHERE lab_no=${plannedId} FOR UPDATE;
+      SELECT lab_no FROM patientLabRouting WHERE lab_type='DOC' AND lab_no=${plannedId} FOR UPDATE;
+      SELECT lab_no FROM providerLabRoutingLock WHERE lab_no=${plannedId} FOR UPDATE;
+      CREATE TEMPORARY TABLE carlos_pdf_seed_guard(ok INT NOT NULL CHECK(ok=1));
+      INSERT INTO carlos_pdf_seed_guard VALUES(IF(
+        (SELECT COUNT(*) FROM providerLabRouting WHERE lab_no=${plannedId})=0
+        AND (SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='DOC' AND lab_no=${plannedId})=0
+        AND (SELECT COUNT(*) FROM providerLabRoutingLock WHERE lab_no=${plannedId})=0,1,0));
+      INSERT INTO document (document_no,doctype,docdesc,docfilename,doccreator,responsible,source,updatedatetime,
         status,contenttype,contentdatetime,public1,observationdate,number_of_pages,restrictToProgram,abnormal)
-      VALUES ('others',${h.sqlString(doc.label)},${h.sqlString(doc.filename)},${h.sqlString(provider)},${h.sqlString(provider)},
-        '',NOW(),'A','application/pdf',NOW(),0,'2026-01-02',${doc.pages},0,0); SELECT LAST_INSERT_ID()`);
-    h.assert(/^[1-9]\d*$/.test(doc.id), 'The owned document fixture was not created');
-    sql.execute(`INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('demographic',${patient},${doc.id},'A')`);
+      VALUES (${plannedId},${h.sqlString(OWNED_DOCUMENT_TYPE)},${h.sqlString(doc.label)},${h.sqlString(doc.filename)},${h.sqlString(provider)},${h.sqlString(provider)},
+        '',NOW(),'A','application/pdf',NOW(),0,'2026-01-02',${doc.pages},0,0);
+      INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('demographic',${patient},${plannedId},'A');
+      COMMIT;SELECT ${plannedId}`);
+    h.assert(doc.id === plannedId, 'The owned document fixture was not created');
+    doc.routingProviders = routingProviders;
+    doc.routingFloor = plannedId;
   }
 }
 
@@ -105,13 +129,45 @@ function capturedIds(docs = []) {
  * Delete the marker's document rows and the captured fixture rows, their links to the owned
  * patient, and the given files.
  */
-function removeOwnedPdfDocuments({ sql, marker, patient, files, docs }) {
+function removeOwnedPdfDocuments({ sql, marker, patient, files, docs, routingProof }) {
   const byMarker = sql.rows(`SELECT document_no FROM document WHERE docdesc LIKE ${h.sqlString(`${marker}%`)}`).map(row => row[0]);
   const ids = [...new Set([...byMarker, ...capturedIds(docs)])];
   h.assert(ids.every(id => /^[1-9]\d*$/.test(id)), 'Invalid owned document identity');
   if (ids.length) {
-    sql.execute(`DELETE FROM ctl_document WHERE document_no IN (${ids.join(',')}) AND module='demographic' AND module_id=${patient};
-      DELETE FROM document WHERE document_no IN (${ids.join(',')})`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM ctl_document WHERE document_no IN (${ids.join(',')}) AND NOT (module='demographic' AND module_id=${h.sqlString(String(patient))})`)==='0','Owned document acquired an external document link; retain it');
+    h.assert(sql.value(`SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='DOC' AND lab_no IN (${ids.join(',')}) AND demographic_no<>${patient}`)==='0','Owned document acquired another patient link; retain it');
+    // A seeded source reserves an identity above every old DOC reference/lock.
+    // Native uploads/copies carrying this marker then use the advancing allocator.
+    const proofs = [...(docs || []), routingProof].filter(doc => doc
+      && /^[1-9]\d*$/.test(doc.routingFloor) && Array.isArray(doc.routingProviders) && doc.routingProviders.length);
+    const proofFor = id => proofs.find(doc => doc.id === id
+      || (byMarker.includes(id) && BigInt(id) >= BigInt(doc.routingFloor)));
+    const routeScopes = ids.map(id => {
+      const providers = proofFor(id)?.routingProviders;
+      return providers ? `(lab_no=${id} AND COALESCE(lab_type,'')='DOC' AND COALESCE(provider_no,'') IN (${providers.map(h.sqlString).join(',')}))` : '0';
+    }).join(' OR ');
+    const ownedLocks = ids.filter(id => proofFor(id));
+    const externalRoutes = `lab_no IN (${ids.join(',')}) AND NOT (${routeScopes})`;
+    const externalLocks = `lab_no IN (${ids.join(',')})${ownedLocks.length ? ` AND lab_no NOT IN (${ownedLocks.join(',')})` : ''}`;
+    h.assert(sql.value(`SELECT COUNT(*) FROM providerLabRouting WHERE ${externalRoutes}`)==='0','Owned document acquired an unproven provider route; retain it');
+    h.assert(sql.value(`SELECT COUNT(*) FROM providerLabRoutingLock WHERE ${externalLocks}`)==='0','Document routing lock ownership is unproven; retain it');
+    sql.execute(`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;START TRANSACTION;
+      SELECT document_no FROM document WHERE document_no IN (${ids.join(',')}) FOR UPDATE;
+      SELECT document_no FROM ctl_document WHERE document_no IN (${ids.join(',')}) FOR UPDATE;
+      SELECT lab_no FROM patientLabRouting WHERE lab_type='DOC' AND lab_no IN (${ids.join(',')}) FOR UPDATE;
+      SELECT lab_no FROM providerLabRouting WHERE lab_no IN (${ids.join(',')}) FOR UPDATE;
+      SELECT lab_no FROM providerLabRoutingLock WHERE lab_no IN (${ids.join(',')}) FOR UPDATE;
+      CREATE TEMPORARY TABLE carlos_pdf_cleanup_guard(ok INT NOT NULL CHECK(ok=1));
+      INSERT INTO carlos_pdf_cleanup_guard VALUES(IF(
+        (SELECT COUNT(*) FROM ctl_document WHERE document_no IN (${ids.join(',')}) AND NOT (module='demographic' AND module_id=${h.sqlString(String(patient))}))=0
+        AND (SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='DOC' AND lab_no IN (${ids.join(',')}) AND demographic_no<>${patient})=0
+        AND (SELECT COUNT(*) FROM providerLabRouting WHERE ${externalRoutes})=0
+        AND (SELECT COUNT(*) FROM providerLabRoutingLock WHERE ${externalLocks})=0,1,0));
+      DELETE FROM providerLabRouting WHERE ${routeScopes};
+      ${ownedLocks.length ? `DELETE FROM providerLabRoutingLock WHERE lab_no IN (${ownedLocks.join(',')});` : ''}
+      DELETE FROM patientLabRouting WHERE lab_type='DOC' AND lab_no IN (${ids.join(',')}) AND demographic_no=${patient};
+      DELETE FROM ctl_document WHERE document_no IN (${ids.join(',')}) AND module='demographic' AND module_id=${h.sqlString(String(patient))};
+      DELETE FROM document WHERE document_no IN (${ids.join(',')});COMMIT;`);
   }
   for (const file of files) if (fs.existsSync(file)) fs.unlinkSync(file);
 }
@@ -121,12 +177,16 @@ function assertOwnedPdfDocumentsRemoved({ sql, marker, patient, files, docs }) {
   h.assert(ids.every(id => /^[1-9]\d*$/.test(id)), 'Invalid owned document identity');
   h.assert(sql.value(`SELECT COUNT(*) FROM document WHERE docdesc LIKE ${h.sqlString(`${marker}%`)}`) === '0'
     && (!ids.length || sql.value(`SELECT COUNT(*) FROM document WHERE document_no IN (${ids.join(',')})`) === '0')
-    && sql.value(`SELECT COUNT(*) FROM ctl_document WHERE module='demographic' AND module_id=${patient}`) === '0',
+    && sql.value(`SELECT COUNT(*) FROM ctl_document WHERE module='demographic' AND module_id=${h.sqlString(String(patient))}`) === '0'
+    && (!ids.length || (sql.value(`SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='DOC' AND lab_no IN (${ids.join(',')})`) === '0'
+      && sql.value(`SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='DOC' AND lab_no IN (${ids.join(',')})`) === '0'
+      && sql.value(`SELECT COUNT(*) FROM providerLabRoutingLock WHERE lab_no IN (${ids.join(',')})`) === '0')),
   'Owned document rows were not removed');
   h.assert(!files.some(file => fs.existsSync(file)), 'Owned document files were not removed');
 }
 
 module.exports = {
+  OWNED_DOCUMENT_TYPE,
   requirePoppler,
   pdfText,
   pdfFacts,

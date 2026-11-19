@@ -522,6 +522,38 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
         }
     }
 
+    @Nested
+    @DisplayName("findByCreateDate(from, toExclusive)")
+    @Tag("read")
+    class FindDistinctDemographicsByCreateDateWindow {
+
+        @Test
+        void shouldIncludeMeasurementEnteredDuringEndDay_whenUpperBoundIsDayAfter() {
+            createAndPersistWithCreateDate(DEMO_NO, "BP", "120/80", today,
+                    java.sql.Timestamp.valueOf("2026-03-04 14:30:12"));
+
+            List<Integer> ids = measurementDao.findByCreateDate(
+                    java.sql.Timestamp.valueOf("2026-03-01 00:00:00"),
+                    java.sql.Timestamp.valueOf("2026-03-05 00:00:00"));
+
+            assertThat(ids).containsExactly(DEMO_NO);
+        }
+
+        @Test
+        void shouldExcludeMeasurementCreatedAtTheExclusiveBound_andIncludeTheLowerBound() {
+            createAndPersistWithCreateDate(DEMO_NO, "BP", "120/80", today,
+                    java.sql.Timestamp.valueOf("2026-03-05 00:00:00"));
+            createAndPersistWithCreateDate(DEMO_NO_2, "BP", "118/76", today,
+                    java.sql.Timestamp.valueOf("2026-03-01 00:00:00"));
+
+            List<Integer> ids = measurementDao.findByCreateDate(
+                    java.sql.Timestamp.valueOf("2026-03-01 00:00:00"),
+                    java.sql.Timestamp.valueOf("2026-03-05 00:00:00"));
+
+            assertThat(ids).containsExactly(DEMO_NO_2);
+        }
+    }
+
     // ========================================================================
     // findByIdTypeAndInstruction
     // ========================================================================
@@ -739,15 +771,18 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
             hibernateTemplate.save(provider);
             hibernateTemplate.flush();
 
+            // Flyway already seeds BP; keep this join fixture independent of reference data.
+            String fixtureType = "F539";
             MeasurementType mt = new MeasurementType();
-            mt.setType("BP");
+            mt.setType(fixtureType);
             mt.setTypeDisplayName("Blood Pressure");
-            mt.setTypeDescription("");
-            mt.setMeasuringInstruction("");
+            mt.setTypeDescription("FAKE blood pressure");
+            mt.setMeasuringInstruction("FAKE seated");
+            mt.setValidation("1");
             entityManager.persist(mt);
             entityManager.flush();
 
-            Measurement m = createAndPersist(DEMO_NO, "BP", "120/80", today);
+            Measurement m = createAndPersist(DEMO_NO, fixtureType, "120/80", today);
 
             // When
             List<Object[]> result = measurementDao.findMeasurementsAndProviders(m.getId());

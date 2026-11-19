@@ -5,14 +5,14 @@
  * (#4425).
  *
  * Every eForm compose and every Manage Emails resend stages its prepared attachments under a
- * one-time key in its own page, bound to the patient it was opened for. The send takes exactly that
- * entry, refuses it for any other patient, and checks each eForm, document, lab and HRM record's
+ * one-time token in its own page, bound to the patient it was opened for. The send takes exactly that
+ * entry, ignores the submitted patient number, and checks each eForm, document, lab and HRM record's
  * owner. eform-email-two-windows proves two composers each send their own patient's eForm; this
  * check covers the paths around it:
  *
- *   1. A composer whose patient number is changed before Send (as a crafted POST would) is
- *      refused: nothing reaches the transport and nothing is logged for either patient.
- *   2. A sent composer's exact POST, replayed, is refused: the key is used up.
+ *   1. Changing a composer's submitted patient number cannot redirect its recipient, logged
+ *      patient or eForm attachment away from the server-staged patient.
+ *   2. A sent composer's exact POST, replayed, is refused: the token is used up.
  *   3. A Manage Emails resend window keeps its own patient's eForm while another patient's eForm
  *      email is composed in a second window, and each window then sends its own patient's eForm.
  *
@@ -29,12 +29,13 @@
 const net = require('node:net');
 const h = require('./lib/playwright-harness');
 const { ensureClinicEmailFooter } = require('./lib/clinic-email-footer-fixture');
+const { createEmailArchiveCleanup, preflightEmailArchives } = require('./lib/email-archive-fixture');
 const { runWorkflow } = require('./lib/workflow-session');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 
 const TIMEOUT = 30000;
-const REFUSED = 'This email was not sent';
+const EXPIRED = 'This email compose window has expired or is no longer valid.';
 const TEMPLATE_HTML = '<html><head><title>Email fixture</title></head><body>'
   + '<form method="post" action="" name="FormName" id="FormName">'
   + '<input type="text" name="note" id="note"><input type="submit" value="Submit" id="SubmitButton">'
@@ -106,6 +107,7 @@ async function workflow(s) {
   }
   // Send stays disabled until a clinic email footer is saved (#3981).
   ensureClinicEmailFooter(s);
+  const removeArchives = createEmailArchiveCleanup(sql);
   const hex = marker.slice(-16);
   const sender = `sender-${hex}@example.com`;
   const lastNameY = `${marker}Y`;
@@ -117,11 +119,13 @@ async function workflow(s) {
   const sink = startSmtpSink();
   let configId;
   let fid;
+  let childCleanupComplete = false;
 
   // Registered first so it runs last, after every child row below has been removed.
   s.cleanup(() => {
     const y = patients.y.demographicNo;
     if (!y) return;
+    h.assert(childCleanupComplete, 'Patient Y retained because email child cleanup did not finish');
     h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${y} AND last_name=${q(lastNameY)}`) === '1',
       'Patient Y fixture ownership changed');
     const support = [['casemgmt_note_lock', 'demographic_no'], ['casemgmt_tmpsave', 'demographic_no'],
@@ -136,6 +140,7 @@ async function workflow(s) {
       if (!demo) continue;
       const logs = sql.rows(`SELECT id FROM emailLog WHERE demographicNo=${demo}`).map(row => row[0]);
       for (const id of logs) h.assert(/^[1-9]\d*$/.test(id), 'Owned email log id is invalid');
+      removeArchives({patient: demo, marker: demo === patients.x.demographicNo ? marker : lastNameY, logIds: logs});
       if (logs.length) {
         sql.execute(`DELETE FROM casemgmt_note_link WHERE table_name=12 AND table_id IN (${logs.join(',')});
           DELETE FROM emailAttachment WHERE logId IN (${logs.join(',')});
@@ -161,6 +166,7 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM eform WHERE form_name=${q(formName)})
       + (SELECT COUNT(*) FROM emailConfig WHERE senderEmail=${q(sender)})`) === '0',
     'The owned eForm template or sender account was not removed');
+    childCleanupComplete = true;
   });
 
   patients.y.demographicNo = sql.value(`INSERT INTO demographic
@@ -211,58 +217,45 @@ async function workflow(s) {
   async function fill(composer, label) {
     await composer.locator('#senderEmailAddress').selectOption(configId);
     await composer.locator('#subjectEmail').fill(`${marker} ${label}`);
-    await composer.locator('#bodyEmail').fill(`${marker} body ${label}`);
-    await composer.locator('#emailPDFPassword').fill(`PW${hex}${label}`);
-    await composer.locator('#emailPDFPasswordClue').fill(`${marker} clue`);
+    await composer.locator('#message').fill(`${marker} body ${label}`);
+    await composer.locator('#consentOverride').check();
+    await composer.locator('#consentOverrideReason').fill(`${marker} synthetic consent confirmation`);
     await composer.locator('#doNotAddAsNoteOption').check();
-    const key = await composer.locator('#emailAttachmentKey').inputValue();
-    h.assert(/^[A-Za-z0-9_-]{22}$/.test(key), `The ${label} composer carries no attachment key of its own`);
-    return key;
+    const token = await composer.locator('input[name="emailPDFPasswordToken"]').inputValue();
+    h.assert(/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(token),
+      `The ${label} composer carries no one-time token of its own`);
+    return token;
   }
 
   async function send(composer, entry, label) {
     await Promise.all([composer.waitForURL(/\/email\/emailSendAction/, { timeout: TIMEOUT }), composer.locator('#btnSend').click()]);
+    const errors = await composer.locator('.alert-danger:visible').allTextContents();
+    h.assert(await composer.locator('#isEmailSuccessful').inputValue() === 'true',
+      `The ${label} send was refused: ${errors.join(' ')}`);
     await composer.locator('#successMessage').waitFor({ timeout: TIMEOUT });
     h.assert((await composer.locator('#successMessage').innerText()).includes(entry.address),
       `The ${label} confirmation does not name its patient's address`);
+    // The next eForm uses a fixed popup name; wait until this successful composer releases it.
+    if (!composer.isClosed()) await composer.waitForEvent('close', {timeout: TIMEOUT});
   }
 
-  // Send, expecting the refusal alert; the composer then closes itself.
-  async function sendRefused(composer, label) {
-    const composerLabel = `${label}-eform`;  // the page label compose() gave this window
-    const closed = composer.waitForEvent('close', { timeout: TIMEOUT });
-    const dialogs = await h.withExpectedDialogs(composer, async () => {
-      await composer.locator('#btnSend').click();
-      await closed;
-    });
-    h.assert(dialogs.length === 1 && dialogs[0].type === 'alert' && dialogs[0].text.includes(REFUSED),
-      `The ${label} send was not refused with the attachment refusal message`);
-    // The refusal page closes its window as soon as the alert is acknowledged, so the browser
-    // abandons whatever subresources were still loading. Drop only those failures the harness
-    // proves were abandoned by that close (the rule xss-poison-helpers applies); anything else
-    // still fails the step.
-    const failures = recorder.requestFailures;
-    for (let i = failures.length - 1; i >= 0; i -= 1) {
-      const entry = failures[i];
-      if (entry.label === composerLabel && /ERR_ABORTED/.test(entry.errorText || '')
-        && typeof entry.navigatedAway === 'function' && entry.navigatedAway()) failures.splice(i, 1);
-    }
-  }
-
-  await s.step('a composer whose patient number is changed before Send is refused and sends nothing', async () => {
+  await s.step('a changed submitted patient number cannot redirect the staged email or eForm', async () => {
     const composer = await compose(await s.chart(), 'tampered');
     h.assert(await composer.locator('.attachmentName').count() === 1, 'The composer does not list exactly one attachment');
     await fill(composer, 'tampered');
-    // What a crafted POST does: X's window and key, Y's patient number.
+    // What a crafted POST does: X's window and token, Y's submitted patient number.
     await composer.locator('#emailComposeForm input[name="demographicId"]')
       .evaluate((input, y) => { input.value = y; }, patients.y.demographicNo);
-    await sendRefused(composer, 'tampered');
-    h.assert(sink.messages.length === 0, `The sink received ${sink.messages.length} message(s) from a refused send`);
-    h.assert(logCount(patients.x) === 0 && logCount(patients.y) === 0, 'A refused send was logged');
+    await send(composer, patients.x, 'tampered');
+    h.assert(sink.messages.length === 1 && JSON.stringify(sink.messages[0].rcpt) === JSON.stringify([patients.x.address]),
+      'Changing the submitted patient number redirected the email');
+    const rows = loggedEForms(patients.x);
+    h.assert(rows.length === 1 && rows[0][1] === String(patients.x.demographicNo) && logCount(patients.y) === 0,
+      'Changing the submitted patient number changed the logged patient or eForm owner');
   });
 
   let sentLogX;
-  await s.step('a sent composer\'s POST replayed with its used key is refused', async () => {
+  await s.step('a sent composer\'s POST replayed with its used token is refused', async () => {
     const composer = await compose(await s.chart(), 'x');
     await fill(composer, 'x');
     const { action, body } = await composer.locator('#emailComposeForm').evaluate(form => ({
@@ -271,10 +264,11 @@ async function workflow(s) {
     }));
     h.assert(body.includes('CSRF-TOKEN='), 'The compose form carries no CSRF token to replay');
     await send(composer, patients.x, 'x');
-    h.assert(sink.messages.length === 1 && JSON.stringify(sink.messages[0].rcpt) === JSON.stringify([patients.x.address]),
+    h.assert(sink.messages.length === 2 && JSON.stringify(sink.messages[1].rcpt) === JSON.stringify([patients.x.address]),
       'X\'s send was not delivered to exactly X');
     const rows = loggedEForms(patients.x);
-    h.assert(rows.length === 1 && rows[0][1] === String(patients.x.demographicNo), 'X\'s email did not log exactly X\'s eForm');
+    h.assert(rows.length === 2 && rows.every(([, owner]) => owner === String(patients.x.demographicNo)),
+      'X\'s emails did not log exactly X\'s eForms');
     sentLogX = sql.value(`SELECT id FROM emailLog WHERE demographicNo=${patients.x.demographicNo} ORDER BY id DESC LIMIT 1`);
 
     const origin = new URL(action).origin;
@@ -286,18 +280,30 @@ async function workflow(s) {
     });
     h.assert(replay.status() === 200, `The replayed send answered HTTP ${replay.status()}`);
     const html = await replay.text();
-    h.assert(/id="isEmailError"\s+value="true"/.test(html) && html.includes(REFUSED),
-      'The replayed send was not refused with the attachment refusal message');
-    h.assert(sink.messages.length === 1, `The replay reached the transport (${sink.messages.length} messages)`);
-    h.assert(logCount(patients.x) === 1, 'The replayed send was logged');
+    h.assert(/id="isEmailComposeStateError"\s+value="true"/.test(html) && html.includes(EXPIRED),
+      'The replayed send was not refused with the expired-compose message');
+    h.assert(sink.messages.length === 2, `The replay reached the transport (${sink.messages.length} messages)`);
+    h.assert(logCount(patients.x) === 2 && logCount(patients.y) === 0, 'The replayed send was logged');
   });
 
   let resend;
   let composerY;
   await s.step('a Manage Emails resend of X\'s email keeps X\'s eForm while Y\'s email is composed', async () => {
     h.assert(/^[1-9]\d*$/.test(sentLogX || ''), 'X\'s sent email log is missing');
-    resend = await context.newPage();
-    await h.gotoApp(resend, s.config.baseUrl, `/admin/ManageEmails?method=resendEmail&logId=${sentLogX}`);
+    const manager = await context.newPage();
+    await h.gotoApp(manager, s.config.baseUrl, '/admin/ManageEmails?method=view');
+    const today = sql.value("SELECT DATE_FORMAT(CURDATE(),'%Y-%m-%d')");
+    for (const selector of ['#dateBegin', '#dateEnd']) {
+      await manager.locator(selector).fill(today);
+      await manager.locator(selector).press('Tab');
+    }
+    await manager.locator('#senderEmailAddress').selectOption(sender);
+    await manager.locator('#emailStatus').selectOption('SUCCESS');
+    await manager.locator('#btnFetch').click();
+    const copy = manager.locator(`#btnResend${sentLogX}`);
+    await copy.waitFor({timeout: TIMEOUT});
+    // The real control prepares the new compose state with a CSRF-protected POST; GET is refused.
+    resend = await s.popup(manager, copy, 'resend-email');
     await resend.locator('#emailComposeForm').waitFor({ timeout: TIMEOUT });
     h.assert(await resend.locator('.attachmentName').count() === 1, 'The resend window does not list X\'s eForm');
 
@@ -317,19 +323,19 @@ async function workflow(s) {
   });
 
   await s.step('the resend window sends X\'s own eForm to X, and Y\'s window Y\'s own', async () => {
-    const keyResend = await fill(resend, 'resend');
-    const keyY = await fill(composerY, 'y');
-    h.assert(keyResend !== keyY, 'Two windows share one attachment key');
+    const tokenResend = await fill(resend, 'resend');
+    const tokenY = await fill(composerY, 'y');
+    h.assert(tokenResend !== tokenY, 'Two windows share one compose token');
     await send(resend, patients.x, 'resend');
-    h.assert(sink.messages.length === 2 && JSON.stringify(sink.messages[1].rcpt) === JSON.stringify([patients.x.address]),
+    h.assert(sink.messages.length === 3 && JSON.stringify(sink.messages[2].rcpt) === JSON.stringify([patients.x.address]),
       'The resend was not delivered to exactly X');
-    h.assert(/Content-Type: application\/pdf/i.test(sink.messages[1].data), 'The resend carries no PDF attachment');
+    h.assert(/Content-Type: application\/pdf/i.test(sink.messages[2].data), 'The resend carries no PDF attachment');
     const rowsX = loggedEForms(patients.x);
-    h.assert(rowsX.length === 2 && rowsX.every(([, owner]) => owner === String(patients.x.demographicNo)),
+    h.assert(rowsX.length === 3 && rowsX.every(([, owner]) => owner === String(patients.x.demographicNo)),
       'X\'s resend carried an eForm that is not X\'s');
 
     await send(composerY, patients.y, 'y');
-    h.assert(sink.messages.length === 3 && JSON.stringify(sink.messages[2].rcpt) === JSON.stringify([patients.y.address]),
+    h.assert(sink.messages.length === 4 && JSON.stringify(sink.messages[3].rcpt) === JSON.stringify([patients.y.address]),
       'Y\'s send was not delivered to exactly Y');
     const rowsY = loggedEForms(patients.y);
     h.assert(rowsY.length === 1 && rowsY[0][1] === String(patients.y.demographicNo),
@@ -337,5 +343,5 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('eform-email-attachment-binding', workflow, { openPatient: true });
+if (require.main === module) runWorkflow('eform-email-attachment-binding', workflow, { openPatient: true, preflightConfig: preflightEmailArchives });
 module.exports = { workflow };

@@ -58,7 +58,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.ManageLetters" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -81,6 +81,9 @@
     <div class="searchBox">
     <% if (Boolean.TRUE.equals(request.getAttribute("letterUploadFailed"))) { %>
     <div id="letterUploadFailed" class="alert alert-danger" role="alert"><fmt:message key="report.ManageLetters.uploadFailed"/></div>
+    <% } %>
+    <% if (Boolean.TRUE.equals(request.getAttribute("letterDeleteFailed"))) { %>
+    <div id="letterDeleteFailed" class="alert alert-danger" role="alert"><fmt:message key="report.ManageLetters.deleteFailed"/></div>
     <% } %>
 
         <div style="background:#f5f5f5; padding:8px 15px; border-bottom:1px solid #ddd; margin-bottom:10px;">
@@ -144,11 +147,14 @@
                     <td><a href="<%= request.getContextPath() %>/report/DownloadLetter?reportID=<carlos:encode value='<%= String.valueOf(h.get("ID")) %>' context="htmlAttribute"/>"><carlos:encode value='<%= String.valueOf(h.get("file_name")) %>' context="html"/></a></td>
                     <td><carlos:encode value='<%= String.valueOf(h.get("date_time")) %>' context="html"/></td>
                     <td>
+                        <%-- Delete needs report write (DeletePatientLetters2Action); a read-only user gets no button. --%>
+                        <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="w">
                         <form method="POST" action="<%= request.getContextPath() %>/report/DeleteLetter" style="display:inline; margin:0;">
                             <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
                             <input type="hidden" name="reportID" value="<carlos:encode value='<%= String.valueOf(h.get("ID")) %>' context="htmlAttribute"/>"/>
                         <button type="submit" class="btn btn-sm btn-danger"><fmt:message key="report.ManageLetters.btnDelete"/></button>
                         </form>
+                        </security:oscarSec>
                     </td>
                 </tr>
                 <%}%>

@@ -52,12 +52,9 @@
 %>
 
 
-<%@page import="java.util.*,
-                io.github.carlos_emr.carlos.util.*,
-                org.springframework.web.context.support.WebApplicationContextUtils,
-                org.springframework.web.context.WebApplicationContext" %>
+<%@page import="java.util.*" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -277,9 +274,20 @@
       method="POST"
       class="bgLightLilac">
 
-    <div id="saved" style="display:none;">
-        ${carlos:forHtml(requestScope.saved)} Invoice(s) Saved
+    <div id="saved" style="display:none;" role="status">
+        <c:choose>
+            <c:when test="${requestScope.saveFailed}">
+                <fmt:message key="billing.bc.quickBilling.msgSaveFailed" var="saveFailedMessage"/>
+                ${carlos:forHtml(saveFailedMessage)}
+            </c:when>
+            <c:otherwise>${carlos:forHtml(requestScope.saved)} Invoice(s) Saved</c:otherwise>
+        </c:choose>
     </div>
+
+    <c:if test="${requestScope.patientNotFound}">
+        <fmt:message key="billing.bc.quickBilling.msgPatientNotFound" var="patientNotFoundMessage"/>
+        <div id="patientNotFound" role="alert">${carlos:forHtml(patientNotFoundMessage)}</div>
+    </c:if>
 
     <div id="header" class="bgLilac">
         <ul>
@@ -473,7 +481,8 @@
         </div>
     </div>
     <div id="toolBar" class="bgLilac">
-        <input type="button" id="submitList" name="submitList" value="Submit" onclick="javascript:form.submit();"/>
+        <%-- Disabled on the first click so a double click sends one save; the server also saves each bill once. --%>
+        <input type="button" id="submitList" name="submitList" value="Submit" onclick="this.disabled = true; this.form.submit();"/>
         <input type="button" id="cancelTrans" name="cancelTrans" value="Cancel" onclick="javascript:window.close();"/>
     </div>
 </form>

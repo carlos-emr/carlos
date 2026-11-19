@@ -63,6 +63,16 @@ public class NavBarDisplayDAO {
     public record PopupConfig(int width, int height, String windowName, String url) {}
 
     /**
+     * Stable, nonnegative popup identity. Widen before taking the absolute value:
+     * Integer.MIN_VALUE otherwise stays negative. All form entry points must use
+     * this same calculation so reopening a saved form reuses its named window.
+     */
+    public static long popupWindowHash(String identity) {
+        long hash = identity.hashCode();
+        return hash < 0 ? -hash : hash;
+    }
+
+    /**
      * Auto-complete item for the encounter left navbar search/filter.
      * The JSP renders these with {@code Encode.forJavaScript()} encoding.
      *
@@ -207,6 +217,22 @@ public class NavBarDisplayDAO {
         return leftPopup != null || !getLeftURL().isBlank();
     }
 
+    /**
+     * Whether {@code LeftNavBarDisplay.jsp} files the rows into collapsible folders, one per distinct
+     * {@link Item#getFolder()}, rather than listing them by date. Used by the Documents panel when the
+     * provider's eChart preferences file documents by type.
+     *
+     * @return {@code true} when rows are rendered as folders
+     * @since 2026-10-16
+     */
+    public boolean isFiledInFolders() {
+        return filedInFolders;
+    }
+
+    public void setFiledInFolders(boolean filedInFolders) {
+        this.filedInFolders = filedInFolders;
+    }
+
     public void setRightURL(String url) {
         RightURL = url;
     }
@@ -275,13 +301,9 @@ public class NavBarDisplayDAO {
      * @return {@code true} when rows are rendered as folders
      * @since 2026-10-16
      */
-    public boolean isFiledInFolders() {
-        return filedInFolders;
-    }
 
-    public void setFiledInFolders(boolean filedInFolders) {
-        this.filedInFolders = filedInFolders;
-    }
+
+
 
     /**
      * Sets structured popup configuration for the left heading link.
@@ -464,7 +486,7 @@ public class NavBarDisplayDAO {
         private String bgColour;
         private Date date;
         private boolean URLJavaScript;
-        private String folder;
+        private String folder = "";
 
         public Item() {
             folder = "";

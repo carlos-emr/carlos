@@ -77,6 +77,7 @@
             <result name="close">/close.html</result>
         </action>
         <action name="tickler/DbTicklerAdd" class="io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerAdd2Action">
+            <result name="recipientRefused">/WEB-INF/jsp/tickler/ticklerRecipientRefused.jsp</result>
             <result name="success">/WEB-INF/jsp/tickler/dbTicklerAdd.jsp</result>
         </action>
         <action name="tickler/DbTicklerDemoMain" class="io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerDemoMain2Action"/>
@@ -124,20 +125,28 @@
         <action name="appointment/AddRecord" class="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentAddRecord2Action">
             <result name="success">/WEB-INF/jsp/appointment/appointmentaddarecord.jsp</result>
             <result name="input">/WEB-INF/jsp/appointment/addappointment.jsp</result>
+            <result name="submissionRefused">/WEB-INF/jsp/common/formSubmissionRefused.jsp</result>
         </action>
         <action name="appointment/UpdateRecord" class="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentUpdateRecord2Action">
             <result name="success">/WEB-INF/jsp/appointment/appointmentupdatearecord.jsp</result>
             <result name="input">/WEB-INF/jsp/appointment/editappointment.jsp</result>
+            <!-- HTTP 409: the edit form was rendered before another user's change (AppointmentEditConflict). -->
+            <result name="editConflict">/WEB-INF/jsp/appointment/appointmentEditConflict.jsp</result>
         </action>
         <action name="appointment/DeleteRecord" class="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentDeleteRecord2Action">
             <result name="success">/WEB-INF/jsp/appointment/appointmentdeletearecord.jsp</result>
+            <result name="editConflict">/WEB-INF/jsp/appointment/appointmentEditConflict.jsp</result>
         </action>
         <action name="appointment/CutRecord" class="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentCutRecord2Action">
             <result name="success">/WEB-INF/jsp/appointment/appointmentcutrecord.jsp</result>
+            <result name="editConflict">/WEB-INF/jsp/appointment/appointmentEditConflict.jsp</result>
         </action>
         <action name="appointment/apptStatusSetting" class="io.github.carlos_emr.carlos.appt.status.web.AppointmentStatus2Action" method="execute">
             <result name="success">/WEB-INF/jsp/appointment/appointmentstatussetting.jsp</result>
-            <result name="edit">/WEB-INF/jsp/appointment/appointmentstatusedit.jsp</result>
+        </action>
+        <action name="appointment/apptLocationSetting" class="io.github.carlos_emr.carlos.appt.web.AppointmentLocationSettings2Action" method="execute">
+            <result name="success">/WEB-INF/jsp/appointment/appointmentLocationSetting.jsp</result>
+            <result name="submissionRefused">/WEB-INF/jsp/common/formSubmissionRefused.jsp</result>
         </action>
         <action name="appointment/appointmentTypeAction" class="io.github.carlos_emr.carlos.appt.web.AppointmentType2Action">
             <result name="edit">/appointment/appointmentTypeAction?oper=edit</result>
@@ -180,6 +189,9 @@
         </action>
         <action name="appointment/appointmentgrouprecords" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentSelfPost2Action">
             <result name="success">/WEB-INF/jsp/appointment/appointmentgrouprecords.jsp</result>
+            <!-- A repeat of a rendering whose group action saved (FormSubmissionGuard): the first save's result page. -->
+            <result name="groupSaved">/WEB-INF/jsp/appointment/appointmentGroupSaved.jsp</result>
+            <result name="submissionRefused">/WEB-INF/jsp/common/formSubmissionRefused.jsp</result>
         </action>
         <action name="appointment/appointmentrepeatbooking" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentSelfPost2Action">
             <result name="success">/WEB-INF/jsp/appointment/appointmentrepeatbooking.jsp</result>
@@ -193,10 +205,14 @@
         <action name="tickler/EditTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action">
             <result name="close">/WEB-INF/jsp/tickler/ticklerEditSuccess.jsp</result>
             <result name="conflict">/WEB-INF/jsp/tickler/ticklerEditConflict.jsp</result>
+            <result name="attachmentsRefused">/WEB-INF/jsp/tickler/ticklerEditAttachmentsRefused.jsp</result>
+            <!-- HTTP 409: the edit form was rendered before another user's change (TicklerEditVersion). -->
+            <result name="staleRefused">/WEB-INF/jsp/tickler/ticklerEditStaleRefused.jsp</result>
             <result name="failure">/WEB-INF/jsp/error/failure.jsp</result>
             <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>
-        <action name="tickler/EditTicklerTextSuggest" class="io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action">
+        <action name="tickler/EditTicklerTextSuggest" class="io.github.carlos_emr.carlos.tickler.pageUtil.EditTicklerTextSuggest2Action">
+            <result name="failure">/WEB-INF/jsp/error/failure.jsp</result>
             <result name="close">/WEB-INF/jsp/common/closenreload.jsp</result>
             <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>

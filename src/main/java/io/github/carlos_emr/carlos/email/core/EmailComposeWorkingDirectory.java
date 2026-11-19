@@ -218,6 +218,30 @@ public final class EmailComposeWorkingDirectory implements AutoCloseable {
     }
 
     /**
+     * Removes a PDF that CARLOS generated for a send (an encrypted or signed copy) when no working
+     * directory took ownership of it, so a failed send leaves no copy of the patient's document
+     * behind (carlos-emr/carlos#3851).
+     *
+     * <p>Only a file in an allowed temp directory is removed: the encryption and signing utilities
+     * only ever return temp files they created, so anything else here is a bug and is left alone
+     * rather than deleted. Never pass a source attachment. A failure to remove it is logged by type
+     * only, and never replaces the send's own failure.</p>
+     *
+     * @param generated the generated PDF that was never adopted, or {@code null} for none
+     */
+    public static void discardUnadoptedPdf(Path generated) {
+        if (generated == null || !PathValidationUtils.isInAllowedTempDirectory(generated.toFile())) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(generated);
+        } catch (IOException | RuntimeException cleanupFailure) {
+            logger.warn("Generated email PDF could not be removed after a failed send: {}",
+                    cleanupFailure.getClass().getSimpleName());
+        }
+    }
+
+    /**
      * Returns whether this JVM still has a live owner for an email compose directory.
      *
      * <p>The orphan sweep uses this process-local ownership check in addition to the on-disk lease.

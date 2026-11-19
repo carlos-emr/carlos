@@ -68,7 +68,11 @@
  *   DELETE FROM document WHERE docfilename LIKE '%carlos-upload-probe-%';
  */
 
+const legacyHarness = require('./lib/legacy-check');
+const h = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors, wireStrictPage, assertStrictPage } = require('./lib/playwright-harness');
+const { isOwnedForwardDialogRequest, acknowledgeOwnedForwardFailure } = require('./lib/document-forward-diagnostics');
 const { releaseChartLocks, closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
@@ -82,14 +86,13 @@ const {
   createRecorder,
   getLaunchOptions,
   gotoApp,
-  installCleanupSignalHandlers,
   login,
   NO_PLAYWRIGHT_SIGNAL_HANDLING,
   screenshot,
   validateBaseUrl,
-  wirePage,
 } = require('./eform-local-playwright-utils');
 const { clickOpensPopup } = require('./lib/playwright-ui');
+const { captureUploadFiles, removeUploadFiles } = require('./lib/document-upload-files');
 const { markDocumentResidue, removeDocumentResidue } = require('./lib/document-residue');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
@@ -102,7 +105,7 @@ const config = {
   testPin: process.env.TEST_PIN || '2026',
   screenshotDir: process.env.DOCUMENT_UPLOAD_SCREENSHOT_DIR || '/tmp',
 };
-const mysqlHost = process.env.MYSQL_HOST || '127.0.0.1';
+const mysqlHost = require('./lib/playwright-harness').validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
@@ -140,22 +143,14 @@ const residueSql = {
 // Taken before the first upload: the rows the application files for the uploaded documents are found by it.
 let residueMark = null;
 
-/** Deletes the stored copies of the probe documents (the uploader prefixes a 14-digit timestamp to the name), inside DOCUMENT_DIR only. */
+let uploadFiles;
+
 function removeProbeFiles(names) {
-  const configured = process.env.DOCUMENT_DIR;
-  if (!configured) {
-    if (names.length) console.warn(`WARN: DOCUMENT_DIR is not set, so the uploaded file(s) ${names.join(', ')} stay in the document store`);
+  if (!uploadFiles) {
+    assert(!names.length, 'DOCUMENT_DIR is required for independent upload file cleanup');
     return;
   }
-  const store = fs.realpathSync(configured);
-  for (const name of names) {
-    // Only a name that is a bare file name ending in this run's probe name: no other document is touched.
-    if (name !== path.basename(name) || !name.endsWith(probeName)) continue;
-    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- name is a bare file name (equal to its own basename, checked in the condition above) taken from the document store listing this check just made
-    const target = path.join(store, name);
-    if (fs.existsSync(target)) fs.unlinkSync(target);
-    assert(!fs.existsSync(target), `The uploaded probe file ${name} was not removed from the document store`);
-  }
+  removeUploadFiles(uploadFiles, names);
 }
 
 // Remove the document rows this run created, by its unique stamp only.
@@ -176,8 +171,7 @@ function cleanupProbeDocuments() {
     removeProbeFiles(found.map(([, name]) => name).filter(Boolean));
   } catch (e) {
     // A leftover routed document can poison later workflow checks.
-    process.exitCode = 1;
-    console.error(`WARN: could not clean up probe documents for stamp ${stamp}: ${e.message}`);
+    throw new Error('Could not restore owned upload rows/files', { cause: e });
   }
 }
 
@@ -229,8 +223,19 @@ async function checkDocumentForwarding(context, recorder, demographicNo, descrip
     // A refused dialog request must be visible and recoverable, not another
     // silent Forward click. Only this owned browser request is intercepted.
     const dialogRoute = '**/oscarMDS/ViewSelectProvider';
-    await viewer.route(dialogRoute, route => route.fulfill({ status: 503, body: 'test outage' }));
+    const expectedUrl = new URL('/oscarMDS/ViewSelectProvider', config.baseUrl.href);
+    expectedUrl.pathname = `${config.baseUrl.pathname}/oscarMDS/ViewSelectProvider`.replace(/\/{2,}/g, '/');
+    const beforeFailure = { http: new Set(recorder.badResponses), console: new Set(recorder.consoleIssues) };
+    let failedRequest;
+    let intercepted = 0;
+    await viewer.route(dialogRoute, route => {
+      if (!isOwnedForwardDialogRequest(route.request(), viewer, expectedUrl.href, documentNo)) return route.continue();
+      failedRequest = route.request(); intercepted++;
+      return route.fulfill({ status: 503, body: 'test outage' });
+    });
     try {
+      const failed = viewer.waitForResponse(response => response.request() === failedRequest, { timeout: 30000 });
+      failed.catch(() => {});
       await viewer.locator(`[id="fwdBtn_${documentNo}"]`).click();
       const errorDialog = viewer.getByRole('dialog', { name: 'Error', exact: true });
       await errorDialog.waitFor({ state: 'visible' });
@@ -238,6 +243,11 @@ async function checkDocumentForwarding(context, recorder, demographicNo, descrip
         'Failed dialog request produced no actionable message');
       await errorDialog.getByRole('button', { name: 'Close', exact: true }).last().click();
       assert(routes() === before, 'Failed dialog request changed document routing');
+      const audit = await acknowledgeOwnedForwardFailure(recorder, {
+        page: viewer, expectedUrl: expectedUrl.href, documentNo, request: failedRequest,
+        response: await failed, intercepted, before: beforeFailure,
+      });
+      console.log('CHECK document Forward controlled failure ' + JSON.stringify(audit));
     } finally {
       await viewer.unroute(dialogRoute);
     }
@@ -309,7 +319,7 @@ function writeProbePdf(dir) {
 // Click "Doc Upload" in the Inbox hub and return the popup it opens.
 async function openUploadPopup(context, recorder) {
   const inbox = await context.newPage();
-  wirePage(inbox, 'inbox-hub', recorder);
+  wireStrictPage(inbox, 'inbox-hub', recorder, { baseline: [] });
   await gotoApp(inbox, config.baseUrl, '/web/inboxhub/Inboxhub');
   await inbox.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
@@ -326,7 +336,7 @@ async function openUploadPopup(context, recorder) {
     inbox.waitForEvent('popup', { timeout: 30000 }),
     docUpload.click(),
   ]);
-  wirePage(popup, 'doc-upload-popup', recorder);
+  wireStrictPage(popup, 'doc-upload-popup', recorder, { baseline: [] });
   await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   return { inbox, popup };
 }
@@ -354,36 +364,46 @@ function documentRowCount() {
 
 let workDir = null;
 
-// Everything the run owns outside the browser. Idempotent, and also run from
-// SIGINT/SIGTERM (issue #3600): a finally does not run when the process is killed,
-// which would leave the probe document rows (and the temp PDF) behind.
-function cleanupRunResources() {
-  if (mysqlDefaults) cleanupProbeDocuments();
-  cleanupMysqlDefaults();
-  if (workDir) {
-    fs.rmSync(workDir, { recursive: true, force: true });
-    workDir = null;
-  }
+// Everything the run owns outside the browser. The shared runner restores it
+// after the active write finishes, including graceful signal cancellation.
+async function cleanupRunResources() {
+  await legacyHarness.finishLegacyCleanup([
+    () => { if (mysqlDefaults) cleanupProbeDocuments(); },
+    cleanupMysqlDefaults,
+    () => {
+      if (workDir) fs.rmSync(workDir, { recursive: true, force: true });
+      workDir = null;
+    },
+  ]);
 }
 
-const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
+let browser;
 
-(async () => {
+async function main({cancellation}) {
   const recorder = createRecorder();
-  const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), ...NO_PLAYWRIGHT_SIGNAL_HANDLING });
+  browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), ...NO_PLAYWRIGHT_SIGNAL_HANDLING });
+    await cancellation.throwIfCancelled();
+  h.recordBrowserVersion(browser);
   workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-upload-'));
   initMysqlDefaults();
   try {
+    assert(process.env.DOCUMENT_DIR, 'DOCUMENT_DIR is required for upload file ownership');
+    uploadFiles = captureUploadFiles(process.env.DOCUMENT_DIR, process.env.DOCUMENT_CACHE_DIR);
     residueMark = markDocumentResidue(residueSql);
     const probePdf = writeProbePdf(workDir);
 
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
+    await cancellation.throwIfCancelled();
+    context.on('page', page => wireStrictPage(page, 'document-upload', recorder, { baseline: [] }));
     const landing = await login(context, config, recorder);
+    await cancellation.throwIfCancelled();
 
 
     // ---- 1. a single upload succeeds ---------------------------------------
     const first = await openUploadPopup(context, recorder);
+    await cancellation.throwIfCancelled();
     const firstResponse = await submitUpload(first.popup, probePdf);
+    await cancellation.throwIfCancelled();
     const firstStatus = firstResponse.status();
     const firstError = firstResponse.headers()['oscar_error'];
 
@@ -400,6 +420,7 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
       `Uploading a document reported an error header: "${firstError}"`,
     );
     await screenshot(first.popup, config.screenshotDir, 'document-upload-first');
+    await cancellation.throwIfCancelled();
 
     // The response is not the proof; the record is. A handled failure can still
     // answer 200 on some paths, and the file landing on disk without a row is
@@ -409,11 +430,14 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
       rows = documentRowCount();
       if (rows === 0) {
         await first.popup.waitForTimeout(500);
+    await cancellation.throwIfCancelled();
       }
     }
     assert(rows > 0, `Upload reported success but no document row was created for ${probeName}`);
     await first.popup.close();
+    await cancellation.throwIfCancelled();
     await first.inbox.close();
+    await cancellation.throwIfCancelled();
 
     // ---- 2. a second upload also succeeds and creates its own row ----------
     // Not a duplicate-collision test: driving the popup twice takes several
@@ -425,12 +449,17 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
     // (shouldReturnConflict_whenHtml5UploadNameAlreadyTaken). Here we only
     // confirm a second real upload is accepted and filed.
     const second = await openUploadPopup(context, recorder);
+    await cancellation.throwIfCancelled();
     const secondResponse = await submitUpload(second.popup, probePdf);
+    await cancellation.throwIfCancelled();
     assert(secondResponse.status() < 400, `Second upload returned HTTP ${secondResponse.status()}`);
     assert(documentRowCount() > rows, 'The second upload created no new document row.');
     await screenshot(second.popup, config.screenshotDir, 'document-upload-second');
+    await cancellation.throwIfCancelled();
     await second.popup.close();
+    await cancellation.throwIfCancelled();
     await second.inbox.close();
+    await cancellation.throwIfCancelled();
 
     // ---- 3. eDocs from the chart: the document must ATTACH to the patient ----
     // This is the path the tester meant by "upload not working from edocs": the
@@ -447,19 +476,26 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
     //     and fell through to errorpage.jsp as a raw 500.
     const edocsDemo = process.env.PRESCRIPTION_DEMOGRAPHIC_NO || '1';
     const edocsPage = await context.newPage();
-    wirePage(edocsPage, 'edocs-add', recorder);
+    await cancellation.throwIfCancelled();
+    wireStrictPage(edocsPage, 'edocs-add', recorder, { baseline: [] });
     await gotoApp(edocsPage, config.baseUrl,
       `/documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=${edocsDemo}&mode=add&parentAjaxId=docs`);
+    await cancellation.throwIfCancelled();
     await edocsPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    await cancellation.throwIfCancelled();
 
     const edocsForm = edocsPage.locator('form[action*="addEditDocument"]').first();
     const edocsDesc = `edocs check ${stamp}`;
     const typeSelect = edocsForm.locator('select[name="docType"]');
     const typeValues = await typeSelect.locator('option').evaluateAll((os2) => os2.map((o) => o.value).filter((v) => v));
+    await cancellation.throwIfCancelled();
     assert(typeValues.length > 0, 'eDocs add form offers no document types');
     await typeSelect.selectOption(typeValues[0]);
+    await cancellation.throwIfCancelled();
     await edocsForm.locator('input[name="docDesc"]').fill(edocsDesc);
+    await cancellation.throwIfCancelled();
     await edocsForm.locator('input[type="file"]').setInputFiles(probePdf);
+    await cancellation.throwIfCancelled();
 
     const [edocsResponse] = await Promise.all([
       edocsPage.waitForResponse(
@@ -468,12 +504,15 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
       ),
       edocsForm.locator('input[name="Submit"], input[type="submit"]').first().click(),
     ]);
+    await cancellation.throwIfCancelled();
     assert(edocsResponse.status() < 400, `eDocs upload POST returned HTTP ${edocsResponse.status()}`);
     await edocsPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    await cancellation.throwIfCancelled();
     // No .catch(() => '') here: this feeds a NEGATIVE assertion, so swallowing a failed
     // read into '' would satisfy it vacuously -- the exact hollowness pattern removed
     // from the drug-search banner checks.
     const edocsBody = (await edocsPage.locator('body').innerText()).replace(/\s+/g, ' ');
+    await cancellation.throwIfCancelled();
     assert(
       !/CARLOS Error|unexpected error/i.test(edocsBody),
       `eDocs upload landed on an error page after saving: ${edocsBody.slice(0, 160)}`,
@@ -490,6 +529,7 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
     );
 
     await checkDocumentForwarding(context, recorder, edocsDemo, edocsDesc, landing);
+    await cancellation.throwIfCancelled();
 
     // Add Link: the SAME case-collapse defect, on a route nothing else drives.
     //
@@ -504,9 +544,12 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
     const linkPanelToggle = edocsPage.locator('[data-bs-target="#addLinkDiv"]').first();
     if (await linkPanelToggle.count() > 0) {
       await linkPanelToggle.click();
+    await cancellation.throwIfCancelled();
       const linkForm = edocsPage.locator('form[action*="addLink"]').first();
       await linkForm.locator('input[name="docDesc"]').waitFor({ state: 'visible', timeout: 20000 });
+    await cancellation.throwIfCancelled();
       await linkForm.locator('input[name="docDesc"]').fill(linkDesc);
+    await cancellation.throwIfCancelled();
       // docType and html are BOTH required by the action. Leaving either blank
       // takes the validation-failure branch, which is a different path -- and
       // one that used to answer 500, because it put the empty String under the
@@ -514,21 +557,28 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
       const linkType = linkForm.locator('select[name="docType"], input[name="docType"]').first();
       if (await linkType.count() > 0) {
         const tag = await linkType.evaluate((el) => el.tagName.toLowerCase());
+    await cancellation.throwIfCancelled();
         if (tag === 'select') {
           const linkTypeValues = await linkType.locator('option')
             .evaluateAll((os2) => os2.map((o) => o.value).filter((v) => v));
+    await cancellation.throwIfCancelled();
           assert(linkTypeValues.length > 0, 'Add Link form offers no document types');
           await linkType.selectOption(linkTypeValues[0]);
+    await cancellation.throwIfCancelled();
         } else {
           await linkType.fill('lab');
+    await cancellation.throwIfCancelled();
         }
       }
       await linkForm.locator('input[name="html"]').fill(`https://example.invalid/${stamp}`);
+    await cancellation.throwIfCancelled();
       const linkClass = linkForm.locator('select[name="docClass"]');
       if (await linkClass.count() > 0) {
         const linkClassValues = await linkClass.locator('option')
           .evaluateAll((os2) => os2.map((o) => o.value).filter((v) => v));
+    await cancellation.throwIfCancelled();
         if (linkClassValues.length) await linkClass.selectOption(linkClassValues[0]);
+    await cancellation.throwIfCancelled();
       }
       const [linkResponse] = await Promise.all([
         edocsPage.waitForResponse(
@@ -537,8 +587,10 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
         ),
         linkForm.locator('input[name="Submit"], input[type="submit"]').first().click(),
       ]);
+    await cancellation.throwIfCancelled();
       assert(linkResponse.status() < 400, `Add Link POST returned HTTP ${linkResponse.status()}`);
       await edocsPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    await cancellation.throwIfCancelled();
 
       // AddEditHtml2Action APPENDS " (link)" to the description before saving, so match on
       // the prefix rather than for equality -- an exact match finds nothing and looks
@@ -560,15 +612,22 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
     const emptyPdf = path.join(workDir, `edocs-empty-${stamp}.pdf`);
     fs.writeFileSync(emptyPdf, Buffer.alloc(0));
     const emptyPage = await context.newPage();
-    wirePage(emptyPage, 'edocs-empty', recorder);
+    await cancellation.throwIfCancelled();
+    wireStrictPage(emptyPage, 'edocs-empty', recorder, { baseline: [] });
     await gotoApp(emptyPage, config.baseUrl,
       `/documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=${edocsDemo}&mode=add&parentAjaxId=docs`);
+    await cancellation.throwIfCancelled();
     await emptyPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    await cancellation.throwIfCancelled();
     const emptyForm = emptyPage.locator('form[action*="addEditDocument"]').first();
     const emptyTypes = await emptyForm.locator('select[name="docType"] option').evaluateAll((os2) => os2.map((o) => o.value).filter((v) => v));
+    await cancellation.throwIfCancelled();
     if (emptyTypes.length) await emptyForm.locator('select[name="docType"]').selectOption(emptyTypes[0]);
+    await cancellation.throwIfCancelled();
     await emptyForm.locator('input[name="docDesc"]').fill(`edocs empty ${stamp}`);
+    await cancellation.throwIfCancelled();
     await emptyForm.locator('input[type="file"]').setInputFiles(emptyPdf);
+    await cancellation.throwIfCancelled();
     const [emptyResponse] = await Promise.all([
       emptyPage.waitForResponse(
         (r) => r.url().includes('/documentManager/addEditDocument') && r.request().method() === 'POST',
@@ -576,6 +635,7 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
       ),
       emptyForm.locator('input[name="Submit"], input[type="submit"]').first().click(),
     ]);
+    await cancellation.throwIfCancelled();
     assert(
       emptyResponse.status() !== 500,
       'Uploading an EMPTY file from eDocs returned a raw 500 — the multipart rejection must land '
@@ -588,11 +648,13 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
     // a silent drop, which for a clinician filing a scan is worse than the 500 it replaced.
     // Assert the user is actually told, and that no document row was created for the empty file.
     await emptyPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    await cancellation.throwIfCancelled();
     // Landing on errorpage.jsp is a failure, not a pass. That page renders the
     // literal text "CARLOS Error: ..." which would satisfy any regex looking for
     // the word "error", so the scenario has to rule it out explicitly -- the
     // whole point is that the rejection lands back on the documents page.
     await assertNotErrorPage(emptyPage, 'the empty-file eDocs upload');
+    await cancellation.throwIfCancelled();
     // Scope the assertion to the alert container the page actually uses for
     // upload errors. Matching anywhere in the body is satisfied by any document
     // in the list whose description happens to contain "error" -- including the
@@ -600,12 +662,14 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
     // point this stops seeing the silent drop it exists to catch.
     const emptyAlert = emptyPage.locator('#addDocDiv .alert-danger, #docAlertContainer, .alert-danger');
     const emptyAlertText = (await emptyAlert.first().innerText().catch(() => '')).trim();
+    await cancellation.throwIfCancelled();
     assert(
       (await emptyAlert.count()) > 0 && emptyAlertText.length > 0,
       'The empty-file rejection produced no visible error alert. The upload did not happen and '
         + 'the user was not told: the "input" result must carry the error (docerrors), not just '
         + 'avoid the 500. A clean documents list here is the silent-drop defect.',
     );
+    await cancellation.throwIfCancelled();
     const emptyRows = sql(
       `SELECT COUNT(*) FROM document WHERE docdesc = 'edocs empty ${stamp}'`,
     ).trim();
@@ -615,12 +679,18 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
     );
 
     await emptyPage.close();
+    await cancellation.throwIfCancelled();
     await edocsPage.close();
+    await cancellation.throwIfCancelled();
 
     assertNoPageErrors(recorder);
+    assertStrictPage(recorder);
 
     await releaseChartLocks(context, config.baseUrl);
+    await cancellation.throwIfCancelled();
     await context.close();
+    await cancellation.throwIfCancelled();
+    assertStrictPage(recorder);
 
     console.log(
       `PASS document upload: ${probeName} uploaded through the Inbox hub popup and the eDocs `
@@ -632,17 +702,13 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
     console.error(error.stack || error.message);
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
-  } finally {
-    // ALWAYS clean up, pass or fail. Leaving these rows behind is not neutral:
-    // eform-rtl-attachment-behavior attaches whichever document is FIRST in this
-    // patient's list, so a leftover ~200-byte probe PDF -- or worse, the Add Link
-    // row, which is a <script> redirect rather than a PDF -- displaces the large
-    // report it needs and fails it. A failing run here was silently failing a
-    // sibling. The rows are listed as they are removed, so a failure is still
-    // diagnosable from this output without leaving the fixture poisoned.
-    cleanupRunResources();
-    await closeBrowserWithChartCleanup(browser, config.baseUrl);
-    // Last, so a signal arriving during any step above still reaches the handler.
-    signalHandlers.dispose();
   }
-})();
+}
+
+legacyHarness.runLegacyCheck('document-upload', main, {
+  realSignalCheckpoints: true,
+  cleanup: () => legacyHarness.finishLegacyCleanup([
+    () => browser && closeBrowserWithChartCleanup(browser, config.baseUrl),
+    cleanupRunResources,
+  ]),
+});

@@ -36,12 +36,22 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.prescript.dto.DrugListItemDTO;
 
-public interface DrugDao extends AbstractDao<Drug> {
+public interface DrugDao extends AbstractDao<Drug>, CdsExportPatientTableReadDao {
+
+    /**
+     * Scalar discovery for authorized export; callers own a short read-only transaction. One row
+     * is a prescription's id, its drug catalogue id and its DIN, for every prescription of the
+     * chart: no count of prescriptions holds a patient or stops an export.
+     */
+    java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportDrugReferenceInputDto>
+            readCdsExportDrugReferenceInputs(int patient);
 
     public boolean addNewDrug(Drug d);
 
     /** Archives an active, patient-owned drug once; false means no active matching row remains. */
     boolean discontinueIfActive(int drugId, int demographicNo, Date date, String reason);
+    /** Atomically archives an active drug owned by the patient; returns one only to the winning request. */
+    int archiveIfActive(int drugId, int demographicNo, String reason, Date archivedDate);
 
     public List<Drug> findByPrescriptionId(Integer prescriptionId);
 

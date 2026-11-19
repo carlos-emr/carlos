@@ -31,23 +31,23 @@
 
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
-<%@ page import="java.sql.*" %>
+
 
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 
-<%@ page import="io.github.carlos_emr.carlos.login.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.log.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.SecRole" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecRoleDao" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.utility.RoleCache" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -268,17 +268,18 @@
                     <input type="text" name="role_name" id="role_name"
                            value="<carlos:encode value='<%= prop.getProperty("role_name", "") %>' context="htmlAttribute"/>"
                            maxlength='30'>
-                    <input type="submit" name="submit" value="<fmt:message key="admin.provideraddrole.search"/>" class="btn btn-secondary"
-                           onclick="javascript:return onSearch();">
+                    <%-- The posted value stays "Search" in every language: the code above compares it.
+                         Only the label is translated (issue #5140). --%>
+                    <button type="submit" name="submit" value="Search" class="btn btn-secondary"
+                            onclick="javascript:return onSearch();"><fmt:message key="admin.provideraddrole.search"/></button>
                 </div>
             </div>
             <div class="mb-3">
                 <div>
                     <input
-                            type="hidden" name="action" value='<carlos:encode value='<%= action %>' context="htmlAttribute"/>'/> <% if (!"search".equals(action)) {%>
-                    <input type="submit" name="submit" class="btn btn-primary"
-                           value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
-                           onclick="javascript:return onSave();"> <% }%>
+                            type="hidden" name="action" value='<carlos:encode value='<%= action %>' context="htmlAttribute"/>'/> <% if (!"search".equals(action) && Boolean.TRUE.equals(request.getAttribute("canSaveRole"))) {%>
+                    <button type="submit" name="submit" value="Save" class="btn btn-primary"
+                            onclick="javascript:return onSave();"><fmt:message key="admin.resourcebaseurl.btnSave"/></button> <% }%>
                 </div>
             </div>
         </form>

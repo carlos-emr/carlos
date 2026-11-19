@@ -1,3 +1,4 @@
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.BilledProviderReportDao" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -20,14 +21,13 @@
 %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
-<%@ page import="java.sql.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.model.security.Secuserrole" %>
+
 <%@ page import="io.github.carlos_emr.carlos.daos.security.SecuserroleDao" %>
 <%@ page import="java.util.ResourceBundle" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
@@ -38,45 +38,8 @@
     String submitAddRoles = bundle.getString("report.reportonbilledvisitprovider.btnAddRoles");
     String submitUpdateRole = bundle.getString("report.reportonbilledvisitprovider.btnUpdate");
 
-    // update the role list
-    if (request.getParameter("buttonUpdate") != null && request.getParameter("buttonUpdate").length() > 0) {
-        String number = request.getParameter("providerId");
-        String name = request.getParameter("name" + number);
-
-        List<Secuserrole> surs = secuserroleDao.findByProviderNo(number);
-        for (Secuserrole sur : surs) {
-            secuserroleDao.updateRoleName(sur.getId(), name);
-        }
-    }
-
-    // save the role list
-    if (request.getParameter("submit") != null && request.getParameter("submit").equals(submitAddRoles)) {
-        Properties prop = new Properties();
-
-        List<Secuserrole> surs = secuserroleDao.findAll();
-        for (Secuserrole sur : surs) {
-            prop.setProperty(sur.getProviderNo(), "");
-        }
-
-        for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
-            String temp = e.nextElement().toString();
-
-            if (!temp.startsWith("type") || prop.containsKey(temp.substring(4, temp.length()))) {
-                continue;
-            }
-
-            Secuserrole sur = new Secuserrole();
-            sur.setProviderNo(temp.substring(4, temp.length()));
-            sur.setRoleName(request.getParameter(temp));
-            secuserroleDao.save(sur);
-
-        }
-    }
 %>
-<%@page import="io.github.carlos_emr.carlos.db.DBPreparedHandlerParam" %>
-<%@page import="io.github.carlos_emr.carlos.db.LegacyJdbcQuery" %>
 
-<%@page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
 <head>
@@ -102,6 +65,7 @@
 </head>
 <body bgproperties="fixed" onLoad="setfocus()" topmargin="0"
       leftmargin="0" rightmargin="0">
+<fieldset style="border:0;padding:0" <%= Boolean.TRUE.equals(request.getAttribute("canManageProviderRoles")) ? "" : "disabled" %>>
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#486ebd">
         <th align="CENTER" width="90%"><font face="Helvetica"
@@ -115,38 +79,24 @@
     Properties oldRoleProp = new Properties();
     Vector vec = new Vector();
     Vector oldRoleList = new Vector();
-    String query = "select u.*, p.first_name, p.last_name from secUserRole u, provider p ";
-
-    query += "where u.provider_no=p.provider_no  order by p.first_name, p.last_name";
-
-    try (ResultSet rs = LegacyJdbcQuery.queryResults(query, new DBPreparedHandlerParam[0])) {
-        while (rs.next()) {
-            oldRoleProp.setProperty(Misc.getString(rs, "provider_no"), Misc.getString(rs, "role_name"));
-            oldRoleList.add(Misc.getString(rs, "first_name"));
-            oldRoleList.add(Misc.getString(rs, "last_name"));
-            oldRoleList.add(Misc.getString(rs, "role_name"));
-            oldRoleList.add(Misc.getString(rs, "provider_no"));
-        }
+    BilledProviderReportDao reportDao = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.BilledProviderReportDao.class);
+    for (BilledProviderReportDao.ProviderRole provider : reportDao.providerRoles()) {
+        oldRoleProp.setProperty(provider.providerNo(), provider.role());
+        oldRoleList.add(provider.firstName());
+        oldRoleList.add(provider.lastName());
+        oldRoleList.add(provider.role());
+        oldRoleList.add(provider.providerNo());
     }
-
-    query = "select * from provider order by first_name, last_name";
-
-    try (ResultSet rs = LegacyJdbcQuery.queryResults(query, new DBPreparedHandlerParam[0])) {
-        while (rs.next()) {
-            if (Misc.getString(rs, "last_name").length() < 1 || oldRoleProp.containsKey((Misc.getString(rs, "provider_no")))) {
-                continue;
-            }
-
-            prop = new Properties();
-
-            prop.setProperty("provider_no", Misc.getString(rs, "provider_no"));
-            prop.setProperty("first_name", Misc.getString(rs, "first_name"));
-            prop.setProperty("last_name", Misc.getString(rs, "last_name"));
-            prop.setProperty("provider_type", Misc.getString(rs, "provider_type"));
-            prop.setProperty("specialty", Misc.getString(rs, "specialty"));
-            prop.setProperty("ohip_no", Misc.getString(rs, "ohip_no"));
-            vec.add(prop);
-        }
+    for (BilledProviderReportDao.ProviderDetails provider : reportDao.providers()) {
+        if (provider.lastName().isEmpty() || oldRoleProp.containsKey(provider.providerNo())) continue;
+        prop = new Properties();
+        prop.setProperty("provider_no", provider.providerNo());
+        prop.setProperty("first_name", provider.firstName());
+        prop.setProperty("last_name", provider.lastName());
+        prop.setProperty("provider_type", provider.providerType());
+        prop.setProperty("specialty", provider.specialty());
+        prop.setProperty("ohip_no", provider.ohipNo());
+        vec.add(prop);
     }
 %>
 <form name="myform" action="<%= request.getContextPath() %>/report/ViewReportonbilledvisitprovider"
@@ -317,5 +267,6 @@
         }
     %>
 </table>
+</fieldset>
 </body>
 </html>

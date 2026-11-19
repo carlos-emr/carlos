@@ -1,0 +1,823 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsimport.service;
+
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
+import io.github.carlos_emr.carlos.commn.model.CdsClinicalException;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract;
+
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAO;
+import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt;
+import io.github.carlos_emr.carlos.casemgmt.model.Issue;
+import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsClinicalDiagnosticDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsFieldDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsHistoryNativeDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
+
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.io.IOException;
+import java.time.ZoneId;
+import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+import java.util.function.Consumer;
+
+/**
+ * Clinical notes/history retain their whole content or an explicit source-view marker, never a
+ * clipped clinical statement.
+ *
+ * <p>A note is stored whole when its prepared record fits the column that holds it between
+ * preparation and write ({@code cds_import_preparation.payload}, a MEDIUMTEXT of {@link
+ * CdsNativePreparationService#MAXIMUM} bytes): about 16 MiB of text. Only a note whose prepared
+ * record is larger becomes the documented placeholder; its complete original and normalized text
+ * stays in the category's source fields. {@code casemgmt_note.note} itself is LONGTEXT. No
+ * setting chooses the size: {@code cds.import.native.maxNoteBytes} is retired, and the column's
+ * former 1 MiB check is gone (V1.0.59.50).
+ */
+@Service
+public class CdsHistoryPersister {
+    /**
+     * No longer note can be held whole, because its prepared record contains it; the source read
+     * stops here. Whether a shorter note fits is decided by the record's own size when it is
+     * stored.
+     */
+    static final long NOTE_CAPACITY = CdsNativePreparationService.MAXIMUM;
+
+    /** Each escaped character of a narrative carrier is at most six encoded ones. */
+    private static final int CARRIER_CAPACITY = Math.toIntExact(6 * NOTE_CAPACITY);
+
+    private static final Map<String, String> ISSUES =
+            Map.of(
+                    "PersonalHistory",
+                    "SocHistory",
+                    "FamilyHistory",
+                    "FamHistory",
+                    "PastHealth",
+                    "MedHistory",
+                    "ProblemList",
+                    "Concerns",
+                    "RiskFactors",
+                    "RiskFactors",
+                    "AlertsAndSpecialNeeds",
+                    "Reminders");
+    private static final Map<String, String> CONTENT =
+            Map.of(
+                    "FamilyHistory",
+                    "ProblemDiagnosisProcedureDescription",
+                    "PastHealth",
+                    "PastHealthProblemDescriptionOrProcedures",
+                    "ProblemList",
+                    "ProblemDiagnosisDescription",
+                    "RiskFactors",
+                    "RiskFactor",
+                    "AlertsAndSpecialNeeds",
+                    "AlertDescription",
+                    "ClinicalNotes",
+                    "MyClinicalNotesContent");
+    private final CdsFieldParser fields;
+    private final CdsClinicalNormalizationService normalization;
+    private final CdsImportConfigurationService configuration;
+    private final CdsProviderResolver providers;
+    private final CdsNativePreparationService preparation;
+
+    private final CaseManagementNoteDAO notes;
+    private final CaseManagementIssueDAO patientIssues;
+    private final IssueDAO issues;
+    private final CaseManagementNoteExtDAO extensions;
+    private final CdsHistoryExtensionPersister cppExtensions;
+
+    public CdsHistoryPersister(
+            CdsFieldParser fields,
+            CdsClinicalNormalizationService normalization,
+            CdsImportConfigurationService configuration,
+            CdsProviderResolver providers,
+            CdsNativePreparationService preparation,
+            @Qualifier("CaseManagementNoteDAO") CaseManagementNoteDAO notes,
+            @Qualifier("CaseManagementIssueDAO") CaseManagementIssueDAO patientIssues,
+            @Qualifier("IssueDAO") IssueDAO issues,
+            @Qualifier("CaseManagementNoteExtDAO") CaseManagementNoteExtDAO extensions) {
+        this.fields = fields;
+        this.normalization = normalization;
+        this.configuration = configuration;
+        this.providers = providers;
+        this.preparation = preparation;
+        this.notes = Objects.requireNonNull(notes);
+        this.patientIssues = Objects.requireNonNull(patientIssues);
+        this.issues = Objects.requireNonNull(issues);
+        this.extensions = Objects.requireNonNull(extensions);
+        this.cppExtensions = new CdsHistoryExtensionPersister(fields, preparation, extensions);
+    }
+
+    /**
+     * The exact patient Alert of a {@code CARLOS.PatientAlert.v1} carrier, or null when it is not
+     * used. The carrier is proven against its element first: AlertDescription, when present, must
+     * be the carried text with each character XML cannot carry shown as U+FFFD, the one rule the
+     * exporter writes by ({@link CdsNativeExtensionContract#xmlElementText}). A carrier that is
+     * malformed, larger than the native note bound, or does not match its element is never
+     * guessed at: the element is imported as any sender's and the patient's report names
+     * {@code CDS_PATIENT_ALERT_CARRIER_NOT_APPLIED}.
+     */
+    String carriedAlert(
+            CdsRecordDto record,
+            CdsFieldDto carrier,
+            CdsFieldDto element,
+            long limit,
+            Consumer<CdsClinicalDiagnosticDto> notice)
+            throws IOException {
+        try {
+            String exact =
+                    CdsNativeExtensionContract.decodePatientAlert(
+                            fields.readLogicalText(record, carrier, CARRIER_CAPACITY));
+            if (exact.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= limit
+                    && (element == null
+                            || CdsNativeExtensionContract.xmlElementText(exact)
+                                    .equals(fields.readLogicalText(record, element, (int) limit))))
+                return exact;
+        } catch (IllegalArgumentException malformed) {
+            // Not this carrier's shape: reported below, the element stands.
+        } catch (CdsInputException capacity) {
+            if (!capacity.code().equals("CDS_TARGET_TEXT_CAPACITY_EXCEEDED")) throw capacity;
+        }
+        notice.accept(
+                new CdsClinicalDiagnosticDto(
+                        "CDS_PATIENT_ALERT_CARRIER_NOT_APPLIED", "ResidualInfo"));
+        return null;
+    }
+
+    /** Reported when a sender's exact note text could not be proven against its element. */
+    static final String EXACT_NARRATIVE_NOT_APPLIED = "CDS_HISTORY_EXACT_NARRATIVE_NOT_APPLIED";
+
+    /**
+     * The text of a CPP item with the exact text a CARLOS sender carries for it, or {@code shown}
+     * when there is nothing to restore or it cannot be proven.
+     *
+     * <p>A CARLOS export writes a CPP item's text (its description element, or {@code
+     * CARLOS.History.Narrative.v1} when the element cannot hold it or the item is a
+     * PersonalHistory) with U+FFFD for each character XML cannot carry, and the stored text in
+     * the current revision's details ({@code CARLOS.NativeHistory.v1}: {@code exactNarrative},
+     * or {@code narrative}). Only text that shows U+FFFD can stand for such a text, so no other
+     * item reads its details. The carried text is used only when the item's text is exactly what
+     * the exporter's rule writes from it ({@link CdsNativeExtensionContract#isElementTextOf}). A
+     * carried text equal to the element, or none at all, leaves the element as it is (the
+     * character is the sender's own U+FFFD). Details that are unreadable, or carry a text that
+     * does not prove itself, are never guessed at: the item is imported as any sender's and the
+     * report names {@link #EXACT_NARRATIVE_NOT_APPLIED}.
+     */
+    String exactItemText(
+            CdsRecordDto record,
+            CdsFieldDto details,
+            String shown,
+            long limit,
+            Consumer<CdsClinicalDiagnosticDto> notice)
+            throws IOException {
+        if (shown.indexOf('\ufffd') < 0) return shown;
+        try {
+            String exact =
+                    CdsHistoryExactNarrativeReader.currentText(
+                            () -> fields.openToken(record, details), units(limit));
+            if (exact == null || exact.equals(shown)) return shown;
+            if (CdsNativeExtensionContract.isElementTextOf(shown, exact)) return exact;
+        } catch (IllegalArgumentException malformed) {
+            // Not readable revision details: reported below, the element stands.
+        }
+        notice.accept(new CdsClinicalDiagnosticDto(EXACT_NARRATIVE_NOT_APPLIED, "ResidualInfo"));
+        return shown;
+    }
+
+    /**
+     * The text of an encounter note with the exact bodies a CARLOS sender carries for it, or
+     * {@code shown} when there is nothing to restore or it cannot be proven.
+     *
+     * <p>ClinicalNotes has no ResidualInfo, so a CARLOS export ends the note's text with {@link
+     * CdsNativeExtensionContract#NOTE_DETAILS_HEADING} and the revision details. Each revision
+     * whose body holds a character XML cannot carry is written with U+FFFD and has its stored
+     * body as {@code exactNarrative}; every revision then states its body's length as written
+     * ({@link CdsNativeExtensionContract#NOTE_BODY_LENGTH}). Counted back from the details, each
+     * body has one place, under the heading the exporter writes ({@link
+     * CdsNativeExtensionContract#noteRevisionHeading}; none when the note has one revision). A
+     * carried body replaces the text there only when every heading stands where the lengths put
+     * it and the text there is exactly its U+FFFD form; all carried bodies are restored, or
+     * none. Text whose body part shows no U+FFFD, or that merely ends like revision details
+     * (another sender's quotation), is left alone without a report; details that carry a body
+     * which cannot be placed are reported as {@link #EXACT_NARRATIVE_NOT_APPLIED} and nothing is
+     * changed.
+     */
+    static String exactNoteText(String shown, long limit, Consumer<CdsClinicalDiagnosticDto> notice)
+            throws IOException {
+        int details = shown.lastIndexOf(CdsNativeExtensionContract.NOTE_DETAILS_HEADING);
+        if (details < 1 || shown.lastIndexOf('\ufffd', details - 1) < 0) return shown;
+        java.util.List<CdsHistoryExactNarrativeReader.NoteRevision> revisions;
+        try {
+            revisions =
+                    CdsHistoryExactNarrativeReader.noteRevisions(
+                            new java.io.StringReader(
+                                    shown.substring(
+                                            details
+                                                    + CdsNativeExtensionContract
+                                                            .NOTE_DETAILS_HEADING
+                                                            .length())),
+                            units(limit));
+        } catch (IllegalArgumentException notDetails) {
+            return shown;
+        }
+        if (revisions.stream().allMatch(revision -> revision.exactNarrative() == null))
+            return shown;
+        char[] restored = shown.toCharArray();
+        int end = details;
+        for (int i = revisions.size() - 1; i >= 0 && end >= 0; i--) {
+            var revision = revisions.get(i);
+            String heading =
+                    revisions.size() == 1 ? "" : CdsNativeExtensionContract.noteRevisionHeading(i);
+            Long length = revision.bodyLength();
+            int start = length == null || length > end ? -1 : end - length.intValue();
+            if (start < heading.length() || !shown.startsWith(heading, start - heading.length()))
+                end = -1;
+            else if (revision.exactNarrative() != null
+                    && !CdsNativeExtensionContract.isElementTextOf(
+                            shown.substring(start, end), revision.exactNarrative())) end = -1;
+            else {
+                if (revision.exactNarrative() != null)
+                    revision.exactNarrative().getChars(0, end - start, restored, start);
+                end = start - heading.length();
+            }
+        }
+        if (end >= 0) return new String(restored);
+        notice.accept(
+                new CdsClinicalDiagnosticDto(EXACT_NARRATIVE_NOT_APPLIED, "MyClinicalNotesContent"));
+        return shown;
+    }
+
+    /** The native note bound in UTF-16 units: a text of more units cannot fit in fewer bytes. */
+    private static int units(long limit) {
+        return (int) Math.min(limit, Integer.MAX_VALUE - 1L);
+    }
+
+    void validateExtension(CdsRecordDto record, CdsImportCommand command) throws IOException {
+        cppExtensions.normalize(record, command);
+    }
+
+    void prepareExtension(String run, long epoch, String unit, CdsRecordDto record,
+            CdsImportCommand command) throws IOException {
+        cppExtensions.prepare(run, epoch, unit, record, command);
+    }
+
+    Map<String, String> writeExtension(String run, long epoch, String unit, int patient,
+            CdsRecordDto record, CdsImportCommand command, jakarta.persistence.EntityManager manager,
+            CdsTargetReceiptService receipts, Consumer<CdsClinicalDiagnosticDto> notices) throws IOException {
+        return cppExtensions.write(run, epoch, unit, patient, record, command, manager, receipts, notices);
+    }
+
+    public void validate(CdsRecordDto record, CdsImportCommand command) {
+        String code = ISSUES.get(record.section());
+        if (code != null) requireIssue(code);
+    }
+
+    public void prepare(
+            String run, long epoch, String unit, CdsRecordDto record, CdsImportCommand command)
+            throws IOException {
+        Map<String, CdsClinicalDiagnosticDto> warnings = new LinkedHashMap<>();
+        Consumer<CdsClinicalDiagnosticDto> notice =
+                n -> warnings.putIfAbsent(n.code() + "/" + n.field(), n);
+        String contentPath = CONTENT.get(record.section());
+        var nativeState = new CdsHistoryResidualReader(fields).read(record);
+        List<String> otherSections = otherSections(record, nativeState.revisionDetails(), notice);
+        CdsFieldDto[] descriptor = {null};
+        String[] participant = {null};
+        boolean[] repeated = {false};
+        fields.forEachField(
+                record,
+                f -> {
+                    if (!known(f)) return;
+                    String path = CdsFieldParser.unindexed(f.path());
+                    if (record.section().equals("ClinicalNotes")
+                            && f.kind().equals("TEXT")
+                            && (path.equals("ParticipatingProviders/DateTimeNoteCreated")
+                                    || path.startsWith(
+                                            "ParticipatingProviders/DateTimeNoteCreated/")))
+                        notice.accept(
+                                new CdsClinicalDiagnosticDto(
+                                        "CDS_NOTE_CREATED_TIME_RETAINED_IN_SOURCE",
+                                        "ParticipatingProviders/DateTimeNoteCreated"));
+                    if (descriptor[0] == null
+                            && contentPath != null
+                            && CdsFieldParser.unindexed(f.path()).equals(contentPath))
+                        descriptor[0] = f;
+                    if (f.path().startsWith("ParticipatingProviders[")) {
+                        String group = f.path().substring(0, f.path().indexOf(']') + 1);
+                        if (participant[0] == null) participant[0] = group;
+                        else if (!participant[0].equals(group)) repeated[0] = true;
+                    }
+                });
+        // A CARLOS export carries PersonalHistory's narrative, or a narrative too long for the
+        // description element, in a versioned whitespace-free carrier (Notes holds the same long
+        // text for other readers). The earlier raw PersonalHistory carrier is still read.
+        boolean encoded = false;
+        if (descriptor[0] == null && nativeState.narrative() != null) {
+            descriptor[0] = nativeState.narrative();
+            encoded = true;
+        }
+        if (descriptor[0] == null && nativeState.personalNarrative() != null)
+            descriptor[0] = nativeState.personalNarrative();
+        if (nativeState.archived())
+            notice.accept(new CdsClinicalDiagnosticDto(
+                    "CDS_HISTORY_ARCHIVE_STATE_VENDOR_EXTENSION", "ResidualInfo"));
+        long limit = NOTE_CAPACITY;
+        String content;
+        // A CARLOS export writes AlertDescription with U+FFFD for each character XML cannot
+        // carry and the exact Alert beside it; the exact text is used only when it is proven.
+        String alert =
+                nativeState.alert() == null
+                        ? null
+                        : carriedAlert(record, nativeState.alert(), descriptor[0], limit, notice);
+        if (alert != null) content = alert;
+        else if (descriptor[0] == null) {
+            content =
+                    "[CDS "
+                            + record.section()
+                            + ": no narrative body supplied. Separate clinical source fields retain"
+                            + " this occurrence's complete values.]";
+            notice.accept(
+                    new CdsClinicalDiagnosticDto(
+                            "CDS_HISTORY_STRUCTURED_SOURCE_FIELDS", record.section()));
+        } else {
+            String logical = null;
+            boolean oversized = false;
+            try {
+                if (encoded) {
+                    // Each escaped character is at most six encoded ones, so a longer carrier
+                    // decodes to a narrative past the bound; the decoded narrative is held to the
+                    // same bound as any other body below.
+                    String carrier =
+                            fields.readLogicalText(record, descriptor[0], CARRIER_CAPACITY);
+                    try {
+                        logical = CdsNativeExtensionContract.decodeNarrative(carrier);
+                    } catch (IllegalArgumentException malformed) {
+                        throw new CdsClinicalException(
+                                "CDS_HISTORY_NATIVE_STATE_REQUIRES_REVIEW", "ResidualInfo");
+                    }
+                } else logical = fields.readLogicalText(record, descriptor[0], (int) limit);
+            } catch (CdsInputException capacity) {
+                if (!capacity.code().equals("CDS_TARGET_TEXT_CAPACITY_EXCEEDED")) throw capacity;
+                oversized = true;
+            }
+            if (!oversized) {
+                // A CARLOS sender carries the exact text of a note or CPP item whose element shows
+                // U+FFFD for a character XML cannot carry; it is used only once proven. It is
+                // never longer in UTF-8 than the element, so it is restored before the size test.
+                if (record.section().equals("ClinicalNotes"))
+                    logical = exactNoteText(logical, limit, notice);
+                else if (nativeState.revisionDetails() != null)
+                    logical =
+                            exactItemText(
+                                    record, nativeState.revisionDetails(), logical, limit, notice);
+                oversized =
+                        logical.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > limit;
+            }
+            if (oversized) {
+                content = placeholder(record);
+                notice.accept(sourceView(contentPath));
+            } else content = logical;
+        }
+        String encounter = encounterType(record, nativeState.revisionDetails(), content, notice);
+        Long observation = null, created = null;
+        String author = null;
+        String observationField = observationField(record, command);
+        CdsTemporalDto observationDate = observationField == null ? null
+                : normalization.date(record, observationField, command);
+        if (observationDate != null) observation = timestamp(observationDate, observationField, notice, true);
+        if (record.section().equals("ClinicalNotes")) {
+            if (repeated[0])
+                notice.accept(
+                        new CdsClinicalDiagnosticDto(
+                                "CDS_MULTIPLE_NOTE_PARTICIPANTS_SOURCE_ONLY",
+                                "ParticipatingProviders"));
+            else if (participant[0] != null) {
+                var matched =
+                        providers.resolve(
+                                fields.firstToken(
+                                        record, "ParticipatingProviders/OHIPPhysicianId", 20),
+                                null,
+                                fields.firstText(
+                                        record, "ParticipatingProviders/Name/FirstName", 250),
+                                fields.firstText(
+                                        record, "ParticipatingProviders/Name/LastName", 250),
+                                command.matchProviderNames());
+                author = matched.localProviderNo();
+                if (!matched.matched())
+                    notice.accept(
+                            new CdsClinicalDiagnosticDto(
+                                    "CDS_NOTE_PROVIDER_" + matched.outcome(),
+                                    "ParticipatingProviders"));
+                created =
+                        timestamp(
+                                normalization.date(
+                                        record,
+                                        "ParticipatingProviders/DateTimeNoteCreated",
+                                        command),
+                                "ParticipatingProviders/DateTimeNoteCreated",
+                                notice,
+                                false);
+            }
+        }
+        try {
+            preparation.store(
+                    run,
+                    epoch,
+                    unit,
+                    record.effectiveSha256(),
+                    command,
+                    new CdsHistoryNativeDto(
+                            content,
+                            ISSUES.get(record.section()),
+                            observation,
+                            created,
+                            author,
+                            observationDate,
+                            observationField,
+                            List.copyOf(warnings.values()),
+                            nativeState.archived(),
+                            otherSections, encounter));
+        } catch (CdsImportException capacity) {
+            if (!"NATIVE_PREPARATION_CAPACITY_EXCEEDED".equals(capacity.getCode())) throw capacity;
+            // The whole note does not fit the column that holds its prepared record: the
+            // documented placeholder is stored, and the complete text stays in the source fields.
+            notice.accept(sourceView(contentPath));
+            preparation.store(
+                    run,
+                    epoch,
+                    unit,
+                    record.effectiveSha256(),
+                    command,
+                    new CdsHistoryNativeDto(
+                            placeholder(record),
+                            ISSUES.get(record.section()),
+                            observation,
+                            created,
+                            author,
+                            observationDate,
+                            observationField,
+                            List.copyOf(warnings.values()),
+                            nativeState.archived(),
+                            otherSections, encounter));
+        }
+    }
+
+    /**
+     * Known CDS NoteType values bind directly to the receiving chart's encounter choices.
+     * A CARLOS carrier additionally restores custom types, including whitespace and types
+     * longer than NoteType. Its projected NoteType must agree with the current XML element;
+     * an edited element is never overwritten by stale carried metadata.
+     */
+    String encounterType(CdsRecordDto record, CdsFieldDto details, String content,
+            Consumer<CdsClinicalDiagnosticDto> notice) throws IOException {
+        boolean clinical = record.section().equals("ClinicalNotes");
+        String element = clinical ? fields.firstToken(record, "NoteType", 100) : null;
+        String fallback = io.github.carlos_emr.carlos.utility.EncounterUtil
+                .getEncounterTypeFromOldDbValue(element) == null ? null : element;
+        java.io.Reader source = null;
+        if (details != null) source = fields.openToken(record, details);
+        else if (clinical) {
+            int at = content.lastIndexOf(CdsNativeExtensionContract.NOTE_DETAILS_HEADING);
+            if (at > 0) source = new java.io.StringReader(content.substring(
+                    at + CdsNativeExtensionContract.NOTE_DETAILS_HEADING.length()));
+        }
+        if (source != null) {
+            try (java.io.Reader input = source) {
+                String carried = CdsHistoryEncounterReader.read(input);
+                if (carried != null) {
+                    String projected = clinical && encounterToken(carried) ? carried : null;
+                    if (Objects.equals(projected, element)) return carried;
+                    notice.accept(new CdsClinicalDiagnosticDto(
+                            "CDS_HISTORY_ENCOUNTER_CARRIER_NOT_APPLIED", "NoteType"));
+                }
+            } catch (IllegalArgumentException malformed) {
+                notice.accept(new CdsClinicalDiagnosticDto(
+                        "CDS_HISTORY_ENCOUNTER_CARRIER_NOT_APPLIED",
+                        clinical ? "MyClinicalNotesContent" : "ResidualInfo"));
+            }
+        }
+        if (element != null && fallback == null)
+            notice.accept(new CdsClinicalDiagnosticDto(
+                    "CDS_HISTORY_ENCOUNTER_TYPE_RETAINED_IN_SOURCE", "NoteType"));
+        return fallback;
+    }
+
+    private static boolean encounterToken(String value) {
+        return !value.isEmpty() && value.codePointCount(0, value.length()) <= 50 && value.equals(value.strip())
+                && !value.contains("  ")
+                && value.codePoints().noneMatch(c -> c == '\t' || c == '\r' || c == '\n')
+                && CdsNativeExtensionContract.xmlElementText(value).equals(value);
+    }
+
+    /** Reported when the CPP section tags a CARLOS sender carries for an item cannot be read. */
+    static final String SECTIONS_NOT_APPLIED = "CDS_HISTORY_SECTIONS_NOT_APPLIED";
+
+    /** Reported for a CPP section tag a sender filed the item under that this chart cannot link. */
+    static final String SECTION_NOT_RESTORED = "CDS_HISTORY_SECTION_NOT_RESTORED";
+
+    /**
+     * The other CPP section tags a CARLOS sender filed this item under ({@link
+     * CdsHistorySectionsReader}), in CDS PatientRecord order: empty for an item of one section,
+     * another sender's item and an encounter note. {@link #write} links the item to each of them
+     * as it links its own section's tag.
+     *
+     * <p>Details that cannot be read, or whose list does not prove itself, are never guessed at:
+     * the item is filed under its own section only and the report names {@link
+     * #SECTIONS_NOT_APPLIED}. A tag this chart's issue catalogue does not hold exactly once (as it
+     * must hold the item's own, {@link #validate}) is not restored and is reported as {@link
+     * #SECTION_NOT_RESTORED}. The record's retained source keeps every tag either way.
+     */
+    List<String> otherSections(
+            CdsRecordDto record, CdsFieldDto details, Consumer<CdsClinicalDiagnosticDto> notice)
+            throws IOException {
+        String own = ISSUES.get(record.section());
+        if (own == null || details == null) return List.of();
+        List<String> carried;
+        try {
+            carried =
+                    CdsHistorySectionsReader.otherSections(fields.openToken(record, details), own);
+        } catch (IllegalArgumentException malformed) {
+            notice.accept(new CdsClinicalDiagnosticDto(SECTIONS_NOT_APPLIED, "ResidualInfo"));
+            return List.of();
+        }
+        var restored = new java.util.ArrayList<String>();
+        for (String code : carried) {
+            if (issues.findCandidatesByCode(code).size() == 1) restored.add(code);
+            else notice.accept(new CdsClinicalDiagnosticDto(SECTION_NOT_RESTORED, "ResidualInfo"));
+        }
+        return List.copyOf(restored);
+    }
+
+    /** The documented native note of a narrative too large to hold: its source fields have it. */
+    private static String placeholder(CdsRecordDto record) {
+        return "[CDS "
+                + record.section()
+                + ": narrative exceeds the bounded native projection. Read the complete original"
+                + " and normalized values in this clinical category's CDS source fields. No"
+                + " narrative excerpt was substituted.]";
+    }
+
+    private static CdsClinicalDiagnosticDto sourceView(String contentPath) {
+        return new CdsClinicalDiagnosticDto(
+                "CDS_NOTE_COMPLETE_TEXT_SOURCE_VIEW",
+                contentPath == null ? "ResidualInfo" : contentPath);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public Map<String, String> write(
+            String run,
+            long epoch,
+            String unit,
+            int patient,
+            CdsRecordDto record,
+            CdsImportCommand command,
+            Consumer<CdsClinicalDiagnosticDto> notices)
+            throws IOException {
+        var source =
+                preparation.load(
+                        run,
+                        epoch,
+                        unit,
+                        record.effectiveSha256(),
+                        command,
+                        CdsHistoryNativeDto.class);
+        source.diagnostics().forEach(notices);
+        CaseManagementNote note = new CaseManagementNote();
+        note.setDemographic_no(Integer.toString(patient));
+        note.setNote(source.content());
+        note.setProviderNo(source.providerNo() == null ? "" : source.providerNo());
+        note.setSigning_provider_no("");
+        note.setSigned(false);
+        note.setEncounter_type(source.encounterType() == null ? "" : source.encounterType());
+        note.setArchived(source.archived());
+        // create_date is a native revision Formula, not a source-created storage column.
+        // Exact source creation values/precision remain in the ClinicalNotes source category.
+        note.setObservation_date(
+                source.observationMillis() == null ? null : new Date(source.observationMillis()));
+        note.setUpdate_date(new Date());
+        note.setUuid(UUID.randomUUID().toString());
+        note.setHistory("");
+        note.setProgram_no(command.programId() == null ? "" : command.programId().toString());
+        note.setReporter_caisi_role("1");
+        note.setReporter_program_team("0");
+        Map<String, String> references = new LinkedHashMap<>();
+        CaseManagementIssue linked = null;
+        if (source.issueCode() != null) {
+            Issue category = requireIssue(source.issueCode());
+            var existing = patientIssues.findCandidatesByDemographicAndIssue(patient, category.getId());
+            if (existing.size() > 1) throw new CdsImportException("HISTORY_NATIVE_ISSUE_AMBIGUOUS");
+            CaseManagementIssue issue =
+                    existing.isEmpty() ? new CaseManagementIssue() : existing.get(0);
+            if (existing.isEmpty()) {
+                issue.setDemographic_no(patient);
+                issue.setIssue_id(category.getId());
+                issue.setType("general");
+                patientIssues.saveIssue(issue);
+            }
+            if (issue.getId() == null || issue.getId() < 1)
+                throw new CdsImportException("HISTORY_NATIVE_ISSUE_ID_MISSING");
+            note.setIssues(Set.of(issue));
+            references.put("casemgmt_issue", issue.getId().toString());
+            linked = issue;
+        }
+        // A CARLOS sender's item filed under several CPP sections: linked to each other one too.
+        var others = otherSectionIssues(patient, source);
+        if (!others.isEmpty()) {
+            var filed = new java.util.LinkedHashSet<CaseManagementIssue>(note.getIssues());
+            filed.addAll(others.values());
+            note.setIssues(filed);
+        }
+        notes.saveNote(note);
+        if (note.getId() == null || note.getId() < 1)
+            throw new CdsImportException("HISTORY_NATIVE_NOTE_ID_MISSING");
+        references.put("casemgmt_note", note.getId().toString());
+        // The note's one issue link, written with it: the receipt names this row, not every
+        // link that carries the note's id.
+        if (linked != null)
+            references.put("casemgmt_issue_notes", note.getId() + "_" + linked.getId());
+        otherSectionReferences(note, others, references);
+        if (source.observationDate() != null) {
+            noteExtension(note.getId(), "cdsDatePrecision", source.observationDate().precision().name(), references);
+            noteExtension(note.getId(), "cdsDateOriginal", source.observationDate().original(), references);
+            noteExtension(note.getId(), "cdsDateField", source.observationField(), references);
+        }
+        return references;
+    }
+
+    /**
+     * The patient issues of the other CPP sections the prepared item is filed under ({@link
+     * #otherSections}), by section tag, each found or created exactly as the item's own section's
+     * is. The catalogue held each tag once when the item was prepared; one that no longer does
+     * fails the unit as the item's own tag would.
+     */
+    private Map<String, CaseManagementIssue> otherSectionIssues(
+            int patient, CdsHistoryNativeDto source) {
+        var result = new LinkedHashMap<String, CaseManagementIssue>();
+        for (String code : source.additionalIssueCodes()) {
+            Issue section = requireIssue(code);
+            var existing = patientIssues.findCandidatesByDemographicAndIssue(patient, section.getId());
+            if (existing.size() > 1) throw new CdsImportException("HISTORY_NATIVE_ISSUE_AMBIGUOUS");
+            CaseManagementIssue issue =
+                    existing.isEmpty() ? new CaseManagementIssue() : existing.get(0);
+            if (existing.isEmpty()) {
+                issue.setDemographic_no(patient);
+                issue.setIssue_id(section.getId());
+                issue.setType("general");
+                patientIssues.saveIssue(issue);
+            }
+            if (issue.getId() == null || issue.getId() < 1)
+                throw new CdsImportException("HISTORY_NATIVE_ISSUE_ID_MISSING");
+            result.put(code, issue);
+        }
+        return result;
+    }
+
+    /**
+     * Names in the receipt each other section's patient issue and the note's link to it, keyed by
+     * section tag, as the item's own section's are named.
+     */
+    private static void otherSectionReferences(
+            CaseManagementNote note,
+            Map<String, CaseManagementIssue> others,
+            Map<String, String> references) {
+        for (var other : others.entrySet()) {
+            references.put("casemgmt_issue#" + other.getKey(), other.getValue().getId().toString());
+            references.put(
+                    "casemgmt_issue_notes#" + other.getKey(),
+                    note.getId() + "_" + other.getValue().getId());
+        }
+    }
+
+    private void noteExtension(Long note, String key, String value, Map<String, String> references) {
+        if (value == null) return;
+        var extension = new CaseManagementNoteExt();
+        extension.setNoteId(note);
+        extension.setKeyVal(key);
+        extension.setValue(value);
+        extensions.save(extension);
+        if (extension.getId() == null || extension.getId() < 1)
+            throw new CdsImportException("HISTORY_NATIVE_EXTENSION_ID_MISSING");
+        references.put("casemgmt_note_ext#" + key, extension.getId().toString());
+    }
+
+    /** Prefer the section's onset/event date; an independent end/resolution date stays in source fields. */
+    private String observationField(CdsRecordDto record, CdsImportCommand command) throws IOException {
+        return switch (record.section()) {
+            case "ClinicalNotes" -> "EventDateTime";
+            case "FamilyHistory", "RiskFactors" -> "StartDate";
+            case "ProblemList" -> "OnsetDate";
+            case "AlertsAndSpecialNeeds" -> "DateActive";
+            case "PastHealth" -> normalization.date(record, "OnsetOrEventDate", command).precision()
+                    == CdsTemporalDto.Precision.UNKNOWN ? "ProcedureDate" : "OnsetOrEventDate";
+            default -> null;
+        };
+    }
+
+    private Issue requireIssue(String code) {
+        var matches = issues.findCandidatesByCode(code);
+        if (matches.size() != 1)
+            throw new CdsImportException("HISTORY_CATEGORY_MAPPING_REQUIRES_REVIEW");
+        return matches.get(0);
+    }
+
+    private Long timestamp(
+            CdsTemporalDto value,
+            String path,
+            Consumer<CdsClinicalDiagnosticDto> notice,
+            boolean nativeObservation) {
+        if (value.appliedShiftDays() != 0)
+            notice.accept(new CdsClinicalDiagnosticDto("CDS_SYNTHETIC_DATE_SHIFT_APPLIED", path));
+        if (value.earliest() != null
+                && (value.earliest().getYear() < 1 || value.earliest().getYear() > 9999)) {
+            notice.accept(new CdsClinicalDiagnosticDto("CDS_NOTE_DATE_RANGE_SOURCE_ONLY", path));
+            return null;
+        }
+        if (value.precision() == CdsTemporalDto.Precision.FULL_DATE) {
+            notice.accept(new CdsClinicalDiagnosticDto("CDS_NOTE_DATE_ONLY_SOURCE_VIEW", path));
+            if (!nativeObservation) return null;
+        }
+        if (!value.exactCalendarDate()) {
+            notice.accept(
+                    new CdsClinicalDiagnosticDto(
+                            value.precision() == CdsTemporalDto.Precision.UNKNOWN
+                                    ? "CDS_DATE_NOT_SUPPLIED"
+                                    : "CDS_PARTIAL_DATE_RETAINED",
+                            path));
+            return null;
+        }
+        try {
+            java.time.Instant instant;
+            if (value.offsetDateTime() != null)
+                instant = CdsTemporalDto.timestampStorageInstant(value.offsetDateTime().toInstant(), ZoneId.systemDefault()).toInstant();
+            else {
+                String zone = configuration.value("cds.import.clinicalZone", "");
+                if (zone.isEmpty()) {
+                    notice.accept(
+                            new CdsClinicalDiagnosticDto("CDS_NOTE_TIME_ZONE_SOURCE_ONLY", path));
+                    return null;
+                }
+                instant = value.timestampStorageAnchor(ZoneId.of(zone)).toInstant();
+            }
+            if (nativeObservation) {
+                int nanos =
+                        value.offsetDateTime() != null
+                                ? value.offsetDateTime().getNano()
+                                : value.localDateTime() == null ? 0 : value.localDateTime().getNano();
+                if (nanos != 0)
+                    notice.accept(
+                            new CdsClinicalDiagnosticDto(
+                                    "CDS_NOTE_SUBSECOND_PRECISION_RETAINED_IN_SOURCE", path));
+                // Native DATETIME(0) must not let adopted SQL rounding roll the clinical day.
+                instant = instant.truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+            }
+            return instant.toEpochMilli();
+        } catch (IllegalArgumentException ambiguous) {
+            String code = ambiguous instanceof io.github.carlos_emr.carlos.commn.model.CdsClinicalException clinical
+                    && clinical.code().startsWith("CDS_NATIVE_")
+                    ? "CDS_NOTE_NATIVE_TIMESTAMP_SOURCE_ONLY" : "CDS_NOTE_LOCAL_TIMESTAMP_SOURCE_ONLY";
+            notice.accept(
+                    new CdsClinicalDiagnosticDto(code, path));
+            return null;
+        }
+    }
+
+    private static boolean known(CdsFieldDto f) {
+        return f.namespace().equals("cds") || f.namespace().equals("cds_dt");
+    }
+}

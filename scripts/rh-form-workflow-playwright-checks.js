@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
@@ -34,7 +35,7 @@ async function workflow(s) {
     h.assert(s.sql.value(`SELECT COUNT(*) FROM workflow WHERE demographic_no=${h.sqlString(s.patient)}`) === '0', 'Unexpected workflow rows remain on the owned patient');
   });
   let chart = await s.chart();
-  await chart.locator('#menuTitle1 a').hover();
+  await ui.openFormsMenu(chart);
   let page = await s.popup(chart, chart.getByRole('link', { name: formName, exact: true }), 'rh-new-form');
   let workflowId;
   const latest = () => s.sql.rows(`SELECT ID,workflowId,comments FROM formRhImmuneGlobulin WHERE demographic_no=${s.patient} ORDER BY ID DESC LIMIT 1`)[0];
@@ -83,7 +84,7 @@ async function workflow(s) {
     const count = s.sql.value(formCount);
     const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
     const endpoint = new URL('form/RHPrevention', s.config.baseUrl.href + '/').href;
-    const get = await s.context.request.get(endpoint, { params: { demographic_no: s.patient, workflowId, state: '3' } });
+    const get = await authenticatedProbe(s, endpoint, { params: { demographic_no: s.patient, workflowId, state: '3' } });
     h.assert(get.status() === 405, 'GET unexpectedly mutates the RH form');
     const missingId = s.sql.value('SELECT COALESCE(MAX(ID),0)+10000 FROM workflow');
     const post = await s.context.request.post(endpoint, { form: { 'CSRF-TOKEN': token, demographic_no: s.patient,

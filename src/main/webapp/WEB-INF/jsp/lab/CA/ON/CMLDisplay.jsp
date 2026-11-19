@@ -49,11 +49,11 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao" %>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page
-        import="java.util.*, io.github.carlos_emr.carlos.mds.data.*,io.github.carlos_emr.carlos.lab.ca.on.CML.*,io.github.carlos_emr.carlos.lab.LabRequestReportLink,io.github.carlos_emr.carlos.db.*,java.sql.*,io.github.carlos_emr.carlos.log.*,io.github.carlos_emr.carlos.utility.SpringUtils" %>
+        import="java.util.*, io.github.carlos_emr.carlos.mds.data.*, io.github.carlos_emr.carlos.lab.ca.on.CML.*, io.github.carlos_emr.carlos.lab.LabRequestReportLink, io.github.carlos_emr.carlos.log.*, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
 
@@ -144,6 +144,9 @@
 </script>
 
 <body>
+<% if (!lab.versionChainReliable) { %>
+<div class="alert alert-warning" role="alert"><fmt:message key="cml.versionChain.unavailable"/></div>
+<% } %>
 <!-- form forwarding of the lab -->
 <form name="reassignForm" method="post" action="<%= request.getContextPath() %>/lab/CA/ON/Forward"><input
         type="hidden" name="flaggedLabs"
@@ -636,8 +639,7 @@
                             <% } %> <% if (request.getParameter("searchProviderNo") != null) { // we were called from e-chart %>
                             <input type="button"
                                    <c:set var="__enc_3"><carlos:encode value='<%= segmentID %>' context="uriComponent"/></c:set>
-                                   value                                   
-=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
+                                   value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                                    onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=CML&segmentID=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&name=<%=java.net.URLEncoder.encode(lab.pLastName+", "+lab.pFirstName )%>', 'searchPatientWindow')">
                             <% } %>
                         </td>

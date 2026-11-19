@@ -76,8 +76,9 @@ const FAMILIES = [
   {
     name: 'demographic',
     probes: [
-      // The label action rejects an identifier it cannot read; the HIN is the bad identifier.
-      { status: 400, path: 'demographic/printDemoLabelAction', query: { ...PATIENT, demographic_no: '{HIN}', demographicNo: '{N}' } },
+      // A 10-digit HIN can fit in a Java int and reach PDF generation. The suffix
+      // makes validation fail for every HIN while still carrying it to the error page.
+      { status: 400, path: 'demographic/printDemoLabelAction', query: { ...PATIENT, demographic_no: '{HIN}x', demographicNo: '{N}' } },
       { status: 403, as: 'locked', path: 'demographic/DemographicEdit', query: PATIENT },
       { status: 403, as: 'clerk', path: 'demographic/DemographicEdit', query: PATIENT },
       { status: 404, path: 'demographic/NoSuchDemographicAction', query: PATIENT },
@@ -168,7 +169,8 @@ const FAMILIES = [
   {
     name: 'admin',
     probes: [
-      { status: 400, path: 'admin/DemographicMergeRecord', query: { limit1: '{HIN}', keyword: '{LAST}', search_mode: 'search_name', demographic_no: '{N}' } },
+      // As with the label identifier, a numeric HIN can be a valid int offset.
+      { status: 400, path: 'admin/DemographicMergeRecord', query: { limit1: '{HIN}x', keyword: '{LAST}', search_mode: 'search_name', demographic_no: '{N}' } },
       { status: 403, as: 'clerk', path: 'admin/SecuritySearchResults', query: { keyword: '{LAST}', hin: '{HIN}', demographic_no: '{N}' } },
       { status: 404, path: 'admin/NoSuchAdminAction', query: PATIENT },
       { status: 405, path: 'admin/SecurityDelete', query: PATIENT },
@@ -353,7 +355,9 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient} AND hin=${h.sqlString(hin)}`) === '1',
       'The patient fixture did not take its health number');
     h.assert(fixture.roleHoldsNothing('er_clerk'), 'er_clerk is expected to hold no sec object');
-    clerk = await signIn(s, fixture.addLogin('er_clerk'));
+    // This role has no appointment read privilege either. Verify its schedule
+    // landing is an authenticated application 403 before probing other routes.
+    clerk = await signIn(s, fixture.addLogin('er_clerk'), { allowForbiddenSchedule: true });
     const login = fixture.addLogin('doctor');
     h.assert(fixture.lockPatient(login, patient).length === 2, 'The patient lock rows were not written');
     doctor = await signIn(s, login);
@@ -437,8 +441,8 @@ async function workflow(s) {
   });
 
   if (!journalUnit) {
-    // A pass here would say the log is clean when it was never read, and the manifest's expectedFailure (finding 204)
-    // would then read "unexpected pass". Every body step above has passed; the run ends as a skip that says why.
+    // A pass here would say the log is clean when it was never read, so the check would claim a
+    // fixed finding 204 (#4570) it never verified. Every body step above has passed; the run ends as a skip that says why.
     throw new h.SkipCheck('every error body was clean, but CARLOS_LOG_JOURNAL_UNIT is not set, so there is no journal to read '
       + 'and the server log was not judged (set it to the carlos-emr systemd unit, as suite-env.sh does)');
   }
@@ -455,7 +459,8 @@ async function workflow(s) {
     h.assert(read && Number(read[1]) > 0, 'The PHI log scan read no journal line in this run window, so it cannot say the log is clean');
   });
 
-  // Finding 204. The scan reports counts and logger names, never the matching text, so its output is safe to quote.
+  // Finding 204 (#4570, fixed): Struts' Dispatcher logged each unmapped-action query string at WARN; log4j2.xml now
+  // drops that message. The scan reports counts and logger names, never the matching text, so its output is safe to quote.
   await s.step('the server log holds none of this run HIN, FAKE- names, address or e-mail', async () => {
     h.assert(scan && scan.status === 0, `The server log holds this run patient data:\n${scan ? scan.out : 'no scan result'}`);
   });

@@ -29,13 +29,13 @@
 
 --%>
 <!DOCTYPE html>
-<%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <html>
@@ -120,11 +120,12 @@
             <fmt:message key="eform.uploadhtml.btnRoleType"/><br>
             <select name="roleType">
                 <option value="">- select one -</option>
-                <% ArrayList roleList = EFormUtil.listSecRole();
+                <% ArrayList<String> roleList = EFormUtil.listSecRole();
                     for (int i = 0; i < roleList.size(); i++) {
                 %>
 
-                <option value="<%=roleList.get(i) %>"><%=roleList.get(i) %>
+                <%-- Role names are administrator-entered text: encode them for each context (#4184). --%>
+                <option value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(roleList.get(i)) %>"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(roleList.get(i)) %>
                 </option>
 
                 <%} %>

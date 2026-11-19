@@ -46,7 +46,7 @@ class EmailCredentialMigrationIntegrationTest extends CarlosTestBase {
     @BeforeEach
     void setUpMigration() throws Exception {
         originalKey = EncryptionKeyTestSupport.seedFreshKey();
-        manager = new EmailManager(null, null, null, mock(OutboundEmailArchiveService.class));
+        manager = new EmailManager(null, null, null, mock(OutboundEmailArchiveService.class), null);
         ReflectionTestUtils.setField(manager, "emailConfigDao", emailConfigDao);
     }
 

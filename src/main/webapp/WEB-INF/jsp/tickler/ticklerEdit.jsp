@@ -26,6 +26,7 @@
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
+    Modifications by CARLOS Contributors, 2026.
 
 --%>
 <%--
@@ -47,7 +48,9 @@
       'carlos_tickler_refresh_<demographicNo>') so ticklerMain.jsp and
       newEncounterLayout.jsp for the same patient can reload without a full
       page refresh. The channel name is scoped per patient to prevent
-      cross-patient refresh triggers.
+      cross-patient refresh triggers. It also posts to 'carlos_tickler_refresh_all'
+      (a payload-free refresh signal) because the provider-wide task list spans
+      every patient and listens only there (#4993).
 
     Parameters:
     - tickler_no:           ID of the tickler to edit (required)
@@ -66,7 +69,7 @@
 <%@page import="java.util.Locale" %>
 <%@page import="java.text.DateFormat" %>
 <%@page import="java.text.SimpleDateFormat" %>
-<%@page import="org.owasp.encoder.Encode" %>
+
 <%@page import="io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
@@ -82,6 +85,7 @@
 <%@page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService" %>
+<%@ page import="io.github.carlos_emr.carlos.tickler.pageUtil.TicklerEditVersion" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentData" %>
 <%
     TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
@@ -92,7 +96,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib prefix="e" uri="owasp.encoder.jakarta.advanced" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
@@ -277,6 +281,7 @@
             java.util.ResourceBundle oscarBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
         %>
         <script src="${pageContext.request.contextPath}/share/javascript/tickler-validation.js"></script>
+        <script src="${pageContext.request.contextPath}/share/javascript/tickler-calendar.js"></script>
         <script type="application/javascript">
             //open a new popup window
             function popupPage(vheight, vwidth, varpage) {
@@ -305,6 +310,9 @@
                 for (let i = 0; i < 40; i++) {
                     const linkButton = document.createElement('a');
                     linkButton.href = '#';
+                    linkButton.addEventListener('click', function (event) {
+                        event.preventDefault();
+                    });
                     switch (Math.floor(i / 10)) {
                         case 0:
                             linkButton.innerText = (i % 10) + 1 + "d";
@@ -338,7 +346,7 @@
             function addTime(num, type) {
                 let currentDate = new Date();
                 if (type === "months") {
-                    currentDate.setMonth(currentDate.getMonth() + num);
+                    currentDate = CarlosTicklerCalendar.offset(currentDate, num, 0);
                 } else {
                     currentDate.setDate(currentDate.getDate() + num);
                 }
@@ -423,6 +431,26 @@
                             enableSubmitButtons();
                             return;
                         }
+                        if (iframe.contentDocument && iframe.contentDocument.getElementById('carlos-permission-denied')) {
+                            CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.permission.denied") %>' context="javaScriptBlock"/>');
+                            enableSubmitButtons();
+                            return;
+                        }
+                        var attachmentsRefused = iframe.contentDocument &&
+                            iframe.contentDocument.getElementById('tickler-edit-attachments-refused');
+                        if (attachmentsRefused) {
+                            CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerEdit.attachments.error") %>' context="javaScriptBlock"/>');
+                            enableSubmitButtons();
+                            return;
+                        }
+                        // Someone else changed the task after this popup was opened: the server wrote nothing
+                        // (HTTP 409). Say so where it stays visible and in a dialog that cannot be missed. The
+                        // Update button stays disabled: this form can no longer be saved, only reopened.
+                        if (iframe.contentDocument && iframe.contentDocument.getElementById('tickler-edit-stale')) {
+                            CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerEdit.stale.error") %>' context="javaScriptBlock"/>');
+                            alert('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerEdit.stale.error") %>' context="javaScriptBlock"/>');
+                            return;
+                        }
                         // Verify success by checking for sentinel element in the response
                         var saveOk = iframe.contentDocument && iframe.contentDocument.getElementById('tickler-edit-ok');
                         if (!saveOk) {
@@ -441,9 +469,12 @@
                         }
                         try {
                             var demoNo = '<carlos:encode value='<%= String.valueOf(t.getDemographicNo()) %>' context="javaScriptBlock"/>';
-                            var bc = new BroadcastChannel('carlos_tickler_refresh_' + demoNo);
-                            bc.postMessage({ action: 'refresh' });
-                            bc.close();
+                            // Patient-scoped listeners (encounter, patient task list) and the provider-wide list ("all").
+                            ['all', demoNo].forEach(function (scope) {
+                                var bc = new BroadcastChannel('carlos_tickler_refresh_' + scope);
+                                bc.postMessage({ action: 'refresh' });
+                                bc.close();
+                            });
                         } catch (e) {
                             console.error('[ticklerEdit] BroadcastChannel broadcast failed:', e);
                             // Fallback: reload the opener directly so the tickler list stays current
@@ -492,7 +523,9 @@
         <form name="serviceform" action="<%=request.getContextPath()%>/tickler/EditTickler" method="post">
             <input type="hidden" name="method" value="editTickler"/>
             <input type="hidden" name="ticklerNo" value="<%=ticklerNo%>"/>
-            <input type="hidden" name="ticklerEditVersion" value="<carlos:encode value='<%= TicklerEditVersion.of(t) %>' context="htmlAttribute"/>"/>
+            <%-- The version of the task this form was rendered from; EditTickler2Action refuses a form that
+                 another user's change (a completion, a deletion, a comment) has overtaken. --%>
+            <input type="hidden" name="<%= TicklerEditVersion.PARAMETER %>" value="<carlos:encode value='<%= TicklerEditVersion.of(t) %>' context="htmlAttribute"/>"/>
             <input type="hidden" name="parentAjaxId" value="<carlos:encode value='<%= request.getParameter("parentAjaxId") != null ? request.getParameter("parentAjaxId") : "" %>' context="htmlAttribute"/>"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             <div class="page-header-bar">
                 <h2 class="page-header-title"><fmt:message key="tickler.ticklerEdit.title"/></h2>

@@ -47,6 +47,8 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const {
   assert,
   assertNotErrorPage,
@@ -113,7 +115,7 @@ function watchAssets(page, formName) {
   });
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('form-asset-paths',async({cancellation})=>{
   const recorder = createRecorder();
   const browser = await launchBrowser(config);
   try {
@@ -122,25 +124,32 @@ function watchAssets(page, formName) {
     // TEST_PASSWORD to a remote host with an invalid certificate under
     // ALLOW_NON_LOCAL_BASE_URL=true (issue #3598).
     const context = await newContext(browser, config);
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await landingPage.close();
+    cancellation?.throwIfCancelled();
 
     let assetsSeen = 0;
 
     for (const form of FORMS) {
       const page = await context.newPage();
+    cancellation?.throwIfCancelled();
       wirePage(page, form.name, recorder);
       watchAssets(page, form.name);
 
       const response = await gotoApp(page, config.baseUrl, formPath(form), 'networkidle');
+    cancellation?.throwIfCancelled();
       if (!response || response.status() !== 200) {
         failures.push(`${form.name}: page returned ${response ? response.status() : 'no response'}`);
         await page.close();
+    cancellation?.throwIfCancelled();
         continue;
       }
       // A login or error page answers 200 too; the per-form asset count below is what
       // actually proves the form rendered, and this names the cause when it did not.
       await assertNotErrorPage(page, form.name);
+    cancellation?.throwIfCancelled();
 
       // Every asset reference the page emits must be absolute from the context root and point
       // into /form/. A bare relative value here is the defect, regardless of whether this
@@ -155,6 +164,7 @@ function watchAssets(page, formName) {
         }
         return bad;
       });
+    cancellation?.throwIfCancelled();
       for (const raw of bareRefs) {
         failures.push(`${form.name}: bare relative asset reference "${raw}" resolves against <base>, not /form/`);
       }
@@ -163,6 +173,7 @@ function watchAssets(page, formName) {
         document.querySelectorAll('script[src], img[src]'),
         (el) => el.src,
       ).filter((src) => /\/form\/(formScripts\.js|graphics\/)/.test(src)));
+    cancellation?.throwIfCancelled();
       // Per form, not in aggregate. One form that renders contributes dozens of assets, so a
       // total would stay comfortably nonzero while another route quietly served a 200 login
       // or error page and contributed none -- and that route's assets would go unchecked.
@@ -173,10 +184,12 @@ function watchAssets(page, formName) {
       assetsSeen += resolved.length;
 
       await page.close();
+    cancellation?.throwIfCancelled();
     }
 
     assert(assetsSeen > 0, 'No form assets were found on any page; the check would pass vacuously');
     await context.close();
+    cancellation?.throwIfCancelled();
 
     if (failures.length > 0) {
       console.error('FAIL form asset path Playwright check');
@@ -195,4 +208,4 @@ function watchAssets(page, formName) {
   } finally {
     await browser.close();
   }
-})();
+});

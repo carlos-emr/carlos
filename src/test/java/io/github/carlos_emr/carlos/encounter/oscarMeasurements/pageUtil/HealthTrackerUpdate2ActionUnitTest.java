@@ -22,7 +22,10 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
+import io.github.carlos_emr.carlos.casemgmt.common.ChartSessionKeys;
 import io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig;
@@ -60,6 +63,7 @@ import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -69,7 +73,9 @@ import static org.mockito.Mockito.when;
  * <p>This is the Health Tracker's only write endpoint, so the tests pin the two
  * things that must hold before anything is stored — POST-only and
  * {@code _measurement w} — plus the split between the redirect the clean path
- * takes and the forward the validation-error path needs.
+ * takes and the forward the validation-error path needs. It also pins which
+ * appointment the save is linked to: only this patient's own, never the one last
+ * opened for another patient (issue #4673).
  */
 @Tag("unit")
 @Tag("fast")
@@ -87,6 +93,7 @@ class HealthTrackerUpdate2ActionUnitTest {
     private SecurityInfoManager securityInfoManager;
     private FlowSheetCustomizationDao flowSheetCustomizationDao;
     private HealthTrackerSubmissionService submissionService;
+    private OscarAppointmentDao appointmentDao;
     private HealthTrackerUpdate2Action action;
 
     @BeforeEach
@@ -119,8 +126,10 @@ class HealthTrackerUpdate2ActionUnitTest {
         securityInfoManager = mock(SecurityInfoManager.class);
         flowSheetCustomizationDao = mock(FlowSheetCustomizationDao.class);
         submissionService = mock(HealthTrackerSubmissionService.class);
+        appointmentDao = mock(OscarAppointmentDao.class);
 
-        action = new HealthTrackerUpdate2Action(securityInfoManager, flowSheetCustomizationDao, submissionService);
+        action = new HealthTrackerUpdate2Action(securityInfoManager, flowSheetCustomizationDao, submissionService,
+                appointmentDao);
     }
 
     @AfterEach
@@ -311,6 +320,61 @@ class HealthTrackerUpdate2ActionUnitTest {
         assertThat(String.valueOf(request.getAttribute("testOutput")))
                 .contains("oscarEncounter.healthTracker.noteSaveFailed");
         assertThat(response.getRedirectedUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("should link the save to the appointment this patient was opened for from the day sheet")
+    void shouldLinkSaveToOwnAppointment_whenPatientOpenedFromDaySheet() throws Exception {
+        givenTrackerFlowsheet();
+        request.addParameter("template", "tracker");
+        givenCleanSubmission();
+        request.getSession().setAttribute(ChartSessionKeys.currentAppointment("111"), "501");
+        when(appointmentDao.find(501)).thenReturn(appointment(501, 111));
+
+        action.execute();
+
+        verify(submissionService).submit(any(), any(), eq(111), nullable(String.class), eq(501),
+                nullable(String.class), anyString());
+    }
+
+    @Test
+    @DisplayName("should link no appointment when only another patient's appointment was opened since")
+    void shouldLinkNoAppointment_whenOnlyAnotherPatientsAppointmentOpened() throws Exception {
+        // Patient 222's appointment was opened from the day sheet after this chart was;
+        // the old login-wide value would have tied patient 111's save to it.
+        givenTrackerFlowsheet();
+        request.addParameter("template", "tracker");
+        givenCleanSubmission();
+        request.getSession().setAttribute(ChartSessionKeys.currentAppointment("222"), "502");
+        request.getSession().setAttribute("cur_appointment_no", "502");
+
+        action.execute();
+
+        verify(submissionService).submit(any(), any(), eq(111), nullable(String.class), eq(0),
+                nullable(String.class), anyString());
+        verifyNoInteractions(appointmentDao);
+    }
+
+    @Test
+    @DisplayName("should link no appointment when the stored appointment now belongs to another patient")
+    void shouldLinkNoAppointment_whenStoredAppointmentMovedToAnotherPatient() throws Exception {
+        givenTrackerFlowsheet();
+        request.addParameter("template", "tracker");
+        givenCleanSubmission();
+        request.getSession().setAttribute(ChartSessionKeys.currentAppointment("111"), "503");
+        when(appointmentDao.find(503)).thenReturn(appointment(503, 222));
+
+        action.execute();
+
+        verify(submissionService).submit(any(), any(), eq(111), nullable(String.class), eq(0),
+                nullable(String.class), anyString());
+    }
+
+    private static Appointment appointment(int id, int demographicNo) {
+        Appointment appointment = new Appointment();
+        appointment.setId(id);
+        appointment.setDemographicNo(demographicNo);
+        return appointment;
     }
 
     private void givenCleanSubmission() {

@@ -27,15 +27,15 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@page import="java.math.*, java.util.*,  io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.commn.model.*,io.github.carlos_emr.carlos.util.*" %>
+<%@page import="java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.commn.model.*, io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
-<%@page import="org.springframework.web.context.WebApplicationContext,org.springframework.web.context.support.WebApplicationContextUtils, io.github.carlos_emr.carlos.entities.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -89,7 +89,7 @@
     <%} else {%>
     self.close();
     opener.document["<carlos:encode value='<%= form %>' context="javaScriptBlock"/>"]["<carlos:encode value='<%= field %>' context="javaScriptBlock"/>"].value = index;
-    opener.document.focus();
+    opener.focus();
     <%}%>
     }
     <%if (request.getParameter("corrections") != null) {%>
@@ -112,7 +112,7 @@
     valDisp.textContent = fee;
     }
 
-    opener.document.focus();
+    opener.focus();
     <%}%>
     }
     <%}%>

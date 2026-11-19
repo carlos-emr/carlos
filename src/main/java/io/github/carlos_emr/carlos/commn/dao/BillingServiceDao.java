@@ -36,6 +36,17 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 
 public interface BillingServiceDao extends AbstractDao<BillingService> {
+
+    record TimeRule(String serviceCode, String timeRange) { }
+    record ConditionRule(String serviceCode, String conditionCode) { }
+    record CodeDescription(String code, String description) { }
+
+    List<TimeRule> findTimeRules();
+    List<ConditionRule> findAllConditionRules();
+    List<ConditionRule> findConditionRules(String serviceCode);
+    List<String> findVisitTypes();
+    List<CodeDescription> findCodeDescriptions(String descriptionPrefix);
+    String findFirstPrice(String serviceCode);
     static public final String BC = "BC";
 
     List<BillingService> getBillingCodeAttr(String serviceCode);
@@ -45,6 +56,13 @@ public interface BillingServiceDao extends AbstractDao<BillingService> {
     List<BillingService> findBillingCodesByCode(String code, String region);
 
     List<BillingService> findByServiceCode(String code);
+
+    /**
+     * Adds a new private code only if none exists, serializing private-code additions in this database
+     * until the caller's transaction completes. Existing fee-history rows are left unchanged.
+     * @return false when the code is already present
+     */
+    boolean persistPrivateCodeIfAbsent(BillingService code);
 
     List<BillingService> findByServiceCodeAndDate(String code, Date date);
 
@@ -89,6 +107,9 @@ public interface BillingServiceDao extends AbstractDao<BillingService> {
     List<BillingService> findAll();
 
     List<Object[]> findSomethingByBillingId(Integer billingNo);
+
+    /** Loads only the form, avoiding nullable primitive invoice fields in the legacy tuple query. */
+    List<io.github.carlos_emr.carlos.billing.CA.BC.model.Wcb> findOpenWcbFormsByBillingId(Integer billingNo);
 
     List<BillingService> findGst(String code, Date date);
 

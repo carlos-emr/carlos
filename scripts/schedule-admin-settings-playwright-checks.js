@@ -16,12 +16,13 @@
  * `appointmentType` rows after each save/delete, the validation alerts, the preview and calendar
  * rendering of the owned code and holiday, and that GET cannot reach any of the mutators.
  * Fixtures: a throwaway login (doctor + an owned role holding _admin.schedule; the seeded admin
- * role carries _site_access_privacy, which hides Holiday/Template Code Setting) with one seeded day
+ * role carries _site_access_privacy; #4528 stopped that hiding Holiday/Template Code Setting) with one seeded day
  * template, an unused template code character, a holiday on a free far-future date, and a marker
  * appointment type. One editable appointment
  * status is snapshotted, changed through the UI and restored (run with EXCLUSIVE=1: the status
  * label/colour is clinic-wide). Cleanup deletes only rows carrying the marker or owned keys.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const {randomInt} = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
@@ -72,6 +73,33 @@ async function frameNavigation(admin, frame, action) {
   await frame.waitForLoadState('domcontentloaded', {timeout: 20000}).catch(() => {});
 }
 
+/**
+ * Clicks something whose confirmation is then dismissed, and proves the click sent nothing: no POST
+ * to `route` from any frame during the click or a short settle time after it, and no navigation of
+ * the frame. Reading the database alone passes while a leaked POST is still in flight.
+ */
+async function dismissedConfirmSendsNothing(page, frame, route, click, settleMs = 750) {
+  const posts = [];
+  const watch = request => {
+    if (request.method() === 'POST' && request.url().includes(route)) posts.push(request.url());
+  };
+  let navigated = false;
+  const onNavigated = candidate => { if (candidate === frame) navigated = true; };
+  page.on('request', watch);
+  page.on('framenavigated', onNavigated);
+  let dialogs;
+  try {
+    dialogs = await h.withExpectedDialogs(page, click, {accept: false});
+    await page.waitForTimeout(settleMs);
+  } finally {
+    page.off('request', watch);
+    page.off('framenavigated', onNavigated);
+  }
+  h.assert(posts.length === 0, `A cancelled confirmation still posted to ${route}: ${posts.join(', ')}`);
+  h.assert(!navigated, 'A cancelled confirmation navigated the page');
+  return dialogs;
+}
+
 async function navigates(page, action) {
   await Promise.all([page.waitForEvent('domcontentloaded', {timeout: 20000}), action()]);
   await h.assertNotErrorPage(page, 'popup after submit');
@@ -109,8 +137,9 @@ async function workflow(s) {
   const statusSnapshot = () => JSON.stringify(sql.rows(`SELECT description,color,active FROM appointment_status WHERE id=${Number(statusId)}`));
   const originalStatus = statusSnapshot();
   const fixture = throwawayLoginFixture({sql, marker, provider, testUser: s.config.testUser});
-  // The seeded admin role carries _site_access_privacy, which hides Holiday Setting and Template
-  // Code Setting. The throwaway is a doctor plus an owned schedule-administrator role instead.
+  // The throwaway is a doctor plus an owned schedule-administrator role, so the check owns its
+  // privileges. The role deliberately has no _site_access_privacy: the seeded admin's does not hide
+  // Holiday/Template Code Setting since #4528, which the unit test on the JSP pins.
   const role = `PW${hex}`;
   let owner = null;
   // Cleanups run in reverse: settings rows go before the throwaway login.
@@ -366,30 +395,41 @@ async function workflow(s) {
     await popup.close();
   });
 
-  await s.step('Appointment Status Setting edits a status label and colour, disables and enables it, then restores it', async () => {
-    const list = () => openAdminSection(admin, '/appointment/apptStatusSetting?dispatch=view', 'table.borderAll');
+  await s.step('Appointment Status Setting edits a status inline, confirms before disabling, enables it, then restores it', async () => {
+    const list = () => openAdminSection(admin, '/appointment/apptStatusSetting?dispatch=view', '#statusTable');
     let frame = await list();
+    // Each field saves from its own small form (#3982), so a description save never rewrites the colour.
     async function edit(desc, color) {
-      await frameNavigation(admin, frame, () => frame.locator(`a[href*="dispatch=modify&id=${statusId}"]`).first().click());
-      h.assert(await frame.locator('#apptStatus').inputValue() === statusCode, 'The status edit form opened another status');
-      await frame.locator('#apptDesc').fill(desc);
-      await frame.locator('#apptColor').fill(color);
-      await frameNavigation(admin, frame, () => frame.locator('form input[type="submit"]').click());
-      await frame.locator('table.borderAll').waitFor();
+      h.assert(await frame.locator(`#status-${statusId}`).getAttribute('data-status-code') === statusCode,
+        'The status row shows another status');
+      await frame.locator(`#desc-${statusId}`).fill(desc);
+      await frameNavigation(admin, frame, () => frame.locator(`form:has(#desc-${statusId}) button[type="submit"]`).click());
+      await frame.locator(`#colour-${statusId}`).fill(color);
+      await frameNavigation(admin, frame, () => frame.locator(`form:has(#colour-${statusId}) button[type="submit"]`).click());
+      await frame.locator('#statusTable').waitFor();
     }
     const desc = `PW${hex}`;
     await edit(desc, '#123456');
     h.assert(JSON.stringify(sql.rows(`SELECT description,color FROM appointment_status WHERE id=${Number(statusId)}`)) === JSON.stringify([[desc, '#123456']]),
       'The status label and colour were not saved');
-    h.assert(await frame.locator('tr', {hasText: desc}).count() === 1, 'The status list does not show the new label');
-    const toggle = label => frame.locator(`form:has(input[name="id"][value="${statusId}"]) button`, {hasText: label});
-    await frameNavigation(admin, frame, () => toggle(LABEL.disable).click());
+    h.assert(await frame.locator(`#desc-${statusId}`).inputValue() === desc, 'The status list does not show the new label');
+    const toggle = label => frame.locator(
+      `form:has(input[name="dispatch"][value="changestatus"]):has(input[name="id"][value="${statusId}"]) button`, {hasText: label});
+    // Cancelling the confirmation sends nothing.
+    const dismissed = await dismissedConfirmSendsNothing(admin, frame, '/appointment/apptStatusSetting',
+      () => toggle(LABEL.disable).click());
+    h.assert(dismissed.length === 1 && dismissed[0].type === 'confirm', 'Disable did not ask for confirmation first');
+    await expectValue(sql, `SELECT active FROM appointment_status WHERE id=${Number(statusId)}`, '1', 'A cancelled Disable still deactivated the status');
+    const confirmed = await h.withExpectedDialogs(admin, () => frameNavigation(admin, frame, () => toggle(LABEL.disable).click()));
+    h.assert(confirmed.length === 1, 'Disable did not ask for confirmation exactly once');
     await expectValue(sql, `SELECT active FROM appointment_status WHERE id=${Number(statusId)}`, '0', 'Disable did not deactivate the status');
     await frameNavigation(admin, frame, () => toggle(LABEL.enable).click());
     await expectValue(sql, `SELECT active FROM appointment_status WHERE id=${Number(statusId)}`, '1', 'Enable did not reactivate the status');
     frame = await list();
     await edit(statusDesc, statusColor);
-    h.assert(statusSnapshot() === originalStatus, 'Editing back did not restore the status label and colour');
+    // The colour picker reports lower case; the stored value is the same colour.
+    h.assert(statusSnapshot().toLowerCase() === originalStatus.toLowerCase(), 'Editing back did not restore the status label and colour');
+    sql.execute(`UPDATE appointment_status SET color=${q(statusColor)} WHERE id=${Number(statusId)}`);
   });
 
   const typeRows = () => sql.rows(`SELECT id,name,duration,reason,notes,location,resources FROM appointmentType WHERE name=${q(typeName)}`);
@@ -450,11 +490,12 @@ async function workflow(s) {
       `/schedule/HolidaySetting?dboperation=${LABEL.save}&holiday_name=x&sdate_1_1=${holidayDate}`,
       `/schedule/TemplateCodeSetting?dboperation=${LABEL.codeSave}&code=${code}&description=x&bookinglimit=1`,
       `/schedule/DateSave?provider_no=${owner}&date=${holidayDate}&Submit=${LABEL.dateSave}&available=1&hour=${templateName}`,
-      `/appointment/apptStatusSetting?dispatch=update&id=${statusId}&apptDesc=x&apptColor=%23000000`,
+      `/appointment/apptStatusSetting?dispatch=updateDescription&id=${statusId}&apptDesc=x`,
+      `/appointment/apptStatusSetting?dispatch=updateColour&id=${statusId}&apptColor=%23000000`,
       `/appointment/appointmentTypeAction?oper=save&name=${encodeURIComponent(typeName)}&duration=15`,
     ];
     for (const probe of probes) {
-      const response = await context.request.get(h.appUrl(s.config.baseUrl, probe), {maxRedirects: 0});
+      const response = await authenticatedProbe({context, config: s.config}, h.appUrl(s.config.baseUrl, probe), {maxRedirects: 0});
       h.assert(response.status() === 405, `GET ${probe.split('?')[0]} answered HTTP ${response.status()}`);
     }
     h.assert(holidayRows().length === 0 && codeRow().length === 0 && typeRows().length === 0
@@ -487,4 +528,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('schedule-admin-settings', workflow, {openPatient: false});
-module.exports = {workflow};
+module.exports = {workflow, openAdminSection, frameNavigation, navigates, dismissedConfirmSendsNothing};

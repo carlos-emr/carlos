@@ -40,7 +40,6 @@ import java.io.ByteArrayInputStream;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Set;
@@ -59,6 +58,44 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("utility")
 @Tag("security")
 class XmlUtilsUnitTest {
+
+    @Test
+    void shouldUseSaxonTransformerFactory_forSecureTransformerFactory() {
+        assertThat(XmlUtils.createSecureTransformerFactory().getClass().getName())
+                .isEqualTo("net.sf.saxon.TransformerFactoryImpl");
+        assertThat(net.sf.saxon.Version.getProductVersion()).isEqualTo("11.6");
+    }
+
+    @Test
+    // Keep explicit escapes and String equality: every indentation space and final newline is contractual.
+    @SuppressWarnings({"java:S5838", "java:S6126"})
+    void shouldSerializeIdentityTransform_withSaxonIndentation() throws Exception {
+        var transformer = XmlUtils.createSecureTransformerFactory().newTransformer();
+        transformer.setOutputProperty(javax.xml.transform.OutputKeys.INDENT, "yes");
+        transformer.setOutputProperty(javax.xml.transform.OutputKeys.OMIT_XML_DECLARATION, "yes");
+        var output = new java.io.StringWriter();
+        transformer.transform(new javax.xml.transform.dom.DOMSource(createTestDocument()),
+                new javax.xml.transform.stream.StreamResult(output));
+        assertThat(output.toString()).isEqualTo("<root>\n"
+                + "   <child id=\"1\" name=\"test\">Hello</child>\n"
+                + "   <child id=\"2\">World</child>\n"
+                + "</root>\n");
+    }
+
+    @Test
+    void shouldUseJdkParserFactories_whenCdsXercesIsOnTheClasspath() throws Exception {
+        org.junit.jupiter.api.Assertions.assertAll(
+                () -> assertThat(XmlUtils.createSecureDocumentBuilderFactory().getClass())
+                        .isEqualTo(DocumentBuilderFactory.newDefaultInstance().getClass()),
+                () -> assertThat(XmlUtils.createSecureSAXParserFactory().getClass())
+                        .isEqualTo(javax.xml.parsers.SAXParserFactory.newDefaultInstance().getClass()));
+    }
+
+    @Test
+    void shouldRejectMissingXmlText_beforeAttemptingDocumentParsing() {
+        assertThatThrownBy(() -> XmlUtils.toDocument((String) null))
+                .isInstanceOf(SAXException.class);
+    }
 
     private Document createTestDocument() throws Exception {
         Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument();

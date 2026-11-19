@@ -1,6 +1,7 @@
 <%--
 
     Copyright (c) 2012- Centre de Medecine Integree
+    Modifications by CARLOS Contributors, 2026.
 
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
@@ -40,6 +41,7 @@
 
     Parameters:
         demographic_no  the patient (required; _eChart r and the _eChart$<demo> lock apply).
+        chartContext    optional authenticated chart-window program, retained through document mutations.
         view            document type filter, raw ("all" for every type).
         viewstatus      active | deleted | all.
         sortorder       Content | Observation | Update.
@@ -48,10 +50,11 @@
     @since 2012 (Centre de Medecine Integree); documented 2026-10 for issue #4131
 --%>
 
-<%@page import="java.nio.charset.StandardCharsets" %>
+
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="java.util.Hashtable" %>
-<%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+
 <%@page import="java.util.Collections" %>
 <%@page import="io.github.carlos_emr.MyDateFormat" %>
 <%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
@@ -61,20 +64,21 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
-<%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
+
+
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="page"/>
 
-<%@page import="java.util.Date, java.util.List" %>
+<%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.documentManager.EDocUtil,io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay,io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayLocal" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager,io.github.carlos_emr.carlos.documentManager.DocumentListAccess" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%-- nosemgrep: carlos.jsp-scriptlet-xss.variable-request -- demographicID is only passed raw as the demographicNo attribute of <oscar:nameage>, which parses it as an integer (skipping on failure) and SafeEncode-encodes its output; every HTML/URL output of it uses <carlos:encode>. --%>
@@ -87,6 +91,21 @@
 
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     String demographicID = request.getParameter("demographic_no");
+    SecurityInfoManager documentSecurity = SpringUtils.getBean(SecurityInfoManager.class);
+    int patientNumber;
+    try {
+        if (demographicID == null || !demographicID.matches("[0-9]+")) throw new NumberFormatException();
+        patientNumber = Integer.parseInt(demographicID);
+        if (patientNumber <= 0) throw new NumberFormatException();
+    } catch (NumberFormatException invalid) {
+        response.sendError(HttpServletResponse.SC_FORBIDDEN);
+        return;
+    }
+    if (loggedInInfo == null || !documentSecurity.isAllowedAccessToPatientRecord(loggedInInfo, patientNumber)) {
+        response.sendError(HttpServletResponse.SC_FORBIDDEN);
+        return;
+    }
+    boolean canReadDocuments = DocumentListAccess.mayReadPatient(loggedInInfo, documentSecurity, demographicID);
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart"
                    rights="r" reverse="<%=true%>">
@@ -106,7 +125,7 @@
 
     WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(getServletContext());
     QueueDao queueDao = (QueueDao) ctx.getBean(QueueDao.class);
-    List<Hashtable> queues = queueDao.getQueues();
+    List<Hashtable> queues = canReadDocuments ? queueDao.getQueues() : Collections.emptyList();
     int queueId = 1;
 
     String viewstatus = request.getParameter("viewstatus");
@@ -123,7 +142,7 @@
 
     String module = "demographic";
 
-    ArrayList doctypes = EDocUtil.getDoctypes("demographic");
+    ArrayList doctypes = canReadDocuments ? EDocUtil.getDoctypes("demographic") : new ArrayList();
     ArrayList<ArrayList<EDoc>> categories = new ArrayList<ArrayList<EDoc>>();
     ArrayList<EDoc> docs = new ArrayList<EDoc>();
 
@@ -139,7 +158,10 @@
         sort = EDocUtil.EDocSort.CONTENTDATE;
         sortorder = "Content";
     }
-    docs = EDocUtil.listDocs(loggedInInfo, module, demographicID, view, EDocUtil.PRIVATE, sort, viewstatus);
+    if (canReadDocuments) {
+        docs = DocumentListAccess.readableDocuments(loggedInInfo, documentSecurity,
+                EDocUtil.listDocs(loggedInInfo, module, demographicID, view, EDocUtil.PRIVATE, sort, viewstatus));
+    }
 
 
 %>
@@ -148,8 +170,18 @@
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="encounter.noteBrowser.title"/> - <oscar:nameage
-            demographicNo="<%= demographicID %>"/></title>
+            demographicNo="<%= String.valueOf(patientNumber) %>"/></title>
+    <fmt:message key="encounter.noteBrowser.confirmDeleteDocument" var="deleteDocumentPrompt"/>
     <script type="text/javascript">
+        var noteBrowserPatient = '<%= SafeEncode.forJavaScript(demographicID) %>';
+        var noteBrowserChartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>';
+
+        function noteBrowserActionUrl(operation, encList) {
+            return '<%= SafeEncode.forJavaScript(request.getContextPath()) %>/CaseManagementEntry?method='
+                + encodeURIComponent(operation) + '&demographicNo=' + encodeURIComponent(noteBrowserPatient)
+                + (noteBrowserChartContext ? '&chartContext=' + encodeURIComponent(noteBrowserChartContext) : '')
+                + encList + '&printCPP=false&printRx=false';
+        }
 
         function popup(vheight, vwidth, varpage) { //open a new popup window
             var page = "" + varpage;
@@ -175,6 +207,7 @@
             params.set('view', form.view.value);
             params.set('viewstatus', form.viewstatus.value);
             params.set('sortorder', form.sortorder.value);
+            if (noteBrowserChartContext) params.set('chartContext', noteBrowserChartContext);
             window.location.href = '<%= request.getContextPath() %>/casemgmt/ViewNoteBrowser?' + params.toString();
         }
 
@@ -191,6 +224,10 @@
         }
 
         function DeleteDoc() {
+            var selected = getSelected(document.getElementById('doclist'));
+            if (selected.length !== 1 || !confirm('<%= SafeEncode.forJavaScript((String)pageContext.getAttribute("deleteDocumentPrompt")) %>'.replace('{0}', function () { return selected[0].title; }))) {
+                return;
+            }
             document.DisplayDoc.action = '<%= request.getContextPath() %>/casemgmt/NoteBrowserDocumentDelete';
             document.DisplayDoc.delDocumentNo.value = docid;
             document.DisplayDoc.viewstatus.value = document.DisplayDoc.selviewstatus.options[document.DisplayDoc.selviewstatus.selectedIndex].value;
@@ -277,9 +314,8 @@
 
         }
 
-        <c:set var="__enc_1"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
         function showEncounter(encList) {
-            var url2 = '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=displayNotes&demographicNo=<carlos:encode value='${__enc_1}' context="javaScript"/>' + encList + '&printCPP=false&printRx=false';
+            var url2 = noteBrowserActionUrl('displayNotes', encList);
             var iframe = document.createElement('iframe');
             iframe.src = url2;
             iframe.width = (getWidth() - 40);
@@ -440,8 +476,7 @@
                     }
                 }
 
-                <c:set var="__enc_2"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
-                popup(700, 960, '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=print&demographicNo=<carlos:encode value='${__enc_2}' context="javaScript"/>' + encList + '&printCPP=false&printRx=false', 'PrintEncounter');
+                popup(700, 960, noteBrowserActionUrl('print', encList), 'PrintEncounter');
             }
         }
 
@@ -496,6 +531,10 @@
 </head>
 <body onload="OnLoad();">
 <form name="DisplayDoc" method="post" action="<%= request.getContextPath() %>/casemgmt/ViewNoteBrowser">
+    <% String mutationChartContext = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request);
+       if (mutationChartContext != null) { %>
+    <input type="hidden" name="chartContext" value="<%= SafeEncode.forHtmlAttribute(mutationChartContext) %>">
+    <% } %>
 
     <table>
         <%if (errorMessage.length() > 0) {%>
@@ -610,7 +649,7 @@
                                 EDoc cmicurdoc = docs.get(i2);
                         %>
                         <option VALUE="<carlos:encode value='<%= cmicurdoc.getDocId() %>' context="htmlAttribute"/>-<carlos:encode value='<%= cmicurdoc.getContentType() %>' context="htmlAttribute"/>"
-                                title="<carlos:encode value='<%= cmicurdoc.getDescription() %>' context="htmlAttribute"/>"><carlos:encode value='<%= sortorder.equals("Content") ? UtilDateUtilities.DateToString(cmicurdoc.getContentDateTime(), "yyyy-MM-dd") : cmicurdoc.getDateTimeStamp() %>' context="html"/>&nbsp;&nbsp; <carlos:encode value='<%= cmicurdoc.getObservationDate() %>' context="html"/>
+                                title="<carlos:encode value='<%= cmicurdoc.getDescription() %>' context="htmlAttribute"/>"><carlos:encode value='<%= sortorder.equals("Content") ? cmicurdoc.getContentDateTimeDisplay("yyyy-MM-dd") : cmicurdoc.getDateTimeStamp() %>' context="html"/>&nbsp;&nbsp; <carlos:encode value='<%= cmicurdoc.getObservationDate() %>' context="html"/>
                             [<carlos:encode value='<%= cmicurdoc.getType() %>' context="html"/>
                             ] <carlos:encode value='<%= cmicurdoc.getDescription().length() < 30 ? cmicurdoc.getDescription() : cmicurdoc.getDescription().substring(0, 30) + "..." %>' context="html"/>
                         </option>

@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DiagnosisTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.DxQuickList;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.IssueTo1;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.core.Response;
@@ -118,6 +119,7 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
         inject("dxresearchDao", mockDxresearchDao);
         inject("issueDao", mockIssueDao);
         inject("securityInfoManager", mockSecurityInfoManager);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), eq(123))).thenReturn(true);
     }
 
     private void inject(String fieldName, Object value) throws Exception {
@@ -137,6 +139,28 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEmpty();
         verify(mockQuickListDao).findAll();
+    }
+
+    @Test
+    @DisplayName("should describe a quick-list code stored under the older name ichppc as an ichppccode code (#4989)")
+    @Tag("read")
+    void shouldDescribeIchppcRowsAsIchppccode_whenListingQuickLists() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("r"), any())).thenReturn(true);
+        QuickList seeded = new QuickList();
+        seeded.setQuickListName("List1");
+        seeded.setDxResearchCode("Z901");
+        seeded.setCodingSystem("ichppc");
+        when(mockQuickListDao.findAll()).thenReturn(List.of(seeded));
+        when(mockDxresearchDao.getDescription("ichppccode", "Z901")).thenReturn("FAKE seeded diagnosis");
+
+        List<DxQuickList> result = service.getQuickLists();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getDxList()).singleElement().satisfies(dx -> {
+            assertThat(dx.getCode()).isEqualTo("Z901");
+            assertThat(dx.getCodingSystem()).isEqualTo("ichppccode");
+            assertThat(dx.getDescription()).isEqualTo("FAKE seeded diagnosis");
+        });
     }
 
     @Test
@@ -185,7 +209,7 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
     @DisplayName("should persist new entry when caller has DxRegistry write privilege")
     @Tag("create")
     void shouldPersistNewEntry_whenCallerHasWritePrivilege() {
-        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), eq(123))).thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), eq("123"))).thenReturn(true);
         when(mockDxresearchDao.activeEntryExists(123, "icd9", "250")).thenReturn(false);
 
         IssueTo1 issue = new IssueTo1();
@@ -195,14 +219,14 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(Response.Status.OK.getStatusCode());
         verify(mockDxresearchDao).persist(any(Dxresearch.class));
-        verify(mockSecurityInfoManager).hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), eq(123));
+        verify(mockSecurityInfoManager).hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), eq("123"));
     }
 
     @Test
     @DisplayName("should not persist duplicate entry when an active entry already exists")
     @Tag("create")
     void shouldNotPersistDuplicate_whenActiveEntryAlreadyExists() {
-        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), eq(123))).thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), eq("123"))).thenReturn(true);
         when(mockDxresearchDao.activeEntryExists(123, "icd9", "250")).thenReturn(true);
 
         IssueTo1 issue = new IssueTo1();
@@ -221,8 +245,8 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> service.addToDiseaseRegistry(123, new IssueTo1()))
-            .isInstanceOf(SecurityException.class)
-            .hasMessage("missing required sec object (_newCasemgmt.DxRegistry)");
+            .isInstanceOf(jakarta.ws.rs.ForbiddenException.class)
+            .hasMessage("Patient module access denied");
 
         verify(mockDxresearchDao, never()).activeEntryExists(anyInt(), anyString(), anyString());
         verify(mockDxresearchDao, never()).persist(any());
@@ -232,14 +256,14 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
     @DisplayName("should return disease registry when caller has DxRegistry read privilege")
     @Tag("read")
     void shouldReturnDiseaseRegistry_whenCallerHasReadPrivilege() {
-        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("r"), eq(123))).thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("r"), eq("123"))).thenReturn(true);
         when(mockDxresearchDao.getByDemographicNo(123)).thenReturn(Collections.<Dxresearch>emptyList());
 
         Response response = service.getDiseaseRegistry(123);
 
         assertThat(response.getStatus()).isEqualTo(Response.Status.OK.getStatusCode());
         verify(mockDxresearchDao).getByDemographicNo(123);
-        verify(mockSecurityInfoManager).hasPrivilege(any(), eq(DX_REGISTRY), eq("r"), eq(123));
+        verify(mockSecurityInfoManager).hasPrivilege(any(), eq(DX_REGISTRY), eq("r"), eq("123"));
     }
 
     @Test
@@ -249,8 +273,8 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> service.getDiseaseRegistry(123))
-            .isInstanceOf(SecurityException.class)
-            .hasMessage("missing required sec object (_newCasemgmt.DxRegistry)");
+            .isInstanceOf(jakarta.ws.rs.ForbiddenException.class)
+            .hasMessage("Patient module access denied");
 
         verify(mockDxresearchDao, never()).getByDemographicNo(anyInt());
     }
@@ -259,15 +283,15 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
     @DisplayName("should scope the add privilege check to the requested patient")
     @Tag("create")
     void shouldScopeAddPrivilegeCheck_toRequestedPatient() {
-        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), eq(123))).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), eq("123"))).thenReturn(false);
 
         IssueTo1 issue = new IssueTo1();
         issue.setType("icd9");
         issue.setCode("250");
 
         assertThatThrownBy(() -> service.addToDiseaseRegistry(123, issue))
-            .isInstanceOf(SecurityException.class)
-            .hasMessage("missing required sec object (_newCasemgmt.DxRegistry)");
+            .isInstanceOf(jakarta.ws.rs.ForbiddenException.class)
+            .hasMessage("Patient module access denied");
 
         // A module-wide (demographicNo == null) check would have let this through.
         verify(mockSecurityInfoManager, never()).hasPrivilege(any(), anyString(), anyString(), isNull());
@@ -279,11 +303,11 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
     @DisplayName("should scope the disease registry read privilege check to the requested patient")
     @Tag("read")
     void shouldScopeDiseaseRegistryPrivilegeCheck_toRequestedPatient() {
-        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("r"), eq(123))).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("r"), eq("123"))).thenReturn(false);
 
         assertThatThrownBy(() -> service.getDiseaseRegistry(123))
-            .isInstanceOf(SecurityException.class)
-            .hasMessage("missing required sec object (_newCasemgmt.DxRegistry)");
+            .isInstanceOf(jakarta.ws.rs.ForbiddenException.class)
+            .hasMessage("Patient module access denied");
 
         verify(mockSecurityInfoManager, never()).hasPrivilege(any(), anyString(), anyString(), isNull());
         verify(mockDxresearchDao, never()).getByDemographicNo(anyInt());

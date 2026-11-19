@@ -4,35 +4,36 @@
     @since 2026-04-04
 --%>
 <%@ page import="java.util.*" %>
-<%@ page import="java.text.SimpleDateFormat" %>
+
 <%@ page import="java.util.Date" %>
 <%@ page import="java.util.ResourceBundle" %>
-<%@ page import="org.apache.commons.lang3.StringUtils" %>
+
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.Misc" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.Gender" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.ProvinceNames" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
+
+
+
 <%@ page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.FormSubmissionGuard" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
-<%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
+
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+
+
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
@@ -706,6 +707,10 @@
 
                 <form method="post" id="adddemographic" name="adddemographic" action="${ctx}/demographic/DemographicAddRecord" novalidate class="needs-validation" onsubmit="return aSubmit()" autocomplete="off">
                     <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+                    <%-- One patient per rendering (issue #4225): a reload of the result page or a repeated
+                         Add Record ends as the first registration did instead of adding the patient twice. --%>
+                    <input type="hidden" name="<%= FormSubmissionGuard.PARAMETER %>"
+                           value="<%= SafeEncode.forHtmlAttribute(FormSubmissionGuard.issue(session, FormSubmissionGuard.Scope.DEMOGRAPHIC_ADD, null)) %>"/>
 
                     <jsp:include page="add-form-personal.jsp"/>
                     <jsp:include page="add-form-clinical.jsp"/>

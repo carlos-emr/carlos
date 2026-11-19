@@ -82,13 +82,14 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const { randomInt } = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING, validateMysqlHost } = require('./lib/playwright-harness');
-const { browserErrorClass } = require('./browser-error-class');
+const { browserErrorClass, createErrorSourceLocator } = require('./browser-error-class');
 const { stageRxFaxAccount, cleanupRxFaxAccount } = require('./rx-fax-account-fixture');
 const { createPharmacyFaxFixture, fixtureErrorTag } = require('./rx-fax-pharmacy-fax-fixture');
 
@@ -98,15 +99,12 @@ function normalizeHost(rawHost) {
   return String(rawHost).toLowerCase().replace(/^\[|\]$/g, '');
 }
 
-const LOCAL_BASE_URL_HOSTS = new Set([
-  'localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1', '0.0.0.0', 'host.docker.internal', 'carlos',
-]);
-// Loopback only. This is the set that decides whether TLS verification may be relaxed, so it is
-// deliberately narrower than LOCAL_BASE_URL_HOSTS: a self-signed certificate is expected on the
-// packaged loopback front door and nowhere else.
+// Shared validation requires explicit non-loopback opt-in; TLS exceptions default to loopback; ALLOW_UNVERIFIED_TLS is a separate explicit override.
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+// Page frames are trusted only on this application (see browser-error-class.js).
+const errorSourceLocation = createErrorSourceLocator(baseUrl);
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
@@ -150,25 +148,9 @@ let expectingCustomDrugConfirm = false;
 // --- config validation -------------------------------------------------------
 
 function validateBaseUrl(rawBaseUrl) {
-  let parsed;
-  try {
-    parsed = new URL(rawBaseUrl);
-  } catch (e) {
-    throw new Error(`BASE_URL is not a valid URL: ${rawBaseUrl}`);
-  }
-  // A non-HTTP scheme parses cleanly but is not a navigable target; reject it here rather than
-  // failing later with an opaque navigation error.
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not embed credentials');
-  }
-  if (!LOCAL_BASE_URL_HOSTS.has(normalizeHost(parsed.hostname))
-      && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`refusing non-local BASE_URL host ${parsed.hostname}; set ALLOW_NON_LOCAL_BASE_URL=true to override`);
-  }
-  return `${parsed.origin}${parsed.pathname.replace(/\/$/, '')}`;
+  // Delegate host/protocol/credential rules; this legacy caller retains its return shape.
+  const parsed = require('./lib/playwright-harness').validateCredentialBaseUrl(rawBaseUrl);
+  return `${parsed.origin}${parsed.pathname.replace(/\/+$/, '')}`;
 }
 
 /** True when BASE_URL points at loopback, where the packaged self-signed certificate lives. */
@@ -298,7 +280,7 @@ async function releaseFixtureLock() {
   try {
     await pharmacyFax.unlock();
   } catch (e) {
-    findings.push({ label: 'cleanup', type: 'cleanup-error', text: `fixture lock: ${browserErrorClass(e)}` });
+    findings.push({ label: 'cleanup', type: 'cleanup-error', text: `fixture lock: ${browserErrorClass(e)}${errorSourceLocation(e)}` });
   }
 }
 
@@ -311,7 +293,7 @@ async function releaseFixtureLock() {
 function cleanupFixtures() {
   const attempt = (label, fn) => {
     try { fn(); } catch (e) {
-      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(e)}${fixtureErrorTag(e)}` });
+      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(e)}${fixtureErrorTag(e)}${errorSourceLocation(e)}` });
     }
   };
   let scripts = [];
@@ -361,7 +343,7 @@ function safeUrl(rawUrl) {
 
 function wirePage(page, label) {
   page.on('pageerror', (error) => {
-    findings.push({ label, type: 'pageerror', text: browserErrorClass(error) });
+    findings.push({ label, type: 'pageerror', text: `${browserErrorClass(error)}${errorSourceLocation(error)}` });
   });
   page.on('dialog', (dialog) => {
     // Only the custom-drug confirm() is expected, and only while the flag is set. Any other
@@ -749,7 +731,9 @@ async function runChecks(context) {
   }
 }
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('rx-fax-reprint-represcribe', async () => {
+  await (async () => {
   const args = ['--disable-dev-shm-usage'];
   if (process.env.EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX !== 'true') args.unshift('--no-sandbox');
   const launchOptions = { headless: true, args, ...NO_PLAYWRIGHT_SIGNAL_HANDLING };
@@ -760,7 +744,7 @@ async function runChecks(context) {
   // self-signed certificate. An operator who opts in to a non-local BASE_URL still gets a real
   // TLS check against that host.
   const context = await browser.newContext({
-    ignoreHTTPSErrors: baseUrlIsLoopback(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos'),
+    ignoreHTTPSErrors: shouldIgnoreHttpsErrors(),
     viewport: { width: 1440, height: 1000 },
   });
   let result = null;
@@ -784,6 +768,7 @@ async function runChecks(context) {
   }
 })().catch((error) => {
   try { cleanupFixtures(); } finally { removeSecretsDir(); }
-  console.error(`FAIL rx-fax-reprint-represcribe: ${checkPhase}: ${browserErrorClass(error)}${fixtureErrorTag(error)}`);
-  process.exit(1);
+  console.error(`FAIL rx-fax-reprint-represcribe: ${checkPhase}: ${browserErrorClass(error)}${fixtureErrorTag(error)}${errorSourceLocation(error)}`);
+  process.exitCode = 1;
 });
+}, {existingSignalHandlers:true});

@@ -32,8 +32,8 @@ package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
@@ -49,9 +49,9 @@ public class EctDisplayEForm2Action extends EctDisplayAction {
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
         try {
-            String roleName = (String) request.getSession().getAttribute("userrole") + "," + (String) request.getSession().getAttribute("user");
+            String roleName = getRoleNames(request);
 
-            if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "r", null)) {
+            if (!securityInfoManager.hasPrivilege(getLoggedInInfo(request), "_eform", "r", null)) {
                 return true; //eforms link won't show up on new CME screen.
             } else {
 
@@ -92,7 +92,8 @@ public class EctDisplayEForm2Action extends EctDisplayAction {
                 //logging calls, etc. This makes this result set huge. People can click on the eform tab and view the full
                 //history if they need to.
                 List<EFormData> eFormDatas = EFormUtil.listPatientEformsCurrent(Integer.valueOf(bean.demographicNo), true, 0, 100);
-                filterRoles(eFormDatas, roleName);
+                // filterRoles returns a new list; the panel lists only the copies the login's role may see.
+                eFormDatas = filterRoles(eFormDatas, roleName);
                 //Collections.sort(eFormDatas, EFormData.FORM_DATE_COMPARATOR);
                 //Collections.reverse(eFormDatas);
 
@@ -122,7 +123,7 @@ public class EctDisplayEForm2Action extends EctDisplayAction {
                     item.setURL(url);
                     String strTitle = StringUtils.maxLenString(eFormData.getFormName() + ": " + eFormData.getSubject(), MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
 
-                    item.setTitle(strTitle);
+                    item.setTitle(SafeEncode.forHtmlContent(strTitle));
                     item.setDate(eFormData.getFormDate());
                     Dao.addItem(item);
                 }

@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.LegacyXmlBeans;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -102,7 +103,7 @@ class DemographicExportAction42ActionLabDocumentUnitTest extends DemographicExpo
         when(hl7TextMessageDao.find(LAB_NO)).thenReturn(message);
 
         action.exportError = new ArrayList<>();
-        patientRecord = OmdCdsDocument.Factory.newInstance().addNewOmdCds().addNewPatientRecord();
+        patientRecord = LegacyXmlBeans.newInstance(OmdCdsDocument.class, OmdCdsDocument.type).addNewOmdCds().addNewPatientRecord();
     }
 
     private void acknowledgedBy(String providerNo) {
@@ -147,6 +148,18 @@ class DemographicExportAction42ActionLabDocumentUnitTest extends DemographicExpo
         List<XmlError> errors = new ArrayList<>();
         report.validate(new XmlOptions().setErrorListener(errors));
         assertThat(errors).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should name the laboratory without its HL7 type and fall back to the reported test name")
+    void shouldExportPlainLaboratoryAndTestNames_forIssue3959() {
+        action.exportHl7LabResults(patientRecord, String.valueOf(LAB_NO));
+
+        assertThat(patientRecord.getLaboratoryResultsArray()).isNotEmpty().allSatisfy(lab -> {
+            assertThat(lab.getLaboratoryName()).doesNotContain("^");
+            if (lab.getTestNameReportedByLab() != null)
+                assertThat(lab.getTestName()).isEqualTo(lab.getTestNameReportedByLab());
+        });
     }
 
     @Test
@@ -278,10 +291,10 @@ class DemographicExportAction42ActionLabDocumentUnitTest extends DemographicExpo
         appointment.addNewAppointmentDate().setFullDate(Util.calDate("2026-09-01"));
         // Validate serialized/reparsed output too: XMLBeans inserts typed elements in schema order.
         StringWriter xml = new StringWriter();
-        var exported = cds.PatientRecordDocument.Factory.newInstance();
+        var exported = LegacyXmlBeans.newInstance(cds.PatientRecordDocument.class, cds.PatientRecordDocument.type);
         exported.setPatientRecord(patientRecord);
         exported.save(xml);
-        var reparsed = cds.PatientRecordDocument.Factory.parse(xml.toString());
+        var reparsed = LegacyXmlBeans.parse(cds.PatientRecordDocument.class, cds.PatientRecordDocument.type, xml.toString());
         List<XmlError> errors = new ArrayList<>();
         assertThat(reparsed.validate(new XmlOptions().setErrorListener(errors))).as(errors.toString()).isTrue();
         var factory = XmlUtils.createSecureDocumentBuilderFactory();

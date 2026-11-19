@@ -87,7 +87,8 @@ public class ReportBuilder {
         searchConfig.setProviderName(providerDao.getProviderName(providerNo));
         List<Integer> demographicList = getDemographicDenominator(loggedInInfo, searchConfig, providerNo);
 
-        logger.error("remove but " + demographicList.size());
+        demographicList = PreventionReportAccess.readableCandidates(loggedInInfo,
+                SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class), demographicList);
 
         Report report = new Report();
         report.setSearchConfig(searchConfig);
@@ -149,7 +150,7 @@ public class ReportBuilder {
     }
 
     private List<Prevention> getPreventionData(LoggedInInfo loggedInInfo, PreventionSearchConfigTo1 preventionSearchConfig, Integer demographicNo) {
-        List<Prevention> prevs = PreventionData.getPrevention(loggedInInfo, preventionSearchConfig.getName(), demographicNo);
+        List<Prevention> prevs = PreventionData.getExactPrevention(loggedInInfo, preventionSearchConfig.getName(), demographicNo);
         return prevs;
     }
 
@@ -487,11 +488,12 @@ public class ReportBuilder {
     private final String LETTER2 = "L2";
     private final String PHONE1 = "P1";
 
+    /** Updates the suggested recall contact from prior contact measurements; source-lab links are not report inputs. */
     private String letterProcessing(ReportItem item, String measurementType, Date asofDate) {
         if (item != null) {
             if (item.getState().equals("No Info") || item.getState().equals("due") || item.getState().equals("Overdue")) {
                 // Get LAST contact method
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(item.getDemographicNo(), measurementType);
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(item.getDemographicNo(), measurementType, false);
                 logger.debug("getting followup data for " + item.getDemographicNo());
 
                 Collection<EctMeasurementsDataBean> followupData = measurementDataHandler.getMeasurementsDataCollection();
@@ -572,7 +574,7 @@ public class ReportBuilder {
 
             } else if (item.getState().equals("Refused")) {  //Not sure what to do about refused
                 //prd.lastDate = "-----";
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(item.getDemographicNo(), measurementType);
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(item.getDemographicNo(), measurementType, false);
                 logger.debug("getting followup data for " + item.getDemographicNo());
                 Collection followupData = measurementDataHandler.getMeasurementsDataCollection();
                 if (followupData.size() > 0) {
@@ -587,7 +589,7 @@ public class ReportBuilder {
                 item.setNextSuggestedProcedure("----");
             } else if (item.getState().equals("Up to date")) {
                 //Do nothing
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(item.getDemographicNo(), measurementType);
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(item.getDemographicNo(), measurementType, false);
                 logger.debug("getting followup data for " + item.getDemographicNo());
                 Collection followupData = measurementDataHandler.getMeasurementsDataCollection();
 

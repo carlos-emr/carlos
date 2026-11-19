@@ -197,17 +197,17 @@ public class SupServiceCodeAssoc2Action extends ActionSupport {
         if (MODE_EDIT.equals(this.actionMode)) {
             if (primaryCode == null || "".equals(primaryCode)) {
                 test = false;
-                addActionError(getText("oscar.billing.CA.BC.billingBC.error.nullservicecode", primaryCode));
+                addActionError(getText("oscar.billing.CA.BC.billingBC.error.nullservicecode"));
             } else if (!per.serviceCodeExists(primaryCode)) {
                 test = false;
-                addActionError(getText("oscar.billing.CA.BC.billingBC.error.invalidsvccode", primaryCode));
+                addActionError(getText("oscar.billing.CA.BC.billingBC.error.invalidsvccode", new String[]{primaryCode}));
             }
             if (secondaryCode == null || "".equals(secondaryCode)) {
                 test = false;
-                addActionError(getText("oscar.billing.CA.BC.billingBC.error.nullservicecode", secondaryCode));
+                addActionError(getText("oscar.billing.CA.BC.billingBC.error.nullservicecode"));
             } else if (!per.serviceCodeExists(secondaryCode)) {
                 test = false;
-                addActionError(getText("oscar.billing.CA.BC.billingBC.error.invalidsvccode", secondaryCode));
+                addActionError(getText("oscar.billing.CA.BC.billingBC.error.invalidsvccode", new String[]{secondaryCode}));
             }
         }
         return test;

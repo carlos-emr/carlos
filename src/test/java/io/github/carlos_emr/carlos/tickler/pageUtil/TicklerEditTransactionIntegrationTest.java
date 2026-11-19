@@ -73,6 +73,8 @@ class TicklerEditTransactionIntegrationTest extends CarlosTestBase {
             when(login.getLoggedInProviderNo()).thenReturn(provider);
             var security = mock(SecurityInfoManager.class);
             when(security.hasPrivilege(eq(login), eq("_tickler"), anyString(), isNull())).thenReturn(true);
+            when(security.hasPrivilege(eq(login), eq("_tickler"), anyString(), anyString())).thenReturn(true);
+            when(security.isAllowedAccessToPatientRecord(eq(login), anyInt())).thenReturn(true);
             var historyWrites = mock(TicklerUpdateDao.class);
             doAnswer(call -> {
                 history.persist((TicklerUpdate) call.getArgument(0));
@@ -175,23 +177,39 @@ class TicklerEditTransactionIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldRefreshAlreadyLoadedHistory_whenAnotherTransactionAppendsAComment() {
+    void shouldRejectStaleHistoryOrRefreshIt_whenAnotherTransactionAppendsAComment() {
         int id = seed();
+        var originalVersion = new java.util.concurrent.atomic.AtomicReference<String>();
         try {
-            new TransactionTemplate(transactions).executeWithoutResult(status -> {
-                Tickler stale = ticklers.find(id);
-                String original = TicklerEditVersion.of(stale);
-                TransactionTemplate other = new TransactionTemplate(transactions);
-                other.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-                other.executeWithoutResult(inner -> {
-                    TicklerComment comment = new TicklerComment();
-                    comment.setTicklerNo(id);
-                    comment.setMessage("Concurrent owned comment");
-                    comment.setProviderNo(fixtures.get(id).provider());
-                    comments.persist(comment);
+            try {
+                new TransactionTemplate(transactions).executeWithoutResult(status -> {
+                    Tickler stale = ticklers.find(id);
+                    originalVersion.set(TicklerEditVersion.of(stale));
+                    TransactionTemplate other = new TransactionTemplate(transactions);
+                    other.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+                    other.executeWithoutResult(inner -> {
+                        TicklerComment comment = new TicklerComment();
+                        comment.setTicklerNo(id);
+                        comment.setMessage("Concurrent owned comment");
+                        comment.setProviderNo(fixtures.get(id).provider());
+                        comments.persist(comment);
+                    });
+                    assertThat(TicklerEditVersion.of(ticklers.findForUpdate(id))).isNotEqualTo(originalVersion.get());
                 });
-                assertThat(TicklerEditVersion.of(ticklers.findForUpdate(id))).isNotEqualTo(original);
+            } catch (RuntimeException failure) {
+                // MariaDB snapshot isolation rejects locking a row newer than the snapshot.
+                // This is a safe rollback, whereas accepting the old history would miss a conflict.
+                Throwable cause = org.springframework.core.NestedExceptionUtils.getMostSpecificCause(failure);
+                assertThat(cause).isInstanceOf(java.sql.SQLException.class);
+                assertThat(((java.sql.SQLException) cause).getErrorCode()).isEqualTo(1020);
+            }
+            assertThat(originalVersion.get()).isNotNull();
+            new TransactionTemplate(transactions).executeWithoutResult(status -> {
+                Tickler current = ticklers.findForUpdate(id);
+                assertThat(TicklerEditVersion.of(current)).isNotEqualTo(originalVersion.get());
+                assertThat(current.getComments()).hasSize(1);
             });
+            assertRows(id, Tickler.STATUS.A, 1, 0);
         } finally { cleanup(id); }
     }
 

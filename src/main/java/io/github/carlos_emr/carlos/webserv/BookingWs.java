@@ -29,6 +29,7 @@
 
 package io.github.carlos_emr.carlos.webserv;
 
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -198,7 +199,7 @@ public class BookingWs extends AbstractWs {
             appointment.setStatus("t"); // dunno what that means but seems to be what everyone else uses
             appointment.setBookingSource(BookingSource.OSCAR);
             if (appointmentLocation != null) {
-                appointment.setLocation(appointmentLocation);
+                AppointmentLocationResolver.setLocationText(appointment, appointmentLocation);
             }
 
             scheduleManager.addAppointment(getLoggedInInfo(), getLoggedInSecurity(), appointment);
