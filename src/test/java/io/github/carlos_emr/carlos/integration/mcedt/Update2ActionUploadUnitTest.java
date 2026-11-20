@@ -282,6 +282,43 @@ class Update2ActionUploadUnitTest {
         assertThat(request.getSession().getAttribute(SESSION_KEY_UPLOAD_DETAILS)).isNull();
     }
 
+    @Test
+    @DisplayName("should confirm nothing from an empty, malformed or refusing reply")
+    void shouldConfirmNothing_whenTheReplyCarriesNoAcceptedResult() {
+        listedResources(42);
+        add(42);
+        List<UpdateRequest> sent = List.copyOf(ActionUtils.getUpdateList(request));
+        ResourceResult malformed = reply(42, "EEDTS0056");
+        malformed.getResponse().add(null);
+        malformed.getResponse().add(new ResponseResult());
+        ResponseResult withoutResult = new ResponseResult();
+        withoutResult.setResourceID(BigInteger.valueOf(42));
+        malformed.getResponse().add(withoutResult);
+
+        assertThat(Update2Action.confirmedUpdates(sent, null)).isEmpty();
+        assertThat(Update2Action.confirmedUpdates(sent, malformed)).isEmpty();
+        assertThat(Update2Action.confirmedUpdates(sent, reply(42, CONFIRMED))).containsExactlyElementsOf(sent);
+    }
+
+    @Test
+    @DisplayName("should keep the batch after an empty reply even when the page's resource list is gone")
+    void shouldKeepBatch_whenTheReplyIsEmptyAndTheResourceListIsGone() throws Exception {
+        listedResources(42);
+        add(42);
+        request.getSession().removeAttribute(SESSION_KEY_UPLOAD_DETAILS);
+        EDTDelegate delegate = mock(EDTDelegate.class);
+        when(delegate.update(anyList())).thenReturn(null);
+        Update2Action action = sendingAction();
+        doReturn("Partly sent").when(action).getText(eq("updateAction.sendUpdateRequest.partial"), any(String[].class));
+
+        assertThat(action.sendUpdateRequest(() -> delegate)).isEqualTo("success");
+
+        assertThat(action.getActionErrors()).containsExactly("Partly sent");
+        verify(action).getText(eq("updateAction.sendUpdateRequest.partial"),
+                argThat((String[] args) -> "1".equals(args[0]) && "1".equals(args[1]) && "".equals(args[2])));
+        assertThat(ActionUtils.getUpdateList(request)).hasSize(1);
+    }
+
     private static final String CONFIRMED = "IEDTS0001";
 
     /** A synthetic EDT reply: resource ID and result code pairs. */
