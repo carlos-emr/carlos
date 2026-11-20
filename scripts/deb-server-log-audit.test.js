@@ -66,6 +66,53 @@ test('should reduce an ERROR event to logger, location, first non-filter CARLOS 
   assert.match(r.out, /^FAIL server log audit: 1 unexplained signature\(s\), 0 known, 1 event\(s\)/m);
 });
 
+// LogSafe.exceptionTrace (#6098) prints "at Class.method:N" without the source file name. The
+// same failure must reduce to the same signature in either shape, or every baseline entry that
+// names a frame stops matching the sites that log through LogSafe (#6333).
+test('should take the first CARLOS frame from a LogSafe trace exactly as from a JVM trace', (t) => {
+  const jvm = [
+    '2026-11-19 10:00:00,001 ERROR mailbox.Upload2Action (Upload2Action.java:350) - Unable to Delete file: ',
+    'io.github.carlos_emr.carlos.utility.FileValidationException: x',
+    '\tat io.github.carlos_emr.carlos.utility.PathValidationUtils.validateStrictFileName(PathValidationUtils.java:812)',
+    '\tat io.github.carlos_emr.carlos.integration.mcedt.mailbox.Upload2Action.validatedOutboxFile(Upload2Action.java:451)',
+  ];
+  const logSafe = [
+    '2026-11-19 10:00:01,001 ERROR mailbox.Upload2Action (Upload2Action.java:350) - Unable to Delete file: ',
+    'io.github.carlos_emr.carlos.utility.FileValidationException',
+    '  at io.github.carlos_emr.carlos.utility.SomeFilter.doFilter:10',
+    '  at io.github.carlos_emr.carlos.utility.PathValidationUtils.validateStrictFileName:812',
+    '  at io.github.carlos_emr.carlos.integration.mcedt.mailbox.Upload2Action.validatedOutboxFile:451',
+  ];
+  const r = audit(t, [...jvm, ...logSafe]);
+  assert.match(r.out, /^UNKNOWN +2 +ERROR mailbox\.Upload2Action \(Upload2Action\.java:350\) @PathValidationUtils\.validateStrictFileName :: io\.github\.carlos_emr\.carlos\.utility\.FileValidationException$/m);
+  assert.equal((r.out.match(/^UNKNOWN /gm) || []).length, 1, r.out);
+});
+
+test('should name the original type of a RestErrorDiagnostics failure, not its redacted wrapper', (t) => {
+  const r = audit(t, [
+    '2026-11-20 02:38:00,560 ERROR exceptionMapping.RestErrorDiagnostics (RestErrorDiagnostics.java:54) - REST request failed (diagnostic payloads redacted)',
+    'java.lang.Exception: REST failure type: org.hibernate.exception.ConstraintViolationException',
+    '\tat org.hibernate.dialect.MySQLDialect.lambda$buildSQLExceptionConversionDelegate$0(Unknown Source)',
+    '\tat io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl.persist(Unknown Source)',
+    'Caused by: java.lang.Exception: REST failure type: java.sql.SQLIntegrityConstraintViolationException',
+    '\tat org.mariadb.jdbc.export.ExceptionFactory.createException(Unknown Source)',
+  ]);
+  assert.match(r.out, /^UNKNOWN +1 +ERROR exceptionMapping\.RestErrorDiagnostics \(RestErrorDiagnostics\.java:54\) @AbstractDaoImpl\.persist :: org\.hibernate\.exception\.ConstraintViolationException java\.sql\.SQLIntegrityConstraintViolationException$/m);
+  assert.doesNotMatch(r.out, /java\.lang\.Exception/);
+});
+
+test('should record a bare java.lang.Exception and a suppressed exception among the stack classes', (t) => {
+  const r = audit(t, [
+    '2026-11-20 02:27:00,000 ERROR documentManager.IncomingDocUtil (IncomingDocUtil.java:1428) - Incoming document extraction failed: ',
+    'java.lang.Exception',
+    '  at io.github.carlos_emr.carlos.documentManager.IncomingDocUtil.doPagesAction:1431',
+    'Caused by: java.nio.file.FileAlreadyExistsException',
+    '  at io.github.carlos_emr.carlos.documentManager.IncomingDocUtil.extractPageLocked:931',
+    'Suppressed: java.io.UncheckedIOException',
+  ]);
+  assert.match(r.out, /@IncomingDocUtil\.doPagesAction :: java\.lang\.Exception java\.nio\.file\.FileAlreadyExistsException java\.io\.UncheckedIOException$/m);
+});
+
 test('only the exact synthetic renderer probe is baselined at the AP lookup log site', (t) => {
   const prefix = '2026-11-04 03:00:00,000 ERROR eform.efmformapconfig_005flookup_jsp (efmformapconfig_005flookup_jsp.java:353) - ';
   const message = 'AP config lookup requested an unconfigured key=';

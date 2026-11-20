@@ -206,7 +206,7 @@ awk -v show="$SHOW_MESSAGES" -v include_warn="$INCLUDE_WARN" '
     # The disposable #5794 servlet lives outside the production package tree.
     # Preserve that exact frame so its intentional exception cannot allowlist
     # an unlocated ServletException from an ordinary application request.
-    if (frame == "" && line ~ /^[ \t]+at carlostest5794\.ErrorSanitizationFaultServlet\.doGet\(/) {
+    if (frame == "" && line ~ /^[ \t]+at carlostest5794\.ErrorSanitizationFaultServlet\.doGet[(:]/) {
       frame = "carlostest5794.ErrorSanitizationFaultServlet.doGet"
       sig = sig " @" frame
     }
@@ -215,7 +215,10 @@ awk -v show="$SHOW_MESSAGES" -v include_warn="$INCLUDE_WARN" '
     # thrown anywhere else.
     # Servlet filters wrap every request, so a doFilter frame says nothing
     # about where the failure came from; take the first frame past them.
-    if (frame == "" && match(line, /^[ \t]+at io\.github\.carlos_emr\.[a-zA-Z0-9_.$]+\(/)) {
+    # Two frame shapes reach the journal: the JVM "at Class.method(File.java:N)" form and
+    # the LogSafe.exceptionTrace "at Class.method:N" form, which leaves out source file names on
+    # purpose (#6098). Both end the method name with the character the match then drops.
+    if (frame == "" && match(line, /^[ \t]+at io\.github\.carlos_emr\.[a-zA-Z0-9_.$]+[(:]/)) {
       f = substr(line, RSTART, RLENGTH - 1); sub(/^[ \t]+at /, "", f)
       n = split(f, parts, ".")
       if (parts[n] != "doFilter") {
@@ -223,8 +226,15 @@ awk -v show="$SHOW_MESSAGES" -v include_warn="$INCLUDE_WARN" '
         sig = sig " @" frame
       }
     }
-    sub(/^[ \t]*Caused by: /, "", line)
-    if (match(line, /^[ \t]*[a-zA-Z_$][a-zA-Z0-9_$]*(\.[a-zA-Z_$][a-zA-Z0-9_$]*)+(Exception|Error|Throwable)[a-zA-Z0-9_$]*(:|$)/)) {
+    sub(/^[ \t]*(Caused by|Suppressed): /, "", line)
+    # RestErrorDiagnostics replaces every exception in a REST failure with a plain
+    # java.lang.Exception that names the original type in its message, so the payload of the
+    # original never reaches the log. The named type is the one a baseline entry can rely on.
+    if (match(line, /^[ \t]*java\.lang\.Exception: REST failure type: [a-zA-Z_$][a-zA-Z0-9_$.]*/)) {
+      c = substr(line, RSTART, RLENGTH); sub(/^.*REST failure type: /, "", c)
+      add_class(c)
+    } else if (match(line, /^[ \t]*([a-zA-Z_$][a-zA-Z0-9_$]*\.)+[a-zA-Z0-9_$]*(Exception|Error|Throwable)[a-zA-Z0-9_$]*(:|$)/)) {
+      # The last segment may be the bare type itself (java.lang.Exception, java.lang.Error).
       c = substr(line, RSTART, RLENGTH); sub(/:$/, "", c); gsub(/^[ \t]+/, "", c)
       add_class(c)
     }
