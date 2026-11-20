@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "0d22118ee4d8013546a7ea4bfee3465bd259fddf",
+  "comparisonSha256": "78180b4bffa77152305504333e67d606b43b5cec562aef4d4eb9607679f5e44a",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementEntry2Action.java": {
+      "lines": 75.23809523809524,
+      "instructions": 72.92202227934875,
+      "branches": 71.35416666666667,
+      "sourceBlob": "c10e6161b9d84edbf0305b6fbeb9cbd45635a300"
+    }
+  },
+  "baselineCommit": "96ac24820d4d86aa47daf7f84fbd149361b55a10",
+  "baselineSourceTree": "0d22118ee4d8013546a7ea4bfee3465bd259fddf",
+  "baselineReportSha256": "848bb2bd7cd90d8b7af96f18be111726051f14f7083d4ecebca28d90ef7ad22c",
+  "baselineLane": "Focused Java 25 chart and H2 transaction regression suite, retaining the existing full-suite coverage floors",
+  "baselineTestCounts": {
+    "tests": 482,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "426248e719e4198a90e1baa6f61416e1e405e774f4eff0e1d76c050531972e97",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementCompactSaveTransactionIntegrationTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementEntryRequestIsolationUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementIssueWriteAuthorizationUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementNoteRevisionConflictUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementObservationDateUnitTest"
+  ]
+}

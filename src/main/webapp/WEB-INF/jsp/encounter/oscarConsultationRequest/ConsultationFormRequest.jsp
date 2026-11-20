@@ -344,6 +344,10 @@
             }
 
 
+            pageContext.setAttribute("unavailableHrmSelection", SpringUtils.getBean(
+                io.github.carlos_emr.carlos.documentManager.UnavailableHrmAttachmentService.class)
+                .prepare(loggedInInfo, Integer.parseInt(requestId), request.getSession()));
+
             Collections.sort(attachedLabs);
             List<LabResultData> attachedLabsSortedByVersions = new ArrayList<>();
             for (LabResultData attachedLab1 : attachedLabs) {
@@ -530,10 +534,10 @@
     <%--
 	// Read the Health Care Team from the pageScope into a Javascript globalScope;
  --%>
+    <script type="text/javascript">
+        var consultationServices = [];
+    </script>
     <c:if test="${ not empty consultationServices }">
-        <script type="text/javascript">
-            var consultationServices = [];
-        </script>
         <c:forEach items="${ consultationServices }" var="consultationService" varStatus="loop">
             <script type="text/javascript">
                 //<!--
@@ -602,12 +606,10 @@
 
                 var service = healthCareTeam[specialistIndex].service;
 
-                if (!service) {
-
-                    form.service.value = '57';
-
-                } else {
-                    form.service.value = "";
+                // This variant has no service picker and posts 0 until a role maps
+                // to a service, matching the rendered hctService field's default.
+                form.service.value = "0";
+                if (service) {
                     for (var i = 0; i < consultationServices.length; i++) {
                         var specialistService = consultationServices[i];
                         if (specialistService.description === service) {
@@ -2746,6 +2748,11 @@ if (userAgent != null) {
 
                                     <tr>
                                         <td>
+                                            <c:if test="${not empty unavailableHrmSelection}">
+                                                <button type="button" id="removeUnavailableHrm" data-selection="${carlos:forHtmlAttribute(unavailableHrmSelection)}"
+                                                    onclick="removeUnavailableHrmAttachments(this)"><fmt:message key="consult.removeUnavailable"/></button>
+                                                <output id="removeUnavailableHrmStatus" aria-live="polite"></output>
+                                            </c:if>
                                             <table id="attachedHRMDocumentsTable">
                                                 <tr>
                                                     <td><h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionHRM"/></h3></td>
@@ -3706,7 +3713,30 @@ if (userAgent != null) {
     </script>
     <% } %>
     </form>
-    </body>
+    <fmt:message key="consult.removeUnavailableConfirm" var="removeHrmConfirm"/>
+<fmt:message key="consult.removeUnavailableDone" var="removeHrmDone"/>
+<fmt:message key="consult.removeUnavailableFailed" var="removeHrmFailed"/>
+<script>
+function removeUnavailableHrmAttachments(button) {
+    var csrf = document.querySelector('input[name="CSRF-TOKEN"]');
+    if (!csrf || !csrf.value) { window.alert('<carlos:encode value="${removeHrmFailed}" context="javaScript"/>'); return; }
+    if (!window.confirm('<carlos:encode value="${removeHrmConfirm}" context="javaScript"/>')) { return; }
+    button.disabled = true;
+    var data = new URLSearchParams({selection: button.dataset.selection, 'CSRF-TOKEN': csrf.value});
+    fetch('${carlos:forJavaScript(pageContext.request.contextPath)}/documentManager/removeUnavailableHrm', {
+        method:'POST', body:data, credentials:'same-origin', headers:{'CSRF-TOKEN':csrf.value}
+    })
+        .then(function(response) { if (!response.ok) throw new Error('unconfirmed'); return response.json(); })
+        .then(function(result) {
+            if (!result.success) throw new Error('unconfirmed');
+            button.hidden = true;
+            document.getElementById('removeUnavailableHrmStatus').textContent = '<carlos:encode value="${removeHrmDone}" context="javaScript"/>';
+        }).catch(function() {
+            document.getElementById('removeUnavailableHrmStatus').textContent = '<carlos:encode value="${removeHrmFailed}" context="javaScript"/>';
+        });
+}
+</script>
+</body>
 
     <fmt:message var="saveAndCloseText" key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSaveAndClose"/>
     <script type="text/javascript">

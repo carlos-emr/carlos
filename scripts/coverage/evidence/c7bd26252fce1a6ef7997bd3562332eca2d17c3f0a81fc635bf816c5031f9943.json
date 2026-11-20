@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "b11070e4f9bba0ff6c61402b3cbc24f66d3e5ca3",
+  "comparisonSha256": "742269166be61ba73840d0fca6c0b0887db1ab9ee44b960ea04dc1ef91034e49",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/mailbox/Upload2Action.java": {
+      "lines": 36.36363636363637,
+      "instructions": 29.09090909090909,
+      "branches": 100.0,
+      "sourceBlob": "8f2987c969afddae75243147c555f8a729109871"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "99df096813ee7a5bafd63236b2b7f69d60bf2d2e",
+  "baselineSourceTree": "b11070e4f9bba0ff6c61402b3cbc24f66d3e5ca3",
+  "baselineReportSha256": "ce255ff68d26f60de1635e162b5c864612093c92e59dde315057749dec781b55",
+  "baselineLane": "Focused Java 25 run on 99df0968: the four EDocUtil unit test classes, Action2UtilsOutboxUnitTest and Upload2ActionOutboxReadUnitTest (42 tests); zero failures/errors/skips. Measures the MCEDT mailbox Upload2Action outbox reads; not full release qualification.",
+  "baselineTestCounts": {
+    "tests": 42,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "01686782e7a9d269aa27313d3704c5363f48f74b52947e3b1b8e62bc2c59d3b8",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire TEST-*.xml report files: one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "99df096813ee7a5bafd63236b2b7f69d60bf2d2e",
+  "baselineAdditionalTestRuns": []
+}

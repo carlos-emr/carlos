@@ -1479,17 +1479,6 @@ Ontario, Canada
                                 </div>
                             </div>
                         </div>
-                        <% String emailReminder = pros.getProperty("emailApptReminder");
-                            if ((emailReminder != null) && emailReminder.equalsIgnoreCase("yes")) { %>
-                        <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label" for="emailPt"><fmt:message key="Appointment.formEmailReminder"/>:</label>
-                            <div class="col-sm-8">
-                                <div class="form-check mt-1">
-                                    <input type="checkbox" class="form-check-input" name="emailPt" id="emailPt" value="email reminder">
-                                </div>
-                            </div>
-                        </div>
-                        <% } %>
                     </div>
                 </div>
                 <input type="hidden" name="orderby" value="last_name, first_name">

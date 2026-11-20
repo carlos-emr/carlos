@@ -1,17 +1,24 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.db;
 
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLNonTransientConnectionException;
 import java.sql.SQLTimeoutException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
-import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import java.util.stream.Stream;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.core.LogEvent;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -90,14 +97,20 @@ class ReportQueryDeadlineUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldFinishCleanup_whenConnectionAbortFails() throws Exception {
+    void shouldWarnAboutBothFailures_whenConnectionAbortFailsBeforeCursorClose() throws Exception {
         Connection connection = mock(Connection.class);
         ResultSet delegate = mock(ResultSet.class);
-        doThrow(new SQLException("Synthetic abort failure")).when(connection).abort(any());
-        try (ReportQueryDeadline deadline = new ReportQueryDeadline(connection,
-                System.nanoTime() + TimeUnit.SECONDS.toNanos(30));
+        SQLException abortFailure = new SQLException("Synthetic abort failure");
+        SQLException closeFailure = new SQLNonTransientConnectionException("Synthetic cursor socket failure", "08000");
+        doThrow(abortFailure).when(connection).abort(any());
+        doThrow(closeFailure).when(delegate).close();
+        try (LogCapture logs = LogCapture.forLogger(ReportQueryDeadline.class);
+             ReportQueryDeadline deadline = new ReportQueryDeadline(connection,
+                     System.nanoTime() + TimeUnit.SECONDS.toNanos(30));
              ResultSet rs = ReportQueryDeadline.wrap(delegate, deadline)) {
             rs.close();
+            assertThat(awaitLog(logs, abortFailure).getLevel()).isEqualTo(Level.WARN);
+            assertThat(awaitLog(logs, closeFailure).getLevel()).isEqualTo(Level.WARN);
         }
         verify(connection, timeout(1000)).abort(any());
         verify(delegate, timeout(1000)).close();
@@ -161,18 +174,40 @@ class ReportQueryDeadlineUnitTest extends CarlosUnitTestBase {
         verify(delegate, timeout(1000)).close();
     }
 
-    @Test
-    void shouldKeepCloseIdempotent_andNotBlockOnAFailedAsynchronousCursorClose() throws Exception {
+    @ParameterizedTest
+    @MethodSource("cursorCloseFailures")
+    void shouldLogAsynchronousCursorCloseFailureOnce(Throwable failure, Level level) throws Exception {
         Connection connection = mock(Connection.class);
         ResultSet delegate = mock(ResultSet.class);
-        doThrow(new SQLException("Synthetic cursor cleanup failure")).when(delegate).close();
-        try (ReportQueryDeadline deadline = new ReportQueryDeadline(connection,
-                System.nanoTime() + TimeUnit.SECONDS.toNanos(30));
+        doThrow(failure).when(delegate).close();
+        try (LogCapture logs = LogCapture.forLogger(ReportQueryDeadline.class);
+             ReportQueryDeadline deadline = new ReportQueryDeadline(connection,
+                     System.nanoTime() + TimeUnit.SECONDS.toNanos(30));
              ResultSet rs = ReportQueryDeadline.wrap(delegate, deadline)) {
             rs.close();
             rs.close();
+            assertThat(awaitLog(logs, failure).getLevel()).isEqualTo(level);
         }
-        verify(connection, timeout(1000)).abort(any());
-        verify(delegate, timeout(1000)).close();
+        verify(connection).abort(any());
+        verify(delegate).close();
+    }
+
+    private static Stream<Arguments> cursorCloseFailures() {
+        return Stream.of(
+                Arguments.of(new SQLNonTransientConnectionException("Synthetic cursor socket failure", "08000"), Level.DEBUG),
+                Arguments.of(new SQLException("Synthetic non-connection cursor failure", "HY000"), Level.WARN),
+                Arguments.of(new SQLException("Synthetic cursor failure without SQL state"), Level.WARN),
+                Arguments.of(new IllegalStateException("Synthetic unexpected cursor failure"), Level.WARN));
+    }
+
+    private static LogEvent awaitLog(LogCapture logs, Throwable failure) throws InterruptedException {
+        long end = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        do {
+            for (LogEvent event : logs.events()) {
+                if (event.getThrown() == failure) return event;
+            }
+            Thread.sleep(5);
+        } while (System.nanoTime() < end);
+        throw new AssertionError("Expected report cleanup log", failure);
     }
 }

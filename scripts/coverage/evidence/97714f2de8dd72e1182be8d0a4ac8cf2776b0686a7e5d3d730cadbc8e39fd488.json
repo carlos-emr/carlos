@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "f92245829975c376936ce44257d0ad00d9215c15",
+  "comparisonSha256": "515cc1e8b9c4cab1e11821743795f7088d210828451881e57803a74dfb377908",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/Update2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 94.44444444444444,
+      "sourceBlob": "47beba78f8d25a3c1283fb383cff760720c25a74"
+    }
+  },
+  "baselineCommit": "4fdd3e524909474bcf0a43b72570edc7e0fbfd64",
+  "baselineSourceTree": "f92245829975c376936ce44257d0ad00d9215c15",
+  "baselineReportSha256": "142bf3c8d1d1c9ce6ab57873549be21dc1839a4468246846f56a55e1f911b0c4",
+  "baselineLane": "PR #6326 Java 25 MCEDT upload, overlapping sends and binding guard regressions",
+  "baselineTestCounts": {
+    "tests": 13,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "fbf44d9d4b4cd7a8c23218818a8257126cdd39d74852d4e71360bfedf797bf7c",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.app.security.UploadActionBindingSecurityUnitTest",
+    "io.github.carlos_emr.carlos.integration.mcedt.Update2ActionUploadUnitTest"
+  ]
+}

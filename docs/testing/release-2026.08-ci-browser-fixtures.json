@@ -87,7 +87,7 @@
         "scripts/dashboard-tickler-picker-browser-check.js"
       ],
       "source": "scripts/dashboard-tickler-picker-browser-check.js",
-      "sourceSha256": "de2dc855f2337fa4bb5434b8c069e4cc058f91ccb2b06e5006fd307a52a89e85",
+      "sourceSha256": "2baca8498457900f458c6c68ce9d68f278a9cbceea1584ba8ed6bed81bf3be48",
       "minimumAssertions": 314
     },
     {
@@ -196,7 +196,36 @@
       "source": "scripts/job-types-datatable-browser-check.js",
       "sourceSha256": "0bc46bfb85b6521d75ccd670c13c631ff630d7f47f4c20eb29ad30d32e319fb2",
       "minimumAssertions": 139
+    },
+    {
+      "id": "admin-jobs-save-browser-checks",
+      "command": [
+        "node",
+        "--test",
+        "scripts/admin-jobs-save-browser-checks.js"
+      ],
+      "source": "scripts/admin-jobs-save-browser-checks.js",
+      "sourceSha256": "92df6f06adb6fc02679dece197b73656663e2152a13ee262995c18f2c131d5c6",
+      "minimumAssertions": 98,
+      "requiredCases": [
+        "shouldKeepJobDialogOpen_whileItsSaveIsPending",
+        "shouldRetainJobDialogEntries_andRequireReadbackAfterALostReply",
+        "shouldKeepScheduleDialogOpen_whileItsSaveIsPending",
+        "shouldRetainScheduleDialogEntries_andRequireReadbackAfterALostReply",
+        "shouldKeepTheEditorOpen_forHtmlAcknowledgement",
+        "shouldKeepTheEditorOpen_forWrongAcknowledgement",
+        "shouldKeepTheEditorOpen_forEmptyAcknowledgement",
+        "shouldKeepTheEditorOpen_forZeroAcknowledgement",
+        "shouldKeepTheEditorOpen_forMultipleAcknowledgement",
+        "shouldKeepTheEditorOpen_forNullAcknowledgement",
+        "shouldBlockBlindCreationRetry_whenTheInsertCannotBeConfirmed",
+        "shouldIgnoreAnOldEditorLoad_afterOpeningANewDraft",
+        "shouldKeepTheDialogOpen_whenSavedChangesCannotBeScheduled (scheduleDialog)",
+        "shouldKeepTheDialogOpen_whenSavedChangesCannotBeScheduled (new-job)",
+        "shouldReleaseTheDialog_andKeepTheDraft_whenAnAcceptedPostTimesOut",
+        "shouldRetryTheSavedRow_whenNewJobActivationFails"
+      ]
     }
   ],
-  "workflowSha256": "7b9f3f251739e47d991c43f72d826144cce87e2f28a7289c0d57dff9612cc5fb"
+  "workflowSha256": "9076a414bc8b4f77d3b38b1fb5ab8acc74c1134082de795d72349e30ff948d23"
 }

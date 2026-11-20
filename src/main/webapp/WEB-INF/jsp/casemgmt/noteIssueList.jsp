@@ -278,6 +278,11 @@
 
 
 <div id="noteIssues" data-saved-note-id="${carlos:forHtmlAttribute(ajaxsave)}">
+    <input type="hidden" name="renderedIssueIdentity" value=""/>
+    <c:forEach var="renderedIssue" items="${caseManagementEntryForm.issueCheckList}">
+        <input type="hidden" name="renderedIssueIdentity"
+               value="${carlos:forHtmlAttribute(renderedIssue.issue.id)}:${carlos:forHtmlAttribute(renderedIssue.issue.issue_id)}"/>
+    </c:forEach>
     <c:if test="${empty ajaxsave or preserveEditor}">
         <div class="add-issues">
             <label for="issueAutocomplete"><fmt:message key="encounter.Index.assnIssue"/></label>
@@ -301,9 +306,9 @@
     <c:if test="${issueCheckList.issue.resolved == true}">
         <tr>
             <td style="width: 50%; background-color: #CCCCFF;">
-                <c:set var="winame" value="noteIssueDetails${status.index}" />
+                <c:set var="winame" value="noteIssueDetails${carlos:forHtmlAttribute(issueCheckList.issue.id)}" />
 
-                <c:set var="submitString" value="this.form.method.value='issueChange'; this.form.lineId.value='${status.index}'; return ajaxUpdateIssues('issueChange', $('noteIssues').up().id);" />
+                <c:set var="submitString" value="return queueIssueMutation('issueChange', this);" />
                 <c:set var="id" value="noteIssue${status.index}" />
 
                 <c:set var="writeAccess" value="${issueCheckList.issueDisplay.writeAccess}" />
@@ -316,16 +321,15 @@
                 </a>
 
                 <c:if test="${issueCheckList.used == false && writeAccess}">
-                    <c:set var="submitDelete" value="removeIssue('${winame}');document.forms['caseManagementEntryForm'].deleteId.value='${status.index}';return ajaxUpdateIssues('issueDelete', $('noteIssues').up().id);" />
                     &nbsp;
-                    <a href="#" onclick="${submitDelete}">Delete</a>&nbsp;
+                    <button type="button" onclick="return queueIssueMutation('issueDelete', this);">Delete</button>&nbsp;
                 </c:if>
 
                 <c:if test="${writeAccess}">
                 <!-- change diagnosis button -->
-                <c:set var="submitChange" value="return changeDiagnosisResolved('${status.index}');" />
                 &nbsp;
-                <a href="#" onclick="${submitChange}">Change</a>
+                <button type="button" data-issue-id="${carlos:forHtmlAttribute(issueCheckList.issue.id)}"
+                        onclick="return changeDiagnosisResolved(this.dataset.issueId);">Change</button>
 
                 </c:if>
 
@@ -380,7 +384,7 @@
             <c:forEach var="issueCheckList" items="${caseManagementEntryForm.issueCheckList}" varStatus="status">
     <c:if test="${issueCheckList.issue.resolved == false}">
 
-        <c:set var="winame" value="noteIssueDetails${status.index}" />
+        <c:set var="winame" value="noteIssueDetails${carlos:forHtmlAttribute(issueCheckList.issue.id)}" />
 
         <c:set var="countUnresolvedIssue" value="${status.index + 1}" />
 
@@ -389,7 +393,7 @@
         </c:if>
 
         <td style="width: 50%; background-color: #CCCCFF;">
-            <c:set var="submitString" value="this.form.method.value='issueChange'; this.form.lineId.value='${status.index}'; return ajaxUpdateIssues('issueChange', $('noteIssues').up().id);" />
+            <c:set var="submitString" value="return queueIssueMutation('issueChange', this);" />
             <c:set var="id" value="noteIssue${status.index}" />
 
             <c:set var="writeAccess" value="${issueCheckList.issueDisplay.writeAccess}" />
@@ -402,15 +406,15 @@
             </a>
 
             <c:if test="${issueCheckList.used == false && writeAccess}">
-                <c:set var="submitDelete" value="removeIssue('${winame}');document.forms['caseManagementEntryForm'].deleteId.value='${status.index}';return ajaxUpdateIssues('issueDelete', $('noteIssues').up().id);" />
                 &nbsp;
-                <a href="#" onclick="${submitDelete}">Delete</a>
+                <button type="button" onclick="return queueIssueMutation('issueDelete', this);">Delete</button>
                 &nbsp;
             </c:if>
 
             &nbsp;
             <c:if test="${writeAccess}">
-                <a href="#" onclick="return changeDiagnosisUnresolved('${status.index}');">Change</a>
+                <button type="button" data-issue-id="${carlos:forHtmlAttribute(issueCheckList.issue.id)}"
+                        onclick="return changeDiagnosisUnresolved(this.dataset.issueId);">Change</button>
             </c:if>
 
             <div id="${winame}" style="margin-left: 20px; display: none;">

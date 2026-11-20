@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibility.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 98.26732673267327,
+    "instructions": 98.1378763866878,
+    "branches": 90.45346062052506,
+    "sourceBlob": "cc46f56585621a848478e7035baf4178a07126b8"
+  },
+  "evidenceSha256": "b2971056d236fab15f870ebe9e5c21fffd2f13c9902d6ed28353a256c8e2c95c"
+}

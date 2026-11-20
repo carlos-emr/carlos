@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/PMmodule/service/VacancyTemplateManagerImpl.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "2e3eadd51c9a8a5336020b202c59f2be784d7b0a"
+  },
+  "evidenceSha256": "0167ad719eb74c171ada822fbb077b0daaf553d427c6595137028770ad1bcc72"
+}

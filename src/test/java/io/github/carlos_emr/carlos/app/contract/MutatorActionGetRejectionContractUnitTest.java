@@ -473,6 +473,12 @@ class MutatorActionGetRejectionContractUnitTest {
                         "io.github.carlos_emr.carlos.report.pageUtil.DbReportAgeSex2Action",
                         "_report",
                         "r"),
+                // Clinical Reports "Del" and "Clear" change the session's list of run reports: _report r,
+                // POST-only.
+                Arguments.of(
+                        "io.github.carlos_emr.carlos.report.ClinicalReports.PageUtil.RemoveClinicalReportFromHistory2Action",
+                        "_report",
+                        "r"),
                 Arguments.of(
                         "io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesFavorite2Action",
                         "_admin",
@@ -549,7 +555,13 @@ class MutatorActionGetRejectionContractUnitTest {
                         "io.github.carlos_emr.carlos.documentManager.actions.SaveAnnotatedDocument2Action",
                         "_edoc",
                         "w"),
-                // --- HRM ---
+                Arguments.of("io.github.carlos_emr.carlos.documentManager.actions.RemoveUnavailableHrm2Action",
+                    "_con", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.documentManager.actions.AddEditHtml2Action",
+                    "_edoc", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2Action",
+                    "_edoc", "w"),
+            // --- HRM ---
                 // Every dispatch on this route mutates (comments, description, sign-off, patient
                 // and
                 // provider matching, category, sub-class) and none of its `method` values match
@@ -701,6 +713,7 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     private static final Set<String> CONDITIONAL_MUTATORS =
             Set.of(
+                    "io.github.carlos_emr.carlos.admin.web.AuditLogPurge2Action",
                     "io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action",
                     "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action",
                     // Demographic report favourites and patient sets (#4225) are POST-only;
@@ -968,7 +981,11 @@ class MutatorActionGetRejectionContractUnitTest {
                     // delete deletes the
                     // message and must be a POST. Covered by
                     // MsgHandleMessages2ActionDeleteGuardUnitTest.
-                    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action");
+                    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action",
+                    // Key Manager Create Key: a GET without `name` opens the form; a request that
+                    // names a service creates a key pair and must be a POST (#6321). Covered by
+                    // KeygenCreateKeyMethodUnitTest.
+                    "io.github.carlos_emr.carlos.admin.gate.ViewKeygenCreateKey2Action");
 
     /**
      * Actions whose source contains both {@code SC_METHOD_NOT_ALLOWED} and a
@@ -1064,6 +1081,7 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES =
             Set.of(
+                    "io.github.carlos_emr.carlos.admin.web.AuditLogPurge2Action",
                     "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmDetach2Action",
                     "io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action",
                     "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action",
@@ -1230,7 +1248,10 @@ class MutatorActionGetRejectionContractUnitTest {
                     // parameters other than `method` (#3394; conditional mutators).
                     "io.github.carlos_emr.carlos.admin.web.ProviderPrivilege2Action",
                     "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action",
-                    "io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action");
+                    "io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action",
+                    // admin.gate is not in IN_SCOPE_PACKAGE_PREFIXES; Key Manager Create Key
+                    // registers explicitly (conditional on `name`, #6321).
+                    "io.github.carlos_emr.carlos.admin.gate.ViewKeygenCreateKey2Action");
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")
     @MethodSource("unconditionalMutators")
@@ -1348,6 +1369,8 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     private static final Map<String, String[]> FILTER_LISTED_ROUTE_PRIVILEGES =
             Map.of(
+                    "io.github.carlos_emr.carlos.admin.web.AuditLogPurge2Action",
+                            new String[] {"_admin.auditLogPurge", "w"},
                     "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action",
                             new String[] {"_rx", "u"},
                     "io.github.carlos_emr.carlos.admin.web.ProviderPrivilege2Action",
@@ -1359,7 +1382,9 @@ class MutatorActionGetRejectionContractUnitTest {
                     "io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action",
                             new String[] {"_form", "w"},
                     "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.GenerateTeleplanFile2Action",
-                            new String[] {"_billing", "w"});
+                            new String[] {"_billing", "w"},
+                    "io.github.carlos_emr.carlos.admin.gate.ViewKeygenCreateKey2Action",
+                            new String[] {"_admin", "w"});
 
     /**
      * One case per route and write parameter in {@link HttpMethodGuardFilter#MUTATION_INTENT_PARAMS_BY_ROUTE},

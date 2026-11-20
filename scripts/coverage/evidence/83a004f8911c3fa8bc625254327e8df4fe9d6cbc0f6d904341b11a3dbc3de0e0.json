@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "f50c4c59958a475dd813c3f95e4f42cad0d95c40",
+  "comparisonSha256": "5aafe4739d250a43b2f7eefe2f350be703ff2fb161ab93a80a4bbb8dab489007",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/InboxCategoryDao.java": {
+      "lines": 97.31800766283524,
+      "instructions": 97.35413839891451,
+      "branches": 87.86127167630057,
+      "sourceBlob": "05dffb1ba3bd39182d04accf5b596ff918379bf4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/service/InboxDateSearchTypeResolver.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "76a0515fd25712baf8cf6d8863c9fcf576760be3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/mds/data/CategoryData.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "97e74dc8d646fe868c801b994c1279a769f44b8d"
+    }
+  },
+  "baselineCommit": "059167e22d937777ef2dc03151d20c9cb1b9feac",
+  "baselineSourceTree": "f50c4c59958a475dd813c3f95e4f42cad0d95c40",
+  "baselineReportSha256": "87fd6021506d3e97bbf6ae508f9ff5394a68378807e2f72a000cc2d38fec9bc1",
+  "baselineLane": "Focused inbox Java 25 unit and H2 data tests plus the legacy lab DAO suite on MariaDB 11.8.8 with the Flyway schema and 32 KiB pages",
+  "baselineTestCounts": {
+    "tests": 142,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "7b477a56dc5041b32a058cec2fe711d32cbb33ed71954f571d098eb5e2ae90d8",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

@@ -1837,7 +1837,8 @@ public class CaseManagementView2Action extends ActionSupport {
         return imageFile;
     }
 
-    @StrutsParameter
+    // Not a @StrutsParameter: Struts 7 never binds an uploaded file from request parameters, so the
+    // annotation bound nothing, and a request value must never name a server-side file (#2212).
     public void setImageFile(File imageFile) {
         this.imageFile = imageFile;
     }

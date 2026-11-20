@@ -21,6 +21,7 @@ const { EventEmitter } = require('node:events');
 const {
   createFaxConfigGuard, decodeFaxRows, pollingRowCount, restoreFaxConfig, snapshotFaxConfig,
 } = require('./lib/fax-config-state');
+const {workflow: saveFaxConfiguration} = require('./fax-configuration-save-playwright-checks');
 
 const hex = (text) => Buffer.from(text, 'utf8').toString('hex').toUpperCase();
 
@@ -74,6 +75,46 @@ const polling = (extra = {}) => {
   row[7] = `X${hex(extra.accountName || 'Playwright SRFax check')}`;
   return row;
 };
+
+test('shouldRestoreTheFixtureAndRefuseToEdit_whenTheBrowserShowsAnAccountFromAnotherDatabase', async () => {
+  const sql = fakeSql();
+  const marker = 'FAKE-PW-owned-fax';
+  sql.insertId = (statement, [faxUser, , , accountName]) => {
+    assert.match(statement, /INSERT INTO fax_config/);
+    const row = [...SEED_ROW];
+    row[0] = 'D73';
+    row[2] = 'D0';
+    row[4] = 'X' + hex(faxUser);
+    row[7] = 'X' + hex(accountName);
+    sql.state.rows = [row];
+    return '73';
+  };
+  // The wrong database can have the same numeric row ID and fake fax number.
+  const foreign = {id: '73', faxUser: '123456', accountName: 'FAKE-other-account'};
+  const form = {async waitFor() {}, async evaluate(fn, expected) {
+    assert.equal(expected.accountName, marker);
+    return fn({elements: {namedItem: name => ({value: foreign[name]})}}, expected);
+  }};
+  const schedule = {
+    async goto() {},
+    locator: () => ({async click() {}}),
+    frameLocator: () => ({locator(selector) {
+      assert.equal(selector, '#configFrm', 'the foreign form must never be edited or submitted');
+      return form;
+    }}),
+  };
+  const cleanups = [];
+  try {
+    await assert.rejects(saveFaxConfiguration({
+      sql, marker, schedule, config: {baseUrl: new URL('https://127.0.0.1/carlos')},
+      cleanup: fn => cleanups.push(fn),
+    }), /did not load the owned account from the fixture database/);
+  } finally {
+    for (const cleanup of cleanups.reverse()) await cleanup();
+  }
+  assert.equal(cleanups.length, 1);
+  assert.deepEqual(sql.state.rows, [SEED_ROW]);
+});
 
 test('shouldSnapshotEveryColumnAsAnEncodedCell_soNullAndTheWordNullStayApart', () => {
   const sql = fakeSql([[...SEED_ROW]]);

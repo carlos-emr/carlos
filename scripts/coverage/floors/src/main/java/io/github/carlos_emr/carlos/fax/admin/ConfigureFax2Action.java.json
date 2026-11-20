@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/fax/admin/ConfigureFax2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "f3fd7714057a9d5b599bf76f29866b402b25fabb"
+  },
+  "evidenceSha256": "0b406f2aab4033e07c6ab853b5057a499e23407dc89bd2f0883f5066e4608025"
+}

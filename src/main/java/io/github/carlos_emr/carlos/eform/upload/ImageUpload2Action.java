@@ -36,6 +36,7 @@ import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.eform.EFormImagePublicationLock;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -49,10 +50,23 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.file.FileStore;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.AclFileAttributeView;
+import java.nio.file.attribute.FileOwnerAttributeView;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFileAttributes;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.nio.file.attribute.UserDefinedFileAttributeView;
 import java.util.List;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
+import java.util.concurrent.TimeUnit;
 
 public class ImageUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -97,18 +111,14 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
                 return ERROR;
             }
 
-            // Validate upload: source file location + destination path traversal protection
-            File destinationFile = PathValidationUtils.validateUpload(image, imageFileName, imageFolder);
-
-            // Upload the file
-            try (InputStream fis = Files.newInputStream(image.toPath());
-                 OutputStream fos = Files.newOutputStream(destinationFile.toPath())) {
-                byte[] buffer = new byte[4096];
-                int bytesRead;
-                while ((bytesRead = fis.read(buffer)) != -1) {
-                    fos.write(buffer, 0, bytesRead);
+            // Wait for any provisional ZIP publication/rollback before replacing this image.
+            // Otherwise a successful in-place upload could keep the staged inode and be
+            // removed by that import's later rollback.
+            try (var _ = EFormImagePublicationLock.acquire(imageFolder)) {
+                File destinationFile = PathValidationUtils.validateUpload(image, imageFileName, imageFolder);
+                if (!publishImage(imageFolder.toPath(), destinationFile.toPath())) {
+                    return ERROR;
                 }
-                fos.flush();
             }
 
             // Pass sanitization info to JSP for display in success message
@@ -126,10 +136,161 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
             MiscUtils.getLogger().warn("SecurityException during image upload: " + se.getMessage(), se);
             addActionError("Upload failed: invalid file or security policy violation");
             return ERROR;
+        } catch (ImageOwnershipException _) {
+            MiscUtils.getLogger().warn("Image replacement refused because its ownership could not be preserved");
+            addActionError("Cannot replace this image because CARLOS cannot preserve its owner or group. "
+                    + "Ask an administrator to review the image's ownership and permissions for the CARLOS service account.");
+            return ERROR;
         } catch (IOException e) {
             MiscUtils.getLogger().error("Image upload failed for file: {}", imageFileName, e);
             addActionError("Upload failed: an error occurred while saving the image. Please try again or contact support.");
             return ERROR;
+        }
+    }
+
+    private boolean publishImage(Path imageDirectory, Path destination) throws IOException {
+        boolean linux = "Linux".equals(System.getProperty("os.name"));
+        // Atomic rename checks the directory, so retain the target-write refusal under the lease.
+        if (Files.exists(destination)) {
+            if (!Files.isWritable(destination)) {
+                throw new java.nio.file.AccessDeniedException(destination.toString(), null,
+                        "Existing image is not writable");
+            }
+            if (linux && !Files.isReadable(destination)) {
+                addActionError("Replacing this image requires read and write access to preserve its permissions and attributes.");
+                return false;
+            }
+        }
+        FileStore store = Files.getFileStore(imageDirectory);
+        boolean posix = store.supportsFileAttributeView(PosixFileAttributeView.class);
+        // The private directory protects the staged file while ordinary creation retains the umask.
+        var stagingDirectory = posix
+                ? Files.createTempDirectory(imageDirectory, ".carlos-image-",
+                        PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")))
+                : Files.createTempDirectory(imageDirectory, ".carlos-image-");
+        try (var cleanup = new StagingCleanup(stagingDirectory)) {
+            var staged = cleanup.staged;
+            try (InputStream fis = PathValidationUtils.openValidatedUploadInputStream(image);
+                 OutputStream fos = Files.newOutputStream(staged, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                while ((bytesRead = fis.read(buffer)) != -1) {
+                    fos.write(buffer, 0, bytesRead);
+                }
+                fos.flush();
+            }
+            preserveReplacementMetadata(destination, staged, store, posix, linux);
+            Files.move(staged, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            cleanup.published = true;
+        }
+        return true;
+    }
+
+    private static void preserveReplacementMetadata(Path existing, Path staged, FileStore store, boolean posix,
+            boolean linux) throws IOException {
+        if (Files.notExists(existing, LinkOption.NOFOLLOW_LINKS)) return;
+        if (!Files.isRegularFile(existing, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Existing eForm image must be a regular file");
+        }
+        if (linux) {
+            // GNU cp can copy named POSIX ACLs, which the Linux NIO provider does not expose.
+            // Explicit preservation options cause copy failures to fail the upload.
+            copyLinuxMetadata(existing, staged);
+            verifyLinuxReplacementMetadata(existing, staged, posix);
+            return;
+        }
+        if (store.supportsFileAttributeView(UserDefinedFileAttributeView.class)) {
+            copyUserDefinedAttributes(existing, staged);
+        }
+        if (posix) {
+            var original = Files.readAttributes(existing, PosixFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+            var replacement = Files.getFileAttributeView(staged, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+            replacement.setPermissions(original.permissions());
+            if (!original.group().equals(replacement.readAttributes().group())) replacement.setGroup(original.group());
+        }
+        if (store.supportsFileAttributeView(AclFileAttributeView.class)) {
+            var source = Files.getFileAttributeView(existing, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+            var target = Files.getFileAttributeView(staged, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+            target.setAcl(source.getAcl());
+        }
+        if (store.supportsFileAttributeView(FileOwnerAttributeView.class)) {
+            var owner = Files.getOwner(existing, LinkOption.NOFOLLOW_LINKS);
+            if (!owner.equals(Files.getOwner(staged, LinkOption.NOFOLLOW_LINKS))) Files.setOwner(staged, owner);
+        }
+    }
+
+    private static void verifyLinuxReplacementMetadata(Path existing, Path staged, boolean posix) throws IOException {
+        if (!Files.isRegularFile(staged, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("eForm image metadata staging must retain a regular file");
+        }
+        if (!posix) return;
+        var original = Files.readAttributes(existing, PosixFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        var replacement = Files.readAttributes(staged, PosixFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        // GNU cp can skip ownership changes that the current user cannot make.
+        if (!original.owner().equals(replacement.owner()) || !original.group().equals(replacement.group())) {
+            throw new ImageOwnershipException();
+        }
+        if (!original.permissions().equals(replacement.permissions())) {
+            throw new IOException("Unable to retain existing eForm image permissions");
+        }
+    }
+
+    private static void copyUserDefinedAttributes(Path existing, Path staged) throws IOException {
+        var source = Files.getFileAttributeView(existing, UserDefinedFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+        var target = Files.getFileAttributeView(staged, UserDefinedFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
+        for (String name : source.list()) {
+            int size = source.size(name);
+            var value = ByteBuffer.allocate(size);
+            if (source.read(name, value) != size || target.write(name, value.flip()) != size) {
+                throw new IOException("Unable to retain an existing eForm image attribute");
+            }
+        }
+    }
+
+    private static void copyLinuxMetadata(Path existing, Path staged) throws IOException {
+        // Both paths are contained in the image directory, and the staged path is private.
+        Process copy = new ProcessBuilder("/usr/bin/cp", "--attributes-only", "--preserve=mode,ownership,xattr",
+                "--no-dereference", "--", existing.toAbsolutePath().toString(), staged.toAbsolutePath().toString())
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .redirectError(ProcessBuilder.Redirect.DISCARD)
+                .start();
+        try {
+            if (!copy.waitFor(30, TimeUnit.SECONDS) || copy.exitValue() != 0) {
+                throw new IOException("Unable to retain existing eForm image access metadata");
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while retaining existing eForm image access metadata", interrupted);
+        } finally {
+            if (copy.isAlive()) copy.destroyForcibly();
+        }
+    }
+
+    private static final class ImageOwnershipException extends IOException {
+        private static final long serialVersionUID = 1L;
+    }
+
+    /** Cleanup failure after atomic publication cannot make a completed upload retryable. */
+    private static final class StagingCleanup implements java.io.Closeable {
+        private final java.nio.file.Path directory;
+        private final java.nio.file.Path staged;
+        private boolean published;
+
+        private StagingCleanup(java.nio.file.Path directory) {
+            this.directory = directory;
+            this.staged = directory.resolve("image");
+        }
+
+        @Override
+        public void close() throws IOException {
+            // Before publication, try-with-resources preserves the original copy failure
+            // and suppresses cleanup failures; both deletion attempts still run.
+            try (java.io.Closeable _ = () -> Files.deleteIfExists(directory)) {
+                Files.deleteIfExists(staged);
+            } catch (IOException | SecurityException failure) {
+                if (!published) throw failure;
+                MiscUtils.getLogger().warn("Image upload succeeded but temporary staging cleanup failed", failure);
+            }
         }
     }
 

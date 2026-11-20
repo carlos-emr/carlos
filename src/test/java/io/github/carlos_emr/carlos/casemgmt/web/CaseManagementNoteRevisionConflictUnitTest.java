@@ -1029,7 +1029,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         checkbox.setIssue(issue);
         form.getIssueCheckList().add(checkbox);
         var originalIssues = form.getIssueCheckList();
-        action.setDeleteId("0");
+        request.setParameter("caseIssueId", "71");
 
         assertThat(action.issueDelete()).isEqualTo("ajaxStaleSelection".equals(scenario) ? "none" : "windowCloseError");
 

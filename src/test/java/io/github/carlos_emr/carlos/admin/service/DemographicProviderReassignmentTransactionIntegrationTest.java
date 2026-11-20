@@ -5,13 +5,17 @@ import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DemographicManagerImpl;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prevention.reports.PreventionReportUtil;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import org.junit.jupiter.api.Tag;
@@ -35,6 +39,11 @@ class DemographicProviderReassignmentTransactionIntegrationTest extends CarlosTe
         io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator.generateTestDataForModelClass(patient);
         patient.setFirstName("FAKE");patient.setLastName("FAKE-REASSIGN");
         patient.setYearOfBirth("1980");patient.setMonthOfBirth("01");patient.setDateOfBirth("02");
+        Date previousUpdate = Date.from(Instant.parse("2023-01-01T00:00:00Z"));
+        Date earlierReportDate = Date.from(Instant.parse("2024-06-15T00:00:00Z"));
+        patient.setLastUpdateDate(previousUpdate);
+        patient.setRosterDate(Date.from(Instant.parse("2022-01-01T00:00:00Z")));
+        patient.setRosterTerminationDate(null);
         patient.setProviderNo("999998");entityManager.persist(patient);entityManager.flush();
         int id = patient.getDemographicNo();
         DemographicExt resident = new DemographicExt("999998",id,"resident","999998");
@@ -59,11 +68,31 @@ class DemographicProviderReassignmentTransactionIntegrationTest extends CarlosTe
         assertThat(service.reassign(user,"UpdateMrp","999998","999997","A","Z")).isEqualTo(1);
         assertThat(service.reassign(user,"UpdateResident","999998","999997","A","Z")).isEqualTo(1);
         entityManager.flush();
-        assertThat(patientArchives.findByDemographicNo(id)).extracting("providerNo").containsExactly("999998");
+        entityManager.clear();
+        Demographic saved = patients.getDemographicById(id);
+        assertThat(patientArchives.findByDemographicNo(id)).singleElement().satisfies(archive -> {
+            assertThat(archive.getProviderNo()).isEqualTo("999998");
+            assertThat(archive.getLastUpdateDate().getTime()).isEqualTo(previousUpdate.getTime());
+            assertThat(archive.getRosterDate()).isEqualTo(saved.getRosterDate());
+            assertThat(archive.getRosterTerminationDate()).isNull();
+        });
         assertThat(entityManager.createQuery("select a.value from DemographicExtArchive a where a.demographicNo = :id",String.class)
                 .setParameter("id",id).getResultList()).containsExactly("999998");
-        entityManager.clear();
-        assertThat(patients.getDemographicById(id).getProviderNo()).isEqualTo("999997");
+        assertThat(saved.getProviderNo()).isEqualTo("999997");
+        assertThat(saved.getLastUpdateDate()).isAfter(earlierReportDate);
+        assertThat(saved.getRosterTerminationDate()).isNull();
         assertThat(extensions.find(resident.getId()).getValue()).isEqualTo("999997");
+
+        // Report authorization is outside this fixture. Both versions came from the database.
+        doReturn(saved).when(manager).getDemographic(user, id);
+        try (var spring = mockStatic(SpringUtils.class)) {
+            spring.when(() -> SpringUtils.getBean(DemographicManager.class)).thenReturn(manager);
+            spring.when(() -> SpringUtils.getBean(DemographicArchiveDao.class)).thenReturn(patientArchives);
+            assertThat(PreventionReportUtil.wasRosteredToThisProvider(user, id, earlierReportDate, "999998")).isTrue();
+            assertThat(PreventionReportUtil.wasRosteredToThisProvider(user, id, earlierReportDate, "999997")).isFalse();
+            Date reassignment = saved.getLastUpdateDate();
+            assertThat(PreventionReportUtil.wasRosteredToThisProvider(user, id, reassignment, "999997")).isTrue();
+            assertThat(PreventionReportUtil.wasRosteredToThisProvider(user, id, reassignment, "999998")).isFalse();
+        }
     }
 }

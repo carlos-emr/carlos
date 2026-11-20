@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/documentManager/EDocUtil.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "888e32bddd673828085bf5f077cc1796ec1cecbf"
+  },
+  "evidenceSha256": "ccc281505e8ab48d720a927b528cf61e9eb62ac5cd472d3aefa9993f7c1b7a9b"
+}
