@@ -4,6 +4,9 @@ package io.github.carlos_emr.carlos.lab.ca.all;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.doAnswer;
@@ -113,6 +116,44 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         assertThat(fileResult("Negative", "^NEGATIVE$", "2026-10-09 11:20:29", entered)).isNull();
         assertThat(fileResult("Negative", "^[^A-Z]+$", "2026-10-09 11:20:29", entered).getDataField())
                 .isEqualTo("Negative");
+    }
+
+    @ParameterizedTest(name = "filter [{0}]")
+    @ValueSource(strings = {"", " ", "\t"})
+    @DisplayName("should file the whole result when the filter setting is blank, as when it is unset (#6121)")
+    void shouldFileTheWholeResult_whenTheFilterIsBlank(String filter) {
+        LocalDateTime entered = LocalDateTime.parse("2026-10-13T10:05:19");
+        assertThat(fileResult("5.7 mmol/L", filter, "2026-10-09 11:20:29", entered).getDataField())
+                .isEqualTo("5.7 mmol/L");
+    }
+
+    @ParameterizedTest(name = "result [{0}]")
+    @ValueSource(strings = {"Positive\nSee comment", "Positive\r\nSee comment", "Positive\rSee comment"})
+    @DisplayName("should file a multi-line result whole when the filter setting is blank, not just its first line (#6121)")
+    void shouldFileTheWholeResult_whenABlankFilterMeetsALineBreak(String result) {
+        LocalDateTime entered = LocalDateTime.parse("2026-10-13T10:05:19");
+        assertThat(fileResult(result, "", "2026-10-09 11:20:29", entered).getDataField())
+                .isEqualTo(result);
+    }
+
+    @ParameterizedTest(name = "result [{0}]")
+    @ValueSource(strings = {"Positive\nSee comment", "Positive\r\nSee comment", "Positive\rSee comment"})
+    @DisplayName("should file a multi-line result whole when the filter setting is absent, as when it is blank (#6171)")
+    void shouldFileTheWholeResult_whenAnAbsentFilterMeetsALineBreak(String result) {
+        LocalDateTime entered = LocalDateTime.parse("2026-10-13T10:05:19");
+        Measurement absent = fileResult(result, null, "2026-10-09 11:20:29", entered);
+        // fileResult checks that one filing persisted at most one measurement: start the count again for the second.
+        clearInvocations(measurementDao);
+        Measurement blank = fileResult(result, "", "2026-10-09 11:20:29", entered);
+        assertThat(absent.getDataField()).isEqualTo(result);
+        assertThat(absent.getDataField()).isEqualTo(blank.getDataField());
+    }
+
+    @Test
+    void shouldFileTheWholeResult_whenTheFilterIsAbsentAndTheResultIsOneLine() {
+        LocalDateTime entered = LocalDateTime.parse("2026-10-13T10:05:19");
+        assertThat(fileResult("5.7 mmol/L", null, "2026-10-09 11:20:29", entered).getDataField())
+                .isEqualTo("5.7 mmol/L");
     }
 
     @Test
@@ -293,6 +334,61 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"0", "-7"})
+    @DisplayName("should archive every other version's measurements when the matched patient has no positive number")
+    void shouldArchiveEveryOtherVersion_whenThePatientNumberIsNotPositive(String patientNumber) {
+        // Nothing to compare a measurement's patient with, so the chain is judged as before: none is spared.
+        Measurement otherPatients = new Measurement();
+        otherPatients.setDataField("7.7");
+        otherPatients.setDemographicId(4711);
+        when(measurementDao.findByValue("lab_no", "1111")).thenReturn(java.util.List.of(otherPatients));
+        fileForPatient(patientNumber);
+
+        verify(measurementDao).batchRemoveAtomically(
+                org.mockito.ArgumentMatchers.argThat(removed -> removed.size() == 1 && removed.get(0) == otherPatients));
+    }
+
+    @Test
+    @DisplayName("should archive a measurement that names no patient when the matched patient is known")
+    void shouldArchiveAMeasurementWithoutAPatient_whenThePatientIsKnown() {
+        Measurement unattributed = new Measurement();
+        unattributed.setDataField("7.7");
+        Measurement otherPatients = new Measurement();
+        otherPatients.setDataField("5.1");
+        otherPatients.setDemographicId(4711);
+        when(measurementDao.findByValue("lab_no", "1111")).thenReturn(java.util.List.of(unattributed, otherPatients));
+        fileForPatient("42");
+
+        verify(measurementDao).batchRemoveAtomically(
+                org.mockito.ArgumentMatchers.argThat(removed -> removed.size() == 1 && removed.get(0) == unattributed));
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @ValueSource(strings = {"", "   ", "abc", "0", "-7", "4.2"})
+    void shouldHaveNoPatientNumberToCompare_whenTheMatchedPatientIsNotAPositiveWholeNumber(String patientNumber) {
+        assertThat((Integer) ReflectionTestUtils.invokeMethod(Hl7textResultsData.class, "patientNumber", patientNumber))
+                .isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"42", " 42 "})
+    void shouldReadThePatientNumber_withoutSurroundingSpaces(String patientNumber) {
+        assertThat((Integer) ReflectionTestUtils.invokeMethod(Hl7textResultsData.class, "patientNumber", patientNumber))
+                .isEqualTo(42);
+    }
+
+    /** Files report 4616 for the given patient number, with versions 1111 and 2222 of it already on the chart. */
+    private void fileForPatient(String patientNumber) {
+        try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("1111,2222,4616");
+            assertThat(fileResult(MessageHandler.class, "6.1", ".*", "2026-03-10 12:00:00",
+                    LocalDateTime.parse("2026-03-10T14:00:00"),
+                    () -> Hl7textResultsData.populateMeasurementsTable("4616", patientNumber))).isNotNull();
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"4616,2222", "1111,4616,2222", "4616,1111,2222"})
     @DisplayName("should file a correction that sorts before the report it corrects, and archive the original")
     void shouldFileACorrection_whenFewerFinalResultsSortItBeforeTheOriginal(String chain) {
@@ -435,9 +531,9 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         CarlosProperties properties = mock(CarlosProperties.class);
         try (var settings = mockStatic(CarlosProperties.class); var logs = LogCapture.forLogger(Hl7textResultsData.class)) {
             settings.when(CarlosProperties::getInstance).thenReturn(properties);
-            when(properties.getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).thenReturn("i");
+            when(properties.getProperty("HL7_LAB_MEASUREMENT_FILTER", Hl7textResultsData.NO_FILTER)).thenReturn("i");
             assertThat(value.invoke(null, "İ", null)).isNull();
-            when(properties.getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).thenReturn(".*");
+            when(properties.getProperty("HL7_LAB_MEASUREMENT_FILTER", Hl7textResultsData.NO_FILTER)).thenReturn(".*");
             for (String missing : new String[]{null, "", "DNR"}) assertThat(value.invoke(null, missing, null)).isNull();
             assertThat(value.invoke(null, "1".repeat(Measurement.DATA_FIELD_MAX_LENGTH + 1), null)).isNull();
             assertThat(logs.messages()).isEmpty();
@@ -556,7 +652,13 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         when(handler.getTimeStamp(0, 0)).thenReturn(observationTimestamp);
 
         CarlosProperties properties = mock(CarlosProperties.class);
-        when(properties.getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).thenReturn(filter);
+        if (filter == null) {
+            // The setting is absent: the property store answers with the default it was given.
+            when(properties.getProperty(eq("HL7_LAB_MEASUREMENT_FILTER"), anyString()))
+                    .thenAnswer(invocation -> invocation.getArgument(1));
+        } else {
+            when(properties.getProperty("HL7_LAB_MEASUREMENT_FILTER", Hl7textResultsData.NO_FILTER)).thenReturn(filter);
+        }
         when(properties.getProperty("MAP_BY_IDENTIFIER_AND_NAME", "false")).thenReturn("false");
         Calendar entryCalendar = GregorianCalendar.from(entryTimestamp.atZone(ZoneId.systemDefault()));
 
@@ -642,7 +744,39 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                 "<br />negative | negative",
                 // A signed qualitative result keeps its sign, as it did before (#4613 review).
                 "+ve          | +",
-                "-ve          | -"})
+                "-ve          | -",
+                // A listed word is filed when it is the whole result (#6121).
+                "No           | No",
+                "N            | N",
+                "A            | A",
+                "AB           | AB",
+                "Yes          | Yes",
+                "No growth    | No growth",
+                "Non-reactive | Non-reactive",
+                "Test not performed | Test not performed",
+                "lrg++        | lrg++",
+                // A date that is the whole result is still filed (#6121); "2026 10 09" only through a date
+                // alternative, which the number alternative cannot file whole.
+                "2026/11/01   | 2026/11/01",
+                "2026 10 09   | 2026 10 09",
+                "2026.10.09   | 2026.10.09",
+                "12.05.2026   | 12.05.2026",
+                "2026-1-9     | 2026-1-9",
+                // Ordinary numbers keep the leading-number rule (#6121 skips only a leading date), also when a
+                // date or another number follows: a date form uses the same separator twice.
+                "6.5 2026-10-09 | 6.5",
+                "5.2 2026/10/09 repeat | 5.2",
+                "2.5 1500 mL  | 2.5",
+                "1.1 1000 IU  | 1.1",
+                "4.5 2026 ref | 4.5",
+                "10/10 1000 x | 10/10",
+                "1000 1.5 x   | 1000",
+                "5.6 mmol/L   | 5.6",
+                "120/80 mmHg  | 120/80",
+                "1.5-2.0      | 1.5-2.0",
+                "100,000      | 100,000",
+                "3.14159      | 3.14159",
+                "1:1280       | 1:1280"})
         void shouldFileValueTheLabSent_whenShippedFilterMatchesResult(String result, String expected) throws IOException {
             Measurement measurement = fileResult(result, shippedFilter(), OBSERVED, ENTERED);
 
@@ -653,6 +787,27 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         @ParameterizedTest(name = "[{0}] is not filed")
         @CsvSource(delimiter = '|', value = {"see report", "Comment to follow", "(see below)", "Pending"})
         void shouldNotFileMeasurement_whenShippedFilterRejectsResult(String result) throws IOException {
+            assertThat(fileResult(result, shippedFilter(), OBSERVED, ENTERED)).isNull();
+            verify(measurementDao, never()).persist(any(Measurement.class));
+        }
+
+        /**
+         * A listed word or a date counts only as the whole result (#6121). Matched at the start of a longer result, a
+         * word filed an answer the lab did not give: "No organisms seen" as "No", "N/A" as "N", blood group
+         * "A positive" as "A". Matched anywhere, a date filed the date instead of the lab's answer:
+         * "Negative 2026-10-09" as "2026-10-09". A result that starts with a date and goes on ("2026-10-09 repeat") is
+         * not a date either.
+         */
+        @ParameterizedTest(name = "[{0}] is not filed")
+        @CsvSource(delimiter = '|', value = {"No organisms seen", "N/A", "A positive", "Negative for malignancy",
+                "Positive for E. coli", "Normal flora", "Moderate growth", "No growth after 48 hours", "Yes - see report",
+                "Negative 2026-10-09", "Collected 2026-10-09", "Positive (2026-10-09)", "Positive, repeat 2026/11/01",
+                // A result that starts with a date and goes on is not a date (#6121).
+                "2026-10-09 repeat", "12/05/2026 see note", "2026 10 09 repeat", "2026-10-09T10:30", "01/02/2026 (approx)",
+                "2026/10/09 x", "9.5.2026 x", "12.05.2026 x", "9 5 2026 x",
+                // Nor is a date with spaces or a month name filed as its first part when no date alternative takes it.
+                "10 12 2026", "9 5 2026", "2026 10 9", "09-Oct-2026", "09-Oct-2026 x", "9 October 2026"})
+        void shouldNotFilePartOfTheResult_whenAWordOrDateIsNotTheWholeResult(String result) throws IOException {
             assertThat(fileResult(result, shippedFilter(), OBSERVED, ENTERED)).isNull();
             verify(measurementDao, never()).persist(any(Measurement.class));
         }

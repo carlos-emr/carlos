@@ -681,6 +681,217 @@ case "$1" in
         fi
 
         # --- configuration files --------------------------------------------
+        # Rewrites ONE stock line of ${PROPERTIES} in place, under the configuration lock, so a
+        # managed symlink and the file's inode, owner, mode and ACLs survive. $5 names the property
+        # key (default HL7_LAB_MEASUREMENT_FILTER); the help-link migration uses it too, so no
+        # migration replaces the file by temp-and-rename.
+        migrate_lab_filter() {
+            python3 - "$1" "$2" "$3" "$4" "${5:-HL7_LAB_MEASUREMENT_FILTER}" <<'PY'
+import errno
+import fcntl
+import json
+import os
+import re
+import stat
+import sys
+
+path, old, new, marker = map(os.fsencode, sys.argv[1:5])
+configuration_key = sys.argv[5]
+recovery = path + b".lab-filter-recovery"
+staged = recovery + b".tmp"
+directory = os.path.dirname(path) or b"."
+# Separate the raw key before decoding it. Escaped characters are part of the key,
+# even when their unescaped forms can delimit a key and value.
+property_key = re.compile(rb"^((?:\\.|[^\\ \t\f=:])*)(?:[ \t\f=:]|$)")
+key_escape = re.compile(r"\\u([0-9a-fA-F]{4})|\\(.)")
+
+def decode_key_escape(match):
+    if match[1] is not None:
+        return chr(int(match[1], 16))
+    return {"t": "\t", "n": "\n", "r": "\r", "f": "\f"}.get(match[2], match[2])
+
+def is_filter_definition(logical):
+    key = property_key.match(logical)
+    return key is not None and key_escape.sub(
+        decode_key_escape, key[1].decode("latin-1")
+    ) == configuration_key
+
+def filter_definitions(content):
+    start = None
+    parts = []
+    for physical in re.finditer(rb"[^\r\n]*(?:\r\n|\r|\n|$)", content):
+        if not physical[0]:
+            break
+        line = physical[0].rstrip(b"\r\n").lstrip(b" \t\f")
+        if start is None:
+            if not line or line.startswith((b"#", b"!")):
+                continue
+            start = physical.start()
+        if (len(line) - len(line.rstrip(b"\\"))) % 2:
+            parts.append(line[:-1])
+            continue
+        logical = b"".join([*parts, line])
+        if is_filter_definition(logical):
+            yield start, physical.end(), logical
+        start = None
+        parts.clear()
+    if start is not None:
+        logical = b"".join(parts)
+        if is_filter_definition(logical):
+            yield start, len(content), logical
+
+def open_configuration():
+    try:
+        return os.open(path, os.O_RDWR | os.O_NONBLOCK), "r+b"
+    except OSError as error:
+        if error.errno not in (errno.EACCES, errno.EPERM, errno.EROFS):
+            raise
+        return os.open(path, os.O_RDONLY | os.O_NONBLOCK), "rb"
+
+def write_configuration(configuration, content):
+    configuration.seek(0)
+    configuration.write(content)
+    configuration.flush()
+    configuration.truncate(len(content))
+    os.fsync(configuration.fileno())
+
+def sync_directory():
+    fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+def save_recovery(opened, original, updated):
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+    fd = os.open(staged, flags, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="ascii") as backup:
+            json.dump([opened.st_dev, opened.st_ino, original.hex(), updated.hex()], backup)
+            backup.flush()
+            os.fsync(backup.fileno())
+        os.replace(staged, recovery)
+        sync_directory()
+    finally:
+        if os.path.exists(staged):
+            os.unlink(staged)
+
+def clear_recovery():
+    os.unlink(recovery)
+    sync_directory()
+
+def recover_configuration(configuration, opened, writable, content):
+    try:
+        fd = os.open(recovery, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except FileNotFoundError:
+        return content
+    with os.fdopen(fd, "r", encoding="ascii") as backup:
+        info = os.fstat(fd)
+        if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
+                or info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) & 0o077):
+            raise OSError("the lab filter recovery file is not a private regular file")
+        try:
+            device, inode, before, after = json.load(backup)
+            original, updated = bytes.fromhex(before), bytes.fromhex(after)
+        except (TypeError, ValueError):
+            raise OSError("the lab filter recovery file is invalid") from None
+    if (device, inode) != (opened.st_dev, opened.st_ino) or not writable:
+        raise OSError("the lab filter recovery file describes another or read-only configuration")
+    # An interrupted rewrite or rollback can leave bytes from either version.
+    # Refuse to overwrite a separate change made while the process was down.
+    if (not min(len(original), len(updated)) <= len(content) <= max(len(original), len(updated))
+            or any((index >= len(original) or original[index] != byte)
+                   and (index >= len(updated) or updated[index] != byte)
+                   for index, byte in enumerate(content))):
+        raise OSError("the configuration was edited after an interrupted lab filter migration")
+    if content != original:
+        write_configuration(configuration, original)
+    clear_recovery()
+    return original
+
+def migrate():
+    try:
+        fd, mode = open_configuration()
+    except FileNotFoundError:
+        if any(os.path.lexists(name) for name in (path, recovery, staged)):
+            raise
+        return "unchanged"
+    with os.fdopen(fd, mode) as configuration:
+        opened = os.fstat(fd)
+        if not stat.S_ISREG(opened.st_mode):
+            raise OSError("the configuration target is not a regular file")
+        writable = mode == "r+b"
+        fcntl.lockf(configuration, fcntl.LOCK_EX if writable else fcntl.LOCK_SH)
+        if not os.path.samestat(opened, os.stat(path)):
+            raise OSError("the configuration target changed while waiting for its lock")
+        if os.path.lexists(staged):
+            os.unlink(staged)
+        original = recover_configuration(configuration, opened, writable, configuration.read())
+        if not marker:
+            return "unchanged"
+        definitions = list(filter_definitions(original))
+        if old != new and len(definitions) == 1:
+            start, end, _ = definitions[0]
+            if original[start:end] in (old, old + b"\n"):
+                if not writable:
+                    raise OSError("the configuration target is read-only")
+                updated = original[:start] + new + b"\n" + original[end:]
+                save_recovery(opened, original, updated)
+                try:
+                    write_configuration(configuration, updated)
+                    if not os.path.samestat(opened, os.stat(path)):
+                        raise OSError("the configuration target changed during the update")
+                except (OSError, KeyboardInterrupt):
+                    write_configuration(configuration, original)
+                    clear_recovery()
+                    raise
+                clear_recovery()
+                return "updated"
+        return "custom" if definitions and marker in definitions[-1][2] else "unchanged"
+
+try:
+    print(migrate())
+except OSError as error:
+    print(str(error), file=sys.stderr)
+    sys.exit(1)
+PY
+        }
+
+        # Recover a stopped lab-filter write before this configure reads or
+        # rewrites the properties through another migration. Take the usual
+        # provisioning lock and let the helper lock the configuration inode.
+        # While a recovery is deferred the file may be torn: no migration below may write it (a
+        # sed -i would also replace its inode, which a later recovery and a managed symlink rely on).
+        PROPERTIES_RECOVERY_PENDING=0
+        if [ -e "${PROPERTIES}.lab-filter-recovery" ] || [ -L "${PROPERTIES}.lab-filter-recovery" ] \
+            || [ -e "${PROPERTIES}.lab-filter-recovery.tmp" ] || [ -L "${PROPERTIES}.lab-filter-recovery.tmp" ]; then
+            lab_recovery_rc=0
+            (
+                lab_recovery_lock_rc=0
+                acquire_provision_lock || lab_recovery_lock_rc=$?
+                [ "${lab_recovery_lock_rc}" = 0 ] || exit "${lab_recovery_lock_rc}"
+                migrate_lab_filter "${PROPERTIES}" "" "" "" >/dev/null || exit 1
+            ) || lab_recovery_rc=$?
+            if [ "${lab_recovery_rc}" = 2 ]; then
+                # An OSCAR 19 import holds provisioning (as the main path below, status 2): the
+                # application must not start during one anyway, and the record keeps it stopped
+                # afterwards. Defer, as the import gate does; this configure ends successfully, so
+                # the package counts as configured and the retry is dpkg-reconfigure, as for the
+                # lock message above. No other migration may write the file meanwhile.
+                PROPERTIES_RECOVERY_PENDING=1
+                echo "carlos-emr: WARNING: an OSCAR 19 import holds provisioning, so the pending update of ${PROPERTIES}" >&2
+                echo "carlos-emr: WARNING: was not recovered now, and no setting in it is changed by this configure." >&2
+                echo "carlos-emr: WARNING: CARLOS stays stopped until you run, once the import has finished:  sudo dpkg-reconfigure carlos-emr" >&2
+            elif [ "${lab_recovery_rc}" != 0 ]; then
+                echo "carlos-emr: ERROR: could not recover the pending lab-filter update in ${PROPERTIES}" >&2
+                echo "carlos-emr: ERROR: an earlier upgrade was interrupted while it rewrote that file, and the reason is printed above." >&2
+                echo "carlos-emr: ERROR: Check ${PROPERTIES} (the line being migrated, HL7_LAB_MEASUREMENT_FILTER or resource_base_url, and the settings after it). When it is as you want it," >&2
+                echo "carlos-emr: ERROR: remove ${PROPERTIES}.lab-filter-recovery (a private copy of the whole configuration, secrets included)" >&2
+                echo "carlos-emr: ERROR: and run: sudo dpkg --configure -a. CARLOS stays stopped until then." >&2
+                exit 1
+            fi
+        fi
+
         # Recorded BEFORE install_once lays down the skeleton: the province
         # guard below must distinguish "fresh install" from "operator already
         # chose", and once the skel (whose default is CARLOS_PROVINCE=on)
@@ -721,7 +932,7 @@ case "$1" in
         # exact old-stock line, and silently flip that choice back to true.
         # Only the value REWRITE stays upgrade-only.
         CONSULT_SIG_SENTINEL="${STATE}/.consult-signature-default-migrated"
-        if [ ! -e "${CONSULT_SIG_SENTINEL}" ]; then
+        if [ ! -e "${CONSULT_SIG_SENTINEL}" ] && [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ]; then
             if [ -n "${2:-}" ] && [ -f "${PROPERTIES}" ] \
                 && grep -qx 'consultation_signature_enabled=false' "${PROPERTIES}"; then
                 sed -i 's/^consultation_signature_enabled=false$/consultation_signature_enabled=true/' "${PROPERTIES}"
@@ -740,7 +951,7 @@ case "$1" in
         # line, ONLY on upgrade, ONLY once; the sentinel is written on fresh
         # installs too so a false the operator sets later is never flipped back.
         HEALTH_TRACKER_SENTINEL="${STATE}/.health-tracker-default-migrated"
-        if [ ! -e "${HEALTH_TRACKER_SENTINEL}" ]; then
+        if [ ! -e "${HEALTH_TRACKER_SENTINEL}" ] && [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ]; then
             if [ -n "${2:-}" ] && [ -f "${PROPERTIES}" ] \
                 && grep -qx 'health_tracker=false' "${PROPERTIES}"; then
                 sed -i 's/^health_tracker=false$/health_tracker=true/' "${PROPERTIES}"
@@ -763,7 +974,7 @@ case "$1" in
         # spelling written later by hand. A persistent false is always preserved:
         # the package cannot distinguish an old stock value from an operator's
         # deliberate choice, so upgrades must not silently enable the feature.
-        if [ -f "${PROPERTIES}" ] && grep -Eqi \
+        if [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ] && [ -f "${PROPERTIES}" ] && grep -Eqi \
             '^[[:space:]]*consultation_fax_enabled[[:space:]]*=[[:space:]]*(yes|no|on|off)[[:space:]]*$' \
             "${PROPERTIES}"; then
             sed -i -E \
@@ -1025,6 +1236,17 @@ except ValueError:
         if [ "${provision_lock_rc}" = 2 ]; then
             O19_IMPORT_HOLDS_LOCK=1
         fi
+        # A deferred properties recovery (above) means carlos.properties may be torn: this configure must
+        # not touch configuration at all, even when the import has finished meanwhile and the lock was
+        # free just now. Every step that writes it, or runs a carlos-ctl step that does (init-config,
+        # db-users, the cutover preflight), is behind PROVISION_LOCK_HELD = 1 or checks
+        # PROPERTIES_RECOVERY_PENDING itself; a NEW writer must do one of the two, which
+        # debian/assets/tests/test_properties_recovery_contract.py checks. The configure then defers like the
+        # import gate and records nothing: the operator's remedy is dpkg-reconfigure (named above).
+        if [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 1 ]; then
+            PROVISION_LOCK_HELD=0
+            O19_IMPORT_HOLDS_LOCK=1
+        fi
 
         # One-time migration (2026.08): the stock carlos.properties shipped the
         # OSCAR pre-installer template values for these clinic features (off),
@@ -1049,7 +1271,7 @@ except ValueError:
         # lose one side. Without the lock nothing is rewritten and the sentinel
         # is not written, so the next configure retries.
         OSCAR_DEFAULTS_SENTINEL="${STATE}/.oscar-feature-defaults-migrated"
-        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${OSCAR_DEFAULTS_SENTINEL}" ]; then
+        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${OSCAR_DEFAULTS_SENTINEL}" ] && [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ]; then
             # Not gated on an old version ($2): purge KEEPS carlos.properties
             # (it holds the encryption key) but removes this sentinel, so a
             # purge-then-reinstall arrives with no $2 and the old stock lines
@@ -1107,7 +1329,7 @@ OSCAR_DEFAULTS
         # scripts/deb-upgrade-verify.sh and OAUTH_ACCESS_MIGRATIONS in
         # scripts/deb-upgrade-baseline.sh.
         OAUTH_ACCESS_SENTINEL="${STATE}/.oauth-access-defaults-migrated"
-        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${OAUTH_ACCESS_SENTINEL}" ]; then
+        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${OAUTH_ACCESS_SENTINEL}" ] && [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ]; then
             if [ -f "${PROPERTIES}" ]; then
                 while IFS='|' read -r key default_line; do
                     [ -n "${key}" ] || continue
@@ -1143,24 +1365,21 @@ OAUTH_ACCESS_DEFAULTS
         # is written on fresh installs too, so a value set later is never
         # rewritten). Not gated on $2, for the purge-then-reinstall reason given
         # there. The new line is the skeleton's, so the /etc copy and the WAR
-        # default cannot disagree. The line is full of regex and sed
-        # metacharacters, so it is matched and replaced as a FIXED string (grep
-        # -F, awk ENVIRON, which unlike awk -v unfolds no backslash), never as
-        # a pattern, and the rewrite goes through a temporary file renamed over
-        # the original with its owner and mode, as sed -i does.
+        # default cannot disagree. Match the stock line as bytes under the same
+        # POSIX record lock as CarlosProperties. Update the opened inode so
+        # managed links, metadata, and writers waiting on the lock stay attached.
+        # Persist recovery data before rewriting the inode so an interrupted
+        # update can restore the previous contents under the lock on retry.
         # scripts/deb-upgrade-verify.sh holds the old line's digest
         # (LAB_FILTER_OLD_SHA); scripts/deb-upgrade-snapshot.test.js and
         # debian/assets/tests/test_lab_filter_migration.py hold them together.
         LAB_FILTER_SENTINEL="${STATE}/.lab-measurement-filter-migrated"
-        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${LAB_FILTER_SENTINEL}" ]; then
+        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${LAB_FILTER_SENTINEL}" ] && [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ]; then
             LAB_FILTER_OLD='HL7_LAB_MEASUREMENT_FILTER=[0-9]{4}([- /.])(((0[13578]|(10|12))\\1(0[1-9]|[1-2][0-9]|3[0-1]))|(02\\1(0[1-9]|[1-2][0-9]))|((0[469]|11)\\1(0[1-9]|[1-2][0-9]|30)))|[0-9]{4}-(((0[13578]|(10|12))-(0[1-9]|[1-2][0-9]|3[0-1]))|(02-(0[1-9]|[1-2][0-9]))|((0[469]|11)-(0[1-9]|[1-2][0-9]|30)))|^([+-\\?]{1,4})|^\\b(t)\\b|^\\b(tr)\\b|^\\b(cpr\\s{1}[a-z]{1}[0-9]{1})\\b|^\\b(dnr\\s{1}[a-z]{1}[0-9]{1})\\b|^\\b(iud)\\b|^\\b(sent\\s{1}to\\s{1}bccdc)\\b|^\\b(large)\\b|^\\b(small)\\b|^\\b(no\\s{1}lmp)\\b|^\\b(mod)\\b|^\\b(no\\s{1}growth)\\b|^\\b(marked)\\b|^\\b(immune)\\b|^\\b(indeterminate)\\b|^\\b(indeterminant)\\b|^\\b(moderate)\\b|^\\b(trace)\\b|^\\b(undefined)\\b|^\\b(defined)\\b|^\\b(reactive)\\b|^\\b(non[\\s-]?reactive)\\b|^\\b(negative)\\b|^\\b(positive)\\b|^\\b(neg)\\b|^\\b(pos)\\b|^\\b(normal)\\b|^\\b(abnormal)\\b|^\\b(ab)\\b|^\\b(a)\\b|^\\b(yes)\\b|^\\b(no)\\b|^\\b(nill)\\b|^\\b(y)\\b|^\\b(regular)\\b|^\\b(irregular)\\b|^\\b(screen\\s{1}negative)\\b|^\\b(unsatisfactory\\s{1}sample)\\b|^\\b(n)\\b|^\\b(equivocal)\\b|^\\b(unequivocal)\\b|^\\b(post[\\s-]{1}meno)\\b|^\\b(not[\\s]{1}reported)\\b|^\\b(lrg)([+]{1,3})|^\\b(test[\\s]{1}not[\\s]{1}performed)\\b|^[-+<>=]{0,2}\\s?(\\d*[\\./:]?\\d+)[-+=]?'
             LAB_FILTER_NEW=""
             if [ "$(grep -c '^HL7_LAB_MEASUREMENT_FILTER=' "${SHARE}/skel/carlos.properties" 2>/dev/null || true)" = 1 ]; then
                 LAB_FILTER_NEW="$(grep '^HL7_LAB_MEASUREMENT_FILTER=' "${SHARE}/skel/carlos.properties")"
             fi
-            # A definition in java.util.Properties syntax: the key, indented or
-            # not, then '=', ':' or whitespace (or nothing, an empty value).
-            LAB_FILTER_KEY_RE='^[[:space:]]*HL7_LAB_MEASUREMENT_FILTER([[:space:]=:]|$)'
             if [ -z "${LAB_FILTER_NEW}" ] || [ "${LAB_FILTER_NEW}" = "HL7_LAB_MEASUREMENT_FILTER=" ]; then
                 # A skeleton without exactly one definition, or with an empty one
                 # (which would file every result as an empty value), is a broken
@@ -1168,24 +1387,13 @@ OAUTH_ACCESS_DEFAULTS
                 # retries.
                 echo "carlos-emr: WARNING: ${SHARE}/skel/carlos.properties does not define one non-empty HL7_LAB_MEASUREMENT_FILTER; ${PROPERTIES} left as it is" >&2
             else
-                if [ -f "${PROPERTIES}" ] && [ "${LAB_FILTER_NEW}" != "${LAB_FILTER_OLD}" ] \
-                    && [ "$(grep -cE "${LAB_FILTER_KEY_RE}" "${PROPERTIES}" || true)" = 1 ] \
-                    && grep -qxF -e "${LAB_FILTER_OLD}" "${PROPERTIES}"; then
-                    lab_filter_tmp="$(mktemp "${PROPERTIES}.XXXXXX")"
-                    if LAB_FILTER_OLD="${LAB_FILTER_OLD}" LAB_FILTER_NEW="${LAB_FILTER_NEW}" \
-                            awk '$0 == ENVIRON["LAB_FILTER_OLD"] { print ENVIRON["LAB_FILTER_NEW"]; next } { print }' \
-                            "${PROPERTIES}" > "${lab_filter_tmp}" \
-                        && chown --reference="${PROPERTIES}" "${lab_filter_tmp}" \
-                        && chmod --reference="${PROPERTIES}" "${lab_filter_tmp}" \
-                        && mv -f "${lab_filter_tmp}" "${PROPERTIES}"; then
-                        echo "carlos-emr: corrected the stock HL7_LAB_MEASUREMENT_FILTER, which filed lab results of five or more digits and signs as their first four characters (#4613)"
-                    else
-                        rm -f "${lab_filter_tmp}"
-                        echo "carlos-emr: ERROR: could not rewrite HL7_LAB_MEASUREMENT_FILTER in ${PROPERTIES}" >&2
-                        exit 1
-                    fi
-                elif [ -f "${PROPERTIES}" ] \
-                    && grep -E "${LAB_FILTER_KEY_RE}" "${PROPERTIES}" | tail -n 1 | grep -qF -e '[+-\\?]{1,4}'; then
+                if ! lab_filter_status="$(migrate_lab_filter "${PROPERTIES}" "${LAB_FILTER_OLD}" "${LAB_FILTER_NEW}" '[+-\\?]{1,4}')"; then
+                    echo "carlos-emr: ERROR: could not rewrite HL7_LAB_MEASUREMENT_FILTER in ${PROPERTIES}; fix the configuration target, then run sudo dpkg --configure -a" >&2
+                    exit 1
+                fi
+                if [ "${lab_filter_status}" = "updated" ]; then
+                    echo "carlos-emr: corrected the stock HL7_LAB_MEASUREMENT_FILTER, which filed lab results of five or more digits and signs as their first four characters (#4613)"
+                elif [ "${lab_filter_status}" = "custom" ]; then
                     # Not the exact stock line (CRLF endings, trailing blanks, an
                     # edited copy, a second definition), so it is the operator's to
                     # change, but the definition in effect (java.util.Properties
@@ -1195,6 +1403,55 @@ OAUTH_ACCESS_DEFAULTS
                 fi
                 mkdir -p "${STATE}"
                 : > "${LAB_FILTER_SENTINEL}"
+            fi
+        fi
+
+        # One-time migration (2026.08, #6121): the #4613 stock
+        # HL7_LAB_MEASUREMENT_FILTER matched its words at the START of a result
+        # (^\\b(word)\\b, run with find()), so Hl7textResultsData filed "No
+        # organisms seen" as "No", "N/A" as "N" and the blood group "A positive"
+        # as "A": answers the lab did not give, in the flowsheets, the
+        # Measurements module and decision support. The stock line now accepts a
+        # word or a date only as the whole result (^(word)$, ^date$), and its
+        # number alternative skips a result that starts with a date in 19xx or
+        # 20xx and goes on ("2026-10-09 repeat"); other numbers are unchanged.
+        # Same discipline as the #4613 block above, which runs first:
+        # under the provisioning lock, ONLY the exact #4613 stock line, ONLY when
+        # the key is defined once, ONLY once (the sentinel is written on fresh
+        # installs too). An install still on the pre-#4613 line was moved
+        # straight to the skeleton's line above, so this finds nothing to do.
+        # Use the same locked in-place rewrite as the #4613 migration.
+        # scripts/deb-upgrade-verify.sh holds the #4613 line's digest
+        # (LAB_FILTER_WORDS_OLD_SHA); scripts/deb-upgrade-snapshot.test.js and
+        # debian/assets/tests/test_lab_filter_words_migration.py hold them together.
+        LAB_FILTER_WORDS_SENTINEL="${STATE}/.lab-measurement-filter-words-migrated"
+        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${LAB_FILTER_WORDS_SENTINEL}" ] && [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ]; then
+            LAB_FILTER_WORDS_OLD='HL7_LAB_MEASUREMENT_FILTER=[0-9]{4}([- /.])(((0[13578]|(10|12))\\1(0[1-9]|[1-2][0-9]|3[0-1]))|(02\\1(0[1-9]|[1-2][0-9]))|((0[469]|11)\\1(0[1-9]|[1-2][0-9]|30)))|[0-9]{4}-(((0[13578]|(10|12))-(0[1-9]|[1-2][0-9]|3[0-1]))|(02-(0[1-9]|[1-2][0-9]))|((0[469]|11)-(0[1-9]|[1-2][0-9]|30)))|^[-+<>=]{0,2}\\s?[-+,./0-9:;<=>?]+|^\\b(t)\\b|^\\b(tr)\\b|^\\b(cpr\\s{1}[a-z]{1}[0-9]{1})\\b|^\\b(dnr\\s{1}[a-z]{1}[0-9]{1})\\b|^\\b(iud)\\b|^\\b(sent\\s{1}to\\s{1}bccdc)\\b|^\\b(large)\\b|^\\b(small)\\b|^\\b(no\\s{1}lmp)\\b|^\\b(mod)\\b|^\\b(no\\s{1}growth)\\b|^\\b(marked)\\b|^\\b(immune)\\b|^\\b(indeterminate)\\b|^\\b(indeterminant)\\b|^\\b(moderate)\\b|^\\b(trace)\\b|^\\b(undefined)\\b|^\\b(defined)\\b|^\\b(reactive)\\b|^\\b(non[\\s-]?reactive)\\b|^\\b(negative)\\b|^\\b(positive)\\b|^\\b(neg)\\b|^\\b(pos)\\b|^\\b(normal)\\b|^\\b(abnormal)\\b|^\\b(ab)\\b|^\\b(a)\\b|^\\b(yes)\\b|^\\b(no)\\b|^\\b(nill)\\b|^\\b(y)\\b|^\\b(regular)\\b|^\\b(irregular)\\b|^\\b(screen\\s{1}negative)\\b|^\\b(unsatisfactory\\s{1}sample)\\b|^\\b(n)\\b|^\\b(equivocal)\\b|^\\b(unequivocal)\\b|^\\b(post[\\s-]{1}meno)\\b|^\\b(not[\\s]{1}reported)\\b|^\\b(lrg)([+]{1,3})|^\\b(test[\\s]{1}not[\\s]{1}performed)\\b'
+            LAB_FILTER_WORDS_NEW=""
+            if [ "$(grep -c '^HL7_LAB_MEASUREMENT_FILTER=' "${SHARE}/skel/carlos.properties" 2>/dev/null || true)" = 1 ]; then
+                LAB_FILTER_WORDS_NEW="$(grep '^HL7_LAB_MEASUREMENT_FILTER=' "${SHARE}/skel/carlos.properties")"
+            fi
+            if [ -z "${LAB_FILTER_WORDS_NEW}" ] || [ "${LAB_FILTER_WORDS_NEW}" = "HL7_LAB_MEASUREMENT_FILTER=" ]; then
+                # A broken build: rewrite nothing and write no sentinel, so a
+                # fixed package retries.
+                echo "carlos-emr: WARNING: ${SHARE}/skel/carlos.properties does not define one non-empty HL7_LAB_MEASUREMENT_FILTER; ${PROPERTIES} left as it is" >&2
+            else
+                if ! lab_filter_status="$(migrate_lab_filter "${PROPERTIES}" "${LAB_FILTER_WORDS_OLD}" "${LAB_FILTER_WORDS_NEW}" '^\\b(')"; then
+                    echo "carlos-emr: ERROR: could not rewrite HL7_LAB_MEASUREMENT_FILTER in ${PROPERTIES}; fix the configuration target, then run sudo dpkg --configure -a" >&2
+                    exit 1
+                fi
+                if [ "${lab_filter_status}" = "updated" ]; then
+                    echo "carlos-emr: updated the stock HL7_LAB_MEASUREMENT_FILTER, which filed a word at the start of a longer lab result, or a date found in it, as that result's value (\"No organisms seen\" as \"No\", \"Negative 2026-10-09\" as the date) (#6121)"
+                elif [ "${lab_filter_status}" = "custom" ]; then
+                    # Not the exact stock line, so it is the operator's to change,
+                    # but the definition in effect (java.util.Properties keeps the
+                    # last) still has a #4613-style word alternative (^\\b(word),
+                    # any word) that matches the start of a result. The new stock
+                    # line has none. Say so once, when the sentinel is written.
+                    echo "carlos-emr: WARNING: HL7_LAB_MEASUREMENT_FILTER in ${PROPERTIES} still matches its words at the start of a result (^\\b(word)\\b), which files \"No organisms seen\" as \"No\", and may match dates anywhere in it (#6121); it was left as it is because it is not the stock line" >&2
+                fi
+                mkdir -p "${STATE}"
+                : > "${LAB_FILTER_WORDS_SENTINEL}"
             fi
         fi
 
@@ -1211,21 +1468,20 @@ OAUTH_ACCESS_DEFAULTS
         # (the sentinel is written on fresh installs too, so a value set later is
         # never rewritten). Not gated on $2, for the purge-then-reinstall reason
         # given in the OSCAR block. The new line is the skeleton's, so the /etc
-        # copy and the WAR default cannot disagree. The line is matched and
-        # replaced as a FIXED string (grep -F, awk ENVIRON), and the rewrite goes
-        # through a temporary file renamed over the original with its owner and
-        # mode, as sed -i does. scripts/deb-upgrade-verify.sh holds the
+        # copy and the WAR default cannot disagree. The line is matched as a
+        # FIXED string and replaced IN PLACE by migrate_lab_filter (above), under
+        # the configuration lock, so a managed symlink, the inode, owner, mode
+        # and ACLs stay as they are. scripts/deb-upgrade-verify.sh holds the
         # old/new pair (HELP_URL_OLD / HELP_URL_NEW);
         # debian/assets/tests/test_help_url_migration.py holds it to this block
         # and to the shipped carlos.properties.
         HELP_URL_SENTINEL="${STATE}/.help-url-default-migrated"
-        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${HELP_URL_SENTINEL}" ]; then
+        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${HELP_URL_SENTINEL}" ] && [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ]; then
             HELP_URL_OLD='resource_base_url=http://oscarmanual.org/14/'
             HELP_URL_NEW=""
             if [ "$(grep -c '^resource_base_url=' "${SHARE}/skel/carlos.properties" 2>/dev/null || true)" = 1 ]; then
                 HELP_URL_NEW="$(grep '^resource_base_url=' "${SHARE}/skel/carlos.properties")"
             fi
-            HELP_URL_KEY_RE='^[[:space:]]*resource_base_url([[:space:]=:]|$)'
             if [ -z "${HELP_URL_NEW}" ] || [ "${HELP_URL_NEW}" = "resource_base_url=" ] \
                 || [ "${HELP_URL_NEW}" = "${HELP_URL_OLD}" ]; then
                 # A skeleton without exactly one definition, with an empty one, or
@@ -1233,22 +1489,14 @@ OAUTH_ACCESS_DEFAULTS
                 # and write no sentinel, so a fixed package retries.
                 echo "carlos-emr: WARNING: ${SHARE}/skel/carlos.properties does not define one live resource_base_url; ${PROPERTIES} left as it is" >&2
             else
-                if [ -f "${PROPERTIES}" ] \
-                    && [ "$(grep -cE "${HELP_URL_KEY_RE}" "${PROPERTIES}" || true)" = 1 ] \
-                    && grep -qxF -e "${HELP_URL_OLD}" "${PROPERTIES}"; then
-                    help_url_tmp="$(mktemp "${PROPERTIES}.XXXXXX")"
-                    if HELP_URL_OLD="${HELP_URL_OLD}" HELP_URL_NEW="${HELP_URL_NEW}" \
-                            awk '$0 == ENVIRON["HELP_URL_OLD"] { print ENVIRON["HELP_URL_NEW"]; next } { print }' \
-                            "${PROPERTIES}" > "${help_url_tmp}" \
-                        && chown --reference="${PROPERTIES}" "${help_url_tmp}" \
-                        && chmod --reference="${PROPERTIES}" "${help_url_tmp}" \
-                        && mv -f "${help_url_tmp}" "${PROPERTIES}"; then
-                        echo "carlos-emr: ${HELP_URL_OLD} -> ${HELP_URL_NEW} (the old stock Help link returns 404; edit ${PROPERTIES} to change it back)"
-                    else
-                        rm -f "${help_url_tmp}"
-                        echo "carlos-emr: ERROR: could not rewrite resource_base_url in ${PROPERTIES}" >&2
-                        exit 1
-                    fi
+                # In place under the configuration lock, like the lab-filter rewrites: a
+                # temp-and-rename would turn a managed symlink into a regular file.
+                if ! help_url_status="$(migrate_lab_filter "${PROPERTIES}" "${HELP_URL_OLD}" "${HELP_URL_NEW}" "resource_base_url" "resource_base_url")"; then
+                    echo "carlos-emr: ERROR: could not rewrite resource_base_url in ${PROPERTIES}" >&2
+                    exit 1
+                fi
+                if [ "${help_url_status}" = "updated" ]; then
+                    echo "carlos-emr: ${HELP_URL_OLD} -> ${HELP_URL_NEW} (the old stock Help link returns 404; edit ${PROPERTIES} to change it back)"
                 fi
                 mkdir -p "${STATE}"
                 : > "${HELP_URL_SENTINEL}"
@@ -1457,8 +1705,14 @@ OAUTH_ACCESS_DEFAULTS
         # that case, and the renderer waits with them.
         RENDER_PROVISION="${PROVISION_LOCK_HELD}"
         if [ "${RENDER_PROVISION}" = 0 ]; then
-            echo "carlos-emr: NOT provisioning the eForm render browser: another provisioning" >&2
-            echo "carlos-emr: run holds the lock. Once it has finished, run:" >&2
+            if [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 1 ]; then
+                echo "carlos-emr: NOT provisioning the eForm render browser: ${PROPERTIES} may be half written" >&2
+                echo "carlos-emr: (a pending recovery, see above), so this configure changes no configuration." >&2
+                echo "carlos-emr: Once the OSCAR 19 import has finished, run:" >&2
+            else
+                echo "carlos-emr: NOT provisioning the eForm render browser: another provisioning" >&2
+                echo "carlos-emr: run holds the lock. Once it has finished, run:" >&2
+            fi
             echo "carlos-emr:   sudo dpkg-reconfigure carlos-emr" >&2
         fi
         if [ "${RENDER_PROVISION}" = 1 ]; then
@@ -2054,7 +2308,11 @@ OAUTH_ACCESS_DEFAULTS
         # holds a POSIX record lock on the file, not the provisioning flock,
         # and rechecks atomic replacements made by the unchanged CLI. The
         # service runs it again after finish-install/restore (#5764).
-        if ! /usr/lib/carlos-emr/carlos-emr-config-preflight reconcile; then
+        # Not while a properties recovery is deferred: it appends to the possibly torn file in place, which
+        # the recovery's either-version check would then refuse for good. The unit runs it as ExecStartPre
+        # after the recovery, and the recovery guard keeps the unit from starting until then.
+        if [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ] \
+            && ! /usr/lib/carlos-emr/carlos-emr-config-preflight reconcile; then
             echo "carlos-emr: ERROR: could not persist AbandonOldChart=true; the application will not be started." >&2
             echo "carlos-emr: ERROR: fix ${PROPERTIES}, then run: sudo dpkg --configure -a" >&2
             exit 1
@@ -2284,9 +2542,15 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
         # package, activates it regardless, and it must not restart a unit this
         # configure held back just because that unit is in `failed` state.
         mkdir -p "${RUN_DIR}" 2>/dev/null && : > "${START_VETO}" 2>/dev/null || true
-        echo "carlos-emr: NOT starting the service — the schema is not ready (see above)." >&2
-        echo "carlos-emr: the unit stays enabled; it will start on the next boot or when you" >&2
-        echo "carlos-emr: start it after completing the migration." >&2
+        if [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 1 ]; then
+            echo "carlos-emr: NOT starting the service — ${PROPERTIES} has a pending recovery (see above)." >&2
+            echo "carlos-emr: once the OSCAR 19 import has finished, run: sudo dpkg-reconfigure carlos-emr" >&2
+            echo "carlos-emr: (it recovers the file, finishes this configure and starts the service)." >&2
+        else
+            echo "carlos-emr: NOT starting the service — the schema is not ready (see above)." >&2
+            echo "carlos-emr: the unit stays enabled; it will start on the next boot or when you" >&2
+            echo "carlos-emr: start it after completing the migration." >&2
+        fi
     else
         rm -f "${START_VETO}"
         # restart rather than start when this configure generated a new render

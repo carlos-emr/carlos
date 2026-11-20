@@ -723,9 +723,10 @@ test('an import holding the lock defers like the import gate: no marker, no migr
     /acquire_provision_lock \|\| provision_lock_rc=\$\?\n\s+if \[ "\$\{provision_lock_rc\}" != 0 \]; then\n\s+PROVISION_LOCK_HELD=0\n\s+fi\n\s+if \[ "\$\{provision_lock_rc\}" = 2 \]; then\n\s+O19_IMPORT_HOLDS_LOCK=1/);
   const branch = postinst.match(/if \[ "\$\{PROVISION_LOCK_HELD\}" = 0 \]; then\n\s+MIGRATION_OK=0\n[\s\S]*?\n\s+elif o19_import_in_progress; then/)[0];
   assert.match(branch, /if \[ "\$\{O19_IMPORT_HOLDS_LOCK\}" = 0 \]; then\n\s+mark_incomplete "another provisioning run held the provisioning lock"/);
-  // Initialised before use: dpkg passes the caller's environment through.
-  assert.ok(postinst.indexOf('O19_IMPORT_HOLDS_LOCK=0') < postinst.indexOf('acquire_provision_lock ||'));
-  assert.ok(postinst.indexOf('provision_lock_rc=0') < postinst.indexOf('acquire_provision_lock ||'));
+  // The main provisioning attempt initializes its status because dpkg passes
+  // through the caller's environment. An earlier recovery attempt uses a subshell.
+  assert.match(postinst,
+    /O19_IMPORT_HOLDS_LOCK=0\n\s+provision_lock_rc=0\n\s+acquire_provision_lock \|\| provision_lock_rc=\$\?/);
   // The DrugRef configure refuses with the import's instructions.
   const drugref = read('debian', 'carlos-emr-drugref.postinst');
   assert.match(drugref, /if \[ "\$\{provision_lock_rc\}" = 2 \]; then[\s\S]*?OSCAR 19 import is in progress[\s\S]*?exit 1/);

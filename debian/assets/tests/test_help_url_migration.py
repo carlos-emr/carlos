@@ -23,6 +23,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from test_lab_filter_migration import locked_rewrite_function
+
 ROOT = Path(__file__).resolve().parents[3]
 POSTINST = ROOT / "debian" / "carlos-emr.postinst"
 POSTRM = ROOT / "debian" / "carlos-emr.postrm"
@@ -34,7 +36,8 @@ OLD = "resource_base_url=http://oscarmanual.org/14/"
 
 
 def migration_block():
-    """The postinst's help-URL block, from its sentinel to its closing fi."""
+    """The postinst's help-URL block, from its sentinel to its closing fi, with the
+    locked in-place rewrite function it calls."""
     text = POSTINST.read_text(encoding="utf-8")
     m = re.search(
         r'^        HELP_URL_SENTINEL=.*?^        fi\n', text, re.S | re.M)
@@ -42,7 +45,7 @@ def migration_block():
         raise AssertionError(
             "no HELP_URL_SENTINEL block in carlos-emr.postinst -- this "
             "contract has lost its subject")
-    return m.group(0)
+    return locked_rewrite_function(text) + m.group(0)
 
 
 def old_line():
@@ -196,23 +199,39 @@ class TestHelpUrlMigration(unittest.TestCase):
                          "before=1\n{0}\n".format(shipped_line()))
 
     def test_keeps_the_file_and_fails_when_the_rewrite_fails(self):
-        # A chown that fails stands in for any failed step of the rewrite.
-        bin_dir = Path(self.tmp.name) / "bin"
-        bin_dir.mkdir()
-        chown = bin_dir / "chown"
-        chown.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
-        chown.chmod(0o755)
-        self.write_properties("before=1", OLD)
-        before = self.properties.read_bytes()
+        # A target that cannot be opened for the in-place rewrite stands in for any failed step.
+        target = Path(self.tmp.name) / "a-directory"
+        target.mkdir()
+        self.properties.symlink_to(target)
 
-        result = self.run_block(path=str(bin_dir))
+        result = self.run_block()
 
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertIn("could not rewrite resource_base_url", result.stderr)
-        self.assertEqual(self.properties.read_bytes(), before)
-        self.assertEqual(list(self.etc.iterdir()), [self.properties],
-                         "the temporary file is left behind")
+        self.assertEqual(sorted(p.name for p in self.etc.iterdir()), ["carlos.properties"],
+                         "a file is left behind")
         self.assertFalse((self.state / SENTINEL).exists())
+
+    def test_updates_the_target_of_a_managed_symlink_in_place(self):
+        # The link survives, the managed file keeps its inode and mode, and no temporary file
+        # or recovery record is left (a temp-and-rename would replace the link).
+        managed = self.etc / "clinic.properties"
+        managed.write_text("before=1\n" + OLD + "\nafter=2\n", encoding="utf-8")
+        managed.chmod(0o640)
+        self.properties.symlink_to(managed.name)
+        opened = managed.stat()
+
+        result = self.run_block()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(self.properties.is_symlink())
+        self.assertEqual(managed.read_text(encoding="utf-8"),
+                         "before=1\n{0}\nafter=2\n".format(shipped_line()))
+        self.assertTrue(os.path.samestat(opened, managed.stat()))
+        self.assertEqual(stat.S_IMODE(managed.stat().st_mode), 0o640)
+        self.assertEqual(sorted(p.name for p in self.etc.iterdir()),
+                         ["carlos.properties", "clinic.properties"])
+        self.assertTrue((self.state / SENTINEL).exists())
 
     def test_runs_only_once(self):
         self.write_properties(OLD)
