@@ -253,7 +253,8 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         };
         DocumentStorageDao storageDao = createAndRegisterMock(DocumentStorageDao.class);
         doAnswer(invocation -> {
-            ReflectionTestUtils.setField(invocation.getArgument(0), "id", 19);
+            DocumentStorage stored = invocation.getArgument(0);
+            ReflectionTestUtils.setField(stored, "id", 19);
             return null;
         }).when(storageDao).persist(any(DocumentStorage.class));
 
