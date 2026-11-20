@@ -1167,27 +1167,19 @@ public class CaseManagementView2Action extends ActionSupport {
 
         String roleName = (String) request.getSession().getAttribute("userrole") + "," + (String) request.getSession().getAttribute("user");
 
-        boolean a = true;
+        boolean canReadCppSection = true;
         if (codes[0].equalsIgnoreCase("OMeds")) {
-            a = hasPrivilege("_newCasemgmt.otherMeds", roleName);
-            if (!a) {
-                return SUCCESS; // The link of Other Meds won't show up on new CME screen.
-            }
+            canReadCppSection = hasPrivilege("_newCasemgmt.otherMeds", roleName);
         } else if (codes[0].equalsIgnoreCase("RiskFactors")) {
-            a = hasPrivilege("_newCasemgmt.riskFactors", roleName);
-            if (!a) {
-                return SUCCESS; // The link of Risk Factors won't show up on new CME screen.
-            }
+            canReadCppSection = hasPrivilege("_newCasemgmt.riskFactors", roleName);
         } else if (codes[0].equalsIgnoreCase("FamHistory")) {
-            a = hasPrivilege("_newCasemgmt.familyHistory", roleName);
-            if (!a) {
-                return SUCCESS; // The link of Family History won't show up on new CME screen.
-            }
+            canReadCppSection = hasPrivilege("_newCasemgmt.familyHistory", roleName);
         } else if (codes[0].equalsIgnoreCase("MedHistory")) {
-            a = hasPrivilege("_newCasemgmt.medicalHistory", roleName);
-            if (!a) {
-                return SUCCESS; // The link of Medical History won't show up on new CME screen.
-            }
+            canReadCppSection = hasPrivilege("_newCasemgmt.medicalHistory", roleName);
+        }
+        if (!canReadCppSection) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
         }
 
         // set save url to be used by ajax editor
