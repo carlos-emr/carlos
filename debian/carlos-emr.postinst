@@ -862,10 +862,20 @@ PY
         # provisioning lock and let the helper lock the configuration inode.
         if [ -e "${PROPERTIES}.lab-filter-recovery" ] || [ -L "${PROPERTIES}.lab-filter-recovery" ] \
             || [ -e "${PROPERTIES}.lab-filter-recovery.tmp" ] || [ -L "${PROPERTIES}.lab-filter-recovery.tmp" ]; then
-            if ! (
-                acquire_provision_lock || exit 1
-                migrate_lab_filter "${PROPERTIES}" "" "" "" >/dev/null
-            ); then
+            lab_recovery_rc=0
+            (
+                lab_recovery_lock_rc=0
+                acquire_provision_lock || lab_recovery_lock_rc=$?
+                [ "${lab_recovery_lock_rc}" = 0 ] || exit "${lab_recovery_lock_rc}"
+                migrate_lab_filter "${PROPERTIES}" "" "" "" >/dev/null || exit 1
+            ) || lab_recovery_rc=$?
+            if [ "${lab_recovery_rc}" = 2 ]; then
+                # An OSCAR 19 import holds provisioning (as the main path below, status 2): the
+                # application must not start during one anyway, and the record keeps it stopped
+                # afterwards. Defer, as the import gate does; the next configure retries.
+                echo "carlos-emr: WARNING: an OSCAR 19 import holds provisioning, so the pending update of ${PROPERTIES}" >&2
+                echo "carlos-emr: WARNING: was not recovered now. Run sudo dpkg --configure -a again once the import has finished." >&2
+            elif [ "${lab_recovery_rc}" != 0 ]; then
                 echo "carlos-emr: ERROR: could not recover the pending lab-filter update in ${PROPERTIES}" >&2
                 echo "carlos-emr: ERROR: an earlier upgrade was interrupted while it rewrote that file, and the reason is printed above." >&2
                 echo "carlos-emr: ERROR: Check ${PROPERTIES} (HL7_LAB_MEASUREMENT_FILTER and the settings after it). When it is as you want it," >&2

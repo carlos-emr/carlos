@@ -378,6 +378,26 @@ class TestLabFilterWordsMigration(unittest.TestCase):
         self.assertTrue(recovery.exists())
         self.assertFalse((self.state / SENTINEL).exists())
 
+    def test_defers_the_recovery_while_an_oscar_19_import_holds_provisioning(self):
+        # acquire_provision_lock answers 2 for a held import: not a failure, the next configure retries.
+        recovery = self.interrupted_with_recovery_record()
+        kept = self.properties.read_bytes()
+        block = migration_block(package_retry=True)
+        stub = 'acquire_provision_lock() { [ "${PROVISION_LOCK_HELD}" = 1 ]; }'
+        self.assertIn(stub, block)
+        # As in the postinst after status 2: the lock is not held, so the migrations below do not run.
+        env = dict(os.environ, PROVISION_LOCK_HELD="0", STATE=str(self.state), SHARE=str(self.share),
+                   PROPERTIES=str(self.properties))
+        result = subprocess.run(["sh", "-c", "set -e\n" + block.replace(stub, "acquire_provision_lock() { return 2; }")],
+                                env=env, capture_output=True, text=True, check=False, timeout=10)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("an OSCAR 19 import holds provisioning", result.stderr)
+        self.assertIn("dpkg --configure -a", result.stderr)
+        self.assertNotIn("ERROR", result.stderr)
+        self.assertEqual(self.properties.read_bytes(), kept)
+        self.assertTrue(recovery.exists())
+
     def test_refuses_to_recover_a_configuration_edited_after_the_interruption(self):
         recovery = self.interrupted_with_recovery_record()
         torn = self.properties.read_bytes()
