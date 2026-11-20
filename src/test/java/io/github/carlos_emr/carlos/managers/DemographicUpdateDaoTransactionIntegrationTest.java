@@ -30,6 +30,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -100,6 +101,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.test.base.IsolatedJpaTestDatabase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtil;
 import io.github.carlos_emr.carlos.webserv.rest.DemographicService;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.DemographicConverter;
 import io.github.carlos_emr.carlos.webserv.rest.response.ErrorResponse;
@@ -450,6 +452,67 @@ class DemographicUpdateDaoTransactionIntegrationTest {
 
         assertThat(waitingListNotes("N")).containsExactly("Second note");
         assertThat(waitingListNotes("Y")).containsExactly("Original note", "First note");
+    }
+
+    @Test
+    @DisplayName("should retire the replacement row when removal starts before the REST note write commits")
+    void shouldRetireTheLatestWaitingListEntry_whenRemovalOverlapsRestUpdate() {
+        DemographicTo1 edit = restPayload("Changed");
+        var removal = new TransactionTemplate(transactions);
+        removal.setIsolationLevel(physicalMariaDb() ? TransactionDefinition.ISOLATION_REPEATABLE_READ
+                : TransactionDefinition.ISOLATION_READ_COMMITTED);
+        var writer = new TransactionTemplate(transactions);
+        writer.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        removal.executeWithoutResult(status -> {
+            if (physicalMariaDb()) {
+                jdbc.execute("SET SESSION innodb_snapshot_isolation = OFF");
+            }
+            assertThat(waitingListNotes("N")).containsExactly("Original note");
+            writer.executeWithoutResult(inner -> put(edit));
+            try (MockedStatic<SpringUtils> beans = mockStatic(SpringUtils.class)) {
+                beans.when(() -> SpringUtils.getBean(WaitingListDao.class)).thenReturn(waitingLists);
+                beans.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactions);
+                WLWaitingListUtil.removeFromWaitingList(Integer.toString(waitingListId), Integer.toString(patientId));
+            }
+        });
+
+        assertThat(waitingListNotes("N")).isEmpty();
+        assertThat(waitingListNotes("Y")).containsExactly("Original note", "Changed note");
+    }
+
+    @Test
+    @DisplayName("should preserve the stored start date and both positions when REST edits a waiting-list note")
+    void shouldPreserveStartDateAndPositions_whenRestEditsWaitingListNote() {
+        Timestamp originalStart = Timestamp.valueOf("2020-05-12 12:00:00");
+        jdbc.update("UPDATE waitingList SET onListSince=? WHERE listID=? AND demographic_no=?",
+                originalStart, waitingListId, patientId);
+        int secondPatientId = new TransactionTemplate(transactions).execute(status -> {
+            Demographic nextPatient = samplePatient("Second waiting-list patient");
+            em.persist(nextPatient);
+            var entry = new WaitingList();
+            entry.setListId(waitingListId);
+            entry.setDemographicNo(nextPatient.getDemographicNo());
+            entry.setNote("Second patient note");
+            entry.setPosition(2);
+            entry.setOnListSince(Timestamp.valueOf("2021-07-15 12:00:00"));
+            entry.setHistory(false);
+            em.persist(entry);
+            return nextPatient.getDemographicNo();
+        });
+        DemographicTo1 edit = restPayload("Changed");
+        edit.setOnWaitingListSinceDate(originalStart);
+
+        put(edit);
+
+        assertThat(waitingListNotes("N")).containsExactly("Changed note");
+        assertThat(jdbc.queryForObject(
+                "SELECT onListSince FROM waitingList WHERE listID=? AND demographic_no=? AND is_history='N'",
+                Timestamp.class, waitingListId, patientId)).isEqualTo(originalStart);
+        assertThat(jdbc.query("SELECT demographic_no, position FROM waitingList WHERE listID=? "
+                        + "AND is_history='N' ORDER BY position",
+                (row, index) -> row.getInt(1) + ":" + row.getInt(2), waitingListId))
+                .containsExactly(patientId + ":1", secondPatientId + ":2");
     }
 
     @Test

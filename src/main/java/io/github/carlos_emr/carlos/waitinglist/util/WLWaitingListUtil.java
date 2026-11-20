@@ -29,6 +29,7 @@
 
 package io.github.carlos_emr.carlos.waitinglist.util;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -39,6 +40,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 public class WLWaitingListUtil {
 
@@ -70,7 +73,8 @@ public class WLWaitingListUtil {
     // Modified this method in Feb 2007 to ensure that all records cannot be deleted except hidden.
     public static void removeFromWaitingList(String waitingListID, String demographicNo) {
         synchronized (MUTATION_LOCK) {
-            removeEntries(waitingListID, demographicNo);
+            new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class))
+                    .executeWithoutResult(status -> removeEntries(waitingListID, demographicNo));
         }
     }
 
@@ -78,11 +82,17 @@ public class WLWaitingListUtil {
         MiscUtils.getLogger().debug("WLWaitingListUtil.removeFromWaitingList(): removing waiting list: " + waitingListID + " for patient " + demographicNo);
 
         WaitingListDao dao = SpringUtils.getBean(WaitingListDao.class);
-        for (WaitingList wl : dao.findByWaitingListIdAndDemographicId(ConversionUtils.fromIntString(waitingListID), ConversionUtils.fromIntString(demographicNo))) {
-            wl.setHistory(true);
-            dao.merge(wl);
+        Integer patientId = ConversionUtils.fromIntString(demographicNo);
+        List<WaitingList> remaining = new ArrayList<>();
+        for (WaitingList entry : dao.findByWaitingListIdForUpdate(ConversionUtils.fromIntString(waitingListID))) {
+            if (patientId.equals(entry.getDemographicNo())) {
+                entry.setHistory(true);
+                dao.merge(entry);
+            } else {
+                remaining.add(entry);
+            }
         }
-        repositionEntries(waitingListID);
+        repositionEntries(dao, remaining);
     }
 
     public static void add2WaitingList(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
@@ -177,10 +187,7 @@ public class WLWaitingListUtil {
         // add), so it stays one, but it is reported, because a caller that was asked to save this
         // note has not saved it.
         if (waitingLists.isEmpty()) return false;
-        long pos = 1;
-        for (WaitingList wl : waitingLists) {
-            pos = wl.getPosition();
-        }
+        WaitingList previous = waitingLists.getLast();
 
         // set all previous records 'is_history' fielf to 'N' --> to keep as record but never display
         for (WaitingList wl : waitingLists) {
@@ -192,9 +199,10 @@ public class WLWaitingListUtil {
         wl.setListId(listId);
         wl.setDemographicNo(patientId);
         wl.setNote(waitingListNote);
-        wl.setPosition(pos);
+        wl.setPosition(previous.getPosition());
         if (onListSince == null || onListSince.length() <= 0) {
-            wl.setOnListSince(new Date());
+            // A note edit must keep the locked row's start date, which drives list ordering.
+            wl.setOnListSince(currentEntryRequired ? previous.getOnListSince() : new Date());
         } else {
             wl.setOnListSince(ConversionUtils.fromDateString(onListSince));
         }

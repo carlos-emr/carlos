@@ -20,6 +20,8 @@ import io.github.carlos_emr.carlos.commn.model.WaitingList;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -35,21 +37,32 @@ class WLWaitingListConcurrencyUnitTest {
     @Test
     void shouldRepositionActiveEntries_whenRemovingAPatient() {
         WaitingListDao dao = mock(WaitingListDao.class);
+        var transactions = mock(PlatformTransactionManager.class);
+        var transaction = new SimpleTransactionStatus();
         WaitingList removed = new WaitingList();
         WaitingList remaining = new WaitingList();
+        removed.setDemographicNo(101);
+        removed.setHistory(false);
+        remaining.setDemographicNo(102);
+        remaining.setHistory(false);
         remaining.setPosition(2);
-        when(dao.findByWaitingListIdAndDemographicId(7, 101)).thenReturn(List.of(removed));
-        when(dao.findByWaitingListId(7)).thenReturn(List.of(remaining));
+        when(transactions.getTransaction(any())).thenReturn(transaction);
+        when(dao.findByWaitingListIdForUpdate(7)).thenReturn(List.of(removed, remaining));
 
         try (var spring = mockStatic(SpringUtils.class)) {
             spring.when(() -> SpringUtils.getBean(WaitingListDao.class)).thenReturn(dao);
+            spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactions);
             WLWaitingListUtil.removeFromWaitingList("7", "101");
         }
 
         assertThat(removed.getIsHistory()).isEqualTo(WaitingList.IS_HISTORY_YES);
         assertThat(remaining.getPosition()).isOne();
-        verify(dao).merge(same(removed));
-        verify(dao).merge(same(remaining));
+        var operations = inOrder(transactions, dao);
+        operations.verify(transactions).getTransaction(any());
+        operations.verify(dao).findByWaitingListIdForUpdate(7);
+        operations.verify(dao).merge(same(removed));
+        operations.verify(dao).merge(same(remaining));
+        operations.verify(transactions).commit(transaction);
     }
 
     @Test
