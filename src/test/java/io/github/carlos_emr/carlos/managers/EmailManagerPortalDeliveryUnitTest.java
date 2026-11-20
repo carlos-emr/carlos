@@ -32,6 +32,7 @@ class EmailManagerPortalDeliveryUnitTest extends CarlosUnitTestBase {
     private EmailSenderFactory factory;
     private EmailSender sender;
     private OutboundEmailArchiveService archives;
+    private PdfAttachmentSigningService signing;
     private PatientPortalService portal;
     private EmailManager manager;
     private LoggedInInfo user;
@@ -48,12 +49,13 @@ class EmailManagerPortalDeliveryUnitTest extends CarlosUnitTestBase {
         factory = mock(EmailSenderFactory.class);
         sender = mock(EmailSender.class);
         archives = mock(OutboundEmailArchiveService.class);
+        signing = mock(PdfAttachmentSigningService.class);
         portal = mock(PatientPortalService.class);
         var configs = mock(EmailConfigDaoImpl.class);
         var demographics = mock(DemographicManager.class);
         var providers = mock(ProviderManager2.class);
         var settings = mock(PatientPortalSettings.class);
-        manager = spy(new EmailManager(consent, factory, security, archives));
+        manager = spy(new EmailManager(consent, factory, security, archives, signing));
         injectDependency(manager, "oscarLogDao", mock(OscarLogDao.class));
         injectDependency(manager, "emailLogDao", logs);
         injectDependency(manager, "clinicFooterService", io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
@@ -155,16 +157,16 @@ class EmailManagerPortalDeliveryUnitTest extends CarlosUnitTestBase {
         doAnswer(call -> {
             signedWith.set(((EmailData) call.getArgument(0)).getPassword());
             return null;
-        }).when(manager).signAttachments(any(), any(), any());
+        }).when(signing).signAttachments(any(), any(), any());
 
         var result = manager.sendEmail(user, encryptedEmail());
 
         assertThat(result.getStatus()).isEqualTo(EmailLog.EmailStatus.SUCCESS);
         assertThat(signedWith.get()).isEqualTo("strong-portal-password");
-        var order = inOrder(manager, factory);
+        var order = inOrder(manager, signing, factory);
         order.verify(manager).encryptEmail(any());
         // With the session, so the signed PDFs can carry their document manifests.
-        order.verify(manager).signAttachments(any(), eq(user), any(EmailLog.class));
+        order.verify(signing).signAttachments(any(), eq(user), any(EmailLog.class));
         order.verify(factory).create(eq(user), eq(config), any());
     }
 
@@ -173,7 +175,7 @@ class EmailManagerPortalDeliveryUnitTest extends CarlosUnitTestBase {
     void shouldRevokeAndNotSend_whenSigningFails() throws Exception {
         givenConsent(EmailLog.EmailConsentStatus.OPT_IN);
         doThrow(new EmailSendingException("Failed to sign email PDF attachment"))
-                .when(manager).signAttachments(any(), any(), any());
+                .when(signing).signAttachments(any(), any(), any());
 
         var result = manager.sendEmail(user, encryptedEmail());
 
@@ -247,7 +249,7 @@ class EmailManagerPortalDeliveryUnitTest extends CarlosUnitTestBase {
         var data = encryptedEmail();
         data.setPassword("");
 
-        assertThatThrownBy(() -> new EmailManager(consent, factory, security, archives).encryptEmail(data))
+        assertThatThrownBy(() -> new EmailManager(consent, factory, security, archives, signing).encryptEmail(data))
                 .isInstanceOf(io.github.carlos_emr.carlos.utility.EmailSendingException.class);
     }
 

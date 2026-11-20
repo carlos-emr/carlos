@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.email.core.EmailConsentResult;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
+import io.github.carlos_emr.carlos.email.core.PdfAttachmentSigningService;
 import io.github.carlos_emr.carlos.email.helpers.APISendGridEmailSender;
 import io.github.carlos_emr.carlos.email.helpers.SMTPEmailSender;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -120,7 +121,8 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
         when(consentResolver.resolve(any(), any())).thenReturn(
                 new EmailConsentResult("Email", EmailLog.EmailConsentStatus.OPT_IN, null, null));
         archiveService = mock(OutboundEmailArchiveService.class);
-        emailManager = new EmailManager(consentResolver, new EmailSenderFactory(), securityInfoManager, archiveService);
+        emailManager = new EmailManager(consentResolver, new EmailSenderFactory(), securityInfoManager, archiveService,
+                mock(PdfAttachmentSigningService.class));
         injectDependency(emailManager, "oscarLogDao", mock(OscarLogDao.class));
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
@@ -559,7 +561,8 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
 
             try (LogCapture capture = LogCapture.forLogger(EmailManager.class)) {
                 new EmailManager(mock(EmailConsentResolver.class), new EmailSenderFactory(),
-                        mock(SecurityInfoManager.class), mock(OutboundEmailArchiveService.class));
+                        mock(SecurityInfoManager.class), mock(OutboundEmailArchiveService.class),
+                        mock(PdfAttachmentSigningService.class));
 
                 assertThat(capture.messages()).anySatisfy(message -> assertThat(message)
                         .contains("unrecognised value").contains("OFF"));

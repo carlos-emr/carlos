@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
+import io.github.carlos_emr.carlos.email.core.PdfAttachmentSigningService;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -86,7 +87,8 @@ class EmailManagerSenderConfigurationUnitTest extends CarlosUnitTestBase {
         emailSenderFactory = mock(EmailSenderFactory.class);
         emailConsentResolver = mock(EmailConsentResolver.class);
         archiveService = mock(OutboundEmailArchiveService.class);
-        emailManager = new EmailManager(emailConsentResolver, emailSenderFactory, securityInfoManager, archiveService);
+        emailManager = new EmailManager(emailConsentResolver, emailSenderFactory, securityInfoManager, archiveService,
+                mock(PdfAttachmentSigningService.class));
         var clinicFooters = mock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class);
         when(clinicFooters.snapshot()).thenReturn(new io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot("FAKE Clinic", null));
         injectDependency(emailManager, "clinicFooterService", clinicFooters);
