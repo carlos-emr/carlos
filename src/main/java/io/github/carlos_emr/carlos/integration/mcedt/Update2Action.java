@@ -49,6 +49,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -180,7 +181,8 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
             synchronized (mutex) {
                 acknowledgeSentUpdates(session, sentDetails, confirmed);
             }
-            String outcome = result == null ? "" : McedtMessageCreator.resourceResultToString(result);
+            String outcome = result == null ? "" : String.join("<br/>", result.getResponse().stream()
+                    .filter(Objects::nonNull).map(McedtMessageCreator::responseResultToString).toList());
             if (confirmed.size() == snapshot.size()) {
                 addActionMessage(getText("updateAction.sendUpdateRequest.success", new String[]{outcome}));
             } else {
@@ -207,14 +209,21 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
      */
     static List<UpdateRequest> confirmedUpdates(List<UpdateRequest> sent, ResourceResult result) {
         Set<BigInteger> confirmedIds = new HashSet<>();
+        Set<BigInteger> refusedIds = new HashSet<>();
         if (result != null) {
             for (ResponseResult response : result.getResponse()) {
-                if (response != null && response.getResourceID() != null && response.getResult() != null
-                        && EDT_SUCCESS.equals(response.getResult().getCode())) {
+                if (response == null || response.getResourceID() == null) {
+                    continue;
+                }
+                if (response.getResult() != null && EDT_SUCCESS.equals(response.getResult().getCode())) {
                     confirmedIds.add(response.getResourceID());
+                } else {
+                    refusedIds.add(response.getResourceID());
                 }
             }
         }
+        // Conflicting entries cannot establish that the resource was updated.
+        confirmedIds.removeAll(refusedIds);
         List<UpdateRequest> confirmed = new ArrayList<>();
         for (UpdateRequest update : sent) {
             if (confirmedIds.contains(update.getResourceID())) {

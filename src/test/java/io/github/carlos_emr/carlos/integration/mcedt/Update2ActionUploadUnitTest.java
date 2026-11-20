@@ -261,6 +261,29 @@ class Update2ActionUploadUnitTest {
     }
 
     @Test
+    @DisplayName("should retain a resource whose response entries disagree")
+    void shouldKeepAnUnconfirmedUpdate_whenItsReplyEntriesDisagree() throws Exception {
+        listedResources(42, 43);
+        add(42);
+        add(43);
+        EDTDelegate delegate = mock(EDTDelegate.class);
+        ResourceResult response = reply(42, CONFIRMED, 43, CONFIRMED, 42, "EEDTS0056");
+        response.getResponse().add(null);
+        when(delegate.update(anyList())).thenReturn(response);
+        Update2Action action = sendingAction();
+        doReturn("Partly sent").when(action).getText(eq("updateAction.sendUpdateRequest.partial"), any(String[].class));
+
+        assertThat(action.sendUpdateRequest(() -> delegate)).isEqualTo("success");
+
+        assertThat(action.getActionMessages()).isEmpty();
+        assertThat(action.getActionErrors()).containsExactly("Partly sent");
+        verify(action).getText(eq("updateAction.sendUpdateRequest.partial"),
+                argThat((String[] args) -> "1".equals(args[0]) && "2".equals(args[1])));
+        assertThat(ActionUtils.getUpdateList(request)).extracting(UpdateRequest::getResourceID)
+                .containsExactly(BigInteger.valueOf(42));
+    }
+
+    @Test
     @DisplayName("should keep an update the reply does not mention, and confirm it on a later send")
     void shouldKeepUnconfirmedUpdateQueued_whenTheReplyOmitsIt() throws Exception {
         listedResources(42, 43);
