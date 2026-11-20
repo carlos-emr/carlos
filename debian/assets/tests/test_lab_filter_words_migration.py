@@ -357,6 +357,69 @@ class TestLabFilterWordsMigration(unittest.TestCase):
         self.assertEqual(list(self.etc.iterdir()), [self.properties])
         self.assertTrue((self.state / SENTINEL).exists())
 
+    def interrupted_with_recovery_record(self):
+        self.write_properties("before=1", old_line(), "after=retain-this-setting")
+        failed = self.interrupt_configuration_write()
+        self.assertEqual(failed.returncode, 1, failed.stderr)
+        return self.properties.with_suffix(".properties.lab-filter-recovery")
+
+    def assert_recovery_refused(self, recovery, reason, kept):
+        """The retry stops, says why and how to get out, and changes nothing."""
+        retry = self.run_block(package_retry=True)
+
+        self.assertEqual(retry.returncode, 1, retry.stderr)
+        self.assertIn(reason, retry.stderr)
+        self.assertIn("could not recover the pending lab-filter update", retry.stderr)
+        # The way out: name the file to check, the record to remove, and the command to run.
+        self.assertIn(str(self.properties), retry.stderr)
+        self.assertIn(f"remove {recovery}", retry.stderr)
+        self.assertIn("dpkg --configure -a", retry.stderr)
+        self.assertEqual(self.properties.read_bytes(), kept)
+        self.assertTrue(recovery.exists())
+        self.assertFalse((self.state / SENTINEL).exists())
+
+    def test_refuses_to_recover_a_configuration_edited_after_the_interruption(self):
+        recovery = self.interrupted_with_recovery_record()
+        torn = self.properties.read_bytes()
+        edited = b"#" * len(torn)
+        self.properties.write_bytes(edited)
+
+        self.assert_recovery_refused(recovery, "edited after an interrupted lab filter migration", edited)
+
+    def test_refuses_to_recover_a_configuration_restored_from_a_backup(self):
+        recovery = self.interrupted_with_recovery_record()
+        restored = self.etc / "restored.properties"
+        restored.write_bytes(b"restored=from-backup\n")
+        restored.replace(self.properties)
+
+        self.assert_recovery_refused(recovery, "describes another or read-only configuration",
+                                     b"restored=from-backup\n")
+
+    def test_refuses_a_recovery_record_other_users_could_read(self):
+        recovery = self.interrupted_with_recovery_record()
+        recovery.chmod(0o644)
+        kept = self.properties.read_bytes()
+
+        self.assert_recovery_refused(recovery, "not a private regular file", kept)
+
+    def test_refuses_an_invalid_recovery_record(self):
+        recovery = self.interrupted_with_recovery_record()
+        recovery.write_text("not a recovery record", encoding="ascii")
+        recovery.chmod(0o600)
+        kept = self.properties.read_bytes()
+
+        self.assert_recovery_refused(recovery, "the lab filter recovery file is invalid", kept)
+
+    def test_the_application_does_not_start_on_a_pending_recovery_record(self):
+        # A rewrite killed mid-write can leave carlos.properties neither version; the unit must
+        # not start on it, and the condition must name the file the helper writes.
+        unit = (ROOT / "debian" / "carlos-emr.carlos-emr.service").read_text(encoding="utf-8")
+        postinst = POSTINST.read_text(encoding="utf-8")
+        self.assertIn("ConditionPathExists=!/etc/carlos-emr/carlos.properties.lab-filter-recovery", unit)
+        self.assertIn('PROPERTIES="${CONF_DIR}/carlos.properties"', postinst)
+        self.assertIn("CONF_DIR=/etc/carlos-emr", postinst)
+        self.assertIn('recovery = path + b".lab-filter-recovery"', postinst)
+
     def test_removes_the_private_staging_file_from_an_interrupted_journal_write(self):
         self.write_properties(KEY + "^custom$")
         before = self.properties.read_bytes()

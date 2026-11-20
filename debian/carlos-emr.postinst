@@ -681,8 +681,12 @@ case "$1" in
         fi
 
         # --- configuration files --------------------------------------------
+        # Rewrites ONE stock line of ${PROPERTIES} in place, under the configuration lock, so a
+        # managed symlink and the file's inode, owner, mode and ACLs survive. $5 names the property
+        # key (default HL7_LAB_MEASUREMENT_FILTER); the help-link migration uses it too, so no
+        # migration replaces the file by temp-and-rename.
         migrate_lab_filter() {
-            python3 - "$1" "$2" "$3" "$4" <<'PY'
+            python3 - "$1" "$2" "$3" "$4" "${5:-HL7_LAB_MEASUREMENT_FILTER}" <<'PY'
 import errno
 import fcntl
 import json
@@ -691,7 +695,8 @@ import re
 import stat
 import sys
 
-path, old, new, marker = map(os.fsencode, sys.argv[1:])
+path, old, new, marker = map(os.fsencode, sys.argv[1:5])
+configuration_key = sys.argv[5]
 recovery = path + b".lab-filter-recovery"
 staged = recovery + b".tmp"
 directory = os.path.dirname(path) or b"."
@@ -709,7 +714,7 @@ def is_filter_definition(logical):
     key = property_key.match(logical)
     return key is not None and key_escape.sub(
         decode_key_escape, key[1].decode("latin-1")
-    ) == "HL7_LAB_MEASUREMENT_FILTER"
+    ) == configuration_key
 
 def filter_definitions(content):
     start = None
@@ -862,6 +867,10 @@ PY
                 migrate_lab_filter "${PROPERTIES}" "" "" "" >/dev/null
             ); then
                 echo "carlos-emr: ERROR: could not recover the pending lab-filter update in ${PROPERTIES}" >&2
+                echo "carlos-emr: ERROR: an earlier upgrade was interrupted while it rewrote that file, and the reason is printed above." >&2
+                echo "carlos-emr: ERROR: Check ${PROPERTIES} (HL7_LAB_MEASUREMENT_FILTER and the settings after it). When it is as you want it," >&2
+                echo "carlos-emr: ERROR: remove ${PROPERTIES}.lab-filter-recovery (a private copy of the whole configuration, secrets included)" >&2
+                echo "carlos-emr: ERROR: and run: sudo dpkg --configure -a. CARLOS stays stopped until then." >&2
                 exit 1
             fi
         fi
@@ -1431,10 +1440,10 @@ OAUTH_ACCESS_DEFAULTS
         # (the sentinel is written on fresh installs too, so a value set later is
         # never rewritten). Not gated on $2, for the purge-then-reinstall reason
         # given in the OSCAR block. The new line is the skeleton's, so the /etc
-        # copy and the WAR default cannot disagree. The line is matched and
-        # replaced as a FIXED string (grep -F, awk ENVIRON), and the rewrite goes
-        # through a temporary file renamed over the original with its owner and
-        # mode, as sed -i does. scripts/deb-upgrade-verify.sh holds the
+        # copy and the WAR default cannot disagree. The line is matched as a
+        # FIXED string and replaced IN PLACE by migrate_lab_filter (above), under
+        # the configuration lock, so a managed symlink, the inode, owner, mode
+        # and ACLs stay as they are. scripts/deb-upgrade-verify.sh holds the
         # old/new pair (HELP_URL_OLD / HELP_URL_NEW);
         # debian/assets/tests/test_help_url_migration.py holds it to this block
         # and to the shipped carlos.properties.
@@ -1445,7 +1454,6 @@ OAUTH_ACCESS_DEFAULTS
             if [ "$(grep -c '^resource_base_url=' "${SHARE}/skel/carlos.properties" 2>/dev/null || true)" = 1 ]; then
                 HELP_URL_NEW="$(grep '^resource_base_url=' "${SHARE}/skel/carlos.properties")"
             fi
-            HELP_URL_KEY_RE='^[[:space:]]*resource_base_url([[:space:]=:]|$)'
             if [ -z "${HELP_URL_NEW}" ] || [ "${HELP_URL_NEW}" = "resource_base_url=" ] \
                 || [ "${HELP_URL_NEW}" = "${HELP_URL_OLD}" ]; then
                 # A skeleton without exactly one definition, with an empty one, or
@@ -1453,22 +1461,14 @@ OAUTH_ACCESS_DEFAULTS
                 # and write no sentinel, so a fixed package retries.
                 echo "carlos-emr: WARNING: ${SHARE}/skel/carlos.properties does not define one live resource_base_url; ${PROPERTIES} left as it is" >&2
             else
-                if [ -f "${PROPERTIES}" ] \
-                    && [ "$(grep -cE "${HELP_URL_KEY_RE}" "${PROPERTIES}" || true)" = 1 ] \
-                    && grep -qxF -e "${HELP_URL_OLD}" "${PROPERTIES}"; then
-                    help_url_tmp="$(mktemp "${PROPERTIES}.XXXXXX")"
-                    if HELP_URL_OLD="${HELP_URL_OLD}" HELP_URL_NEW="${HELP_URL_NEW}" \
-                            awk '$0 == ENVIRON["HELP_URL_OLD"] { print ENVIRON["HELP_URL_NEW"]; next } { print }' \
-                            "${PROPERTIES}" > "${help_url_tmp}" \
-                        && chown --reference="${PROPERTIES}" "${help_url_tmp}" \
-                        && chmod --reference="${PROPERTIES}" "${help_url_tmp}" \
-                        && mv -f "${help_url_tmp}" "${PROPERTIES}"; then
-                        echo "carlos-emr: ${HELP_URL_OLD} -> ${HELP_URL_NEW} (the old stock Help link returns 404; edit ${PROPERTIES} to change it back)"
-                    else
-                        rm -f "${help_url_tmp}"
-                        echo "carlos-emr: ERROR: could not rewrite resource_base_url in ${PROPERTIES}" >&2
-                        exit 1
-                    fi
+                # In place under the configuration lock, like the lab-filter rewrites: a
+                # temp-and-rename would turn a managed symlink into a regular file.
+                if ! help_url_status="$(migrate_lab_filter "${PROPERTIES}" "${HELP_URL_OLD}" "${HELP_URL_NEW}" "resource_base_url" "resource_base_url")"; then
+                    echo "carlos-emr: ERROR: could not rewrite resource_base_url in ${PROPERTIES}" >&2
+                    exit 1
+                fi
+                if [ "${help_url_status}" = "updated" ]; then
+                    echo "carlos-emr: ${HELP_URL_OLD} -> ${HELP_URL_NEW} (the old stock Help link returns 404; edit ${PROPERTIES} to change it back)"
                 fi
                 mkdir -p "${STATE}"
                 : > "${HELP_URL_SENTINEL}"

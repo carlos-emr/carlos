@@ -28,6 +28,12 @@ After=carlos-emr-provision.service
 # guard on every start, including after a failed boot-time repair.
 ConditionPathExists=!/var/lib/carlos-emr/.seed-credential-live
 
+# An interrupted in-place rewrite of carlos.properties (the lab-filter migrations) leaves this
+# record beside the file, and the file itself may then be neither version. Do not start the
+# application on it, at boot or otherwise: the postinst restores the file and removes the record
+# on the next `dpkg --configure`. The start is skipped cleanly, as for the guard above.
+ConditionPathExists=!/etc/carlos-emr/carlos.properties.lab-filter-recovery
+
 [Service]
 Type=exec
 User=carlos

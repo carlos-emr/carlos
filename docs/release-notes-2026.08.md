@@ -582,6 +582,14 @@ See [Jasper/OpenPDF migration](jasperreports-openpdf3.md).
   - The package rewrites the exact previous stock line in `/etc/carlos-emr/carlos.properties`
     once. It leaves an edited line alone, and warns when that line still matches words at the
     start of a result.
+  - The package rewrites `carlos.properties` in place, under its lock, so a symlink to a managed
+    file, the file's owner, mode and ACLs stay as they are. The one-time Help link rewrite
+    (`resource_base_url`) does the same. If an upgrade is interrupted mid-rewrite, a private
+    record `/etc/carlos-emr/carlos.properties.lab-filter-recovery` is left beside the file and
+    CARLOS does not start until the next `dpkg --configure -a` restores the file and removes it.
+    If that command refuses (you edited or restored `carlos.properties` meanwhile), check the
+    file, remove the record (it is a copy of the whole configuration, secrets included) and run
+    `sudo dpkg --configure -a` again.
   - A blank value (`HL7_LAB_MEASUREMENT_FILTER=`) now files every result whole; it used to file
     blank values. Commenting the line out in `/etc/carlos-emr/carlos.properties` brings back the
     shipped filter.
