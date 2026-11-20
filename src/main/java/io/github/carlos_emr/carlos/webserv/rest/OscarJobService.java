@@ -30,11 +30,11 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.ScheduledFuture;
 
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -145,30 +145,17 @@ public class OscarJobService extends AbstractServiceImpl {
     @GET
     @Path("/all")
     @Produces("application/json")
-    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
-    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
-    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
-            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
-                    "known CARLOS types; no user-controlled property name reaches the sink")
     public OscarJobResponse getAllJobs() {
         requireAdminPrivilege("r");
         List<OscarJob> results = oscarJobManager.getAllJobs(getLoggedInInfo());
 
         OscarJobResponse response = new OscarJobResponse();
         for (OscarJob result : results) {
-            OscarJobTo1 to = new OscarJobTo1();
-            BeanUtils.copyProperties(result, to, new String[]{"oscarJobType"});
-            to.setOscarJobType(new OscarJobTypeTo1());
-            BeanUtils.copyProperties(result.getOscarJobType(), to.getOscarJobType());
+            OscarJobTo1 to = jobSummary(result);
 
-            if (result.getCronExpression() != null) {
+            if (result.isEnabled() && result.getOscarJobType() != null && result.getCronExpression() != null) {
                 CronTrigger trigger = new CronTrigger(result.getCronExpression());
-                //ScheduledFuture<Object> future = OscarJobExecutingManager.getFutures().get(result.getId());
-
-                if (result.isEnabled()) {
-                    to.setNextPlannedExecutionDate(trigger.nextExecutionTime(new SimpleTriggerContext()));
-                }
-
+                to.setNextPlannedExecutionDate(trigger.nextExecutionTime(new SimpleTriggerContext()));
             }
             response.getJobs().add(to);
         }
@@ -178,24 +165,31 @@ public class OscarJobService extends AbstractServiceImpl {
     @GET
     @Path("/job/{jobId}")
     @Produces("application/json")
+    public OscarJobResponse getJob(@PathParam("jobId") Integer jobId) {
+        requireAdminPrivilege("r");
+        return jobResponse(requireStoredJob(jobId));
+    }
+
+    private OscarJobResponse jobResponse(OscarJob result) {
+        OscarJobResponse response = new OscarJobResponse();
+        response.getJobs().add(jobSummary(result));
+        return response;
+    }
+
     // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
     // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
     @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
             justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
                     "known CARLOS types; no user-controlled property name reaches the sink")
-    public OscarJobResponse getJob(@PathParam("jobId") Integer jobId) {
-        requireAdminPrivilege("r");
-        OscarJob result = oscarJobManager.getJob(getLoggedInInfo(), jobId);
-
-        OscarJobResponse response = new OscarJobResponse();
-
+    private OscarJobTo1 jobSummary(OscarJob result) {
         OscarJobTo1 to = new OscarJobTo1();
         BeanUtils.copyProperties(result, to, new String[]{"oscarJobType"});
         to.setOscarJobType(new OscarJobTypeTo1());
-        BeanUtils.copyProperties(result.getOscarJobType(), to.getOscarJobType());
-        response.getJobs().add(to);
-
-        return response;
+        OscarJobType type = result.getOscarJobType();
+        if (type != null) {
+            BeanUtils.copyProperties(type, to.getOscarJobType());
+        }
+        return to;
     }
 
 
@@ -214,34 +208,59 @@ public class OscarJobService extends AbstractServiceImpl {
         job.setProviderNo(params.getFirst("job.provider"));
         job.setUpdated(new Date());
 
-        OscarJob result = null;
-
         if (job.getId() > 0) {
-            //edit
-            OscarJob savedJob = oscarJobManager.getJob(getLoggedInInfo(), job.getId());
-            savedJob.setName(job.getName());
-            savedJob.setDescription(job.getDescription());
-            savedJob.setEnabled(job.isEnabled());
-            savedJob.setOscarJobTypeId(job.getOscarJobTypeId());
-            savedJob.setOscarJobType(null);
-            savedJob.setProviderNo(job.getProviderNo());
-
-            oscarJobManager.updateJob(getLoggedInInfo(), savedJob);
-            result = savedJob;
-        } else {
-            job.setId(null);
-            oscarJobManager.saveJob(getLoggedInInfo(), job);
-            result = job;
-        }
-
-        if (job.getCronExpression() != null && job.getCronExpression().length() > 0) {
-            try {
-                OscarJobUtils.scheduleJob(job);
-            } catch (Exception e) {
-                logger.warn("job " + job.getName() + " not added");
+            synchronized (OscarJobExecutingManager.schedulingLock(job.getId())) {
+                OscarJob savedJob = requireStoredJob(job.getId());
+                savedJob.setName(job.getName());
+                savedJob.setDescription(job.getDescription());
+                savedJob.setEnabled(job.isEnabled());
+                savedJob.setOscarJobTypeId(job.getOscarJobTypeId());
+                savedJob.setOscarJobType(null);
+                savedJob.setProviderNo(job.getProviderNo());
+                oscarJobManager.updateJob(getLoggedInInfo(), savedJob);
+                return applyStoredSchedule(savedJob.getId());
             }
         }
-        return getJob(result.getId());
+
+        job.setId(null);
+        oscarJobManager.saveJob(getLoggedInInfo(), job);
+        synchronized (OscarJobExecutingManager.schedulingLock(job.getId())) {
+            return applyStoredSchedule(job.getId());
+        }
+    }
+
+    private OscarJob requireStoredJob(Integer jobId) {
+        OscarJob job = oscarJobManager.getJob(getLoggedInInfo(), jobId);
+        if (job == null) {
+            throw new NotFoundException();
+        }
+        return job;
+    }
+
+    /** Reads and applies the stored schedule while the caller holds the job's scheduling lock. */
+    private OscarJobResponse applyStoredSchedule(Integer jobId) {
+        // The form does not carry the cron or the persisted job type association.
+        OscarJob persisted = requireStoredJob(jobId);
+        OscarJobResponse.ScheduleActivation activation = null;
+        try {
+            if (!persisted.isEnabled()) {
+                OscarJobUtils.cancelJob(persisted.getId(), false);
+                activation = OscarJobResponse.ScheduleActivation.DISABLED;
+            } else if (persisted.getOscarJobType() == null) {
+                OscarJobUtils.cancelJob(persisted.getId(), false);
+                activation = OscarJobResponse.ScheduleActivation.FAILED;
+            } else if (persisted.getCronExpression() != null && !persisted.getCronExpression().isBlank()) {
+                activation = OscarJobUtils.scheduleJob(persisted)
+                        ? OscarJobResponse.ScheduleActivation.ACTIVE : OscarJobResponse.ScheduleActivation.FAILED;
+            }
+        } catch (Exception e) {
+            logger.warn("Could not apply saved job {} to the scheduler ({})", persisted.getId(), e.getClass().getSimpleName());
+            activation = OscarJobResponse.ScheduleActivation.FAILED;
+        }
+        requireAdminPrivilege("r");
+        OscarJobResponse response = jobResponse(persisted);
+        response.setScheduleActivation(activation);
+        return response;
     }
 
     @POST
@@ -251,11 +270,7 @@ public class OscarJobService extends AbstractServiceImpl {
     public OscarJobResponse cancelJob(@FormParam(value = "jobId") Integer jobId) {
         requireAdminPrivilege("w");
 
-        ScheduledFuture<Object> future = OscarJobExecutingManager.getFutures().get(jobId);
-        if (future != null) {
-            future.cancel(true);
-            OscarJobExecutingManager.getFutures().remove(jobId);
-        }
+        OscarJobUtils.cancelJob(jobId, true);
         return getJob(jobId);
     }
 
@@ -318,18 +333,16 @@ public class OscarJobService extends AbstractServiceImpl {
             }
         }
 
-        OscarJob job = oscarJobManager.getJob(getLoggedInInfo(), jobId);
-        if (job != null) {
-            job.setCronExpression(parts[0] + " " + parts[1] + " " + parts[2] + " " + parts[3] + " " + parts[4] + " " + parts[5]);
-            oscarJobManager.updateJob(getLoggedInInfo(), job);
-            try {
-                OscarJobUtils.scheduleJob(job);
-            } catch (Exception e) {
-                logger.warn("error scheduling job " + e);
-            }
+        synchronized (OscarJobExecutingManager.schedulingLock(jobId)) {
+            return updateStoredCron(jobId, parts);
         }
+    }
 
-        return getJob(jobId);
+    private OscarJobResponse updateStoredCron(Integer jobId, String[] parts) {
+        OscarJob job = requireStoredJob(jobId);
+        job.setCronExpression(String.join(" ", parts));
+        oscarJobManager.updateJob(getLoggedInInfo(), job);
+        return applyStoredSchedule(jobId);
     }
 
     /**
@@ -415,6 +428,12 @@ public class OscarJobService extends AbstractServiceImpl {
     @Consumes("application/x-www-form-urlencoded")
     public OscarJobResponse enableJob(@FormParam(value = "jobId") Integer jobId) {
         requireAdminPrivilege("w");
+        synchronized (OscarJobExecutingManager.schedulingLock(jobId)) {
+            return enableStoredJob(jobId);
+        }
+    }
+
+    private OscarJobResponse enableStoredJob(Integer jobId) {
         OscarJob job = oscarJobManager.getJob(getLoggedInInfo(), jobId);
         if (job != null) {
             job.setEnabled(true);
@@ -434,17 +453,19 @@ public class OscarJobService extends AbstractServiceImpl {
     @Consumes("application/x-www-form-urlencoded")
     public OscarJobResponse disableJob(@FormParam(value = "jobId") Integer jobId) {
         requireAdminPrivilege("w");
+        synchronized (OscarJobExecutingManager.schedulingLock(jobId)) {
+            return disableStoredJob(jobId);
+        }
+    }
+
+    private OscarJobResponse disableStoredJob(Integer jobId) {
         OscarJob job = oscarJobManager.getJob(getLoggedInInfo(), jobId);
         if (job != null) {
             job.setEnabled(false);
         }
         oscarJobManager.updateJob(getLoggedInInfo(), job);
 
-        ScheduledFuture<Object> future = OscarJobExecutingManager.getFutures().get(job.getId());
-        if (future != null) {
-            future.cancel(false);
-            OscarJobExecutingManager.getFutures().remove(job.getId());
-        }
+        OscarJobUtils.cancelJob(job.getId(), false);
 
 
         return getJob(jobId);

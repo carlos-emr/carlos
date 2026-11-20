@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/jobs/OscarJobExecutingManager.java",
+  "kind": "floor",
+  "floor": {
+    "sourceBlob": "be91f9ac7f8bc2fe1efc3402b48a0ef794bf7b41",
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0
+  },
+  "evidenceSha256": "8586dd4a4f01156772a8fee76162daf75d816940f7272a1328fe2216ca061a99"
+}
