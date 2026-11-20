@@ -355,6 +355,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     void shouldReplaceThePartial_whenTheFinalFollowsIt() {
         Measurement partial = new Measurement();
         partial.setDataField("5.1");
+        partial.setDemographicId(42);
         when(measurementDao.findByValue("lab_no", "1111")).thenReturn(java.util.List.of(partial));
         Measurement filed;
         try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
