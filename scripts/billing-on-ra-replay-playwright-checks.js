@@ -125,6 +125,15 @@ async function workflow(s) {
       h.assert(finances()===settledFinancial&&JSON.stringify(originalFiles())===fileSnapshot,'RA re-import changed money, claim state or original upload bytes');
       await summary(imported.frame,raNo,remittance.cheque,raClaims);control();
     });
+    // #6333: a different file under a stored name used to be dropped silently while the stored file was
+    // re-imported and the page reported nothing; the upload is now refused visibly and changes nothing.
+    await s.step('different bytes under the stored RA name are refused visibly with no remittance, financial or file effect',async()=>{
+      const refused=await base.uploadMohFile(s,admin,raName,remittance.text+'\n','/servlet/io.github.carlos_emr.DocumentUploadServlet');
+      h.assert(refused.status===200,'Conflicting RA upload did not answer with the RA page');
+      h.assert((await refused.frame.locator('.alert-danger').allInnerTexts()).some(text=>text.includes('A different file with this name has already been uploaded')),'Conflicting RA upload was not reported to the user');
+      h.assert(sql.value(`SELECT COUNT(*) FROM raheader WHERE filename=${q(raName)}`)==='1'&&header(raNo)===originalHeader&&details(raNo)===originalDetails,'Conflicting RA upload changed remittance/detail state');
+      h.assert(finances()===settledFinancial&&JSON.stringify(originalFiles())===fileSnapshot,'Conflicting RA upload changed money, claim state or the stored upload bytes');control();
+    });
     await s.step('settled UI offers no Settle; replay of its actual protected POST has no second financial effect',async()=>{
       const frame=await frameFor(),row=base.raRow(frame,marker).filter({has:frame.locator(`a[href*="rano=${raNo}"]`)});
       await row.waitFor({state:'visible',timeout:30000});

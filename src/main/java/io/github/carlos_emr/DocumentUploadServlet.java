@@ -28,11 +28,16 @@
  */
 package io.github.carlos_emr;
 
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URLDecoder;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
@@ -174,13 +179,23 @@ public class DocumentUploadServlet extends HttpServlet {
                         File documentDir = new File(foldername);
                         File savedFile = PathValidationUtils.validatePath(submittedFilename, documentDir);
 
+                        StoredUpload stored;
+                        try (InputStream in = part.getInputStream()) {
+                            stored = storeUpload(in, savedFile.toPath());
+                        }
+                        if (stored == StoredUpload.CONFLICT) {
+                            // A different file already holds this name. Importing would process the stored
+                            // file, not this one, and report success for a file that was never kept (#6333).
+                            MiscUtils.getLogger().warn("Upload refused: a different file is already stored as {}",
+                                    LogSafe.sanitize(savedFile.getName()));
+                            request.setAttribute(UPLOAD_CONFLICT_ATTRIBUTE, Boolean.TRUE);
+                            continue;
+                        }
+                        // The stored file is the one uploaded (a repeat of the same bytes is the same file).
                         fileheader = savedFile.getName();
 
-                        try (InputStream in = part.getInputStream()) {
-                            Files.copy(in, savedFile.toPath());
-                        }
-
-                        if (CarlosProperties.getInstance().isPropertyActive("moh_file_management_enabled")) {
+                        if (stored == StoredUpload.STORED
+                                && CarlosProperties.getInstance().isPropertyActive("moh_file_management_enabled")) {
                             File inboxDir = new File(inboxFolder);
                             FileUtils.copyFileToDirectory(savedFile, inboxDir);
                         }
@@ -202,6 +217,62 @@ public class DocumentUploadServlet extends HttpServlet {
         documentBean.setFilename(fileheader);
         RequestDispatcher dispatch = getServletContext().getRequestDispatcher(forwardTo);
         dispatch.forward(request, response);
+    }
+
+    /** Request attribute the RA page reads to say that an upload was refused because its name was taken. */
+    public static final String UPLOAD_CONFLICT_ATTRIBUTE = "raUploadConflict";
+
+    /** What happened to an uploaded file's bytes. */
+    enum StoredUpload {
+        /** The file was new and is now stored. */
+        STORED,
+        /** A file with this name and exactly these bytes was already stored; nothing was written. */
+        IDENTICAL_REPEAT,
+        /** A file with this name but different bytes is stored; it was left as it was. */
+        CONFLICT
+    }
+
+    /**
+     * Stores an upload under a name that must not already exist, without ever replacing a stored
+     * file. The create is exclusive, so of two concurrent uploads of one name exactly one writes.
+     * When the name is taken, the stored bytes are compared with the upload: the same bytes are a
+     * repeat (an RA re-sent unchanged imports idempotently), different bytes are a conflict the
+     * caller must report. A write that fails part-way removes the partial file it created.
+     *
+     * @param upload the uploaded bytes, read at most once
+     * @param target the validated destination
+     * @return what was stored
+     * @throws IOException if the upload cannot be read or written
+     */
+    static StoredUpload storeUpload(InputStream upload, Path target) throws IOException {
+        OutputStream out;
+        try {
+            out = Files.newOutputStream(target, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+        } catch (FileAlreadyExistsException taken) {
+            return sameBytes(upload, target) ? StoredUpload.IDENTICAL_REPEAT : StoredUpload.CONFLICT;
+        }
+        boolean written = false;
+        try (out) {
+            upload.transferTo(out);
+            written = true;
+        } finally {
+            if (!written) Files.deleteIfExists(target);
+        }
+        return StoredUpload.STORED;
+    }
+
+    private static boolean sameBytes(InputStream upload, Path stored) throws IOException {
+        try (InputStream existing = new BufferedInputStream(Files.newInputStream(stored));
+             InputStream incoming = new BufferedInputStream(upload)) {
+            int a;
+            int b;
+            do {
+                a = existing.read();
+                b = incoming.read();
+                if (a != b) return false;
+            } while (a != -1);
+            return true;
+        }
     }
 
     private boolean hasUploadPrivilege(LoggedInInfo loggedInInfo) {

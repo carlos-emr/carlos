@@ -150,6 +150,88 @@ class DocumentUploadServletUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldStoreUpload_whenNameIsFree() throws Exception {
+        Path target = tempDir.resolve("ra.txt");
+        assertThat(DocumentUploadServlet.storeUpload(stream("RA A"), target)).isEqualTo(DocumentUploadServlet.StoredUpload.STORED);
+        assertThat(Files.readString(target)).isEqualTo("RA A");
+    }
+
+    @Test
+    void shouldReportIdenticalRepeat_whenSameBytesAreUploadedAgain() throws Exception {
+        Path target = Files.writeString(tempDir.resolve("ra.txt"), "RA A");
+        assertThat(DocumentUploadServlet.storeUpload(stream("RA A"), target))
+                .isEqualTo(DocumentUploadServlet.StoredUpload.IDENTICAL_REPEAT);
+        assertThat(Files.readString(target)).isEqualTo("RA A");
+    }
+
+    @Test
+    void shouldReportConflictAndKeepStoredFile_whenDifferentBytesUseTheName() throws Exception {
+        Path target = Files.writeString(tempDir.resolve("ra.txt"), "RA A");
+        for (String other : new String[]{"RA B", "RA A plus more", "RA", ""}) {
+            assertThat(DocumentUploadServlet.storeUpload(stream(other), target))
+                    .as(other).isEqualTo(DocumentUploadServlet.StoredUpload.CONFLICT);
+            assertThat(Files.readString(target)).isEqualTo("RA A");
+        }
+    }
+
+    @Test
+    void shouldRemoveItsPartialFile_whenTheUploadCannotBeRead() {
+        Path target = tempDir.resolve("ra.txt");
+        java.io.InputStream broken = new java.io.InputStream() {
+            private int sent;
+            @Override public int read() throws java.io.IOException {
+                if (sent++ < 3) return 'x';
+                throw new java.io.IOException("client went away");
+            }
+        };
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> DocumentUploadServlet.storeUpload(broken, target))
+                .isInstanceOf(java.io.IOException.class);
+        assertThat(target).doesNotExist();
+    }
+
+    @Test
+    @DisplayName("should refuse to import a different file uploaded under a stored name")
+    void shouldRefuseImportAndFlagConflict_whenDifferentFileUsesStoredName() throws Exception {
+        Path documentDir = Files.createDirectories(tempDir.resolve("documents"));
+        Files.writeString(documentDir.resolve("ra.txt"), "original RA", StandardCharsets.UTF_8);
+        String previousForward = CarlosProperties.getInstance().getProperty("RA_FORWORD");
+        String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST",
+                "/servlet/io.github.carlos_emr.DocumentUploadServlet");
+        request.setContentType("multipart/form-data; boundary=x");
+        request.addPart(new org.springframework.mock.web.MockPart("file1", "ra.txt",
+                "corrected RA".getBytes(StandardCharsets.UTF_8)));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(loggedInInfo);
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_admin.billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        DocumentUploadServlet servlet = new DocumentUploadServlet();
+        servlet.init(new MockServletConfig(new MockServletContext()));
+
+        try {
+            CarlosProperties.getInstance().setProperty("RA_FORWORD", "/WEB-INF/jsp/billing/ra-upload.jsp");
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+
+            servlet.service(request, response);
+
+            assertThat(Files.readString(documentDir.resolve("ra.txt"), StandardCharsets.UTF_8)).isEqualTo("original RA");
+            assertThat(request.getAttribute(DocumentUploadServlet.UPLOAD_CONFLICT_ATTRIBUTE)).isEqualTo(Boolean.TRUE);
+            DocumentBean documentBean = (DocumentBean) request.getAttribute("documentBean");
+            assertThat(documentBean.getFilename()).as("nothing is handed to the RA import").isEmpty();
+            assertThat(response.getForwardedUrl()).isEqualTo("/WEB-INF/jsp/billing/ra-upload.jsp");
+        } finally {
+            restoreProperty("RA_FORWORD", previousForward);
+            restoreProperty("DOCUMENT_DIR", previousDocumentDir);
+        }
+    }
+
+    private static java.io.InputStream stream(String text) {
+        return new java.io.ByteArrayInputStream(text.getBytes(StandardCharsets.UTF_8));
+    }
+
     private static void restoreProperty(String key, String previousValue) {
         if (previousValue == null) {
             CarlosProperties.getInstance().remove(key);

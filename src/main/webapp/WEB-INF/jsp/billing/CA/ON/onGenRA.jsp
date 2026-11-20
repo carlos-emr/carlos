@@ -104,6 +104,14 @@
         does not reflect the file you just attempted to import.
     </div>
 </c:if>
+<%-- `raUploadConflict=true` is set by DocumentUploadServlet when a different file was
+     already stored under the uploaded name: the upload was neither kept nor imported. --%>
+<c:if test="${raUploadConflict}">
+    <div class="alert alert-danger" role="alert">
+        A different file with this name has already been uploaded. The file you just sent was
+        not saved or imported, and the RA list below is unchanged. Rename the file and upload it again.
+    </div>
+</c:if>
 
 <div class="container-fluid card card-body bg-body-tertiary report-print-plain">
     <button class="btn btn-primary float-end d-print-none report-print-hide" type='button' name='print' value='Print'
