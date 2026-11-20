@@ -68,6 +68,12 @@ import org.springframework.transaction.interceptor.TransactionInterceptor;
 @Tag("lab")
 @DisplayName("CategoryData patient-search HIN filter")
 class CategoryDataPatientSearchUnitTest extends CarlosUnitTestBase {
+    private void registerDateSearchService() {
+        registerMock(io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService.class,
+                new io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService(
+                    mock(io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao.class)));
+    }
+
 
     private final List<String> statements = new ArrayList<>();
     private final List<List<Object>> parameters = new ArrayList<>();

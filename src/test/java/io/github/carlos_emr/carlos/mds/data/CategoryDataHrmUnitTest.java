@@ -23,6 +23,13 @@ import static org.mockito.Mockito.*;
  */
 @Tag("unit")
 class CategoryDataHrmUnitTest extends CarlosUnitTestBase {
+    @org.junit.jupiter.api.BeforeEach
+    void registerDateSearchService() {
+        registerMock(io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService.class,
+                new io.github.carlos_emr.carlos.inboxhub.InboxDateSearchService(
+                    mock(io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao.class)));
+    }
+
     @ParameterizedTest
     @CsvSource(value = {"N,0", "A,1", "F,1", "'',any", "NULL,0"}, nullValues = "NULL")
     void shouldUseSameReviewFilterForMatchedAndUnmatchedCounts_whenStatusSelected(String status, String signedOff) throws Exception {

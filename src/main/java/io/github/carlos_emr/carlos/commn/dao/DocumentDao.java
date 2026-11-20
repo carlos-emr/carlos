@@ -42,6 +42,16 @@ import io.github.carlos_emr.carlos.documentManager.dto.DocumentListItemDTO;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil.EDocSort;
 
 public interface DocumentDao extends AbstractDao<Document>, CdsExportPatientTableReadDao {
+    /** Retires legacy current-review rows after their evidence has been archived by the service. */
+    void retireCurrentReviewRows(Integer documentNo);
+    /**
+     * Reads the document's current legacy review rows before their evidence is archived.
+     *
+     * @param documentNo the persisted document identifier
+     * @return the matching rows, or an empty list when the document has no current legacy reviews
+     */
+    java.util.List<io.github.carlos_emr.carlos.commn.model.DocumentReview> findCurrentReviewRows(Integer documentNo);
+
 
     /** Updates only the page count, preserving concurrent classification/metadata edits. */
     void updatePageCount(Integer documentNo, int pageCount);
