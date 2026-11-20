@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "48e8b9459688274123435c83b2aac79443a161ee",
+  "comparisonSha256": "a74ad17eac6d79271a5a7e76f982255422158a6c8199875d727e70b680daf716",
+  "baselineCommit": "abdf0335479206a93a55be4b33cd375c9b221652",
+  "baselineSourceTree": "48e8b9459688274123435c83b2aac79443a161ee",
+  "baselineReportSha256": "2bd476c94fee147cda4762fa4dbd9b732616730137686cf7d704df3ef6fa9d65",
+  "baselineLane": "Java 25 eForm image publication, shared staging permissions, upload ownership and ZIP controls",
+  "baselineTestCounts": {
+    "tests": 116,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "6ad3f7a7f7eaee257571e1ecd008ef36664e72982c1777134690232feb43a90b",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/eform/EFormImagePublicationLock.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "ca9528be3bd66eb4fac610e2abdff19eae2210e8",
+      "requiredRefusalLines": [
+        73
+      ]
+    }
+  },
+  "exclusions": {},
+  "refusalLineMappings": {
+    "src/main/java/io/github/carlos_emr/carlos/eform/EFormImagePublicationLock.java": {
+      "fromSourceBlob": "5592c76a7b38a282468023fc38ecaed9fb6e40dc",
+      "lines": {
+        "65": 73
+      }
+    }
+  }
+}

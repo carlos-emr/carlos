@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/webserv/rest/DemographicService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "f6efb4d9ecd53617415178f1252a78d0a2dfcd9a"
+  },
+  "evidenceSha256": "58506af9e84fe1e0a9ae4b59145540cb50d1f5033bf9e449dc799d29f0ca69f4"
+}

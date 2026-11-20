@@ -319,9 +319,13 @@
         <c:if test="${param.from=='casemgmt'||requestScope.from=='casemgmt'}">
             <input type="hidden" name="from" value="casemgmt"/>
         </c:if>
-        <input type="hidden" name="lineId" value="0"/>
         <input type="hidden" name="addIssue" value="null"/>
         <input type="hidden" name="deleteId" value="0"/>
+        <input type="hidden" name="renderedIssueIdentity" value=""/>
+        <c:forEach var="renderedIssue" items="${caseManagementEntryForm.issueCheckList}">
+            <input type="hidden" name="renderedIssueIdentity"
+                   value="${carlos:forHtmlAttribute(renderedIssue.issue.id)}:${carlos:forHtmlAttribute(renderedIssue.issue.issue_id)}"/>
+        </c:forEach>
 
         <b><fmt:message key="casemanagementEntry.clientname"/>
             <I>
@@ -381,12 +385,12 @@
 
         <tr style="background-color: ${counter % 2 == 0 ? '#EEEEFF' : 'white'}; text-align: center;">
             <td>
-                <input type="checkbox" name="issueCheckList[${status.index}].checked"
+                <input type="checkbox" id="issue-check-${status.index}" name="issueCheckList[${status.index}].checked"
                        onchange="setChangeFlag(true);"
                        ${checkBoxDisabled ? 'disabled' : ''} />
             </td>
             <td style="${cbb.issueDisplay.priority eq 'allergy' ? 'background-color: yellow;' : ''}">
-                ${cbb.issueDisplay.description}
+                <label for="issue-check-${status.index}"><c:out value="${cbb.issueDisplay.description}"/></label>
             </td>
             <td>
                 <select name="issueCheckList[${status.index}].issueDisplay.acute" ${disabled ? 'disabled' : ''}>
@@ -419,13 +423,13 @@
             <td>
                 <c:if test="${cbb.issueDisplay.location eq 'local'}">
                     <c:if test="${!cbb.used}">
-                        <button type="submit" 
-                                onclick="this.form.method.value='issueDelete'; this.form.deleteId.value='${status.index}';">
+                        <button type="submit" name="caseIssueId" value="${carlos:forHtmlAttribute(cbb.issue.id)}"
+                                onclick="this.form.method.value='issueDelete';">
                             Delete
                         </button>
                     </c:if>
-                    <button type="submit" 
-                            onclick="this.form.method.value='changeDiagnosis'; this.form.deleteId.value='${status.index}';">
+                    <button type="submit" name="changeDiagnosisIssueId" value="${carlos:forHtmlAttribute(cbb.issue.id)}"
+                            onclick="this.form.method.value='changeDiagnosis';">
                         Change Issue
                     </button>
                 </c:if>

@@ -16,6 +16,11 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+
+<% if (Boolean.TRUE.equals(request.getAttribute("inboxDocumentsIncomplete"))) { %>
+<div data-inbox-incomplete="true" role="alert" class="alert alert-warning"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(
+    java.util.ResourceBundle.getBundle("oscarResources", request.getLocale()).getString("inbox.documentsIncomplete")) %></div>
+<% } %>
 <fmt:setBundle basename="oscarResources"/>
 
 

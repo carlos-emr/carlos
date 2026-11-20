@@ -64,6 +64,55 @@ class DemographicPrefNameUnitTest {
     }
 
     @Test
+    @DisplayName("should copy the stored preferred name, not the alias the display getter answers")
+    void shouldCopyTheStoredPreferredName_whenAnAliasIsSet() throws Exception {
+        Demographic stored = new Demographic();
+        stored.setPrefName("FAKE-Pref");
+        stored.setAlias("FAKE-Alias");
+
+        // The copy constructor copies bean properties, and getPrefName() answers the alias: a
+        // copy saved as the patient's new version wrote the alias into pref_name.
+        Demographic copy = new Demographic(stored);
+
+        assertThat(storedPrefName(copy)).as("the pref_name value").isEqualTo("FAKE-Pref");
+        assertThat(copy.getAlias()).as("the alias").isEqualTo("FAKE-Alias");
+        assertThat(copy.getPrefName()).as("the name shown").isEqualTo("FAKE-Alias");
+    }
+
+    @Test
+    @DisplayName("should copy the stored preferred name when there is no alias")
+    void shouldCopyTheStoredPreferredName_whenThereIsNoAlias() throws Exception {
+        Demographic stored = new Demographic();
+        stored.setPrefName("FAKE-Pref");
+        stored.setAlias("");
+
+        Demographic copy = new Demographic(stored);
+
+        assertThat(storedPrefName(copy)).as("the pref_name value").isEqualTo("FAKE-Pref");
+        assertThat(copy.getAlias()).as("the alias").isEmpty();
+    }
+
+    @Test
+    @DisplayName("should leave an unset preferred name unset in the copy when only an alias is set")
+    void shouldLeaveThePreferredNameUnset_whenOnlyAnAliasIsSet() throws Exception {
+        Demographic stored = new Demographic();
+        stored.setPrefName(null);
+        stored.setAlias("FAKE-Alias");
+
+        Demographic copy = new Demographic(stored);
+
+        assertThat(storedPrefName(copy)).as("the pref_name value").isNull();
+        assertThat(copy.getAlias()).as("the alias").isEqualTo("FAKE-Alias");
+    }
+
+    /** The mapped field, which no getter answers once an alias is set. */
+    private static String storedPrefName(Demographic demographic) throws Exception {
+        Field field = Demographic.class.getDeclaredField("prefName");
+        field.setAccessible(true);
+        return (String) field.get(demographic);
+    }
+
+    @Test
     void shouldMapTheColumnToTheField_notTheDisplayGetter() throws Exception {
         Field field = Demographic.class.getDeclaredField("prefName");
         Method getter = Demographic.class.getMethod("getPrefName");

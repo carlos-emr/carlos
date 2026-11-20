@@ -33,9 +33,8 @@ function harness({ searchData = [{ description: ' Safe & Sound ', code: 'A"B', i
   const cpp = element('form', { id: 'frmIssueNotes', elements: { issueChange: { value: '' } }, children: [list],
     querySelector: selector => selector === '#issueIdList' ? list : null });
   const note = element('form', { name: 'caseManagementEntryForm', elements: {
-    newIssueId: { value: '' }, newIssueName: { value: '' }, change_diagnosis_id: { value: '' },
+    newIssueId: { value: '' }, newIssueName: { value: '' }, changeDiagnosisIssueId: { value: '' },
   } });
-  note.change_diagnosis_id = note.elements.change_diagnosis_id;
   const input = element('input', { form: note });
   note.querySelector = selector => selector === '#issueAutocomplete' ? input : null;
   const cppInput = element('input', { form: cpp });
@@ -203,16 +202,19 @@ test('Assign rejects edited suggestions and ignores repeat clicks while an issue
   assert.equal(h.updates.length, 0);
 });
 
-test('Change uses the same current fragment for both resolved and unresolved issues', () => {
+test('Change carries the persisted patient-issue ID from either row to the current form', () => {
   const h = harness();
+  const issueList = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/casemgmt/noteIssueList.jsp'), 'utf8');
   h.input.focus = () => {};
-  for (const name of ['changeDiagnosisResolved', 'changeDiagnosisUnresolved']) {
-    h.context[name]('3');
+  for (const [name, id] of [['changeDiagnosisResolved', '91'], ['changeDiagnosisUnresolved', '92']]) {
+    assert.ok(issueList.includes('data-issue-id="${carlos:forHtmlAttribute(issueCheckList.issue.id)}"\n'
+      + `                        onclick="return ${name}(this.dataset.issueId);"`));
+    h.context[name](id);
     h.context.saveIssueId(h.input, { id: 12, textContent: 'Safety' });
     h.context.assignNoteIssue({});
     assert.equal(h.updates.at(-1).div, 'sig31');
     assert.equal(h.updates.at(-1).method, 'ajaxChangeDiagnosis');
-    assert.equal(h.note.change_diagnosis_id.value, '3');
+    assert.equal(h.note.elements.changeDiagnosisIssueId.value, id);
   }
 });
 

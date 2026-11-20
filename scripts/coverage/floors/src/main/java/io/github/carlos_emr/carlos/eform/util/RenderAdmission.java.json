@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/eform/util/RenderAdmission.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 97.36842105263158,
+    "sourceBlob": "1a020d2468c54a7c94089179db23b37251a9bb09"
+  },
+  "evidenceSha256": "4053cd8322653fa03b3d81ccc47ded1226681ee45c4e755147bd596b973f678e"
+}

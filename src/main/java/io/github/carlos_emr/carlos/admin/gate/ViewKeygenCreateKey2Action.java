@@ -13,6 +13,7 @@
 package io.github.carlos_emr.carlos.admin.gate;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -41,6 +42,17 @@ public final class ViewKeygenCreateKey2Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
             throw new SecurityException("missing required sec object (_admin)");
+        }
+
+        // createKey.jsp generates and stores a key pair for any request that names a service, so
+        // a request carrying `name` is a write and must arrive as the page's own POST. A plain GET
+        // without `name` still opens the empty form from the Key Manager's Create New Key button
+        // (#6321, app-findings-log finding 163).
+        if (request.getParameter("name") != null && !"POST".equals(request.getMethod())) {
+            HttpServletResponse response = ServletActionContext.getResponse();
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            response.setHeader("Allow", "POST");
+            return NONE;
         }
 
         return SUCCESS;

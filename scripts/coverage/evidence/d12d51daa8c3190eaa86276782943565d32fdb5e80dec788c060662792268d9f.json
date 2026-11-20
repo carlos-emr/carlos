@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "69ad42ab87bfcc378755b24278a053460f6a9789",
+  "comparisonSha256": "09e5044deab55b903ba962b778a7a7b818d7ec471eb5cee45ac47fafcbdbd5d1",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/managers/DemographicManager.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d17ebff025eca93a32290c8cf7ade60048f6f715"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/DemographicManagerImpl.java": {
+      "lines": 97.1830985915493,
+      "instructions": 96.64607237422771,
+      "branches": 86.02941176470588,
+      "sourceBlob": "e041decccb9e29ec009b5338989a90a29016158d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/DemographicExtensionNotFoundException.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "8addc1c65c63413e022440fe13cfb11de1c39e0b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/DemographicService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "7156e524853ffccfffeb613cb5dc1992fcaa8957"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/waitinglist/util/WLWaitingListUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "c8b25993a62ace3c81947cfa54d490477ba57aae"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingObecOutputApplyService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "e66e2453a4cca5c1298b3fcb694430e266fcbda5"
+    }
+  },
+  "baselineCommit": "57dca3e3456b6e06cfdd33aa6419c7262d9a723f",
+  "baselineSourceTree": "69ad42ab87bfcc378755b24278a053460f6a9789",
+  "baselineReportSha256": "be68a72590978a28f82e81e7f299e9a89ebf0add5b5f013816ed416463c2786e",
+  "baselineLane": "Fresh JDK25 compilation at the measured commit, clean tree. Selected-source evidence for the demographic update transaction (#5298) after the update began refusing a missing waiting-list entry and another patient's extension, and the OBEC apply began updating from a copy: 450 H2 cases (manager unit and transaction tests, REST unit and endpoint tests, the twenty-three update-transaction cases, reassignment, OBEC apply, waiting-list helper and stale-form tests, schedule controls) and 69 native MariaDB 11.8.8 cases with 32K pages on the generated schema (the same twenty-three update-transaction cases, merge, web unmerge, identifier preservation, schedule sync, reporting audit). All 519 executed JUnit cases pass with zero failures, errors or skips. Existing higher floors retained; not full release qualification.",
+  "baselineTestCounts": {
+    "tests": 519,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "3f1cecd8e91d2009590fdc6d3e5405e26fd0ecc533765b25a106d07637f62191",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}

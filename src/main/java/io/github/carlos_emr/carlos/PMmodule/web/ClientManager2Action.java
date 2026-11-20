@@ -74,7 +74,6 @@ import io.github.carlos_emr.carlos.PMmodule.wlservice.WaitListService;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsClientFormDao;
-import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -709,15 +708,9 @@ public class ClientManager2Action extends ActionSupport {
         this.setReferral(referral);
         this.setClient(client);
         this.setProvider(provider);
-        OscarLogDao logDao = SpringUtils.getBean(OscarLogDao.class);
-        List<OscarLog> logs = logDao.findByActionAndData("update_referral_date", referralId);
-        if (logs.size() > 0)
-            request.setAttribute("referral_date_updates", logs);
-
-        logs = logDao.findByActionAndData("update_completion_date", referralId);
-        if (logs.size() > 0)
-            request.setAttribute("completion_date_updates", logs);
-
+        // The referral/completion date-change history (audit actions update_referral_date and
+        // update_completion_date) was removed (#6029): nothing writes those actions and no page
+        // renders the history, so the two audit-log reads only ever produced empty, unused lists.
 
         return "view_referral";
     }
@@ -733,15 +726,8 @@ public class ClientManager2Action extends ActionSupport {
         this.setAdmission(admission);
         this.setClient(client);
         this.setProvider(provider);
-        OscarLogDao logDao = SpringUtils.getBean(OscarLogDao.class);
-        List<OscarLog> logs = logDao.findByActionAndData("update_admission_date", admissionId);
-        if (logs.size() > 0)
-            request.setAttribute("admission_date_updates", logs);
-
-        logs = logDao.findByActionAndData("update_discharge_date", admissionId);
-        if (logs.size() > 0)
-            request.setAttribute("discharge_date_updates", logs);
-
+        // The admission/discharge date-change history (audit actions update_admission_date and
+        // update_discharge_date) was removed (#6029) for the same reason as view_referral's.
 
         return "view_admission";
     }

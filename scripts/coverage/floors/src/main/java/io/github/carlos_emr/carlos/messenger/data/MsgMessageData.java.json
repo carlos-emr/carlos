@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/messenger/data/MsgMessageData.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "2606175ceb37d767189fa3426fdca34c3babbefc"
+  },
+  "evidenceSha256": "3037ce60dca23681329bc9ed615eb28596d5713377456b57aa4d6342a047b2fa"
+}

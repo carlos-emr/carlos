@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "fc3d4e3557f5f8b09cd2c3fe22f50d9894520a96",
+  "comparisonSha256": "371406e0d0bedb3e569af2f9efd9ecf67c23b562c1f70a2c8c8bc1cac541ba88",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/managers/ScheduleManagerImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "27eeb362933acc22527dd3cb6261c7f430e8fa4b"
+    }
+  },
+  "baselineCommit": "cf7268ca496eaf6b7064e65c8b8df55572f94b26",
+  "baselineSourceTree": "fc3d4e3557f5f8b09cd2c3fe22f50d9894520a96",
+  "baselineReportSha256": "54c9de8693639f76c0903edd768b8557b40d7b05f2763eb9cfb400762b9c69f7",
+  "baselineLane": "246 schedule controls including physical audit rollback and a clean focused retest of all 43 field-audit cases",
+  "baselineTestCounts": {
+    "tests": 240,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "723b6775474291105c68dcb348595cfe6195e55c371baad06e9c6233cb8026ff",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

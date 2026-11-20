@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/documentManager/DocumentReviewService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 92.62295081967213,
+    "instructions": 91.52970922882427,
+    "branches": 83.9622641509434,
+    "sourceBlob": "86574406fd54d6507940f29c5e56d352775d0aa2"
+  },
+  "evidenceSha256": "8cab3d16435b80a0bb690170532922c0d1cb8891b55f9604eb693d325682cef5"
+}

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "038877c0dc5ff3edda6d5c39619057dc0d3ca88c",
+  "comparisonSha256": "73af6419e0e1c1c3d0351ba0aa4c2694c98e0c5ce9f908f8cdfcf3e8f75c73da",
+  "baselineCommit": "1eeaf67b358f2ae5be0c17468c7dfef57017593a",
+  "baselineSourceTree": "038877c0dc5ff3edda6d5c39619057dc0d3ca88c",
+  "baselineLane": "Java 25 Early CXF startup and loader lifecycle tests",
+  "baselineReportSha256": "a407ab053be2bc5da9aa2e5fb9d0f2cb83ddb6338a3b04ee8ac06aac06e742a4",
+  "baselineTestCounts": {
+    "tests": 15,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "c7b1179dd7a5b0dea896ede2243de16871b24d98f411cf2cde6885b80a740997",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/web/OscarSpringContextLoader.java": {
+      "sourceBlob": "38073d8e42310b1cb23d9236be644a31a281f74a",
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/ContextStartupListener.java": {
+      "sourceBlob": "11297de1bf5e4529be2f321a898c0847fcb6ca47",
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    }
+  }
+}

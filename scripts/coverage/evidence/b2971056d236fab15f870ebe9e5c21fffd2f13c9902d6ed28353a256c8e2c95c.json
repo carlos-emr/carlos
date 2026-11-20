@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "ef8de2fe8284035abefb725d68578520d819ae8d",
+  "comparisonSha256": "52233d33d56106d6e56820be4729d5f32bcfece3857e7dae4b0d6c89a2fc4856",
+  "baselineCommit": "2239a183dd9379e4fee2cc234e98ee2c5b004641",
+  "baselineSourceTree": "ef8de2fe8284035abefb725d68578520d819ae8d",
+  "baselineReportSha256": "6aeb1bf7c95b29b2a90cad27543e48fee6cb5ba781419e403c7040c058448a77",
+  "baselineLane": "Focused Java 25 release integration and isolated physical MariaDB 11.8.8 audit purge tests",
+  "baselineTestCounts": {
+    "tests": 295,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "6eae1e5887019358065204a508a23fd3cd8e11446536f8e33fa7058a89080d6d",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/managers/AuditLogPurgeService.java": {
+      "lines": 90.3225806451613,
+      "instructions": 85.0,
+      "branches": 65.70048309178743,
+      "sourceBlob": "d426f6bc59c025a67b9ba50eb68a907d4df50eaa"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibility.java": {
+      "lines": 89.26829268292683,
+      "instructions": 91.22738001573565,
+      "branches": 76.37231503579952,
+      "sourceBlob": "cc46f56585621a848478e7035baf4178a07126b8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/OscarTrackingBasicDataSource.java": {
+      "lines": 100.0,
+      "instructions": 98.50746268656717,
+      "branches": 78.57142857142857,
+      "sourceBlob": "1e3cd65736932393b20b2d6b0505846ced205968"
+    }
+  }
+}

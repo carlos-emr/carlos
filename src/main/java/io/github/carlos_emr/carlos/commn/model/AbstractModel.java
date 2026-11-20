@@ -58,17 +58,31 @@ public abstract class AbstractModel<T> implements java.io.Serializable {
         return (getId().hashCode());
     }
 
+    /**
+     * Entity equality by persistent identifier.
+     *
+     * <p>An instance always equals itself, never equals {@code null} or an instance of another
+     * class, and an instance without an identifier (not yet persisted) equals only itself. Two
+     * distinct instances are equal when both carry the same identifier. This used to throw
+     * {@link NullPointerException} for {@code null} and for any unsaved instance, including
+     * {@code x.equals(x)}, which broke collection lookups on new entities (#5303). The hash policy
+     * in {@link #hashCode()} is unchanged and stays consistent with this: identity hash while the
+     * identifier is unset, identifier hash afterwards.</p>
+     */
     @Override
     public boolean equals(Object o) {
-        if (getClass() != o.getClass()) return (false);
-
-        @SuppressWarnings("unchecked")
-        AbstractModel<T> abstractModel = (AbstractModel<T>) o;
-        if (getId() == null) {
-            MiscUtils.getLogger().warn(OBJECT_NOT_YET_PERISTED, new Exception());
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
         }
 
-        return (getId().equals(abstractModel.getId()));
+        T id = getId();
+        if (id == null) {
+            return false;
+        }
+        return id.equals(((AbstractModel<?>) o).getId());
     }
 
     /**

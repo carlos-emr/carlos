@@ -301,7 +301,6 @@
  	<bean id="demographicManagerT" class="io.github.carlos_emr.carlos.services.DemographicManagerTickler">
 		<property name="demographicDao" ref="demographicDao" />
 	</bean>
-	<bean id="preparedTicklerManagerT" class="io.github.carlos_emr.carlos.wl.prepared.PreparedTicklerManagerImpl" scope="singleton" />
 	<bean id="providerManager" class="io.github.carlos_emr.carlos.PMmodule.service.ProviderManagerImpl" autowire="byName" />
 	<bean id="clientRestrictionManager" class="io.github.carlos_emr.carlos.PMmodule.service.ClientRestrictionManagerImpl" autowire="byName" />
 

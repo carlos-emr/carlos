@@ -1,7 +1,9 @@
 # scripts/lint/encode-null-safety-allowlist.txt
 #
 # Glob patterns, one per line, relative to the repository root. Files matching
-# any pattern are skipped by scripts/lint/check-encoder-null-safety.sh.
+# any pattern are skipped by scripts/lint/check-encoder-null-safety.sh for
+# Classes A-C. Class D (an OWASP encoder taglib declaration) is still checked:
+# that library is not in the WAR (#5477), so no exception can make it work.
 #
 # Use sparingly. Every entry is a deliberate exception to the default rule
 # "use <carlos:encode> / ${carlos:forXxx} / SafeEncode.forXxx for all new

@@ -65,8 +65,26 @@ ADMISSION_REQUIRED_CASES = {
 APPOINTMENT_REQUIRED_CASES = {
     "shouldReuseReturnedVersion_whenEditEntersTheRepeatedHour",
     "shouldRefuseStoredPatient_beforeArchivalOrMutation",
+    "shouldRollbackArchiveAndMutation_whenFlushFails",
     "shouldRollbackArchiveAndEdit_whenReplacementPatientIsDenied",
+    "shouldRollbackFieldEditAndArchive_whenAuditFails",
     "shouldAllowAssignedPatientWrite_withoutReadPermission",
+}
+
+APPOINTMENT_FIELD_AUDIT_REQUIRED_CASES = {
+    "shouldRollBackFieldAndArchive_whenAuditDaoLookupFails(AppointmentUpdateAction)[1]",
+    "shouldRollBackFieldAndArchive_whenAuditDaoLookupFails(AppointmentUpdateAction)[2]",
+    "shouldRollBackFieldAndArchive_whenAuditDaoLookupFails(AppointmentUpdateAction)[3]",
+}
+
+JDBC_REQUIRED_CASES = {
+    "shouldConnectAndApplyConnectorJYesNo_forLegacyBooleanOptions",
+    "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)[1]",
+    "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)[2]",
+    "shouldCheckFloatRange_inBothPreparedProtocols(boolean)[1]",
+    "shouldCheckFloatRange_inBothPreparedProtocols(boolean)[2]",
+    "shouldPreserveZeroFilledTextAndUnsignedTinyIntegers_inBothPreparedProtocols(boolean)[1]",
+    "shouldPreserveZeroFilledTextAndUnsignedTinyIntegers_inBothPreparedProtocols(boolean)[2]",
 }
 
 RX_REQUIRED_CASES = {
@@ -201,6 +219,8 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
         for selected, required in MODULE.REQUIRED.items():
             required = dict(required)
             if selected == "generated":
+                required["AppointmentUpdateDaoIntegrationTest"] = 19
+                required["AppointmentFieldAuditTransactionIntegrationTest"] = 3
                 required["MeasurementDaoIntegrationTest"] += 3000 - sum(required.values())
             for family, count in required.items():
                 suite = self.suite(family)
@@ -217,6 +237,8 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     "RxPrescribeMariaDbIntegrationTest": RX_REQUIRED_CASES,
                     "TicklerPatientAccessMariaDbIntegrationTest": TICKLER_REQUIRED_CASES,
                     "AppointmentUpdateDaoIntegrationTest": APPOINTMENT_REQUIRED_CASES,
+                    "AppointmentFieldAuditTransactionIntegrationTest": APPOINTMENT_FIELD_AUDIT_REQUIRED_CASES,
+                    "JdbcConnectorMariaDbIntegrationTest": JDBC_REQUIRED_CASES,
                     "ProgramAdmissionAuditMariaDbIntegrationTest": ADMISSION_REQUIRED_CASES,
                     "ReportingPatientListAuditMariaDbIntegrationTest": REPORTING_REQUIRED_CASES,
                 }.get(family, set()) | MODULE.REQUIRED_CASES.get(family, set()))
@@ -287,9 +309,14 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
         self.seed()
         for mode in MODULE.REQUIRED:
             suffix = "" if mode == "generated" else "-" + mode
-            families = [("AppointmentUpdateDaoIntegrationTest", APPOINTMENT_REQUIRED_CASES)] if mode == "generated" else []
-            if mode != "generated":
-                families.append(("CaseManagementNoteLegacyFlagsMariaDbIntegrationTest", LEGACY_NOTE_FLAG_REQUIRED_CASES))
+            if mode == "generated":
+                families = [
+                    ("AppointmentUpdateDaoIntegrationTest", APPOINTMENT_REQUIRED_CASES),
+                    ("AppointmentFieldAuditTransactionIntegrationTest", APPOINTMENT_FIELD_AUDIT_REQUIRED_CASES),
+                    ("JdbcConnectorMariaDbIntegrationTest", JDBC_REQUIRED_CASES),
+                ]
+            else:
+                families = [("CaseManagementNoteLegacyFlagsMariaDbIntegrationTest", LEGACY_NOTE_FLAG_REQUIRED_CASES)]
             for family, names in families + [("SoapTokenHousekeepingDaoIntegrationTest", TOKEN_REQUIRED_CASES),
                                   ("DemographicMergeMariaDbIntegrationTest", MERGE_REQUIRED_CASES),
                                   ("DemographicWebUnmergeIntegrationTest", UNMERGE_REQUIRED_CASES),
@@ -363,6 +390,20 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             finally:
                 replacement.unlink()
                 report.write_text(original)
+
+    def test_generated_appointment_report_requires_nineteen_cases(self):
+        self.seed()
+        family = "AppointmentUpdateDaoIntegrationTest"
+        suite = self.suite(family)
+        report = self.reports / ("TEST-" + suite + ".xml")
+        original = report.read_text()
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+        case = f'<testcase classname="{suite}" name="shouldRead_forRow18"></testcase>'
+        self.assertIn(case, original)
+        report.write_text(original.replace(case, "", 1).replace('tests="19"', 'tests="18"', 1))
+        self.assert_refused(self.invoke(), f"Required MariaDB generated coverage missing: {family}")
 
     def test_another_package_or_nested_class_cannot_supply_required_inbox_cases(self):
         self.seed()

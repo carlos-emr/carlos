@@ -23,6 +23,11 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ taglib uri="carlos" prefix="carlos" %>
+
+<% if (Boolean.TRUE.equals(request.getAttribute("inboxDocumentsIncomplete"))) { %>
+<div data-inbox-incomplete="true" role="alert" class="alert alert-warning"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(
+    java.util.ResourceBundle.getBundle("oscarResources", request.getLocale()).getString("inbox.documentsIncomplete")) %></div>
+<% } %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="org.apache.logging.log4j.Logger,io.github.carlos_emr.carlos.commn.dao.OscarLogDao,io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao" %>
@@ -320,7 +325,11 @@
                                     disabled = "disabled";
                                 };
                             --%>
-                            <input type="checkbox" name="flaggedLabs" value="<%=segmentID + ":" + result.labType%>" <%= result.isMultipleAckCountUnavailable() ? "disabled" : "" %>>
+                            <label for="<%= SafeEncode.forHtmlAttribute("flaggedLab_" + segmentID + "_" + result.labType) %>"
+                                   aria-label="<fmt:message key='dms.incomingDocs.select'/>">
+                                <input type="checkbox" id="<%= SafeEncode.forHtmlAttribute("flaggedLab_" + segmentID + "_" + result.labType) %>"
+                                       name="flaggedLabs" value="<%=segmentID + ":" + result.labType%>" <%= result.isMultipleAckCountUnavailable() ? "disabled" : "" %>>
+                            </label>
                             <input type="hidden" name="labType<%=segmentID+result.labType%>"
                                    value="<%=result.labType%>"/>
                             <input type="hidden" name="ackStatus" value="<%= result.isMatchedToPatient() %>"/>

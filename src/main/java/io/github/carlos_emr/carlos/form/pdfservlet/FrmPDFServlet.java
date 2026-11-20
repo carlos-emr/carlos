@@ -230,7 +230,7 @@ public class FrmPDFServlet extends HttpServlet {
                 }
                 tmpFile = File.createTempFile("formpdf", ".pdf");
                 tempFiles.add(tmpFile);
-                ConcatPDF.concat(files, tmpFile.getAbsolutePath());
+                ConcatPDF.concatRequired(files, tmpFile.getAbsolutePath());
             } else {
                 baosPDF = new ByteArrayOutputStream();
                 baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), baosPDF, 0);
