@@ -10,10 +10,11 @@
  * Run: heavy node scripts/mycarlos-devices-expired-playwright-checks.js
  */
 const assert = require('node:assert/strict');
+const { once } = require('node:events');
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
-const { chromium } = require('playwright');
+const { launchBrowser, runCheck } = require('./lib/playwright-harness');
 const root = path.join(__dirname, '..');
 
 const unescape = value => value.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
@@ -62,7 +63,7 @@ const CASES = {
   removedDevice: { refusedRequests: ['challenge_expired'], pending: [], devices: [device('2026-11-09T12:00:00Z')] },
 };
 
-async function main() {
+async function main({ throwIfCancelled }) {
   let current = 'pendingOnly';
   const calls = [];
   const server = http.createServer(async (req, res) => {
@@ -86,9 +87,26 @@ async function main() {
     assert.equal(req.headers['csrf-token'], 'synthetic-csrf');
     res.end(JSON.stringify({ ok: true, ...CASES[current] }));
   });
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  const url = `http://127.0.0.1:${server.address().port}`;
-  const browser = await chromium.launch({ headless: true, ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}) });
+  let browser;
+  try {
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    browser = await launchBrowser({ chromePath: process.env.CHROME_PATH });
+    const url = `http://127.0.0.1:${server.address().port}`;
+    await checkPanel(browser, url, calls, name => { current = name; }, throwIfCancelled);
+  } finally {
+    try {
+      await browser?.close();
+    } finally {
+      if (server.listening) {
+        await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+      }
+    }
+  }
+}
+
+async function checkPanel(browser, url, calls, setCase, throwIfCancelled) {
+  throwIfCancelled();
   const page = await browser.newPage();
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   const status = page.locator('#mycarlos-devices-status');
@@ -96,6 +114,7 @@ async function main() {
   // The panel marks itself busy before each request and clears that only after drawing the answer.
   async function settled(count) {
     for (let waited = 0; calls.length < count; waited += 25) {
+      throwIfCancelled();
       assert.ok(waited < 10000, `request ${count} reached the server`);
       await new Promise(resolve => setTimeout(resolve, 25));
     }
@@ -103,7 +122,8 @@ async function main() {
   }
   // Loads the panel (its own read), then presses Refresh with the given answer.
   async function refresh(name) {
-    current = name;
+    throwIfCancelled();
+    setCase(name);
     const before = calls.length;
     // The origin is this script's own loopback fixture server and the route a fixed literal.
     await page.goto(url + '/page'); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- loopback fixture origin plus a fixed literal route
@@ -115,58 +135,55 @@ async function main() {
   }
   const earlier = english['mycarlos.approval.status.earlierExpired'];
   const rowExpired = english['mycarlos.approval.status.expired'];
-  try {
-    assert.ok(earlier && rowExpired && earlier !== rowExpired, 'both expired texts exist and differ');
+  assert.ok(earlier && rowExpired && earlier !== rowExpired, 'both expired texts exist and differ');
 
-    await refresh('expiredOnly');
-    assert.equal(await status.textContent(), earlier);
-    assert.equal(await entries.count(), 1);
-    assert.equal(await entries.nth(0).locator('p').textContent(), rowExpired);
-    assert.equal(await entries.nth(0).locator('form').count(), 0);
-    console.log('PASS only expired requests: the status line says an earlier request expired; no approve form');
+  await refresh('expiredOnly');
+  assert.equal(await status.textContent(), earlier);
+  assert.equal(await entries.count(), 1);
+  assert.equal(await entries.nth(0).locator('p').textContent(), rowExpired);
+  assert.equal(await entries.nth(0).locator('form').count(), 0);
+  console.log('PASS only expired requests: the status line says an earlier request expired; no approve form');
 
-    await refresh('expiredNothingListed');
-    assert.equal(await status.textContent(), earlier);
-    assert.equal(await page.locator('#mycarlos-devices-list').textContent(), english['mycarlos.approval.none']);
-    console.log('PASS expired refusals with nothing listed: the earlier-expired notice and "no requests"');
+  await refresh('expiredNothingListed');
+  assert.equal(await status.textContent(), earlier);
+  assert.equal(await page.locator('#mycarlos-devices-list').textContent(), english['mycarlos.approval.none']);
+  console.log('PASS expired refusals with nothing listed: the earlier-expired notice and "no requests"');
 
-    await refresh('pendingOnly');
-    assert.equal(await status.textContent(), '');
-    assert.equal(await entries.count(), 1);
-    assert.equal(await entries.nth(0).locator('pre').textContent(), VALID);
-    assert.equal(await entries.nth(0).locator('form').count(), 1);
-    console.log('PASS only a pending request: no status text, the approve form is shown');
+  await refresh('pendingOnly');
+  assert.equal(await status.textContent(), '');
+  assert.equal(await entries.count(), 1);
+  assert.equal(await entries.nth(0).locator('pre').textContent(), VALID);
+  assert.equal(await entries.nth(0).locator('form').count(), 1);
+  console.log('PASS only a pending request: no status text, the approve form is shown');
 
-    await refresh('both');
-    assert.equal(await status.textContent(), '', 'nothing about expiry above a request staff can approve');
-    assert.equal(await entries.count(), 2);
-    assert.equal(await entries.nth(0).locator('pre').textContent(), VALID, 'the request staff can approve comes first');
-    assert.equal(await entries.nth(0).locator('form').count(), 1);
-    assert.equal(await entries.nth(1).locator('pre').textContent(), OLD);
-    assert.equal(await entries.nth(1).locator('p').textContent(), rowExpired, 'the expired request keeps its own label');
-    assert.equal(await entries.nth(1).locator('form').count(), 0);
-    console.log('PASS both: no expired notice above, the valid request first with its form, the expired one after');
+  await refresh('both');
+  assert.equal(await status.textContent(), '', 'nothing about expiry above a request staff can approve');
+  assert.equal(await entries.count(), 2);
+  assert.equal(await entries.nth(0).locator('pre').textContent(), VALID, 'the request staff can approve comes first');
+  assert.equal(await entries.nth(0).locator('form').count(), 1);
+  assert.equal(await entries.nth(1).locator('pre').textContent(), OLD);
+  assert.equal(await entries.nth(1).locator('p').textContent(), rowExpired, 'the expired request keeps its own label');
+  assert.equal(await entries.nth(1).locator('form').count(), 0);
+  console.log('PASS both: no expired notice above, the valid request first with its form, the expired one after');
 
-    await refresh('otherRefusal');
-    assert.equal(await status.textContent(), english['mycarlos.approval.status.unavailable']);
-    console.log('PASS another refusal beside expired ones still says the status is unavailable');
+  await refresh('otherRefusal');
+  assert.equal(await status.textContent(), english['mycarlos.approval.status.unavailable']);
+  console.log('PASS another refusal beside expired ones still says the status is unavailable');
 
-    await refresh('approvedDevice');
-    assert.equal(await status.textContent(), '', 'no "ask the patient again" above an approved device');
-    assert.equal(await entries.count(), 1);
-    assert.equal(await entries.nth(0).locator('strong').textContent(), english['mycarlos.approval.status.accepted']);
-    console.log('PASS an approved device beside an earlier expired request: no status text');
+  await refresh('approvedDevice');
+  assert.equal(await status.textContent(), '', 'no "ask the patient again" above an approved device');
+  assert.equal(await entries.count(), 1);
+  assert.equal(await entries.nth(0).locator('strong').textContent(), english['mycarlos.approval.status.accepted']);
+  console.log('PASS an approved device beside an earlier expired request: no status text');
 
-    await refresh('removedDevice');
-    assert.equal(await status.textContent(), earlier);
-    assert.equal(await entries.nth(0).locator('strong').textContent(), english['mycarlos.approval.status.removed']);
-    console.log('PASS only a removed device beside an earlier expired request: the earlier-expired notice');
+  await refresh('removedDevice');
+  assert.equal(await status.textContent(), earlier);
+  assert.equal(await entries.nth(0).locator('strong').textContent(), english['mycarlos.approval.status.removed']);
+  console.log('PASS only a removed device beside an earlier expired request: the earlier-expired notice');
 
-    assert.deepEqual(errors, []);
-  } finally {
-    await browser.close();
-    server.close();
-  }
+  assert.deepEqual(errors, []);
 }
 
-main().catch(error => { console.error(error); process.exit(1); });
+if (require.main === module) {
+  runCheck({ name: 'mycarlos-devices-expired', run: main });
+}
