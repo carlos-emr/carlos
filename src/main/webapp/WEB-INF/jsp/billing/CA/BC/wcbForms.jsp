@@ -45,18 +45,18 @@
 %>
 
 
-<%@page import="org.springframework.web.context.WebApplicationContext" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="io.github.carlos_emr.carlos.demographic.data.*,io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="java.text.*, java.util.*, io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.entities.*" %>
+
+
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="java.util.*, io.github.carlos_emr.carlos.entities.*" %>
 <%@ page import="io.github.carlos_emr.carlos.entities.WCB" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@taglib uri="jakarta.tags.core" prefix="c" %>
+
 <%@taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%

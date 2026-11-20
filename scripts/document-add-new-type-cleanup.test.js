@@ -27,6 +27,7 @@ test('shouldCleanUncapturedUploadResidue_whenTheBrowserFailsAfterSaving', async 
   vm.runInNewContext(source, {
     module,
     require(name) {
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
       if (name === 'node:fs') return { mkdtempSync: () => '/tmp/synthetic-doc-test', readdirSync: () => [], writeFileSync() {}, rmSync() {} };
       if (name.startsWith('node:')) return require(name);
       if (name === './lib/playwright-harness') return h;

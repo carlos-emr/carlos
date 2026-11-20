@@ -131,6 +131,11 @@ public final class PdfSigningTestSupport {
                 "CARLOS Test Signer", "Unit test signature", "Test Clinic", "test@example.com");
     }
 
+    /** A disabled configuration, as an unconfigured server reads it. */
+    public static PDFSigningConfig disabledConfig() {
+        return new PDFSigningConfig(false, null, null, null, null, null, null, null, null, null);
+    }
+
     /**
      * An enabled configuration for tests that stub the signer. Complete enough to pass
      * {@code validateEnabled()}; the keystore it names does not exist.

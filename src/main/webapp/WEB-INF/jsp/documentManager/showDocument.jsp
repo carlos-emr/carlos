@@ -117,11 +117,11 @@
 
 <%@ page import="com.fasterxml.jackson.databind.JsonNode" %>
 <%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
-<%@ page import="com.fasterxml.jackson.databind.node.ArrayNode" %>
-<%@ page import="com.fasterxml.jackson.databind.node.ObjectNode" %>
+
+
 
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
@@ -139,7 +139,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
+
 
 <%@ page import="java.text.SimpleDateFormat"%>
 <%@ page import="java.time.LocalDate" %>
@@ -147,17 +147,17 @@
 <%@ page import="java.util.*" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="org.owasp.encoder.Encode"%>
-<%@ page import="org.springframework.web.context.WebApplicationContext"%>
-<%@ page import="org.springframework.web.context.support.WebApplicationContextUtils"%>
+
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     ProviderInboxRoutingDao providerInboxRoutingDao = SpringUtils.getBean(ProviderInboxRoutingDao.class);
@@ -703,7 +703,10 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td><fmt:message key="dms.documentReport.msgDocDesc"/>:</td>
+                                <td><label for="docDesc_<%=docId%>"><fmt:message key="dms.documentReport.msgDocDesc"/>:</label></td>
+                                <%-- No maxlength: a browser clips a paste to maxlength in UTF-16 units before any check
+                                     runs. documentMetadataSave.js and ManageDocument2Action refuse a description longer
+                                     than Document.DESCRIPTION_MAX_LENGTH code points. --%>
                                 <td><input id="docDesc_<%=docId%>" type="text" name="documentDescription"
                                            value="<carlos:encode value='<%= curdoc.getDescription() %>' context="htmlAttribute"/>"
                                            onfocus="this.select(); this.setAttribute('data-original-value', this.value)"

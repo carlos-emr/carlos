@@ -197,13 +197,19 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         target.setProgramProviderDao(memberships);
         target.setProgramAccessDAO(mock(io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO.class));
         target.setDemographicDao(mock(DemographicDao.class));
-        target.setRoleProgramAccessDAO(mock(RoleProgramAccessDAO.class));
+        var issueAccess = mock(io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO.class);
+        var issueRoleAccess = mock(RoleProgramAccessDAO.class);
+        when(issueRoleAccess.hasAccess(matches("write .+ issues"), anyLong())).thenReturn(true);
+        target.setRoleProgramAccessDAO(issueRoleAccess);
         ProxyFactory proxy = new ProxyFactory(target);
         proxy.addAdvice(new TransactionInterceptor(transactionManager, new AnnotationTransactionAttributeSource()));
         manager = (CaseManagementManager) proxy.getProxy();
         beans = mockStatic(SpringUtils.class, CALLS_REAL_METHODS);
         beans.when(() -> SpringUtils.getBean(ProgramManager.class)).thenReturn(programs);
         beans.when(() -> SpringUtils.getBean(AdmissionManager.class)).thenReturn(admissions);
+        beans.when(() -> SpringUtils.getBean(ProgramProviderDAO.class)).thenReturn(memberships);
+        beans.when(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO.class)).thenReturn(issueAccess);
+        beans.when(() -> SpringUtils.getBean(RoleProgramAccessDAO.class)).thenReturn(issueRoleAccess);
         roles = mockStatic(RoleCache.class);
         roles.when(() -> RoleCache.getRole(701L)).thenReturn(originRole.getRole());
         roles.when(() -> RoleCache.getRole(801L)).thenReturn(storedRole.getRole());
@@ -716,6 +722,64 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         assertThat(after.drafts()).containsExactlyElementsOf(otherDrafts(before));
     }
 
+    /**
+     * Finding 361: the compact save lists every issue of the editor, linked or not. Only an issue
+     * whose own values the save changes is written and gets a new update_date.
+     */
+    @ParameterizedTest
+    @CsvSource({"true,false", "false,false", "true,true", "false,true"})
+    void shouldWriteTheListedIssueRowOnlyWhenItChanges_forACompactSave(boolean linked, boolean changed) throws Exception {
+        // The staged editor copy resolves the stored, unresolved issue unless the editor left it alone.
+        if (!changed) form.getIssueCheckList().getFirst().getIssue().setResolved(false);
+        if (!linked) request.removeParameter("issue0");
+        Snapshot before = snapshot();
+        long start = System.currentTimeMillis();
+
+        assertThat(action.ajaxsave()).isEqualTo("issueList_ajax");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertListedIssueWrite(before, start, linked, changed);
+    }
+
+    /** Finding 361: the full Save writes the listed issue only when the editor changed its flags. */
+    @ParameterizedTest
+    @CsvSource({"true,true,false", "false,true,false", "true,false,false", "true,true,true", "false,true,true"})
+    void shouldWriteTheListedIssueRowOnlyWhenItChanges_forAFullSave(boolean modern, boolean linked, boolean changed) throws Exception {
+        CheckBoxBean checkbox = prepareFullIssueSave(modern, false);
+        if (!changed) {
+            // The stored issue is chronic, uncertain, not major and unresolved.
+            checkbox.getIssueDisplay().setAcute("chronic");
+            checkbox.getIssueDisplay().setCertain("uncertain");
+            checkbox.getIssueDisplay().setMajor("not major");
+            checkbox.getIssueDisplay().setResolved("unresolved");
+        }
+        // A modern enabled checkbox the user unchecks is absent from Form.serialize.
+        if (!linked) request.removeParameter("issueCheckList[0].checked");
+        Snapshot before = snapshot();
+        long start = System.currentTimeMillis();
+
+        assertThat(action.save()).isEqualTo("view");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertListedIssueWrite(before, start, linked, changed);
+    }
+
+    private void assertListedIssueWrite(Snapshot before, long start, boolean linked, boolean changed) {
+        Snapshot after = snapshot();
+        assertThat(after.notes()).hasSize(2);
+        if (changed) assertThat(after.issues()).isNotEqualTo(before.issues());
+        else assertThat(after.issues()).isEqualTo(before.issues());
+        tx().executeWithoutResult(status -> {
+            CaseManagementIssue stored = entityManager.find(CaseManagementIssue.class, caseIssueId);
+            assertThat(stored.isResolved()).isEqualTo(changed);
+            if (changed) assertThat(stored.getUpdate_date().getTime()).isGreaterThanOrEqualTo(start - 1000);
+            else assertThat(stored.getUpdate_date().getTime()).isEqualTo(1_700_000_000_000L);
+            assertThat(caseManagementNoteDAO.getNote(form.getCaseNote().getId()).getIssues())
+                    .extracting(CaseManagementIssue::getId)
+                    .containsExactlyElementsOf(linked ? List.of(caseIssueId) : List.of());
+        });
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void shouldPreserveLegacyNullIssueProgram_forANewGlobalChartIssue(boolean modern) throws Exception {
@@ -845,6 +909,148 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         tx().executeWithoutResult(status -> assertThat(caseManagementNoteDAO.getNote(committed.getCaseNote().getId()).getIssues()).isEmpty());
         assertThat(form.getCaseNote()).isSameAs(original);
         assertThat(form.getIssueCheckList()).hasSize(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldLinkOnlySelectedSurvivors_whenAnEditorRefreshReorderedTheList(boolean selectNeighbour) throws Exception {
+        CheckBoxBean clicked = prepareIssueDeletion();
+        // A second unused issue of the patient, which an editor refresh rebuilt ahead of the
+        // clicked one: the position the page rendered for the clicked issue now names it (#6090).
+        Long neighbourId = tx().execute(status -> {
+            Issue lookup = new Issue();
+            lookup.setCode("CMN" + UUID.randomUUID().toString().substring(0, 8));
+            lookup.setDescription("Reordered neighbour issue");
+            lookup.setRole("doctor");
+            lookup.setType("system");
+            entityManager.persist(lookup);
+            entityManager.flush();
+            pendingLookupId = lookup.getId();
+            CaseManagementIssue neighbour = new CaseManagementIssue();
+            neighbour.setDemographic_no(1);
+            neighbour.setIssue_id(lookup.getId());
+            neighbour.setIssue(lookup);
+            neighbour.setProgram_id(8);
+            neighbour.setType("doctor");
+            neighbour.setUpdate_date(new Date(1_700_000_000_000L));
+            entityManager.persist(neighbour);
+            return neighbour.getId();
+        });
+        CaseManagementIssue stored = tx().execute(status -> entityManager.find(CaseManagementIssue.class, neighbourId));
+        CheckBoxBean neighbour = new CheckBoxBean();
+        neighbour.setIssue(stored);
+        neighbour.getIssueDisplay().setCode(stored.getIssue().getCode());
+        neighbour.getIssueDisplay().setDescription(stored.getIssue().getDescription());
+        neighbour.getIssueDisplay().setWriteAccess(true);
+        form.setIssueCheckList(new ArrayList<>(List.of(neighbour, clicked)));
+        // A page from before the refresh would have sent the clicked issue's old position.
+        request.setParameter("deleteId", "0");
+        request.setParameter("issueSelectionById", "true");
+        request.setParameter("selectedCaseIssueId", selectNeighbour
+                ? new String[]{caseIssueId.toString(), neighbourId.toString()}
+                : new String[]{caseIssueId.toString()});
+
+        assertThat(action.issueDelete()).isEqualTo("view");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        tx().executeWithoutResult(status -> {
+            assertThat(entityManager.find(CaseManagementIssue.class, caseIssueId)).isNull();
+            assertThat(entityManager.find(CaseManagementIssue.class, neighbourId)).isNotNull();
+        });
+        var committed = (CaseManagementEntryFormBean) request.getSession().getAttribute(ChartProgramContext.formKey(request, "1"));
+        assertThat(committed.getIssueCheckList()).extracting(entry -> entry.getIssue().getId()).containsExactly(neighbourId);
+        tx().executeWithoutResult(status -> assertThat(caseManagementNoteDAO.getNote(committed.getCaseNote().getId()).getIssues())
+                .extracting(CaseManagementIssue::getId)
+                .containsExactlyElementsOf(selectNeighbour ? List.of(neighbourId) : List.of()));
+        verify(target, never()).deleteIssueById(argThat(issue -> neighbourId.equals(issue.getId())));
+    }
+
+    @Test
+    void shouldPreserveCommittedFlags_whenTheIssueEditorIsStale() throws Exception {
+        CheckBoxBean editorRow = prepareIssueDeletion();
+        tx().executeWithoutResult(status -> entityManager.find(CaseManagementIssue.class, caseIssueId).setResolved(true));
+        assertThat(editorRow.getIssue().isResolved()).isFalse();
+        request.setParameter("issueField", "acute");
+        request.setParameter("issueValue", "true");
+
+        assertThat(action.issueChange()).isEqualTo("view");
+
+        tx().executeWithoutResult(status -> {
+            CaseManagementIssue stored = entityManager.find(CaseManagementIssue.class, caseIssueId);
+            assertThat(stored.isAcute()).isTrue();
+            assertThat(stored.isResolved()).isTrue();
+        });
+        assertThat(editorRow.getIssue().isResolved()).isTrue();
+        assertThat(editorRow.getIssueDisplay().getResolved()).isEqualTo("resolved");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"flag", "ajaxDiagnosis", "legacyDiagnosis"})
+    void shouldLeaveEditorAndRowUnchanged_whenIssueMutationRollsBack(String operation) throws Exception {
+        CheckBoxBean editorRow = prepareIssueDeletion();
+        CaseManagementIssue originalIssue = editorRow.getIssue();
+        String originalCode = editorRow.getIssueDisplay().getCode();
+        String originalType = editorRow.getIssueDisplay().getCodeType();
+        request.setParameter("issueField", "acute");
+        request.setParameter("issueValue", "true");
+        if (!"flag".equals(operation)) {
+            pendingLookupId = tx().execute(status -> {
+                Issue replacement = new Issue();
+                replacement.setCode("CFR" + UUID.randomUUID().toString().substring(0, 8));
+                replacement.setDescription("Replacement issue");
+                replacement.setRole("doctor");
+                replacement.setType("icd10");
+                entityManager.persist(replacement);
+                return replacement.getId();
+            });
+            target.setIssueDAO(issueDAO);
+            request.setParameter("change_diagnosis_id", caseIssueId.toString());
+            request.setParameter("newIssueId", pendingLookupId.toString());
+            action.setIssueCheckList(form.getIssueCheckList());
+            CheckIssueBoxBean replacement = new CheckIssueBoxBean();
+            replacement.getIssue().setId(pendingLookupId);
+            replacement.setChecked(true);
+            action.setNewIssueCheckList(new CheckIssueBoxBean[]{replacement});
+        }
+        IllegalStateException failure = new IllegalStateException("Synthetic failure before issue commit");
+        doAnswer(invocation -> {
+            invocation.callRealMethod();
+            entityManager.flush();
+            throw failure;
+        }).when(target).updateExistingIssue(eq(caseIssueId), any());
+
+        org.assertj.core.api.ThrowableAssert.ThrowingCallable mutation = switch (operation) {
+            case "flag" -> action::issueChange;
+            case "ajaxDiagnosis" -> action::ajaxChangeDiagnosis;
+            default -> action::submitChangeDiagnosis;
+        };
+        assertThatThrownBy(mutation).isSameAs(failure);
+
+        assertThat(editorRow.getIssue()).isSameAs(originalIssue);
+        assertThat(editorRow.getIssue().isAcute()).isFalse();
+        assertThat(editorRow.getIssue().getIssue_id()).isEqualTo(lookupId);
+        assertThat(editorRow.getIssueDisplay().getCode()).isEqualTo(originalCode);
+        assertThat(editorRow.getIssueDisplay().getCodeType()).isEqualTo(originalType);
+        tx().executeWithoutResult(status -> {
+            CaseManagementIssue stored = entityManager.find(CaseManagementIssue.class, caseIssueId);
+            assertThat(stored.isAcute()).isFalse();
+            assertThat(stored.getIssue_id()).isEqualTo(lookupId);
+        });
+    }
+
+    @Test
+    void shouldRefuseDeletionWithoutWrites_whenTheClickedIssueLeftTheEditor() throws Exception {
+        prepareIssueDeletion();
+        form.setIssueCheckList(new ArrayList<>());
+        Snapshot before = snapshot();
+
+        assertThat(action.issueDelete()).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(snapshot()).isEqualTo(before);
+        assertThat(request.getSession().getAttribute(ChartProgramContext.formKey(request, "1"))).isSameAs(form);
+        verify(target, never()).deleteIssueById(any());
+        verify(locks, never()).merge(any());
     }
 
     @ParameterizedTest
@@ -1647,7 +1853,8 @@ class CaseManagementCompactSaveTransactionIntegrationTest extends CaseManagement
         SecurityInfoManager security = (SecurityInfoManager) ReflectionTestUtils.getField(action, "securityInfoManager");
         when(security.hasPrivilege(login, "_demographic", "r", "1")).thenReturn(true);
         when(security.hasPrivilege(login, "_casemgmt.issues", "w", "1")).thenReturn(true);
-        action.setDeleteId("0");
+        // Name the issue the rendered row carries, as the page does (#6090).
+        request.setParameter("caseIssueId", String.valueOf(caseIssueId));
         return checkbox;
     }
 

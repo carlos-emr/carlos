@@ -37,7 +37,6 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.apache.commons.io.IOUtils;
 import org.apache.struts2.ServletActionContext;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -201,7 +200,7 @@ public class ProviderSignatureImage2Action extends ActionSupport {
 
         try (InputStream fileStream = new FileInputStream(sigFile)) {
             OutputStream outputStream = response.getOutputStream();
-            IOUtils.copy(fileStream, outputStream);
+            fileStream.transferTo(outputStream);
         } catch (FileNotFoundException e) {
             MiscUtils.getLogger().debug("Signature image file not found on disk: {}", signatureName);
             response.setStatus(HttpServletResponse.SC_NO_CONTENT);

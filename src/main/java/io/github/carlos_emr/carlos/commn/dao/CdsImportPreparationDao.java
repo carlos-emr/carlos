@@ -1,0 +1,55 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.commn.dao;
+
+import io.github.carlos_emr.carlos.commn.model.CdsImportPreparation;
+import org.springframework.stereotype.Repository;
+
+/** Prepared DTO storage; domain orchestration and fencing remain in the service. */
+@Repository
+public class CdsImportPreparationDao extends AbstractDaoImpl<CdsImportPreparation> implements CdsExportRetainedTableReadDao {
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportRetainedSchema() {
+        return CdsExportPatientTableReadSupport.schema(entityManager, CdsExportPatientTableReadSupport.Plan.IMPORT_PREPARATIONS);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportRetainedRows(int patient, java.util.Set<String> categories) {
+        return CdsExportPatientTableReadSupport.retainedCount(entityManager, CdsExportPatientTableReadSupport.Plan.IMPORT_PREPARATIONS, patient, categories);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawKeyRowDto> findCdsExportRetainedRowsAfter(
+            int patient, java.util.Set<String> categories, String afterId, int limit) {
+        return CdsExportPatientTableReadSupport.retainedPage(entityManager, CdsExportPatientTableReadSupport.Plan.IMPORT_PREPARATIONS, patient, categories, afterId, limit);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportRetainedChunk(int patient, java.util.Set<String> categories, String rowId, String column, long offset, int length) {
+        return CdsExportPatientTableReadSupport.retainedChunk(entityManager, CdsExportPatientTableReadSupport.Plan.IMPORT_PREPARATIONS, patient, categories, rowId, column, offset, length);
+    }
+
+    public CdsImportPreparationDao(){super(CdsImportPreparation.class); }
+    public CdsImportPreparation get(String id){return entityManager.find(CdsImportPreparation.class, id); }
+}

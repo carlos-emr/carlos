@@ -41,6 +41,12 @@ import org.junit.jupiter.api.io.TempDir;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 
 /**
  * Unit tests for {@link PDFEncryptionUtil}, which encrypts e-mail attachment PDFs.
@@ -140,5 +146,27 @@ class PDFEncryptionUtilUnitTest {
 
         assertThatThrownBy(() -> PDFEncryptionUtil.encryptPDF(notAPdf, "pw"))
                 .isInstanceOf(IOException.class);
+    }
+
+    @Test
+    @DisplayName("should delete a partial encrypted copy when saving throws an unchecked exception")
+    void shouldDeletePartialOutput_whenSaveThrowsUncheckedException() throws IOException {
+        Path source = writeSinglePagePdf();
+        byte[] original = Files.readAllBytes(source);
+        Path output = Files.createFile(tempDir.resolve("encrypted-output.pdf"));
+        var failure = new IllegalStateException("Synthetic save failure");
+        PDDocument document = mock(PDDocument.class);
+        doThrow(failure).when(document).save(output.toFile());
+
+        try (var loader = mockStatic(Loader.class);
+                var tempFiles = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
+            loader.when(() -> Loader.loadPDF(source.toFile())).thenReturn(document);
+            tempFiles.when(() -> PathValidationUtils.createSecureTempFile(anyString(), eq(".pdf")))
+                    .thenReturn(output.toFile());
+
+            assertThatThrownBy(() -> PDFEncryptionUtil.encryptPDF(source, "pw")).isSameAs(failure);
+        }
+        assertThat(output).doesNotExist();
+        assertThat(Files.readAllBytes(source)).isEqualTo(original);
     }
 }

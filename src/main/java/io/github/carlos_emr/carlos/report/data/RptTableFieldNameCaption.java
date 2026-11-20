@@ -33,10 +33,8 @@
  */
 package io.github.carlos_emr.carlos.report.data;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
+import io.github.carlos_emr.carlos.commn.service.ReportConfigurationService;
+
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Properties;
@@ -47,12 +45,10 @@ import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.dao.ReportTableFieldCaptionDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.commn.model.ReportTableFieldCaption;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.login.DBHelp;
 
 /**
  * @author yilee18
@@ -65,32 +61,18 @@ public class RptTableFieldNameCaption {
     String table_name;
     String name;
     String caption;
-    DBHelp dbObj = new DBHelp();
 
     public boolean insertOrUpdateRecord() {
-        boolean ret = false;
-        try {
-            if (recordExists()) {
-                ret = updateRecord();
-            } else {
-                ret = insertRecord();
-            }
-        } catch (SQLException e) {
-            logger.error("insertOrUpdateRecord() error", e);
-        }
-        return ret;
+        io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                ReportConfigurationService.class)
+                .saveCaption(table_name, name, caption);
+        return true;
     }
 
+    // Retain the legacy checked signature for subclasses and callers compiled against this API.
+    @SuppressWarnings("java:S1130")
     protected boolean recordExists() throws SQLException {
-        String sql = "select id from reportTableFieldCaption where table_name = ? and name = ?";
-        try (Connection conn = LegacyJdbcQuery.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, table_name);
-            ps.setString(2, name);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next();
-            }
-        }
+        return !dao().findByTableNameAndName(table_name, name).isEmpty();
     }
 
 
@@ -104,10 +86,9 @@ public class RptTableFieldNameCaption {
     }
 
     public boolean updateRecord() {
-        for (ReportTableFieldCaption r : dao().findByTableNameAndName(table_name, name)) {
-            r.setCaption(caption);
-            dao().merge(r);
-        }
+        io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                ReportConfigurationService.class)
+                .updateCaption(table_name, name, caption);
         return true;
     }
 
@@ -147,21 +128,23 @@ public class RptTableFieldNameCaption {
 
     public Properties getNameCaptionProp(String tableName) {
         Properties ret = new Properties();
-        String sql = "select name, caption from reportTableFieldCaption where table_name = ?";
-        try (Connection conn = LegacyJdbcQuery.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, tableName);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    ret.setProperty(DBHelp.getString(rs, "name"), DBHelp.getString(rs, "caption"));
-                }
+        try {
+            for (ReportTableFieldCaption r : dao().findByTableName(tableName)) {
+                ret.setProperty(RptReportConfigData.text(r.getName()), RptReportConfigData.text(r.getCaption()));
             }
-        } catch (SQLException e) {
-            logger.error("getNameCaptionProp() error", e);
+        } catch (org.springframework.dao.DataAccessException | jakarta.persistence.PersistenceException e) {
+            logger.error("getNameCaptionProp() database read failed", e);
         }
         return ret;
     }
 
+    /**
+     * Loads the columns of an allowlisted encounter form without reading patient values.
+     *
+     * @param tableName configured encounter-form table name
+     * @return column names, or an empty vector when the table is not allowlisted
+     * @throws IllegalStateException if database metadata cannot be loaded
+     */
     public Vector getMetaNameList(String tableName) {
         Vector ret = new Vector();
         String trustedTableName = validateEncounterFormTableName(tableName);
@@ -170,13 +153,11 @@ public class RptTableFieldNameCaption {
         }
 
         String sql = metaNameListSql(trustedTableName);
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql))) {
-            ResultSetMetaData md = rs.getMetaData();
-            for (int i = 1; i <= md.getColumnCount(); i++) {
-                ret.add(md.getColumnName(i));
-            }
+        try {
+            ret.addAll(ConfiguredReportQuery.columnNames(sql));
         } catch (SQLException e) {
             logger.error("getMetaNameList() error for table: {}", LogSafe.sanitize(tableName), e);
+            throw new IllegalStateException("Report fields could not be loaded; retry the report", e);
         }
         return ret;
     }
@@ -214,7 +195,7 @@ public class RptTableFieldNameCaption {
         // Table identifiers cannot be JDBC-bound. trustedTableName has passed
         // validateEncounterFormTableName(), including the bare-identifier check
         // and encounterForm allowlist.
-        return "select * from " + trustedTableName + " limit 1";
+        return "select * from " + trustedTableName + " where 1=0";
     }
 
     public Vector getFormTableNameList() {

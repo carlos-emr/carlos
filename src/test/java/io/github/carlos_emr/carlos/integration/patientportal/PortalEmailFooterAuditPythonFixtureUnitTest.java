@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
@@ -39,6 +40,11 @@ import static org.assertj.core.api.Assertions.*;
 class PortalEmailFooterAuditPythonFixtureUnitTest {
     private static final String PAGE_HASH = "06f3b9e743e8337d7f78d1dc11400e4252fdc8d2e334c6717d8043a46a86645e";
     private static final String CONTINUATION_HASH = "0c3284fa3017523a5face0c1a4402a28edcd3ab8c7833cbe5ccb2a5fac5ae836";
+    /**
+     * Captured 29 Oct from carlos-portal #27 (16e36f0752) through its authenticated history route:
+     * FAKE data written by its own audit store with a fixed clock, one row per skip reason.
+     */
+    private static final String SKIPPED_HASH = "46a6a150e29c1beee0e93dcd65bf97184174f3cafa10b551bd33a4bfe625faf1";
     private static final String CURSOR = "01791561601000000000-fc66b481d6574e43a1c4146de61807b7";
     private static final LocalDate DATE = LocalDate.of(2026, 10, 9);
 
@@ -56,17 +62,7 @@ class PortalEmailFooterAuditPythonFixtureUnitTest {
         String first = fixture("email-footer-audit-python-page.json", PAGE_HASH);
         String continuation = fixture("email-footer-audit-python-continuation.json", CONTINUATION_HASH);
         List<String> queries = new ArrayList<>();
-        var client = new PatientPortalService(PatientPortalSettings.fromProperties(Map.of(
-                PatientPortalSettings.BASE_URL_KEY, "https://portal.clinic.example",
-                PatientPortalSettings.CLINIC_ID_KEY, "clinic-a",
-                PatientPortalSettings.SERVICE_TOKEN_KEY, "FAKE-portal-service-token-value-000001",
-                PatientPortalSettings.STAFF_ASSERTION_KEY, PortalTestKeys.PRIVATE_KEY,
-                PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary",
-                PatientPortalSettings.CERTIFICATE_PINS_KEY, PortalTestKeys.UNUSED_TLS_PIN)), request -> {
-            assertThat(request.getFirstHeader(PortalStaffAssertionSigner.HEADER)).isNotNull();
-            queries.add(request.getRequestUri());
-            return new PatientPortalHttpResponse(200, queries.size() == 1 ? first : continuation);
-        });
+        var client = client(List.of(first, continuation), queries);
         var staff = new PatientPortalStaffContext("999998", "Dr FAKE",
                 Set.of(PatientPortalStaffContext.PERMISSION_EMAIL_AUDIT_READ));
         var page = client.listEmailFooterAttempts(DATE, 7, null, staff);
@@ -94,5 +90,53 @@ class PortalEmailFooterAuditPythonFixtureUnitTest {
                 .isEqualTo("FAKE saved Clinic <script>display as text</script> & mfa");
         assertThat(queries).containsExactly("/internal/carlos/email-footer-attempts?date=2026-10-09&limit=7",
                 "/internal/carlos/email-footer-attempts?date=2026-10-09&limit=7&before=" + CURSOR);
+    }
+
+    /** The signed Java client, answered by the captured Portal responses in turn. */
+    private static PatientPortalService client(List<String> responses, List<String> queries) {
+        return new PatientPortalService(PatientPortalSettings.fromProperties(Map.of(
+                PatientPortalSettings.BASE_URL_KEY, "https://portal.clinic.example",
+                PatientPortalSettings.CLINIC_ID_KEY, "clinic-a",
+                PatientPortalSettings.SERVICE_TOKEN_KEY, "FAKE-portal-service-token-value-000001",
+                PatientPortalSettings.STAFF_ASSERTION_KEY, PortalTestKeys.PRIVATE_KEY,
+                PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary",
+                PatientPortalSettings.CERTIFICATE_PINS_KEY, PortalTestKeys.UNUSED_TLS_PIN)), request -> {
+            assertThat(request.getFirstHeader(PortalStaffAssertionSigner.HEADER)).isNotNull();
+            queries.add(request.getRequestUri());
+            return new PatientPortalHttpResponse(200, responses.get(queries.size() - 1));
+        });
+    }
+
+    @Test void shouldReadPortalAttemptsWithoutFooter_inTheShapeThePortalWrites() throws Exception {
+        // Sign-in codes and password resets the Portal prepared without the clinic footer (D138),
+        // one per reason it writes, in every outcome state, after an ordinary attempt.
+        String body = fixture("email-footer-audit-python-skipped.json", SKIPPED_HASH);
+        var rows = new ObjectMapper().readTree(body).get("attempts");
+        // The Portal writes footer_skipped only on a skipped attempt; an ordinary one keeps its fields.
+        assertThat(rows.get(9).has("footer_skipped")).isFalse();
+        for (int i = 0; i < 9; i++) assertThat(rows.get(i).get("footer_skipped").isTextual()).isTrue();
+        List<String> queries = new ArrayList<>();
+        var staff = new PatientPortalStaffContext("999998", "Dr FAKE",
+                Set.of(PatientPortalStaffContext.PERMISSION_EMAIL_AUDIT_READ));
+        var page = client(List.of(body), queries).listEmailFooterAttempts(DATE, 20, null, staff);
+        assertThat(page.nextBefore()).isNull();
+        var skipped = page.attempts().subList(0, 9);
+        // Every reason the Portal can write is one CARLOS reads (and labels), and no other.
+        assertThat(skipped).extracting(PortalEmailFooterAuditPage.Attempt::footerSkipped)
+                .containsExactlyInAnyOrderElementsOf(PortalEmailFooterAuditPage.SKIP_REASONS);
+        assertThat(skipped).extracting(PortalEmailFooterAuditPage.Attempt::kind).containsOnly("mfa", "password_reset");
+        assertThat(skipped).extracting(PortalEmailFooterAuditPage.Attempt::status)
+                .contains("prepared", "accepted", "failed", "unknown");
+        for (var attempt : skipped) {
+            assertThat(attempt.revision()).isNull();
+            assertThat(attempt.footerText()).isNull();
+            assertThat(attempt.logoSha256()).isNull();
+            assertThat(attempt.statusAt() == null).isEqualTo("prepared".equals(attempt.status()));
+        }
+        var ordinary = page.attempts().get(9);
+        assertThat(ordinary.footerSkipped()).isNull();
+        assertThat(ordinary.footerText()).isEqualTo("FAKE saved Clinic footer");
+        assertThat(ordinary.revision()).matches("[0-9a-f]{64}");
+        assertThat(queries).containsExactly("/internal/carlos/email-footer-attempts?date=2026-10-09&limit=20");
     }
 }

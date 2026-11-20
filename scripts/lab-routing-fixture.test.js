@@ -2,7 +2,7 @@
 'use strict';
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const {createLabRoutingFixture} = require('./lib/lab-routing-fixture');
+const {createLabRoutingFixture, createRoutingLockFixture} = require('./lib/lab-routing-fixture');
 const {parseMysqlBatchOutput} = require('./lib/playwright-harness');
 
 function fixture(original = []) {
@@ -113,4 +113,53 @@ test('reports both failures with the INSERT failure as cause when immediate reco
     assert.deepEqual(error.errors, [insertFailure, recoveryFailure]);
     return true;
   });
+});
+
+
+test('exclusive lock cleanup removes introduced scoped rows and preserves borrowed locks', () => {
+  const locks = new Set(['100', '999']);
+  const writes = [];
+  const rows = () => [...locks].filter(id => ['100', '101'].includes(id)).sort().map(id => [id]);
+  const value = createRoutingLockFixture(statement => {
+    writes.push(statement);
+    locks.delete('101');
+  }, rows, ['100', '101'], {exclusive: true});
+  locks.add('101'); // the report view creates this coordinator row
+  value.cleanup();
+  assert.deepEqual([...locks].sort(), ['100', '999']);
+  assert.deepEqual(writes, ['DELETE FROM providerLabRoutingLock WHERE lab_no IN (101)']);
+  value.cleanup(); // repeated cleanup is safe
+});
+
+test('lock restoration refuses non-exclusive or foreign snapshots before writes', () => {
+  const writes = [];
+  const sql = statement => writes.push(statement);
+  assert.throws(() => createRoutingLockFixture(sql, () => [], ['100']), /exclusive disposable/);
+  assert.throws(() => createRoutingLockFixture(sql, () => [['999']], ['100'], {exclusive: true}), /foreign source/);
+  assert.throws(() => createRoutingLockFixture(sql, () => [], ['100 OR 1=1'], {exclusive: true}), /identifiers/);
+  assert.deepEqual(writes, []);
+});
+
+test('lock cleanup reports a missing borrowed coordinator instead of hiding the loss', () => {
+  let present = true;
+  const writes = [];
+  const value = createRoutingLockFixture(statement => writes.push(statement),
+    () => present ? [['100']] : [], ['100'], {exclusive: true});
+  present = false;
+  assert.throws(() => value.cleanup(), /presence was not restored/);
+  assert.deepEqual(writes, []);
+});
+
+
+test('late-allocated upload IDs use the pre-upload snapshot and preserve existing shared locks', () => {
+  const locks = new Set(['100', '101', '999']);
+  const writes = [];
+  const rows = () => [...locks].filter(id => ['100', '101'].includes(id)).sort().map(id => [id]);
+  const value = createRoutingLockFixture(statement => { writes.push(statement); locks.delete('101'); },
+    rows, ['100', '101'], {exclusive: true, initialLocks: ['100', '999']});
+  value.cleanup();
+  assert.deepEqual([...locks].sort(), ['100', '999']);
+  assert.deepEqual(writes, ['DELETE FROM providerLabRoutingLock WHERE lab_no IN (101)']);
+  assert.throws(() => createRoutingLockFixture(() => {}, rows, ['100'],
+    {exclusive: true, initialLocks: ['1 OR 1=1']}), /identifiers/);
 });

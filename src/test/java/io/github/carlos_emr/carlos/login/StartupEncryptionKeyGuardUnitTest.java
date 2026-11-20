@@ -400,7 +400,7 @@ class StartupEncryptionKeyGuardUnitTest {
             assertThat(keySpecField.get(null)).isNull();
             assertThat(Files.readString(savedPropertiesFile())).doesNotContain(KEY + "=");
             // Unchanged invalid-key path: the generic startup error, not the missing-key refusal.
-            assertThat(logs.startupMessages()).contains("Unexpected error.");
+            assertThat(logs.startupMessages()).anyMatch(message -> message.startsWith("Unexpected error.: ") && message.contains("java.lang.IllegalStateException"));
             assertThat(logs.startupMessages()).noneMatch(message -> message.contains("is missing or blank"));
         }
     }

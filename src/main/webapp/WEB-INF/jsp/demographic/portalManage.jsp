@@ -124,7 +124,7 @@
                         <p id="mycarlos-devices-status" role="status" aria-live="polite"></p>
                         <div id="mycarlos-devices-list"></div>
                         <ul id="mycarlos-device-labels" hidden>
-                            <c:forTokens var="label" delims="," items="none,first.body,first.confirm,first.action,device.fingerprint,later.hint,status.accepted,status.removed,status.expired,status.unavailable,error.changed">
+                            <c:forTokens var="label" delims="," items="none,first.body,first.confirm,first.action,device.fingerprint,later.hint,status.accepted,status.removed,status.expired,status.earlierExpired,status.unavailable,error.changed">
                                 <li data-key="${carlos:forHtmlAttribute(label)}"><fmt:message key="mycarlos.approval.${label}"/></li>
                             </c:forTokens>
                         </ul>

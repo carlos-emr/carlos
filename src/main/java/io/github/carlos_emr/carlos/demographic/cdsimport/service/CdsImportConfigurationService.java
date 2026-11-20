@@ -1,0 +1,297 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsimport.service;
+
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsInputLimitsDto;
+import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
+
+/** Server-owned admission, provenance and capacity policy; no caller can mint a source namespace. */
+@Service
+public class CdsImportConfigurationService {
+    private static final Logger LOG = LogManager.getLogger(CdsImportConfigurationService.class);
+    public static final String RULESET = "carlos-cds-import-v1";
+    private static final Set<String> CORE_PROFILES = Set.of("pcon-2024-02", "omd-5.2");
+    private final Properties properties;
+    private final java.util.Map<String, String> policyDigests = java.util.Collections.synchronizedMap(
+            new java.util.LinkedHashMap<>(16, 0.75f, true) {
+                @Override protected boolean removeEldestEntry(java.util.Map.Entry<String, String> eldest) {
+                    return size() > 64;
+                }
+            });
+
+    public CdsImportConfigurationService(@Qualifier("cdsImportProperties") Properties properties) {
+        this.properties = new Properties();
+        this.properties.putAll(properties);
+    }
+
+    // Built once from the immutable properties; a lost race builds an equal value.
+    private final java.util.concurrent.atomic.AtomicReference<
+                    io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys>
+            nativeBaselineKeys = new java.util.concurrent.atomic.AtomicReference<>();
+
+    public boolean enabled() { return Boolean.parseBoolean(value("cds.import.enabled", "false")); }
+
+    /**
+     * Decision 9: a CARLOS.Allergy.Archived.v1 marker is restored as a native archived allergy
+     * only when the operator opts in with {@code cds.import.mapping.restoreArchivedAllergies=true}.
+     * The default keeps the allergy active with a warning. As a {@code cds.import.mapping.*} key
+     * it is part of the normalization policy digest, so the choice is fixed in each run's
+     * ruleset; each prepared allergy also records the decision.
+     */
+    public boolean restoreArchivedAllergies() {
+        return switch (value("cds.import.mapping.restoreArchivedAllergies", "false")) {
+            case "true" -> true;
+            case "false" -> false;
+            default -> throw new CdsImportException("IMPORT_MAPPING_CONFIGURATION_INVALID");
+        };
+    }
+
+    /** Installation keys that seal native-baseline witnesses; files are read only when needed. */
+    public io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys
+            nativeBaselineKeys() {
+        var keys = nativeBaselineKeys.get();
+        if (keys == null) {
+            keys =
+                    io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys
+                            .fromProperties(properties);
+            if (!nativeBaselineKeys.compareAndSet(null, keys)) keys = nativeBaselineKeys.get();
+        }
+        return keys;
+    }
+
+    /**
+     * Refuses an import attempt before any claim or clinical write when the active baseline key
+     * is not configured or not readable (IMP-1): no unit may commit an unsealed witness.
+     */
+    public void requireNativeBaselineKey() {
+        try {
+            nativeBaselineKeys().requireActiveKey();
+        } catch (java.io.IOException unavailable) {
+            throw new CdsImportException("NATIVE_BASELINE_KEY_UNAVAILABLE");
+        }
+    }
+
+    public void requireEnabled() {
+        if (!enabled()) throw new CdsImportException("IMPORT_ADMISSION_DISABLED");
+        java.time.ZoneId runtimeZone = io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsCalendarZone.requireCurrentCalendarRules();
+        String clinicalZone = value("cds.import.clinicalZone", "");
+        if (clinicalZone.isEmpty()) throw new CdsImportException("IMPORT_CLINICAL_ZONE_REQUIRED");
+        if (!clinicalZone.isEmpty()) {
+            final java.time.ZoneId selected;
+            try { selected = java.time.ZoneId.of(clinicalZone); }
+            catch (java.time.DateTimeException invalid) { throw new CdsImportException("IMPORT_CLINICAL_ZONE_INVALID"); }
+            // Native CARLOS calendar consumers use the instance JVM zone. The CLI sets
+            // its one-shot process zone before boot; web imports must use a matching
+            // deployment setting without changing a live shared JVM's global calendar.
+            if (!selected.getRules().equals(runtimeZone.getRules())) {
+                throw new CdsImportException("IMPORT_RUNTIME_ZONE_MISMATCH");
+            }
+        }
+    }
+
+    public Path allowedRoot() { return configuredPath("cds.import.allowedRoot"); }
+    public Path stagingRoot() { return configuredPath("cds.import.stagingRoot"); }
+    public Path uploadRoot() { return configuredPath("cds.import.uploadRoot"); }
+
+    public Path configuredPath(String key) {
+        String configured = value(key, "");
+        if (configured.isBlank()) throw new CdsImportException("IMPORT_STORAGE_NOT_CONFIGURED");
+        Path path;
+        try { path = Path.of(configured); }
+        catch (RuntimeException failure) { throw new CdsImportException("IMPORT_STORAGE_CONFIGURATION_INVALID"); }
+        if (!path.isAbsolute()) throw new CdsImportException("IMPORT_STORAGE_MUST_BE_ABSOLUTE");
+        return path.normalize();
+    }
+
+    /**
+     * A registered source: a namespace token of up to 128 characters (the token rule, and the
+     * {@code VARCHAR(128)} run and lineage columns that store it) with a registered profile.
+     */
+    public void requireSource(String namespace, String profile) {
+        requireToken(namespace);
+        if (!CORE_PROFILES.contains(profile)
+                || !tokens("cds.import.source." + namespace + ".profiles").contains(profile)) {
+            throw new CdsImportException("SOURCE_PROFILE_NOT_REGISTERED");
+        }
+    }
+
+    /** Explicit operator delegation is additional to active-provider/domain privileges. */
+    public void requireDelegation(String operator, String providerNo, Integer facility, Integer program) {
+        if (operator == null || !operator.matches("[A-Za-z_][A-Za-z0-9_.-]{0,63}\\$?")) {
+            throw new SecurityException("Invalid import operator");
+        }
+        if (providerNo == null || !providerNo.matches("[A-Za-z0-9_-]{1,16}")) {
+            throw new SecurityException("Invalid import provider");
+        }
+        String prefix = "cds.import.operator." + operator + ".";
+        if (!tokens(prefix + "providers").contains(providerNo)) {
+            throw new SecurityException("Import operator delegation denied");
+        }
+        requireOptionalScope(prefix + "facilities", facility);
+        requireOptionalScope(prefix + "programs", program);
+    }
+
+    private void requireOptionalScope(String key, Integer selected) {
+        Set<String> allowed = tokens(key);
+        if (!allowed.isEmpty() && (selected == null || !allowed.contains(selected.toString()))) {
+            throw new SecurityException("Import operator scope denied");
+        }
+    }
+
+    /**
+     * Settings that used to refuse an import for its size: the source and any one member, the
+     * expanded archive, its entry count, one decoded binary value and the compression ratio. No
+     * count, size or ratio may decide whether an import runs, so each is accepted and ignored,
+     * whatever its value, instead of failing an import or start-up. Every byte an import writes is
+     * checked against {@code cds.import.minimumFreeDiskBytes} before and while it is written, and
+     * the archive, the parse spools and the plan are streamed to the import's private storage, so
+     * only a genuine storage failure (the reserve reached, or an I/O error) stops an import for
+     * its size, under its own code. A decompression bomb is one such import: it is expanded as a
+     * stream and stops at the reserve ({@code CDS_INPUT_DISK_RESERVE}). The browser upload's
+     * size and total byte budget are retired for the same reason: an upload of any size is stored
+     * chunk by chunk, each chunk checked against the reserve of the upload store before it is
+     * written ({@code UPLOAD_DISK_RESERVE_REFUSED}). The count of uploads awaiting their runs'
+     * snapshots is retired too: a store out of space refuses at that reserve, and one out of
+     * inodes fails the step that needed one. The native note size is retired as well: a note is
+     * stored whole up to the capacity of the column its prepared record is held in, and only a
+     * larger one becomes the documented placeholder (its complete text stays in the source
+     * fields). Retired settings take no part in the normalization policy digest.
+     */
+    public static final List<String> RETIRED_SETTINGS =
+            List.of(
+                    "cds.import.maxSourceBytes",
+                    "cds.import.maxExpandedBytes",
+                    "cds.import.maxEntries",
+                    "cds.import.maxBinaryBytes",
+                    "cds.import.maxCompressionRatio",
+                    "cds.import.upload.maxFileBytes",
+                    "cds.import.upload.maxTotalBytes",
+                    "cds.import.upload.maxFiles",
+                    "cds.import.native.maxNoteBytes");
+
+    private final AtomicBoolean retiredReported = new AtomicBoolean();
+
+    public CdsInputLimitsDto limits() {
+        reportRetiredSettings();
+        CdsInputLimitsDto defaults = CdsInputLimitsDto.defaults();
+        return new CdsInputLimitsDto(
+                Math.toIntExact(number("cds.import.maxXmlDepth", defaults.maxXmlDepth())),
+                Math.toIntExact(number("cds.import.maxScalarCharacters", defaults.maxBoundedScalarCharacters())),
+                number("cds.import.minimumFreeDiskBytes", defaults.minimumFreeDiskBytes()),
+                // The setting keeps its name; it is the stall window, not an attempt budget.
+                number("cds.import.maxDurationMillis", defaults.stallWindowMillis()),
+                Math.toIntExact(number("cds.import.maxPathCharacters", defaults.maxPathCharacters())),
+                Math.toIntExact(number("cds.import.maxNamespaceAliases", defaults.maxNamespaceAliases())),
+                Math.toIntExact(number("cds.import.maxUniqueXmlNames", defaults.maxUniqueXmlNames())),
+                Math.toIntExact(number("cds.import.maxXmlNameCharacters", defaults.maxXmlNameCharacters())),
+                Math.toIntExact(number("cds.import.maxNamespaceUriCharacters", defaults.maxNamespaceUriCharacters())));
+    }
+
+    /** Names the ignored settings once per process; setting names only, never a value. */
+    void reportRetiredSettings() {
+        if (retiredReported.get()) return;
+        List<String> present = new ArrayList<>();
+        for (String key : RETIRED_SETTINGS)
+            if (properties.getProperty(key) != null) present.add(key);
+        if (!present.isEmpty() && retiredReported.compareAndSet(false, true))
+            LOG.warn("CDS_IMPORT_RETIRED_SETTINGS_IGNORED settings={}", present);
+    }
+
+    public long number(String key, long fallback) {
+        String configured = value(key, Long.toString(fallback));
+        try {
+            long result = Long.parseLong(configured);
+            if (result < 1) throw new NumberFormatException();
+            return result;
+        } catch (NumberFormatException failure) {
+            throw new CdsImportException("IMPORT_RESOURCE_CONFIGURATION_INVALID");
+        }
+    }
+
+    public String value(String key, String fallback) { return properties.getProperty(key, fallback).trim(); }
+
+    /** Credentials retain their exact configured value; callers must never include it in diagnostics. */
+    public String rawValue(String key) { return properties.getProperty(key); }
+
+    /** Effective normalization choices are part of provenance; resource limits and live grants are not clinical facts. */
+    // FindSecBugs UNSAFE_HASH_EQUALS: The flagged comparison is a property key against the source profiles key while the policy is assembled; no digest or secret is compared.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "the flagged comparison is a property key against the source profiles key while the policy is assembled; no digest or secret is compared")
+    public String normalizationPolicyDigest(CdsImportCommand command) {
+        String calendarZone = java.time.ZoneId.systemDefault().getId();
+        String cacheKey = command.sourceNamespace() + "\u0000" + calendarZone;
+        String cached = policyDigests.get(cacheKey);
+        if (cached != null) return cached;
+        java.util.SortedMap<String, String> policy = new java.util.TreeMap<>();
+        policy.put("cds.import.clinicalZone", value("cds.import.clinicalZone", ""));
+        // The note size is no longer a policy: cds.import.native.maxNoteBytes is retired, so it is
+        // left out even when a deployment still sets it (RETIRED_SETTINGS).
+        policy.put("runtime.calendarZone", calendarZone);
+        policy.put("hibernate.jdbc.time_zone", value("hibernate.jdbc.time_zone", ""));
+        String source = "cds.import.source." + command.sourceNamespace() + ".";
+        for (String key : properties.stringPropertyNames()) {
+            if (RETIRED_SETTINGS.contains(key)) continue;
+            if (key.startsWith("cds.import.native.") || key.startsWith("cds.import.mapping.")
+                    || key.startsWith("cds.import.normalization.")
+                    || key.startsWith(source) && !key.equals(source + "profiles")) {
+                policy.put(key, value(key, ""));
+            }
+        }
+        var digest = CdsImportKeys.digest();
+        CdsImportKeys.add(digest, "carlos-cds-normalization-policy-v1");
+        for (var entry : policy.entrySet()) {
+            CdsImportKeys.add(digest, entry.getKey());
+            CdsImportKeys.add(digest, java.util.HexFormat.of().formatHex(
+                    CdsImportKeys.digest().digest(entry.getValue().getBytes(java.nio.charset.StandardCharsets.UTF_8))));
+        }
+        String value = java.util.HexFormat.of().formatHex(digest.digest());
+        policyDigests.put(cacheKey, value);
+        return value;
+    }
+
+    /** A comma-separated list setting of any length: a delegation may name any number of providers. */
+    private Set<String> tokens(String key) {
+        String configured = value(key, "");
+        return Arrays.stream(configured.split(",")).map(String::trim).filter(s -> !s.isEmpty())
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    public static void requireToken(String value) {
+        if (value == null || !value.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,127}")) {
+            throw new CdsImportException("IMPORT_IDENTITY_TOKEN_INVALID");
+        }
+    }
+}

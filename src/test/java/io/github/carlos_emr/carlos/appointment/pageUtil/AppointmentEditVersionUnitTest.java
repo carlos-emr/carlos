@@ -23,6 +23,23 @@ class AppointmentEditVersionUnitTest {
     }
 
     @Test
+    void shouldChangeVersion_whenOnlyLocationCodeChanges() {
+        // #3982: a form opened before another user picked a different Location List item is stale,
+        // even when both items have the same label.
+        Appointment appointment = new Appointment();
+        appointment.setLocation("Room 1");
+        appointment.setLocationCode(11);
+        String original = AppointmentEditVersion.of(appointment, "");
+
+        appointment.setLocationCode(12);
+        assertThat(AppointmentEditVersion.of(appointment, "")).isNotEqualTo(original);
+        appointment.setLocationCode(null);
+        assertThat(AppointmentEditVersion.of(appointment, "")).isNotEqualTo(original);
+        appointment.setLocationCode(11);
+        assertThat(AppointmentEditVersion.of(appointment, "")).isEqualTo(original);
+    }
+
+    @Test
     void fieldBoundariesNullsIdentityAndAppointmentMetadataCannotCollide() {
         Appointment appointment = new Appointment();
         appointment.setId(42);

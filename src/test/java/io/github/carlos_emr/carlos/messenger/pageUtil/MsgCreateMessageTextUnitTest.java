@@ -138,7 +138,10 @@ class MsgCreateMessageTextUnitTest extends CarlosUnitTestBase {
                     verifyNoInteractions(security);
                 } else if ("oversized".equals(outcome)) {
                     assertThat(response.getStatus()).isEqualTo(400);
-                    assertThat(request.getAttribute("createMessageError").toString()).contains("maximum length", "128");
+                    assertThat(request.getAttribute("createMessageError").toString())
+                            .isEqualTo(io.github.carlos_emr.carlos.utility.LocaleUtils.getMessage(
+                                    request, "messenger.CreateMessage.msgSubjectTooLong"))
+                            .contains("128");
                     assertThat(sends.constructed()).isEmpty();
                 } else if ("no-recipients".equals(outcome)) {
                     verify(sends.constructed().getFirst(), never()).sendMessage2(any(), any(), any(), any(), any(), any(), any(), any(), any());

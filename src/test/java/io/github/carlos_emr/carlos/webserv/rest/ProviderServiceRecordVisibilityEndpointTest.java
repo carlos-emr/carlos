@@ -121,6 +121,9 @@ class ProviderServiceRecordVisibilityEndpointTest extends CarlosRestTestBase {
 
     @BeforeEach
     void signInAsSelf() {
+        // No test here grants _billing: the billing identifiers of a whole record never depended on it.
+        org.mockito.Mockito.lenient().when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class),
+                eq("_billing"), eq("r"), isNull())).thenReturn(false);
         Provider self = provider(SELF);
         when(mockLoggedInInfo.getLoggedInProvider()).thenReturn(self);
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(SELF);
@@ -158,6 +161,8 @@ class ProviderServiceRecordVisibilityEndpointTest extends CarlosRestTestBase {
         assertThat(record.path("providerNo").asText()).isEqualTo(providerNo);
         assertThat(record.path("ohipNo").asText()).isEqualTo("999" + providerNo);
         assertThat(record.path("billingNo").asText()).isEqualTo("B" + providerNo);
+        assertThat(record.path("rmaNo").asText()).isEqualTo("R" + providerNo);
+        assertThat(record.path("hsoNo").asText()).isEqualTo("H" + providerNo);
         assertThat(record.path("email").asText()).isEqualTo("fake" + providerNo + "@example.invalid");
     }
 
@@ -165,6 +170,38 @@ class ProviderServiceRecordVisibilityEndpointTest extends CarlosRestTestBase {
         Response response = request().path(path).get();
         assertThat(response.getStatus()).as("GET %s", path).isEqualTo(200);
         return responseJson(response);
+    }
+
+    @Test
+    void shouldReturnBillingIdentifiers_forSelfAndAdminWithoutBillingRead() {
+        grantAdminRead();
+        // _billing r stays denied (see signInAsSelf): the identifiers follow the whole-record rule only.
+        for (String providerNo : List.of(SELF, OTHER)) {
+            assertWholeRecord(get("/providerService/providerjson/" + providerNo), providerNo);
+            assertWholeRecord(get("/providerService/provider/" + providerNo), providerNo);
+        }
+        assertWholeRecord(get("/providerService/provider/me"), SELF);
+        JsonNode content = get("/providerService/providers_json").path("content");
+        assertWholeRecord(content.get(0), SELF);
+        assertWholeRecord(content.get(1), OTHER);
+        // The deprecated transfer list answers XML only.
+        try (Response response = request().path("/providerService/providers").replaceHeader("Accept", "application/xml").get()) {
+            assertThat(response.getStatus()).isEqualTo(200);
+            String xml = response.readEntity(String.class);
+            for (String providerNo : List.of(SELF, OTHER)) {
+                assertThat(xml).contains("<billingNo>B" + providerNo + "</billingNo>", "<ohipNo>999" + providerNo + "</ohipNo>",
+                        "<rmaNo>R" + providerNo + "</rmaNo>", "<hsoNo>H" + providerNo + "</hsoNo>");
+            }
+        }
+    }
+
+    @Test
+    void shouldKeepBillingIdentifiersOutOfSummaries_evenWithBillingRead() {
+        // Holding _billing r never widened another provider's summary into a whole record.
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("r"), isNull())).thenReturn(true);
+        assertSummary(get("/providerService/providerjson/" + OTHER), OTHER);
+        assertSummary(get("/providerService/provider/" + OTHER), OTHER);
+        assertSummary(get("/providerService/providers_json").path("content").get(1), OTHER);
     }
 
     @Test

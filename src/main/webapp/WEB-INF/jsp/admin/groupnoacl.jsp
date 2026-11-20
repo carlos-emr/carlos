@@ -33,12 +33,12 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
-<%@ page import="java.util.*,java.sql.*,java.util.ResourceBundle" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+
+<%@ page import="java.util.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>

@@ -23,8 +23,6 @@ package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.dao.EncounterWindowDao;
 import io.github.carlos_emr.carlos.commn.model.EChart;
-import io.github.carlos_emr.carlos.commn.model.EncounterWindow;
-import io.github.carlos_emr.carlos.encounter.pageUtil.EChartRevisionPersister.AppointmentChange;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EChartRevisionPersister.Outcome;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EChartRevisionPersister.Result;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -38,7 +36,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.ArgumentCaptor;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
@@ -46,14 +45,13 @@ import org.springframework.mock.web.MockHttpSession;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -70,7 +68,8 @@ import static org.mockito.Mockito.when;
  *
  * <p>Each refusal is checked to happen before any write: the revision persister and the layout
  * DAO are never touched and the shared bean keeps its contents. The database behaviour of an
- * accepted save is covered by {@link EChartRevisionPersisterIntegrationTest}.</p>
+ * historical persister is covered by {@link EChartRevisionPersisterIntegrationTest}. Modern mode
+ * refuses all legacy write buttons with 410; Exit still stores its own entry provider's layout.</p>
  *
  * @since 2026-10-16
  */
@@ -259,134 +258,30 @@ class EctSaveEncounterPatientIsolationUnitTest {
         assertRefusedWithoutWrites();
     }
 
-    @Test
-    @DisplayName("should save A's text into A's chart from A's revision and appointment after B was entered")
-    void shouldSaveSubmittingPatient_whenAnotherChartWasEnteredLast() throws Exception {
-        EChart saved = savedRevision(A, 5003);
-        when(persister.save(eq(Integer.parseInt(A)), eq(5001), eq(777), eq(AppointmentChange.SIGN), any(), eq("111111")))
-                .thenReturn(new Result(Outcome.SAVED, saved, true, 777, null));
-
-        assertThat(execute()).isEqualTo("success");
-
-        ArgumentCaptor<EChart> row = ArgumentCaptor.forClass(EChart.class);
-        verify(persister).save(eq(Integer.parseInt(A)), eq(5001), eq(777), eq(AppointmentChange.SIGN), row.capture(), eq("111111"));
-        assertThat(row.getValue().getProviderNo()).isEqualTo("111111");
-        assertThat(row.getValue().getSocialHistory()).isEqualTo("A social");
-        assertThat(row.getValue().getFamilyHistory()).isEqualTo("A family");
-        assertThat(row.getValue().getMedicalHistory()).isEqualTo("A medical");
-        assertThat(row.getValue().getOngoingConcerns()).isEqualTo("A concerns");
-        assertThat(row.getValue().getReminders()).isEqualTo("A reminders");
-        assertThat(row.getValue().getSubject()).isEqualTo("A reason");
-        // The signature names the user recorded for A's own entry, never B's.
-        assertThat(row.getValue().getEncounter()).startsWith("A's encounter\n[").endsWith("A user]");
-        assertThat(request.getAttribute("refreshOpener")).isEqualTo(Boolean.TRUE);
-        ArgumentCaptor<EncounterWindow> layout = ArgumentCaptor.forClass(EncounterWindow.class);
-        verify(windows).persist(layout.capture());
-        assertThat(layout.getValue().getProviderNo()).isEqualTo("111111");
-        assertSharedBeanUnchanged();
-    }
-
-    @Test
-    @DisplayName("should not ask the schedule to refresh when no visit status changed")
-    void shouldNotRefreshOpener_whenNoAppointmentWasMarked() throws Exception {
-        request.setParameter("btnPressed", "Verify and Sign");
-        when(persister.save(eq(Integer.parseInt(A)), eq(5001), eq(777), eq(AppointmentChange.VERIFY), any(), eq("111111")))
-                .thenReturn(new Result(Outcome.SAVED, savedRevision(A, 5003), false, null, null));
-
-        assertThat(execute()).isEqualTo("success");
-
-        assertThat(request.getAttribute("refreshOpener")).isEqualTo(Boolean.FALSE);
-        assertSharedBeanUnchanged();
-    }
-
-    @Test
-    @DisplayName("should treat an empty revision as an editor opened on a chart with no revision")
-    void shouldPassNoBase_whenRevisionIsEmpty() throws Exception {
-        request.setParameter("eChartId", "");
-        request.setParameter("appointment_no", "null");
-        when(persister.save(eq(Integer.parseInt(A)), isNull(), isNull(), eq(AppointmentChange.SIGN), any(), eq("111111")))
-                .thenReturn(new Result(Outcome.SAVED, savedRevision(A, 5003), false, null, null));
-
-        assertThat(execute()).isEqualTo("success");
-
-        verify(persister).save(eq(Integer.parseInt(A)), isNull(), isNull(), eq(AppointmentChange.SIGN), any(), eq("111111"));
-    }
-
-    @Test
-    @DisplayName("should show the unsaved text and answer 409 when the revision is stale")
-    void shouldShowConflictPage_whenRevisionIsStale() throws Exception {
-        when(persister.save(anyInt(), any(), any(), any(), any(), anyString()))
-                .thenReturn(new Result(Outcome.STALE_REVISION, null, false, null, null));
-
-        assertThat(execute()).isEqualTo("concurrencyError");
-
-        assertThat(response.getStatus()).isEqualTo(409);
-        assertThat((String) request.getAttribute("unsavedEncounter")).startsWith("A's encounter");
-        verifyNoInteractions(windows);
-        assertSharedBeanUnchanged();
-    }
-
-    @Test
-    @DisplayName("should treat an editor without a revision field as stale, never as the latest")
-    void shouldShowConflictPage_whenRevisionFieldIsAbsent() throws Exception {
-        request.removeParameter("eChartId");
-
-        assertThat(execute()).isEqualTo("concurrencyError");
-
-        assertThat(response.getStatus()).isEqualTo(409);
-        verifyNoInteractions(persister, windows);
-        assertSharedBeanUnchanged();
-    }
-
-    @Test
-    @DisplayName("should show the unsaved text when the appointment now belongs to another patient")
-    void shouldShowConflictPage_whenAppointmentBelongsToAnotherPatient() throws Exception {
-        when(persister.save(anyInt(), any(), any(), any(), any(), anyString()))
-                .thenReturn(new Result(Outcome.FOREIGN_APPOINTMENT, null, false, null, null));
-
-        assertThat(execute()).isEqualTo("concurrencyError");
-
-        assertThat(response.getStatus()).isEqualTo(409);
-        verifyNoInteractions(windows);
-        assertSharedBeanUnchanged();
-    }
-
-    @Test
-    @DisplayName("should reject another patient's revision as a bad request")
-    void shouldReject_whenRevisionBelongsToAnotherPatient() throws Exception {
-        when(persister.save(anyInt(), any(), any(), any(), any(), anyString()))
-                .thenReturn(new Result(Outcome.FOREIGN_REVISION, null, false, null, null));
+    @ParameterizedTest(name = "button={0}, revision={1}, ajax={2}")
+    @MethodSource("retiredWrites")
+    @DisplayName("should retire all legacy write buttons without touching either patient's data")
+    void shouldRefuseLegacyWrite_whenModernChartIsMandatory(String button, String revision, boolean ajax)
+            throws Exception {
+        request.setParameter("btnPressed", button);
+        if ("missing".equals(revision)) request.removeParameter("eChartId");
+        else request.setParameter("eChartId", revision);
+        if (ajax) request.setParameter("submitMethod", "ajax");
 
         assertThat(execute()).isEqualTo(ActionSupport.NONE);
 
-        assertThat(response.getStatus()).isEqualTo(400);
-        verifyNoInteractions(windows);
-        assertSharedBeanUnchanged();
+        assertThat(response.getStatus()).isEqualTo(410);
+        assertThat(response.getErrorMessage()).contains("modern chart");
+        assertThat(request.getAttribute("refreshOpener")).isNull();
+        assertThat(request.getAttribute("unsavedEncounter")).isNull();
+        assertRefusedWithoutWrites();
     }
 
-    @Test
-    @DisplayName("should answer 404 when the patient no longer exists")
-    void shouldAnswerNotFound_whenPatientIsMissing() throws Exception {
-        when(persister.save(anyInt(), any(), any(), any(), any(), anyString()))
-                .thenReturn(new Result(Outcome.PATIENT_NOT_FOUND, null, false, null, null));
-
-        assertThat(execute()).isEqualTo(ActionSupport.NONE);
-
-        assertThat(response.getStatus()).isEqualTo(404);
-        verifyNoInteractions(windows);
-    }
-
-    @Test
-    @DisplayName("should keep the legacy AJAX precondition answer for a stale revision")
-    void shouldAnswerPreconditionFailed_whenAjaxRevisionIsStale() throws Exception {
-        request.setParameter("submitMethod", "ajax");
-        when(persister.save(anyInt(), any(), any(), any(), any(), anyString()))
-                .thenReturn(new Result(Outcome.STALE_REVISION, null, false, null, null));
-
-        assertThat(execute()).isEqualTo(ActionSupport.NONE);
-
-        assertThat(response.getStatus()).isEqualTo(412);
-        verifyNoInteractions(windows);
+    static Stream<Arguments> retiredWrites() {
+        return Stream.of("Save", "AutoSave", "Sign,Save and Exit", "Sign,Save and Bill", "Verify and Sign", "Split Chart")
+                .flatMap(button -> Stream.of("", "5001", "5002", "missing")
+                        .flatMap(revision -> Stream.of(false, true)
+                                .map(ajax -> Arguments.of(button, revision, ajax))));
     }
 
     @Test
@@ -399,22 +294,6 @@ class EctSaveEncounterPatientIsolationUnitTest {
 
         verifyNoInteractions(persister);
         verify(windows).remove("111111");
-        assertSharedBeanUnchanged();
-    }
-
-    @Test
-    @DisplayName("should fall back to the logged-in provider when this login has not entered the chart")
-    void shouldUseLoggedInProvider_whenPatientsEntryIsNotRemembered() throws Exception {
-        EncounterPatientContext.forgetEncounter(request, A);
-        when(persister.save(eq(Integer.parseInt(A)), eq(5001), eq(777), eq(AppointmentChange.SIGN), any(), eq("999998")))
-                .thenReturn(new Result(Outcome.SAVED, savedRevision(A, 5003), true, 777, null));
-
-        assertThat(execute()).isEqualTo("success");
-
-        ArgumentCaptor<EChart> row = ArgumentCaptor.forClass(EChart.class);
-        verify(persister).save(eq(Integer.parseInt(A)), eq(5001), eq(777), eq(AppointmentChange.SIGN), row.capture(), eq("999998"));
-        assertThat(row.getValue().getProviderNo()).isEqualTo("999998");
-        assertThat(row.getValue().getEncounter()).endsWith("Casey Clinician]");
         assertSharedBeanUnchanged();
     }
 

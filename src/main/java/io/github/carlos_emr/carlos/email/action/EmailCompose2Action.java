@@ -64,7 +64,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  *   <li>Validates patient email consent status before sending</li>
  *   <li>Retrieves and validates recipient email addresses</li>
  *   <li>Sanitizes attachment filenames for security</li>
- *   <li>Validates numeric form ID (fid) parameters to prevent injection attacks</li>
+ *   <li>Validates the numeric form ID (fid) from the staged draft to prevent injection attacks</li>
  * </ul>
  *
  * Healthcare Context:
@@ -215,8 +215,7 @@ public class EmailCompose2Action extends ActionSupport {
      * Request Parameters:
      * <ul>
      *   <li>draft (String) - the one-time key of the draft the eForm save staged</li>
-     *   <li>fid (String, optional) - read by the eForm error page this may forward to; the compose
-     *       itself uses the template id carried by the draft</li>
+     *   <li>The template id and saved eForm id come from the staged draft, not URL parameters.</li>
      * </ul>
      *
      * Server-Side State Stored:
@@ -269,7 +268,7 @@ public class EmailCompose2Action extends ActionSupport {
 
         // Validate the draft's fid is numeric if provided
         if (fid != null && !fid.matches("\\d+")) {
-            logger.warn("Invalid (non-numeric) fid parameter received; ignoring it");
+            logger.warn("Invalid (non-numeric) draft fid received; ignoring it");
             fid = null;
         }
 
@@ -308,6 +307,9 @@ public class EmailCompose2Action extends ActionSupport {
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
         Map<String, IssuedPreview> previews = new ConcurrentHashMap<>();
         try {
+            emailComposeManager.requirePatientAttachments(demographicNo,
+                    staged.attachEFormItSelf() ? staged.fdid() : "", staged.attachedEForms(),
+                    staged.attachedDocuments(), staged.attachedLabs(), staged.attachedHRMDocuments());
             emailAttachmentList.addAll(emailComposeManager.prepareEFormAttachments(
                     loggedInInfo, staged.attachEFormItSelf() ? staged.fdid() : "",
                     staged.attachedEForms(), workingDirectory));

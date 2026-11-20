@@ -34,13 +34,13 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
-<%@ page import="io.github.carlos_emr.carlos.rx.data.*" %>
+
+
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+
 <%@page import="java.util.List" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="java.util.ArrayList,io.github.carlos_emr.carlos.util.*,java.util.*,io.github.carlos_emr.carlos.commn.model.Drug,io.github.carlos_emr.carlos.commn.dao.*" %>
+
+<%@page import="java.util.ArrayList, java.util.*, io.github.carlos_emr.carlos.commn.model.Drug, io.github.carlos_emr.carlos.commn.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
@@ -68,7 +68,7 @@
 </c:if>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

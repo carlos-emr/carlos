@@ -68,26 +68,26 @@
 <fmt:setLocale value="<%= io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 
-<%@page import="java.nio.charset.StandardCharsets" %>
+
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 
-<%@ page import="java.util.*, java.sql.*,java.net.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+
+<%@ page import="java.util.*, java.net.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarLogDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -295,6 +295,7 @@
             <INPUT TYPE="hidden" NAME="ptstatus" VALUE="active">
 
             <input type="hidden" name="fromAppt" value="<carlos:encode value='<%= request.getParameter("fromAppt") != null ? request.getParameter("fromAppt") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+            <input type="hidden" name="originalpage" value="<carlos:encode value='<%= originalpage %>' context="htmlAttribute"/>">
             <input type="hidden" name="originalPage"
                    value="<carlos:encode value='<%= request.getParameter("originalPage") != null ? request.getParameter("originalPage") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             <input type="hidden" name="bFirstDisp"
@@ -314,6 +315,12 @@
                    value="<carlos:encode value='<%= request.getParameter("reasonCode") != null ? request.getParameter("reasonCode") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             <input type="hidden" name="reason" value="<carlos:encode value='<%= request.getParameter("reason") != null ? request.getParameter("reason") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             <input type="hidden" name="location" value="<carlos:encode value='<%= request.getParameter("location") != null ? request.getParameter("location") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+            <%-- The booking screen's Location List choice (AppointmentLocationResolver), kept across the search.
+                 Only when the form posted one: no code means it showed free text, which the booking
+                 screen then keeps as a legacy choice (AppointmentLocationList.Choice.posted). --%>
+            <% if (request.getParameter("locationCode") != null) { %>
+            <input type="hidden" name="locationCode" value="<carlos:encode value='<%= request.getParameter("locationCode") %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+            <% } %>
             <input type="hidden" name="resources"
                    value="<carlos:encode value='<%= request.getParameter("resources") != null ? request.getParameter("resources") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             <input type="hidden" name="type" value="<carlos:encode value='<%= request.getParameter("type") != null ? request.getParameter("type") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
@@ -329,7 +336,7 @@
                 String temp = null;
                 for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                     temp = e.nextElement().toString();
-                    if (temp.equals("keyword") || temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no") || temp.equals("ptstatus") || temp.equals("submit"))
+                    if (temp.equals("keyword") || temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no") || temp.equals("ptstatus") || temp.equals("submit") || temp.equals("originalpage"))
                         continue;
             %>
             <input type="hidden" name="<carlos:encode value='<%= temp %>' context="htmlAttribute"/>"
@@ -357,6 +364,21 @@
         </div>
     </form>
 
+
+    <%-- Return the draft through POST, without patient selection or persistence. --%>
+    <% if ((request.getContextPath() + "/tickler/ViewAddTickler").equals(originalpage)) { %>
+    <form method="post" action="${pageContext.request.contextPath}/tickler/ViewAddTickler">
+        <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+        <input type="hidden" name="demographic_no" value="${carlos:forHtmlAttribute(param.ticklerOriginalPatient)}"/>
+        <c:forTokens var="draftField" items="ticklerMessage,ticklerDraftDate,ticklerDraftPriority,parentAjaxId,updateParent" delims=",">
+            <input type="hidden" name="${carlos:forHtmlAttribute(draftField)}" value="${carlos:forHtmlAttribute(param[draftField])}"/>
+        </c:forTokens>
+        <c:if test="${param.taskTo ne null}">
+            <input type="hidden" name="taskTo" value="${carlos:forHtmlAttribute(param.taskTo)}"/>
+        </c:if>
+        <button type="submit" id="ticklerReturnDraft" class="btn btn-secondary"><fmt:message key="global.btnBack"/></button>
+    </form>
+    <% } %>
 
     <div id="searchResults" style="margin-bottom:10px;">
 
@@ -600,11 +622,14 @@
         %>
         <fmt:message key="demographic.search.noResultsWereFound"/>
         <div class="createNew">
-            <form method="post" action="${pageContext.request.contextPath}/demographic/ViewDemographicAddARecordHtm">
+            <%-- Straight to the add form: ViewDemographicAddARecordHtm only redirects there, keeping the query
+                 string, so a POST through it arrived empty and the booking (date, time, provider, location,
+                 fromAppt) was lost: the new patient was saved but the user never returned to the booking. --%>
+            <form method="post" action="${pageContext.request.contextPath}/demographic/DemographicAdd">
 <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
 <c:forTokens var="searchField" items="originalPage,search_mode,keyword,notes,appointment_date,year,month,day,start_time,end_time,duration,provider_no,reasonCode,reason,location,resources,type,style,billing,status,createdatetime,creator,remarks" delims=",">
         <input type="hidden" name="${carlos:forHtmlAttribute(searchField)}" value="${carlos:forHtmlAttribute(param[searchField])}"/>
-    </c:forTokens><input type="hidden" name="fromAppt" value="1"/><input type="hidden" name="bFirstDisp" value="false"/>
+    </c:forTokens><%-- locationCode only when the booking form posted one (AppointmentLocationList.Choice.posted). --%><c:if test="${not empty paramValues.locationCode}"><input type="hidden" name="locationCode" value="${carlos:forHtmlAttribute(param.locationCode)}"/></c:if><input type="hidden" name="fromAppt" value="1"/><input type="hidden" name="bFirstDisp" value="false"/>
 <button type="submit" class="btn btn-link p-0"><fmt:message key="demographic.search.btnCreateNew"/></button>
 </form>
         </div>
@@ -613,11 +638,14 @@
         %>
         <fmt:message key="demographic.search.noResultsWereFound"/>
         <div class="createNew">
-            <form method="post" action="${pageContext.request.contextPath}/demographic/ViewDemographicAddARecordHtm">
+            <%-- Straight to the add form: ViewDemographicAddARecordHtm only redirects there, keeping the query
+                 string, so a POST through it arrived empty and the booking (date, time, provider, location,
+                 fromAppt) was lost: the new patient was saved but the user never returned to the booking. --%>
+            <form method="post" action="${pageContext.request.contextPath}/demographic/DemographicAdd">
 <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
 <c:forTokens var="searchField" items="originalPage,search_mode,keyword,notes,appointment_date,year,month,day,start_time,end_time,duration,provider_no,reasonCode,reason,location,resources,type,style,billing,status,createdatetime,creator,remarks" delims=",">
         <input type="hidden" name="${carlos:forHtmlAttribute(searchField)}" value="${carlos:forHtmlAttribute(param[searchField])}"/>
-    </c:forTokens><input type="hidden" name="fromAppt" value="1"/><input type="hidden" name="bFirstDisp" value="false"/>
+    </c:forTokens><%-- locationCode only when the booking form posted one (AppointmentLocationList.Choice.posted). --%><c:if test="${not empty paramValues.locationCode}"><input type="hidden" name="locationCode" value="${carlos:forHtmlAttribute(param.locationCode)}"/></c:if><input type="hidden" name="fromAppt" value="1"/><input type="hidden" name="bFirstDisp" value="false"/>
 <button type="submit" class="btn btn-link p-0"><fmt:message key="demographic.search.btnCreateNew"/></button>
 </form>
         </div>

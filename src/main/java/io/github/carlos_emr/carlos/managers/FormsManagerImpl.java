@@ -56,7 +56,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
-import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.form.gate.FormShortcutRouteResolver;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -88,9 +87,6 @@ public class FormsManagerImpl implements FormsManager {
 
     @Autowired
     private EncounterFormDao encounterFormDao;
-
-    @Autowired
-    DocumentManager documentManager;
 
     @Autowired
     private SecurityInfoManager securityInfoManager;
@@ -206,34 +202,6 @@ public class FormsManagerImpl implements FormsManager {
         pdfReadyFormList.add("Annual");
         return pdfReadyFormList;
     }
-
-    /**
-     * Saves a form as PDF EDoc.
-     * Returns the id of the converted document.
-     */
-    @Override
-    public Integer saveFormDataAsEDoc(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer) {
-
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_edoc)");
-        }
-
-        EDoc edoc = ConvertToEdoc.from(formTransportContainer);
-        documentManager.moveDocument(loggedInInfo, edoc.getDocument(), edoc.getFilePath(), null);
-        edoc.setFilePath(null);
-        Integer documentId = documentManager.saveDocument(loggedInInfo, edoc);
-
-        if (documentId != null) {
-            LogAction.addLogSynchronous(loggedInInfo, "FormsManager.saveFormDataAsEDoc",
-                    "Document ID saved: " + documentId);
-        } else {
-            LogAction.addLogSynchronous(loggedInInfo, "FormsManager.saveFormDataAsEDoc",
-                    "Document conversion for Form " + edoc.getFileName() + " failed.");
-        }
-
-        return documentId;
-    }
-
 
     /**
      * Please refrain from using this method unless your form ID is sourced from PDF-ready forms, as the form ID alone is not guaranteed to be unique.

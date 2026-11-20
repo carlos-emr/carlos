@@ -71,7 +71,7 @@ class EmailManagerFieldLengthUnitTest {
 
     @BeforeEach
     void authorize() {
-        emailManager = new EmailManager(null, null, securityInfoManager, null);
+        emailManager = new EmailManager(null, null, securityInfoManager, null, null);
         ReflectionTestUtils.setField(emailManager, "clinicFooterService", clinicFooterService);
         ReflectionTestUtils.setField(emailManager, "emailConfigDao", emailConfigDao);
         ReflectionTestUtils.setField(emailManager, "emailLogDao", emailLogDao);

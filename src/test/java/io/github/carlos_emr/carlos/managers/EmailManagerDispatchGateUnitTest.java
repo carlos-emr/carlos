@@ -55,6 +55,7 @@ import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
+import io.github.carlos_emr.carlos.email.core.PdfAttachmentSigningService;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -119,7 +120,7 @@ class EmailManagerDispatchGateUnitTest extends CarlosUnitTestBase {
         }
         consentIs(EmailConsentStatus.OPT_IN);
         emailManager = new EmailManager(consentResolver, new EmailSenderFactory(), securityInfoManager,
-                archiveService);
+                archiveService, mock(PdfAttachmentSigningService.class));
         injectDependency(emailManager, "clinicFooterService", io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);

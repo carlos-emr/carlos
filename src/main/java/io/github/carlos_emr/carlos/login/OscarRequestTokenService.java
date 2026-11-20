@@ -112,20 +112,23 @@ public class OscarRequestTokenService {
         cfg.setConsumerKey(client.getConsumerKey());
         cfg.setConsumerSecret(client.getSecret());
         cfg.setApplicationURI(req.getRequestURL().toString());
-        verifier.verifySignature(req, cfg);
+        try {
+            verifier.verifySignature(req, cfg);
+        } catch (IllegalArgumentException _) {
+            throw new OAuth1Exception(401, "invalid_signature");
+        }
 
         RequestTokenRegistration reg = new RequestTokenRegistration(client);
 
-        // --- decode+normalize callback ONLY for persistence ---
-        String cbRaw = oreq.callback; // keep whatever the parser gives (was working before)
+        // Header values and servlet parameters are decoded once by the shared parser.
+        String cbRaw = io.github.carlos_emr.carlos.webserv.oauth.util.OAuthRequestParser
+                .extractOAuthParameters(req).get("oauth_callback");
         String cbToStore;
 
         if (isOutOfBandCallback(cbRaw)) {
             cbToStore = "oob";
         } else if (cbRaw != null && !cbRaw.isEmpty()) {
-            // decode once (RFC3986) and normalize to plain canonical URL
-            String decoded = pctDecode(cbRaw);
-            cbToStore = normalizeUrl(decoded);
+            cbToStore = normalizeUrl(cbRaw);
         } else {
             // fallback to app-registered callback if your flow allows it
             String registeredCallback = client.getCallbackUri();
@@ -184,26 +187,6 @@ public class OscarRequestTokenService {
         return URLEncoder.encode(s, StandardCharsets.UTF_8);
     }
 
-    private static String pctDecode(String s) {
-        if (s == null || s.isEmpty()) return s;
-        int n = s.length();
-        StringBuilder out = new StringBuilder(n);
-        for (int i = 0; i < n; i++) {
-            char c = s.charAt(i);
-            if (c == '%' && i + 2 < n) {
-                int hi = Character.digit(s.charAt(i + 1), 16);
-                int lo = Character.digit(s.charAt(i + 2), 16);
-                if (hi >= 0 && lo >= 0) {
-                    out.append((char) ((hi << 4) + lo));
-                    i += 2;
-                    continue;
-                }
-            }
-            out.append(c);
-        }
-        return out.toString();
-    }
-
     private static String normalizeUrl(String url) {
         if (url == null || url.isEmpty()) {
             return url;
@@ -224,8 +207,12 @@ public class OscarRequestTokenService {
                 (port == 443 && "https".equals(scheme))) {
                 port = -1; // drop default ports
             }
-            String path = (u.getPath() == null || u.getPath().isEmpty()) ? "/" : u.getPath();
-            return new URI(scheme, u.getUserInfo(), host, port, path, u.getQuery(), u.getFragment()).toString();
+            String path = (u.getRawPath() == null || u.getRawPath().isEmpty()) ? "/" : u.getRawPath();
+            String authority = new URI(scheme, u.getUserInfo(), host, port, null, null, null).toString();
+            // Preserve escaped query separators and percent literals. Rebuilding from decoded
+            // URI components would turn a query value's %26 into another query parameter.
+            return authority + path + (u.getRawQuery() == null ? "" : "?" + u.getRawQuery())
+                    + (u.getRawFragment() == null ? "" : "#" + u.getRawFragment());
         } catch (OAuth1Exception e) {
             throw e;
         } catch (IllegalArgumentException | URISyntaxException e) {

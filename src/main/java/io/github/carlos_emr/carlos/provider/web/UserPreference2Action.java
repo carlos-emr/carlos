@@ -40,8 +40,11 @@ import io.github.carlos_emr.carlos.commn.model.EForm;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.login.Login2Action;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PasswordPolicy;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
@@ -56,6 +59,7 @@ import java.util.*;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class UserPreference2Action extends ActionSupport {
+    private static final String VALUE_ATTRIBUTE_START = "\" value=\"";
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -131,6 +135,12 @@ public class UserPreference2Action extends ActionSupport {
         for (UserProperty up : userProperties) {
             prefs.put(up.getName(), up.getValue());
         }
+        // This field is shared with the schedule and REST preferences. Prefer its
+        // canonical key while retaining old prefixed values until the next save.
+        if (prefs.containsKey(UserProperty.CONSULTATION_TIME_PERIOD_WARNING)) {
+            prefs.put("pref." + UserProperty.CONSULTATION_TIME_PERIOD_WARNING,
+                    prefs.get(UserProperty.CONSULTATION_TIME_PERIOD_WARNING));
+        }
         request.setAttribute("prefs", prefs);
         return "form";
     }
@@ -138,6 +148,24 @@ public class UserPreference2Action extends ActionSupport {
     public String saveGeneral() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
+
+        String warning = request.getParameter("pref." + UserProperty.CONSULTATION_TIME_PERIOD_WARNING);
+        if (!io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod.isValid(warning)) {
+            return refuseSave(getText("provider.consultationWarning.invalid"));
+        }
+
+        // The page checks the password policy in the browser, which is feedback only: the
+        // configured policy is applied here, before anything is stored, as it is for a forced
+        // reset and for the administrator's security record.
+        String requestedPassword = getParameter(request, "new_password");
+        if (!requestedPassword.isEmpty()) {
+            PasswordPolicy.Validation policy = PasswordPolicy.validate(requestedPassword, CarlosProperties.getInstance());
+            if (!policy.isValid()) {
+                logger.info("Refused a preferences password change that breaks the configured policy: reason={}",
+                        policy.auditReason());
+                return refuseSave(policy.message(key -> Login2Action.message(request, key)));
+            }
+        }
 
         //Is there a password change?
         if (!getParameter(request, "new_password").isEmpty()) {
@@ -154,6 +182,9 @@ public class UserPreference2Action extends ActionSupport {
             if (!key.startsWith("pref.")) continue;
 
             String value = request.getParameter(key);
+            if (key.equals("pref." + UserProperty.CONSULTATION_TIME_PERIOD_WARNING)) {
+                value = io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod.normalized(value);
+            }
 
             //a couple special cases
             if (key.equals("pref." + UserProperty.ENCOUNTER_FORM_NAME) || key.equals("pref." + UserProperty.EFORM_NAME)) {
@@ -166,20 +197,35 @@ public class UserPreference2Action extends ActionSupport {
                 value = sb.toString();
             }
 
-            UserProperty up = userPropertyDao.getProp(providerNo, key);
+            String storageKey = key.equals("pref." + UserProperty.CONSULTATION_TIME_PERIOD_WARNING)
+                    ? UserProperty.CONSULTATION_TIME_PERIOD_WARNING : key;
+            UserProperty up = userPropertyDao.getProp(providerNo, storageKey);
             if (up != null) {
                 up.setValue(value);
                 userPropertyDao.saveProp(up);
             } else {
                 up = new UserProperty();
                 up.setProviderNo(providerNo);
-                up.setName(key);
+                up.setName(storageKey);
                 up.setValue(value);
                 userPropertyDao.saveProp(up);
             }
         }
 
         return form();
+    }
+
+    /** Re-renders the form with the submitted preferences and a message; nothing has been saved. */
+    private String refuseSave(String message) {
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        form();
+        @SuppressWarnings("unchecked")
+        Map<String, String> prefs = (Map<String, String>) request.getAttribute("prefs");
+        request.getParameterMap().forEach((key, values) -> {
+            if (key.startsWith("pref.") && values != null) prefs.put(key, String.join(",", values));
+        });
+        request.setAttribute("preferenceValidationError", message);
+        return "form";
     }
 
     private void changePassword(HttpServletRequest request) throws Exception {
@@ -207,7 +253,8 @@ public class UserPreference2Action extends ActionSupport {
         if (val == null) {
             val = new String();
         }
-        return "name=\"" + key + "\" value=\"" + val + "\"";
+        return "name=\"" + io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(key)
+                + VALUE_ATTRIBUTE_START + io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(val) + "\"";
     }
 
     public static String getSelect(Map<String, String> prefs, String key) {
@@ -470,7 +517,7 @@ public class UserPreference2Action extends ActionSupport {
                 }
             }
             sb.append("<input name=\"pref.").append(UserProperty.ENCOUNTER_FORM_NAME)
-                    .append("\" value=\"").append(SafeEncode.forHtmlAttribute(lvb.getValue()))
+                    .append(VALUE_ATTRIBUTE_START).append(SafeEncode.forHtmlAttribute(lvb.getValue()))
                     .append("\" type=\"checkbox\" ").append(checked)
                     .append("/>").append(SafeEncode.forHtmlContent(lvb.getLabel())).append("\n");
             sb.append("<br/>\n");
@@ -507,7 +554,7 @@ public class UserPreference2Action extends ActionSupport {
                 }
             }
             sb.append("<input name=\"pref.").append(UserProperty.EFORM_NAME)
-                    .append("\" value=\"").append(SafeEncode.forHtmlAttribute(lvb.getValue()))
+                    .append(VALUE_ATTRIBUTE_START).append(SafeEncode.forHtmlAttribute(lvb.getValue()))
                     .append("\" type=\"checkbox\" ").append(checked)
                     .append("/>").append(SafeEncode.forHtmlContent(lvb.getLabel())).append("\n");
             sb.append("<br/>\n");

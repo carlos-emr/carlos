@@ -79,6 +79,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class HttpMethodGuardFilter implements Filter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpMethodGuardFilter.class);
+    private static final String DELETE = "delete";
 
     /**
      * Action name prefixes that indicate mutator operations (case-insensitive).
@@ -90,7 +91,7 @@ public class HttpMethodGuardFilter implements Filter {
      * "rem" (for remFromGroup) which are used in some struts action names.</p>
      */
     private static final Set<String> MUTATOR_ACTION_PREFIXES = Set.of(
-            "add", "delete", "del",
+            "add", DELETE, "del",
             "remove", "rem",
             "save", "submit", "create",
             "assign", "complete", "process", "archive",
@@ -107,6 +108,7 @@ public class HttpMethodGuardFilter implements Filter {
      * mapped to non-matching URL action names.</p>
      */
     private static final Set<String> MUTATOR_ACTION_NAMES = Set.of(
+            "editform",               // HtmlEdit2Action saves eForm templates; its view is efmformmanageredit.
             "billingaddcode",         // BillingAddCode2Action (starts with "billing", not "add")
             // reprocessBill (BC) is dual-purpose too: GET opens Bill Status or a bill's adjust page,
             // which is how every menu, list and Edit link reaches them. BillingReProcessBill2Action
@@ -142,7 +144,7 @@ public class HttpMethodGuardFilter implements Filter {
      * are still caught by {@link #MUTATOR_ACTION_PREFIXES}.</p>
      */
     private static final Set<String> MUTATOR_METHOD_PARAMS = Set.of(
-            "save", "delete", "update", "create", "remove",
+            "save", DELETE, "update", "create", "remove",
             "submit", "merge", "archive", "assign", "transfer",
             "approve", "reject", "toggle", "complete", "process",
             "cancel", "close",
@@ -177,18 +179,26 @@ public class HttpMethodGuardFilter implements Filter {
      * bare GET (opening the page, filtering a list) still passes.</p>
      */
     public static final Map<String, Set<String>> MUTATION_INTENT_PARAMS_BY_ROUTE = Map.of(
+            "/rx/favoriteGroups", Set.of("command"),
             // providerPrivilege.jsp: submit=Add|Delete writes a privilege row, buttonUpdate merges one.
             "/admin/ProviderPrivilege", Set.of("submit", "buttonUpdate"),
             // providerRole.jsp: submit (a localized Add or Delete), buttonUpdate and
             // buttonSetPrimaryRole each change a provider's role.
             "/admin/ProviderRole", Set.of("submit", "buttonUpdate", "buttonSetPrimaryRole"),
             // ViewMessage.jsp's Delete button; reply, replyAll and forward only open the compose page.
-            "/messenger/HandleMessages", Set.of("delete"),
+            "/messenger/HandleMessages", Set.of(DELETE),
             // Select Forms: forward=add|delete|up|down reorders the encounter form list (#3377).
             "/form/select", Set.of("forward"),
             // Generate Teleplan File: providers (the Create Report form's physician) writes an MSP batch; the menu
             // item and the year archive links open the page without it (#4439 D3).
-            "/billing/CA/BC/GenerateTeleplanFile", Set.of("providers")
+            "/billing/CA/BC/GenerateTeleplanFile", Set.of("providers"),
+            // Appointment Settings > Locations: every change names its dispatch; the page opens without one
+            // (#3982). The Statuses tab is not listed: its menu link and old bookmarks open it with
+            // dispatch=view|modify, so AppointmentStatus2Action refuses GET for its writes by value.
+            "/appointment/apptLocationSetting", Set.of("dispatch"),
+            // Key Pair Creation: a request naming a service (name) stores a key pair; Create New Key
+            // opens the page without one (#6055).
+            "/admin/ViewKeygenCreateKey", Set.of("name")
     );
 
     /** {@link #MUTATION_INTENT_PARAMS_BY_ROUTE} with every path and name lowercased, for lookup. */

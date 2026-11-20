@@ -92,6 +92,21 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
     @Column(name = "updatedatetime")
     private Date updateDateTime = new Date();
 
+    @Transient
+    private Long persistedUpdateTime;
+
+    /** Token clients must echo when submitting an edit, including legacy null timestamps. */
+    public String getEditVersion() {
+        return updateDateTime == null ? "unversioned" : Long.toString(updateDateTime.getTime());
+    }
+
+    @PostLoad
+    @PostPersist
+    @PostUpdate
+    protected void rememberUpdateTime() {
+        persistedUpdateTime = updateDateTime == null ? null : updateDateTime.getTime();
+    }
+
     private String creator;
 
     @Column(name = "lastupdateuser")
@@ -105,6 +120,8 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
     private BookingSource bookingSource;
 
     private Integer reasonCode;
+
+    private Integer locationCode;
 
     public Integer getReasonCode() {
         return reasonCode;
@@ -229,6 +246,30 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    /**
+     * Gets the Location List item chosen for this appointment. {@link #getLocation()} holds a
+     * snapshot of that item's label at booking time, so renaming the item later does not rewrite
+     * this appointment, and screens that only read the text keep working.
+     *
+     * @return Integer the LookupListItem id, or null when no item was chosen (free text, a site, a
+     *         program, or no location)
+     * @since 2026-11-04
+     */
+    public Integer getLocationCode() {
+        return locationCode;
+    }
+
+    /**
+     * Sets the Location List item chosen for this appointment. Writers go through
+     * {@code AppointmentLocationResolver}, which keeps the code and the label snapshot together.
+     *
+     * @param locationCode Integer the LookupListItem id, or null for none
+     * @since 2026-11-04
+     */
+    public void setLocationCode(Integer locationCode) {
+        this.locationCode = locationCode;
     }
 
     public String getResources() {
@@ -359,9 +400,16 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
     }
 
     @PrePersist
+    protected void jpaInitializeLastUpdateTime() {
+        this.updateDateTime = new Date(System.currentTimeMillis() / 1000 * 1000);
+    }
+
     @PreUpdate
     protected void jpaUpdateLastUpdateTime() {
-        this.updateDateTime = new Date();
+        // Production uses DATETIME without fractional seconds. Advance from the loaded
+        // value, even for two writes in one second or a caller that replaces the audit date.
+        long nextSecond = persistedUpdateTime == null ? 0 : (persistedUpdateTime / 1000 + 1) * 1000;
+        this.updateDateTime = new Date(Math.max(System.currentTimeMillis() / 1000 * 1000, nextSecond));
     }
 
     public static final Comparator<Appointment> APPT_DATE_COMPARATOR = new Comparator<Appointment>() {

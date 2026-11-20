@@ -70,9 +70,37 @@ git rebase --signoff HEAD~N
 git push --force-with-lease
 ```
 
+#### Commits That Do Not Need a Sign-Off
+
+Some commits cannot carry your `Signed-off-by` line, and the DCO check passes them
+automatically. You never need to amend them, and a maintainer never needs to post a manual
+confirmation for them. The check reports them separately from signed-off commits.
+
+- **Verified GitHub-generated merge commits**, such as the merge created by the
+  **Update branch** button or by `Merge pull request`. A commit qualifies only when GitHub's
+  API reports all of: two or more parents, committer account `web-flow`, a valid GitHub
+  signature, and a subject of `Merge pull request #N from ...` or `Merge branch '...' into ...`.
+  The subject alone is never enough, and the committer name or email written into the commit
+  is ignored because anyone can set it locally.
+- **Allow-listed bot accounts** (for example `dependabot[bot]`), identified by the GitHub
+  account behind the commit.
+
+Everything else needs a sign-off, including a merge you made locally, an unsigned squash
+commit, and any commit whose GitHub signature is missing or invalid. Merging `develop` into
+your branch with GitHub's **Update branch** button is therefore fine, but a local
+`git merge develop` produces a commit that needs a sign-off (`git merge --signoff develop`).
+
+The check summary lists signed-off commits, verified GitHub merge exemptions, bot exemptions
+and missing sign-offs as separate counts. Only the last group is a failure, and only that
+group makes the manual confirmation below relevant.
+
 #### Manual DCO Confirmation (Alternate)
 
-If you cannot amend your commits (e.g., force-push is not possible), an authorized user
+This is a fallback for commits that genuinely lack a sign-off and cannot be amended, and for
+a PR whose complete commit history the check cannot retrieve from the GitHub API (it then
+reports that it could not verify the history instead of listing missing commits). It is not
+how GitHub-generated merge commits are handled (see above). If you cannot amend your
+commits (e.g., force-push is not possible), an authorized user
 with `write` or higher repository permission can retroactively confirm DCO sign-off after
 reviewing the connected history. The comment must contain the exact phrase followed by
 the current full 40-character PR head SHA:

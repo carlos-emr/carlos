@@ -473,8 +473,8 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
         // record that decides. Showing a duplicate opt-in would silently reverse an opt-out (#3845).
         List<Consent> consent = ConsentRecords.effectivePerType(consentDao.findByDemographic(demographic_no));
 
-        LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.getAllConsentsByDemographic",
-                " Demographic: " + demographic_no);
+        LogAction.addLogStrict(loggedinInfo, "PatientConsentManager.getAllConsentsByDemographic", null, null,
+                Integer.toString(demographic_no), " Demographic: " + demographic_no);
 
         return consent;
     }

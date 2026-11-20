@@ -14,6 +14,7 @@
 // those templates and the owned patient's immunizations rows, then asserts they are gone.
 // The application defects (del link dead, template name lost, missing stylesheets) are asserted
 // in the LAST step so every other step is proven first.
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const { assert, sqlString, withExpectedDialogs } = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
@@ -186,7 +187,7 @@ async function workflow(s) {
     assert((await s.context.request.post(saveUrl, { form: unversioned, maxRedirects: 0 })).status() === 400,
       'A schedule save without a version was accepted');
     for (const [url, params] of [[saveUrl, { hdnAction: 'Save' }], [mutateUrl, { method: 'delete', tblSet: '0' }]]) {
-      assert((await s.context.request.get(url, { params, maxRedirects: 0 })).status() === 405,
+      assert((await authenticatedProbe(s, url, { params, maxRedirects: 0 })).status() === 405,
         'A schedule mutation was accepted through GET');
     }
     assert(JSON.stringify(sql.rows(`SELECT ID,archived,immunizations FROM immunizations WHERE demographic_no=${patient} ORDER BY ID`))

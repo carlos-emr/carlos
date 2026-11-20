@@ -46,7 +46,7 @@
     }
 %>
 
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+
 <html>
 
     <head>

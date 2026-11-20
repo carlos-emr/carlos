@@ -29,7 +29,7 @@
 --%>
 
 <%@ include file="/taglibs.jsp" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <script>

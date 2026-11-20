@@ -82,6 +82,8 @@ class CopyFavorites2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, security);
         registerMock(FavoritesDao.class, favoritesDao);
         registerMock(FavoritesPrivilegeDao.class, privilegeDao);
+        registerMock(io.github.carlos_emr.carlos.managers.RxFavoriteCopyService.class,
+                new io.github.carlos_emr.carlos.managers.RxFavoriteCopyService(favoritesDao, privilegeDao));
         when(security.hasPrivilege(any(), eq("_rx"), eq("w"), isNull())).thenReturn(true);
         servletContext = mockStatic(ServletActionContext.class);
         servletContext.when(ServletActionContext::getRequest).thenReturn(request);
@@ -287,7 +289,7 @@ class CopyFavorites2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should report partial copy failure explicitly instead of showing success")
+    @DisplayName("should report an unconfirmed copy explicitly instead of showing success")
     void shouldReportIncompleteCopy_whenLaterPersistFails() throws Exception {
         copyRequest();
         publicSource();
@@ -304,7 +306,7 @@ class CopyFavorites2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(new CopyFavorites2Action().execute()).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(500);
-        assertThat(response.getErrorMessage()).contains("Some items may already have been copied");
+        assertThat(response.getErrorMessage()).contains("could not be confirmed");
         assertThat(request.getAttribute("copiedFavoritesCount")).isNull();
         verify(favoritesDao, times(2)).persist(any());
     }

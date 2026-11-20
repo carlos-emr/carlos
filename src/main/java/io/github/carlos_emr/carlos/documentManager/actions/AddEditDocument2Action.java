@@ -59,11 +59,13 @@ import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentExtraReviewerDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentStorageDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.dao.SecRoleDao;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.DocumentExtraReviewer;
 import io.github.carlos_emr.carlos.commn.model.DocumentStorage;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -81,6 +83,9 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.ScheduleNav;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
@@ -126,6 +131,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
     private static final String ERROR_NO_WRITE_KEY = "dms.addDocument.errorNoWrite";
     private static final String ERROR_ZERO_SIZE_KEY = "dms.addDocument.errorZeroSize";
     private static final String ERROR_DUPLICATE_KEY = "dms.addDocument.errorDuplicate";
+    private static final String ERROR_DESCRIPTION_TOO_LONG = "desctoolong";
+    private static final String ERROR_DESCRIPTION_TOO_LONG_KEY = "dms.error.descriptionTooLong";
     private static final String PARAM_FUNCTION = "function";
     private static final String PARAM_FUNCTION_ID = "functionid";
     private static final String PARAM_CUR_USER = "curUser";
@@ -432,6 +439,10 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 errors.put("descmissing", "dms.error.descriptionInvalid");
                 throw new Exception();
             }
+            if (!descriptionFits()) {
+                errors.put(ERROR_DESCRIPTION_TOO_LONG, ERROR_DESCRIPTION_TOO_LONG_KEY);
+                throw new Exception();
+            }
             if (this.getDocType().length() == 0) {
                 errors.put("typemissing", "dms.error.typeMissing");
                 throw new Exception();
@@ -522,10 +533,15 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
             // ---
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
-            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
             // add note if document is added under a patient
             String module = this.getFunction().trim();
             String moduleId = this.getFunctionId().trim();
+            if (module.equals("demographic")) {
+                // Filed onto a chart: the audit row names the patient, so the upload can be found from it.
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr(), moduleId);
+            } else {
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+            }
             if (module.equals("demographic")) {// doc is uploaded under a patient, moduleId become demo no.
 
                 Date now = EDocUtil.getDmsDateTimeAsDate();
@@ -593,6 +609,16 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
     }
 
     /**
+     * Whether the posted description fits {@code document.docdesc} as it is stored ({@link EDoc}
+     * trims it). The packaged database cuts a longer one off without an error, so add and edit
+     * refuse it with a {@code docerrors} message before anything is written; the page's
+     * {@code maxlength} and its submit check are only the visible half.
+     */
+    private boolean descriptionFits() {
+        return Document.descriptionFits(this.getDocDesc().trim());
+    }
+
+    /**
      * Edits an existing document's metadata and optionally replaces its file content.
      * Handles reviewer assignment, extra reviewer tracking, and document type updates.
      *
@@ -621,6 +647,10 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 errors.put("descmissing", "dms.error.descriptionInvalid");
                 throw new Exception();
             }
+            if (!descriptionFits()) {
+                errors.put(ERROR_DESCRIPTION_TOO_LONG, ERROR_DESCRIPTION_TOO_LONG_KEY);
+                throw new Exception();
+            }
             if (this.getDocType().length() == 0) {
                 errors.put("typemissing", "dms.error.typeMissing");
                 throw new Exception();
@@ -628,6 +658,11 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             String fileName = "";
             boolean updateFileContent = false;
             File validatedDocFile = null;
+            // Refuse a document that is gone before any replacement content is written. The
+            // locked save below checks again, because the row can still vanish after this read.
+            if (SpringUtils.getBean(DocumentDao.class).find(Integer.parseInt(this.getMode())) == null) {
+                throw new StoredDocumentMissingException();
+            }
 
             if (CarlosProperties.getInstance().getBooleanProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true"))
             {
@@ -648,21 +683,13 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 }
             }
 
+            // The posted reviewer fields describe the page as it was loaded and are never stored:
+            // saveStoredEdit sets the reviewer from the stored row and the signed-in provider.
             String reviewerId = filled(this.getReviewerId()) ? this.getReviewerId() : "";
             String reviewDateTime = filled(this.getReviewDateTime()) ? this.getReviewDateTime() : "";
-
-            if (!filled(reviewerId) && this.getReviewDoc()) {
-                LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-                reviewerId = loggedInInfo.getLoggedInProviderNo();
-                reviewDateTime = UtilDateUtilities.DateToString(new Date(), EDocUtil.REVIEW_DATETIME_FORMAT);
-                if (this.getFunction() != null && this.getFunction().equals("demographic")) {
-                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(),
-request.getRemoteAddr(), this.getFunctionId());
-                } else {
-                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(),
-request.getRemoteAddr());
-                }
-            }
+            // Either flag asks for a review by the signed-in provider. Whether it is the first or an
+            // additional review is decided from the stored document, not from which flag the page set.
+            boolean reviewRequested = this.getReviewDoc() || this.isExtraReviewDoc();
 
             EDoc newDoc = new EDoc(this.getDocDesc(), this.getDocType(), fileName, "", this.getDocCreator(), this.getResponsibleId(),
 this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, this.getFunction(), this.getFunctionId());
@@ -714,25 +741,18 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
                     newDoc.setNumberOfPages(numberOfPages);
                 }
             }
-            if (this.getReviewDoc()) {
-                newDoc.setReviewDateTime(UtilDateUtilities.DateToString(new Date(), EDocUtil.REVIEW_DATETIME_FORMAT));
+
+            String actor = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+            ReviewOutcome review = saveStoredEdit(newDoc, reviewRequested, actor);
+
+            if (review == ReviewOutcome.FIRST || review == ReviewOutcome.ADDITIONAL) {
+                // Logged only after the review is committed, so the audit never claims a review that failed to save.
+                if ("demographic".equals(this.getFunction())) {
+                    LogAction.addLog(actor, LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr(), this.getFunctionId());
+                } else {
+                    LogAction.addLog(actor, LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr());
+                }
             }
-
-            if (this.isExtraReviewDoc()) {
-                DocumentExtraReviewer der = new DocumentExtraReviewer();
-                der.setDocumentNo(Integer.parseInt(newDoc.getDocId()));
-                der.setReviewDateTime(new Date());
-                der.setReviewerProviderNo(this.getExtraReviewerId());
-
-                DocumentExtraReviewerDao derDao = SpringUtils.getBean(DocumentExtraReviewerDao.class);
-                derDao.persist(der);
-
-                //don't lose the initial review
-                this.setReviewDoc(true);
-                newDoc.setReviewDateTime(this.getReviewDateTime());
-            }
-
-            EDocUtil.editDocumentSQL(newDoc, this.getReviewDoc());
 
             if (this.getFunction() != null && this.getFunction().equals("demographic")) {
                 LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr(), this.getFunctionId());
@@ -741,6 +761,12 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
             }
 
+        } catch (StoredDocumentMissingException _) {
+            // The document was removed by someone else; say so rather than re-render a silent form.
+            errors.put("documentmissing", "dms.error.documentMissing");
+            request.setAttribute("docerrors", errors);
+            request.setAttribute("editDocumentNo", this.getMode());
+            return "failEdit";
         } catch (FileValidationException e) {
             request.setAttribute("docerrors", errors);
             request.setAttribute("editDocumentNo", this.getMode());
@@ -758,6 +784,97 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return "successEdit";
     }
 
+
+    /** How a save recorded the signed-in provider's review of the stored document. */
+    enum ReviewOutcome {
+        /** No review was requested (a plain "Update", which clears any stored review). */
+        NONE,
+        /** The document had no reviewer; the signed-in provider is now its reviewer. */
+        FIRST,
+        /** The document was already reviewed by someone else; an additional reviewer row was added. */
+        ADDITIONAL,
+        /** The signed-in provider had already reviewed it (a repeated click); nothing new was recorded. */
+        ALREADY_REVIEWED
+    }
+
+    /** The edited document no longer exists. */
+    static final class StoredDocumentMissingException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        StoredDocumentMissingException() {
+            super("Edited document no longer exists");
+        }
+    }
+
+    /**
+     * Saves the edited metadata and, when asked, the signed-in provider's review, in one
+     * transaction that holds the document row lock.
+     *
+     * <p>Whether a review is the first or an additional one is decided here from the stored
+     * reviewer, read under the lock, and never from the flag the page chose when it was loaded:
+     * the page cannot know that another user's "Update" cleared the review, or that another
+     * provider reviewed it first, after it was rendered (issue #6081). A blank stored reviewer
+     * makes the actor the reviewer. A present one keeps that first review and adds the actor as an
+     * additional reviewer, unless the actor has already reviewed it.</p>
+     *
+     * @param newDoc the metadata to store; its reviewer fields are set here
+     * @param reviewRequested whether the page asked for a review by the actor
+     * @param actor the signed-in provider number
+     * @return how the review was recorded
+     * @throws StoredDocumentMissingException if the document no longer exists
+     */
+    private ReviewOutcome saveStoredEdit(EDoc newDoc, boolean reviewRequested, String actor) {
+        TransactionTemplate transaction = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
+        // Its own transaction, as the other document metadata writers use: the review must be
+        // committed before the action writes the REVIEWED audit event.
+        transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        return transaction.execute(status -> {
+            Integer documentNo = Integer.valueOf(newDoc.getDocId());
+            Document stored = SpringUtils.getBean(DocumentDao.class).findForPageMutation(documentNo);
+            if (stored == null) {
+                throw new StoredDocumentMissingException();
+            }
+            ReviewOutcome outcome = reviewRequested ? recordReview(stored, documentNo, newDoc, actor) : ReviewOutcome.NONE;
+            EDocUtil.editDocumentSQL(newDoc, reviewRequested);
+            return outcome;
+        });
+    }
+
+    /**
+     * Records the actor's review against the stored row that {@link #saveStoredEdit} holds locked,
+     * and sets the reviewer fields {@code newDoc} will store. Runs inside that transaction.
+     *
+     * @return {@link ReviewOutcome#FIRST} when the stored reviewer was blank,
+     *         {@link ReviewOutcome#ADDITIONAL} when an extra-reviewer row was added, or
+     *         {@link ReviewOutcome#ALREADY_REVIEWED} when the actor had already reviewed it
+     */
+    private ReviewOutcome recordReview(Document stored, Integer documentNo, EDoc newDoc, String actor) {
+        Date now = new Date();
+        String storedReviewer = stored.getReviewer();
+        if (!filled(storedReviewer)) {
+            newDoc.setReviewerId(actor);
+            newDoc.setReviewDateTime(UtilDateUtilities.DateToString(now, EDocUtil.REVIEW_DATETIME_FORMAT));
+            return ReviewOutcome.FIRST;
+        }
+        // Keep the first review exactly as stored.
+        newDoc.setReviewerId(storedReviewer);
+        newDoc.setReviewDateTime(stored.getReviewdatetime() == null ? ""
+                : UtilDateUtilities.DateToString(stored.getReviewdatetime(), EDocUtil.REVIEW_DATETIME_FORMAT));
+        DocumentExtraReviewerDao extraReviewers = SpringUtils.getBean(DocumentExtraReviewerDao.class);
+        boolean alreadyReviewed = storedReviewer.equals(actor) || extraReviewers.findByDocumentNo(documentNo).stream()
+                .anyMatch(existing -> Objects.equals(actor, existing.getReviewerProviderNo()));
+        if (alreadyReviewed) {
+            return ReviewOutcome.ALREADY_REVIEWED;
+        }
+        DocumentExtraReviewer additional = new DocumentExtraReviewer();
+        additional.setDocumentNo(documentNo);
+        additional.setReviewDateTime(now);
+        // A review attests to the authenticated actor, never a hidden form field.
+        additional.setReviewerProviderNo(actor);
+        extraReviewers.persist(additional);
+        return ReviewOutcome.ADDITIONAL;
+    }
 
     /**
      * Writes an uploaded file to the local document storage directory. The destination

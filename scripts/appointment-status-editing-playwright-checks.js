@@ -42,6 +42,8 @@
  * a unique PW_APPT_<millis> stamp, and removed in finally with its archive rows.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
@@ -174,16 +176,20 @@ async function checkEditPopup(context, daySheet, booked, statuses) {
 
 /** Asserts the status editor's rows in whatever document (popup page or panel frame) it loaded into. */
 async function assertStatusEditor(root, statuses, surface) {
-  const cells = root.locator('td.nowrap:first-child');
+  const cells = root.locator('#statusTable tbody th[scope="row"]');
   await cells.first().waitFor({ state: 'attached', timeout: 30000 });
-  const listed = await cells.evaluateAll((nodes) => nodes.map((cell) => cell.textContent.trim()));
+  // The header also carries the description for screen readers; the code is its <code> element.
+  const listed = await cells.evaluateAll((nodes) => nodes.map((cell) => (cell.querySelector('code') || cell).textContent.trim()));
   for (const code of ['t', 'C']) {
     assert(listed.includes(code), `${surface}: status editor does not list ${code}: ${JSON.stringify(listed)}`);
   }
   assert(listed.length >= statuses.length,
     `${surface}: status editor lists ${listed.length} statuses, fewer than the ${statuses.length} active ones`);
-  assert(await root.locator('a[href*="dispatch=modify"]').count() > 0,
-    `${surface}: status editor offers no Edit link for any status`);
+  // Statuses are edited inline (#3982): each row carries its own description, colour and icon forms.
+  for (const dispatch of ['updateDescription', 'updateColour', 'updateIcon']) {
+    assert(await root.locator(`form input[name="dispatch"][value="${dispatch}"]`).count() >= listed.length,
+      `${surface}: status editor offers no inline ${dispatch} form on every row`);
+  }
   return listed.length;
 }
 
@@ -197,7 +203,10 @@ async function assertStatusEditor(root, statuses, surface) {
  * but its link is still clicked through its popupPage() handler.
  */
 async function checkAdminLinks(context, schedulePage, statuses) {
-  const statusLink = `a[onclick*="${STATUS_SETTING_PATH}"]`;
+  // admin.jsp names the editor in the link's href and opens it with popupPage(..., this.href)
+  // (#3982); older pages named it in the onclick. Match both, or the disabled-editing branch
+  // below would pass on a count that can never be anything but 0.
+  const statusLink = `a[href*="${STATUS_SETTING_PATH}"], a[onclick*="${STATUS_SETTING_PATH}"]`;
   const panelStatusLink = `a.xlink[rel*="${STATUS_SETTING_PATH}"]`;
 
   const legacy = await context.newPage();
@@ -273,7 +282,7 @@ async function waitForFrameUrl(frameElement, routePath) {
   throw new Error(`the administration panel frame never loaded ${routePath}`);
 }
 
-async function main() {
+async function main({cancellation}={}) {
   fixture.initMysqlDefaults();
   let browser = null;
   try {
@@ -281,18 +290,26 @@ async function main() {
     const statuses = activeStatuses();
     assert(statuses.length > 1, `appointment_status has ${statuses.length} active rows; the pull-down needs a list`);
 
-    browser = await chromium.launch(getLaunchOptions(fixture.config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(fixture.config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(fixture.config.baseUrl) });
+    cancellation?.throwIfCancelled();
     // appointmentaddarecord.jsp self-closes on success; keep the page inspectable.
     await context.addInitScript(() => {
       window.close = () => { window.__carlosSelfCloseRequested = true; };
     });
+    cancellation?.throwIfCancelled();
     const daySheet = await login(context, fixture.config, fixture.recorder);
+    cancellation?.throwIfCancelled();
 
     await checkAdminLinks(context, daySheet, statuses);
+    cancellation?.throwIfCancelled();
     await checkAddPopup(context, daySheet, statuses);
+    cancellation?.throwIfCancelled();
     await fixture.openDaySheet(daySheet);
+    cancellation?.throwIfCancelled();
     const booked = await fixture.bookFromSlot(context, daySheet);
+    cancellation?.throwIfCancelled();
     if (expectEnabled) {
       // The pull-down's first entry; a default "t" booking is what the tester saw
       // when the pull-down was missing, so the row must match what was selected.
@@ -300,6 +317,7 @@ async function main() {
         `booked appointment has status ${booked.status}, the pull-down's default is ${statuses[0]}`);
     }
     await checkEditPopup(context, daySheet, booked, statuses);
+    cancellation?.throwIfCancelled();
 
     assertNoPageErrors(fixture.recorder);
     assert(fixture.recorder.badResponses.length === 0,
@@ -321,8 +339,10 @@ async function main() {
   }
 }
 
-if (require.main === module) main().catch((error) => {
+if (require.main === module) legacyHarness.runLegacyCheck('appointment-status-editing',async context=>{
+  await (main)(context).catch((error) => {
   console.error(error.stack || error.message);
   process.exitCode = 1;
+});
 });
 module.exports = { main };

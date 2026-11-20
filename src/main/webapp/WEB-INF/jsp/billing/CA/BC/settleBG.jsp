@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@taglib uri="jakarta.tags.core" prefix="c" %>
-<%@page import="io.github.carlos_emr.carlos.billing.ca.bc.MSP.*" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%

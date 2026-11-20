@@ -39,7 +39,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * BC billing pages' own links: the service-code tray list pages through its action, and the
+ * BC billing pages' own links: the service-code tray list pages locally, and the
  * reconciliation, dx-code and Teleplan code pages link only stylesheets that exist.
  */
 @Tag("unit")
@@ -72,16 +72,13 @@ class BcBillingPageLinksRegressionTest {
         return links;
     }
 
-    /** The page is reached by a forward, so the paging links need the action's address. */
     @Test
-    @DisplayName("should page the tray-code list through its action, carrying only the page number")
-    void shouldPageTrayList_throughItsAction() throws IOException {
+    @DisplayName("should page the tray-code list locally without repeating request parameters")
+    void shouldPageTrayList_locally() throws IOException {
         String page = read("billingSVCTrayAssoc.jsp");
-        Matcher table = Pattern.compile("<display:table\\b[^>]*>").matcher(page);
-
-        assertThat(table.find()).isTrue();
-        assertThat(table.group()).contains("requestURI=\"/billing/CA/BC/supServiceCodeAssocAction\"");
-        assertThat(table.group()).contains("excludedParams=\"*\"");
+        assertThat(page).contains("data-carlos-table").contains("data-page-size=\"50\"")
+                .doesNotContain("<display:table").doesNotContain("requestURI=");
+        // The view is still entered through its read-only action; paging stays local.
         assertThat(Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-billing.xml"), StandardCharsets.UTF_8))
                 .containsSubsequence("<action name=\"billing/CA/BC/supServiceCodeAssocAction\"",
                         "/WEB-INF/jsp/billing/CA/BC/billingSVCTrayAssoc.jsp");

@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.webserv.transfer_objects;
 
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
 import java.util.Calendar;
 import java.util.List;
 import java.util.TimeZone;
@@ -60,6 +61,7 @@ public final class AppointmentTransfer {
     private String notes;
     private String reason;
     private String location;
+    private Integer locationCode;
     private String resources;
     private String type;
     private String style;
@@ -89,6 +91,9 @@ public final class AppointmentTransfer {
         this.providerNo = providerNo;
     }
 
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapter.class)
     public Calendar getAppointmentStartDateTime() {
         return (appointmentStartDateTime);
     }
@@ -97,6 +102,9 @@ public final class AppointmentTransfer {
         this.appointmentStartDateTime = appointmentStartDateTime;
     }
 
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapter.class)
     public Calendar getAppointmentEndDateTime() {
         return (appointmentEndDateTime);
     }
@@ -153,6 +161,31 @@ public final class AppointmentTransfer {
         this.location = location;
     }
 
+    /**
+     * Gets the Location List item the appointment was booked with; {@link #getLocation()} holds
+     * that item's label as it was at booking. The location label is the published SOAP contract; the lookup id is Java/JSON metadata.
+     *
+     * @return Integer the LookupListItem id, or null when no item was chosen
+     * @since 2026-11-04
+     */
+    // Existing strict SOAP clients validate against schemas without this lookup metadata.
+    // Keep the booking-time label in location and retain the lookup id for Java/JSON callers.
+    @jakarta.xml.bind.annotation.XmlTransient
+    @com.fasterxml.jackson.annotation.JsonIgnore(false)
+    public Integer getLocationCode() {
+        return locationCode;
+    }
+
+    /**
+     * Sets the Location List item id copied from the appointment.
+     *
+     * @param locationCode Integer the LookupListItem id, or null
+     * @since 2026-11-04
+     */
+    public void setLocationCode(Integer locationCode) {
+        this.locationCode = locationCode;
+    }
+
     public String getResources() {
         return (resources);
     }
@@ -193,6 +226,9 @@ public final class AppointmentTransfer {
         this.status = status;
     }
 
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapter.class)
     public Calendar getCreateDateTime() {
         return (createDateTime);
     }
@@ -201,6 +237,9 @@ public final class AppointmentTransfer {
         this.createDateTime = createDateTime;
     }
 
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapter.class)
     public Calendar getUpdateDateTime() {
         return (updateDateTime);
     }
@@ -250,9 +289,14 @@ public final class AppointmentTransfer {
     }
 
     public Appointment copyTo(Appointment appointment) {
+        // Preserve BeanUtils' null-target contract and make it explicit before date writes.
+        if (appointment == null) throw new IllegalArgumentException("Target must not be null");
 
-        String[] ignored = {"id", "appointmentDate", "startTime", "endTime", "createDateTime", "updateDateTime", "creator", "lastUpdateUser", "creatorSecurityId"};
+        // The location code is read-only over SOAP: a client sends text, and a changed text
+        // clears a Location List code that no longer names it (AppointmentLocationResolver).
+        String[] ignored = {"id", "appointmentDate", "startTime", "endTime", "createDateTime", "updateDateTime", "creator", "lastUpdateUser", "creatorSecurityId", "location", "locationCode"};
         BeanUtils.copyProperties(this, appointment, ignored);
+        AppointmentLocationResolver.setLocationText(appointment, location);
 
         if (appointmentStartDateTime != null) {
             appointment.setAppointmentDate(appointmentStartDateTime.getTime());
@@ -264,8 +308,11 @@ public final class AppointmentTransfer {
         // not much we can do right now because it's a fault in oscars data structure.
         if (appointmentEndDateTime != null) {
             // also oscar sets end time funny, it is not exclusive so we need to calculate exclusivity ourselves.
-            appointmentEndDateTime.add(Calendar.MILLISECOND, -1);
-            appointment.setEndTime(appointmentEndDateTime.getTime());
+            // Work on a copy: the transfer must keep echoing the end the client sent, and a second
+            // copyTo on the same transfer must not drift by another millisecond.
+            Calendar exclusiveEnd = (Calendar) appointmentEndDateTime.clone();
+            exclusiveEnd.add(Calendar.MILLISECOND, -1);
+            appointment.setEndTime(exclusiveEnd.getTime());
         }
 
         return (appointment);

@@ -111,6 +111,48 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         return consent;
     }
 
+    @Test
+    void shouldReturnNoEditedConsents_whenTheConsentTypeIsAbsent() {
+        Date editedAfter = new Date(0);
+        assertThat(manager.getConsentsByTypeAndEditDate(loggedInInfo, null, editedAfter)).isEmpty();
+        verifyNoInteractions(mockConsentDao, mockConsentTypeDao);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldPreserveTheEditedConsentQuery_whenTheSpecifiedTypeIsInactive() {
+        ConsentType type = createActiveConsentType(7, "FAKE historical consent");
+        type.setActive(false);
+        Date editedAfter = new Date(0);
+        List<Consent> consents = List.of(new Consent());
+        when(mockConsentDao.findLastEditedByConsentTypeId(7, editedAfter)).thenReturn(consents);
+
+        assertThat(manager.getConsentsByTypeAndEditDate(loggedInInfo, type, editedAfter)).isSameAs(consents);
+
+        verify(mockConsentDao).findLastEditedByConsentTypeId(7, editedAfter);
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(loggedInInfo,
+                "PatientConsentManager.getConsentsByTypeAndEditDate", " ConsentTypeId: 7"));
+    }
+
+    @Test
+    void shouldIdentifyThePatientInTheAudit_whenConsentListIsRead() {
+        when(mockConsentDao.findByDemographic(101)).thenReturn(List.of());
+        assertThat(manager.getAllConsentsByDemographic(loggedInInfo, 101)).isEmpty();
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(
+                loggedInInfo, "PatientConsentManager.getAllConsentsByDemographic", null, null,
+                "101", " Demographic: 101"));
+    }
+
+    @Test
+    void shouldWithholdConsentResults_whenAuditPersistenceFails() {
+        when(mockConsentDao.findByDemographic(101)).thenReturn(List.of());
+        RuntimeException failure = new IllegalStateException("audit unavailable");
+        logActionMock.when(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(
+                loggedInInfo, "PatientConsentManager.getAllConsentsByDemographic", null, null,
+                "101", " Demographic: 101")).thenThrow(failure);
+        assertThatThrownBy(() -> manager.getAllConsentsByDemographic(loggedInInfo, 101)).isSameAs(failure);
+    }
+
     private void setConsentId(Consent consent, Integer id) {
         try {
             java.lang.reflect.Field idField = Consent.class.getDeclaredField("id");
@@ -1146,7 +1188,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
                             + " page was loaded. Requested: opt-in Shown: ConsentId: 21 Choice: opt-in"
                             + " Current: ConsentId: 21 Choice: opt-out")));
             logActionMock.verify(() -> LogAction.addLogSynchronousOrThrow(any(LoggedInInfo.class),
-                    eq("PatientConsentManager.changeConsent"), any(), any(), any(), any()), never());
+                    eq("PatientConsentManager.changeConsent"), any(), any(), org.mockito.ArgumentMatchers.<Integer>any(), any()), never());
         }
 
         @Test
@@ -1245,7 +1287,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             assertThat(optedOut.isExplicit()).isFalse();
             verifyNothingWritten();
             logActionMock.verify(() -> LogAction.addLogSynchronous(any(LoggedInInfo.class),
-                    eq("PatientConsentManager.recordExplicitConsent"), any(), any(), any(), any()), never());
+                    eq("PatientConsentManager.recordExplicitConsent"), any(), any(), org.mockito.ArgumentMatchers.<Integer>any(), any()), never());
         }
 
         @Test
@@ -1304,7 +1346,7 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             assertThat(optedOut.isOptout()).isFalse();
             verify(mockConsentDao).merge(optedOut);
             logActionMock.verify(() -> LogAction.addLogSynchronous(any(LoggedInInfo.class), eq(REFUSED),
-                    any(), any(), any(), any()), never());
+                    any(), any(), org.mockito.ArgumentMatchers.<Integer>any(), any()), never());
         }
 
         @Test

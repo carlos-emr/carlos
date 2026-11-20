@@ -49,6 +49,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.UUID;
+import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -383,10 +384,10 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
         if ("issueDelete".equals(operation)) note.setId(null);
         postDurationMode(mode);
         action.setObservation_date("15-Oct-2026 19:14");
-        action.setLineId("0");
-        action.setDeleteId("0");
+        request.setParameter("caseIssueId", "71");
         request.setParameter("ajax", "true");
-        request.setParameter("issueCheckList[0].issue.certain", "true");
+        request.setParameter("issueField", "certain");
+        request.setParameter("issueValue", "true");
         stubPatientDisplay();
         var properties = mock(io.github.carlos_emr.CarlosProperties.class);
         try (var config = mockStatic(io.github.carlos_emr.CarlosProperties.class)) {
@@ -404,13 +405,12 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
                 assertThat(form.getIssueCheckList()).containsExactly(entry);
                 assertThat(entry.getIssue().isCertain()).isTrue();
                 assertThat(entry.getIssueDisplay().getCertain()).isEqualTo("certain");
-                verify(manager).saveAndUpdateCaseIssues(argThat(issues -> issues.size() == 1
-                        && issues.get(0) == entry.getIssue()));
+                verify(manager).updateExistingIssue(eq(71L), any());
                 verify(manager, never()).deleteIssueById(any());
             } else {
                 verify(manager).deleteIssueById(entry.getIssue());
                 assertThat(form.getIssueCheckList()).isEmpty();
-                verify(manager, never()).saveAndUpdateCaseIssues(any());
+                verify(manager, never()).updateExistingIssue(anyLong(), any());
             }
             verify(manager, never()).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
                     any(), any(), any(), any(), any(), any(), any());
@@ -435,13 +435,10 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
         request.setParameter("caseNote_note", rawDraft);
         doReturn(rawDraft).when(action).getCaseNote_note();
         request.setParameter(field, value);
-        request.setParameter("issueCheckList[0].issue.acute", "true");
-        request.setParameter("issueCheckList[0].issue.certain", "true");
-        request.setParameter("issueCheckList[0].issue.major", "true");
-        request.setParameter("issueCheckList[0].issue.resolved", "true");
+        request.setParameter("caseIssueId", "71");
+        request.setParameter("issueField", "resolved");
+        request.setParameter("issueValue", "true");
         action.setObservation_date("15-Oct-2026 19:14");
-        action.setLineId("0");
-        action.setDeleteId("0");
 
         assertThat("issueChange".equals(operation) ? action.issueChange() : action.issueDelete())
                 .isEqualTo("issueChange".equals(operation) ? "none" : "windowCloseError");
@@ -471,10 +468,17 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
     }
 
     private CheckBoxBean editableIssueEntry() {
-        var issue = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue();
+        var issue = spy(new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue());
         issue.setId(71L);
         issue.setDemographic_no(101);
         issue.setUpdate_date(STORED_DATE);
+        doReturn(true).when(issue).isWriteAccess("999998", 7);
+        var issues = mock(io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO.class);
+        when(issues.findById(71L)).thenReturn(issue);
+        injectDependency(action, "caseManagementIssueDao", issues);
+        when(manager.updateExistingIssue(eq(71L), any())).thenAnswer(invocation ->
+                invocation.<Function<io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue, ?>>getArgument(1)
+                        .apply(issue));
         var display = new CaseManagementViewAction.IssueDisplay();
         display.setAcute("chronic");
         display.setCertain("uncertain");
@@ -599,7 +603,7 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
         var entry = new CheckBoxBean();
         entry.setIssue(issue);
         form.getIssueCheckList().add(entry);
-        action.setDeleteId("0");
+        request.setParameter("caseIssueId", "71");
         action.setObservation_date(posted);
 
         assertThat(action.issueDelete()).isEqualTo("windowCloseError");
@@ -615,15 +619,12 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
     @NullSource
     @ValueSource(strings = {"", "14-Oct-2026 10:05"})
     void shouldKeepIssueDeletionAvailableWithValidOrOmittedDate(String posted) throws Exception {
-        var issue = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue();
-        issue.setId(71L);
-        issue.setDemographic_no(101);
-        var entry = new CheckBoxBean();
-        entry.setIssue(issue);
+        var entry = editableIssueEntry();
+        var issue = entry.getIssue();
         form.getIssueCheckList().add(entry);
         // Issues can be removed while the editor holds a new, as-yet-unsaved note.
         note.setId(null);
-        action.setDeleteId("0");
+        request.setParameter("caseIssueId", "71");
         action.setObservation_date(posted);
         doReturn("").when(action).getDemoName(anyString());
         doReturn("").when(action).getDemoAge(anyString());

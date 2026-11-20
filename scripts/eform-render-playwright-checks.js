@@ -54,6 +54,10 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+
+// EFORM_IMAGE_DIR identifies the disposable server's mounted eForm image store for owned asset verification/cleanup.
+const legacyHarness=require('./lib/legacy-check');
+const { validateBaseUrl } = require('./lib/playwright-harness');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -62,6 +66,7 @@ const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
 const h = require('./lib/playwright-harness');
+const {ownedUploadedImage}=require('./lib/owned-uploaded-image');
 const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
@@ -71,7 +76,8 @@ const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
 const screenshotDir = process.env.EFORM_SCREENSHOT_DIR || '/tmp';
 
-const bgImageName = 'playwright_pdf_render_bg.png';
+const ownedMarker=newOwnedMarker();
+const bgImageName=ownedMarker+'-render-bg.png';
 const transparentPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl5n2QAAAAASUVORK5CYII=';
 
 const badResponses = [];
@@ -83,29 +89,6 @@ function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
   }
-}
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not embed a username or password');
-  }
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const octets = host.split('.');
-  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
-  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
-    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
-    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
 }
 
 function appUrl(appPath) {
@@ -384,10 +367,11 @@ function assertDisplayImageFetchesSucceeded(imageName) {
   await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('eform-render',async context=>{
+  await (async({cancellation})=>{
   const fixture = createFixtureFiles();
   const timestamp = Date.now();
-  const importedFormName = `Playwright Render Pipeline ${timestamp}`;
+  const importedFormName=ownedMarker+' Render Pipeline';
   const importedFormSubject = `Render pipeline ${timestamp}`;
   const artifactBaseName = `eform-render-pipeline-${timestamp}`;
   const renderedPdfPath = buildArtifactPath(screenshotDir, artifactBaseName, '.pdf');
@@ -396,7 +380,6 @@ function assertDisplayImageFetchesSucceeded(imageName) {
   let managerPage = null;
   // The owned patient the eForm is opened for (never a demo patient), created before anything else is written.
   const sql = h.createSqlRunner(h.readConfig().mysql);
-  const ownedMarker = newOwnedMarker();
   let patient = null;
 
   const launchOptions = {
@@ -408,51 +391,74 @@ function assertDisplayImageFetchesSucceeded(imageName) {
   }
 
   let browser = null;
+  let uploadedImage;
   try {
+    if(!process.env.EFORM_IMAGE_DIR)throw new h.SkipCheck('EFORM_IMAGE_DIR is required to remove the owned uploaded background');
+    uploadedImage=ownedUploadedImage(process.env.EFORM_IMAGE_DIR,bgImageName,Buffer.from(transparentPngBase64,'base64'));
     const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
     assert(provider, 'The configured test login has no provider');
     patient = createOwnedPatient(sql, { marker: ownedMarker, provider });
-    browser = await chromium.launch(launchOptions);
+    browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1100, height: 1600 } });
+    cancellation?.throwIfCancelled();
     context.on('page', page => h.wireStrictPage(page, 'eform-render', strictRecorder, { baseline: [] }));
     const landingPage = await login(context);
+    cancellation?.throwIfCancelled();
     await landingPage.close();
+    cancellation?.throwIfCancelled();
 
     await ensureImageUploaded(context, fixture.imagePath, bgImageName);
+    uploadedImage.verify();
+    cancellation?.throwIfCancelled();
     const uploadResult = await uploadEform(context, importedFormName, importedFormSubject, fixture.htmlPath);
+    cancellation?.throwIfCancelled();
     managerPage = uploadResult.page;
     importedFid = uploadResult.fid;
 
     const managerPreview = await openManagerPreview(context, uploadResult.row);
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(managerPreview, 'manager preview popup');
+    cancellation?.throwIfCancelled();
     await assertImageLoaded(managerPreview, '#BGImage1', 'manager preview background image');
+    cancellation?.throwIfCancelled();
     const managerPreviewState = await managerPreview.evaluate(() => ({
       patientLast: document.getElementById('patient_nameL') ? document.getElementById('patient_nameL').value : '',
       bgSrc: document.getElementById('BGImage1') ? document.getElementById('BGImage1').src : '',
     }));
+    cancellation?.throwIfCancelled();
     assert(managerPreviewState.patientLast === 'TemplateSeed', `Manager preview did not render template-stored field data: ${managerPreviewState.patientLast}`);
     await managerPreview.close();
+    cancellation?.throwIfCancelled();
 
     const popup = await openImportedEform(context, importedFid, patient);
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(popup, 'render-pipeline eForm popup');
+    cancellation?.throwIfCancelled();
 
     await popup.fill('#patient_nameL', 'Playwright');
+    cancellation?.throwIfCancelled();
     const popupState = await popup.evaluate(() => ({
       patientLast: document.getElementById('patient_nameL').value,
       title: document.title,
       warningMessage: document.getElementById('warningMessage') ? document.getElementById('warningMessage').value : '',
       bgSrc: document.getElementById('BGImage1') ? document.getElementById('BGImage1').src : '',
     }));
+    cancellation?.throwIfCancelled();
     assert(popupState.patientLast === 'Playwright', 'Imported render-pipeline eForm field was not editable');
     assert(!popupState.warningMessage, `Unexpected warning message on initial popup render: ${popupState.warningMessage}`);
     await assertImageLoaded(popup, '#BGImage1', 'render-pipeline background image');
+    cancellation?.throwIfCancelled();
     assertDisplayImageFetchesSucceeded(bgImageName);
 
     const downloadPromise = popup.waitForEvent('download', { timeout: 60000 });
     await popup.locator('#remoteDownloadButton').click();
+    cancellation?.throwIfCancelled();
     const download = await downloadPromise;
+    cancellation?.throwIfCancelled();
 
     await download.saveAs(renderedPdfPath);
+    cancellation?.throwIfCancelled();
     const pdfBytes = fs.readFileSync(renderedPdfPath);
     assert(pdfBytes.subarray(0, 5).toString('utf8') === '%PDF-', 'Downloaded payload was not a PDF');
     assert(pdfBytes.length > 500, `Downloaded PDF payload was unexpectedly small (${pdfBytes.length} bytes)`);
@@ -469,15 +475,18 @@ function assertDisplayImageFetchesSucceeded(imageName) {
       'PDF pagination changed the authored container width and moved its percentage-positioned field');
 
     await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     const postDownloadState = await popup.evaluate(() => ({
       warningMessage: document.getElementById('warningMessage') ? document.getElementById('warningMessage').value : '',
       errorMessage: document.getElementById('errorMessage') ? document.getElementById('errorMessage').value : '',
       isDownloadEForm: document.getElementById('isDownloadEForm') ? document.getElementById('isDownloadEForm').value : '',
     }));
+    cancellation?.throwIfCancelled();
     assert(!postDownloadState.warningMessage, `Unexpected warning after remote download: ${postDownloadState.warningMessage}`);
     assert(!postDownloadState.errorMessage, `Unexpected error after remote download: ${postDownloadState.errorMessage}`);
 
-    await popup.screenshot({ path: screenshotPath, fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
+    await popup.screenshot({ path: screenshotPath, fullPage: true });
+    cancellation?.throwIfCancelled(); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
 
     const fatalBadResponses = badResponses.filter((response) => !(response.label === 'eform-popup' && response.url.includes('/oscar/eform/displayImage?imagefile=')));
     const fatalConsoleIssues = consoleIssues.filter((issue) => issue.type !== 'dialog' &&
@@ -509,17 +518,23 @@ function assertDisplayImageFetchesSucceeded(imageName) {
     console.log('PASS app-backed eForm render pipeline Playwright check');
 
     await popup.close();
+    cancellation?.throwIfCancelled();
   } finally {
     if (managerPage && !managerPage.isClosed()) {
       await cleanupImportedEform(managerPage, importedFid).catch(() => {});
       await managerPage.close().catch(() => {});
     }
     fs.rmSync(fixture.tempDir, { recursive: true, force: true });
-    if (browser) await browser.close();
+    let browserClosed=!browser;
+    try {if(browser)await browser.close();browserClosed=true;}
+    finally {
     try {
+      assert(browserClosed,'Browser shutdown is unconfirmed; retain render fixtures');
+      if(uploadedImage)uploadedImage.cleanup({browserClosed});
       removeFixtureRows();
     } finally {
       sql.dispose();
+    }
     }
   }
 
@@ -540,7 +555,8 @@ function assertDisplayImageFetchesSucceeded(imageName) {
     removeOwnedPatient(sql, patient, ownedMarker);
   }
   h.assertStrictPage(strictRecorder);
-})().catch((error) => {
+})(context).catch((error) => {
+  if (error instanceof h.SkipCheck) throw error;
   console.error('FAIL app-backed eForm render pipeline Playwright check');
   console.error(error.stack || error.message);
   console.error(JSON.stringify(h.buildFailureDetails(strictRecorder), null, 2));
@@ -550,5 +566,6 @@ function assertDisplayImageFetchesSucceeded(imageName) {
   if (consoleIssues.length) {
     console.error(`Console issues: ${JSON.stringify(consoleIssues, null, 2)}`);
   }
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

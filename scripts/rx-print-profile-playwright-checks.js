@@ -50,6 +50,7 @@
  * Requires exclusive execution and MySQL CREATE/DROP TRIGGER permission for one owned,
  * uniquely named rollback probe; its exact definition is checked before DROP in finally.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const { execFileSync } = require('node:child_process');
 const { createHash } = require('node:crypto');
 const fs = require('node:fs');
@@ -405,7 +406,7 @@ async function workflow(s) {
 
   await s.step('a GET against rx/WriteToEncounter is refused before any write', async () => {
     const before = noteCount();
-    const rejected = await s.context.request.get(h.appUrl(s.config.baseUrl,
+    const rejected = await authenticatedProbe(s, h.appUrl(s.config.baseUrl,
       `/rx/WriteToEncounter?demographicNo=${patient}&expectedDemographicNo=${patient}`), { maxRedirects: 0 });
     h.assert(rejected.status() === 405 && rejected.headers()['x-carlos-encounter-write'] === 'not-written',
       `A GET encounter write answered HTTP ${rejected.status()} instead of 405 not-written`);
@@ -1582,19 +1583,19 @@ DELIMITER ;`);
           const submitted = await page.evaluate(id => {
             const form = document.forms.caseManagementEntryForm;
             const checkbox = form.querySelector(`input[data-issue-id="${id}"]`);
-            const index = checkbox && /^issueCheckList\[(\d+)\]\.checked$/.exec(checkbox.name);
-            const radioName = index && `issueCheckList[${index[1]}].issue.certain`;
-            const radio = radioName && Array.from(form.elements).find(input => input.name === radioName && input.value === 'true');
+            const radio = form.querySelector(`input[type="radio"][data-case-issue-id="${id}"][data-issue-field="certain"][value="true"]`);
             const csrf = globalThis.CarlosAjax?.getCsrfToken();
-            if (!index || !checkbox.checked || !radio || radio.disabled || !csrf) {
+            if (!checkbox?.checked || !radio || radio.disabled || !csrf) {
               throw new Error('The owned issue has no authorized rendered status control or CSRF token');
             }
             const body = new URLSearchParams(new FormData(form));
             if (!body.get('chartContext')) throw new Error('The rendered issue form has no chart context');
             body.set('method', 'issueChange');
-            body.set('lineId', index[1]);
+            // The row's control names its patient issue and the one value chosen (#6090).
+            body.set('caseIssueId', radio.getAttribute('data-case-issue-id'));
+            body.set('issueField', 'certain');
+            body.set('issueValue', 'true');
             body.set('ajax', 'true');
-            body.set(radioName, 'true');
             body.set('CSRF-TOKEN', csrf);
             return { body: body.toString(), csrf };
           }, caseId);

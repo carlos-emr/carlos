@@ -28,10 +28,30 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+
+<%--
+    Chart Forms list (formlist.jsp), served by /encounter/ViewFormlist.
+    Lists every saved form of one patient, grouped by form type, newest first
+    within each type, and pages through them ten rows at a time.
+
+    Parameters:
+      demographic_no  the patient whose forms are listed
+      provider_no     optional; carried into each form link and the paging links
+      limit1          index of the first row shown, counted across all form types
+      limit2          rows per page
+
+    The page window and its Previous/Next links are worked out over the whole
+    list by FormListPageCalculator, so a page never holds more than limit2 rows
+    whichever form types they come from (issue #5684). A row's "(current)"
+    label and highlight still depend on the row before it in its form type, so
+    every row is walked and only the page's rows are rendered.
+
+    @since 2001 (original), paging restored 2026-11-05
+--%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -51,24 +71,52 @@
 %>
 
 <%@ page
-        import="io.github.carlos_emr.carlos.util.UtilMisc,io.github.carlos_emr.carlos.encounter.data.*,java.net.*,java.util.*" %>
+        import="io.github.carlos_emr.carlos.encounter.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.data.FormListPageCalculator" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="java.util.ArrayList" %>
+<%@ page import="java.util.List" %>
+<%@ page import="java.util.Objects" %>
+
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     String provNo = request.getParameter("provider_no");
     String demoNo = request.getParameter("demographic_no");
     String deepcolor = "#CCCCFF", weakcolor = "#EEEEFF", tableTitle = "#99ccff";
-    String strLimit1 = "0";
-    String strLimit2 = "10";
-    if (request.getParameter("limit1") != null) strLimit1 = request.getParameter("limit1");
-    if (request.getParameter("limit2") != null) strLimit2 = request.getParameter("limit2");
 %>
 
 <%
     EctFormData.Form[] forms = EctFormData.getForms();
     UtilDateUtilities dateConvert = new UtilDateUtilities();
+
+    // Every form type's rows are loaded before any is rendered: the page window is counted
+    // across all form types, so its bounds and the Next link need the whole list's size.
+    List<EctFormData.PatientForm[]> patientFormsByType = new ArrayList<EctFormData.PatientForm[]>(forms.length);
+    int totalFormRows = 0;
+    for (EctFormData.Form frm : forms) {
+        String table = frm.getFormTable();
+        EctFormData.PatientForm[] pforms;
+        if (table == null || table.isEmpty()) {
+            pforms = new EctFormData.PatientForm[0];
+        } else {
+            pforms = EctFormData.getPatientFormsFromLocalAndRemote(loggedInInfo, demoNo, table);
+        }
+        patientFormsByType.add(pforms);
+        totalFormRows += pforms.length;
+    }
+    FormListPageCalculator.Page formListPage = FormListPageCalculator.calculate(
+            request.getParameter("limit1"), request.getParameter("limit2"), totalFormRows);
+
+    // Paging links keep the patient and, when the list was opened with one, the provider.
+    String formListPagingUrl = request.getContextPath() + "/encounter/ViewFormlist?demographic_no="
+            + SafeEncode.forUriComponent(demoNo)
+            + (provNo == null ? "" : "&provider_no=" + SafeEncode.forUriComponent(provNo));
+    String formListPreviousUrl = formListPagingUrl + "&limit1=" + formListPage.previousOffset()
+            + "&limit2=" + formListPage.size();
+    String formListNextUrl = formListPagingUrl + "&limit1=" + formListPage.nextOffset()
+            + "&limit2=" + formListPage.size();
 %>
 <html>
     <head>
@@ -120,6 +168,7 @@
                 }
             }
         </script>
+    </head>
     <body bgcolor="ivory" onLoad="setfocus()" topmargin="0" leftmargin="0"
           rightmargin="0">
     <table border=0 cellspacing=0 cellpadding=0 width="100%">
@@ -136,32 +185,30 @@
             </tr>
 
             <%
-
+                int formRowIndex = 0;
                 for (int j = 0; j < forms.length; j++) {
                     EctFormData.Form frm = forms[j];
-                    String table = frm.getFormTable();
-
-                    EctFormData.PatientForm[] pforms;
-                    if (table.length() == 0) {
-                        pforms = new EctFormData.PatientForm[0];
-                    } else {
-                        pforms = EctFormData.getPatientFormsFromLocalAndRemote(loggedInInfo, demoNo, table);
-                    }
-                    int nItems = 0;
+                    EctFormData.PatientForm[] pforms = patientFormsByType.get(j);
 
                     String current = "";
-                    for (int i = 0; i < pforms.length; i++) {
-                        nItems++;
+                    for (int i = 0; i < pforms.length; i++, formRowIndex++) {
                         EctFormData.PatientForm pfrm = pforms[i];
+                        String created = pfrm.getCreated();
 
-                        String winName = frm.getFormName() + demoNo + pfrm.getCreated();
-                        int hash = Math.abs(winName.hashCode());
-
-                        // yellow highlight the key forms.
-                        boolean yellow = false;
-                        if (!current.equals(pfrm.getCreated())) {
-                            yellow = true;
+                        // yellow highlight the key forms. formCreated is nullable, hence the
+                        // null-safe comparison. A row's highlight depends on the row before it
+                        // in its form type, so it is worked out for rows on other pages too,
+                        // and only this page's rows are rendered.
+                        boolean yellow = !Objects.equals(current, created);
+                        current = created;
+                        if (!formListPage.contains(formRowIndex)) {
+                            continue;
                         }
+
+                        // formEdited is nullable in formBPMH; render a missing time as blank.
+                        String edited = pfrm.edited == null ? "" : pfrm.getEdited();
+                        String winName = frm.getFormName() + demoNo + created;
+                        int hash = Math.abs(winName.hashCode());
             %>
             <tr bgcolor='<%= yellow ? "yellow" : j%2 == 0 ? (i%2 == 0 ?weakcolor:deepcolor) : (i%2 == 0 ?"white":"#eeeeee")%>'>
                 <c:set var="__encFormListFormName"><carlos:encode value='<%= frm.getFormName() %>' context="uriComponent"/></c:set>
@@ -173,43 +220,32 @@
 
                     <carlos:encode value='<%= frm.getFormName() + (yellow ? " (current)" : "") %>' context="html"/>
                 </a></td>
-                <td align='center'><carlos:encode value='<%= pfrm.getCreated() %>' context="html"/>
+                <td style='text-align: center'><carlos:encode value='<%= created %>' context="html"/>
                 </td>
-                <td align='center'><carlos:encode value='<%= pfrm.getEdited() %>' context="html"/>
+                <td style='text-align: center'><carlos:encode value='<%= edited %>' context="html"/>
                 </td>
             </tr>
-            <%
-                    current = pfrm.getCreated();
-                }
-            %>
-            <%
-                int nLastPage = 0, nNextPage = 0;
-                nNextPage = Integer.parseInt(strLimit2) + Integer.parseInt(strLimit1);
-                nLastPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
-                int intLimit2 = Integer.parseInt(strLimit2);
-                if ((nLastPage >= 0 || nItems == intLimit2) && nItems != 0) {
-                    out.println("<tr><td colspan=3  align='center'>");
-                    if (nLastPage >= 0) {
-            %>
-            <a
-                    href="<%= request.getContextPath() %>/encounter/ViewFormlist?demographic_no=<carlos:encode value='<%= demoNo %>' context="uriComponent"/>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>"><fmt:message key="encounter.formlist.formLastpage"/></a>
-            |
-            <%
-                }
-                if (nItems == intLimit2) {
-            %>
-            <a
-                    href="<%= request.getContextPath() %>/encounter/ViewFormlist?demographic_no=<carlos:encode value='<%= demoNo %>' context="uriComponent"/>&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>">
-                <fmt:message key="encounter.formlist.formNextPage"/></a>
-            </td>
-            </tr>
-            <%
-                } else {
-                    out.println("</td></tr>");
-                }
-            %>
             <%
                     }
+                }
+            %>
+            <%
+                if (formListPage.hasPrevious() || formListPage.hasNext()) {
+            %>
+            <tr>
+                <td colspan=3 style='text-align: center'>
+                    <% if (formListPage.hasPrevious()) { %>
+                    <a href="<carlos:encode value='<%= formListPreviousUrl %>' context="htmlAttribute"/>"><fmt:message key="encounter.formlist.formLastpage"/></a>
+                    <% } %>
+                    <% if (formListPage.hasPrevious() && formListPage.hasNext()) { %>
+                    |
+                    <% } %>
+                    <% if (formListPage.hasNext()) { %>
+                    <a href="<carlos:encode value='<%= formListNextUrl %>' context="htmlAttribute"/>"><fmt:message key="encounter.formlist.formNextPage"/></a>
+                    <% } %>
+                </td>
+            </tr>
+            <%
                 }
             %>
 

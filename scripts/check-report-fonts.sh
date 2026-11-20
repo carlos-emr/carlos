@@ -32,7 +32,7 @@ if [[ "$alternate_family" != 'Liberation Sans' || "$alternate_font" != *.ttf ]];
     exit 1
 fi
 
-tests=${REPORT_FONT_TESTS:-Rourke2020PdfReportIntegrationTest,PatientEndYearStatementIntegrationTest,JasperBundledFontRenderingUnitTest,JasperTemplateFontPolicyUnitTest,ClinicalFormJasperRenderingUnitTest,PdfFontsUnitTest,ConsultationPdfUnicodeUnitTest}
+tests=${REPORT_FONT_TESTS:-Rourke2020PdfReportIntegrationTest,PatientEndYearStatementIntegrationTest,JasperBundledFontRenderingUnitTest,JasperTemplateFontPolicyUnitTest,ClinicalFormJasperRenderingUnitTest,PdfFontsUnitTest,ConsultationPdfUnicodeUnitTest,HtmlPdfFixturesUnitTest,HtmlPdfFormsUnitTest,PrintLayoutServiceUnitTest}
 
 font_work=$(mktemp -d)
 trap 'rm -rf "$font_work"' EXIT

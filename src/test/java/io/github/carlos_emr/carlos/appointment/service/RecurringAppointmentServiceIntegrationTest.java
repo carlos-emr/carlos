@@ -1,7 +1,10 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.appointment.service;
 
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
+import io.github.carlos_emr.carlos.commn.dao.LookupListDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -42,6 +45,7 @@ class RecurringAppointmentServiceIntegrationTest extends CarlosTestBase {
     @PersistenceContext(unitName = "entityManagerFactory") private EntityManager em;
     private final LoggedInInfo user = mock(LoggedInInfo.class);
     private final SecurityInfoManager security = mock(SecurityInfoManager.class);
+    private final LookupListDao lookupLists = mock(LookupListDao.class);
     private RecurringAppointmentService service;
     private Map<String, String> values;
 
@@ -58,7 +62,8 @@ class RecurringAppointmentServiceIntegrationTest extends CarlosTestBase {
     }
 
     private RecurringAppointmentService proxied(OscarAppointmentDao dao) {
-        ProxyFactory factory = new ProxyFactory(new RecurringAppointmentService(dao, archives, security));
+        ProxyFactory factory = new ProxyFactory(new RecurringAppointmentService(dao, archives, security,
+                new AppointmentLocationResolver(lookupLists)));
         factory.addAdvice(new TransactionInterceptor(transactions, new AnnotationTransactionAttributeSource()));
         return (RecurringAppointmentService) factory.getProxy();
     }
@@ -186,6 +191,137 @@ class RecurringAppointmentServiceIntegrationTest extends CarlosTestBase {
         assertThat(count.intValue()).isEqualTo(9);
     }
 
+    private void offerLocation(int id, String label) {
+        io.github.carlos_emr.carlos.commn.model.LookupListItem item = new io.github.carlos_emr.carlos.commn.model.LookupListItem();
+        item.setId(id);
+        item.setLabel(label);
+        item.setActive(true);
+        io.github.carlos_emr.carlos.commn.model.LookupList list = new io.github.carlos_emr.carlos.commn.model.LookupList();
+        list.setItems(new java.util.ArrayList<>(List.of(item)));
+        when(lookupLists.findByName(AppointmentLocationResolver.LIST_NAME)).thenReturn(list);
+    }
+
+    @Test void shouldBookEveryOccurrenceAtChosenItem_whenLocationListItemPosted() {
+        offerLocation(501, "Virtual");
+        values.put("locationCode", "501");
+        values.put("location", "");
+        assertThat(service.apply(user, values, 10016)).isEqualTo(3);
+        em.flush();
+        em.clear();
+        assertThat(rows()).hasSize(3).allSatisfy(a -> {
+            assertThat(a.getLocationCode()).isEqualTo(501);
+            assertThat(a.getLocation()).isEqualTo("Virtual");
+        });
+    }
+
+    @Test void shouldKeepSavedItem_whenUpdateFormHasNoDropdownAndSameText() {
+        offerLocation(501, "Virtual");
+        values.put("locationCode", "501");
+        service.apply(user, values, 10016);
+        values.remove("locationCode");
+        values.put("location", "Virtual");
+        values.put("appointment_no", rows().getFirst().getId().toString());
+        values.put("groupappt", "Group Update");
+        assertThat(service.apply(user, values, 10016)).isEqualTo(3);
+        assertThat(rows()).allSatisfy(a -> assertThat(a.getLocationCode()).isEqualTo(501));
+
+        values.put("location", "Room 9");
+        assertThat(service.apply(user, values, 10016)).isEqualTo(3);
+        em.flush();
+        em.clear();
+        assertThat(rows()).allSatisfy(a -> {
+            assertThat(a.getLocationCode()).isNull();
+            assertThat(a.getLocation()).isEqualTo("Room 9");
+        });
+    }
+
+    @Test
+    void shouldRejectEntireNewSeries_whenSelectedLocationWasDisabled() {
+        offerLocation(501, "Virtual");
+        lookupLists.findByName(AppointmentLocationResolver.LIST_NAME).getItems().getFirst().setActive(false);
+        values.put("locationCode", "501");
+
+        assertThatThrownBy(() -> service.apply(user, values, 10016))
+                .isInstanceOf(AppointmentLocationUnavailableException.class);
+
+        assertThat(rows()).isEmpty();
+    }
+
+    @Test
+    void shouldLeaveSeriesAndArchivesUntouched_whenNewLocationIsUnavailable() {
+        service.apply(user, values, 10016);
+        values.put("appointment_no", rows().getFirst().getId().toString());
+        values.put("groupappt", "Group Update");
+        values.put("reason", "Unsaved reason");
+        offerLocation(501, "Virtual");
+        lookupLists.findByName(AppointmentLocationResolver.LIST_NAME).getItems().getFirst().setActive(false);
+        values.put("locationCode", "501");
+
+        assertThatThrownBy(() -> service.apply(user, values, 10016))
+                .isInstanceOf(AppointmentLocationUnavailableException.class);
+
+        assertThat(rows()).hasSize(3).allSatisfy(a -> {
+            assertThat(a.getReason()).isEmpty();
+            assertThat(a.getLocationCode()).isNull();
+        });
+        Number count = (Number) em.createNativeQuery(
+                "SELECT COUNT(*) FROM appointmentArchive WHERE notes='PW_RECURRENCE_INTEGRATION'").getSingleResult();
+        assertThat(count.intValue()).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Group Cancel", "Group Delete"})
+    void shouldAllowStatusOnlyOperations_whenPostedLocationIsUnavailable(String operation) {
+        service.apply(user, values, 10016);
+        values.put("appointment_no", rows().getFirst().getId().toString());
+        values.put("groupappt", operation);
+        values.put("locationCode", "501");
+
+        assertThat(service.apply(user, values, 10016)).isEqualTo(3);
+
+        if ("Group Delete".equals(operation)) assertThat(rows()).isEmpty();
+        else assertThat(rows()).allSatisfy(a -> assertThat(a.getStatus()).isEqualTo("C"));
+    }
+
+    @Test void shouldCreateRepeats_whenDropdownOffersTypedLocationAsItsItem() {
+        offerLocation(501, "Virtual");
+        values.put("endDate", "31/01/2027");
+        values.put("location", "virtual");
+        service.apply(user, values, 10016);
+        values.put("appointment_no", rows().getFirst().getId().toString());
+        values.put("endDate", "14/02/2027");
+        // The edit screen starts on the item the typed text names; saving it unchanged is no change.
+        values.put("locationCode", "501");
+        values.put("location", "");
+
+        assertThat(service.apply(user, values, 10016)).isEqualTo(2);
+        em.flush();
+        em.clear();
+        assertThat(rows()).hasSize(3).allSatisfy(a -> {
+            assertThat(a.getLocation()).isEqualTo("virtual");
+            assertThat(a.getLocationCode()).isNull();
+        });
+    }
+
+    @Test void shouldKeepBookedName_whenItemRenamedBeforeGroupUpdate() {
+        offerLocation(501, "Room A");
+        values.put("locationCode", "501");
+        values.put("location", "");
+        service.apply(user, values, 10016);
+        offerLocation(501, "Room 1");
+        values.put("appointment_no", rows().getFirst().getId().toString());
+        values.put("groupappt", "Group Update");
+        values.put("reason", "Renamed room");
+
+        assertThat(service.apply(user, values, 10016)).isEqualTo(3);
+        em.flush();
+        em.clear();
+        assertThat(rows()).hasSize(3).allSatisfy(a -> {
+            assertThat(a.getLocation()).isEqualTo("Room A");
+            assertThat(a.getLocationCode()).isEqualTo(501);
+        });
+    }
+
     @Test void preservesUnsubmittedStyleAndBillingWhenCreatingSavedRepeats() {
         values.put("endDate", "31/01/2027");
         values.put("style", "legacy");
@@ -299,7 +435,7 @@ class RecurringAppointmentServiceIntegrationTest extends CarlosTestBase {
 
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    void databaseFailureRollsBackEarlierOccurrences() {
+    void shouldRollBackEarlierOccurrences_whenDatabaseWriteFails() {
         OscarAppointmentDao failing = mock(OscarAppointmentDao.class, delegatesTo(appointments));
         AtomicInteger calls = new AtomicInteger();
         doAnswer(invocation -> {

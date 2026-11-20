@@ -34,6 +34,8 @@
  * Optional: VITALS_DEMOGRAPHIC_NO (1), VITALS_GROUP (Anthropometrics).
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
@@ -129,27 +131,24 @@ function runCleanup() {
 }
 // Node does not run finally blocks on SIGINT/SIGTERM (the suite loop's `timeout`
 // sends TERM), so restore the fixtures here too before exiting.
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    console.error(`${signal} received; restoring fixtures before exiting.`);
-    runCleanup();
-    cleanupMysqlDefaults();
-    process.exit(130);
-  });
-}
+// Signals unwind through the shared entry point and the existing finally below.
 
-(async () => {
+legacyHarness.runLegacyCheck('echart-vitals-bmi',async({cancellation})=>{
   const recorder = createRecorder();
   initMysqlDefaults();
   // Staging and the browser launch sit inside the protected scope so a failure in
   // either still reaches the fixture cleanup below.
   try {
     measurementHighWater = Number(sql('SELECT IFNULL(MAX(id), 0) FROM measurements'));
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1200, height: 1000 } });
+    cancellation?.throwIfCancelled();
     await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
 
     const page = await context.newPage();
+    cancellation?.throwIfCancelled();
     // Both conversions ask through window.confirm; answer in-page, recording
     // the prompts, so the shared recorder cannot dismiss them.
     await page.addInitScript(() => {
@@ -157,43 +156,63 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
       window.confirm = (message) => { window.__confirms.push(String(message)); return true; };
       window.close = () => { window.__closed = true; };
     });
+    cancellation?.throwIfCancelled();
     wirePage(page, 'measurements', recorder);
     await gotoApp(page, config.baseUrl, `/encounter/oscarMeasurements/SetupMeasurements?demographicNo=${encodeURIComponent(demographicNo)}&groupName=${encodeURIComponent(groupName)}`);
+    cancellation?.throwIfCancelled();
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(page, 'measurements popup');
+    cancellation?.throwIfCancelled();
     const ht = page.locator('#row-HT td:nth-child(3) input');
     const wt = page.locator('#row-WT td:nth-child(3) input');
     const bmi = page.locator('#row-BMI td:nth-child(3) input');
     assert((await ht.count()) && (await wt.count()) && (await bmi.count()), `group ${groupName} did not render HT, WT and BMI rows`);
+    cancellation?.throwIfCancelled();
     assert(/Double click to convert/i.test(await ht.getAttribute('title') || ''), 'HT cell is not wired for double-click conversion');
+    cancellation?.throwIfCancelled();
     assert(/Double click to convert/i.test(await wt.getAttribute('title') || ''), 'WT cell is not wired for double-click conversion');
+    cancellation?.throwIfCancelled();
 
     // 1. Height: feet/inches -> cm.
     await ht.fill('5\'10"');
+    cancellation?.throwIfCancelled();
     await ht.dblclick();
+    cancellation?.throwIfCancelled();
     assert((await ht.inputValue()) === '177.8', `height did not convert to cm (got ${await ht.inputValue()})`);
+    cancellation?.throwIfCancelled();
 
     // 2. Weight: lb -> kg.
     await wt.fill('150');
+    cancellation?.throwIfCancelled();
     await wt.dblclick();
+    cancellation?.throwIfCancelled();
     assert((await wt.inputValue()) === '68', `weight did not convert to kg (got ${await wt.inputValue()})`);
+    cancellation?.throwIfCancelled();
     const confirms = await page.evaluate(() => window.__confirms);
+    cancellation?.throwIfCancelled();
     assert(confirms.some((m) => /pounds/.test(m)) && confirms.some((m) => /feet/.test(m)), `conversion prompts were ${JSON.stringify(confirms)}`);
 
     // 3. BMI on blur.
     await wt.dispatchEvent('blur');
+    cancellation?.throwIfCancelled();
     await page.waitForFunction(() => document.querySelector('#row-BMI td:nth-child(3) input').value !== '', null, { timeout: 10000 });
+    cancellation?.throwIfCancelled();
     assert((await bmi.inputValue()) === '21.5', `BMI was ${await bmi.inputValue()}, expected 21.5`);
+    cancellation?.throwIfCancelled();
 
     // 4. Submit.
     const [saveResponse] = await Promise.all([
       page.waitForResponse((response) => response.request().method() === 'POST' && /\/encounter\/Measurements\?ajax=true/.test(response.url()), { timeout: 30000 }),
       page.locator('input[name="Button"][value="Submit"]').click(),
     ]);
+    cancellation?.throwIfCancelled();
     assert(saveResponse.status() < 400, `measurement save returned HTTP ${saveResponse.status()}`);
     const saveJson = await saveResponse.json().catch(() => null);
+    cancellation?.throwIfCancelled();
     assert(saveJson && !(saveJson.errors && saveJson.errors.length), `measurement save reported errors: ${JSON.stringify(saveJson)}`);
     await page.waitForFunction(() => window.__closed === true, null, { timeout: 15000 });
+    cancellation?.throwIfCancelled();
 
     const rows = newMeasurementRows();
     const byType = Object.fromEntries(rows.map((row) => [row.type, row]));
@@ -218,4 +237,4 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     runCleanup();
     cleanupMysqlDefaults();
   }
-})();
+});

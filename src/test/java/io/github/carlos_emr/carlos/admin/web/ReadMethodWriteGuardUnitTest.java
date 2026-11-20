@@ -39,7 +39,6 @@ class ReadMethodWriteGuardUnitTest extends CarlosUnitTestBase {
     private MockHttpServletResponse response;
     private SecurityInfoManager security;
     private LookupListManager lists;
-    private Object previousLookupListManager;
     private LoggedInInfo login;
     private MockedStatic<ServletActionContext> servlet;
 
@@ -57,15 +56,12 @@ class ReadMethodWriteGuardUnitTest extends CarlosUnitTestBase {
         servlet = mockStatic(ServletActionContext.class);
         servlet.when(ServletActionContext::getRequest).thenReturn(request);
         servlet.when(ServletActionContext::getResponse).thenReturn(response);
-        previousLookupListManager = ReflectionTestUtils.getField(LookupListManager2Action.class, "lookupListManager");
-        ReflectionTestUtils.setField(LookupListManager2Action.class, "lookupListManager", lists);
         when(security.hasPrivilege(eq(login), anyString(), anyString(), isNull())).thenReturn(true);
     }
 
     @AfterEach
     void tearDown() {
-        ReflectionTestUtils.setField(LookupListManager2Action.class, "lookupListManager", previousLookupListManager);
-        servlet.close();
+        if (servlet != null) servlet.closeOnDemand();
     }
 
     @ParameterizedTest
@@ -165,6 +161,33 @@ class ReadMethodWriteGuardUnitTest extends CarlosUnitTestBase {
                     "Owned label".equals(item.getLabel()) && item.getLookupListId() == 3));
             default -> throw new AssertionError(operation);
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"order", "add", "remove"})
+    void shouldLeaveAppointmentLocationList_whenGenericManagerPostsChange(String operation) {
+        // The Location List keeps its rules on its own page (#3982); this page changes none of its items.
+        request.setMethod("POST");
+        request.setParameter("method", operation);
+        request.setParameter("lookupListItemId", "7");
+        request.setParameter("lookupListItemDisplayOrder", "2");
+        request.setParameter("lookupListId", "3");
+        request.setParameter("lookupListItemLabel", "Room 1");
+        io.github.carlos_emr.carlos.commn.model.LookupList locations = new io.github.carlos_emr.carlos.commn.model.LookupList();
+        locations.setId(3);
+        when(lists.findLookupListByName(login, io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver.LIST_NAME))
+                .thenReturn(locations);
+        io.github.carlos_emr.carlos.commn.model.LookupListItem item = new io.github.carlos_emr.carlos.commn.model.LookupListItem();
+        item.setId(7);
+        item.setLookupListId(3);
+        when(lists.findLookupListItemById(login, 7)).thenReturn(item);
+
+        assertThat(new LookupListManager2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+
+        verify(lists, never()).addLookupListItem(any(), any());
+        verify(lists, never()).updateLookupListItemDisplayOrder(any(), anyInt(), anyInt());
+        verify(lists, never()).removeLookupListItem(any(), anyInt());
     }
 
     @Test

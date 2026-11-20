@@ -54,7 +54,7 @@ public class EctDisplayIssues2Action extends EctDisplayAction {
     @Override
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO navBarDisplayDAO) {
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = getLoggedInInfo(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         // Left heading is a static label, not a click action (issue #3444):

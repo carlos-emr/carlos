@@ -47,7 +47,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@page import="org.owasp.encoder.Encode" %>
+
 <%@ page
         import="io.github.carlos_emr.carlos.demographic.data.*, io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
