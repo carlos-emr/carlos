@@ -8,18 +8,22 @@ import static io.github.carlos_emr.carlos.integration.mcedt.McedtConstants.SESSI
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import ca.ontario.health.edt.CommonResult;
 import ca.ontario.health.edt.Detail;
 import ca.ontario.health.edt.DetailData;
 import ca.ontario.health.edt.EDTDelegate;
 import ca.ontario.health.edt.ResourceResult;
+import ca.ontario.health.edt.ResponseResult;
 import ca.ontario.health.edt.UpdateRequest;
 import java.io.File;
 import java.math.BigInteger;
@@ -162,7 +166,7 @@ class Update2ActionUploadUnitTest {
             sending.countDown();
             assertThat(reply.await(5, TimeUnit.SECONDS)).isTrue();
             assertThat(sent).containsExactlyElementsOf(original);
-            return new ResourceResult();
+            return reply(42, CONFIRMED, 43, CONFIRMED);
         });
         Update2Action sender = sendingAction();
         MockHttpServletRequest senderRequest = new MockHttpServletRequest();
@@ -205,7 +209,7 @@ class Update2ActionUploadUnitTest {
         add(42);
         EDTDelegate delegate = mock(EDTDelegate.class);
         when(delegate.update(anyList())).thenThrow(new IllegalStateException("Synthetic service failure"))
-                .thenReturn(new ResourceResult());
+                .thenReturn(reply(42, CONFIRMED));
         var first = sendingAction();
         doReturn("Send failed").when(first).getText(eq("updateAction.sendUpdateRequest.failure"), any(String[].class));
 
@@ -231,6 +235,68 @@ class Update2ActionUploadUnitTest {
         assertThat(request.getSession().getAttribute(SESSION_KEY_UPLOAD_DETAILS)).isNull();
         assertThat(action.sendUpdateRequest()).isEqualTo("success");
         assertThat(action.getActionErrors()).containsExactly("Nothing to send");
+    }
+
+    @Test
+    @DisplayName("should keep a refused update queued and report the partial outcome, not success")
+    void shouldKeepRefusedUpdateQueued_whenTheReplyRefusesOneResource() throws Exception {
+        Detail details = listedResources(42, 43);
+        add(42);
+        add(43);
+        EDTDelegate delegate = mock(EDTDelegate.class);
+        when(delegate.update(anyList())).thenReturn(reply(42, CONFIRMED, 43, "EEDTS0056"));
+        Update2Action action = sendingAction();
+        doReturn("Partly sent").when(action).getText(eq("updateAction.sendUpdateRequest.partial"), any(String[].class));
+
+        assertThat(action.sendUpdateRequest(() -> delegate)).isEqualTo("success");
+
+        assertThat(action.getActionMessages()).isEmpty();
+        assertThat(action.getActionErrors()).containsExactly("Partly sent");
+        verify(action).getText(eq("updateAction.sendUpdateRequest.partial"),
+                argThat((String[] args) -> args.length == 3 && "1".equals(args[0]) && "2".equals(args[1])));
+        assertThat(ActionUtils.getUpdateList(request)).extracting(UpdateRequest::getResourceID)
+                .containsExactly(BigInteger.valueOf(43));
+        assertThat(details.getData().get(0).getModifyTimestamp()).as("42 was confirmed").isNull();
+        assertThat(details.getData().get(1).getModifyTimestamp()).as("43 is still queued").isNotNull();
+    }
+
+    @Test
+    @DisplayName("should keep an update the reply does not mention, and confirm it on a later send")
+    void shouldKeepUnconfirmedUpdateQueued_whenTheReplyOmitsIt() throws Exception {
+        listedResources(42, 43);
+        add(42);
+        add(43);
+        EDTDelegate delegate = mock(EDTDelegate.class);
+        when(delegate.update(anyList())).thenReturn(reply(42, CONFIRMED)).thenReturn(reply(43, CONFIRMED));
+        Update2Action first = sendingAction();
+        doReturn("Partly sent").when(first).getText(eq("updateAction.sendUpdateRequest.partial"), any(String[].class));
+
+        first.sendUpdateRequest(() -> delegate);
+        assertThat(ActionUtils.getUpdateList(request)).extracting(UpdateRequest::getResourceID)
+                .containsExactly(BigInteger.valueOf(43));
+
+        Update2Action retry = sendingAction();
+        retry.sendUpdateRequest(() -> delegate);
+        assertThat(retry.getActionMessages()).containsExactly("Sent");
+        assertThat(ActionUtils.getUpdateList(request)).isEmpty();
+        assertThat(request.getSession().getAttribute(SESSION_KEY_UPLOAD_DETAILS)).isNull();
+    }
+
+    private static final String CONFIRMED = "IEDTS0001";
+
+    /** A synthetic EDT reply: resource ID and result code pairs. */
+    private static ResourceResult reply(Object... idsAndCodes) {
+        ResourceResult result = new ResourceResult();
+        for (int i = 0; i < idsAndCodes.length; i += 2) {
+            ResponseResult response = new ResponseResult();
+            response.setResourceID(BigInteger.valueOf((Integer) idsAndCodes[i]));
+            CommonResult code = new CommonResult();
+            code.setCode((String) idsAndCodes[i + 1]);
+            code.setMsg("SYNTHETIC RESULT");
+            response.setResult(code);
+            result.getResponse().add(response);
+        }
+        return result;
     }
 
     private void add(int resourceId) {

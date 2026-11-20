@@ -47,7 +47,9 @@ import java.io.File;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import static io.github.carlos_emr.carlos.integration.mcedt.ActionUtils.*;
@@ -55,6 +57,8 @@ import static io.github.carlos_emr.carlos.integration.mcedt.McedtConstants.SESSI
 
 public class Update2Action extends ActionSupport implements UploadedFilesAware {
     private static final String SEND_IN_PROGRESS = Update2Action.class.getName() + ".sendInProgress";
+    /** The EDT result code for an accepted resource. */
+    private static final String EDT_SUCCESS = "IEDTS0001";
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -171,10 +175,18 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
 
         try {
             ResourceResult result = delegate.get().update(snapshot);
+            // A normal reply can still refuse some resources; only confirmed updates leave the queue.
+            List<UpdateRequest> confirmed = confirmedUpdates(snapshot, result);
             synchronized (mutex) {
-                acknowledgeSentUpdates(session, sentDetails, snapshot);
+                acknowledgeSentUpdates(session, sentDetails, confirmed);
             }
-            addActionMessage(getText("updateAction.sendUpdateRequest.success", new String[]{McedtMessageCreator.resourceResultToString(result)}));
+            String outcome = result == null ? "" : McedtMessageCreator.resourceResultToString(result);
+            if (confirmed.size() == snapshot.size()) {
+                addActionMessage(getText("updateAction.sendUpdateRequest.success", new String[]{outcome}));
+            } else {
+                addActionError(getText("updateAction.sendUpdateRequest.partial", new String[]{
+                        String.valueOf(snapshot.size() - confirmed.size()), String.valueOf(snapshot.size()), outcome}));
+            }
         } catch (Exception e) {
             logger.error("Unable to update", e);
 
@@ -189,10 +201,34 @@ public class Update2Action extends ActionSupport implements UploadedFilesAware {
         return SUCCESS;
     }
 
-    private void acknowledgeSentUpdates(HttpSession session, Detail sentDetails, List<UpdateRequest> snapshot) {
+    /**
+     * The sent updates the EDT reply confirms with {@code IEDTS0001}. A refused resource, or one
+     * the reply does not mention, is not confirmed and stays queued for another send.
+     */
+    static List<UpdateRequest> confirmedUpdates(List<UpdateRequest> sent, ResourceResult result) {
+        Set<BigInteger> confirmedIds = new HashSet<>();
+        if (result != null) {
+            for (ResponseResult response : result.getResponse()) {
+                if (response != null && response.getResourceID() != null && response.getResult() != null
+                        && EDT_SUCCESS.equals(response.getResult().getCode())) {
+                    confirmedIds.add(response.getResourceID());
+                }
+            }
+        }
+        List<UpdateRequest> confirmed = new ArrayList<>();
+        for (UpdateRequest update : sent) {
+            if (confirmedIds.contains(update.getResourceID())) {
+                confirmed.add(update);
+            }
+        }
+        return confirmed;
+    }
+
+    private void acknowledgeSentUpdates(HttpSession session, Detail sentDetails, List<UpdateRequest> confirmed) {
         List<UpdateRequest> pending = getUpdateList(session);
-        // A replacement for the same resource is a new UpdateRequest and stays queued.
-        pending.removeAll(snapshot);
+        // A replacement for the same resource is a new UpdateRequest and stays queued, as does
+        // any sent update the reply did not confirm.
+        pending.removeAll(confirmed);
         if (pending.isEmpty()) {
             clearUpdateList(request);
         }
