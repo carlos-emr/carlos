@@ -4,8 +4,10 @@
 # Exit 0: no interrupted in-place rewrite of /etc/carlos-emr/carlos.properties is pending.
 # Exit 1: one is. The postinst rewrites that file in place (the lab-filter and Help link
 #         migrations) and leaves a private record beside it first; a kill or power loss
-#         mid-rewrite can leave the file neither version, and the next `dpkg --configure`
-#         restores it and removes the record. Until then the application must not start on it.
+#         mid-rewrite can leave the file neither version, and the next `dpkg --configure -a` (or
+#         `dpkg-reconfigure carlos-emr`, when the package shows as configured because an OSCAR 19
+#         import held provisioning) restores it and removes the record. Until then the application
+#         must not start on it.
 #
 # Exit 1 (not 255) on purpose: systemd then skips the start cleanly, while 255 would mark the unit failed
 # and let any restart policy retry it. carlos-ctl start|restart relay this message to the terminal.

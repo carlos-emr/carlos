@@ -1236,6 +1236,17 @@ except ValueError:
         if [ "${provision_lock_rc}" = 2 ]; then
             O19_IMPORT_HOLDS_LOCK=1
         fi
+        # A deferred properties recovery (above) means carlos.properties may be torn: this configure must
+        # not touch configuration at all, even when the import has finished meanwhile and the lock was
+        # free just now. Every step that writes it, or runs a carlos-ctl step that does (init-config,
+        # db-users, the cutover preflight), is behind PROVISION_LOCK_HELD = 1 or checks
+        # PROPERTIES_RECOVERY_PENDING itself; a NEW writer must do one of the two, which
+        # debian/assets/tests/test_properties_recovery_contract.py checks. The configure then defers like the
+        # import gate and records nothing: the operator's remedy is dpkg-reconfigure (named above).
+        if [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 1 ]; then
+            PROVISION_LOCK_HELD=0
+            O19_IMPORT_HOLDS_LOCK=1
+        fi
 
         # One-time migration (2026.08): the stock carlos.properties shipped the
         # OSCAR pre-installer template values for these clinic features (off),
@@ -2291,7 +2302,11 @@ OAUTH_ACCESS_DEFAULTS
         # holds a POSIX record lock on the file, not the provisioning flock,
         # and rechecks atomic replacements made by the unchanged CLI. The
         # service runs it again after finish-install/restore (#5764).
-        if ! /usr/lib/carlos-emr/carlos-emr-config-preflight reconcile; then
+        # Not while a properties recovery is deferred: it appends to the possibly torn file in place, which
+        # the recovery's either-version check would then refuse for good. The unit runs it as ExecStartPre
+        # after the recovery, and the recovery guard keeps the unit from starting until then.
+        if [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ] \
+            && ! /usr/lib/carlos-emr/carlos-emr-config-preflight reconcile; then
             echo "carlos-emr: ERROR: could not persist AbandonOldChart=true; the application will not be started." >&2
             echo "carlos-emr: ERROR: fix ${PROPERTIES}, then run: sudo dpkg --configure -a" >&2
             exit 1
