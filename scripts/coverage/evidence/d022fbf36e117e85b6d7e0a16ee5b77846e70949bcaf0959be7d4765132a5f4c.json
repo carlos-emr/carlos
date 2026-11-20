@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "33e93dad4177e3848f1a1ca9499d073ac3f05108",
+  "comparisonSha256": "1dadd8bee8dabff51c2d5b3d3731b71aa1d3dade8ac38d96bf5b1a50d13f75e2",
+  "baselineCommit": "79b0a5e298bce77bf9eb368b04c4b82f573c1738",
+  "baselineSourceTree": "33e93dad4177e3848f1a1ca9499d073ac3f05108",
+  "baselineReportSha256": "02b08a43e48096b1f66d9a23f2d64e27a5ba331a91dc04b93f9e426366033439",
+  "baselineLane": "Java 25 MCEDT consumer and credential concurrency on MariaDB 11.8.8 and H2",
+  "baselineTestCounts": {
+    "tests": 120,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "979101b319de607446f9ddea3f8e0cc2822d9504c414bb49e5ea3ef47b351150",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/McedtCredentialService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d7648f2f2104ee8fcc94fef7825305b0823930a0"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/mailbox/User2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "5bd838d556bdbca2274a06ba3f467527f79d30af"
+    }
+  },
+  "exclusions": {}
+}

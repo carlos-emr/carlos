@@ -69,6 +69,7 @@ class QueryByExampleSqlValidatorUnitTest {
             "emailconfig",
             "emaillog",
             "fax_config",
+            "mcedt_credential",
             "oceansetting",
             "o19_imported_signature_owner",
             "oscarcommlocations",

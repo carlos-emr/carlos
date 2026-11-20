@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "a1732150abe12df523cb7fd038948010f5de8354",
+  "comparisonSha256": "ae7cec043e63d5b3ebc9a0545bc7ba014f90166bf3d0f1146f2821345b31f9ae",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/McedtCredentialService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "070d14c974062ddd0d2e8c6e8609e28d3cff812e"
+    }
+  },
+  "baselineCommit": "72fa52c19d73287db18ecc794650e17cd08a5b7a",
+  "baselineSourceTree": "a1732150abe12df523cb7fd038948010f5de8354",
+  "baselineReportSha256": "1e7dadc9184d0908f41bfaa81f3fe8b8cbb3e1e34b5ee34d63a4ee7413b760c1",
+  "baselineLane": "36 MCEDT controls including 27 transaction tests on MariaDB and a concurrent preference insert",
+  "baselineTestCounts": {
+    "tests": 36,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "7473961bd201c39072184661de8069f427047449ad4dd90c55cbcce7893de8e5",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}
