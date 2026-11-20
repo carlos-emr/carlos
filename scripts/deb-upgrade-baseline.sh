@@ -35,6 +35,26 @@ file_hash() {
     value=$(sha256sum < "$2") || return 1
     emit "$1" "${value:0:16}"
 }
+# Remove only exact mandatory-cutover entries for preservation hashes.
+# Original AbandonOldChart lines and every prior comment/byte remain in the
+# comparison; this does not broadly exempt that key from configuration checks.
+properties_without_cutover() {
+    python3 - "$CARLOS_ETC_DIR/carlos.properties" "${1:-content}" <<'PYCUTOVER'
+import pathlib
+import sys
+
+content = pathlib.Path(sys.argv[1]).read_bytes()
+entry = (b"\n\n# Mandatory modern-chart cutover; retain this on rollback (#4793).\n"
+         b"AbandonOldChart=true\n")
+ready = content.endswith(entry)
+if sys.argv[2] == "status":
+    print("ready" if ready else "absent")
+else:
+    # A later init-config can append settings after an earlier cutover entry.
+    # Exempt those exact historical migration entries too, never arbitrary flags.
+    sys.stdout.buffer.write(content.replace(entry, b""))
+PYCUTOVER
+}
 admin_count=$(db_query "SELECT COUNT(*) FROM security WHERE user_name=$ADMIN_SQL")
 [[ $admin_count == 1 ]] || { echo 'ERROR: expected exactly one selected administrator row.' >&2; exit 1; }
 emit baseline.format 2
@@ -90,7 +110,32 @@ value=$(grep -E '^health_tracker=' "$CARLOS_ETC_DIR/carlos.properties" || true);
 # default once (.oauth-access-defaults-migrated), whatever they were set to.
 # Keep in step with OAUTH_ACCESS_DEFAULTS in deb-upgrade-verify.sh.
 OAUTH_ACCESS_MIGRATIONS=(oauth.scope.enforcement.enabled oauth.scope.legacy.access)
-migrated_keys_re="^(health_tracker$(printf '|%s' "${OSCAR_DEFAULT_MIGRATIONS[@]}" "${OAUTH_ACCESS_MIGRATIONS[@]}" | sed 's/\./\\./g'))="
+# The postinst also rewrites the old stock HL7_LAB_MEASUREMENT_FILTER line to
+# the one the package's skeleton carries, once (.lab-measurement-filter-migrated,
+# #4613). The line is long and full of ';' and '%', so the snapshot carries
+# digests instead of the value: of the key's definition lines in the /etc file,
+# and of the skeleton's line (empty when there is no skeleton). A definition is
+# taken in java.util.Properties syntax (indented, or with a whitespace separator),
+# as the postinst counts it, so an override written that way cannot change
+# unseen. Keep in step with LAB_FILTER_OLD_SHA in deb-upgrade-verify.sh.
+value=$({ grep -E '^[[:space:]]*HL7_LAB_MEASUREMENT_FILTER([[:space:]=:]|$)' "$CARLOS_ETC_DIR/carlos.properties" || true; } | sha256sum) || exit 1
+emit cfg.labFilter.sha "${value:0:16}"
+value=''
+if [[ -r $CARLOS_SHARE_DIR/skel/carlos.properties ]]; then
+    value=$({ grep -E '^HL7_LAB_MEASUREMENT_FILTER=' "$CARLOS_SHARE_DIR/skel/carlos.properties" || true; } | sha256sum) || exit 1
+    value=${value:0:16}
+fi
+emit cfg.labFilter.skel.sha "$value"
+# The postinst also rewrites the old stock Help link, resource_base_url, to the
+# one the package's skeleton carries, once (.help-url-default-migrated). Keep in
+# step with HELP_URL_OLD / HELP_URL_NEW in deb-upgrade-verify.sh. A key the
+# operator redefined appears more than once; join the lines (percent-encoding
+# '%' and ';' first, as for the OSCAR defaults below) so the snapshot stays one
+# record, and take a definition in java.util.Properties syntax as the postinst
+# counts it.
+value=$({ grep -E '^[[:space:]]*resource_base_url([[:space:]=:]|$)' "$CARLOS_ETC_DIR/carlos.properties" || true; } | sed 's/%/%25/g; s/;/%3B/g' | paste -sd';' -) || exit 1
+emit cfg.helpUrl "$value"
+migrated_keys_re="^(health_tracker|HL7_LAB_MEASUREMENT_FILTER|resource_base_url$(printf '|%s' "${OSCAR_DEFAULT_MIGRATIONS[@]}" "${OAUTH_ACCESS_MIGRATIONS[@]}" | sed 's/\./\\./g'))="
 for k in "${OSCAR_DEFAULT_MIGRATIONS[@]}"; do
     # A key the operator redefined appears more than once; join the lines so
     # the snapshot stays one record per key. Percent-encode '%' and ';' first
@@ -100,7 +145,26 @@ done
 for k in "${OAUTH_ACCESS_MIGRATIONS[@]}"; do
     value=$(grep -F "$k=" "$CARLOS_ETC_DIR/carlos.properties" | grep -E "^$(printf '%s' "$k" | sed 's/\./\\./g')=" | sed 's/%/%25/g; s/;/%3B/g' | paste -sd';' - || true); emit "cfg.oauthAccess.$k" "$value"
 done
-value=$(grep -vE "$migrated_keys_re" "$CARLOS_ETC_DIR/carlos.properties" | sha256sum) || exit 1
+# The Query by Example reporting account (#3372): carlos-ctl db-users appends
+# db_reporting_username/db_reporting_password on the first upgrade whose package
+# ships the grant list. The verifier checks the two keys one by one, so they are
+# left out of both digests; the password only ever leaves this file as a digest.
+reporting_keys_re='^[[:space:]]*db_reporting_(username|password)[[:space:]]*[=:]'
+value=$({ grep -E '^[[:space:]]*db_reporting_username[[:space:]]*[=:]' "$CARLOS_ETC_DIR/carlos.properties" || true; } \
+    | sed -E 's/^[[:space:]]*([^=:[:space:]]+)[[:space:]]*[=:][[:space:]]*/\1=/; s/[[:space:]]+$//; s/%/%25/g; s/;/%3B/g' | paste -sd';' -)
+emit cfg.reportingUser "$value"
+value=$({ grep -E '^[[:space:]]*db_reporting_password[[:space:]]*[=:]' "$CARLOS_ETC_DIR/carlos.properties" || true; } \
+    | sed -E 's/^[^=:]*[=:][[:space:]]*//; s/[[:space:]]+$//')
+if [ -z "$value" ]; then
+    emit cfg.reportingPassword none
+else
+    value=$(printf '%s' "$value" | sha256sum); emit cfg.reportingPassword "${value:0:16}"
+fi
+emit cfg.reportingGrantList "$([ -r "$CARLOS_SHARE_DIR/webapp/carlos/WEB-INF/classes/db/reporting/carlos_report_grants.sql" ] && echo present || echo absent)"
+value=$(properties_without_cutover status); emit cfg.modernChartCutover "$value"
+value=$(properties_without_cutover | sha256sum) || exit 1
+emit cfg.carlos.properties.withoutCutover.sha "${value:0:16}"
+value=$(properties_without_cutover | grep -vE "$migrated_keys_re" | { grep -vE "$reporting_keys_re" || true; } | sha256sum) || exit 1
 emit cfg.carlos.properties.otherKeys.sha "${value:0:16}"
 # The ACTIVE settings, independent of layout: comments and blank lines dropped,
 # whitespace around '=' normalised, sorted. carlos-ctl's prop_comment/prop_set
@@ -110,12 +174,12 @@ emit cfg.carlos.properties.otherKeys.sha "${value:0:16}"
 # and deb-upgrade-verify.sh must not mistake that for a changed setting. The
 # sanctioned one-time migrations are left out here too; the verifier checks
 # those keys one by one.
-value=$(sed -E -e 's/^[[:space:]]+//' -e 's/[[:space:]]+$//' "$CARLOS_ETC_DIR/carlos.properties" \
+value=$(properties_without_cutover | sed -E -e 's/^[[:space:]]+//' -e 's/[[:space:]]+$//' \
     | grep -vE '^([#!]|$)' | sed -E 's/^([^=:[:space:]]+)[[:space:]]*[=:][[:space:]]*/\1=/' \
-    | grep -vE "$migrated_keys_re" | LC_ALL=C sort | sha256sum) || exit 1
+    | grep -vE "$migrated_keys_re" | { grep -vE "$reporting_keys_re" || true; } | LC_ALL=C sort | sha256sum) || exit 1
 emit cfg.carlos.properties.active.sha "${value:0:16}"
 emit cfg.initialAdminTxt "$([ -e "$CARLOS_ETC_DIR/initial-admin.txt" ] && echo present || echo absent)"
-for s in .consult-signature-default-migrated .health-tracker-default-migrated .oscar-feature-defaults-migrated .oauth-access-defaults-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do
+for s in .consult-signature-default-migrated .health-tracker-default-migrated .oscar-feature-defaults-migrated .oauth-access-defaults-migrated .lab-measurement-filter-migrated .help-url-default-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do
     emit "sentinel.$s" "$([ -e "$CARLOS_STATE_DIR/$s" ] && echo yes || echo no)"
 done
 emit docs.store ok

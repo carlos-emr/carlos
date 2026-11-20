@@ -45,7 +45,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Contact" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -237,7 +237,8 @@
             }
 
             function search_procontact(nameEl, valueEl) {
-                var url = '<%= request.getContextPath() %>/demographic/ViewProContactSearch?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
+                var url = '<%= request.getContextPath() %>/demographic/ViewProContactSearch?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl
+                    + '&contactType=<%=DemographicContact.TYPE_CONTACT%>';
                 var popup = window.open(url, 'demographic_search');
                 demo_no_orig = document.contactForm.elements[valueEl].value;
                 //check_demo_no = setInterval("if (demo_no_orig != document.contactForm.elements[valueEl].value) updTklrList()",100);
@@ -267,6 +268,9 @@
 
             function setSelect(id, type, name, val) {
                 jQuery("select[name='" + type + "_" + id + "." + name + "']").each(function () {
+                    if (name === 'role' && val !== '' && !Array.from(this.options).some(function (option) { return option.value === val; })) {
+                        this.add(new Option(val, val));
+                    }
                     jQuery(this).val(val);
                 });
                 if (jQuery("select[name='" + type + "_" + id + "." + name + "']").val() != val) {
@@ -312,7 +316,7 @@
                 setInput(num, 'contact', 'id', '<carlos:encode value='<%= String.valueOf(dc.getId()) %>' context="javaScriptBlock"/>');
                 setSelect(num, 'contact', 'role', '<carlos:encode value='<%= dc.getRole() != null ? dc.getRole() : "" %>' context="javaScriptBlock"/>');
                 setSelectExisting(num, 'contact', 'type', '<carlos:encode value='<%= String.valueOf(dc.getType()) %>' context="javaScriptBlock"/>');
-                setSelect(num, 'contact', 'consentToContact', '<%=dc.isConsentToContact()?"1":"0"%>');
+                setSelect(num, 'contact', 'consentToContact', '<%=dc.getConsentToContact() == null ? "" : dc.isConsentToContact() ? "1" : "0"%>');
                 setSelect(num, 'contact', 'active', '<%=dc.isActive()?"1":"0"%>');
                 setInput(num, 'contact', 'contactId', '<carlos:encode value='<%= String.valueOf(dc.getContactId()) %>' context="javaScriptBlock"/>');
                 setInput(num, 'contact', 'contactName', '<carlos:encode value='<%= dc.getContactName() != null ? dc.getContactName() : "" %>' context="javaScriptBlock"/>');
@@ -335,7 +339,7 @@
                 var num = jQuery("#procontact_num").val();
                 setInput(num, 'procontact', 'id', '<carlos:encode value='<%= String.valueOf(dc.getId()) %>' context="javaScriptBlock"/>');
                 setSelect(num, 'procontact', 'role', '<carlos:encode value='<%= dc.getRole() != null ? dc.getRole() : "" %>' context="javaScriptBlock"/>');
-                setSelect(num, 'procontact', 'consentToContact', '<%=dc.isConsentToContact()?"1":"0"%>');
+                setSelect(num, 'procontact', 'consentToContact', '<%=dc.getConsentToContact() == null ? "" : dc.isConsentToContact() ? "1" : "0"%>');
                 setSelect(num, 'procontact', 'active', '<%=dc.isActive()?"1":"0"%>');
                 setSelectExisting(num, 'procontact', 'type', '<carlos:encode value='<%= String.valueOf(dc.getType()) %>' context="javaScriptBlock"/>');
                 setInput(num, 'procontact', 'contactId', '<carlos:encode value='<%= String.valueOf(dc.getContactId()) %>' context="javaScriptBlock"/>');

@@ -83,7 +83,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ page import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <!DOCTYPE HTML >
 
@@ -1749,29 +1749,6 @@
 
         function checkType(docNo) {
             return docType[docNo];
-        }
-
-        function checkSelected() {
-
-            //oscarLog('in checkSelected()');
-            aBoxIsChecked = false;
-            if (document.reassignForm.flaggedLabs.length == undefined) {
-                if (document.reassignForm.flaggedLabs.checked == true) {
-                    aBoxIsChecked = true;
-                }
-            } else {
-                for (i = 0; i < document.reassignForm.flaggedLabs.length; i++) {
-                    if (document.reassignForm.flaggedLabs[i].checked == true) {
-                        //oscarLog(document.reassignForm.flaggedLabs[i].value);
-                        aBoxIsChecked = true;
-                    }
-                }
-            }
-            if (aBoxIsChecked) {
-                popupStart(397, 700, '<%= request.getContextPath() %>/oscarMDS/ViewSelectProvider', 'providerselect');
-            } else {
-                alert(msgSelectOneLab);
-            }
         }
 
         function updateDocLabData(doclabid, inQueue) {//remove doclabid from global variables

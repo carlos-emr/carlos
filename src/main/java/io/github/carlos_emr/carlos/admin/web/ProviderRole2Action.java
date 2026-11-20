@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.admin.web;
 
+import java.util.List;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -30,7 +32,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Security gate for the Provider Role admin page.
@@ -47,10 +48,17 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class ProviderRole2Action extends ActionSupport {
 
+    /**
+     * Parameters whose presence makes {@code providerRole.jsp} write: {@code submit} (Add or
+     * Delete a role), {@code buttonUpdate} (change a role) and {@code buttonSetPrimaryRole}
+     * (set the primary EMR role). The JSP compares {@code submit} with the <em>localized</em>
+     * button label, so this gate must not compare it with English words: {@code submit=Ajouter}
+     * from a French browser adds a role just as {@code submit=Add} does (issue #3394).
+     */
+    static final List<String> WRITE_PARAMETERS = List.of("submit", "buttonUpdate", "buttonSetPrimaryRole");
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

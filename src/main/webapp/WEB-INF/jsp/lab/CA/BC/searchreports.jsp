@@ -30,7 +30,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -51,9 +51,9 @@
 <%@page import="java.util.Date" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7LinkDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+
 <%@ page import="io.github.carlos_emr.Misc" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     Hl7LinkDao dao = SpringUtils.getBean(Hl7LinkDao.class);
@@ -168,7 +168,7 @@
                 String signed_on = String.valueOf(o[5]);
                 String last_name = String.valueOf(o[6]);
                 String first_name = String.valueOf(o[7]);
-                String date_time = String.valueOf(o[8]);
+                String date_time = o[8] == null ? "" : o[8].toString();
     %>
     <tr class="<%=(other? "LightBG" : "WhiteBG")%>">
         <td class="Text"><a href="<%= request.getContextPath() %>/lab/CA/BC/ViewSearchReports"
@@ -209,7 +209,7 @@
         <td class="Text"
             nowrap><%=((last_name != null && !last_name.equals("")) ? SafeEncode.forHtml(Misc.check(last_name, "")) + ", " + SafeEncode.forHtml(Misc.check(first_name, "")) : "&nbsp;")%>
         </td>
-        <td class="Text" nowrap><carlos:encode value='<%= date_time.substring(0, date_time.indexOf(" ")) %>' context="html"/>
+        <td class="Text" style="white-space:nowrap"><carlos:encode value='<%= date_time.contains(" ") ? date_time.substring(0, date_time.indexOf(" ")) : date_time %>' context="html"/>
         </td>
     </tr>
     <%

@@ -178,6 +178,41 @@ async function openChartWithDelayedNavbar(context, masterPage, recorder, timeout
   }
 }
 
+/** Arm before closing a registered popup; its interval-driven loadDiv is outside navbar load state. */
+async function watchPopupModuleRefresh(chart, popup, timeout) {
+  if (popup.isClosed()) return null;
+  const name = await popup.evaluate(() => window.name);
+  const reload = await chart.evaluate(name => {
+    const url = window.reloadWindows?.[name];
+    const div = window.reloadWindows?.[name + 'div'];
+    if (!url || !div || !window.openWindows?.[name]) return null;
+    return {url: new URL(url, document.baseURI).href, div};
+  }, name);
+  if (!reload) return null;
+  const previous = await chart.locator('id=' + reload.div).locator(':scope > *').first().elementHandle({timeout});
+  assert(previous, 'The popup refresh target has no existing module content');
+  // The request is armed while the popup is still open. A successful response alone is not
+  // enough: wait until loadDiv has replaced the old content before resolving another link.
+  const response = chart.waitForResponse(candidate => candidate.request().method() === 'POST'
+    && candidate.url() === reload.url, {timeout});
+  const settled = (async () => {
+    try {
+      const refreshed = await response;
+      await refreshed.finished();
+      assert(refreshed.status() === 200, 'The popup-triggered module refresh failed');
+      await chart.waitForFunction(node => !node.isConnected, previous, {timeout});
+      await chart.waitForFunction(({name, div}) => !Object.hasOwn(window.reloadWindows, name)
+        && !Object.hasOwn(window.openWindows, name)
+        && document.getElementById(div)?.children.length > 0, {name, div: reload.div}, {timeout});
+    } finally {
+      await previous.dispose();
+    }
+  })();
+  // auditCatalogue closes the popup after its hook returns and awaits this at the next item.
+  settled.catch(() => {});
+  return {settled};
+}
+
 async function main() {
   const config = readConfig();
   const searchTerm = process.env.ECHART_NAV_SEARCH || 'FAKE-';
@@ -216,6 +251,13 @@ async function main() {
     assert(items.length > 0,
       'The eChart navigation loaded but offered no navigable links');
 
+    let pendingRefresh = null;
+    const finishRefresh = async () => {
+      const pending = pendingRefresh;
+      pendingRefresh = null;
+      if (pending) await pending;
+      await waitForNavbars(chartPage, timeout);
+    };
     const result = await auditCatalogue({
       context,
       hostPage: chartPage,
@@ -226,9 +268,14 @@ async function main() {
       limit,
       timeout,
       screenshotDir,
-      beforeItem: () => waitForNavbars(chartPage, timeout),
-      beforePopupClose: page => releaseChartLocks(context, config.baseUrl, [page]),
+      beforeItem: finishRefresh,
+      beforePopupClose: async page => {
+        await releaseChartLocks(context, config.baseUrl, [page]);
+        const watcher = await watchPopupModuleRefresh(chartPage, page, timeout);
+        pendingRefresh = watcher?.settled || null;
+      },
     });
+    await finishRefresh();
 
     console.log(`  opened ${result.opened.length} eChart module link(s), skipped ${result.skipped} by policy`);
     assertAuditClean(result, { surface: 'eChart navigation', minimumOpened: limit ? 1 : 5 });
@@ -242,4 +289,4 @@ if (require.main === module) {
   runCheck({ name: 'echart-navbar-modules', run: main });
 }
 
-module.exports = { NAVBAR_SELECTOR, SKIP_ITEMS, main, openChart, waitForNavbars };
+module.exports = { NAVBAR_SELECTOR, SKIP_ITEMS, main, openChart, waitForNavbars, watchPopupModuleRefresh };

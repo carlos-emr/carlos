@@ -2,6 +2,8 @@
 package io.github.carlos_emr.carlos.appointment.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.OtherIdDAO;
@@ -45,18 +47,24 @@ class AppointmentUpdateTransactionIntegrationTest extends CarlosTestBase {
     @PersistenceContext private EntityManager entities;
 
     @ParameterizedTest
-    @ValueSource(strings = {"archive", "appointment", "metadata", "rollbackOnly", "afterCommit"})
-    void flushedWritesRemainAtomicAndAStaleRetryCannotOverwriteACommittedChange(String failure) throws Exception {
+    @ValueSource(strings = {"archive", "appointment", "metadata", "rollbackOnly", "afterCommit", "location"})
+    void shouldKeepWritesAtomic_whenAStaleRetryFollowsCommittedChanges(String failure) throws Exception {
         int id = seed();
         try {
             String original = version(id);
             AtomicBoolean fail = new AtomicBoolean(true);
             var request = request(id, original);
+            if ("location".equals(failure)) request.setParameter("locationCode", "13");
             var response = new MockHttpServletResponse();
             var login = mock(LoggedInInfo.class);
             var security = mock(SecurityInfoManager.class);
             when(security.hasPrivilege(login, "_appointment", "w", (String) null)).thenReturn(true);
             var events = mock(EventService.class);
+            var locations = mock(AppointmentLocationResolver.class);
+            doAnswer(call -> {
+                if (fail.get()) throw new AppointmentLocationUnavailableException();
+                return null;
+            }).when(locations).applyPostedLocation(any(Appointment.class), eq("13"), eq(""));
             var appointmentWrites = mock(OscarAppointmentDao.class);
             when(appointmentWrites.findForUpdate(id)).thenAnswer(call -> appointments.findForUpdate(id));
             doAnswer(call -> {
@@ -93,6 +101,7 @@ class AppointmentUpdateTransactionIntegrationTest extends CarlosTestBase {
                 spring.when(() -> SpringUtils.getBean(AppointmentArchiveDao.class)).thenReturn(archiveWrites);
                 spring.when(() -> SpringUtils.getBean(EventService.class)).thenReturn(events);
                 spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(completion);
+                spring.when(() -> SpringUtils.getBean(AppointmentLocationResolver.class)).thenReturn(locations);
                 servlet.when(ServletActionContext::getRequest).thenReturn(request);
                 servlet.when(ServletActionContext::getResponse).thenReturn(response);
                 loggedIn.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(login);
@@ -116,7 +125,12 @@ class AppointmentUpdateTransactionIntegrationTest extends CarlosTestBase {
                             return null;
                         });
                 assertThat(new AppointmentUpdateRecord2Action().execute()).isEqualTo("input");
-                assertThat(response.getStatus()).isEqualTo(500);
+                assertThat(response.getStatus()).isEqualTo("location".equals(failure) ? 409 : 500);
+                if ("location".equals(failure)) {
+                    verifyNoInteractions(archiveWrites);
+                    verify(appointmentWrites, never()).merge(any());
+                    assertThat(request.getAttribute("appointmentValidationErrors")).isNotNull();
+                }
                 assertThat(request.getParameter("reason")).isEqualTo("New owned reason");
                 boolean committed = "afterCommit".equals(failure);
                 if (committed) verify(events).appointmentStatusChanged(any(), eq(String.valueOf(id)), eq("999998"), eq("C"));
@@ -140,7 +154,7 @@ class AppointmentUpdateTransactionIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void aLockedLookupRefreshesAnAppointmentAlreadyLoadedIntoThePersistenceContext() {
+    void shouldRefreshManagedAppointment_whenLookingUpWithLock() {
         int id = seed();
         try {
             new TransactionTemplate(transactions).executeWithoutResult(status -> {

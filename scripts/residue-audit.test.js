@@ -422,7 +422,7 @@ function runnerWith(checks, { argv = ['--residue-audit'], residueAudit, statuses
     return { status: statuses[args[0].split('/').pop().replace('-playwright-checks.js', '')] ?? 0 };
   };
   const out = { log: (line = '') => lines.push(line), error: (line) => lines.push(line) };
-  const code = main(argv, {}, out, {
+  const code = main(argv, {CARLOS_DISPOSABLE_HOST: 'true'}, out, {
     checks, run, readBuildIdentity: () => null, residueAudit: residueAudit && residueAudit(events),
   });
   return { code, text: lines.join('\n'), lines, events };
@@ -457,6 +457,37 @@ test('shouldTakeTheBaselineBeforeTheFirstCheck_andAuditAfterTheLast', () => {
   });
   assert.equal(code, EXIT_PASS);
   assert.deepEqual(events.map((event) => event.split(' ')[0]), ['begin', 'check', 'check', 'finish', 'dispose']);
+});
+
+test('shouldRestoreNavigationPreferencesBeforeAuditing_evenWhenTheBrowserCheckFails', () => {
+  const {events, code} = runnerWith([check('schedule-links')], {
+    statuses: {'schedule-links': 1},
+    residueAudit: events => ({begin() {
+      events.push('begin');
+      return {
+        preserveNavigation(check) {
+          events.push(`snapshot ${check.name}`);
+          return {cleanup() { events.push('restore'); }};
+        },
+        finish() { events.push('audit'); return {residue: [], absent: [], notDiffed: []}; },
+        dispose() { events.push('dispose'); },
+      };
+    }}),
+  });
+  assert.equal(code, EXIT_FAIL);
+  assert.deepEqual(events, ['begin', 'snapshot schedule-links', 'check schedule-links', 'restore', 'audit', 'dispose']);
+});
+
+test('shouldFailTheSuite_whenNavigationOwnershipCannotBeRestored', () => {
+  const {code, text} = runnerWith([check('schedule-links')], {
+    residueAudit: () => ({begin: () => ({
+      preserveNavigation: () => ({cleanup() { throw new Error('ownership changed'); }}),
+      finish: () => ({residue: [], absent: [], notDiffed: []}), dispose() {},
+    })}),
+  });
+  assert.equal(code, EXIT_FAIL);
+  assert.match(text, /schedule-links-navigation-cleanup/);
+  assert.match(text, /ownership changed/);
 });
 
 test('shouldPassTheSelectedChecksMutates_toTheBaseline', () => {

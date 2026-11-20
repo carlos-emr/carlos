@@ -53,7 +53,8 @@ public class HtmlTeleplanHelper {
     // The adjust bill page is under WEB-INF (#1632); this action route opens it for a GET (#4343).
     private static final String ADJUST_BILL_PAGE = "reprocessBill";
     private static final String ADJUST_BILL_ID_PARAM = "billingmaster_no";
-    private static final String WCB_CORRECTION_PAGE = "billingTeleplanCorrectionWCB.jsp";
+    // The WCB correction page is under WEB-INF too; its action route opens it the same way.
+    private static final String WCB_CORRECTION_PAGE = "billingTeleplanCorrectionWCB";
     private static final String WCB_CORRECTION_ID_PARAM = "billing_no";
     private static final String POPUP_FEATURES = "resizable=yes,scrollbars=yes,top=0,left=0,width=900,height=600";
 

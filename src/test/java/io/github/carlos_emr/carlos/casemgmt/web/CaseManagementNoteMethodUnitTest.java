@@ -93,20 +93,39 @@ class CaseManagementNoteMethodUnitTest extends CarlosUnitTestBase {
         if ("ajax".equals(caller)) request.addHeader("X-Requested-With", "OWASP CSRFGuard Project");
         request.setParameter("demographicNo", "42");
         request.getSession().setAttribute("userrole", "doctor");
+        request.setParameter("noteId", "501");
+        request.setParameter("caseNote_note", "Unsaved draft");
+        var login = mock(io.github.carlos_emr.carlos.utility.LoggedInInfo.class);
+        when(login.getLoggedInProviderNo()).thenReturn("999998");
+        io.github.carlos_emr.carlos.utility.LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
+        var security = (SecurityInfoManager) mockedBeans.get(SecurityInfoManager.class);
+        when(security.hasPrivilege(eq(login), anyString(), eq("w"), eq("42"))).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(login, 42)).thenReturn(true);
+        io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.remember(request, "7");
+        var form = new io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean();
+        var note = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote();
+        note.setId(501L);
+        note.setDemographic_no("42");
+        form.setCaseNote(note);
+        request.getSession().setAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, "42"), form);
         MockHttpServletResponse response = new MockHttpServletResponse();
         var locks = mock(CasemgmtNoteLockDao.class);
         registerMock(CasemgmtNoteLockDao.class, locks);
         if (!"missing".equals(state)) {
             var owned = mock(io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock.class);
             when(owned.getId()).thenReturn(7L);
+            when(owned.getNoteId()).thenReturn(501L);
+            when(owned.getDemographicNo()).thenReturn(42);
+            when(owned.getProviderNo()).thenReturn("999998");
             when(owned.getSessionId()).thenReturn(request.getSession().getId());
             request.getSession().setAttribute("casemgmtNoteLock42", owned);
             var current = mock(io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock.class);
+            when(current.getNoteId()).thenReturn(501L);
+            when(current.getDemographicNo()).thenReturn(42);
+            when(current.getProviderNo()).thenReturn("999998");
             when(current.getSessionId()).thenReturn("other-session");
             if ("raced".equals(state)) {
                 when(locks.find(7L)).thenReturn(owned, current);
-                var login = mock(io.github.carlos_emr.carlos.utility.LoggedInInfo.class);
-                io.github.carlos_emr.carlos.utility.LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
             } else {
                 when(locks.find(7L)).thenReturn(current);
             }
@@ -125,10 +144,13 @@ class CaseManagementNoteMethodUnitTest extends CarlosUnitTestBase {
                 assertThat(response.getStatus()).isEqualTo(409);
             } else {
                 assertThat(action.save()).isEqualTo("windowCloseError");
-                assertThat(response.getStatus()).isEqualTo(200);
+                assertThat(response.getStatus()).isEqualTo(409);
             }
             if (!"raced".equals(state)) verify(action, never()).getDemoName(anyString());
-            verifyNoInteractions(mockedBeans.get(CaseManagementNoteDAO.class), mockedBeans.get(CaseManagementManager.class));
+            verifyNoInteractions(mockedBeans.get(CaseManagementNoteDAO.class));
+            var manager = (CaseManagementManager) mockedBeans.get(CaseManagementManager.class);
+            verify(manager, never()).getNote(anyString());
+            verify(manager, never()).getCPP(anyString());
         }
     }
 

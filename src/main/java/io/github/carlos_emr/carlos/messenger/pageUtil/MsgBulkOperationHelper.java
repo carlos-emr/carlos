@@ -23,6 +23,7 @@
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,7 +32,9 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.dao.DataAccessException;
 
 import io.github.carlos_emr.carlos.commn.dao.MessageListDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarCommLocationsDao;
 import io.github.carlos_emr.carlos.commn.model.MessageList;
+import io.github.carlos_emr.carlos.messenger.util.LocalMessageRecipients;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -63,11 +66,12 @@ final class MsgBulkOperationHelper {
      *   <li>Converts to {@code Long} via {@link ConversionUtils#fromLongString(String)}</li>
      *   <li>Skips the ID and increments failure count if the parsed value is {@code <= 0}</li>
      *   <li>Looks up all {@link MessageList} rows for the provider/message combination</li>
-     *   <li>Applies the consumer action and merges the entity</li>
+     *   <li>Applies the consumer action to local recipient rows and merges the entity</li>
      *   <li>Catches {@link DataAccessException} per message, logging the ID</li>
      * </ol>
      *
-     * <p>If any messages fail, sets {@code request.setAttribute("updateFailureCount", count)}.</p>
+     * <p>If any messages fail, including selections whose matching rows are all remote,
+     * sets {@code request.setAttribute("updateFailureCount", count)}.</p>
      *
      * @param request    HttpServletRequest the current request for setting failure attributes
      * @param providerNo String the provider number whose messages to update
@@ -84,6 +88,7 @@ final class MsgBulkOperationHelper {
             return;
         }
         MessageListDao dao = SpringUtils.getBean(MessageListDao.class);
+        Set<Integer> localLocations = LocalMessageRecipients.locationIds(SpringUtils.getBean(OscarCommLocationsDao.class));
         int failureCount = 0;
 
         for (String messageId : messageIds) {
@@ -95,9 +100,16 @@ final class MsgBulkOperationHelper {
             }
             try {
                 List<MessageList> msgs = dao.findByProviderNoAndMessageNo(providerNo, parsedId);
+                boolean hasLocalRecipient = false;
                 for (MessageList msg : msgs) {
-                    action.accept(msg);
-                    dao.merge(msg);
+                    if (LocalMessageRecipients.includes(msg, localLocations)) {
+                        hasLocalRecipient = true;
+                        action.accept(msg);
+                        dao.merge(msg);
+                    }
+                }
+                if (!msgs.isEmpty() && !hasLocalRecipient) {
+                    failureCount++;
                 }
             } catch (DataAccessException e) {
                 failureCount++;

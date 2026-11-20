@@ -42,8 +42,15 @@ public class BillingFileWriteException extends RuntimeException {
     /** Fixed public guidance; clinical values and filenames never enter these messages. */
     public enum Reason {
         GENERAL("The OHIP output could not be completed. Review the billing output and contact your billing administrator before retrying."),
+        IMPORTED_FILE_UNRESOLVED("This historical billing file requires reconciliation after the OSCAR import. Ask your billing administrator to verify the submission and its original file before downloading or regenerating it."),
         BUSY("An OHIP disk operation is already in progress; wait for it to finish before retrying"),
         LOCK_FAILED("OHIP output lock failed; reconcile any completed output before retrying"),
+        /**
+         * HOME_DIR is missing, is not a folder, or cannot be written. Checked before anything
+         * else runs, so the guidance can say that nothing changed. Generation needs the folder;
+         * simulation never touches it, which is why only generation fails.
+         */
+        OUTPUT_FOLDER_UNAVAILABLE("The OHIP output folder (HOME_DIR) is missing or CARLOS cannot write to it. Nothing was changed. Ask your system administrator to create the folder and give CARLOS write access, then try again."),
         UNCERTAIN_COMMIT("The database could not confirm the billing outcome. Generated files and rollback copies were retained. Reconcile the claims and OHIP output before retrying or submitting."),
         RESTORE_FAILED("Billing failed and some prior output could not be restored. Reconcile retained files before retrying or submitting.");
 

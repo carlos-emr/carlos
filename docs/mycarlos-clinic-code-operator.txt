@@ -96,7 +96,7 @@ email archived for the system device-code job (D141)". Every other email, user
 and caller is unchanged.
 
 Storage
-Migration V1.0.83 (number fixed at merge) lets the approval kind be 'code' and
+Migration V1.0.85 (number fixed at merge) lets the approval kind be 'code' and
 adds mycarlos_device_approval_code: per code challenge, an HMAC of the code,
 wrong attempts, expiry and when it was emailed. The HMAC key lives only in the
 running server's memory, so the table alone cannot give a code back. A restart

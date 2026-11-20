@@ -13,37 +13,37 @@
   @since 2026-10-04 (date-field submission correction, issue #4155)
 --%>
 <%@ page import="java.util.*" %>
-<%@ page import="java.text.SimpleDateFormat" %>
-<%@ page import="java.util.Date" %>
+
+
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.Misc" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.Gender" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.ProvinceNames" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicEditHelper" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
+
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
+
+
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve variables from request attributes (set by DemographicAdd2Action) --%>
@@ -123,6 +123,10 @@
                     <input type="hidden" name="notes" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("notes")) %>' context="htmlAttribute"/>">
                     <input type="hidden" name="reason" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("reason")) %>' context="htmlAttribute"/>">
                     <input type="hidden" name="location" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("location")) %>' context="htmlAttribute"/>">
+                    <%-- Only when the booking form posted one (AppointmentLocationList.Choice.posted). --%>
+                    <% if (request.getParameter("locationCode") != null) { %>
+                    <input type="hidden" name="locationCode" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("locationCode")) %>' context="htmlAttribute"/>">
+                    <% } %>
                     <input type="hidden" name="resources" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("resources")) %>' context="htmlAttribute"/>">
                     <input type="hidden" name="type" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("type")) %>' context="htmlAttribute"/>">
                     <input type="hidden" name="style" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("style")) %>' context="htmlAttribute"/>">

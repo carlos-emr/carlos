@@ -36,15 +36,15 @@
 --%>
 <%@ page
         import="io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.clinic.ClinicData, java.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxReprintWorkspace" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxPreviewSnapshot" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.DigitalSignatureUtils" %>
@@ -58,9 +58,9 @@
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProviderManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
@@ -151,6 +151,8 @@
             // names it so the server resolves that patient's bean, not the most recently opened
             // chart's (per-patient Rx state, #3875).
             int viewScriptDemographicNo = bean.getDemographicNo();
+            String viewScriptChartContext = java.util.Objects.toString(
+                    io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request), "");
             Provider provider = providerManager.getProvider(bean.getProviderNo());
             String providerFax = provider.getWorkPhone();
             if (providerFax == null) {
@@ -209,18 +211,18 @@
             Vector vecAddress = null;
             Vector vecAddressPhone = null;
             Vector vecAddressFax = null;
+            // The clinic site of this patient's current visit, preselected in the address list. It
+            // stays on this page: the session's RX_ADDR holds only the address the prescriber last
+            // chose by hand (rx/ViewSetDefaultAddr), so one patient's visit site cannot become the
+            // default for another patient's prescription (issue #4673).
+            String appointmentAddressIndex = null;
             CarlosProperties props = CarlosProperties.getInstance();
             if (bMultisites) {
-                String appt_no = (String) session.getAttribute("cur_appointment_no");
-                String location = null;
-                if (appt_no != null) {
-                    try {
-                        Appointment result = appointmentDao.find(Integer.parseInt(appt_no));
-                        if (result != null) location = result.getLocation();
-                    } catch (NumberFormatException e) {
-                        // Malformed appointment number in session — skip location lookup
-                    }
-                }
+                // The appointment this patient was opened for from the day sheet, never the one last
+                // opened for another patient.
+                Appointment currentAppointment = EncounterPatientContext.currentAppointment(request,
+                        String.valueOf(viewScriptDemographicNo), appointmentDao);
+                String location = currentAppointment == null ? null : currentAppointment.getLocation();
 
                 RxProviderData.Provider rxprovider = new RxProviderData().getProvider(bean.getProviderNo());
                 ProSignatureData sig = new ProSignatureData();
@@ -259,7 +261,7 @@
                             s.getCity(), s.getProvince(), s.getPostal(), s.getPhone(), s.getFax(), encodedTelLabel, encodedFaxLabel);
                     vecAddress.add(addressHtml);
                     if (s.getName().equals(location))
-                        session.setAttribute("RX_ADDR", String.valueOf(i));
+                        appointmentAddressIndex = String.valueOf(i);
                 }
 
 
@@ -348,6 +350,9 @@
         <script src="<%= request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
+        <script src="${pageContext.request.contextPath}/share/javascript/rx-patient-context.js"
+                data-demographic-no="<%= viewScriptDemographicNo %>"
+                data-chart-context="<%= SafeEncode.forHtmlAttribute(viewScriptChartContext) %>"></script>
 
         <%-- Pre-declare i18n messages used in JavaScript so they can be safely embedded
              in JavaScript string literals using OWASP forJavaScript() encoding --%>
@@ -403,7 +408,7 @@
                             modal.hide();
                         }
                     } else {
-                        window.location.href = "${carlos:forJavaScript(ctx)}/rx/choosePatient?demographicNo=<%= viewScriptDemographicNo %>";
+                        window.location.href = RxPatientContext.withPatient("${carlos:forJavaScript(ctx)}/rx/choosePatient?demographicNo=<%= viewScriptDemographicNo %>");
                     }
                     return true;
                 }).catch(function() {
@@ -445,19 +450,25 @@
             }
             bindFaxModalCancellation();
 
+            function printHalfLetter(method, scriptId) {
+                if (typeof hasPreview === 'undefined' || !hasPreview || !frames['preview']
+                        || signatureAssociationPending || signatureAssociationFailed) return;
+                onPrint2(method, scriptId, null, false, null, null, 'PageSize.HALFLETTER');
+            }
+
             function onPrint2(method, scriptId, faxDocumentId, pasteAfterSuccess, capturedPasteText,
-                              previousUnloadHandler) {
+                              previousUnloadHandler, pageSizeOverride) {
                 if (method === 'oscarRxFax' && (faxQueued || faxSubmissionUncertain || faxPreviewReloading
                         || signatureAssociationPending || signatureAssociationFailed)) return false;
                 var useSC = false;
                 var scAddress = "";
-                var rxPageSize = document.getElementById('printPageSize').value;
+                var rxPageSize = pageSizeOverride || document.getElementById('printPageSize').value;
                 console.log("rxPagesize  " + rxPageSize);
 
                 <% if(vecAddressName != null) { %>
-                useSC = true;
                 <%for(int i=0; i<vecAddressName.size(); i++) {%>
                 if (document.getElementById("addressSel").value == "<%=i%>") {
+                    useSC = true;
                     scAddress = "<carlos:encode value='<%= (String)vecAddress.get(i) %>' context="uriComponent"/>";
                 }
                 <%}
@@ -468,7 +479,17 @@
                 let action = method === "oscarRxFax"
                         ? "<%= request.getContextPath() %>/rx/faxPrescription?" + requestParams
                         : "<%= request.getContextPath() %>/form/createcustomedpdf?__method=" + method + "&" + requestParams;
-                var previewForm = document.getElementById("preview").contentWindow.document.getElementById("preview2Form");
+                var previewForm;
+                try {
+                    var frame = document.getElementById("preview");
+                    previewForm = frame && frame.contentWindow.document.getElementById("preview2Form");
+                } catch (previewAccessError) { previewForm = null; }
+                if (!previewForm) {
+                    if (method === 'oscarRxFax') resetFailedFaxSubmission(previousUnloadHandler);
+                    var notice = document.getElementById('rxPreviewLoading');
+                    if (notice) notice.hidden = false;
+                    return false;
+                }
                 if (method === "oscarRxFax") {
                     if (!matchesFaxPreview(previewForm)) {
                         hasPreview = false;
@@ -638,7 +659,8 @@
                 }
                 var url = '${carlos:forJavaScript(ctx)}/rx/ViewAddRxComment';
                 var ran_number = Math.round(Math.random() * 1000000);
-                var comment = encodeURIComponent(document.getElementById('additionalNotes').value);
+                var rawComment = document.getElementById('additionalNotes').value;
+                var comment = encodeURIComponent(rawComment);
                 var params = "scriptNo=" + encodeURIComponent(faxScriptNo) + "&comment=" + comment + "&rand=" + ran_number;  //]
                 var saveWarning = document.getElementById('additionalNotesSaveError');
                 if (saveWarning) saveWarning.hidden = true;
@@ -661,11 +683,15 @@
                         method: 'POST',
                         headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
                         credentials: 'same-origin',
-                        body: params
+                        body: params + '&originalCommentHash=' + encodeURIComponent(savedAdditionalNotesHash)
                     }).then(function (response) {
-                        if (!response.ok) {
+                        if (response.status === 409) notesConflict = true;
+                        if (!response.ok || response.redirected || (!response.headers || response.headers.get('X-Carlos-Rx-Comment') !== 'written'
+                                || !/^[a-f0-9]{64}$/.test(response.headers.get('X-Carlos-Rx-Comment-Hash')))) {
                             throw new Error('ViewAddRxComment returned HTTP ' + response.status);
                         }
+                        savedAdditionalNotesHash = response.headers.get('X-Carlos-Rx-Comment-Hash');
+                        notesConflict = false;
                     });
                 });
                 // Observe rejection immediately: a blur save can fail before the later Fax
@@ -675,7 +701,7 @@
                 currentNotesSave.then(function () {
                     if (pendingNotesSave === currentNotesSave && saveWarning) saveWarning.hidden = true;
                 }, function () {
-                    if (pendingNotesSave === currentNotesSave && saveWarning) saveWarning.hidden = false;
+                    if (pendingNotesSave === currentNotesSave) { notesConflict = true; if (saveWarning) saveWarning.hidden = false; }
                 });
                 // The persisted save is independent of an omitted, loading or inaccessible
                 // preview. Updating the preview is best effort; fax submission still awaits
@@ -701,10 +727,22 @@
 
 
             function printIframe() {
+                if (notesConflict) { document.getElementById('additionalNotesSaveError').hidden = false; return false; }
                 // Empty/new prescriptions have no preview. Programmatic callers must
                 // obey the same boundary as the disabled ordinary Print control.
                 if (typeof hasPreview === 'undefined' || !hasPreview || !frames['preview']) return;
                 var previewFrame = frames['preview'];
+                try {
+                    if (!previewFrame.document || !previewFrame.document.getElementById('preview2Form')) {
+                        var notice = document.getElementById('rxPreviewLoading');
+                        if (notice) notice.hidden = false;
+                        return false;
+                    }
+                } catch (previewAccessError) {
+                    var inaccessibleNotice = document.getElementById('rxPreviewLoading');
+                    if (inaccessibleNotice) inaccessibleNotice.hidden = false;
+                    return false;
+                }
                 var browserName = navigator.appName;
                 if (browserName == "Microsoft Internet Explorer") {
                     alert('${carlos:forJavaScript(msg_msieNotPermitted)}')
@@ -727,8 +765,20 @@
             }
 
             function printPaste2Parent(print, fax, pasteRx, capturedPasteText, useCapturedPasteTextAsIs) {
+                if (notesConflict) { document.getElementById('additionalNotesSaveError').hidden = false; return Promise.resolve(false); }
                 //console.log("in printPaste2Parent");
                 if (faxSubmissionUncertain || faxPreviewReloading || ((isReprint || !hasPreview || faxQueued || faxSubmissionPending) && !fax)) return Promise.resolve(false);
+                try {
+                    if (!fax && (!frames['preview'] || !frames['preview'].document
+                            || !frames['preview'].document.getElementById('preview2Form'))) {
+                        var loadingNotice = document.getElementById('rxPreviewLoading');
+                        if (loadingNotice) loadingNotice.hidden = false;
+                        return Promise.resolve(false);
+                    }
+                } catch (previewAccessError) {
+                    document.getElementById('rxPreviewLoading').hidden = false;
+                    return Promise.resolve(false);
+                }
                 // A retry is safe only until an insertion or request may have written text.
                 // Network failures and editor callbacks can fail AFTER their side effect.
                 faxPasteCanRetry = true;
@@ -771,7 +821,10 @@
                             }
 
                             if (typeof capturedPasteText !== 'string' && document.getElementById('additionalNotes') !== null) {
-                                text += document.getElementById('additionalNotes').value + "\n";
+                                var additionalNotes = document.getElementById('additionalNotes').value.trim();
+                                if (additionalNotes) {
+                                    text += additionalNotes + "\n";
+                                }
                             }
                         }
                         <% if (props.isPropertyActive("rx_paste_asterisk")) {
@@ -791,9 +844,7 @@
                     noteEditor = "noteEditor" + demographicNo;
                     var pasteResult = Promise.resolve(true);
                     if (window.parent.opener) {
-                        if (window.parent.opener.document.forms["caseManagementEntryForm"] != undefined &&
-                            window.parent.opener.document.forms["caseManagementEntryForm"].demographicNo &&
-                            window.parent.opener.document.forms["caseManagementEntryForm"].demographicNo.value === "<%=bean.getDemographicNo()%>") {
+                        if (matchesRxChart(window.parent.opener.document.forms["caseManagementEntryForm"])) {
                             //oscarLog("3");
                             faxPasteCanRetry = false;
                             if (window.parent.opener.pasteToEncounterNote(text) === false) {
@@ -803,16 +854,14 @@
                             if (print) {
                                 printIframe();
                             }
-                        } else if (window.parent.opener.document.encForm != undefined &&
-                            window.parent.opener.document.encForm.demographicNo &&
-                            window.parent.opener.document.encForm.demographicNo.value === "<%=bean.getDemographicNo()%>") {
+                        } else if (matchesRxChart(window.parent.opener.document.encForm)) {
                             //oscarLog("4");
                             faxPasteCanRetry = false;
                             window.parent.opener.document.encForm.enTextarea.value = window.parent.opener.document.encForm.enTextarea.value + text;
                             if (print) {
                                 printIframe();
                             }
-                        } else if (window.parent.opener.document.getElementById(noteEditor) != undefined) {
+                        } else if (<%= viewScriptChartContext.isEmpty() %> && window.parent.opener.document.getElementById(noteEditor) != undefined) {
                             faxPasteCanRetry = false;
                             window.parent.opener.document.getElementById(noteEditor).value = window.parent.opener.document.getElementById(noteEditor).value + text;
                             if (print) {
@@ -835,6 +884,12 @@
 
             }
 
+    function matchesRxChart(form) {
+        return form && form.elements.demographicNo
+            && form.elements.demographicNo.value === '<%= viewScriptDemographicNo %>'
+            && ((form.elements.chartContext && form.elements.chartContext.value) || '')
+                === '<%= SafeEncode.forJavaScript(viewScriptChartContext) %>';
+    }
 	function writeToEncounter(print, text) {
     	try {
 			var url = "<%=request.getContextPath() %>/rx/WriteToEncounter";
@@ -846,6 +901,7 @@
 				body: "prefPharmacy=" + encodeURIComponent(prefPharmacy) +
 						"&expectedDemographicNo=<%= bean.getDemographicNo() %>" +
 						"&demographicNo=<%= bean.getDemographicNo() %>" +
+						"<%= viewScriptChartContext.isEmpty() ? "" : "&chartContext=" + SafeEncode.forUriComponent(viewScriptChartContext) %>" +
 						"&additionalNotes=" +
 						"&body="+ encodeURIComponent(text)
 			};
@@ -883,14 +939,17 @@
                 var windowprops = "height=710,width=1024,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=20,left=20";
                 var currentDate = new Date().toISOString().substring(0, 10);
                 var url = "<%= request.getContextPath() %>/encounter/IncomingEncounter?providerNo=<%= bean.getProviderNo() %>&demographicNo=<%= bean.getDemographicNo() %>&curProviderNo=<%= bean.getProviderNo() %>&userName=<carlos:encode value='<%= ProviderData.getProviderName(bean.getProviderNo()) %>' context="uriComponent"/>&curDate=" + currentDate;
+                <% if (!viewScriptChartContext.isEmpty()) { %>
+                url += '&chartContext=<%= SafeEncode.forJavaScript(SafeEncode.forUriComponent(viewScriptChartContext)) %>';
+                <% } %>
 
-                if (window.parent.opener && window.parent.opener.document.forms["caseManagementEntryForm"] != undefined) {
+                if (window.parent.opener && matchesRxChart(window.parent.opener.document.forms["caseManagementEntryForm"])) {
                     // redirect if encounter window open
                     window.parent.opener.location = url;
                     return window.parent.opener;
                 }
 
-                return window.open(url, "encounter", windowprops);
+                return window.open(url, 'encounter<%= viewScriptDemographicNo %>_<%= SafeEncode.forJavaScript(viewScriptChartContext) %>', windowprops);
             }
 
             var rxToPaste = null;
@@ -900,11 +959,14 @@
                 encounterWindow.rxToPaste = rxToPaste;
             }
 
-            function addressSelect() {
+            // rememberChoice is true only when the prescriber picks an address. The page-load call
+            // passes false so the address preselected for this patient's visit site is shown
+            // without becoming the remembered default for other patients (issue #4673).
+            function addressSelect(rememberChoice) {
                 if (typeof hasPreview === 'undefined' || !hasPreview || !frames['preview']) return;
                 <% if(vecAddressName != null) {
                  %>
-                setDefaultAddr();
+                if (rememberChoice) setDefaultAddr();
                 <%      for(int i=0; i<vecAddressName.size(); i++) {%>
                 var clinicAddress = frames['preview'].document.getElementById("clinicAddress");
                 if (clinicAddress && document.getElementById("addressSel").value == "<%=i%>") {
@@ -1035,6 +1097,8 @@
             var POLL_TIME = 1500;
             var counter = 0;
             var isRxFaxEnabled = "<%=CarlosProperties.getInstance().isRxFaxEnabled()%>";
+            var savedAdditionalNotesHash = '<%= io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.commentDigest(comment) %>';
+            var notesConflict = false;
             var faxScriptNo = "<carlos:encode value='<%= scriptIdForFax %>' context="javaScriptBlock"/>";
             // Ordinary Print and Paste also needs these, even when Rx faxing is disabled.
             var hasPreview = <%= previewAvailable ? "true" : "false" %>;
@@ -1247,6 +1311,18 @@
                 if (!faxNumber || faxNumber.selectedIndex < 0) {
                     return false;
                 }
+                // First load and error pages may not contain the preview inputs yet.
+                // Leave submission state untouched until the actual form is usable.
+                try {
+                    if (!frames['preview'] || !frames['preview'].document
+                            || !frames['preview'].document.getElementById('finalFax')) {
+                        document.getElementById('rxPreviewLoading').hidden = false;
+                        return false;
+                    }
+                } catch (previewAccessError) {
+                    document.getElementById('rxPreviewLoading').hidden = false;
+                    return false;
+                }
                 var previousUnloadHandler = window.onbeforeunload;
                 window.onbeforeunload = null;
                 frames['preview'].document.getElementById('finalFax').value = faxNumber.options[faxNumber.selectedIndex].value;
@@ -1263,7 +1339,10 @@
                     capturedPasteText = previewForm.elements['rx_no_newlines'].value +
                             (document.all ? '' : '\n');
                     if (document.getElementById('additionalNotes') !== null) {
-                        capturedPasteText += document.getElementById('additionalNotes').value + '\n';
+                        var additionalNotes = document.getElementById('additionalNotes').value.trim();
+                        if (additionalNotes) {
+                            capturedPasteText += additionalNotes + '\n';
+                        }
                     }
                 }
                 lastFaxPasteText = null;
@@ -1333,9 +1412,28 @@
 function updateSignatureAssociationControls() {
     const warning = document.getElementById('signatureAssociationError');
     if (warning) warning.hidden = !signatureAssociationFailed;
+    updateHalfLetterPrintControls();
     if (typeof canFaxScript !== 'undefined') {
         setFaxControlsDisabled(shouldDisableFaxControls());
     }
+}
+
+function updateHalfLetterPrintControls() {
+    let button;
+    try {
+        const previewFrame = frames['preview'];
+        button = previewFrame && previewFrame.document
+                ? previewFrame.document.getElementById('halfLetterPrint') : null;
+    } catch (unavailablePreview) {
+        // Navigation can temporarily hide the preview document. Its load handler resynchronizes
+        // the button, and the click guard still prevents printing during the signature save.
+        return;
+    }
+    if (!button) return;
+    const blocked = signatureAssociationPending || signatureAssociationFailed;
+    button.disabled = blocked;
+    button.style.opacity = blocked ? '0.5' : '';
+    button.style.cursor = signatureAssociationPending ? 'wait' : (signatureAssociationFailed ? 'not-allowed' : 'pointer');
 }
 
 function associateSavedSignature(event, scriptId) {
@@ -1428,9 +1526,8 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
     </head>
 
 <body topmargin="0" leftmargin="0" vlink="#0000FF"
-	onload="addressSelect();showFaxWarning();">
+	onload="addressSelect(false);showFaxWarning();">
 
-    <!-- HSFO functionality removed -->
     <div id="bodyView">
         <p id="signatureAssociationError" class="alert alert-danger" role="alert" hidden><fmt:message key="ViewScript.js.signatureAssociationFailed"/></p>
 
@@ -1455,9 +1552,14 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 				<td>
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
-                                        <iframe id='preview' name='preview' width=420px height=890px onload="setComment()"
-							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&demographicNo=<%= viewScriptDemographicNo %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/>"
-							align=center border=0 frameborder=0></iframe></div>
+                                        <iframe id='preview' name='preview' width=420px height=890px title="<fmt:message key="RxPreview.title"/>"
+							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&demographicNo=<%= viewScriptDemographicNo %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/><%= viewScriptChartContext.isEmpty() ? "" : "&amp;chartContext=" + SafeEncode.forHtmlAttribute(SafeEncode.forUriComponent(viewScriptChartContext)) %>"
+							align=center border=0 frameborder=0></iframe>
+                                        <script type="text/javascript">
+                                            document.getElementById('preview').addEventListener('load', function () {
+                                                setComment(); updateHalfLetterPrintControls(); var notice = document.getElementById('rxPreviewLoading'); if (notice) notice.hidden = true;
+                                            });
+                                        </script></div>
 					<% } %>
                                     <p id="selectedPharmacy" role="status" hidden><fmt:message key="oscarRx.printPharmacyInfo.paperSizeWarning"/></p>
                                 </td>
@@ -1568,10 +1670,11 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         <% //vecAddress=null;
                                             if (vecAddress != null) { %>
                                         <tr>
-                                            <td align="left" colspan=2><fmt:message key="ViewScript.msgAddress"/>
-                                                <select name="addressSel" id="addressSel" onChange="addressSelect()"
+                                            <td align="left" colspan=2><label for="addressSel"><fmt:message key="ViewScript.msgAddress"/></label>
+                                                <select name="addressSel" id="addressSel" onChange="addressSelect(true)"
                                                         style="width:200px;">
-                                                    <% String rxAddr = (String) session.getAttribute("RX_ADDR");
+                                                    <% String rxAddr = appointmentAddressIndex != null
+                                                            ? appointmentAddressIndex : (String) session.getAttribute("RX_ADDR");
                                                         for (int i = 0; i < vecAddressName.size(); i++) {
                                                             String te = (String) vecAddressName.get(i);
                                                             String tf = (String) vecAddress.get(i);%>
@@ -1683,6 +1786,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                           aria-label="<fmt:message key="ViewScript.msgFaxRecoveryText"/>"></textarea>
                                             </td>
                                         </tr>
+                                        <tr id="rxPreviewLoading" hidden><td colspan="4"><p role="status"><fmt:message key="oscarRx.previewLoading"/></p></td></tr>
                                         <tr id="faxPreviewChanged" hidden>
                                             <td><p role="alert"><fmt:message key="ViewScript.msgFaxPreviewChanged"/></p></td>
                                         </tr>
@@ -1726,7 +1830,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                           onchange="javascript:addNotes();"><carlos:encode value='<%= comment %>'/></textarea>
                                                 <input type="button" id="saveAdditionalNotes" value="<fmt:message key="ViewScript.msgAdditionalRxNotes"/>"
                                                        class="btn btn-outline-secondary" onclick="javascript:addNotes();"/>
-                                                <p id="additionalNotesSaveError" class="alert alert-danger" role="alert" hidden><fmt:message key="tickler.ticklerMain.errorNoteSaveFailed"/></p>
+                                                <p id="additionalNotesSaveError" class="alert alert-danger" role="alert" hidden><fmt:message key="oscarRx.notesUnconfirmed"/> <button type="button" onclick="location.reload()"><fmt:message key="oscarRx.reloadCurrentForm"/></button></p>
                                             </td>
                                         </tr>
 

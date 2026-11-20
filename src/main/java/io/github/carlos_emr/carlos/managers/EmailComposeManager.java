@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -55,6 +56,13 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 public class EmailComposeManager {
     private final Logger logger = MiscUtils.getLogger();
 
+    public EmailComposeManager() { }
+
+    @Autowired
+    public EmailComposeManager(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = java.util.Objects.requireNonNull(securityInfoManager);
+    }
+
     @Autowired
     private EmailConfigDaoImpl emailConfigDao;
     @Autowired
@@ -69,6 +77,39 @@ public class EmailComposeManager {
     private SecurityInfoManager securityInfoManager;
     @Autowired
     private EmailConsentResolver emailConsentResolver;
+    @Autowired
+    private NioFileManager nioFileManager;
+    private io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService attachmentOwnershipService;
+
+    @Autowired
+    public void setAttachmentOwnershipService(io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService service) {
+        this.attachmentOwnershipService = java.util.Objects.requireNonNull(service);
+    }
+
+    /** Checks the complete draft before any attachment is rendered or copied. */
+    public void requirePatientAttachments(Integer demographicNo, String fdid, String[] eForms,
+            String[] documents, String[] labs, String[] hrms) throws PDFGenerationException {
+        List<String> selectedEForms = convertToList(eForms);
+        if (!StringUtils.isNullOrEmpty(fdid)) selectedEForms.add(0, fdid);
+        requirePatientAttachmentSelection(DocumentType.EFORM, demographicNo, selectedEForms.toArray(String[]::new));
+        requirePatientAttachmentSelection(DocumentType.DOC, demographicNo, documents);
+        requirePatientAttachmentSelection(DocumentType.LAB, demographicNo, labs);
+        requirePatientAttachmentSelection(DocumentType.HRM, demographicNo, hrms);
+    }
+
+    /** Refuses a missing or foreign record without disclosing its identity. */
+    public void requirePatientAttachmentSelection(DocumentType type, Integer demographicNo, String... selected)
+            throws PDFGenerationException {
+        List<Integer> ids = new ArrayList<>();
+        try {
+            for (String id : convertToList(selected)) ids.add(Integer.parseInt(id));
+        } catch (NumberFormatException invalid) {
+            throw new PDFGenerationException("A selected email attachment could not be rendered");
+        }
+        if (!ids.isEmpty() && !attachmentOwnershipService.allBelongToDemographic(type, demographicNo, ids)) {
+            throw new PDFGenerationException("A selected email attachment could not be rendered");
+        }
+    }
 
     /**
      * Prepares an existing email for resending by retrieving its log entry.
@@ -82,6 +123,7 @@ public class EmailComposeManager {
      * @return EmailLog the email log entry containing the original email data
      * @throws RuntimeException if the user lacks the required _email READ privilege
      * @throws PortalInviteEmailException if the email is a patient portal invitation
+     * @throws DeviceCodeEmailException if the email carried a myCarlos device approval code
      */
     public EmailLog prepareEmailForResend(LoggedInInfo loggedInInfo, Integer emailLogId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
@@ -106,6 +148,12 @@ public class EmailComposeManager {
             // patient's email history, so the invitation is resent from the portal panel instead.
             throw new PortalInviteEmailException(demographicNo);
         }
+        if (EmailLog.TransactionType.MYCARLOS_CODE.equals(emailLog.getTransactionType())) {
+            // Like an invitation, a device approval code is single-use and short-lived, and the
+            // device-code job sends a new one when the device asks again. Its log row is not a draft
+            // to reopen in the compose window.
+            throw new DeviceCodeEmailException();
+        }
         return emailLog;
     }
 
@@ -114,6 +162,19 @@ public class EmailComposeManager {
      * resends it instead, so a caller can send staff there. Checked only after the caller was allowed
      * to read that patient's email.
      */
+    /**
+     * Refuses to reopen an email that carried a myCarlos device approval code. The device-code job
+     * sends a fresh code when the device asks again. Checked only after the caller was allowed to
+     * read that patient's email.
+     */
+    public static final class DeviceCodeEmailException extends SecurityException {
+        private static final long serialVersionUID = 1L;
+
+        public DeviceCodeEmailException() {
+            super("myCarlos device code emails cannot be reopened");
+        }
+    }
+
     public static final class PortalInviteEmailException extends SecurityException {
         private static final long serialVersionUID = 1L;
 
@@ -142,7 +203,7 @@ public class EmailComposeManager {
      * @param attachedEForms String[] array of EForm IDs to attach to the email
      * @return List&lt;EmailAttachment&gt; list of prepared PDF email attachments with metadata
      * @throws PDFGenerationException if PDF rendering fails for any EForm
-     * @throws RuntimeException if the user lacks the required _eform READ privilege
+     * @throws SecurityException if the user lacks the required _eform READ privilege
      */
     public List<EmailAttachment> prepareEFormAttachments(LoggedInInfo loggedInInfo, String fdid, String[] attachedEForms) throws PDFGenerationException {
         return prepareEFormAttachments(loggedInInfo, fdid, attachedEForms, null);
@@ -168,7 +229,7 @@ public class EmailComposeManager {
             EmailComposeWorkingDirectory workingDirectory
     ) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_eform)");
+            throw new SecurityException("missing required sec object (_eform)");
         }
 
         List<String> attachedEFormIds = convertToList(attachedEForms);
@@ -196,7 +257,7 @@ public class EmailComposeManager {
      * @param attachedDocuments String[] array of EDoc IDs to attach to the email
      * @return List&lt;EmailAttachment&gt; list of prepared PDF email attachments with metadata
      * @throws PDFGenerationException if PDF rendering fails for any electronic document
-     * @throws RuntimeException if the user lacks the required _edoc READ privilege
+     * @throws SecurityException if the user lacks the required _edoc READ privilege
      */
     public List<EmailAttachment> prepareEDocAttachments(LoggedInInfo loggedInInfo, String[] attachedDocuments) throws PDFGenerationException {
         return prepareEDocAttachments(loggedInInfo, attachedDocuments, null);
@@ -220,7 +281,7 @@ public class EmailComposeManager {
             EmailComposeWorkingDirectory workingDirectory
     ) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required sec object (_edoc)");
         }
 
         List<String> attachedEDocIds = convertToList(attachedDocuments);
@@ -228,11 +289,38 @@ public class EmailComposeManager {
         List<EmailAttachment> emailAttachments = new ArrayList<>();
         for (String eDocId : attachedEDocIds) {
             Path eDocPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, Integer.parseInt(eDocId));
+            if (workingDirectory == null) eDocPDFPath = applicationTempFile(eDocPDFPath);
             eDocPDFPath = ownGeneratedPdf(eDocPDFPath, workingDirectory);
             emailAttachments.add(new EmailAttachment(eDocPDFPath.getFileName().toString(), eDocPDFPath.toString(), DocumentType.DOC, Integer.parseInt(eDocId), getFileSize(eDocPDFPath)));
         }
 
         return emailAttachments;
+    }
+
+    /**
+     * The file an email attachment is prepared from, inside the CARLOS application temp tree.
+     *
+     * <p>A PDF document renders in place: {@code renderDocument} hands back the stored file itself.
+     * The compose window's attachment preview serves only application temp files, so before this a
+     * PDF document could never be emailed ("PDF preview is outside the CARLOS temp directory"). It is
+     * copied into the temp tree instead, so the preview and the send read the copy and the stored
+     * document is never handed on. A rendered file already in the temp tree is used as it is.</p>
+     *
+     * @param rendered a rendered attachment PDF, or {@code null}
+     * @return {@code rendered} if it is already an application temp file (or {@code null}), else a copy
+     *         of it in the application temp tree
+     * @throws PDFGenerationException if the copy cannot be made
+     */
+    public Path applicationTempFile(Path rendered) throws PDFGenerationException {
+        if (rendered == null || PathValidationUtils.isInApplicationTempDirectory(rendered.toFile())) {
+            return rendered;
+        }
+        try {
+            return nioFileManager.createTempFileFrom(rendered.getFileName().toString(), rendered);
+        } catch (IOException | RuntimeException e) {
+            // No file name or path in the message.
+            throw new PDFGenerationException("A document could not be copied for the email", e);
+        }
     }
 
     /**
@@ -245,7 +333,7 @@ public class EmailComposeManager {
      * @param attachedLabs String[] array of lab result IDs to attach to the email
      * @return List&lt;EmailAttachment&gt; list of prepared PDF email attachments with metadata
      * @throws PDFGenerationException if PDF rendering fails for any laboratory result
-     * @throws RuntimeException if the user lacks the required _lab READ privilege
+     * @throws SecurityException if the user lacks the required _lab READ privilege
      */
     public List<EmailAttachment> prepareLabAttachments(LoggedInInfo loggedInInfo, String[] attachedLabs) throws PDFGenerationException {
         return prepareLabAttachments(loggedInInfo, attachedLabs, null);
@@ -269,7 +357,7 @@ public class EmailComposeManager {
             EmailComposeWorkingDirectory workingDirectory
     ) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_lab)");
+            throw new SecurityException("missing required sec object (_lab)");
         }
 
         List<String> attachedLabIds = convertToList(attachedLabs);
@@ -351,7 +439,7 @@ public class EmailComposeManager {
      * @param demographicId Integer the patient demographic ID associated with the forms
      * @return List&lt;EmailAttachment&gt; list of prepared PDF email attachments with metadata
      * @throws PDFGenerationException if PDF rendering fails for any clinical form
-     * @throws RuntimeException if the user lacks the required _form READ privilege for the specified demographic
+     * @throws SecurityException if the user lacks the required _form READ privilege for the specified demographic
      */
     public List<EmailAttachment> prepareFormAttachments(HttpServletRequest request, HttpServletResponse response, String[] attachedForms, Integer demographicId) throws PDFGenerationException {
         return prepareFormAttachments(request, response, attachedForms, demographicId, null);
@@ -380,7 +468,7 @@ public class EmailComposeManager {
     ) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, String.valueOf(demographicId))) {
-            throw new RuntimeException("missing required sec object (_form)");
+            throw new SecurityException("missing required sec object (_form)");
         }
 
         List<String> attachedFormIds = convertToList(attachedForms);
@@ -428,7 +516,7 @@ public class EmailComposeManager {
      */
     public String[] getEmailConsentStatus(LoggedInInfo loggedInInfo, Integer demographicId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new SecurityException("missing required sec object (_email)");
         }
 
         EmailConsentResult consent = emailConsentResolver.resolve(loggedInInfo, demographicId);

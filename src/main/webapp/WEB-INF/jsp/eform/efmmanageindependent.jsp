@@ -29,11 +29,11 @@
 
 --%>
 <%@page import="java.util.*,io.github.carlos_emr.carlos.eform.*" %>
-<%@page import="io.github.carlos_emr.carlos.web.eform.EfmPatientFormList" %>
+
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String country = request.getLocale().getCountry();
@@ -48,7 +48,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 
 <html>
 
@@ -146,9 +146,9 @@
                 <td><a href="#"
                        ONCLICK="openEform('<%= request.getContextPath() %>/eform/efmshowform_data?fdid=<%=curform.get("fdid")%>', '<%="FormP" + i%>'); return false;"
                        TITLE="<fmt:message key="eform.showmyform.msgViewFrm"/>"
-                       onmouseover="window.status='<fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%=curform.get("formName")%>
+                       onmouseover="window.status='<fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent((String) curform.get("formName")) %>
                 </a></td>
-                <td><%=curform.get("formSubject")%>
+                <td><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent((String) curform.get("formSubject")) %>
                 </td>
                 <td align='center'><%=providerDao.getProviderNameLastFirst((String) curform.get("providerNo"))%>
                 </td>

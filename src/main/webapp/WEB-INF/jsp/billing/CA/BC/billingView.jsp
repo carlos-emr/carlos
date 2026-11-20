@@ -50,15 +50,14 @@
         response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
 
 <%@ page import="java.util.*" %>
-<%@ page
-        import="io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingViewBean" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
@@ -67,7 +66,8 @@
 <%
 
     String color = "", colorflag = "";
-    BillingViewBean bean = (BillingViewBean) pageContext.findAttribute("billingViewBean");
+    // This request's invoice (BillingView2Action), never the one viewed last in any window (#4673).
+    BillingViewBean bean = (BillingViewBean) request.getAttribute("billingViewBean");
     DemographicData demoData = new DemographicData();
     Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), bean.getPatientNo());
 

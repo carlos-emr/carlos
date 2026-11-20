@@ -1,5 +1,5 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -307,6 +307,7 @@
     @oscar.formDB Field="formEdited" Type="timestamp"
     -->
     <form action="${pageContext.request.contextPath}/form/formname" method="post">
+        <input type="hidden" name="dateOfBirth" value="<carlos:encode value='<%= props.getProperty("dateOfBirth", "") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="demographic_no"
                value="<%= props.getProperty("demographic_no", "0") %>"/>
         <input type="hidden" name="formCreated"

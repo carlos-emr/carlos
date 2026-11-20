@@ -34,6 +34,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 @XmlRootElement
 public class DocumentTo1 implements Serializable {
     private Integer id;
@@ -48,11 +50,15 @@ public class DocumentTo1 implements Serializable {
     private String source = "";
     private String sourceFacility = "";
     private Integer programId = -1;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date updateDateTime = new Date();
     private char status = 'A';
     private String contentType;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date contentDateTime = new Date();
     private String reportMedia;
+    private String cdsContentPrecision;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date sentDateTime;
     private int public1 = 0;
     private Date observationDate = new Date();
@@ -196,6 +202,12 @@ public class DocumentTo1 implements Serializable {
     public void setContentDateTime(Date contentDateTime) {
         this.contentDateTime = contentDateTime;
     }
+
+    /** Immutable imported-source precision, independent of current native observations. */
+    @com.fasterxml.jackson.annotation.JsonProperty(access=com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    public String getCdsContentPrecision() { return cdsContentPrecision; }
+
+    public void setCdsContentPrecision(String value) { cdsContentPrecision=value; }
 
     public String getReportMedia() {
         return reportMedia;

@@ -67,7 +67,9 @@
 %>
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
-<%@ page import="java.sql.ResultSet" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.Calendar" %>
 <%@ page import="java.util.GregorianCalendar" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
@@ -79,7 +81,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String country = request.getLocale().getCountry();
@@ -96,11 +98,7 @@
     mygroupno = StringUtils.trimToEmpty(mygroupno);
 %>
 
-<jsp:useBean id="reportMainBean" class="io.github.carlos_emr.AppointmentMainBean"
-             scope="session"/>
-<% if (!reportMainBean.getBDoConfigure()) { %>
 <%@ include file="reportMainBeanConn.jspf" %>
-<% } %>
 
 
 
@@ -297,24 +295,25 @@
                 <td  style="width: 300px;"><fmt:message key="report.reportindex.formDaySheet"/></td>
                 <td><select name="provider_no" class="form-select form-select-sm" style="width:auto;display:inline-block">
                     <%
-                        ResultSet rsgroup = reportMainBean.queryResults(mygroup_dboperation);
-
-                        while (rsgroup.next()) {
-                            if (isTeamAccessPrivacy)
-                                continue;    //skip mygroup display if user have TeamAccessPrivacy
+                        for (String reportGroup : SpringUtils.getBean(MyGroupDao.class)
+                                .findReportGroups(curUser_no, "site_search_group".equals(mygroup_dboperation))) {
+                            if (isTeamAccessPrivacy) continue;
                     %>
-                    <option value="<carlos:encode value='<%= "_grp_"+rsgroup.getString("mygroup_no") %>' context="htmlAttribute"/>"
-                            <%=mygroupno.equals(rsgroup.getString("mygroup_no")) ? "selected" : ""%>><fmt:message key="provider.appointmentprovideradminmonth.formGRP"/>:&nbsp;<carlos:encode value='<%= rsgroup.getString("mygroup_no") %>' context="html"/>
+                    <option value="<carlos:encode value='<%= "_grp_"+reportGroup %>' context="htmlAttribute"/>"
+                            <%=mygroupno.equals(reportGroup) ? "selected" : ""%>><fmt:message key="provider.appointmentprovideradminmonth.formGRP"/>:&nbsp;<carlos:encode value='<%= reportGroup %>' context="html"/>
                     </option>
                     <%
                         }
                     %>
                     <%
-                        rsgroup = reportMainBean.queryResults(provider_dboperation);
-                        while (rsgroup.next()) {
+                        ProviderDataDao.ReportScope reportScope = "team_search_provider".equals(provider_dboperation)
+                                ? ProviderDataDao.ReportScope.TEAM : "site_search_provider".equals(provider_dboperation)
+                                ? ProviderDataDao.ReportScope.SITE : ProviderDataDao.ReportScope.ALL;
+                        for (ProviderDataDao.ReportChoice reportProvider : SpringUtils.getBean(ProviderDataDao.class)
+                                .findReportChoices(curUser_no, reportScope)) {
                     %>
-                    <option value="<carlos:encode value='<%= rsgroup.getString("provider_no") %>' context="htmlAttribute"/>"
-                            <%=curUser_no.equals(rsgroup.getString("provider_no")) ? "selected" : ""%>><carlos:encode value='<%= rsgroup.getString("last_name") + ", " + rsgroup.getString("first_name") %>' context="html"/>
+                    <option value="<carlos:encode value='<%= reportProvider.providerNo() %>' context="htmlAttribute"/>"
+                            <%=curUser_no.equals(reportProvider.providerNo()) ? "selected" : ""%>><carlos:encode value='<%= reportProvider.lastName() + ", " + reportProvider.firstName() %>' context="html"/>
                     </option>
                     <%
                         }
@@ -397,6 +396,26 @@
                 <td></td>
                 <td></td>
             </tr>
+            <%-- Waiting-list management (list names, the patients on each list, notes and
+                 bookings). It is the only place list names are created, so without this
+                 entry the Master Record's waiting list could never be set up (#4229). --%>
+            <oscar:oscarPropertiesCheck property="DEMOGRAPHIC_WAITING_LIST" value="true">
+            <security:oscarSec roleName="<%=roleName2$%>" objectName="_demographic" rights="r">
+            <tr>
+                <td style="width: 30px;"><%=j%>
+                    <%j++;%>
+                </td>
+                <td style="width: 10px;"></td>
+                <td style="width: 300px;"><a id="waitingListReport"
+                        href="<%= request.getContextPath() %>/waitinglist/SetupDisplayWaitingList"
+                        onclick="popupPageNew(600, 1000, this.href); return false;"><fmt:message key="report.reportindex.btnWaiting"/></a></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
+            </security:oscarSec>
+            </oscar:oscarPropertiesCheck>
             <security:oscarSec roleName="<%=roleName2$%>" objectName="_admin,_billing" rights="r" reverse="<%=false%>">
             <% if (StringUtils.isNotBlank(prov)) { %>
             <tr>

@@ -131,27 +131,105 @@ public interface TicklerManager {
 
     public Tickler getTickler(LoggedInInfo loggedInInfo, Integer id);
 
-    /** Reads the current tickler under a write lock inside the caller's edit transaction. */
-    Tickler getTicklerForUpdate(LoggedInInfo loggedInInfo, Integer id);
 
+    /**
+     * Resolves the patient for note authorization without loading editable demographic entities.
+     * The tickler read privilege and existing lookup audit apply before disclosure.
+     *
+     * @param loggedInInfo LoggedInInfo current authenticated user
+     * @param id Integer tickler identifier
+     * @return Integer patient identifier, or {@code null} when the tickler is missing or unassigned
+     * @since 2026-10-24
+     */
+    public Integer getTicklerDemographicNo(LoggedInInfo loggedInInfo, Integer id);
+
+    /**
+     * Requires an existing transaction and update authority, without adding a read prerequisite.
+     * Locks the row and returns its stored patient. A legacy tickler stored without a patient
+     * (0 or {@code null}) is returned as stored and is governed by the global right alone.
+     */
+    default Integer getTicklerDemographicNoForUpdate(LoggedInInfo actor, Integer id) {
+        throw new UnsupportedOperationException("Tickler patient locking is not implemented");
+    }
 
     public void addComment(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, String message);
 
     public void reassign(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, String task_assigned_to);
 
-    /**
-     * Atomically changes the status only if it still matches the status rendered in the list.
-     * Returns false for missing rows or stale/missing expected status, with no history write.
-     */
-    boolean updateStatusIfCurrent(LoggedInInfo loggedInInfo, Integer ticklerId, String provider,
-                                 Tickler.STATUS expectedStatus, Tickler.STATUS status);
-
     public void updateStatus(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, Tickler.STATUS status);
+
+    /**
+     * Retains develop's conditional status API for callers using its boolean result.
+     *
+     * @return boolean whether the stored status matched the expected status
+     */
+    default boolean updateStatusIfCurrent(LoggedInInfo loggedInInfo, Integer ticklerId, String provider,
+                                          Tickler.STATUS expectedStatus, Tickler.STATUS status) {
+        throw new UnsupportedOperationException("Conditional tickler status changes are not implemented");
+    }
+
+    /** What {@link #changeStatusIfCurrent} did with one tickler. */
+    enum StatusChange {
+        /** The status was changed and a history row written. */
+        APPLIED,
+        /** The tickler already had the requested status: nothing was written. */
+        UNCHANGED,
+        /** Someone changed the status after the caller's page was rendered: nothing was written. */
+        STALE
+    }
+
+    /**
+     * Changes a tickler's status only if nobody changed it since the caller's page was rendered.
+     * The task lists' bulk Complete and Delete use it: a list loaded before another user completed
+     * or deleted a task must not write its own status over that (a Deleted task used to come back
+     * as Completed). The row is locked, its committed status is compared with
+     * {@code renderedStatus}, and the change is applied in the same transaction.
+     *
+     * <p>Without a rendered status the change is refused. The caller must reload the task list
+     * before changing a status it has not confirmed.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the acting user
+     * @param ticklerId Integer the task
+     * @param provider String the provider recorded in the status history
+     * @param renderedStatus Tickler.STATUS the status the caller's page showed for the task, or {@code null} when unknown
+     * @param status Tickler.STATUS the status to set
+     * @return StatusChange what was done; {@link StatusChange#STALE} means the task was left as it is
+     * @throws jakarta.ws.rs.NotFoundException when there is no such tickler
+     * @since 2026-11-12
+     */
+    default StatusChange changeStatusIfCurrent(LoggedInInfo loggedInInfo, Integer ticklerId, String provider,
+                                               Tickler.STATUS renderedStatus, Tickler.STATUS status) {
+        throw new UnsupportedOperationException("Conditional tickler status changes are not implemented");
+    }
+
+    /**
+     * Locks a tickler for an edit and returns it as currently stored, with its comments and
+     * history. Requires an existing transaction (the lock is held until it ends) and update
+     * authority, including the patient-specific rule when the tickler has a patient. Call it
+     * before anything in the transaction changes the tickler: the row is read again under the
+     * lock, which would discard unsaved changes to an already loaded instance.
+     *
+     * @param loggedInInfo LoggedInInfo the acting user
+     * @param id Integer the task
+     * @return Tickler the locked tickler, or {@code null} when there is no such tickler
+     * @since 2026-11-12
+     */
+    default Tickler getTicklerForUpdate(LoggedInInfo loggedInInfo, Integer id) {
+        throw new UnsupportedOperationException("Tickler edit locking is not implemented");
+    }
 
     public void sendNotification(LoggedInInfo loggedInInfo, Tickler t) throws IOException;
 
     public void completeTickler(LoggedInInfo loggedInInfo, Integer tickler_id, String provider);
 
+    /**
+     * Marks the tickler Deleted while retaining the task, comments, links, attachments and
+     * status history as part of the clinical record.
+     *
+     * @param loggedInInfo LoggedInInfo the acting user
+     * @param tickler_id Integer the task to mark Deleted
+     * @param provider String the provider recording the status change
+     */
     public void deleteTickler(LoggedInInfo loggedInInfo, Integer tickler_id, String provider);
 
     public void resolveTicklersBySubstring(LoggedInInfo loggedInInfo, String providerNo, List<String> demographicIds,

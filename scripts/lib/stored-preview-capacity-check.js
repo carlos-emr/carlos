@@ -3,11 +3,14 @@
 const {assert} = require('./playwright-harness');
 
 /** Observe real read-only preview refusals; never route, inject or replay a request. */
-function observeStoredPreviewCapacity({page, endpoint, documentId, label, recorder}) {
+function observeStoredPreviewCapacity({page, endpoint, documentId, label, recorder, injectedRequests}) {
+  assert(injectedRequests === undefined || injectedRequests instanceof WeakSet,
+    'Injected preview exclusions must use exact request identities');
   let beforeResponses = new Set(recorder.badResponses), beforeConsole = new Set(recorder.consoleIssues);
   const states = new Map(), pending = new Set(), errors = [];
   let order = 0;
   function matches(request) {
+    if (injectedRequests?.has(request)) return false;
     const url = new URL(request.url());
     return url.origin + url.pathname === endpoint
       && ['viewDocPage', 'showPage'].includes(url.searchParams.get('method'))
@@ -68,7 +71,7 @@ function observeStoredPreviewCapacity({page, endpoint, documentId, label, record
         assert(responses.length === state.busy, 'Recorded preview failures differ from validated capacity responses');
         const messages = recorder.consoleIssues.filter(entry => !beforeConsole.has(entry)
           && entry.label === label && entry.type === 'error' && entry.location?.url === url
-          && /^Failed to load resource:.*\b503\b/.test(entry.text || ''));
+          && /^Failed to load resource: the server responded with a status of 503 \((?:Service Unavailable)?\)$/.test(entry.text || ''));
         assert(messages.length <= state.busy, 'Additional preview capacity console errors were recorded');
         responses.forEach(entry => removeResponses.add(entry));
         messages.forEach(entry => removeConsole.add(entry));

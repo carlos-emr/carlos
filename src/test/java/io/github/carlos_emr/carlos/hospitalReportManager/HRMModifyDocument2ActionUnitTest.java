@@ -220,6 +220,53 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
                 .isEqualTo("{\"success\":false,\"message\":\"Error encountered\"}");
     }
 
+    /**
+     * HRMDocument.description is a utf8mb4 VARCHAR(255), like document.docdesc: the packaged
+     * database cut a longer description to 255 characters without a word. "😀" is one
+     * character in the column and two Java chars.
+     */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"d", "😀"})
+    @DisplayName("should refuse a description one character longer than the column, storing nothing")
+    void shouldRefuseTheDescriptionWithoutWriting_whenItIsOneCharacterLongerThanTheColumn(String character) throws Exception {
+        HRMDocument document = new HRMDocument();
+        document.setDescription("Earlier description");
+        when(hrmDocumentDao.find(7)).thenReturn(document);
+        request.addParameter("method", "setDescription");
+        request.addParameter("reportId", "7");
+        request.addParameter("description", character.repeat(HRMDocument.DESCRIPTION_MAX_LENGTH + 1));
+
+        String result = new HRMModifyDocument2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentType()).startsWith("application/json");
+        String message = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale())
+                .getString("dms.error.descriptionTooLong");
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString()))
+                .isEqualTo(new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode()
+                        .put("success", false).put("message", message));
+        verify(hrmDocumentDao, never()).merge(any());
+        assertThat(document.getDescription()).isEqualTo("Earlier description");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"d", "😀"})
+    @DisplayName("should store a description that fills the column exactly")
+    void shouldStoreTheWholeDescription_whenItFillsTheColumnExactly(String character) throws Exception {
+        HRMDocument document = new HRMDocument();
+        when(hrmDocumentDao.find(7)).thenReturn(document);
+        String description = character.repeat(HRMDocument.DESCRIPTION_MAX_LENGTH);
+        request.addParameter("method", "setDescription");
+        request.addParameter("reportId", "7");
+        request.addParameter("description", description);
+
+        new HRMModifyDocument2Action().execute();
+
+        assertThat(response.getContentAsString()).isEqualTo("{\"success\":true,\"message\":\"Success\"}");
+        verify(hrmDocumentDao).merge(document);
+        assertThat(document.getDescription()).isEqualTo(description);
+    }
+
     @Test
     @DisplayName("should reject a sign-off that names no report")
     void shouldRejectSignOff_whenNoReportIsNamed() throws Exception {
@@ -870,6 +917,158 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).contains("\"success\":false");
         verify(hrmDocumentToDemographicDao, never()).deleteByHrmDocumentId(anyInt());
         verifyNoInteractions(mrpRoutingService);
+    }
+
+    // ---- patient access (a report filed to a patient the provider is locked out of) ----------
+
+    private static final int LOCKED_PATIENT = 4242;
+    private static final String REFUSED = "{\"success\":false,\"message\":\"Error encountered\"}";
+
+    private void fileReportTo(int reportId, int patient) {
+        HRMDocumentToDemographic link = new HRMDocumentToDemographic();
+        link.setHrmDocumentId(reportId);
+        link.setDemographicNo(patient);
+        when(hrmDocumentToDemographicDao.findByHrmDocumentId(reportId)).thenReturn(java.util.List.of(link));
+    }
+
+    private void permitPatient(int patient) {
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, patient)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", Integer.toString(patient))).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", Integer.toString(patient))).thenReturn(true);
+    }
+
+    private void assertRefusedWithoutAnyWrite() throws Exception {
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(response.getContentType()).startsWith("application/json");
+        assertThat(response.getContentAsString()).isEqualTo(REFUSED);
+        // No handler ran: no transaction was opened and no report row was locked for a change.
+        verify(transactions, never()).getTransaction(any());
+        verify(hrmDocumentDao, never()).findForUpdate(anyInt());
+    }
+
+    /**
+     * The way round a read guard: unlink the patient, then open the now unfiled report. It also
+     * answers with the report's provider routing, which is not this provider's to read.
+     */
+    @Test
+    @DisplayName("should refuse to unlink a patient the provider is locked out of")
+    void shouldRefuseRemoveDemographic_whenPatientIsLocked() throws Exception {
+        fileReportTo(7, LOCKED_PATIENT);
+        request.addParameter("method", "removeDemographic");
+        request.addParameter("reportId", "7");
+
+        assertThat(new HRMModifyDocument2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertRefusedWithoutAnyWrite();
+        verify(hrmDocumentToDemographicDao, never()).deleteByHrmDocumentId(anyInt());
+        verifyNoInteractions(mrpRoutingService);
+        assertThat(response.getContentAsString()).doesNotContain("providers");
+    }
+
+    @Test
+    @DisplayName("should unlink a patient the provider may read")
+    void shouldRemoveDemographic_whenPatientIsReadable() throws Exception {
+        fileReportTo(7, LOCKED_PATIENT);
+        permitPatient(LOCKED_PATIENT);
+        request.addParameter("method", "removeDemographic");
+        request.addParameter("reportId", "7");
+
+        new HRMModifyDocument2Action().execute();
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        verify(hrmDocumentToDemographicDao).deleteByHrmDocumentId(7);
+    }
+
+    @Test
+    @DisplayName("should refuse a comment on a report filed to a locked patient")
+    void shouldRefuseAddComment_whenPatientIsLocked() throws Exception {
+        fileReportTo(7, LOCKED_PATIENT);
+        request.addParameter("method", "addComment");
+        request.addParameter("reportId", "7");
+        request.addParameter("comment", "FAKE comment");
+
+        new HRMModifyDocument2Action().execute();
+
+        assertRefusedWithoutAnyWrite();
+        verify(hrmDocumentCommentDao, never()).merge(any(HRMDocumentComment.class));
+    }
+
+    @Test
+    @DisplayName("should refuse a sign-off of a report filed to a locked patient")
+    void shouldRefuseSignOff_whenPatientIsLocked() throws Exception {
+        fileReportTo(7, LOCKED_PATIENT);
+        request.addParameter("method", "signOff");
+        request.addParameter("reportId", "7");
+        request.addParameter("signedOff", "1");
+
+        new HRMModifyDocument2Action().execute();
+
+        assertRefusedWithoutAnyWrite();
+        verifyNoInteractions(hrmDocumentToProviderDao);
+    }
+
+    @Test
+    @DisplayName("should refuse to remove a provider from a report filed to a locked patient")
+    void shouldRefuseRemoveProvider_whenPatientIsLocked() throws Exception {
+        // The handler names the routing row, not the report: the row is resolved to its report first.
+        HRMDocumentToProvider mapping = new HRMDocumentToProvider();
+        mapping.setHrmDocumentId(7);
+        when(hrmDocumentToProviderDao.find(55)).thenReturn(mapping);
+        fileReportTo(7, LOCKED_PATIENT);
+        request.addParameter("method", "removeProvider");
+        request.addParameter("providerMappingId", "55");
+
+        new HRMModifyDocument2Action().execute();
+
+        assertRefusedWithoutAnyWrite();
+        verify(hrmDocumentToProviderDao, never()).remove(anyInt());
+    }
+
+    @Test
+    @DisplayName("should refuse to delete a comment from a report filed to a locked patient")
+    void shouldRefuseDeleteComment_whenPatientIsLocked() throws Exception {
+        HRMDocumentComment comment = new HRMDocumentComment();
+        comment.setHrmDocumentId(7);
+        when(hrmDocumentCommentDao.find(66)).thenReturn(comment);
+        fileReportTo(7, LOCKED_PATIENT);
+        request.addParameter("method", "deleteComment");
+        request.addParameter("commentId", "66");
+
+        new HRMModifyDocument2Action().execute();
+
+        assertRefusedWithoutAnyWrite();
+        verify(hrmDocumentCommentDao, never()).deleteComment(anyInt());
+    }
+
+    @Test
+    @DisplayName("should still change a report filed to no patient")
+    void shouldDeleteComment_whenReportIsFiledToNoPatient() throws Exception {
+        HRMDocumentComment comment = new HRMDocumentComment();
+        comment.setHrmDocumentId(7);
+        when(hrmDocumentCommentDao.find(66)).thenReturn(comment);
+        request.addParameter("method", "deleteComment");
+        request.addParameter("commentId", "66");
+
+        new HRMModifyDocument2Action().execute();
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        verify(hrmDocumentCommentDao).deleteComment(66);
+        verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(any(LoggedInInfo.class), anyInt());
+    }
+
+    @Test
+    @DisplayName("should answer in JSON when the patient decision cannot be made")
+    void shouldAnswerJsonError_whenPatientDecisionCannotBeMade() throws Exception {
+        when(hrmDocumentToDemographicDao.findByHrmDocumentId(7)).thenThrow(new RuntimeException("FAKE lookup failure"));
+        request.addParameter("method", "addComment");
+        request.addParameter("reportId", "7");
+        request.addParameter("comment", "FAKE comment");
+
+        assertThat(new HRMModifyDocument2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        assertThat(response.getContentAsString()).isEqualTo(REFUSED);
+        verify(hrmDocumentCommentDao, never()).merge(any(HRMDocumentComment.class));
     }
 
 }

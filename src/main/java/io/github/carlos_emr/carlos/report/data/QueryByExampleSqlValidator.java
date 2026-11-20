@@ -18,6 +18,7 @@
  *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.report.data;
 
@@ -62,28 +63,84 @@ public final class QueryByExampleSqlValidator {
             "\\b(?:into|procedure)\\b", Pattern.CASE_INSENSITIVE);
 
     /**
-     * Tables containing reusable authentication material or private cryptographic keys.
-     * Query-by-Example is a reporting surface, so even administrators must use the
-     * purpose-built management flows rather than exporting these records as report data.
+     * Tables containing reusable authentication material, private cryptographic keys, live
+     * HTTP session identifiers or integration configuration. Query-by-Example is a reporting
+     * surface, so even administrators must use the purpose-built management flows rather than
+     * exporting these records as report data.
+     *
+     * <p>This list must name exactly the tables that {@code db/reporting/carlos_report_grants.sql}
+     * classifies as {@code restricted}: the database never grants them to the reporting account,
+     * and this application-level check refuses them before a query is sent, as defense in depth.
+     * {@code QueryByExampleReportingClassificationUnitTest} keeps the two in step (issue #3372).</p>
      */
     static final Set<String> SECURITY_SENSITIVE_TABLES = Set.of(
             "appdefinition",
             "appuser",
+            "casemgmt_note_lock",
+            "consent_migration_audit",
+            "emailfooterlogo",
+            "mycarlos_accepted_device",
+            "mycarlos_delivery_checkpoint",
+            "mycarlos_delivery_event",
+            "mycarlos_delivery_event_page",
+            "mycarlos_delivery_original",
+            "mycarlos_delivery_outbox",
+            "mycarlos_device_approval_challenge",
+            "mycarlos_device_approval_code",
+            "mycarlos_device_approval_outbox",
+            "mycarlos_patient_binding",
+            "outboundemailarchive",
+            "outboundemailarchiveattachment",
+            "outboundemailarchivedeletion",
+            "outboundemailarchivelegalholdevent",
+            "patient_portal_invite_delivery",
+            "portal_booking_offer",
+            "sms_config",
+            "sms_provider_rate_limit",
+            "sms_transaction",
+            "cds_export_attempt",
+            "cds_export_event",
+            "cds_export_held_patient",
+            "cds_export_run",
+            "cds_import_admission",
+            "cds_import_checkpoint",
+            "cds_import_dependency",
+            "cds_import_diagnostic",
+            "cds_import_event",
+            "cds_import_field",
+            "cds_import_file",
+            "cds_import_file_reference",
+            "cds_import_identity",
+            "cds_import_lineage",
+            "cds_import_patient",
+            "cds_import_preparation",
+            "cds_import_review",
+            "cds_import_run",
+            "cds_import_unit",
+            "cds_import_upload",
+            "cds_laboratory_result",
             "emailconfig",
             "emaillog",
             "fax_config",
+            "oceansetting",
+            "o19_imported_signature_owner",
             "oscarcommlocations",
+            "oscarjob",
             "oscarkeys",
+            "pagemonitor",
             "professionalspecialists",
             "property",
             "publickeys",
+            "report_date",
+            "rx_submission_receipt",
             "security",
             "securityarchive",
             "securitytoken",
             "serviceaccesstoken",
             "serviceclient",
             "serviceoauthnonce",
-            "servicerequesttoken");
+            "servicerequesttoken",
+            "studylogin");
 
     /**
      * Reporting-safe built-ins. Anything not listed is rejected so stored functions and
@@ -112,6 +169,11 @@ public final class QueryByExampleSqlValidator {
             "ntile", "percent_rank", "rank", "row_number");
 
     private QueryByExampleSqlValidator() {
+    }
+
+    /** Shared recognition of side-effect-free built-ins; does not change reporting SQL policy. */
+    public static boolean isKnownReadOnlyBuiltin(String name) {
+        return name != null && ALLOWED_FUNCTIONS.contains(name.toLowerCase(Locale.ROOT));
     }
 
     /**
@@ -226,7 +288,7 @@ public final class QueryByExampleSqlValidator {
         String unqualifiedTable = lastDot >= 0 ? normalizedTable.substring(lastDot + 1) : normalizedTable;
         if (SECURITY_SENSITIVE_TABLES.contains(canonicalIdentifier(unqualifiedTable))) {
             throw new QueryByExampleValidationException(
-                    "Queries may not read tables containing authentication secrets");
+                    "Queries may not read restricted tables holding credentials, keys, sessions or integration settings");
         }
     }
 

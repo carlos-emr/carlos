@@ -38,21 +38,35 @@ import java.util.List;
 import java.util.Map;
 
 @XmlRootElement
+@jakarta.xml.bind.annotation.XmlAccessorType(jakarta.xml.bind.annotation.XmlAccessType.NONE)
 public class MeasurementResponse implements Serializable {
-    private Map<String, List<Measurement>> measurementMap = new HashMap<String, List<Measurement>>();
+    private Map<String, List<io.github.carlos_emr.carlos.webserv.rest.to.model.EmbeddedMeasurementTo1>> measurementMap = new HashMap<>();
 
     public void addMeasurements(List<Measurement> measurementList) {
         for (Measurement measurement : measurementList) {
             String type = measurement.getType();
             if (!measurementMap.containsKey(type)) {
-                measurementMap.put(type, new ArrayList<Measurement>());
+                measurementMap.put(type, new ArrayList<>());
             }
-            measurementMap.get(type).add(measurement);
+            measurementMap.get(type).add(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.measurement(null, measurement));
         }
     }
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @jakarta.xml.bind.annotation.XmlTransient
     public Map<String, List<Measurement>> getMeasurements() {
+        Map<String, List<Measurement>> result = new java.util.LinkedHashMap<>();
+        measurementMap.forEach((key, rows) -> result.put(key, rows.stream()
+                .map(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots::measurementDomain).collect(java.util.stream.Collectors.toCollection(ArrayList::new))));
+        return result;
+    }
+    @com.fasterxml.jackson.annotation.JsonProperty("measurements")
+    public Map<String, List<io.github.carlos_emr.carlos.webserv.rest.to.model.EmbeddedMeasurementTo1>> getMeasurementSnapshots() {
         return measurementMap;
+    }
+
+    public void setMeasurementSnapshots(Map<String, List<io.github.carlos_emr.carlos.webserv.rest.to.model.EmbeddedMeasurementTo1>> value) {
+        measurementMap = value == null ? new HashMap<>() : new java.util.LinkedHashMap<>(value);
     }
 
     public Map<String, String> getMeasurementUnits() {

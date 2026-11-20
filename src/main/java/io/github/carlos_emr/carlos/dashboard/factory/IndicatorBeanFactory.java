@@ -129,7 +129,7 @@ public class IndicatorBeanFactory {
             indicatorBean.setStringArrayPlots(IndicatorQueryHandler.plotsToStringArray(graphPlots));
             indicatorBean.setStringArrayTooltips(IndicatorQueryHandler.plotsToTooltipsStringArray(graphPlots));
 
-            logger.debug("Indicator Bean: " + indicatorBean.toString());
+            logger.debug("Indicator query results prepared");
 
         } else {
             logger.warn(" The query results and-or the Indicator Query handler were null for Indicator ID: "

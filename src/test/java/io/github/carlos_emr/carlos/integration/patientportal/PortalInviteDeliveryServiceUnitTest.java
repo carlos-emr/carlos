@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery.Outco
 import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery.State;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
+import io.github.carlos_emr.carlos.email.core.PdfAttachmentSigningService;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliveryService.Decision;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliveryService.InviteRequest;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteException.Reason;
@@ -514,7 +515,8 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             // The footer was there for the pre-check and gone by the send: the send refuses as before.
             when(clinic.requiredFooterMissing()).thenReturn(false);
             when(clinic.snapshot()).thenReturn(new io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot("", null));
-            var realManager = new EmailManager(consent, senders, security, archives);
+            var realManager = new EmailManager(consent, senders, security, archives,
+                    mock(PdfAttachmentSigningService.class));
             injectDependency(realManager, "clinicFooterService", clinic);
             injectDependency(realManager, "emailLogDao", outbox);
             injectDependency(service, "emailManager", realManager);

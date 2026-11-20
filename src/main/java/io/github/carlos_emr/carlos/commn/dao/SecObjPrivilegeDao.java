@@ -48,4 +48,18 @@ public interface SecObjPrivilegeDao extends AbstractDao<SecObjPrivilege> {
     int countObjectsByName(String objName);
 
     List<Object[]> findByFormNamePrivilegeAndProviderNo(String formName, String privilege, String providerNo);
+
+    /**
+     * CDS export read: the structure of {@code secObjPrivilege}. The caller owns the read-only
+     * capture snapshot.
+     */
+    io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportMergePrivilegeSchema();
+
+    /**
+     * CDS export read: the privilege rows Merge Records writes for a merged chart (role {@code _all},
+     * object {@code _eChart$} and the chart number), found as CARLOS finds them, under the columns'
+     * own collation, every column exactly as stored. The caller owns the read-only capture
+     * snapshot; the rows are carried, never used to authorize anything.
+     */
+    List<io.github.carlos_emr.carlos.commn.dto.CdsExportMergePrivilegeRowDto> findCdsExportMergePrivileges(int patient);
 }

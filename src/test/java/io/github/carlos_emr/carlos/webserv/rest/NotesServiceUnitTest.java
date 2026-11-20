@@ -51,14 +51,16 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link NotesService} privilege enforcement.
+ * Unit tests for {@link NotesService} privilege enforcement and request handling.
  *
  * <p>Verifies that {@code getGroupNoteExt} enforces the {@code _eChart} security
  * object before returning clinical note extension data (treatment, problem
- * description, exposure details, etc.). See #2798.</p>
+ * description, exposure details, etc.). See #2798. A save request that carries no
+ * note saves nothing.</p>
  *
  * @see NotesService
  */
@@ -110,6 +112,10 @@ class NotesServiceUnitTest extends CarlosUnitTestBase {
     @Tag("read")
     void shouldReturnGroupNoteExt_whenCallerHasReadPrivilege() {
         when(mockSecurityInfoManager.hasPrivilege(any(), eq(ECHART), eq("r"), any())).thenReturn(true);
+        var stored = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote();
+        stored.setDemographic_no("42");
+        when(mockCaseManagementMgr.getNote("94")).thenReturn(stored);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(),eq(42))).thenReturn(true);
         CaseManagementNoteExt ext = new CaseManagementNoteExt();
         ext.setKeyVal(CaseManagementNoteExt.TREATMENT);
         ext.setValue("Sertraline 50mg daily");
@@ -133,5 +139,15 @@ class NotesServiceUnitTest extends CarlosUnitTestBase {
             .hasMessage("missing required sec object (_eChart)");
 
         verify(mockCaseManagementMgr, never()).getExtByNote(anyLong());
+    }
+
+    @Test
+    @DisplayName("should save nothing when the save request carries no note")
+    @Tag("create")
+    void shouldSaveNothing_whenSaveRequestCarriesNoNote() throws Exception {
+        // A body-less POST /notes/{demographicNo}/save used to dereference the missing note.
+        assertThat(service.saveNote(5, null)).isNull();
+
+        verifyNoInteractions(mockCaseManagementMgr);
     }
 }

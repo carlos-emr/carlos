@@ -2137,23 +2137,33 @@ function checkObservationDate(formid) {
  * @param {number} clearedCount routing rows the acknowledgement cleared; omit for items with
  *                 no version chain (documents, HRM reports), which always clear one
  */
-function notifyInboxhubAcknowledged(doclabid, labType, clearedCount) {
+function notifyInboxhubAcknowledged(doclabid, labType, clearedCount, chain) {
     try {
         const bc = new BroadcastChannel('inboxhub-refresh');
         bc.postMessage({
             action: 'refresh',
             segmentID: String(doclabid),
             labType: labType,
-            clearedCount: clearedCount
+            clearedCount: clearedCount,
+            retainedVersionIds: chain ? [] : undefined
         });
         bc.close();
     } catch (e) {
-        // BroadcastChannel unsupported — user must manually refresh the inbox
+        try {
+        const inbox = self.opener || (window.parent !== window ? window.parent : null);
+        if (inbox && typeof inbox.dropAcknowledgedInboxhubItem === 'function') {
+            const handled = inbox.dropAcknowledgedInboxhubItem(String(doclabid), labType, clearedCount,
+                chain ? [] : undefined);
+            if (!handled && typeof inbox.fetchInboxhubData === 'function') inbox.fetchInboxhubData();
+        } else if (inbox && typeof inbox.refreshView === 'function') inbox.refreshView();
+        } catch (unreachableInbox) {
+            if (!unreachableInbox || unreachableInbox.name !== 'SecurityError') throw unreachableInbox;
+        }
     }
 }
 
 /**
- * The lab versions an acknowledgement of doclabid files away: itself and everything older.
+ * Legacy non-CML fallback when the server does not provide the affected version IDs.
  *
  * Used for ROW REMOVAL ONLY. The count comes from the server, because this chain is the one
  * the page was rendered with: the server ignores it for HL7 and re-derives the chain from the
@@ -2161,7 +2171,7 @@ function notifyInboxhubAcknowledged(doclabid, labType, clearedCount) {
  * and it says nothing about which of those versions were still NEW. Removing a row that is
  * already gone is a no-op; counting from a stale chain is a wrong badge.
  *
- * Mirrors the server's selection rule for the ids it does report, including the case where
+ * Never use this fallback to infer CML coverage from a posted chain. For legacy sources,
  * doclabid is absent from the chain — then only doclabid itself is affected, rather than the
  * whole chain. Non-numeric tokens are dropped, as LabVersionChain.parse drops them.
  *
@@ -2219,7 +2229,26 @@ function serverClearedCount(responseBody) {
     }
 }
 
-function updateStatus(formid) {//acknowledge
+/** Use only the server-confirmed filing set, never the form's stale multiID. */
+function serverAcknowledgedVersions(responseBody) {
+    try {
+        const parsed = typeof responseBody === 'string' ? JSON.parse(responseBody) : responseBody;
+        const valid = ids => Array.isArray(ids) && ids.every(id => /^[1-9]\d*$/.test(String(id)) && Number(id) <= 2147483647);
+        return parsed && valid(parsed.affectedVersionIds)
+            ? {affectedVersionIds: parsed.affectedVersionIds.map(String)} : null;
+    } catch (error) { return null; }
+}
+
+function confirmedLabAcknowledgement(responseBody) {
+    try {
+        const parsed = typeof responseBody === 'string' ? JSON.parse(responseBody) : responseBody;
+        return !!parsed && Number.isInteger(parsed.clearedCount) && parsed.clearedCount >= 0;
+    } catch (error) {
+        return false;
+    }
+}
+
+function updateStatus(formid, requireConfirmation) {//acknowledge
     const num = formid.split("_");
     const doclabid = num[1];
     if (doclabid) {
@@ -2253,13 +2282,14 @@ function updateStatus(formid) {//acknowledge
 				// or a body that is not JSON — means "fall back to one", which is what the
 				// inbox assumes when no count travels with the message.
 				const clearedCount = serverClearedCount(responseBody);
+                const chain = serverAcknowledgedVersions(responseBody);
 				if (window.frameElement) {
 					// Hide the parent <div> of the iframe only for new inbox previews loaded in an iframe
 					jQuery(window.frameElement).closest('.document-card.card').slideUp();
 					// The card is hidden, but the surrounding inbox still counts this item in its
 					// Documents/Labs/HRMs totals until it is told the item is gone — and it
 					// counts one row per lab version, not one per card.
-					notifyInboxhubAcknowledged(doclabid, data.labType, clearedCount);
+					notifyInboxhubAcknowledged(doclabid, data.labType, clearedCount, chain);
 				} else if (typeof _in_window !== 'undefined' && _in_window) {
 					/**
 					 * Acknowledging any lab version also files away the versions older than it,
@@ -2268,19 +2298,29 @@ function updateStatus(formid) {//acknowledge
 					 * not there is a no-op, and this covers a view that did render one.
 					 * Removal only: the broadcast below carries the count.
 					 */
-					for (const id of acknowledgedVersionIds(data.multiID, doclabid)) {
+					for (const id of (chain ? chain.affectedVersionIds : data.labType === 'HL7' ? [String(doclabid)] : acknowledgedVersionIds(data.multiID, doclabid))) {
 						removeOpenerInboxRow(id, data.labType);
 					}
-                    notifyInboxhubAcknowledged(doclabid, data.labType, clearedCount);
+                    notifyInboxhubAcknowledged(doclabid, data.labType, clearedCount, chain);
                     window.close();
                 } else {
                     //Hide document
                     labDocumentRows(doclabid, data.labType).slideUp();
-                    updateGlobalDataAndSideNav(doclabid, null);
+                    if (data.labType === 'HL7' && !chain) refreshView();
+                    else updateGlobalDataAndSideNav(doclabid, null);
                 }
             }
-            if (data.labType === 'DOC') window.CarlosDocumentMetadata.acknowledge(formid, acknowledged);
-            else jQuery.post(url, data).done(acknowledged);
+            if (data.labType === 'DOC') return window.CarlosDocumentMetadata.acknowledge(formid, acknowledged);
+            return jQuery.post(url, data).then(function (responseBody) {
+                // Combined filing must not advertise success for an error page or the legacy
+                // HTTP-200 failure response. Other callers retain the older count fallback.
+                if ((requireConfirmation === true && !confirmedLabAcknowledgement(responseBody))
+                        || (typeof responseBody === 'string' && responseBody.trim() === 'failure')) {
+                    throw new Error('Lab acknowledgement was not confirmed');
+                }
+                acknowledged(responseBody);
+                return true;
+            });
         }
     }
 }
@@ -2654,66 +2694,57 @@ function handleDocSave(docid, action) {
 }
 
 
-function addDocComment(docId, providerNo) {
+/**
+ * The reviewing provider's own saved comment on a document, from the acknowledge form's hidden field
+ * (showDocument.jsp fills it from that provider's routing row). The visible comment is not used: for a
+ * document with no comment it shows the translated "No comment" placeholder, which would otherwise
+ * become the prompt's text and, on OK, the saved comment.
+ */
+function storedDocComment(docId) {
+    const input = document.getElementById("comment_" + docId);
+    return input ? input.value : "";
+}
 
-    let ret = true;
-    let comment = "";
-    const text = jQuery("#comment_" + docId + "_" + providerNo);
-    if (text.length > 0) {
-        comment = jQuery("#comment_" + docId + "_" + providerNo).text();
-        if (comment == null || comment == "no comment") {
-            comment = "";
-        }
-    }
+function addDocComment(docId, providerNo) {
+    const comment = storedDocComment(docId);
     const commentVal = prompt("Please enter a comment (max. 255 characters)", comment);
 
     if (commentVal == null) {
-        ret = false;
-    } else if (commentVal != null && commentVal.length > 0)
-        jQuery("#" + "comment_" + docId).val(commentVal);
-    else
-        jQuery("#" + "comment_" + docId).val(comment);
-
-    if (ret) {
-        const statusEl = document.getElementById("status_" + docId);
-        if (statusEl) statusEl.value = 'N';
-        const url = ctx + "/oscarMDS/UpdateStatus";
-        const formid = "acknowledgeForm_" + docId;
-        let data = serializeForm(formid);
-        data += "&method=addComment";
-
-        postForm(url, data)
-        .then(response => response.json())
-        .then(json => {
-            if (json != null) {
-                const date = json.date;
-                const timestampEl = document.getElementById("timestamp_" + docId + "_" + providerNo);
-                if (timestampEl) timestampEl.textContent = date;
-            }
-            const statusEl2 = document.getElementById("status_" + docId);
-            if (statusEl2) statusEl2.value = "A";
-            const commentDisplayEl = document.getElementById("comment_" + docId + "_" + providerNo);
-            const commentInputEl = document.getElementById("comment_" + docId);
-            if (commentDisplayEl && commentInputEl) {
-                commentDisplayEl.textContent = commentInputEl.value;
-                commentInputEl.value = "";
-            }
-        })
-        .catch(error => console.error('Error:', error));
+        return;
     }
+
+    const submittedComment = commentVal.length > 0 ? commentVal : comment;
+    const url = ctx + "/oscarMDS/UpdateStatus";
+    const formid = "acknowledgeForm_" + docId;
+    const data = new URLSearchParams(serializeForm(formid));
+    data.set("comment", submittedComment);
+    data.set("status", "N");
+    data.set("method", "addComment");
+
+    // Keep the form's saved comment and acknowledgement status until the server confirms
+    // the write. Otherwise a refused request becomes the next prompt's "saved" default.
+    return postForm(url, data.toString())
+    .then(response => {
+        if (!response.ok) throw new Error("Comment save refused");
+        return response.json();
+    })
+    .then(json => {
+        if (!json || typeof json.date !== "string" || !json.date) throw new Error("Comment save not confirmed");
+        const timestampEl = document.getElementById("timestamp_" + docId + "_" + providerNo);
+        if (timestampEl) timestampEl.textContent = json.date;
+        const commentDisplayEl = document.getElementById("comment_" + docId + "_" + providerNo);
+        const commentInputEl = document.getElementById("comment_" + docId);
+        // The hidden field keeps the saved comment: it is what the next Comment or Acknowledge offers.
+        if (commentInputEl) commentInputEl.value = submittedComment;
+        if (commentDisplayEl) commentDisplayEl.textContent = submittedComment;
+    })
+    .catch(() => alert("The comment could not be saved. Please try again."));
 }
 
 function getDocComment(docId, providerNo, inQueueB) {
 
     let ret = true;
-    let comment = "";
-    const text = jQuery("#comment_" + docId + "_" + providerNo);
-    if (text.length > 0) {
-        comment = jQuery("#comment_" + docId + "_" + providerNo).text();
-        if (comment == null || comment == "no comment") {
-            comment = "";
-        }
-    }
+    const comment = storedDocComment(docId);
     const commentVal = prompt("Please enter a comment (max. 255 characters)", comment);
 
     if (commentVal == null) {

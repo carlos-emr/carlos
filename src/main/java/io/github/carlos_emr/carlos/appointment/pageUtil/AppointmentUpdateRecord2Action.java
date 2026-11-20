@@ -28,6 +28,8 @@
 
 package io.github.carlos_emr.carlos.appointment.pageUtil;
 
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException;
 import java.io.IOException;
 import java.util.List;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -51,6 +53,9 @@ import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.event.EventService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.AppointmentPatientAccess;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
@@ -96,10 +101,6 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
 
         boolean statusOnly = "Cancel Appt".equals(request.getParameter("buttoncancel"))
                 || "No Show".equals(request.getParameter("buttoncancel"));
-        AppointmentTextInput text = AppointmentTextInput.from(request, request.getParameter("keyword"));
-        if (!statusOnly && text.rejectIfTooLong(request, response)) {
-            return INPUT;
-        }
 
         final int appointmentNo;
         try {
@@ -125,23 +126,48 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
                 });
                 Appointment appt = appointmentDao.findForUpdate(appointmentNo);
                 if (appt == null) return new UpdateResult(HttpServletResponse.SC_NOT_FOUND, null, null);
+                AppointmentPatientAccess.require(loggedInInfo, securityInfoManager, appt.getDemographicNo(), "w");
+                if (!statusOnly) {
+                    AppointmentPatientAccess.require(loggedInInfo, securityInfoManager,
+                            ConversionUtils.fromIntString(request.getParameter("demographic_no")), "w");
+                }
                 String originalVersion = request.getParameter(AppointmentEditVersion.PARAMETER);
                 String currentVersion = AppointmentEditVersion.of(appt,
                         OtherIdManager.getApptOtherId(apptNoStr, "appt_mc_number"));
                 if (!currentVersion.equals(originalVersion)) {
                     return new UpdateResult(HttpServletResponse.SC_CONFLICT, null, null);
                 }
+                AppointmentTextBounds.Values text = AppointmentTextBounds.submitted(request, request.getParameter("keyword"), appt);
+                if (!statusOnly) {
+                    AppointmentTextBounds.Violation violation = AppointmentTextBounds.validate(text, appt);
+                    if (violation != null) return new UpdateResult(HttpServletResponse.SC_BAD_REQUEST, null, null, violation);
+                }
+                AppointmentLocationResolver.ResolvedLocation location = statusOnly ? null
+                        : AppointmentLocationResolver.resolvePostedLocation(appt, request);
                 appointmentArchiveDao.archiveAppointment(appt);
-                saved[0] = updateLockedAppointment(request, appt, text, statusOnly, updateuser, apptNoStr);
+                saved[0] = updateLockedAppointment(request, appt, text, statusOnly, updateuser, apptNoStr, location);
+                LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.updateAppointment", LogConst.CON_APPT,
+                        String.valueOf(appt.getId()),
+                        appt.getDemographicNo() > 0 ? String.valueOf(appt.getDemographicNo()) : null,
+                        "appointmentId=" + appt.getId()
+                                + (saved[0].changedStatus() == null ? "" : "; status=" + saved[0].changedStatus()));
                 return saved[0];
             });
             if (completion[0] != TransactionSynchronization.STATUS_COMMITTED || result == null) {
                 throw new IllegalStateException("Appointment transaction did not confirm a commit");
             }
+        } catch (jakarta.ws.rs.ForbiddenException denied) {
+            throw new SecurityException("missing required sec object (_appointment)");
+        } catch (AppointmentLocationUnavailableException _) {
+            return retainDraft(request, response, HttpServletResponse.SC_CONFLICT,
+                    AppointmentLocationUnavailableException.MESSAGE_KEY);
         } catch (RuntimeException e) {
             MiscUtils.getLogger().error("Unable to confirm appointment update", e);
             return retainDraft(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "appointment.edit.msgUpdateUnconfirmed");
+        }
+        if (result.violation() != null) {
+            return AppointmentTextBounds.refuse(request, response, result.violation());
         }
         if (result.status() == HttpServletResponse.SC_NOT_FOUND) {
             return retainDraft(request, response, result.status(),
@@ -176,7 +202,8 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
     }
 
     private UpdateResult updateLockedAppointment(HttpServletRequest request, Appointment appt,
-            AppointmentTextInput text, boolean statusOnly, String updateuser, String apptNoStr) {
+            AppointmentTextBounds.Values text, boolean statusOnly, String updateuser, String apptNoStr,
+            AppointmentLocationResolver.ResolvedLocation location) {
         String changedStatus = null;
 
         if (statusOnly) {
@@ -194,9 +221,13 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
             appt.setEndTime(ConversionUtils.fromTimeString(
                     MyDateFormat.getTimeXX_XX_XX(request.getParameter("end_time"))));
             appt.setName(text.name());
-            appt.setNotes(text.notes());
-            appt.setReason(text.reason());
-            appt.setLocation(request.getParameter("location"));
+            // Hibernate loads legacy CR/CRLF directly into fields. Leave logically unchanged
+            // text there: the setters normalize new writes and would rewrite those stored bytes.
+            if (!StringUtils.equals(appt.getNotes(), text.notes())) appt.setNotes(text.notes());
+            if (!StringUtils.equals(appt.getReason(), text.reason())) appt.setReason(text.reason());
+            // Saves the Location List item and its label together, or the posted free text,
+            // which keeps the saved item only while the text is unchanged (#3982).
+            location.applyTo(appt);
             appt.setResources(text.resources());
             appt.setType(request.getParameter("type"));
             appt.setStyle(request.getParameter("style"));
@@ -219,6 +250,10 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
         return new UpdateResult(HttpServletResponse.SC_OK, appt.getProviderNo(), changedStatus);
     }
 
-    private record UpdateResult(int status, String providerNo, String changedStatus) { }
+    private record UpdateResult(int status, String providerNo, String changedStatus, AppointmentTextBounds.Violation violation) {
+        UpdateResult(int status, String providerNo, String changedStatus) {
+            this(status, providerNo, changedStatus, null);
+        }
+    }
 
 }

@@ -36,10 +36,13 @@ import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsDeleted;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import jakarta.servlet.ServletException;
@@ -80,6 +83,17 @@ public class EctDeleteData2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_measurement)");
         }
 
+        String expectedPatient = null;
+        if (getType() != null || request.getParameter("demographicNo") != null
+                || request.getParameter("demographic_no") != null) {
+            try {
+                expectedPatient = EncounterPatientContext.requireDemographicNo(request);
+            } catch (IllegalArgumentException invalidPatient) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+                return NONE;
+            }
+        }
+
         MeasurementsDeletedDao measurementsDeletedDao = (MeasurementsDeletedDao) SpringUtils.getBean(MeasurementsDeletedDao.class);
         MeasurementDao measurementDao = SpringUtils.getBean(MeasurementDao.class);
         if (deleteCheckbox != null) {
@@ -102,15 +116,24 @@ public class EctDeleteData2Action extends ActionSupport {
                 if (m == null) {
                     continue;
                 }
+                if (expectedPatient != null && !expectedPatient.equals(String.valueOf(m.getDemographicId()))) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Measurement does not belong to the requested patient");
+                    return NONE;
+                }
                 if (!isAllowedToDelete(loggedInInfo, m.getDemographicId())) {
                     throw new SecurityException("missing required sec object (_measurement)");
                 }
                 authorized.add(m);
             }
 
+            String auditProvider = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
             for (Measurement m : authorized) {
                 measurementsDeletedDao.persist(new MeasurementsDeleted(m));
                 measurementDao.remove(m.getId());
+                // One audit row per reading removed, filed under its patient and named by its id (the
+                // archived copy keeps it as originalId). Never the reading or its comment.
+                LogAction.addLog(auditProvider, LogConst.DELETE, LogConst.CON_MEASUREMENT, String.valueOf(m.getId()),
+                        request.getRemoteAddr(), String.valueOf(m.getDemographicId()));
             }
         }
 
@@ -118,7 +141,8 @@ public class EctDeleteData2Action extends ActionSupport {
             response.sendRedirect(
                 request.getContextPath()
                     + "/encounter/oscarMeasurements/SetupDisplayHistory?type="
-                    + URLEncoder.encode(this.getType(), StandardCharsets.UTF_8.name()));
+                    + URLEncoder.encode(this.getType(), StandardCharsets.UTF_8.name())
+                    + "&demographicNo=" + expectedPatient);
             return NONE;
         }
         return SUCCESS;

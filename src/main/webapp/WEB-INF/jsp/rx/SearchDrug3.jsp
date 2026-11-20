@@ -54,18 +54,20 @@
     @since 2001-01-01 (original OSCAR/McMaster); CARLOS fork maintained 2026+
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib prefix="s" uri="/struts-tags" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="oscarRx.renal.unavailable" var="msg_renalUnavailable"/>
+<fmt:message key="oscarRx.draftReviewRequired" var="msg_rxDraftReviewRequired"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
-<%@page import="io.github.carlos_emr.CarlosProperties,io.github.carlos_emr.carlos.log.*" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@page import="java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -230,10 +232,14 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <script type="text/javascript" src="${ctx}/share/javascript/screen.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/rx.js"></script>
         <%-- Tags every Rx request from this page with its patient (per-patient Rx state, #3875). --%>
-        <script type="text/javascript" src="${ctx}/share/javascript/rx-patient-context.js" data-demographic-no="<%= rxSessionBean.getDemographicNo() %>"></script>
+        <script type="text/javascript" src="${ctx}/share/javascript/rx-patient-context.js" data-demographic-no="<%= rxSessionBean.getDemographicNo() %>"
+                data-chart-context="<carlos:encode value='<%= io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) %>' context="htmlAttribute"/>"></script>
         <script src="${ctx}/share/javascript/allergy-alerts.js"></script>
+        <script src="${ctx}/share/javascript/rx-interaction-warnings.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/Oscar.js"></script>
         <script type="text/javascript" src="${ctx}/js/checkDate.js"></script>
+        <script type="text/javascript" src="${ctx}/share/javascript/rx-input-validation.js"></script>
+        <script type="text/javascript" src="${ctx}/share/javascript/rx-hide-cpp.js"></script>
 
 
         <%-- UI library includes (Bootstrap, jQuery UI) --%>
@@ -267,21 +273,35 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <fmt:message key="SearchDrug.js.saveWarning"               var="msg_saveWarning"/>
         <fmt:message key="SearchDrug.js.savePrompt"                var="msg_savePrompt"/>
         <fmt:message key="SearchDrug.js.saveRefused"               var="msg_saveRefused"/>
-        <fmt:message key="SearchDrug.js.saveIncomplete"            var="msg_saveIncomplete"/>
+        <fmt:message key="oscarRx.stagedSourceChanged" var="msg_sourceChanged"/>
+        <fmt:message key="oscarRx.saveAlreadySaved" var="msg_saveAlreadySaved"/>
+        <fmt:message key="oscarRx.saveEarlierVersionSaved" var="msg_saveEarlierVersionSaved"/>
+        <fmt:message key="SearchDrug.js.reopenToContinue"          var="msg_reopenToContinue"/>
+<fmt:message key="SearchDrug.js.saveIncomplete"            var="msg_saveIncomplete"/>
+        <fmt:message key="SearchDrug.js.saveUncertain"             var="msg_saveUncertain"/>
+        <fmt:message key="SearchDrug.js.discontinueIncomplete"     var="msg_discontinueIncomplete"/>
         <fmt:message key="SearchDrug.js.staleDraft"                var="msg_staleDraft"/>
         <fmt:message key="SearchDrug.js.removeRefused"             var="msg_removeRefused"/>
         <fmt:message key="SearchDrug.js.requestRefused"            var="msg_requestRefused"/>
+        <fmt:message key="SearchDrug.js.deleteRefused"             var="msg_deleteRefused"/>
         <fmt:message key="SearchDrug.js.previewUnavailable"        var="msg_previewUnavailable"/>
+        <fmt:message key="SearchDrug.js.dateNotOnCalendar"         var="msg_dateNotOnCalendar"/>
+        <fmt:message key="SearchDrug.js.pickupDateInvalid"         var="msg_pickupDateInvalid"/>
+        <fmt:message key="SearchDrug.js.pickupTimeInvalid"         var="msg_pickupTimeInvalid"/>
+        <fmt:message key="SearchDrug.js.doseInvalid"               var="msg_doseInvalid"/>
+        <fmt:message key="SearchDrug.js.repeatsInvalid"            var="msg_repeatsInvalid"/>
         <fmt:message key="oscarRx.Preview.EditRx"                  var="msg_editRx"/>
 
         <fmt:message key="SearchDrug.js.profileLoadFailed" var="msg_profileLoadFailed"/>
         <fmt:message key="SearchDrug.js.favoriteLoadFailed" var="msg_favoriteLoadFailed"/>
+        <fmt:message key="SearchDrug.js.drugSearchNoMatch" var="msg_drugSearchNoMatch"/>
         <script type="text/javascript">
             let selectedReRxIDs = [];
             // i18n message strings for JavaScript alerts and confirm dialogs
             var jsMsg = {
                 profileLoadFailed: '${carlos:forJavaScript(msg_profileLoadFailed)}',
                 favoriteLoadFailed: '${carlos:forJavaScript(msg_favoriteLoadFailed)}',
+                drugSearchNoMatch: '${carlos:forJavaScript(msg_drugSearchNoMatch)}',
                 handlerNotRemoved: '${carlos:forJavaScript(msg_handlerNotRemoved)}',
                 confirmMedRecComplete: '${carlos:forJavaScript(msg_confirmMedRecComplete)}',
                 medRecCompleted: '${carlos:forJavaScript(msg_medRecCompleted)}',
@@ -306,11 +326,23 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
                 saveWarning: '${carlos:forJavaScript(msg_saveWarning)}',
                 savePrompt: '${carlos:forJavaScript(msg_savePrompt)}',
                 saveRefused: '${carlos:forJavaScript(msg_saveRefused)}',
+                sourceChanged: '${carlos:forJavaScript(msg_sourceChanged)}',
+                alreadySaved: '${carlos:forJavaScript(msg_saveAlreadySaved)}',
+                earlierVersionSaved: '${carlos:forJavaScript(msg_saveEarlierVersionSaved)}',
+                reopenToContinue: '${carlos:forJavaScript(msg_reopenToContinue)}',
                 saveIncomplete: '${carlos:forJavaScript(msg_saveIncomplete)}',
+                saveUncertain: '${carlos:forJavaScript(msg_saveUncertain)}',
+                discontinueIncomplete: '${carlos:forJavaScript(msg_discontinueIncomplete)}',
                 staleDraft: '${carlos:forJavaScript(msg_staleDraft)}',
                 removeRefused: '${carlos:forJavaScript(msg_removeRefused)}',
                 requestRefused: '${carlos:forJavaScript(msg_requestRefused)}',
-                previewUnavailable: '${carlos:forJavaScript(msg_previewUnavailable)}'
+                deleteRefused: '${carlos:forJavaScript(msg_deleteRefused)}',
+                previewUnavailable: '${carlos:forJavaScript(msg_previewUnavailable)}',
+                dateNotOnCalendar: '${carlos:forJavaScript(msg_dateNotOnCalendar)}',
+                pickupDateInvalid: '${carlos:forJavaScript(msg_pickupDateInvalid)}',
+                pickupTimeInvalid: '${carlos:forJavaScript(msg_pickupTimeInvalid)}',
+                doseInvalid: '${carlos:forJavaScript(msg_doseInvalid)}',
+                repeatsInvalid: '${carlos:forJavaScript(msg_repeatsInvalid)}'
             };
 	        function saveLinks(randNumber) {
 	            document.getElementById('method_'+randNumber).onblur();
@@ -863,9 +895,20 @@ function renderRxStage() {
                                         <tr id="prescriptionStageRow">
                                             <td colspan="2">
 
+                                                <%-- Standing recovery notice, filled by showRxRecoveryNotice(): after a save
+                                                     this page can no longer settle, it says what happened and offers the way on
+                                                     (reopen the page, or open the saved prescription) instead of leaving every
+                                                     further Save and Remove refused. Outside the stage set, which hides when empty. --%>
+                                                <div id="rxRecoveryNotice" class="alert alert-warning" role="alert" style="display:none">
+                                                    <button type="button" class="btn-close float-end" aria-label="<fmt:message key="global.btnClose"/>" onclick="document.getElementById('rxRecoveryNotice').style.display='none';"></button>
+                                                    <p id="rxRecoveryMessage" style="margin-bottom:.5rem;"></p>
+                                                    <button type="button" id="rxRecoveryOpenSaved" class="btn btn-secondary btn-sm" style="display:none"><fmt:message key="SearchDrug.recovery.btnOpenSaved"/></button>
+                                                    <button type="button" id="rxRecoveryReopen" class="btn btn-primary btn-sm" onclick="reopenRxPage();"><fmt:message key="SearchDrug.recovery.btnReopen"/></button>
+                                                </div>
+
                                                 <div id="prescriptionStageSet" style="display:none">
 
-                                                    <div id="interactingDrugErrorMsg" style="display:none"></div>
+                                                    <output id="interactingDrugErrorMsg" style="display:none;color:#856404;font-weight:bold;"></output>
 
                                                     <div id="rxText"></div>
                                                         <%-- Prescriptions are staged here via the prescribe.jsp widget --%>
@@ -1210,6 +1253,7 @@ function renderRxStage() {
         <br/>
         <fmt:message key="oscarRx.discontinuedReason.msgComment"/><br/>
         <textarea id="disComment" rows="3" cols="45"></textarea><br/>
+        <p id="discontinueChanged" role="alert" hidden><fmt:message key="SearchDrug.discontinue.changed"/></p>
         <input type="button" onclick="document.getElementById('discontinueUI').style.display='none';" value="<fmt:message key="SearchDrug.discontinue.cancel"/>"/>
         <input type="button" onclick="Discontinue2(document.getElementById('disDrugId').value,document.getElementById('disReason').value,document.getElementById('disComment').value,document.getElementById('disDrug').textContent);" value="<fmt:message key="SearchDrug.discontinue.action"/>"/>
 
@@ -1413,15 +1457,78 @@ function renderRxStage() {
              var url=ctx + "/rx/WriteScript?parameterValue=updateProperty";
              var el=document.getElementById(elementId);
              var data="";
-             if(elementId.match("prnVal_")!=null)
-                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent(el.value);
-             else if(elementId.match("repeats_")!=null)
-                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent(el.value);
+             var value;
+             if(elementId.match("prnVal_")!=null || elementId.match("repeats_")!=null)
+                 value=el.value;
              else
-                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent(el.textContent);
+                 value=el.textContent;
+             // Only the field's latest edit decides its invalid state: a late answer to an older
+             // request must not clear or set it over a newer edit, including one refused here.
+             var version = (el.carlosPropertyVersion || 0) + 1;
+             el.carlosPropertyVersion = version;
+             // A Min/Max that is not a number is refused here, on the field, and the card keeps
+             // its staged dose; the server refuses it too (400, never the old HTTP 500) (#5003).
+             if (/^(minimum|maximum)_/.test(elementId) && !RxInputValidation.isDoseAmount(value)) {
+                 reportInvalidProperty(el, RxInputValidation.format(jsMsg.doseInvalid, value));
+                 return;
+             }
+             data="elementId="+elementId+"&propertyValue="+encodeURIComponent(value);
              data = data + "&rand="+Math.floor(Math.random()*10001);
-             CarlosAjax.request(url, {method: 'post',parameters:data});
+             // Finish the card update before a Save click can submit the previous staged dose.
+             CarlosAjax.request(url, {method: 'post',parameters:data,synchronous:true,
+                 onSuccess: function () {
+                     // A corrected value was accepted: the field is no longer invalid.
+                     if (el.carlosPropertyVersion === version) el.removeAttribute('aria-invalid');
+                 },
+                 onFailure: function (transport) {
+                     var error = transport && transport.responseJSON ? transport.responseJSON.error : null;
+                     if (el.carlosPropertyVersion !== version && (error === 'INVALID_RX_DOSE' || error === 'INVALID_RX_REPEATS')) {
+                         return;
+                     }
+                     if (error === 'INVALID_RX_DOSE') {
+                         reportInvalidProperty(el, RxInputValidation.format(jsMsg.doseInvalid, value));
+                     } else if (error === 'INVALID_RX_REPEATS') {
+                         reportInvalidProperty(el, RxInputValidation.format(jsMsg.repeatsInvalid, value));
+                     } else {
+                         if (/^(minimum|maximum|repeats)_/.test(elementId)) el.setAttribute('aria-invalid', 'true');
+                         reportRefusedRequest(transport);
+                     }
+                 }});
          }
+    }
+
+    /**
+     * The card's optional pick-up date/time (#5002). Clearing either is a valid choice and saves
+     * as no pick-up, so a blank value raises nothing; checkDate.js's isValidDate/isValidTime
+     * alerted on it, and quoted a regular expression instead of the entry. A non-blank value
+     * that is not a real yyyy-mm-dd day / HH:MM time is named in the message and cleared, as
+     * before, so it cannot be saved.
+     */
+    function checkPickupField(el, kind) {
+        var result = kind === 'time' ? RxInputValidation.pickupTime(el.value) : RxInputValidation.pickupDate(el.value);
+        el.value = result.value;
+        if (!result.ok) {
+            alert(RxInputValidation.format(kind === 'time' ? jsMsg.pickupTimeInvalid : jsMsg.pickupDateInvalid, result.value));
+            el.value = '';
+        }
+    }
+
+    /** Marks a card field whose value was refused and tells the prescriber how to correct it. */
+    function reportInvalidProperty(el, message) {
+        el.className = 'highlight';
+        el.setAttribute('aria-invalid', 'true');
+        alert(message);
+    }
+
+    /** A refused inline edit must be corrected before saving the older staged value. */
+    function validateCardProperties() {
+        var invalid = document.querySelector('#drugForm [aria-invalid="true"]');
+        if (!invalid) return true;
+        var value = /^repeats_/.test(invalid.id) ? invalid.value : invalid.textContent;
+        reportInvalidProperty(invalid, RxInputValidation.format(
+            /^repeats_/.test(invalid.id) ? jsMsg.repeatsInvalid : jsMsg.doseInvalid, value));
+        invalid.focus();
+        return false;
     }
     function lookNonEdittable(elementId){
         document.getElementById(elementId).className='';
@@ -1527,8 +1634,6 @@ function renderRxStage() {
           requestHeaders: { 'Accept': 'application/json' },
           evalScripts:true,
 					insertion: 'bottom', onSuccess: function (data) {
-                // updateCurrentInteractions();
-
 						// detect postback or page load.
 						if (data.responseText) {
 							renderRxStage();
@@ -1594,10 +1699,17 @@ function renderRxStage() {
         var data="favoriteId="+favoriteId+"&randomId="+randomId;
         var url= ctx + "/rx/useFavorite";
         data += "&parameterValue=useFav2";
+        // The favourite already carries its dosing, PRN and quantity. The card's own script calls
+        // calculateRxData while CarlosAjax inserts it, before onComplete, so the flag must be set
+        // before the request: set afterwards, the directions were re-parsed into the card and a
+        // saved PRN flag was cleared because the directions text does not say "prn" (#4996).
+        // The cards' scripts have all run by onComplete, so the flag is cleared there whatever the
+        // answer, and a later staged drug parses its directions as usual.
+        skipParseInstr = true;
         CarlosAjax.updater({success: 'rxText'},url, {method:'post',parameters:data,evalScripts:true,insertion: 'bottom',
             onComplete: function(transport) {
+                skipParseInstr = false;
                 if (transport.status >= 200 && transport.status < 300) {
-                    skipParseInstr = true;
                     renderRxStage();
                 }
             },
@@ -1633,18 +1745,19 @@ function renderRxStage() {
                   document.getElementById(del).style.textDecoration='line-through';
                   document.getElementById(discont).style.textDecoration='line-through';
                   document.getElementById(prescrip).style.textDecoration='line-through';
-		  // updateCurrentInteractions();
 							location.reload();
 
-						}
+						},
+						// A refused or failed delete leaves the drug on the profile; say so (no reload).
+						onFailure: reportRefusedDelete
 					});
         }
         return false;
     }
 
-   function checkAllergy(id,atcCode){
+   function checkAllergy(id,atcCode,din){
      const url = ctx + "/rx/showAllergy";
-     const data="method=allergyData&demographicNo=<%=demoNo%>&atcCode="+encodeURIComponent(atcCode)+"&id="+ encodeURIComponent(id) +"&rand="+ Math.floor(Math.random()*10001);
+     const data="method=allergyData&demographicNo=<%=demoNo%>&atcCode="+encodeURIComponent(atcCode)+"&din="+encodeURIComponent(din || '')+"&id="+ encodeURIComponent(id) +"&rand="+ Math.floor(Math.random()*10001);
      CarlosAllergyAlert.render(document, id, {pending: true});
      CarlosAjax.request(url, {method: 'post', postBody: data,
        requestHeaders: {'Accept': 'application/json'},
@@ -1725,6 +1838,7 @@ function renderRxStage() {
        document.getElementById('disDrug').textContent = drugName;
        document.getElementById('discontinueUI').style.display="";
        document.getElementById('disDrugId').value=id;
+       document.getElementById('discontinueChanged').hidden=true;
 
 
     }
@@ -1743,10 +1857,19 @@ function renderRxStage() {
                   document.getElementById('del_'+json.id).style.textDecoration='line-through';
                   document.getElementById('discont_'+json.id).textContent = json.reason;
                   document.getElementById('prescrip_'+json.id).style.textDecoration='line-through';
-                    },
-                    // The archive and its chart note commit together, so every failure (409 stale,
-                    // 500 RX_DISCONTINUE_FAILED) left nothing saved and is reported the same way.
-                    onFailure: reportRefusedRequest});
+                  // The discontinued drug no longer counts as a current medication.
+                  updateCurrentInteractions();
+                    }, onFailure: function (transport) {
+                        if (transport && transport.status === 409 && transport.responseJSON
+                                && transport.responseJSON.error === 'STALE_RX_DISCONTINUE') {
+                            document.getElementById('discontinueChanged').hidden=false;
+                        } else if (transport && transport.responseJSON
+                                && transport.responseJSON.error === 'INCOMPLETE_RX_DISCONTINUE') {
+                            alert(jsMsg.discontinueIncomplete);
+                        } else {
+                            reportRefusedRequest();
+                        }
+                    }});
 
     }
 
@@ -1818,11 +1941,13 @@ function openSavedPrescriptionPreview(transport) {
         saved = null;
     }
     if (!saved || !/^[1-9]\d*$/.test(String(saved.scriptId))) {
-        alert(jsMsg.previewUnavailable);
+        reportRefusedSave(transport);
         return;
     }
+    refreshDrugProfile();
     // Only the window whose save succeeded receives the new card versions. Another window's
     // stale form remains invalid; Edit Rx in this window can submit its acknowledged version.
+    rxSaveNeedsReconciliation = false;
     if (saved.draftRevisions) {
         Object.keys(saved.draftRevisions).forEach(function(key) {
             if (!/^[0-9]+$/.test(key)) return;
@@ -1917,14 +2042,50 @@ function popForm2(scriptId, saveAndPrint){
 
     refreshDrugProfile();
 
+    // Drug-drug interaction markers on the staged cards (#4506). Every way a card is staged or
+    // removed changes #rxText, so one observer re-checks after each of them; the check runs
+    // against the cards the server holds for this patient and their current medications.
+    var rxInteractionCheck = RxInteractionWarnings.create({
+        document: document,
+        url: ctx + '/rx/interactionWarnings?demographicNo=<%=demoNo%>',
+        fetch: window.fetch.bind(window),
+        setTimeout: window.setTimeout.bind(window),
+        clearTimeout: window.clearTimeout.bind(window)
+    });
+
+    function updateCurrentInteractions() {
+        rxInteractionCheck.schedule();
+    }
+
+    RxInteractionWarnings.watch(document.getElementById('rxText'), updateCurrentInteractions, window.MutationObserver);
+
+
+			// DrugRef answers a search with no match with one placeholder row, "None found", whose id is 0.
+			// It becomes a translated note that cannot be picked; every other row is a product.
+			function toDrugSearchItem(item, keyword) {
+				if (String(item.id) === '0') {
+					return {label: jsMsg.drugSearchNoMatch, value: '', id: null, noMatch: true, keyword: keyword};
+				}
+				return {
+					label: item.name,
+					value: item.description,
+					id: item.id,
+					active: item.isInactive,
+					keyword: keyword
+				};
+			}
 
 			function searchResultsHandler(type, args) {
 
 				var url = ctx + "/rx/WriteScript";
 				var ran_number = Math.round(Math.random() * 1000000);
+				// This page's own patient (the bean authorised for this request). The EL name
+				// demographicNo used here before resolved from session scope on routes that set no
+				// attribute of that name, i.e. to the patient of the last waiting-list, registry or
+				// allergy page in any window, and the drug was then staged for that patient (#4673).
 				var params = "parameterValue=createNewRx"
 					+ "&demographicNo="
-					+ "${ demographicNo }"
+					+ "<%= demoNo %>"
 					+ "&drugId="
 					+ encodeURIComponent(args.id)
 					+ "&text="
@@ -2010,13 +2171,7 @@ function popForm2(scriptId, saveAndPrint){
 						jQuery.each(cache, function (key, data) {
 							if (term.indexOf(key) === 0 && data.length > 0) {
 								response(jQuery.map(cache.results, function (item) {
-									return {
-										label: item.name,
-										value: item.description,
-										id: item.id,
-										active: item.isInactive,
-										keyword: request.term
-									};
+									return toDrugSearchItem(item, request.term);
 								}))
 
 								foundInCache = true;
@@ -2047,13 +2202,7 @@ function popForm2(scriptId, saveAndPrint){
 								setDrugSearchAlert(null);
 
 								response(jQuery.map(data.results, function (item) {
-									return {
-										label: item.name,
-										value: item.description,
-										id: item.id,
-										active: item.isInactive,
-										keyword: request.term
-									};
+									return toDrugSearchItem(item, request.term);
 								}))
 							},
 							// Without this the search failed silently: dataType "json" means any
@@ -2092,6 +2241,11 @@ function popForm2(scriptId, saveAndPrint){
 					},
 					select: function (event, ui) {
 						event.preventDefault();
+						// The arrow keys can highlight the no-match note and Enter selects it, so refuse it here:
+						// it stages nothing and keeps the typed text.
+						if (ui.item.noMatch) {
+							return;
+						}
 						searchResultsHandler(null, ui.item);
 						jQuery('#searchString').val("");
 					},
@@ -2105,6 +2259,13 @@ function popForm2(scriptId, saveAndPrint){
 					}
 
 				}).data("ui-autocomplete")._renderItem = function (ul, item) {
+					if (item.noMatch) {
+						// ui-state-disabled: the menu ignores a click on it. No link, so nothing looks pickable.
+						return jQuery("<li class='ui-state-disabled'></li>")
+							.data("item.autocomplete", item)
+							.append(jQuery("<div></div>").text(item.label))
+							.appendTo(ul);
+					}
 					var inactivedrug = item.active ? " inactiveDrug" : "";
 					return jQuery("<li></li>")
 						.data("item.autocomplete", item)
@@ -2129,8 +2290,9 @@ function addFav(randomId,brandName){
         var url= ctx + "/rx/addFavorite2";
         var data="parameterValue=addFav2&randomId="+randomId+"&favoriteName="+favoriteName;
         CarlosAjax.request(url, {method: 'post',parameters:data, onSuccess:function(transport){
-              // Reload this window's patient, not the most recently opened Rx patient (#3875).
-              window.location.href = RxPatientContext.withPatient(ctx + "/rx/searchDrug");
+              // Return to this patient's prescribing cards; searchDrug renders the legacy
+              // search results instead (#5248).
+              window.location.href = RxPatientContext.withPatient(ctx + "/rx/choosePatient");
    }
 					})
 }
@@ -2264,12 +2426,26 @@ function removeReRxDrugId(drugId, onRemoved, onFailure) {
     }
 }
 
-function reportRefusedRemoval() {
+function reportRefusedRemoval(transport) {
+    // After a save this page could not settle, its cards carry versions the server has already
+    // consumed: "please try again" can never work, so say that the page has to be reopened. While
+    // the outcome is merely unconfirmed, only a conflict shows that the cards are spent.
+    // Read as properties of the page: the save state is declared with the save functions below.
+    var conflict = transport && Number(transport.status) === 409;
+    if (globalThis.rxPageNeedsReopen || (globalThis.rxSaveNeedsReconciliation && conflict)) {
+        alert(jsMsg.reopenToContinue);
+        showRxRecoveryNotice(jsMsg.reopenToContinue);
+        return;
+    }
     alert(jsMsg.removeRefused);
 }
 
 function reportRefusedRequest() {
     alert(jsMsg.requestRefused);
+}
+
+function reportRefusedDelete() {
+    alert(jsMsg.deleteRefused);
 }
 
 //represcribe a drug
@@ -2297,9 +2473,7 @@ function represcribe(element, toArchive){
         var url= ctx + "/rx/rePrescribe2";
         data += "&method=represcribe2&rand="+Math.floor(Math.random()*10001);
         CarlosAjax.updater({success: 'rxText'}, url, {onFailure: reportRefusedRequest, method:'post',parameters:data,evalScripts:true,
-            insertion: 'bottom',onSuccess:function(transport){
-                // updateCurrentInteractions();
-            }});
+            insertion: 'bottom'});
 
    }
 }
@@ -2550,6 +2724,10 @@ function updateQty(element){
         var elemId=element.id;
         var ar=elemId.split("_");
         var rand=ar[1];
+        var card = document.getElementById('set_' + rand);
+        if (!card) return false;
+        var calculation = {};
+        card._rxCalculation = calculation;
         var data="parameterValue=updateDrug&randomId="+rand+"&action=updateQty&quantity="+encodeURIComponent(element.value);
         var url= ctx + "/rx/WriteScript";
 
@@ -2576,8 +2754,9 @@ function updateQty(element){
         CarlosAjax.request(url, {method: 'POST',parameters:data,
           requestHeaders: { 'Accept': 'application/json' },
           onSuccess:function(transport){
-                // A declined/closed card can disappear while this calculation is in flight.
-                if (!document.getElementById('set_' + rand)) return;
+                // Staging starts an async quantity calculation. Its old answer must not erase
+                // directions parsed since then, or update a discarded/replaced card (#5183).
+                if (document.getElementById('set_' + rand) !== card || card._rxCalculation !== calculation) return;
                 var json = null;
                 try { json = JSON.parse(transport.responseText); } catch(e) { return; }
                 document.getElementById(methodStr).textContent=json.method;
@@ -2585,6 +2764,8 @@ function updateQty(element){
                 document.getElementById(frequencyStr).textContent=json.frequency;
                 document.getElementById(minimumStr).textContent=json.takeMin;
                 document.getElementById(maximumStr).textContent=json.takeMax;
+                document.getElementById(minimumStr).removeAttribute('aria-invalid');
+                document.getElementById(maximumStr).removeAttribute('aria-invalid');
                 if(json.duration==null || json.duration=="null"){
                     document.getElementById(durationStr).textContent='';
                 }else{
@@ -2611,6 +2792,10 @@ function updateQty(element){
         var elemId=element.id;
         var ar=elemId.split("_");
         var rand=ar[1];
+        var card = document.getElementById('set_' + rand);
+        if (!card) return false;
+        var calculation = {};
+        card._rxCalculation = calculation;
         var instruction="parameterValue=updateDrug&instruction="+encodeURIComponent(element.value)+"&action=parseInstructions&randomId="+rand;
         var url= ctx + "/rx/UpdateScript";
         var quantity="quantity_"+rand;
@@ -2629,8 +2814,7 @@ function updateQty(element){
         CarlosAjax.request(url, {method: 'POST',parameters:instruction,synchronous:true,
           requestHeaders: { 'Accept': 'application/json' },
           onSuccess:function(transport){
-                // A declined/closed card can disappear while this calculation is in flight.
-                if (!document.getElementById('set_' + rand)) return;
+                if (document.getElementById('set_' + rand) !== card || card._rxCalculation !== calculation) return;
                 var json = null;
                 try { json = JSON.parse(transport.responseText); } catch(e) { return; }
                 if(json.policyViolations != null && json.policyViolations.length>0) {
@@ -2649,6 +2833,8 @@ function updateQty(element){
                 document.getElementById(frequencyStr).textContent=json.frequency;
                 document.getElementById(minimumStr).textContent=json.takeMin;
                 document.getElementById(maximumStr).textContent=json.takeMax;
+                document.getElementById(minimumStr).removeAttribute('aria-invalid');
+                document.getElementById(maximumStr).removeAttribute('aria-invalid');
                 if(json.duration==null || json.duration=="null"){
                     document.getElementById(durationStr).textContent='';
                 }else{
@@ -2686,10 +2872,38 @@ function updateQty(element){
     }
 
          function getRenalDosingInformation(divId,atcCode){
+               var panel = document.getElementById(divId);
+               if (!panel) return;
+               var requestNumber = (panel.renalDosingRequest || 0) + 1;
+               panel.renalDosingRequest = requestNumber;
                var url = "<%= request.getContextPath() %>/rx/ViewRenalDosing";
                var ran_number=Math.round(Math.random()*1000000);
-               var params = "demographicNo=<%=demoNo%>&atcCode="+encodeURIComponent(atcCode)+"&divId="+divId+"&rand="+ran_number;
-               CarlosAjax.updater(divId,url, {method:'get',parameters:params,insertion: 'bottom'});
+               var params = "demographicNo=<%=demoNo%>&atcCode="+encodeURIComponent(atcCode)+"&divId="+encodeURIComponent(divId)+"&rand="+ran_number;
+               CarlosAjax.request(url, {method:'get',parameters:params,onComplete:function(transport) {
+                   // A slow earlier response must not replace more recently requested guidance.
+                   if (panel.renalDosingRequest === requestNumber && document.getElementById(divId) === panel) {
+                       if (transport.status === 200 && transport.responseJSON
+                               && transport.responseJSON.renalState === 'no-guidance') {
+                           panel.innerHTML = '';
+                           return;
+                       }
+                       var renderable = false;
+                       if ((transport.status >= 200 && transport.status < 300) || transport.status === 400) {
+                           var fragment = document.createElement('template');
+                           fragment.innerHTML = transport.responseText || '';
+                           renderable = !!fragment.content.querySelector('[data-renal-dosing-panel]');
+                       }
+                       if (renderable) {
+                           panel.innerHTML = transport.responseText;
+                       } else {
+                           // Clear stale guidance, including on an initial failure, and keep a retry.
+                           panel.innerHTML = '<div data-renal-dosing-unavailable><details open><summary>${carlos:forJavaScript(msg_renalUnavailable)}</summary><h3>Dosing Information <small><button type="button" class="btn btn-link">Refresh</button></small></h3><output>N/A</output></details></div>';
+                           panel.querySelector('button').onclick = function() {
+                               getRenalDosingInformation(divId, atcCode);
+                           };
+                       }
+                   }
+               }});
          }
          function getLUC(divId,randomId,din){
              var url = ctx + "/rx/ViewLimitedUseCode";
@@ -2806,6 +3020,14 @@ function updateQty(element){
                     x = false;
                     return;
                 }
+                // The day-range check let 2026-02-31 through; the save then stored 2026-03-03,
+                // a date the prescriber never entered (#5003). Refuse it and keep the card.
+                if (!RxInputValidation.fullDateIsReal(str1)) {
+                    jQuery(this).focus();
+                    alert(RxInputValidation.format(jsMsg.dateNotOnCalendar, str1));
+                    x = false;
+                    return;
+                }
             }
             var date1 = new Date(yr1, mon1, dt1);
             var now  = new Date();
@@ -2880,7 +3102,8 @@ function updateQty(element){
         const statusMessage = count === 1
             ? CONFIRMATION_MESSAGE.SINGLE
             : CONFIRMATION_MESSAGE.MULTIPLE(count);
-        return "There " + statusMessage + ".\n" + SAVE_WARNING + "\n" + SAVE_PROMPT;
+        // Each locale's key is the whole first sentence; a word added here would stay in English.
+        return statusMessage + "\n" + SAVE_WARNING + "\n" + SAVE_PROMPT;
     }
 
 <%--	<%--%>
@@ -2894,6 +3117,7 @@ function updateQty(element){
 
 
     function updateSaveAllDrugsPrintContinue(){
+        if (!validateCardProperties()) return false;
     	if(!validateWrittenDate()) {
     		return false;
     	}
@@ -2907,14 +3131,16 @@ function updateQty(element){
 		}
 		<%}%>
 		setPharmacyId();
-        var data=new URLSearchParams(new FormData(document.getElementById('drugForm'))).toString();
+        // The search box is not prescription data; submitting it again can trigger
+        // WAF signatures even though the staged drug's name has a prose exclusion.
+        var saveFields = new FormData(document.getElementById('drugForm'));
+        saveFields.delete('searchString');
+        var data=new URLSearchParams(saveFields).toString();
         var url= ctx + "/rx/WriteScript?parameterValue=updateSaveAllDrugs&rand="+ Math.floor(Math.random()*10001);
         CarlosAjax.request(url,
         {method: 'post',postBody:data,synchronous:true,
           requestHeaders: { 'Accept': 'application/json' },
             onSuccess:function(transport){
-
-                refreshDrugProfile();
                 const hasDrugs = jQuery("[id^='drugName_']").length > 0;
                 if (hasDrugs) {
                     openSavedPrescriptionPreview(transport);
@@ -2930,6 +3156,7 @@ function updateQty(element){
     }
     
     function updateSaveAllDrugsContinue(){
+        if (!validateCardProperties()) return false;
     	if(!validateWrittenDate()) {
     		return false;
     	}
@@ -2943,7 +3170,11 @@ function updateQty(element){
 		}
 		<%}%>		
 		setPharmacyId();
-        var data=new URLSearchParams(new FormData(document.getElementById('drugForm'))).toString() + '&clearSaved=true';
+        // The search box is not prescription data; submitting it again can trigger
+        // WAF signatures even though the staged drug's name has a prose exclusion.
+        var saveFields = new FormData(document.getElementById('drugForm'));
+        saveFields.delete('searchString');
+        var data=new URLSearchParams(saveFields).toString() + '&clearSaved=true';
         var url= ctx + "/rx/WriteScript?parameterValue=updateSaveAllDrugs&rand="+ Math.floor(Math.random()*10001);
         CarlosAjax.request(url,
         {method: 'post',postBody:data,synchronous:true,
@@ -2957,6 +3188,7 @@ function updateQty(element){
                     reportRefusedSave(transport);
                     return;
                 }
+                rxSaveNeedsReconciliation = false;
                 refreshDrugProfile();
                 clearStashDisplay();
             },
@@ -2965,19 +3197,172 @@ function updateQty(element){
     }
 
     /**
-     * Tells the prescriber a save did not happen. updateSaveAllDrugs answers 409 when the request
-     * does not name the patient of an open Rx window (per-patient Rx state, #3875).
+     * Error codes updateSaveAllDrugs sends with a 5xx status only when it refuses a save before
+     * writing anything. Any other 5xx may follow a commit (#5686).
+     */
+    var RX_SAVE_PRE_WRITE_ERRORS = ['RX_DRAFT_VALIDATION_FAILED'];
+    var rxSaveNeedsReconciliation = false;
+    /**
+     * Set once this page shows cards whose rendered versions the server has consumed and will not
+     * give back: an earlier version of them was saved, or their save cannot be settled from here.
+     * Nothing this page sends for those cards can succeed any more.
+     */
+    var rxPageNeedsReopen = false;
+
+    /**
+     * Shows the standing recovery notice: what happened and the way on. An alert alone left the
+     * page where every further Save or Remove was refused, with a manual reload the only way out.
      *
-     * @param {Object} transport the CarlosAjax transport of the failed request
+     * @param {string} message the translated explanation
+     * @param {(string|number)} [scriptId] a prescription this page saved, offered for printing
+     */
+    function showRxRecoveryNotice(message, scriptId) {
+        if (typeof document === 'undefined') return;
+        var notice = document.getElementById('rxRecoveryNotice');
+        if (!notice) return;
+        document.getElementById('rxRecoveryMessage').textContent = message;
+        var openSaved = document.getElementById('rxRecoveryOpenSaved');
+        var canOpen = /^[1-9]\d*$/.test(String(scriptId));
+        // Offered, never opened unasked: opening for print can sign the prescription.
+        openSaved.onclick = canOpen ? function () { popForm2(scriptId, true); } : null;
+        openSaved.style.display = canOpen ? '' : 'none';
+        notice.style.display = '';
+    }
+
+    /** Reopens prescribing for this patient: the server drops saved cards and renders current drafts. */
+    function reopenRxPage() {
+        window.location.href = RxPatientContext.withPatient(ctx + "/rx/choosePatient");
+    }
+
+    /**
+     * Brings the page in line with a save the server confirms it already stored unchanged, as the
+     * lost reply would have. Cards the server still keeps staged (Save And Print keeps them for
+     * correction) take their acknowledged versions, so they can be saved or removed again; any
+     * other spent cards leave the page. Nothing unsaved is lost: the server answers "already saved"
+     * only when this page posted exactly what was stored.
+     *
+     * @param {Object} saved the RX_ALREADY_SAVED answer: scriptId and, optionally, draftRevisions
+     */
+    function acknowledgeSavedCards(saved) {
+        if (typeof document === 'undefined') return;
+        var form = document.getElementById('drugForm');
+        var revisions = saved && saved.draftRevisions ? saved.draftRevisions : {};
+        var keys = Object.keys(revisions).filter(function (key) { return /^[0-9]+$/.test(key); });
+        if (form && keys.length) {
+            keys.forEach(function (key) {
+                var field = form.elements.namedItem('draftRevision_' + key);
+                if (field) field.value = revisions[key];
+            });
+        } else {
+            clearStashDisplay();
+        }
+        showRxRecoveryNotice(jsMsg.alreadySaved, saved ? saved.scriptId : null);
+    }
+
+    /**
+     * Whether a save the server did not confirm may still have committed (#5686). Only a refusal
+     * proves nothing was written, so only a refusal may be reported as NOT saved:
+     * - a 4xx: the action, a filter (login, CSRFGuard, method guard), the WAF or the proxy refused
+     *   the request before the action wrote anything;
+     * - a 5xx naming one of RX_SAVE_PRE_WRITE_ERRORS;
+     * - a 2xx from another page: a login or facility-selection redirect, followed by the XHR,
+     *   means the request never reached the save action.
+     * Everything else may follow a commit, and a retry can then issue a duplicate prescription:
+     * no response at all (status 0: a lost or aborted reply, a timeout, a network failure), any
+     * other 5xx (the action can fail after its transaction commits, and a proxy can time out while
+     * Tomcat completes the save) and a 2xx from the save action without the saved script id.
+     *
+     * @param {Object} transport the CarlosAjax transport of the request, or nothing
+     * @return {boolean} true when the prescriber must check the medication profile before retrying
+     */
+    function isUncertainSaveOutcome(transport) {
+        var status = transport ? Number(transport.status) : 0;
+        if (!(status > 0)) return true;
+        if (status >= 400 && status < 500) return false;
+        if (status >= 500) {
+            var error = transport.responseJSON ? transport.responseJSON.error : null;
+            return RX_SAVE_PRE_WRITE_ERRORS.indexOf(error) === -1;
+        }
+        var landed = String(transport.responseURL || '').split(/[?#]/)[0];
+        return !(status < 300 && landed && !/\/rx\/WriteScript$/.test(landed));
+    }
+
+    /**
+     * Tells the prescriber a save was not confirmed. A definite refusal says the prescription was
+     * NOT saved: updateSaveAllDrugs answers 409 when the request does not name the patient of an
+     * open Rx window (per-patient Rx state, #3875). An outcome that may follow a commit says so
+     * instead and reloads the medication profile to check against (#5686).
+     *
+     * @param {Object} transport the CarlosAjax transport of the failed or unconfirmed request
      */
     function reportRefusedSave(transport) {
-        if (transport && transport.responseJSON && transport.responseJSON.error === 'INCOMPLETE_RX_SAVE') {
+        if (transport && transport.responseJSON && transport.responseJSON.error === 'RX_DRAFT_REVIEW_REQUIRED') {
+            rxSaveNeedsReconciliation = false;
+            alert('${carlos:forJavaScript(msg_rxDraftReviewRequired)}');
+            location.reload();
+        } else if (transport && transport.responseJSON
+                && /^RX_(ALREADY_SAVED|SAVED_EARLIER_VERSION)$/.test(transport.responseJSON.error)) {
+            // The draft these cards were rendered from is saved, so the outcome is known. Whether
+            // this request is that save again or an edit of it is the server's call, from what was
+            // posted: an edit is neither "already saved" (it is not) nor "may be saved".
+            var editedSinceSaved = transport.responseJSON.error === 'RX_SAVED_EARLIER_VERSION';
+            alert(editedSinceSaved ? jsMsg.earlierVersionSaved : jsMsg.alreadySaved);
+            rxSaveNeedsReconciliation = false;
+            refreshDrugProfile();
+            if (editedSinceSaved) {
+                // The edited cards stay on screen to read from; they cannot be saved from here.
+                rxPageNeedsReopen = true;
+                showRxRecoveryNotice(jsMsg.earlierVersionSaved);
+            } else {
+                acknowledgeSavedCards(transport.responseJSON);
+            }
+        } else if (rxSaveNeedsReconciliation) {
+            // A later CSRF/login/stale refusal cannot establish the outcome of the earlier attempt.
+            alert(jsMsg.saveUncertain);
+            refreshDrugProfile();
+            // A conflict on top of it means the server no longer accepts these cards from here.
+            if (transport && transport.status === 409) showRxRecoveryNotice(jsMsg.reopenToContinue);
+        } else if (transport && transport.responseJSON && transport.responseJSON.error === 'RX_SOURCE_CHANGED') {
+            alert(jsMsg.sourceChanged);
+            refreshDrugProfile();
+        } else if (transport && transport.responseJSON && transport.responseJSON.error === 'RX_SAVE_OUTCOME_UNKNOWN') {
+            // The server holds these cards locked under versions this page was never given.
+            rxSaveNeedsReconciliation = true;
+            rxPageNeedsReopen = true;
+            alert(jsMsg.saveUncertain);
+            refreshDrugProfile();
+            showRxRecoveryNotice(jsMsg.reopenToContinue);
+        } else if (transport && transport.responseJSON && transport.responseJSON.error === 'INCOMPLETE_RX_SAVE') {
             alert(jsMsg.saveIncomplete);
         } else if (transport && transport.status === 409 && transport.responseJSON
                 && transport.responseJSON.error === 'STALE_RX_STASH') {
             alert(jsMsg.staleDraft);
         } else if (transport && transport.status === 409) {
             alert(jsMsg.saveRefused);
+        } else if (transport && transport.responseJSON && /^INVALID_RX_PICKUP_(DATE|TIME)$/.test(transport.responseJSON.error)) {
+            var kind = transport.responseJSON.error === 'INVALID_RX_PICKUP_TIME' ? 'time' : 'date';
+            var badPickup = jQuery('input[name^="' + (kind === 'time' ? 'pickupTime_' : 'pickupDate_') + '"]').filter(function () {
+                return !(kind === 'time' ? RxInputValidation.pickupTime(this.value) : RxInputValidation.pickupDate(this.value)).ok;
+            }).first();
+            alert(RxInputValidation.format(kind === 'time' ? jsMsg.pickupTimeInvalid : jsMsg.pickupDateInvalid,
+                badPickup.length ? badPickup.val() : ''));
+            if (badPickup.length) badPickup.focus();
+        } else if (transport && transport.responseJSON && transport.responseJSON.error === 'INVALID_RX_DATE') {
+            // The server refused a written/start date that is not a real day (#5003); the cards
+            // stay staged, so point at the field to correct.
+            var badDate = jQuery('input[name^="writtenDate_"], input[name^="rxDate_"]').filter(function () {
+                return !RxInputValidation.fullDateIsReal(this.value);
+            }).first();
+            alert(RxInputValidation.format(jsMsg.dateNotOnCalendar, badDate.length ? badDate.val() : ''));
+            if (badDate.length) badDate.focus();
+        } else if (isUncertainSaveOutcome(transport)) {
+            // The staged cards stay as they are: an unsaved draft must survive, and the server
+            // refuses a replay of cards a committed save consumed. The profile is reloaded after
+            // the alert, which blocks the page, so it shows what the server now holds.
+            var status = transport ? Number(transport.status) : 0;
+            rxSaveNeedsReconciliation = true;
+            alert(jsMsg.saveUncertain + (status > 0 ? ' (HTTP ' + status + ')' : ''));
+            refreshDrugProfile();
         } else {
             alert(jsMsg.saveRefused + ' (HTTP ' + (transport ? transport.status : '?') + ')');
         }

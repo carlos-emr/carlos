@@ -1,0 +1,108 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsimport.dto;
+
+/**
+ * An asserted administered/refused event can have explicitly unknown timing.
+ *
+ * <p>{@code providerName} and {@code reminderDate} (#6198) are restored from a CARLOS sender's
+ * {@code CARLOS.Prevention.Source.v1}: the free-text name of the form's "Other" administering
+ * provider, and the native reminder date ({@code yyyy-MM-dd}, after any synthetic date shift).
+ * CDS has no Immunizations element for either. So is {@code nativeType}, the sender's own
+ * prevention type ({@code preventions.prevention_type}), which ImmunizationType does not always
+ * name: an entry the sender exports without ImmunizationType (a type outside CT-020, an Rh
+ * injection, a type its configuration does not define) would otherwise be stored as the
+ * catch-all type. All three are omitted from the sealed preparation when null, so a payload
+ * sealed before they existed keeps its bytes and digest ({@code CdsPreparedImmunizationDefaults}
+ * supplies them after seal verification).
+ */
+public record CdsImmunizationDto(String name, String type, String manufacturer, String lot,
+        String route, String site, String dose, String code, String codeSystem,
+        boolean refused, String instructions, String notes, CdsTemporalDto date,
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                String providerName,
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                String reminderDate,
+        // Warnings about the restore of text a CARLOS sender wrote with U+FFFD; empty, and then
+        // omitted, for every payload sealed before they existed (CdsPreparedImmunizationDefaults).
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY)
+                java.util.List<CdsClinicalDiagnosticDto> diagnostics,
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                String nativeType) {
+    /** {@code preventions.prevention_type} holds 255 characters. */
+    public static final int NATIVE_TYPE_CAPACITY = 255;
+
+    public CdsImmunizationDto {
+        diagnostics = diagnostics == null ? java.util.List.of() : java.util.List.copyOf(diagnostics);
+        if (providerName != null && providerName.isEmpty())
+            throw new IllegalArgumentException("CDS_IMMUNIZATION_PROVIDER_NAME_INVALID");
+        if (nativeType != null
+                && (nativeType.isEmpty()
+                        || nativeType.codePointCount(0, nativeType.length()) > NATIVE_TYPE_CAPACITY))
+            throw new IllegalArgumentException("CDS_IMMUNIZATION_NATIVE_TYPE_INVALID");
+        if (reminderDate != null) {
+            try {
+                var parsed =
+                        java.time.LocalDate.parse(
+                                reminderDate,
+                                java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd")
+                                        .withResolverStyle(
+                                                java.time.format.ResolverStyle.STRICT));
+                if (parsed.getYear() < 1 || parsed.getYear() > 9999)
+                    throw new IllegalArgumentException("CDS_IMMUNIZATION_REMINDER_DATE_INVALID");
+            } catch (java.time.DateTimeException malformed) {
+                throw new IllegalArgumentException("CDS_IMMUNIZATION_REMINDER_DATE_INVALID");
+            }
+        }
+    }
+
+    /** Every value but the restored native type: none. */
+    public CdsImmunizationDto(String name, String type, String manufacturer, String lot,
+            String route, String site, String dose, String code, String codeSystem,
+            boolean refused, String instructions, String notes, CdsTemporalDto date,
+            String providerName, String reminderDate,
+            java.util.List<CdsClinicalDiagnosticDto> diagnostics) {
+        this(name, type, manufacturer, lot, route, site, dose, code, codeSystem, refused,
+                instructions, notes, date, providerName, reminderDate, diagnostics, null);
+    }
+
+    /** Every value but the restore warnings and the restored native type: none. */
+    public CdsImmunizationDto(String name, String type, String manufacturer, String lot,
+            String route, String site, String dose, String code, String codeSystem,
+            boolean refused, String instructions, String notes, CdsTemporalDto date,
+            String providerName, String reminderDate) {
+        this(name, type, manufacturer, lot, route, site, dose, code, codeSystem, refused,
+                instructions, notes, date, providerName, reminderDate, java.util.List.of());
+    }
+
+    /** A value without restored native context (any source but a CARLOS sender's carrier). */
+    public CdsImmunizationDto(String name, String type, String manufacturer, String lot,
+            String route, String site, String dose, String code, String codeSystem,
+            boolean refused, String instructions, String notes, CdsTemporalDto date) {
+        this(name, type, manufacturer, lot, route, site, dose, code, codeSystem, refused,
+                instructions, notes, date, null, null);
+    }
+}

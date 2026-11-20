@@ -39,11 +39,14 @@
 
     Loaded via setupDxResearch from the patient encounter or demographic view.
 
-    Request Attributes:
+    Request Attributes (this request's own patient; set by setupDxResearch and by dxResearch's
+    validation-failure re-render, never read from the session, issue #4673):
     - demographicNo: Patient ID
     - providerNo: Current provider
-    - codingSystem: Available coding systems
     - allDiagnostics: Patient's current diagnoses
+
+    Session Attributes (the provider's configuration, no patient data):
+    - codingSystem: Available coding systems
     - allQuickLists / allQuickListItems: Quick list data (via dxQuickList.jsp include)
 
     Security:
@@ -52,13 +55,13 @@
     @since 2006-01-01 (original OSCAR implementation)
 --%>
 
-<%@ page import="io.github.carlos_emr.carlos.dxresearch.util.dxResearchCodingSystem" %>
+
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

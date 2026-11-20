@@ -27,6 +27,7 @@ const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { stageFromSearch } = require('./rx-edit-discontinue-playwright-checks');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const RENAL = { term: 'CIPRO 500', name: 'CIPRO 500MG', atc: 'J01MA02' };
 const INTERACTING = { term: 'UNIPHYL 4', name: 'UNIPHYL 400MG', atc: 'R03DA04' };
@@ -71,7 +72,9 @@ async function workflow(s) {
   h.assert(sql.value(`SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient}`) === '2', 'The measurement fixtures were not created');
   const [age, sex] = sql.rows(`SELECT TIMESTAMPDIFF(YEAR, STR_TO_DATE(CONCAT(year_of_birth,'-',month_of_birth,'-',date_of_birth),'%Y-%m-%d'), CURDATE()), sex
     FROM demographic WHERE demographic_no=${patient}`)[0];
-  const clcr = Math.round((140 - Number(age)) * weight / (creatinine * 0.8) * (sex === 'F' ? 0.85 : 1));
+  // The page's own arithmetic (RxUtil.getClcrUnrounded), then rounded DOWN as RenalDosing.jsp does since #6099:
+  // a fractional clearance is read in the lower dosing band, never rounded up into the next one.
+  const clcr = Math.floor((140 - Number(age)) * weight / (creatinine * 0.8) * (sex === 'F' ? 0.85 : 1));
 
   await s.step('the Rx interaction warning level auto-saves to the provider property and reads back on reopen', async () => {
     const current = sql.value(`SELECT value FROM property WHERE ${predicate} ORDER BY id DESC LIMIT 1`) || '0';
@@ -98,7 +101,7 @@ async function workflow(s) {
     await reopened.prefs.close();
   });
 
-  const rx = await s.popup(s.master, s.master.locator('a[onclick*="/rx/choosePatient"]').first(), 'rx-module');
+  const rx = await s.popup(s.master, masterRecordLink(s.master, '/rx/choosePatient').first(), 'rx-module');
   h.assert(new URL(rx.url()).searchParams.get('demographicNo') === patient, 'The Rx module opened for another patient');
   await rx.locator('#searchString').waitFor({ state: 'visible' });
   await rx.waitForLoadState('networkidle');
@@ -115,7 +118,8 @@ async function workflow(s) {
     const panel = rx.locator(`#renalDosing_${renalCard}`);
     await panel.locator('table.sofT').waitFor({ state: 'visible' });
     const equation = (await panel.locator('table.equation').innerText()).replace(/\s+/g, ' ');
-    h.assert(equation.includes(`Clcr ${clcr} =`) && equation.includes(`${weight}.0`) && equation.includes(`${creatinine}.0 sCr`),
+    // Whole values print without a trailing ".0" (setNA strips trailing zeros).
+    h.assert(equation.includes(`Clcr ${clcr} =`) && equation.includes(`X ${weight} [kg`) && equation.includes(`${creatinine} sCr`),
       `The dosing equation does not use the seeded weight and creatinine: ${equation}`);
     const selected = panel.locator('table.sofT tr.selected');
     h.assert(await selected.count() === 1, 'No single dosing recommendation is selected for the computed Clcr');
@@ -147,14 +151,22 @@ async function workflow(s) {
       OR (affectingatc=${h.sqlString(INTERACTING.atc)} AND affectedatc=${h.sqlString(RENAL.atc)})`);
     const level = SIGNIFICANCE[significance];
     h.assert(level, 'DrugRef records no graded interaction for the fixture pair');
-    const card = await stageFromSearch(rx, INTERACTING.term, INTERACTING.name);
-    await rx.waitForLoadState('networkidle');
+    let card;
+    // The page asks rx/interactionWarnings after the card is inserted (debounced); wait for that
+    // answer to be drawn rather than for a network-idle state the page had already reached.
+    const [check] = await Promise.all([
+      rx.waitForResponse(r => h.pathOnly(r.url()).endsWith('/rx/interactionWarnings'), { timeout: 60000 }),
+      (async () => { card = await stageFromSearch(rx, INTERACTING.term, INTERACTING.name); })(),
+    ]);
+    h.assert(check.status() === 200, `rx/interactionWarnings answered HTTP ${check.status()}`);
+    await rx.locator('#interactingDrugErrorMsg:not([data-check-status="pending"])[data-check-status]')
+      .waitFor({ state: 'attached', timeout: 15000 });
     const markers = [card, renalCard].map(id => rx.locator(`#${level}_${id}`));
     const visible = await Promise.all(markers.map(marker => marker.isVisible()));
     h.assert(visible.some(Boolean), `No ${level} interaction marker is shown on either staged card for ciprofloxacin + theophylline `
-      + `(DrugRef significance ${significance}); the Rx page never requests rx/ViewInteractionDisplay or rx/ViewUpdateInteractingDrugs`);
+      + `(DrugRef significance ${significance}); see rx/interactionWarnings and rx-interaction-warnings`);
   });
 }
 
 if (require.main === module) runWorkflow('rx-interactions-renal-luc', workflow, { openPatient: true });
-module.exports = { workflow };
+module.exports = { workflow, formularyLuCodes, LIMITED_USE, RENAL };

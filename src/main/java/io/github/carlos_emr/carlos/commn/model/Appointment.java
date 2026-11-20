@@ -92,6 +92,21 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
     @Column(name = "updatedatetime")
     private Date updateDateTime = new Date();
 
+    @Transient
+    private Long persistedUpdateTime;
+
+    /** Token clients must echo when submitting an edit, including legacy null timestamps. */
+    public String getEditVersion() {
+        return updateDateTime == null ? "unversioned" : Long.toString(updateDateTime.getTime());
+    }
+
+    @PostLoad
+    @PostPersist
+    @PostUpdate
+    protected void rememberUpdateTime() {
+        persistedUpdateTime = updateDateTime == null ? null : updateDateTime.getTime();
+    }
+
     private String creator;
 
     @Column(name = "lastupdateuser")
@@ -105,6 +120,8 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
     private BookingSource bookingSource;
 
     private Integer reasonCode;
+
+    private Integer locationCode;
 
     public Integer getReasonCode() {
         return reasonCode;
@@ -187,16 +204,40 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
         return notes;
     }
 
+    /**
+     * Stores notes with CRLF and lone CR line endings converted to LF.
+     *
+     * @param notes the notes to store; may be null
+     */
     public void setNotes(String notes) {
-        this.notes = notes;
+        this.notes = normalizeLineEndings(notes);
     }
 
     public String getReason() {
         return reason;
     }
 
+    /**
+     * Stores the reason with CRLF and lone CR line endings converted to LF.
+     *
+     * @param reason the reason to store; may be null
+     */
     public void setReason(String reason) {
-        this.reason = reason;
+        this.reason = normalizeLineEndings(reason);
+    }
+
+    /**
+     * Textareas count each line break as one UTF-16 unit, but HTML form submission
+     * sends CRLF. Store LF so a full reason (80) or notes (255) fits its column
+     * without losing the final character. Apply this to every appointment writer,
+     * including recurring bookings, without trimming or truncating clinical text.
+     * Also used when comparing legacy CRLF series with new LF occurrences.
+     *
+     * @param text the multiline text to normalize; may be null
+     * @return the text with LF line endings, or null when the input is null
+     */
+    public static String normalizeLineEndings(String text) {
+        return text == null ? null : text.replace("\r\n", "\n").replace('\r', '\n');
     }
 
     public String getLocation() {
@@ -205,6 +246,30 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    /**
+     * Gets the Location List item chosen for this appointment. {@link #getLocation()} holds a
+     * snapshot of that item's label at booking time, so renaming the item later does not rewrite
+     * this appointment, and screens that only read the text keep working.
+     *
+     * @return Integer the LookupListItem id, or null when no item was chosen (free text, a site, a
+     *         program, or no location)
+     * @since 2026-11-04
+     */
+    public Integer getLocationCode() {
+        return locationCode;
+    }
+
+    /**
+     * Sets the Location List item chosen for this appointment. Writers go through
+     * {@code AppointmentLocationResolver}, which keeps the code and the label snapshot together.
+     *
+     * @param locationCode Integer the LookupListItem id, or null for none
+     * @since 2026-11-04
+     */
+    public void setLocationCode(Integer locationCode) {
+        this.locationCode = locationCode;
     }
 
     public String getResources() {
@@ -335,9 +400,16 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
     }
 
     @PrePersist
+    protected void jpaInitializeLastUpdateTime() {
+        this.updateDateTime = new Date(System.currentTimeMillis() / 1000 * 1000);
+    }
+
     @PreUpdate
     protected void jpaUpdateLastUpdateTime() {
-        this.updateDateTime = new Date();
+        // Production uses DATETIME without fractional seconds. Advance from the loaded
+        // value, even for two writes in one second or a caller that replaces the audit date.
+        long nextSecond = persistedUpdateTime == null ? 0 : (persistedUpdateTime / 1000 + 1) * 1000;
+        this.updateDateTime = new Date(Math.max(System.currentTimeMillis() / 1000 * 1000, nextSecond));
     }
 
     public static final Comparator<Appointment> APPT_DATE_COMPARATOR = new Comparator<Appointment>() {

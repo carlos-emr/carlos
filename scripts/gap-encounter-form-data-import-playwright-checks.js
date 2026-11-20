@@ -12,9 +12,8 @@
  * an eForm export archive (made from Manage eForms and then removed from the library) is restored as an
  * eForm by the same page; and an archive whose only entry names a form table that does not exist is NOT
  * reported as a success.
- * That last step fails today: the legacy importer swallows its own XmlImportException (JDBCUtil
- * .toDataBase) and FrmXmlUpload2Action.importLegacyArchive then returns success, so the administrator
- * is told the import worked while nothing was stored.
+ * The invalid-table check guards against the legacy importer swallowing XmlImportException and
+ * reporting success while nothing was stored.
  * Fixtures: the owned synthetic patient and its form2MinWalk rows only (the import targets the
  * patient named in the entry); cleanup deletes the rows and asserts them gone. Implements gap-encounter
  * "import form data from an archive" (form/xmlUpload had no check).
@@ -56,8 +55,13 @@ async function workflow(s) {
 
   const { page: admin } = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
     { context: s.context, recorder: s.recorder, label: 'form-import-admin', timeout: 20000 });
+  const openForms = async () => {
+    const section = admin.locator('#collapseForms');
+    if (await section.isHidden()) await admin.locator('button[data-bs-target="#collapseForms"]').first().click();
+    await section.waitFor({ state: 'visible' });
+  };
   const openImport = async () => {
-    await admin.locator('button[data-bs-target="#collapseForms"]').first().click().catch(() => {});
+    await openForms();
     await clickInjectsPanel(admin, admin.locator('a.contentLink[href$="/form/formXmlUpload"]').first(),
       { marker: '#dynamic-content form[action$="/form/xmlUpload"]' });
   };
@@ -109,7 +113,7 @@ async function workflow(s) {
       showLatestFormOnly,patient_independent,roleType,restrictToProgram,stable)
       VALUES(${q(templateName)},'','export fixture',CURDATE(),CURTIME(),${q(s.provider)},1,
       '<html><head><title>export</title></head><body><form name="FormName" id="FormName" method="post" action=""><input type="text" name="subject" id="subject"><input type="text" name="field_${marker.slice(-6)}"></form></body></html>',0,0,'',0,1)`);
-    await admin.locator('button[data-bs-target="#collapseForms"]').first().click();
+    await openForms();
     await admin.locator('a.defaultForms').first().click();
     await admin.locator('#dynamic-content #eformTbl').waitFor({ state: 'visible', timeout: 30000 });
     const row = admin.locator('#dynamic-content #eformTbl tbody tr', { hasText: templateName }).first();

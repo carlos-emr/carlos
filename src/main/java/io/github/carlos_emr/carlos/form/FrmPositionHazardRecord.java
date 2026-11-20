@@ -32,6 +32,8 @@ import java.sql.SQLException;
 import java.util.Date;
 import java.util.Properties;
 
+import org.apache.commons.lang3.StringUtils;
+
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -53,30 +55,30 @@ public class FrmPositionHazardRecord extends FrmRecord {
             if (demographic != null) {
                 props.setProperty("demographic_no", String.valueOf(demographic.getDemographicNo()));
                 props.setProperty("patientName", demographic.getLastName() + ", " + demographic.getFirstName());
-                props.setProperty("healthNumber", demographic.getHin());
-                props.setProperty("version", demographic.getVer());
-                props.setProperty("hcType", demographic.getHcType());
+                props.setProperty("healthNumber", StringUtils.defaultString(demographic.getHin()));
+                props.setProperty("version", StringUtils.defaultString(demographic.getVer()));
+                props.setProperty("hcType", StringUtils.defaultString(demographic.getHcType()));
                 props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
 
                 java.util.Date dob = UtilDateUtilities.calcDate(demographic.getYearOfBirth(), demographic.getMonthOfBirth(), demographic.getDateOfBirth());
                 props.setProperty("birthDate", UtilDateUtilities.DateToString(dob, "yyyy/MM/dd"));
 
                 props.setProperty("phoneNumber", demographic.getPhone());
-                props.setProperty("patientAddress", demographic.getAddress());
-                props.setProperty("patientCity", demographic.getCity());
-                props.setProperty("patientPC", demographic.getPostal());
-                props.setProperty("province", demographic.getProvince());
-                props.setProperty("sex", demographic.getSex());
-                props.setProperty("demoProvider", demographic.getProviderNo());
+                props.setProperty("patientAddress", StringUtils.defaultString(demographic.getAddress()));
+                props.setProperty("patientCity", StringUtils.defaultString(demographic.getCity()));
+                props.setProperty("patientPC", StringUtils.defaultString(demographic.getPostal()));
+                props.setProperty("province", StringUtils.defaultString(demographic.getProvince()));
+                props.setProperty("sex", StringUtils.defaultString(demographic.getSex()));
+                props.setProperty("demoProvider", StringUtils.defaultString(demographic.getProviderNo()));
             }
 
             //get local clinic information            
             Clinic clinic = clinicDao.getClinic();
-            props.setProperty("clinicName", clinic.getClinicName());
-            props.setProperty("clinicProvince", clinic.getClinicProvince());
-            props.setProperty("clinicAddress", clinic.getClinicAddress());
-            props.setProperty("clinicCity", clinic.getClinicCity());
-            props.setProperty("clinicPC", clinic.getClinicPostal());
+            props.setProperty("clinicName", StringUtils.defaultString(clinic.getClinicName()));
+            props.setProperty("clinicProvince", StringUtils.defaultString(clinic.getClinicProvince()));
+            props.setProperty("clinicAddress", StringUtils.defaultString(clinic.getClinicAddress()));
+            props.setProperty("clinicCity", StringUtils.defaultString(clinic.getClinicCity()));
+            props.setProperty("clinicPC", StringUtils.defaultString(clinic.getClinicPostal()));
 
         } else {
             String sql = "SELECT * FROM formPositionHazard WHERE demographic_no = ? AND ID = ?";

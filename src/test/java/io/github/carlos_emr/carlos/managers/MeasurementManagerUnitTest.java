@@ -869,6 +869,51 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
     }
 
     /**
+     * Tests for {@link MeasurementManagerImpl#removeMeasurementGroupDS(String)}.
+     *
+     * <p>Two Remove posts for the same group can overlap: the later one finds nothing left and is a no-op.</p>
+     */
+    @Nested
+    @DisplayName("removeMeasurementGroupDS")
+    @Tag("delete")
+    class RemoveMeasurementGroupDs {
+
+        @Test
+        @DisplayName("should remove the group's decision support property when it exists")
+        void shouldRemoveProperty_whenItExists() {
+            Property property = mock(Property.class);
+            when(property.getId()).thenReturn(77);
+            when(mockPropertyDao.checkByName("mgroup.ds.html.14")).thenReturn(property);
+
+            measurementManager.removeMeasurementGroupDS("mgroup.ds.html.14");
+
+            verify(mockPropertyDao).remove((Object) 77);
+        }
+
+        @Test
+        @DisplayName("should not fail when an overlapping remove deletes the property after the first lookup")
+        void shouldNotFail_whenPropertyVanishesBetweenLookups() {
+            // The overlapping remove commits right after this request's first lookup; a second lookup sees nothing.
+            Property property = mock(Property.class);
+            when(property.getId()).thenReturn(77);
+            when(mockPropertyDao.checkByName("mgroup.ds.html.14")).thenReturn(property, (Property) null);
+
+            assertThatCode(() -> measurementManager.removeMeasurementGroupDS("mgroup.ds.html.14"))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("should do nothing, without an error, when the property is already gone")
+        void shouldDoNothing_whenPropertyAlreadyRemoved() {
+            when(mockPropertyDao.checkByName("mgroup.ds.html.14")).thenReturn(null);
+
+            measurementManager.removeMeasurementGroupDS("mgroup.ds.html.14");
+
+            verify(mockPropertyDao, never()).remove(any(Object.class));
+        }
+    }
+
+    /**
      * Tests for {@link MeasurementManagerImpl#getDShtml(String)}.
      *
      * <p>Verifies flowsheet decision support HTML retrieval. This method chains findGroupId,

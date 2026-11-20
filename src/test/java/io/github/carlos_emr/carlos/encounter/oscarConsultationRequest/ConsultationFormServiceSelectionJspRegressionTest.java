@@ -43,13 +43,14 @@ class ConsultationFormServiceSelectionJspRegressionTest {
     private static final Path CONSULT_JSP = resolveProjectPath(CONSULT_JSP_RELATIVE);
 
     @Test
-    @DisplayName("should gate bulk ticklers on a valid patient after site visibility filtering")
+    @DisplayName("should gate overdue Add Tickler patients on a valid patient after site visibility filtering")
     void shouldGateBulkTicklers_whenConsultationPatientsAreMissing() throws Exception {
         String jsp = Files.readString(resolveProjectPath(Path.of(
                 "src/main/webapp/WEB-INF/jsp/encounter/oscarConsultationRequest/ViewConsultationRequests.jsp")), StandardCharsets.UTF_8);
         int siteFilter = jsp.indexOf("if (!mgrSite.contains(siteName)) continue;");
         int patientGate = jsp.indexOf("if (EctViewConsultationRequestsUtil.isTicklerDemographic(demo)");
-        int addPatient = jsp.indexOf("tickerList.add(demo);");
+        // The collection that feeds the per-patient Add Tickler links (#4999); it used to be a bulk list.
+        int addPatient = jsp.indexOf("overdueTicklerPatients.putIfAbsent(demo,");
         assertThat(siteFilter).isGreaterThanOrEqualTo(0);
         assertThat(patientGate).isGreaterThan(siteFilter);
         assertThat(addPatient).isGreaterThan(patientGate);

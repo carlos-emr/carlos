@@ -82,7 +82,7 @@ class EFormSavedRenderResponseUnitTest {
                 service.issue(request, user, 42, "123", DOWNLOAD, report));
         EFormRenderCompletenessReport attachment = new EFormRenderCompletenessReport(0, 2, 0, 0, false, false, false, false);
         EformContentUnavailableException failure = new EformContentUnavailableException("incomplete", 43, attachment);
-        assertThat(EFormSavedRenderResponse.missing(request, service, user, failure, 42, "123", DOWNLOAD, previous, true))
+        assertThat(EFormSavedRenderResponse.missing(request, service, user, failure, 42, "123", "7", DOWNLOAD, previous, true))
                 .isEqualTo("missingContent");
         assertThat(request.getAttribute("approvalAction")).isEqualTo("eform/downloadEFormPdf");
         assertThat(request.getAttribute("approvalAutoClose")).isEqualTo("true");
@@ -100,7 +100,7 @@ class EFormSavedRenderResponseUnitTest {
                 Map.of(42, report.digest()), Instant.EPOCH);
         var changed = new EFormRenderCompletenessReport(3, 0, 0, 0, false, false, false, false);
         EFormSavedRenderResponse.missing(request, service, user,
-                new EformContentUnavailableException("incomplete", 43, changed), 42, "123", EDOC, expired, true);
+                new EformContentUnavailableException("incomplete", 43, changed), 42, "123", "7", EDOC, expired, true);
         EFormRenderApproval refreshed = service.consume(request, user, 42, "123", EDOC,
                 (String) request.getAttribute("renderApproval"));
         assertThat(refreshed.issueDigests()).containsOnlyKeys(43);
@@ -115,10 +115,31 @@ class EFormSavedRenderResponseUnitTest {
                 service.issue(request, user, 42, "123", DOWNLOAD, report));
         var changed = new EFormRenderCompletenessReport(3, 0, 0, 0, false, false, false, false);
         EFormSavedRenderResponse.missing(request, service, user,
-                new EformContentUnavailableException("changed", 42, changed), 42, "123", DOWNLOAD, previous, false);
+                new EformContentUnavailableException("changed", 42, changed), 42, "123", "7", DOWNLOAD, previous, false);
         EFormRenderApproval refreshed = service.consume(request, user, 42, "123", DOWNLOAD,
                 (String) request.getAttribute("renderApproval"));
         assertThat(refreshed.permits(42, "999998", report)).isFalse();
         assertThat(refreshed.permits(42, "999998", changed)).isTrue();
+    }
+
+    @Test
+    void shouldPublishTemplateId_forApprovalFormAction() {
+        EformContentUnavailableException failure = new EformContentUnavailableException("incomplete", 42, report);
+
+        EFormSavedRenderResponse.missing(request, service, user, failure, 42, "123", "7", DOWNLOAD, null, false);
+
+        // The approval page puts it in its action's query string, where APCache.js finds the form id (#4979).
+        assertThat(request.getAttribute("approvalFormId")).isEqualTo("7");
+    }
+
+    @Test
+    void shouldNotPublishTemplateId_whenNotNumeric() {
+        EformContentUnavailableException failure = new EformContentUnavailableException("incomplete", 42, report);
+
+        EFormSavedRenderResponse.missing(request, service, user, failure, 42, "123", "7&x=1", DOWNLOAD, null, false);
+        assertThat(request.getAttribute("approvalFormId")).isNull();
+
+        EFormSavedRenderResponse.missing(request, service, user, failure, 42, "123", null, DOWNLOAD, null, false);
+        assertThat(request.getAttribute("approvalFormId")).isNull();
     }
 }

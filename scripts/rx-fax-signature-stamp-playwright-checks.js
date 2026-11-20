@@ -85,14 +85,16 @@
  *   RX_FAX_JOURNAL_DIR (private directory for the pharmacy fixture's crash journal).
  */
 
+const { validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const { randomInt } = require('crypto');
 const { readFaxSuffix, assertFaxDestination, installFaxRequestGuard } = require('./rx-fax-request-guard');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { browserErrorClass } = require('./browser-error-class');
+const { browserErrorClass, createErrorSourceLocator } = require('./browser-error-class');
 const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
 const { createPharmacyFaxFixture, fixtureErrorTag } = require('./rx-fax-pharmacy-fax-fixture');
 const { validateMysqlHost } = require('./lib/playwright-harness');
@@ -101,6 +103,8 @@ const { validateMysqlHost } = require('./lib/playwright-harness');
 const FAX_REQUEST_URL = /\/rx\/faxPrescription(?:\?|$)/;
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+// Page frames are trusted only on this application (see browser-error-class.js).
+const errorSourceLocation = createErrorSourceLocator(baseUrl);
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
@@ -146,30 +150,6 @@ let checkPhase = 'initialization';
 let expectingCustomDrugConfirm = false;
 const mysqlBin = resolveMysqlBinary();
 const mysqlDefaultsFile = createMysqlDefaultsFile();
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  // Reject userinfo (user:pass@host): this harness logs navigations and diagnostics with the URL,
-  // so embedded credentials would leak into test output. Pass auth through the app's login form.
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not embed a username or password');
-  }
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const octets = host.split('.');
-  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
-  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
-    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
-    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
-}
 
 function appUrl(relativePath) {
   if (!relativePath.startsWith('/') || relativePath.startsWith('//')) {
@@ -285,7 +265,7 @@ async function releaseFixtureLock() {
   try {
     await pharmacyFax.unlock();
   } catch (error) {
-    findings.push({ label: 'cleanup', type: 'cleanup-error', text: `fixture lock: ${browserErrorClass(error)}` });
+    findings.push({ label: 'cleanup', type: 'cleanup-error', text: `fixture lock: ${browserErrorClass(error)}${errorSourceLocation(error)}` });
   }
 }
 
@@ -302,7 +282,7 @@ function cleanupFixtures() {
     try {
       fn();
     } catch (error) {
-      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(error)}${fixtureErrorTag(error)}` });
+      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(error)}${fixtureErrorTag(error)}${errorSourceLocation(error)}` });
     }
   };
   let ourScriptNos = new Set();
@@ -362,7 +342,7 @@ function sql(query) {
 
 function wirePage(page, label) {
   page.on('pageerror', (error) => {
-    findings.push({ label, type: 'pageerror', text: browserErrorClass(error) });
+    findings.push({ label, type: 'pageerror', text: `${browserErrorClass(error)}${errorSourceLocation(error)}` });
   });
   page.on('dialog', async (dialog) => {
     // Accept ONLY the one confirm() the custom-drug button legitimately raises, and only while we are
@@ -621,8 +601,8 @@ async function runChecks(context, cancellation) {
       visited.push({ label: 'fax-request', url: new URL(faxRequest.url()).pathname + ' (query redacted)', status: faxStatus });
     } catch (error) {
       // A captured request whose response never came is a different failure from no request at all.
-      if (faxRequest) findings.push({ label: 'fax-click', type: 'no-response', text: browserErrorClass(error) });
-      else findings.push({ label: 'fax-click', type: 'no-request', text: browserErrorClass(error) });
+      if (faxRequest) findings.push({ label: 'fax-click', type: 'no-response', text: `${browserErrorClass(error)}${errorSourceLocation(error)}` });
+      else findings.push({ label: 'fax-click', type: 'no-request', text: `${browserErrorClass(error)}${errorSourceLocation(error)}` });
     }
 
     if (faxRequest) {
@@ -708,7 +688,9 @@ async function runChecks(context, cancellation) {
   }
 }
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('rx-fax-signature-stamp', async () => {
+  await (async () => {
   const cancellation = createGracefulSignalCancellation();
   const launchOptions = { handleSIGINT: false, handleSIGTERM: false, headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] };
   if (chromePath) launchOptions.executablePath = chromePath;
@@ -723,7 +705,7 @@ async function runChecks(context, cancellation) {
     // URL parser already strips the [...] brackets, but be defensive) before the check.
     const bypassHost = baseUrl.hostname.toLowerCase().replace(/^\[|\]$/g, '');
     const loopbackTarget = new Set(['localhost', '127.0.0.1', '::1']).has(bypassHost);
-    const context = await browser.newContext({ ignoreHTTPSErrors: loopbackTarget, viewport: { width: 1440, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
     const loginPage = await cancellation.run(() => login(context));
     await loginPage.close();
 
@@ -749,7 +731,8 @@ async function runChecks(context, cancellation) {
     }
   }
 })().catch((error) => {
-  console.error(`FAIL rx-fax-signature-stamp: ${checkPhase}: ${browserErrorClass(error)}${fixtureErrorTag(error)}`);
+  console.error(`FAIL rx-fax-signature-stamp: ${checkPhase}: ${browserErrorClass(error)}${fixtureErrorTag(error)}${errorSourceLocation(error)}`);
   removeSecretsDir();
-  process.exit(1);
+  process.exitCode = 1;
 });
+}, {existingSignalHandlers:true});

@@ -20,6 +20,7 @@
  * Toronto, Ontario, Canada
  
  * <p>
+ * Modifications by CARLOS Contributors, 2026.
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
@@ -35,6 +36,8 @@ import io.github.carlos_emr.carlos.integration.fhir.resources.constants.ContactT
 import jakarta.persistence.*;
 import java.io.Serializable;
 import java.util.Date;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 @Entity
 @Table(name = "professionalSpecialists")
@@ -90,6 +93,7 @@ public class ProfessionalSpecialist extends AbstractModel<Integer> implements Se
     private boolean deleted = false;
 
     @Temporal(TemporalType.TIMESTAMP)
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date lastUpdated = new Date();
 
     private Integer eformId;
@@ -107,6 +111,15 @@ public class ProfessionalSpecialist extends AbstractModel<Integer> implements Se
 
     @Transient
     private String[] addressArray;
+
+    // Retain the pre-snapshot entity serialization identity after adding compatibility constructors.
+    private static final long serialVersionUID = -8082870337148089173L;
+
+    /** Required by JPA and existing Java callers. */
+    public ProfessionalSpecialist() { }
+
+    /** Builds an identified detached compatibility view; does not persist or attach it. */
+    public ProfessionalSpecialist(Integer id) { this.id = id; }
 
     @Override
     public Integer getId() {
@@ -143,27 +156,21 @@ public class ProfessionalSpecialist extends AbstractModel<Integer> implements Se
     }
 
     public void setStreetAddressFromForm(String streetAddress) {
-        this.streetAddress = StringUtils.trimToNull(streetAddress);
+        setStreetAddress(streetAddress);
     }
 
+    /**
+     * Rebuilds the component cache even for a single street or a cleared address.
+     * Commas belong to the stored address; component values contain no delimiters.
+     *
+     * @param streetAddress String containing comma-separated address components, or null
+     */
     public void setStreetAddress(String streetAddress) {
         this.streetAddress = StringUtils.trimToNull(streetAddress);
 
-        if (this.streetAddress != null && this.streetAddress.contains(",")) {
-            this.addressArray = this.streetAddress.split(",");
-
-            while (this.addressArray.length < 5) {
-                this.addressArray[this.addressArray.length + 1] = ",";
-            }
-
-        } else if (this.streetAddress == null) {
-            this.addressArray = new String[5];
-            this.addressArray[0] = ","; // address line
-            this.addressArray[1] = ","; // city
-            this.addressArray[2] = ","; // postal
-            this.addressArray[3] = ","; // province
-            this.addressArray[4] = ","; // country
-        }
+        String[] components = this.streetAddress == null ? new String[0] : this.streetAddress.split(",");
+        this.addressArray = java.util.Arrays.copyOf(components, Math.max(5, components.length));
+        java.util.Arrays.fill(this.addressArray, components.length, this.addressArray.length, "");
     }
 
     public String getPhoneNumber() {
@@ -306,6 +313,124 @@ public class ProfessionalSpecialist extends AbstractModel<Integer> implements Se
             buf.append(getProfessionalLetters());
         }
         return buf.toString();
+    }
+
+    /**
+     * The consultant a consultation letter shows for a professional contact on the patient's
+     * health care team: a new, unsaved specialist holding only the contact's own values. The
+     * chart's consultation Print ({@code EctConsultationFormRequestUtil}) and the CDS export's
+     * printed letter ({@code CdsExportConsultationLetterComposer}) both use it, so they show the
+     * same consultant.
+     *
+     * <p>It never reads or borrows a directory specialist: a contact's id says nothing about the
+     * {@code professionalSpecialists} row of the same number. A contact has no salutation or
+     * professional letters of its own, so none are shown. The address is the street (with the
+     * second line after a space), city, postal code, province and country that are present,
+     * separated by ", "; the phone is the work phone, then " ext " and the extension when there is
+     * one. A value the contact lacks is left empty, never the text "null", and no CPSO number is
+     * required (contacts a CDS import creates have none).
+     *
+     * @param contact the professional contact
+     * @return the consultant to print; never persisted
+     * @since 2026-11-13
+     */
+    public static ProfessionalSpecialist healthCareTeamConsultant(ProfessionalContact contact) {
+        var consultant = new ProfessionalSpecialist();
+        consultant.setFirstName(contact.getFirstName());
+        consultant.setLastName(contact.getLastName());
+        var address = new java.util.StringJoiner(", ");
+        String street = StringUtils.trimToEmpty(
+                StringUtils.trimToEmpty(contact.getAddress()) + " " + StringUtils.trimToEmpty(contact.getAddress2()));
+        for (String part : new String[] {
+                street, contact.getCity(), contact.getPostal(), contact.getProvince(), contact.getCountry()}) {
+            if (StringUtils.isNotBlank(part)) address.add(part.trim());
+        }
+        consultant.setStreetAddress(address.toString());
+        consultant.setPhoneNumber(workPhone(contact));
+        consultant.setFaxNumber(contact.getFax());
+        consultant.setEmailAddress(contact.getEmail());
+        consultant.setReferralNo(StringUtils.trimToNull(contact.getCpso()));
+        consultant.setSpecialtyType(contact.getSpecialty());
+        consultant.setPrivatePhoneNumber(contact.getResidencePhone());
+        consultant.setCellPhoneNumber(contact.getCellPhone());
+        return consultant;
+    }
+
+    /**
+     * Takes a professional contact's details into this directory specialist: the contact editor
+     * ({@code Contact2Action}, through {@code DemographicContactCreator}) edits a directory
+     * specialist this way when it is shown as a contact, and saves the result. The names, address,
+     * e-mail, phone, fax, CPSO number, specialty and private and cell phones become the contact's;
+     * the salutation, professional letters and everything else stay. The address keeps its five
+     * positions (street with its second line, city, postal code, province, country, each followed
+     * by ", "), which {@code DemographicContactCreator.buildContact} reads back. A missing work
+     * phone leaves the phone empty rather than storing the text "null", and a missing CPSO number
+     * leaves no referral number. A consultation letter uses {@link #healthCareTeamConsultant}.
+     *
+     * @param contact the contact form's values
+     * @since 2026-11-13
+     */
+    public void applyProfessionalContact(ProfessionalContact contact) {
+        String address = contact.getAddress();
+        String addressTwo = contact.getAddress2();
+        String postal = contact.getPostal();
+        String city = contact.getCity();
+        String province = contact.getProvince();
+        String country = contact.getCountry();
+
+        StringBuilder stringBuilder = new StringBuilder("");
+
+        if (address != null) {
+            stringBuilder.append(address.trim());
+        }
+
+        if (addressTwo != null) {
+            stringBuilder.append(" ");
+            stringBuilder.append(addressTwo.trim());
+
+        }
+        stringBuilder.append(", ");
+
+        if (city != null) {
+            stringBuilder.append(city.trim());
+
+        }
+        stringBuilder.append(", ");
+
+        if (postal != null) {
+            stringBuilder.append(postal.trim());
+        }
+        stringBuilder.append(", ");
+
+        if (province != null) {
+            stringBuilder.append(province.trim());
+        }
+        stringBuilder.append(", ");
+
+        if (country != null) {
+            stringBuilder.append(country.trim());
+        }
+
+        stringBuilder.append(", ");
+
+        setStreetAddress(stringBuilder.toString());
+        setFirstName(contact.getFirstName());
+        setLastName(contact.getLastName());
+        setEmailAddress(contact.getEmail());
+        setPhoneNumber(workPhone(contact));
+        setFaxNumber(contact.getFax());
+        setReferralNo(contact.getCpso() == null ? null : contact.getCpso().trim());
+        setSpecialtyType(contact.getSpecialty());
+        setPrivatePhoneNumber(contact.getResidencePhone());
+        setCellPhoneNumber(contact.getCellPhone());
+    }
+
+    /** The work phone with its extension, or null when the contact has no work phone. */
+    private static String workPhone(Contact contact) {
+        String phone = StringUtils.trimToNull(contact.getWorkPhone());
+        if (phone == null) return null;
+        String extension = StringUtils.trimToNull(contact.getWorkPhoneExtension());
+        return extension == null ? phone : phone + " ext " + extension;
     }
 
     public String getPrivatePhoneNumber() {
@@ -463,21 +588,35 @@ public class ProfessionalSpecialist extends AbstractModel<Integer> implements Se
         return (this.getFirstName() + " " + this.getLastName());
     }
 
+    /**
+     * Serializes components using the legacy comma-separated format and trailing delimiter.
+     * Embedded commas are removed and null components become empty fields so subsequent
+     * parsing and component edits cannot shift the postal, province or country positions.
+     *
+     * @param address String[] containing address components
+     */
     public void setStreetAddress(String[] address) {
-        String streetAddress = "";
-        for (String street : address) {
-            streetAddress += street;
+        String[] components = java.util.Arrays.stream(address)
+                .map(value -> value == null ? "" : value.replace(",", ""))
+                .toArray(String[]::new);
+        this.setStreetAddress(String.join(",", components) + ",");
+    }
+
+    private void setAddressComponent(int index, String value) {
+        // Hibernate can hydrate the stored field without calling its setter.
+        if (this.addressArray == null || this.addressArray.length < 5) {
+            setStreetAddress(this.streetAddress);
         }
-        this.setStreetAddress(streetAddress);
+        // The legacy storage format reserves commas as field delimiters.
+        this.addressArray[index] = value.replace(",", "");
+        setStreetAddress(this.addressArray);
     }
 
     @Override
     public void setAddress(String address) {
         if (address != null) {
             address = address.replaceAll(",", "").trim();
-            String[] addressArray = getAddressArray();
-            addressArray[0] = address + ",";
-            this.setStreetAddress(addressArray);
+            setAddressComponent(0, address);
         }
     }
 
@@ -500,9 +639,7 @@ public class ProfessionalSpecialist extends AbstractModel<Integer> implements Se
     public void setCity(String city) {
         if (city != null) {
             city = city.trim();
-            String[] addressArray = getAddressArray();
-            addressArray[1] = city + ",";
-            this.setStreetAddress(addressArray);
+            setAddressComponent(1, city);
         }
     }
 
@@ -519,9 +656,7 @@ public class ProfessionalSpecialist extends AbstractModel<Integer> implements Se
     public void setProvince(String province) {
         if (province != null) {
             province = province.trim();
-            String[] addressArray = getAddressArray();
-            addressArray[3] = province + ",";
-            this.setStreetAddress(addressArray);
+            setAddressComponent(3, province);
         }
     }
 
@@ -542,9 +677,7 @@ public class ProfessionalSpecialist extends AbstractModel<Integer> implements Se
     public void setPostal(String postal) {
         if (postal != null) {
             postal = postal.trim();
-            String[] addressArray = getAddressArray();
-            addressArray[2] = postal + ",";
-            this.setStreetAddress(addressArray);
+            setAddressComponent(2, postal);
         }
     }
 

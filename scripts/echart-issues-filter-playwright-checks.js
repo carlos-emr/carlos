@@ -1,65 +1,13 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 /*
- * Chart issues: assigning an issue to a note, listing it in the Issues module, filtering the notes by it,
- * getting every note back, resolving it, and the notes filter panel.
- *
- * WHY THIS CHECK EXISTS. A clinician uses an issue to gather the notes of one problem: the note is linked to a
- * patient issue (casemgmt_issue through casemgmt_issue_notes), the Issues module in the chart's right column
- * lists that issue, clicking it narrows the notes area to the notes linked to it, and the module's heading is
- * the way back to every note. Resolving the issue moves it from the Issues module to Resolved Issues. Nothing
- * else in the suite drives any of this: cpp-note-extension-archive and gap-clinical-cpp-boxes save CPP items
- * and read their link to the box's own issue, echart-navbar-modules only looks at the module headings.
- *
- * What the application does, read from the source before asserting:
- *   - Assign: the CPP item editor (the "+" of a CPP box) has an "Assign Issues" text box (#issueAutocompleteCPP,
- *     jQuery UI autocomplete on CaseManagementEntry?method=issueList). The main note editor's own controls
- *     (#issueAutocomplete, #asgnIssues) are driven by newCaseManagementView.js.jsp but no template renders them.
- *   - Issues module (EctDisplayIssues2Action): the patient's unresolved casemgmt_issue rows, minus the CPP
- *     codes. An item runs setIssueCheckbox(<casemgmt_issue.id>); filter(false), an ajax POST of
- *     CaseManagementEntry (method=edit, ajaxview) that replaces the notes area with the linked notes.
- *   - Heading: EctDisplayIssues2Action / EctDisplayResolvedIssues2Action give the heading the statement
- *     $('check_issue').value='';document.caseManagementViewForm.submit(), which LeftNavBarDisplay.jsp writes
- *     into an onclick through the javaScriptAttribute encoder.
- *   - Resolve: the note editor's "Reference Unresolved Issues" checklist (noteIssueList.jsp) holds the
- *     issue's Resolved radio; issueChange saves casemgmt_issue.resolved at once.
- *   - Filter panel: ChartNotes.jsp renders <div id="filter" style="display:none"> with the provider, role,
- *     sort and issue filters; showFilter() is its only revealer.
- *
- * THE CATALOG ISSUE. The brief names "issue 250"; the packaged catalog has no such issue (72 rows: the CPP and
- * system codes and the counsellor and CSW lists). The check assigns catalog row CTCMM1000 "Safety" (role
- * counsellor), which the chart's issue search offers the test provider, read by code so no id is hard-coded.
- *
- * ONE ENTRY PER DEFECT. A script stops at its first failing step, so one run cannot pin two defects. The
- * ECHART_ISSUES_PIN variable picks the entry (the manifest runs the script once per value):
- *   unset    The real assignment path, CPP editor > Assign Issues > Sign & Save. Pinned to finding 225: the box
- *            suggests the issue and takes the pick, and the save links the note to its own CPP issue only.
- *            The steps after the pin (module, filter, heading) are the same functions the seeded entries run.
- *   editor   The main note editor offers an Assign Issues search box and button. Pinned to finding 186.
- *   heading  A SEEDED link (see below), the Issues module lists the issue, clicking it lists only the linked
- *            note, then the heading brings every note back. Pinned to finding 226.
- *   resolve  A SEEDED link, the module lists the issue, then resolving: the clinician's way to the control is
- *            recorded, a control step proves the server side by revealing the hidden checklist with a script
- *            (resolved=1, Resolved Issues lists it, its item filters to the note), and the pin asserts that a
- *            clinician could reach the control. Pinned to finding 227.
- *   panel    A SEEDED link, the filter panel is in the page and closed, a clinician can open it. Pinned to
- *            finding 185.
- *   radios   A SEEDED link; with a FULL-rights login (the test provider) and the checklist revealed by a script, the
- *            Certain, Uncertain, Major and Not Major radios and the role box of the issue are enabled. Pinned to
- *            finding 261: noteIssueList.jsp writes disabled="${disabled}" for them in the unresolved list, which
- *            prints disabled="false", a boolean attribute, so they are disabled whatever the user's rights.
- *
- * SEEDED LINK. Findings 186 and 225 mean no UI route assigns an issue, so the entries that exercise what comes
- * after the assignment write the casemgmt_issue row and its casemgmt_issue_notes link with SQL. That is a
- * fixture, not a UI path, and its step says so. Everything after it is driven through the chart.
- *
- * Fixtures: the workflow's owned FAKE patient; two notes written through the chart's note editor (Sign & Save);
- * in the unset entry one CPP Social History item instead of the first note. Cleanup deletes, by the patient key,
- * every note (with its link, extension and issue rows), the patient's casemgmt_issue rows, the CPP summary, draft,
- * note lock and eChart row, and asserts them all gone. The catalog row is only read. No clinic-wide state changes.
- *
- * Expected: every step passes except the pinned one of each entry (see the manifest); a step named in an
- * expectedFailure contains only the assertion its finding breaks.
+ * Real chart issue assignments and note filters (#4586, #4560, #4587, #4559).
+ * Unset ECHART_ISSUES_PIN drives CPP assignment and form isolation. `editor` assigns to a new
+ * note and an edited saved note, reading the returned latest revision rather than assuming
+ * stable IDs. `heading` clicks both module headings after filtering. `panel` drives opening,
+ * hiding, filtering, and resetting. Existing `resolve` and `radios` pins cover separate defects.
+ * Seeded heading/panel fixtures isolate those controls from assignment failures. Every note,
+ * patient issue, link, extension, draft and lock belongs to the workflow's disposable patient.
  */
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
@@ -108,6 +56,9 @@ async function workflow(s) {
   const cppIssueId = sql.value("SELECT issue_id FROM issue WHERE code='SocHistory'");
   h.assert(/^\d+$/.test(issueId) && /^\d+$/.test(cppIssueId), 'The catalog issue ids are not numbers');
 
+  let producerIssue;
+  let producerTemplate;
+
   // ---- Fixtures --------------------------------------------------------------------------------
   s.cleanup(() => {
     // The patient is owned by this run, so everything below is the run's, deleted by the patient key.
@@ -133,6 +84,8 @@ async function workflow(s) {
       + (SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM eChart WHERE demographicNo=${patient})`) === '0',
     'Owned chart notes, issues, links, summary, drafts or locks were not removed');
+    if (producerIssue) sql.execute(`DELETE FROM issue WHERE issue_id=${producerIssue}`);
+    if (producerTemplate) sql.execute(`DELETE FROM encountertemplate WHERE encountertemplate_name=${q(producerTemplate)}`);
   });
 
   // ---- Database helpers ------------------------------------------------------------------------
@@ -230,8 +183,8 @@ async function workflow(s) {
       notes.a = (await writeSignedNote(`${marker} note alpha`)).id;
       notes.b = (await writeSignedNote(`${marker} note beta`)).id;
     });
-    // Findings 186 and 225: no UI route assigns the issue, so the link is written with SQL.
-    await s.step('(fixture) the issue is linked to the first note with SQL, because no UI route assigns it (findings 186 and 225)', async () => {
+    // Keep heading/filter checks independent of the assignment workflow.
+    await s.step('(fixture) the issue is linked to the first note with SQL to isolate filtering', async () => {
       const program = sql.value(`SELECT program_no FROM casemgmt_note WHERE note_id=${notes.a}`);
       h.assert(/^\d+$/.test(program), 'The first note has no program');
       const id = sql.value(`INSERT INTO casemgmt_issue (demographic_no, issue_id, acute, certain, major, resolved, program_id, type, update_date)
@@ -239,6 +192,10 @@ async function workflow(s) {
       h.assert(/^[1-9]\d*$/.test(id), 'The casemgmt_issue fixture was not created');
       sql.execute(`INSERT INTO casemgmt_issue_notes (id, note_id) VALUES (${id}, ${notes.a})`);
       h.assert(caseIssue(issueId, notes.a) !== null, 'The seeded link is not readable through casemgmt_issue_notes');
+      if (PIN === 'heading') {
+        // Distinct owned dates make retained ascending sort observable, independent of save timing.
+        sql.execute(`UPDATE casemgmt_note SET observation_date=CASE note_id WHEN ${notes.a} THEN '2026-08-01 10:00:00' ELSE '2026-08-02 10:00:00' END WHERE note_id IN (${notes.a},${notes.b}) AND demographic_no=${patient}`);
+      }
     });
   }
 
@@ -272,8 +229,8 @@ async function workflow(s) {
     });
   }
 
-  async function stepClickFilters() {
-    await s.step('clicking the issue in the Issues module lists only the linked note', async () => {
+  async function stepClickFilters(label = 'clicking the issue in the Issues module lists only the linked note') {
+    await s.step(label, async () => {
       const chart = await s.chart();
       const before = Number(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`));
       const filterPost = candidate => chartSaveRequest('edit')(candidate.request())
@@ -292,11 +249,61 @@ async function workflow(s) {
   }
 
   /** Click the Issues heading; the finding-226 pin when it is the last step of the heading entry. */
-  async function stepHeading() {
-    await s.step(STEP.heading, async () => {
+  async function stepHeading(module = 'unresolvedIssues') {
+    await s.step(module === 'unresolvedIssues' ? STEP.heading : 'clicking the Resolved Issues heading brings every note back', async () => {
       const chart = await s.chart();
-      await chart.locator('#unresolvedIssues .nav-menu-title a').first().click({ timeout: TIMEOUT });
-      await waitForListed(chart, [notes.a, notes.b], 'After the heading was clicked the notes area does not list every note', 8000);
+      if (PIN !== 'heading') {
+        await chart.locator(`#${module} .nav-menu-title button`).first().click({ timeout: TIMEOUT });
+        await waitForListed(chart, [notes.a, notes.b], 'After the heading was clicked the notes area does not list every note', 8000);
+        return;
+      }
+      const link = caseIssue(issueId, notes.a);
+      h.assert(link !== null && /^[1-9]\d*$/.test(link.id), 'The seeded issue link is missing before clearing its heading filter');
+      const [provider, role] = sql.rows(`SELECT provider_no, reporter_caisi_role FROM casemgmt_note WHERE note_id=${notes.a}`)[0];
+      h.assert(/^\d+$/.test(provider) && /^\d+$/.test(role), 'The note fixture has no provider/role filter values');
+      await chart.locator('#notesFilterToggle').click();
+      const retained = { filter_providers: provider, filter_roles: role, note_sort: 'observation_date_asc' };
+      for (const [name, value] of Object.entries(retained)) {
+        await chart.locator(`#filter input[name="${name}"][value="${value}"]`).check();
+      }
+      await chart.locator(`#filter input[name="issues"][value="${link.id}"]`).check();
+      // Exercise the legacy hidden constraint as well as the visible issue checkbox.
+      await chart.locator('#check_issue').evaluate((input, value) => { input.value = value; }, `${link.id}.${issueId}`);
+      const previousFilter = await chart.locator('#filter').elementHandle();
+      const [applied] = await Promise.all([
+        chart.waitForResponse(candidate => chartSaveRequest('edit')(candidate.request())
+          && new URLSearchParams(candidate.request().postData() || '').get('ajaxview') === 'ajaxView', { timeout: TIMEOUT }),
+        chart.locator('#filter input[type="button"][value="Hide"]').click(),
+      ]);
+      h.assert(applied.status() === 200, 'Applying provider/role/sort and issue filters failed');
+      await chart.waitForFunction(element => !element.isConnected, previousFilter, { timeout: TIMEOUT });
+      await previousFilter.dispose();
+      await waitForListed(chart, [notes.a], 'Applying the selected filters did not retain only the issue-linked note');
+      for (const [name, value] of Object.entries({...retained, issues: link.id})) {
+        h.assert(await chart.locator(`#filter input[name="${name}"][value="${value}"]`).isChecked(),
+          `Apply lost the selected ${name} before the heading was clicked`);
+      }
+      h.assert(await chart.locator('#check_issue').inputValue() === `${link.id}.${issueId}`,
+        'Apply lost the legacy issue constraint before the heading was clicked');
+      const [response] = await Promise.all([
+        chart.waitForResponse(candidate => chartSaveRequest('edit')(candidate.request())
+          && new URLSearchParams(candidate.request().postData() || '').get('ajaxview') === 'ajaxView', { timeout: TIMEOUT }),
+        chart.locator(`#${module} .nav-menu-title button`).first().click({ timeout: TIMEOUT }),
+      ]);
+      h.assert(response.status() === 200, 'Clearing the issue filter failed');
+      const data = new URLSearchParams(response.request().postData() || '');
+      h.assert(data.get('resetFilter') === 'false' && data.get('check_issue') === '' && !data.has('issues'),
+        'The heading did not clear both issue controls without resetting every filter');
+      for (const [name, value] of Object.entries(retained)) {
+        h.assert(data.get(name) === value, `The heading discarded the selected ${name}`);
+      }
+      await waitForListed(chart, [notes.a, notes.b], 'After the heading was clicked the notes area does not list both matching notes', 8000);
+      h.assert((await listedIds(chart)).join(',') === [notes.a, notes.b].join(','), 'The heading lost ascending note sort order');
+      const selected = await chart.locator('#filter input:checked').evaluateAll(inputs => inputs.map(input => ({name: input.name, value: input.value})));
+      const missing = Object.entries(retained).filter(([name, value]) => !selected.some(input => input.name === name && input.value === value)).map(([name]) => name);
+      h.assert(missing.length === 0, `The refreshed filter controls lost selections: ${missing.join(', ')}`);
+      h.assert(await chart.locator('#check_issue').inputValue() === '' && selected.every(input => input.name !== 'issues'),
+        'The refreshed filter controls retained an issue constraint');
     });
   }
 
@@ -313,10 +320,16 @@ async function workflow(s) {
       await chart.locator(CPP_DIALOG).waitFor({ state: 'visible', timeout: TIMEOUT });
       await chart.locator('#noteEditTxt').fill(cppText);
       h.assert(await chart.locator('#issueAutocompleteCPP').isVisible(), 'The CPP editor has no visible Assign Issues box');
-      const picked = await ui.typeAutocomplete(chart, '#issueAutocompleteCPP', issueName, {
-        option: issueName, hidden: '#newIssueId', timeout: TIMEOUT });
-      h.assert(picked === issueId, `Picking "${issueName}" registered issue ${picked}, expected ${issueId}`);
-      h.assert(await chart.locator('#issueAutocompleteCPP').inputValue() === issueName, 'The Assign Issues box does not show the picked issue');
+      const noteSelection = await chart.locator('#newIssueId').inputValue();
+      const noteName = await chart.locator('#newIssueName').inputValue();
+      await ui.typeAutocomplete(chart, '#issueAutocompleteCPP', issueName, { option: issueName, timeout: TIMEOUT });
+      const choice = chart.locator(`#frmIssueNotes input[name="issue_id"][value="${issueId}"]`);
+      h.assert(await choice.count() === 1 && await choice.isChecked(), 'The CPP pick did not create a checked issue_id control');
+      h.assert((await choice.locator('..').innerText()).includes(issueName), 'The CPP pick is not shown in the issue list');
+      await ui.typeAutocomplete(chart, '#issueAutocompleteCPP', issueName, { option: issueName, timeout: TIMEOUT });
+      h.assert(await choice.count() === 1, 'Picking the same issue twice duplicated the CPP assignment');
+      h.assert(await chart.locator('#newIssueId').inputValue() === noteSelection
+        && await chart.locator('#newIssueName').inputValue() === noteName, 'CPP selection contaminated the note form');
     });
 
     await s.step('(control) Sign & Save in the CPP editor saves the item and links it to its own CPP issue', async () => {
@@ -332,6 +345,9 @@ async function workflow(s) {
       await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_issue ci JOIN casemgmt_issue_notes cin ON cin.id=ci.id
         WHERE ci.demographic_no=${patient} AND ci.issue_id=${cppIssueId} AND cin.note_id=${notes.a}`, '1',
       'The CPP item is not linked to its own Social History issue');
+      // The CPP save queues a separate clinical-fragment reconciliation.
+      // Settle that request before the fixture releases the editor's lock.
+      await chart.waitForFunction(() => issueUpdatesPending === 0, null, { timeout: TIMEOUT });
       await leaveChart(chart);
     });
 
@@ -360,6 +376,342 @@ async function workflow(s) {
       const button = await chart.locator('#asgnIssues').first().isVisible();
       h.assert(box && button, `The note editor shows no way to search for an issue and assign it (search box ${box ? 'shown' : 'missing'}, Assign button ${button ? 'shown' : 'missing'})`);
     });
+    async function assignFromNote(chart) {
+      await chart.waitForFunction(() => issueUpdatesPending === 0, null, { timeout: TIMEOUT });
+      const cppBefore = await chart.locator('#frmIssueNotes input[name="issue_id"]').evaluateAll(inputs =>
+        inputs.map(input => [input.value, input.checked]));
+      const picked = await ui.typeAutocomplete(chart, '#issueAutocomplete', issueName, {
+        option: issueName, hidden: '#newIssueId', timeout: TIMEOUT });
+      h.assert(picked === issueId, 'The note search selected the wrong catalog issue');
+      const [response] = await Promise.all([
+        chart.waitForResponse(candidate => chartSaveRequest('makeIssue')(candidate.request()), { timeout: TIMEOUT }),
+        chart.locator('#asgnIssues').click(),
+      ]);
+      h.assert(response.status() === 200, `Assign answered HTTP ${response.status()}`);
+      await chart.waitForFunction(() => issueUpdatesPending === 0, null, { timeout: TIMEOUT });
+      h.assert(await chart.locator('#noteIssues input[name$=".checked"]:checked').count() === 1,
+        'Assign did not preserve the selected issue in the replacement note fragment');
+      h.assert(await chart.locator('#issueAutocomplete').isEnabled() && await chart.locator('#asgnIssues').isEnabled(),
+        'The replacement note fragment did not restore working issue controls');
+      const cppAfter = await chart.locator('#frmIssueNotes input[name="issue_id"]').evaluateAll(inputs =>
+        inputs.map(input => [input.value, input.checked]));
+      h.assert(JSON.stringify(cppBefore) === JSON.stringify(cppAfter), 'Note assignment contaminated the CPP form');
+    }
+    await s.step('a new note saves the issue selected through its own Assign control', async () => {
+      const chart = await s.chart();
+      const text = `${marker} assigned new note`;
+      await noteField(chart).fill(text);
+      await assignFromNote(chart);
+      await pressAndExit(chart, SIGN_SAVE);
+      notes.a = (await waitForNote(text, 'Assigned new note was not saved')).id;
+      h.assert(caseIssue(issueId, notes.a) !== null, 'The new note lost the assigned issue on save');
+    });
+    await s.step('a separate new note starts without the preceding note assignment', async () => {
+      notes.b = (await writeSignedNote(`${marker} plain note before edit`)).id;
+      h.assert(caseIssue(issueId, notes.b) === null, 'The new note inherited another note assignment');
+    });
+    await s.step('editing a saved note can assign an issue and saves it on the latest revision', async () => {
+      const chart = await s.chart();
+      const oldId = notes.b;
+      await chart.locator(`#edit${oldId}`).click({ timeout: TIMEOUT });
+      const editor = chart.locator(`#caseNote_note${oldId}`);
+      await editor.waitFor({ state: 'visible', timeout: TIMEOUT });
+      await chart.waitForFunction(() => issueUpdatesPending === 0, null, { timeout: TIMEOUT });
+      await editor.fill(`${await editor.inputValue()}\n${marker} assigned edited revision`);
+      await assignFromNote(chart);
+      await pressAndExit(chart, SIGN_SAVE);
+      notes.b = (await waitForNote(`${marker} assigned edited revision`, 'The edited note was not saved')).id;
+      h.assert(caseIssue(issueId, notes.b) !== null, 'The latest saved revision lost its assigned issue');
+      h.assert(caseIssue(issueId, oldId) === null, 'Assigning the edited note changed the prior revision');
+      const reopened = await s.chart();
+      await waitForListed(reopened, [notes.a, notes.b], 'The chart did not display the latest note revisions');
+      h.assert(await reopened.locator(`#edit${notes.b}`).count() === 1, 'The edit control does not address the latest saved note id');
+    });
+    await s.step('checkbox-only unresolved and resolved edits survive switching and reopening without changing note text or historical associations', async () => {
+      for (const resolved of [false, true]) {
+        let chart = await s.chart();
+        const oldId = notes.b;
+        const link = caseIssue(issueId, notes.a);
+        h.assert(link !== null, 'The owned patient issue disappeared');
+        if (resolved) {
+          // Seed a resolved choice independently of the resolution workflow.
+          await leaveChart(chart);
+          sql.execute(`UPDATE casemgmt_issue SET resolved=1 WHERE id=${link.id} AND demographic_no=${patient}`);
+          chart = await s.chart();
+        }
+        await chart.locator(`#edit${oldId}`).click({timeout: TIMEOUT});
+        await noteField(chart).waitFor({state: 'visible', timeout: TIMEOUT});
+        await chart.waitForFunction(() => issueUpdatesPending === 0, null, {timeout: TIMEOUT});
+        const originalText = await noteField(chart).inputValue();
+        const list = resolved ? '#noteIssues-resolved' : '#noteIssues-unresolved';
+        if (!(await chart.locator(list).isVisible())) {
+          await chart.locator('[aria-controls~="noteIssues-unresolved"]').click({timeout: TIMEOUT});
+        }
+        const checkbox = chart.locator(`${list} input[type="checkbox"][data-issue-id="${link.id}"]`);
+        await checkbox.waitFor({state: 'visible', timeout: TIMEOUT});
+        h.assert(await checkbox.isChecked() === !resolved, 'The reopened association differs from the stored revision');
+        await checkbox.setChecked(resolved);
+        const uuid = sql.value(`SELECT uuid FROM casemgmt_note WHERE note_id=${oldId} AND demographic_no=${patient}`);
+        let response;
+        const dialogs = await h.withExpectedDialogs(chart, async () => {
+          [response] = await Promise.all([
+            chart.waitForResponse(candidate => chartSaveRequest('ajaxsave')(candidate.request()), {timeout: TIMEOUT}),
+            chart.locator('#newNoteImg').click({timeout: TIMEOUT}),
+          ]);
+        });
+        h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm' && /save/i.test(dialogs[0].text),
+          'Checklist-only switching did not offer exactly one save confirmation');
+        h.assert(response.status() === 200, `Checkbox-only switch answered HTTP ${response.status()}`);
+        await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}
+          AND uuid=${q(uuid)} AND note_id>${oldId}`, '1', 'Checkbox-only switching did not save one new revision');
+        notes.b = sql.value(`SELECT MAX(note_id) FROM casemgmt_note WHERE demographic_no=${patient} AND uuid=${q(uuid)}`);
+        h.assert((caseIssue(issueId, notes.b) !== null) === resolved, 'The latest revision lost the checkbox-only change');
+        h.assert((caseIssue(issueId, oldId) !== null) === !resolved, 'The checkbox edit rewrote an immutable prior association');
+        await chart.locator(`#edit${notes.b}`).click({timeout: TIMEOUT});
+        await noteField(chart).waitFor({state: 'visible', timeout: TIMEOUT});
+        await chart.waitForFunction(() => issueUpdatesPending === 0, null, {timeout: TIMEOUT});
+        h.assert(await noteField(chart).inputValue() === originalText, 'The checkbox-only edit changed the clinical text');
+        if (!(await chart.locator(list).isVisible())) {
+          await chart.locator('[aria-controls~="noteIssues-unresolved"]').click({timeout: TIMEOUT});
+        }
+        const reopenedChoice = chart.locator(`${list} input[type="checkbox"][data-issue-id="${link.id}"]`);
+        await reopenedChoice.waitFor({state: 'visible', timeout: TIMEOUT});
+        h.assert(await reopenedChoice.isChecked() === resolved, 'Reopening did not retain the saved issue selection');
+      }
+    });
+    await s.step('status refresh and Save-time reconciliation preserve unsaved issue, encounter type and date changes in the stored revision', async () => {
+      for (const failStatus of [false, true]) {
+        const chart = await s.chart();
+        const oldId = notes.b;
+        const link = caseIssue(issueId, notes.a);
+        if (await chart.locator(`#n${oldId} textarea[name="caseNote_note"]`).count() === 0) {
+          await chart.locator(`#edit${oldId}`).click({timeout: TIMEOUT});
+        }
+        await noteField(chart).waitFor({state: 'visible', timeout: TIMEOUT});
+        await chart.waitForFunction(() => issueUpdatesPending === 0, null, {timeout: TIMEOUT});
+        if (!(await chart.locator('#noteIssues-resolved').isVisible())) {
+          await chart.locator('[aria-controls~="noteIssues-unresolved"]').click({timeout: TIMEOUT});
+        }
+        const checkbox = chart.locator(`#noteIssues input[data-issue-id="${link.id}"]`);
+        const desiredSelection = !(await checkbox.isChecked());
+        await checkbox.setChecked(desiredSelection);
+        const priorType = await chart.locator('select.encTypeCombo').inputValue();
+        const encounterType = priorType === 'telephone encounter with client' ? 'email encounter with client' : 'telephone encounter with client';
+        await chart.locator('input.encTypeCombo[id$="_combo"]').click({timeout: TIMEOUT});
+        await chart.locator(`div[id$="_options"] li[data-value="${encounterType}"]`).click({timeout: TIMEOUT});
+        const date = failStatus ? '08-Nov-2026 10:23' : '09-Nov-2026 09:21';
+        await chart.locator('#observationDate').evaluate((input, value) => {
+          input.value = value;
+          input.dispatchEvent(new Event('change', {bubbles: true}));
+        }, date);
+        const radio = checkbox.locator('..').locator(`input[name$=".issue.acute"][value="${!failStatus}"]`);
+        if (!(await radio.isVisible())) await checkbox.locator('..').locator('a').first().click({timeout: TIMEOUT});
+        let failedUrl;
+        const failUpdate = async route => {
+          if (chartSaveRequest('issueChange')(route.request())) {
+            failedUrl = route.request().url();
+            await route.fulfill({status: 503, contentType: 'text/plain', body: 'Synthetic owned status failure'});
+          } else await route.continue();
+        };
+        if (failStatus) await chart.route('**/CaseManagementEntry*', failUpdate);
+        try {
+          const dialogs = await h.withExpectedDialogs(chart, async () => {
+            await radio.check({timeout: TIMEOUT});
+            await chart.waitForFunction(() => issueUpdatesPending === 0, null, {timeout: TIMEOUT});
+          });
+          h.assert(dialogs.length === (failStatus ? 1 : 0), 'The status action reported an unexpected failure');
+        } finally {
+          if (failStatus) await chart.unroute('**/CaseManagementEntry*', failUpdate);
+        }
+        if (failStatus) {
+          const expected = s.recorder.badResponses.filter(entry => entry.status === 503 && entry.method === 'POST' && entry.url === failedUrl);
+          h.assert(expected.length === 1, 'The status failure did not record exactly one owned HTTP 503');
+          s.recorder.badResponses.splice(s.recorder.badResponses.indexOf(expected[0]), 1);
+          for (let i = s.recorder.consoleIssues.length - 1; i >= 0; i--) {
+            const entry = s.recorder.consoleIssues[i];
+            if (entry.type === 'error' && entry.location?.url === failedUrl
+                && /^Failed to load resource: the server responded with a status of 503 \(/.test(entry.text)) s.recorder.consoleIssues.splice(i, 1);
+          }
+        }
+        h.assert(await checkbox.isChecked() === desiredSelection, 'Status refresh reset the unsaved issue checkbox');
+        h.assert(await chart.locator('select.encTypeCombo').inputValue() === encounterType, 'Status refresh reset the unsaved encounter type');
+        h.assert(await chart.locator('#observationDate').inputValue() === date, 'Status refresh reset the unsaved date');
+        const uuid = sql.value(`SELECT uuid FROM casemgmt_note WHERE note_id=${oldId} AND demographic_no=${patient}`);
+        // Complete the explicit Sign & Save and close before the next case.
+        // Each failure case then starts in a settled editor, independently of
+        // asynchronous lock release from a preceding note-switch operation.
+        const dialogs = await h.withExpectedDialogs(chart, async () => {
+          await pressAndExit(chart, SIGN_SAVE);
+        });
+        h.assert(dialogs.length === 0, 'Explicit Sign & Save reported an unexpected refusal');
+        await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient} AND uuid=${q(uuid)} AND note_id>${oldId}`, '1', 'Reconciliation did not create exactly one revision');
+        notes.b = sql.value(`SELECT MAX(note_id) FROM casemgmt_note WHERE demographic_no=${patient} AND uuid=${q(uuid)}`);
+        h.assert(sql.value(`SELECT encounter_type FROM casemgmt_note WHERE note_id=${notes.b} AND demographic_no=${patient}`) === encounterType,
+          'The stored revision lost the unsaved encounter type');
+        const expectedDate = failStatus ? '2026-11-08 10:23' : '2026-11-09 09:21';
+        h.assert(sql.value(`SELECT DATE_FORMAT(observation_date,'%Y-%m-%d %H:%i') FROM casemgmt_note WHERE note_id=${notes.b} AND demographic_no=${patient}`) === expectedDate,
+          'The stored revision lost the unsaved observation date');
+        h.assert((caseIssue(issueId, notes.b) !== null) === desiredSelection, 'The stored revision lost the unsaved association');
+        h.assert(sql.value(`SELECT encounter_type FROM casemgmt_note WHERE note_id=${oldId} AND demographic_no=${patient}`) === priorType,
+          'The status/reconciliation workflow rewrote historical clinical fields');
+      }
+      const chart = await s.chart();
+      if (await chart.locator(`#n${notes.b} textarea[name="caseNote_note"]`).count() === 0) {
+        await chart.locator(`#edit${notes.b}`).click({timeout: TIMEOUT});
+      }
+      await noteField(chart).waitFor({state: 'visible', timeout: TIMEOUT});
+      await chart.waitForFunction(() => issueUpdatesPending === 0, null, {timeout: TIMEOUT});
+    });
+    await s.step('an encounter-type-only edit survives a failed full-chart refresh and retries without another revision', async () => {
+      const chart = await s.chart();
+      const oldId = notes.b;
+      const uuid = sql.value(`SELECT uuid FROM casemgmt_note WHERE note_id=${oldId} AND demographic_no=${patient}`);
+      const text = await noteField(chart).inputValue();
+      await chart.locator(`#print${oldId}`).click({timeout: TIMEOUT});
+      const priorType = await chart.locator('select.encTypeCombo').inputValue();
+      const encounterType = priorType === 'telephone encounter with client'
+        ? 'email encounter with client' : 'telephone encounter with client';
+      // SelectBox exposes a text/dropdown control and hides the backing select.
+      await chart.locator('input.encTypeCombo[id$="_combo"]').click({timeout: TIMEOUT});
+      await chart.locator(`div[id$="_options"] li[data-value="${encounterType}"]`).click({timeout: TIMEOUT});
+      const controls = await chart.locator('#observationDate, select.encTypeCombo, #noteIssues input[type="checkbox"]')
+        .evaluateAll(fields => fields.map(field => [field.name, field.value, field.checked]));
+      let failedUrl;
+      const failChart = route => {
+        if (!chartSaveRequest('edit')(route.request())) return route.continue();
+        failedUrl = route.request().url();
+        return route.fulfill({status: 503, contentType: 'text/plain', body: 'temporary chart failure'});
+      };
+      await chart.route('**/CaseManagementEntry*', failChart);
+      try {
+        const dialogs = await h.withExpectedDialogs(chart, async () => {
+          await Promise.all([
+            chart.waitForResponse(response => chartSaveRequest('edit')(response.request()) && response.status() === 503, {timeout: TIMEOUT}),
+            // Exercise the clinician-visible chart toggle against the real save response.
+            chart.locator('#quickChart').click({timeout: TIMEOUT}),
+          ]);
+        });
+        h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Dirty chart navigation did not confirm saving once');
+        await chart.waitForFunction(() => !noteSwitchSavePending, null, {timeout: TIMEOUT});
+        h.assert(await noteField(chart).inputValue() === text && await noteField(chart).isEnabled(),
+          'The failed chart refresh lost or disabled the saved editor');
+        const after = await chart.locator('#observationDate, select.encTypeCombo, #noteIssues input[type="checkbox"]')
+          .evaluateAll(fields => fields.map(field => [field.name, field.value, field.checked]));
+        h.assert(JSON.stringify(after) === JSON.stringify(controls), 'The failed chart refresh lost encounter or issue controls');
+        h.assert(await chart.locator('#issueAutocomplete').isEnabled(), 'The failed refresh lost issue assignment');
+        notes.b = sql.value(`SELECT MAX(note_id) FROM casemgmt_note WHERE demographic_no=${patient} AND uuid=${q(uuid)}`);
+        h.assert(notes.b !== oldId, 'Dirty chart navigation did not save the note revision');
+        h.assert(sql.value(`SELECT encounter_type FROM casemgmt_note WHERE note_id=${notes.b} AND demographic_no=${patient}`) === encounterType,
+          'The encounter-type-only edit was not stored');
+        h.assert(sql.value(`SELECT encounter_type FROM casemgmt_note WHERE note_id=${oldId} AND demographic_no=${patient}`) === priorType,
+          'The encounter type edit rewrote the prior revision');
+        h.assert(await noteField(chart).getAttribute('id') === `caseNote_note${notes.b}`, 'The editor retained a stale revision identity');
+        h.assert(await chart.locator(`#print${notes.b}`).getAttribute('aria-pressed') === 'false',
+          'The new revision inherited the previous revision\'s Print selection');
+        const queueBefore = await chart.locator('#notes2print').inputValue();
+        await chart.locator(`#print${notes.b}`).click({timeout: TIMEOUT});
+        const queued = (await chart.locator('#notes2print').inputValue()).split(',');
+        h.assert(queued.includes(notes.b) && queued.includes(oldId) === queueBefore.split(',').includes(oldId),
+          'The preserved Print control did not queue the committed revision');
+        h.assert(await chart.locator(`#print${notes.b}`).getAttribute('aria-pressed') === 'true', 'Print selection was not announced');
+        await chart.locator(`#print${notes.b}`).focus();
+        await chart.locator(`#print${notes.b}`).press('Space');
+        h.assert(await chart.locator('#notes2print').inputValue() === queueBefore, 'Print selection did not restore its original queue');
+        h.assert(await chart.locator(`#print${notes.b}`).getAttribute('aria-pressed') === 'false', 'Keyboard deselection was not announced');
+        await chart.locator(`#print${notes.b}`).press('Enter');
+        h.assert((await chart.locator('#notes2print').inputValue()).split(',').includes(notes.b)
+          && await chart.locator(`#print${notes.b}`).getAttribute('aria-pressed') === 'true', 'Enter did not select the committed revision');
+        await chart.locator(`#print${notes.b}`).press('Enter');
+        h.assert(await chart.locator('#notes2print').inputValue() === queueBefore
+          && await chart.locator(`#print${notes.b}`).getAttribute('aria-pressed') === 'false', 'Enter did not restore the original queue');
+      } finally {
+        await chart.unroute('**/CaseManagementEntry*', failChart);
+      }
+      let retryParameters;
+      const dialogs = await h.withExpectedDialogs(chart, async () => {
+        await Promise.all([
+          chart.waitForResponse(response => chartSaveRequest('edit')(response.request()) && response.status() === 200, {timeout: TIMEOUT})
+            .then(response => { retryParameters = new URLSearchParams(response.request().postData()); return response; }),
+          chart.locator('#quickChart').click({timeout: TIMEOUT}),
+        ]);
+      });
+      h.assert(dialogs.length === 0, 'Retrying the chart tried to save the acknowledged note again');
+      await chart.waitForFunction(() => !noteSwitchSavePending, null, {timeout: TIMEOUT});
+      await chart.waitForFunction(() => {
+        const form = document.forms.caseManagementEntryForm;
+        const editor = document.getElementById(caseNote);
+        return editor && form.noteId.value === String(Number(editor.parentNode.id.slice(1)));
+      }, null, {timeout: TIMEOUT});
+      h.assert(await chart.locator('#encMainDiv').getAttribute('data-chart-patient') === patient,
+        'Chart retry did not load the expected patient');
+      await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}
+        AND uuid=${q(uuid)} AND note_id>${oldId}`, '1', 'Chart retry duplicated the saved revision');
+      const currentEditor = await chart.evaluate(() => document.forms.caseManagementEntryForm.noteId.value);
+      const remainingLocks = sql.rows(`SELECT note_id FROM casemgmt_note_lock WHERE demographic_no=${patient}`).map(([id]) => id);
+      h.assert(remainingLocks.length === 1 && remainingLocks.every(id => id === currentEditor),
+        `Chart retry retained stale locks: current=${currentEditor}, locks=${remainingLocks.join(',')}, previous=${retryParameters.get('previousNoteId')}`);
+      // Consume only the single response deliberately injected by this step.
+      // All other HTTP, console, script and cleanup failures remain strict.
+      const expected = s.recorder.badResponses.filter(entry => entry.status === 503 && entry.method === 'POST' && entry.url === failedUrl);
+      h.assert(expected.length === 1, 'The full-chart failure control did not record exactly one injected HTTP 503');
+      s.recorder.badResponses.splice(s.recorder.badResponses.indexOf(expected[0]), 1);
+      for (let i = s.recorder.consoleIssues.length - 1; i >= 0; i--) {
+        const entry = s.recorder.consoleIssues[i];
+        if (entry.type === 'error' && entry.location?.url === failedUrl
+            && /^Failed to load resource: the server responded with a status of 503 \(/.test(entry.text)) {
+          s.recorder.consoleIssues.splice(i, 1);
+        }
+      }
+    });
+    await s.step('rendered JSP producers preserve hostile template names and CPP issue components through their JavaScript consumers', async () => {
+      let chart = await s.chart();
+      await leaveChart(chart);
+      const templateName = `${marker.slice(-16)} Patient's A&B + ü;%20`;
+      const templateBody = `${marker} encoded template body`;
+      h.assert(sql.value(`SELECT COUNT(*) FROM encountertemplate WHERE encountertemplate_name=${q(templateName)}`) === '0',
+        'The template producer fixture name is already in use');
+      sql.execute(`INSERT INTO encountertemplate (encountertemplate_name,createdatetime,encountertemplate_value,creator)
+        VALUES (${q(templateName)},NOW(),${q(templateBody)},${q(s.provider)})`);
+      producerTemplate = templateName;
+      const description = `${marker} Patient's; Other Meds %20 <b>ü</b>`;
+      producerIssue = sql.value(`INSERT INTO issue (code,description,role,update_date,type,sortOrderId)
+        VALUES ('A;B %20',${q(description)},${q(issueRole)},NOW(),'custom',0); SELECT LAST_INSERT_ID()`);
+      h.assert(/^[1-9]\d*$/.test(producerIssue), 'The owned issue producer fixture was not created');
+      chart = await s.chart();
+      h.assert(await chart.evaluate(name => typeof autoCompleted[name] === 'function', producerTemplate),
+        'ChartNotesAjax.jsp truncated or changed the template registration');
+      const [templateResponse] = await Promise.all([
+        chart.waitForResponse(response => /\/encounter\/InsertTemplate(?:\?|$)/.test(response.url()), {timeout: TIMEOUT}),
+        ui.typeAutocomplete(chart, '#enTemplate', producerTemplate, {
+          menu: '#enTemplate_list:visible', option: producerTemplate, timeout: TIMEOUT,
+        }),
+      ]);
+      h.assert(templateResponse.status() === 200, 'The encoded template consumer did not load the template');
+      h.assert(new URLSearchParams(templateResponse.request().postData()).get('templateName') === producerTemplate,
+        'The consumer did not submit the complete JSP-produced template name');
+      await chart.waitForFunction(body => document.querySelector('textarea[name="caseNote_note"]').value.includes(body), templateBody, {timeout: TIMEOUT});
+      // This test deliberately discards its own unsaved template insertion.
+      await noteField(chart).fill(await chart.evaluate(() => origCaseNote));
+      await chart.locator(CPP_PLUS).first().click({timeout: TIMEOUT});
+      await chart.locator(CPP_DIALOG).waitFor({state: 'visible', timeout: TIMEOUT});
+      const cppText = `${marker} producer CPP item`;
+      await chart.locator('#noteEditTxt').fill(cppText);
+      await ui.typeAutocomplete(chart, '#issueAutocompleteCPP', marker, {option: description, timeout: TIMEOUT});
+      const arrived = chart.waitForResponse(response => /method=issueNoteSave/.test(response.url()) && response.request().method() === 'POST', {timeout: TIMEOUT});
+      await chart.locator(`${CPP_DIALOG} input[type="image"][title="Sign & Save"]`).click({timeout: TIMEOUT});
+      const cppResponse = await arrived;
+      h.assert(cppResponse.status() >= 200 && cppResponse.status() < 400,
+        `The owned CPP item answered HTTP ${cppResponse.status()}`);
+      await chart.locator(CPP_DIALOG).waitFor({state: 'hidden', timeout: TIMEOUT});
+      await chart.waitForFunction(() => issueUpdatesPending === 0, null, {timeout: TIMEOUT});
+      const cppId = (await waitForNote(cppText, 'The producer CPP item was not stored')).id;
+      await chart.locator(`#listNote${cppId}`).click({timeout: TIMEOUT});
+      await chart.locator(CPP_DIALOG).waitFor({state: 'visible', timeout: TIMEOUT});
+      const choice = chart.locator(`#frmIssueNotes input[name="issue_id"][value="${producerIssue}"]`);
+      h.assert(await choice.count() === 1 && await choice.isChecked(), 'viewNotes.jsp lost the encoded issue association');
+      h.assert((await choice.locator('..').innerText()).includes(description), 'The CPP consumer changed delimiters, percent escapes or markup-like text');
+      h.assert(await choice.locator('..').locator('b').count() === 0, 'The CPP consumer interpreted the description as markup');
+    });
     return;
   }
 
@@ -372,6 +724,18 @@ async function workflow(s) {
     await stepClickFilters();
     // Finding 226. The click is the behaviour under test: the heading's handler is a syntax error, so nothing changes.
     await stepHeading();
+    await stepClickFilters('after filter restoration, the sidebar issue still narrows the list to its linked note');
+    await s.step('(fixture) resolving the owned issue exposes its Resolved Issues module link', async () => {
+      const chart = await s.chart();
+      await leaveChart(chart);
+      const link = caseIssue(issueId, notes.a);
+      h.assert(link !== null && /^[1-9]\d*$/.test(link.id), 'The seeded issue link is missing before resolving it');
+      sql.execute(`UPDATE casemgmt_issue SET resolved=1 WHERE id=${link.id} AND demographic_no=${patient}`);
+      const reopened = await s.chart();
+      await reopened.locator('#resolvedIssueslist a.links').first().click({ timeout: TIMEOUT });
+      await waitForListed(reopened, [notes.a], 'The resolved issue did not filter to its linked note');
+    });
+    await stepHeading('resolvedIssues');
     return;
   }
 
@@ -384,13 +748,13 @@ async function workflow(s) {
       reachable.checklistRows = await chart.locator('#noteIssues-unresolved a[onclick^="return displayIssue"]').count();
       h.assert(reachable.checklistRows === 1, `The note editor's unresolved checklist holds ${reachable.checklistRows} issues, expected the one assigned`);
       reachable.shown = await chart.locator('#noteIssues-unresolved').isVisible();
-      // A visible control in the editor that names issues is the only way a clinician could open it: find them
-      // (tagged so the click below can address one) and, when the checklist is closed, press the first.
+      // Find the accessible control for this exact checklist. Assignment and issue
+      // description links have different destinations and are not toggle controls.
       reachable.togglers = await chart.evaluate(() => {
         const editor = document.querySelector('#noteIssues').closest('div[id^="nc"]') || document.body;
-        const found = [...editor.querySelectorAll('a, button, input[type="button"], input[type="image"], input[type="submit"], img[onclick]')]
-          .filter(el => !el.closest('#noteIssues') && el.getClientRects().length > 0
-            && /issue/i.test(`${el.textContent} ${el.title} ${el.alt} ${el.value}`));
+        const found = [...editor.querySelectorAll('[aria-controls]')]
+          .filter(el => el.getClientRects().length > 0
+            && el.getAttribute('aria-controls').split(/\s+/).includes('noteIssues-unresolved'));
         found.forEach((el, index) => el.setAttribute('data-pw-issue-toggler', String(index)));
         return found.map(el => el.outerHTML.slice(0, 120));
       });
@@ -400,11 +764,12 @@ async function workflow(s) {
       }
     });
 
-    await s.step('(control, not a clinician path) with the checklist revealed by a script, choosing Resolved sets resolved=1 and the Resolved Issues module lists the issue', async () => {
+    await s.step('(control) choosing Resolved sets resolved=1 and the Resolved Issues module lists the issue', async () => {
       const chart = await s.chart();
       const link = caseIssue(issueId, notes.a);
-      // A script reveals what no control reveals; this proves the server side, it does not reach the code a clinician uses.
-      await chart.evaluate(() => { document.getElementById('noteIssues-unresolved').style.display = 'block'; });
+      // Retain the old-build control for this finding, but use the clinician's
+      // toggle on builds where it works; never replace that successful path.
+      if (!reachable.shown) await chart.evaluate(() => { document.getElementById('noteIssues-unresolved').style.display = 'block'; });
       await chart.locator('#noteIssues-unresolved a[onclick^="return displayIssue"]').click({ timeout: TIMEOUT });
       const radio = chart.locator('#noteIssues-unresolved input[type="radio"][name$=".issue.resolved"][value="true"]');
       await radio.waitFor({ state: 'visible', timeout: TIMEOUT });
@@ -505,6 +870,36 @@ async function workflow(s) {
     h.assert(named.length > 0, 'No visible control in the chart is labelled Filter, so a clinician has no way to open the notes filter panel');
     await chart.locator('[data-pw-filter-opener="0"]').click({ timeout: TIMEOUT });
     h.assert(await chart.locator('#filter').isVisible(), `Clicking the Filter control (${named[0]}) did not open the notes filter panel`);
+    h.assert(await chart.locator('#notesFilterToggle').getAttribute('aria-expanded') === 'true', 'Filter expansion is not announced');
+  });
+  await s.step('the filter can hide and reopen, apply an issue selection, and reset to every note', async () => {
+    const chart = await s.chart();
+    const link = caseIssue(issueId, notes.a);
+    await chart.locator('#notesFilterToggle').click();
+    h.assert(!(await chart.locator('#filter').isVisible()), 'Filter toggle did not hide the panel');
+    await chart.locator('#notesFilterToggle').click();
+    await chart.locator(`#filter input[name="issues"][value="${link.id}"]`).check();
+    const [response] = await Promise.all([
+      chart.waitForResponse(candidate => chartSaveRequest('edit')(candidate.request()), { timeout: TIMEOUT }),
+      chart.locator('#filter input[type="button"][value="Hide"]').click(),
+    ]);
+    h.assert(response.status() === 200, 'Applying the filter failed');
+    await waitForListed(chart, [notes.a], 'The filter did not restrict the list to the linked note');
+    h.assert(!(await chart.locator('#filter').isVisible()), 'The applied filter panel did not close');
+    await chart.locator('#notesFilterToggle').click();
+    await chart.locator(`#filter input[name="issues"][value="${link.id}"]`).check();
+    await chart.locator('#filter input[name="note_sort"]').first().check();
+    const [reset] = await Promise.all([
+      chart.waitForRequest(chartSaveRequest('edit'), { timeout: TIMEOUT }),
+      chart.locator('#filter input[type="button"][onclick="return filter(true);"]').click(),
+    ]);
+    const data = new URLSearchParams(reset.postData() || '');
+    h.assert(data.get('resetFilter') === 'true' && !data.has('issues') && !data.has('note_sort'),
+      'Reset submitted selected issue or sort filters');
+    await waitForListed(chart, [notes.a, notes.b], 'Reset did not restore every note');
+    await chart.locator('#notesFilterToggle').click();
+    h.assert(await chart.locator('#filter').isVisible(), 'The replacement filter panel cannot reopen');
+    h.assert(await chart.locator('#filter input:checked').count() === 0, 'Reset left selected filters behind');
   });
 }
 

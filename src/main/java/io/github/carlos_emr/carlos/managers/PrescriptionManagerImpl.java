@@ -46,6 +46,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.providers.data.ProSignatureData;
+import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
 import io.github.carlos_emr.carlos.prescript.data.UniqueMedicationList;
@@ -225,29 +226,11 @@ public class PrescriptionManagerImpl implements PrescriptionManager {
 
         ProSignatureData sig = new ProSignatureData();
 
-        boolean hasSig = sig.hasSignature(info.getLoggedInProviderNo());
+        String doctorName = sig.hasSignature(info.getLoggedInProviderNo())
+                ? sig.getSignature(info.getLoggedInProviderNo()) : null;
 
-        String doctorName;
-
-        if (hasSig) {
-            doctorName = sig.getSignature(info.getLoggedInProviderNo());
-        } else {
-            doctorName = provider.getFirstName() + ' ' + provider.getSurname();
-        }
-
-        textView.append(doctorName + "\n");
-        textView.append(provider.getClinicName() + "\n");
-        textView.append(provider.getClinicAddress() + "\n");
-        textView.append(provider.getClinicCity() + "\n");
-        textView.append(provider.getClinicPostal() + "\n");
-        textView.append(provider.getClinicPhone() + "\n");
-        textView.append(provider.getClinicFax() + "\n");
-        textView.append(patient.getFirstName() + " " + patient.getSurname() + "\n");
-        textView.append(patient.getAddress() + "\n");
-        textView.append(patient.getCity() + " " + patient.getPostal() + "\n");
-        textView.append(patient.getPhone() + "\n");
-        textView.append(RxUtil.DateToString(
-                RxUtil.Today(), "MMMM d, yyyy") + "\n");
+        // Shared with the Rx page's saves, so a missing address or phone is an empty line, not "null".
+        textView.append(RxPrescriptionData.textViewHeader(doctorName, provider, patient, RxUtil.Today()));
 
         String drugTxt;
         for (Drug d : drugs) {

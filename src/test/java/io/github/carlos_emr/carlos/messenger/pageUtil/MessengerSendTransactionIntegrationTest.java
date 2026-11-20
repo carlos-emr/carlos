@@ -66,7 +66,9 @@ class MessengerSendTransactionIntegrationTest extends CarlosTestBase {
         MsgSessionBean draft = new MsgSessionBean();
         draft.setProviderNo("999998");
         draft.setUserName("Owned sender");
-        draft.setAttachment("owned attachment");
+        String attachmentKey = MsgAttachmentStaging.newKey();
+        request.setParameter(MsgAttachmentStaging.KEY_PARAMETER, attachmentKey);
+        MsgAttachmentStaging.stageItems(request.getSession(), attachmentKey, "owned attachment");
         draft.setSubject(marker);
         draft.setMessage("Owned body");
         request.getSession().setAttribute("msgSessionBean", draft);
@@ -141,7 +143,10 @@ class MessengerSendTransactionIntegrationTest extends CarlosTestBase {
             loggedIn.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(login);
 
             String result = send(marker);
-            assertThat(draft.getAttachment()).isEqualTo("owned attachment");
+            if (!"afterCommit".equals(failure)) {
+                assertThat(MsgAttachmentStaging.peek(request.getSession(), attachmentKey).itemAttachment())
+                        .isEqualTo("owned attachment");
+            }
             assertThat(draft.getMessage()).isEqualTo("Owned body");
             if ("afterCommit".equals(failure)) {
                 assertThat(result).isEqualTo("conflict");
@@ -155,7 +160,7 @@ class MessengerSendTransactionIntegrationTest extends CarlosTestBase {
                 fail.set(false);
                 response.reset();
                 assertThat(send(marker)).isEqualTo("success");
-                assertThat(draft.getAttachment()).isNull();
+                assertThat(MsgAttachmentStaging.peek(request.getSession(), attachmentKey)).isNull();
                 assertRows(ownedIds, 1);
             }
             fail.set(false);
@@ -180,6 +185,8 @@ class MessengerSendTransactionIntegrationTest extends CarlosTestBase {
         action.setSubject(subject);
         action.setMessage("Owned body");
         action.setProvider(new String[]{"999997-0"});
+        action.setAttachmentKey(org.apache.struts2.ServletActionContext.getRequest()
+                .getParameter(MsgAttachmentStaging.KEY_PARAMETER));
         action.setDemographic_no("893100");
         return action.execute();
     }

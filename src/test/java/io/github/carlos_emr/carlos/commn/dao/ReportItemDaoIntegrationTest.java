@@ -24,6 +24,9 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.ReportItem;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.report.data.RptReportItem;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -52,6 +55,9 @@ public class ReportItemDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private ReportItemDao reportItemDao;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
 
     @Nested
     @DisplayName("CRUD operations")
@@ -94,4 +100,40 @@ public class ReportItemDaoIntegrationTest extends CarlosTestBase {
             assertThat(count).isEqualTo(1);
         }
     }
+
+    @Test
+    void shouldFilterStatusesAndOrderIdentifiers_forReportLists() {
+        ReportItem first = new ReportItem();
+        first.setReportName("typed-report-first"); first.setStatus(1); reportItemDao.persist(first);
+        ReportItem deleted = new ReportItem();
+        deleted.setReportName("typed-report-deleted"); deleted.setStatus(0); reportItemDao.persist(deleted);
+        ReportItem last = new ReportItem();
+        last.setReportName("typed-report-last"); last.setStatus(1); reportItemDao.persist(last);
+        assertThat(reportItemDao.findByStatus(1)).extracting(ReportItem::getId)
+                .containsSubsequence(first.getId(), last.getId()).doesNotContain(deleted.getId());
+        assertThat(reportItemDao.findByStatus(0)).extracting(ReportItem::getId)
+                .contains(deleted.getId()).doesNotContain(first.getId(), last.getId());
+    }
+
+    @Test
+    void shouldReadReportName_forLegacyNullStatus() throws Exception {
+        ReportItem item = new ReportItem();
+        item.setReportName("typed-report-null-status");
+        item.setStatus(1);
+        reportItemDao.persist(item);
+        entityManager.flush();
+        entityManager.createNativeQuery("update reportItem set status=NULL where id=?1")
+                .setParameter(1, item.getId()).executeUpdate();
+        entityManager.clear();
+
+        assertThat(new RptReportItem().getReportName(item.getId().toString()))
+                .isEqualTo("typed-report-null-status");
+        assertThat(reportItemDao.find(item.getId()).getStatus()).isZero();
+        assertThat(reportItemDao.findByStatus(0)).extracting(ReportItem::getId).doesNotContain(item.getId());
+        assertThat(reportItemDao.findByStatus(1)).extracting(ReportItem::getId).doesNotContain(item.getId());
+        entityManager.flush();
+        assertThat(entityManager.createNativeQuery("select status from reportItem where id=?1")
+                .setParameter(1, item.getId()).getSingleResult()).isNull();
+    }
+
 }

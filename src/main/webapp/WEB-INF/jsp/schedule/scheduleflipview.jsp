@@ -52,7 +52,6 @@
                                              otherwise to the schedule
     - demographic_no   (String, optional) — patient to carry into a booking; kept across
                                              month and provider navigation
-    - demographic_name (String, optional) — that patient's display name
 
     Session: LOGGED_IN_PROVIDER_PREFERENCE (ProviderPreference) supplies the day's start and
              end hour, the slot length and the provider's group.
@@ -60,7 +59,7 @@
     @since 2002-11-08
 --%>
 
-<%@page import="io.github.carlos_emr.carlos.appt.ApptData" %>
+
 <%@page import="io.github.carlos_emr.carlos.schedule.web.ScheduleCssColors" %>
 <%@page import="io.github.carlos_emr.carlos.schedule.web.ScheduleFlipViewRequest" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
@@ -90,11 +89,8 @@
 
 <%!
     //multisite starts =====================
-    private boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
-    private JdbcApptImpl jdbc = new JdbcApptImpl();
 
-    private String getSiteHTML(String scDate, String provider_no, List<Site> sites) {
-        if (!bMultisites) return "";
+    private String getSiteHTML(JdbcApptImpl jdbc, String scDate, String provider_no, List<Site> sites) {
         String _loc = jdbc.getLocationFromSchedule(scDate, provider_no);
         String color = getSafeCssColor(ApptUtil.getColorFromLocation(sites, _loc));
         if (color == null) { color = "white"; }
@@ -108,6 +104,8 @@
     }
 %>
 <% 
+    boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
+    JdbcApptImpl jdbc = new JdbcApptImpl();
     List<Site> sites = null;
     if (bMultisites) {
         SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
@@ -140,10 +138,9 @@
     String curProviderName = currentProvider != null
             ? currentProvider.getFormattedName()
             : curProvider_no;
-    // The patient being booked (from the waiting list). Month and provider links carry both values on,
-    // so the patient is still attached when a slot is picked after navigating.
+    // Carry the waiting-list patient identifier through month and provider navigation.
+    // The booking page resolves the patient display name after authorization.
     String curDemoNo = request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "";
-    String curDemoName = request.getParameter("demographic_name") != null ? request.getParameter("demographic_name") : "";
 
     String originalPage = request.getParameter("originalpage") != null ? request.getParameter("originalpage") : "schedule";
     String originalPagePath = request.getContextPath() + "/provider/providercontrol";
@@ -180,7 +177,7 @@
     rangeEnd.add(Calendar.DATE, 30);
 %>
 <%@ page
-        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
+        import="java.util.*, io.github.carlos_emr.*, java.text.*, java.lang.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <jsp:useBean id="DateTimeCodeBean" class="java.util.Hashtable"
@@ -197,7 +194,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <!DOCTYPE html>
 <html lang="<%= SafeEncode.forHtmlAttribute(pageLocale.toLanguageTag()) %>">
@@ -219,7 +216,7 @@
 
         <script type="text/javascript">
             function changePro(providerno) {
-                var destination = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(providerno) + "&startDate=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(startDate))%><%= curDemoNo.isEmpty() ? "" : "&demographic_no=" + SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo)) + "&demographic_name=" + SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoName)) %>";<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                var destination = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(providerno) + "&startDate=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(startDate))%><%= curDemoNo.isEmpty() ? "" : "&demographic_no=" + SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo)) %>";<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                 self.location.href = destination;
             }
 
@@ -231,30 +228,30 @@
             function t(s1, s2, s3, s4, s5, s6, doConfirm, allowDay, allowWeek) {
                 if (doConfirm == "Yes") {
                     if (confirm("<fmt:message key="provider.appointmentProviderAdminDay.confirmBooking"/>")) {
-                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo))%>&name=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoName))%>&provider_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
+                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo))%>&provider_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                     }
                 } else if (doConfirm == "Day") {
                     if (allowDay == "No") {
                         alert("<fmt:message key="provider.appointmentProviderAdminDay.sameDay"/>");
                     } else {
-                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo))%>&name=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoName))%>&provider_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
+                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo))%>&provider_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                     }
                 } else if (doConfirm == "Wk") {
                     if (allowWeek == "No") {
                         alert("<fmt:message key="provider.appointmentProviderAdminDay.sameWeek"/>");
                     } else {
-                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo))%>&name=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoName))%>&provider_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
+                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo))%>&provider_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                     }
                 } else if (doConfirm == "Onc") {
                     if (allowDay == "No") {
                         if (confirm("<fmt:message key='schedule.scheduleflipview.msgOnCallUrgentConfirm'/>")) {
-                            popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo))%>&name=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoName))%>&provider_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
+                            popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo))%>&provider_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                         }
                     } else {
-                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo))%>&name=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoName))%>&provider_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
+                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo))%>&provider_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                     }
                 } else {
-                    popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo))%>&name=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoName))%>&provider_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
+                    popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo))%>&provider_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                 }
             }
         </script>
@@ -331,13 +328,13 @@
                 </div>
                 <nav class="btn-group" aria-label="<fmt:message key="schedule.scheduleflipview.monthNavigation"/>">
                     <a class="btn btn-outline-primary"
-                       href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(lastMonth.getTime()) %>' context="uriComponent"/><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/>&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context="uriComponent"/><% } %>"
+                       href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(lastMonth.getTime()) %>' context="uriComponent"/><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/><% } %>"
                        title="<fmt:message key="schedule.scheduleflipview.msgLastMonth"/>">
                         <span class="fa-solid fa-chevron-left" aria-hidden="true"></span>
                         <fmt:message key="schedule.scheduleflipview.btnLastMonth"/>
                     </a>
                     <a class="btn btn-outline-primary"
-                       href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(nextMonth.getTime()) %>' context="uriComponent"/><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/>&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context="uriComponent"/><% } %>"
+                       href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(nextMonth.getTime()) %>' context="uriComponent"/><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/><% } %>"
                        title="<fmt:message key="schedule.scheduleflipview.msgNextmonth"/>">
                         <fmt:message key="schedule.scheduleflipview.btnNextMonth"/>
                         <span class="fa-solid fa-chevron-right" aria-hidden="true"></span>
@@ -457,7 +454,7 @@
                 </a>
             </th>
             <% if (bMultisites) { %>
-            <td class="availability-site"><%=getSiteHTML(strTempDate, curProvider_no, sites)%></td>
+            <td class="availability-site"><%=getSiteHTML(jdbc, strTempDate, curProvider_no, sites)%></td>
             <% } %>
             <%
                 String bookinglimit;
@@ -557,12 +554,12 @@
          accessible name as the header one is duplicate noise for screen-reader navigation. --%>
     <div class="availability-footer-nav mt-3">
         <a class="btn btn-outline-primary"
-           href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(lastMonth.getTime()) %>' context="uriComponent"/><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/>&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context="uriComponent"/><% } %>">
+           href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(lastMonth.getTime()) %>' context="uriComponent"/><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/><% } %>">
             <span class="fa-solid fa-chevron-left" aria-hidden="true"></span>
             <fmt:message key="schedule.scheduleflipview.btnLastMonth"/>
         </a>
         <a class="btn btn-outline-primary"
-           href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(nextMonth.getTime()) %>' context="uriComponent"/><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/>&amp;demographic_name=<carlos:encode value='<%= curDemoName %>' context="uriComponent"/><% } %>">
+           href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(nextMonth.getTime()) %>' context="uriComponent"/><% if (!curDemoNo.isEmpty()) { %>&amp;demographic_no=<carlos:encode value='<%= curDemoNo %>' context="uriComponent"/><% } %>">
             <fmt:message key="schedule.scheduleflipview.btnNextMonth"/>
             <span class="fa-solid fa-chevron-right" aria-hidden="true"></span>
         </a>

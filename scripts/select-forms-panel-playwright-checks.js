@@ -10,7 +10,13 @@
  * administration shell and asserts the panel keeps rendering.
  *
  * The check is state-neutral: it adds an available form, moves it up and back down, then
- * deletes it, leaving the encounter form display order as it was found.
+ * deletes it, leaving the shown forms and their order as it found them (asserted on the panel and
+ * on the encounterForm list as seen, lib/encounter-form-list). Select Forms gives the shown forms
+ * the orders 1..n before any change (#4952), so the stored numbers of forms it never touched can
+ * change while the menu stays the same: afterwards the run puts back the numbers it recorded before
+ * the browser started, and asserts the list identical. It reads and writes encounterForm, so it
+ * needs the MYSQL_* settings (lib/playwright-harness readConfig) and runs alone with other checks
+ * that change the form list.
  *
  * Defaults are for the local devcontainer:
  *   npm run test:select-forms-panel-playwright
@@ -24,7 +30,14 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
+const { validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
+const h = require('./lib/playwright-harness');
+const { encounterForms, formListAsSeen } = require('./lib/encounter-form-list');
+
+const { shouldIgnoreHttpsErrors } = h;
 
 // Declared before the validateBaseUrl() call below: `const` bindings are in the
 // temporal dead zone until initialized, so a set declared further down the file
@@ -57,25 +70,6 @@ function isLocalHost(rawHost) {
   // them so bracketed loopback addresses match the same as their bare form.
   const host = rawHost.toLowerCase().replace(/^\[|\]$/g, '');
   return LOCAL_HOSTS.has(host);
-}
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  // Credentials in BASE_URL would ride along on every navigation and could surface
-  // in the badResponses diagnostics this script prints on failure.
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not contain embedded credentials');
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  if (!isLocalHost(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
 }
 
 function appUrl(appPath) {
@@ -247,6 +241,16 @@ function sameMembers(actual, expected) {
   return sameOrder([...actual].sort(), [...expected].sort());
 }
 
+/** Put back every encounterForm display order recorded before the run, then assert the rows identical. */
+function restoreFormNumbers(sql, before) {
+  for (const [name, value, , hidden] of before) {
+    sql.execute(`UPDATE encounterForm SET hidden=${Number(hidden)}
+      WHERE form_name=${h.sqlString(name)} AND form_value=${h.sqlString(value)} AND hidden<>${Number(hidden)}`);
+  }
+  assert(JSON.stringify(encounterForms(sql)) === JSON.stringify(before),
+    'the encounter form display orders are not as the check found them');
+}
+
 /**
  * Best-effort rollback for a run that died between the Add and the Delete.
  *
@@ -283,7 +287,8 @@ async function restoreSubject(page, subject) {
   }
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('select-forms-panel',async context=>{
+  await (async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -292,20 +297,33 @@ async function restoreSubject(page, subject) {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
-  const context = await browser.newContext({
-    ignoreHTTPSErrors: baseUrl.protocol === 'https:' && isLocalHost(baseUrl.hostname),
-  });
+  // Recorded before the browser starts, so even a run that fails at login owes the clinic only these numbers.
+  const sql = h.createSqlRunner(h.readConfig().mysql);
+  let formsBefore = null;
+  let browser = null;
+  let context = null;
   let page = null;
   let subject = null;
   let subjectRestored = false;
+  let passed = false;
   try {
+    formsBefore = encounterForms(sql);
+    browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
+    context = await browser.newContext({
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
+    });
+    cancellation?.throwIfCancelled();
     page = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(page, 'select-forms');
     await login(page);
+    cancellation?.throwIfCancelled();
     await openSelectFormsPanel(page);
+    cancellation?.throwIfCancelled();
 
     const initial = await readPanel(page);
+    cancellation?.throwIfCancelled();
     assertPanelRendered(initial, 'initial load');
     assert(
       initial.available.length > 0,
@@ -315,6 +333,7 @@ async function restoreSubject(page, subject) {
 
     // Acceptance criterion: submitting with nothing selected must not blank the panel.
     const noSelection = await clickPanelButton(page, { buttonSelector: '#add', label: 'add with no selection' });
+    cancellation?.throwIfCancelled();
     assertPanelRendered(noSelection, 'add with no selection');
     assert(
       sameOrder(noSelection.selected, initial.selected)
@@ -328,6 +347,7 @@ async function restoreSubject(page, subject) {
       listName: 'selectedAddTypes',
       formName: subject,
     });
+    cancellation?.throwIfCancelled();
     assertPanelRendered(afterAdd, 'add');
     assert(afterAdd.selected.includes(subject), `add did not move ${subject} into the selected list`);
     assert(!afterAdd.available.includes(subject), `add left ${subject} in the available list`);
@@ -338,6 +358,7 @@ async function restoreSubject(page, subject) {
       listName: 'selectedDeleteTypes',
       formName: subject,
     });
+    cancellation?.throwIfCancelled();
     assertPanelRendered(afterUp, 'move up');
     // Add appends the subject last. On an install where nothing was selected to begin
     // with it is also first, and Move Up correctly no-ops rather than moving it off the
@@ -357,6 +378,7 @@ async function restoreSubject(page, subject) {
       listName: 'selectedDeleteTypes',
       formName: subject,
     });
+    cancellation?.throwIfCancelled();
     assertPanelRendered(afterDown, 'move down');
     // Symmetric to Move Up: normally this puts the subject back where Add left it, and
     // when Move Up was a no-op the subject is still last, so Move Down no-ops too. Both
@@ -372,6 +394,7 @@ async function restoreSubject(page, subject) {
       listName: 'selectedDeleteTypes',
       formName: subject,
     });
+    cancellation?.throwIfCancelled();
     assertPanelRendered(afterDelete, 'delete');
     assert(afterDelete.available.includes(subject), `delete did not return ${subject} to the available list`);
     assert(!afterDelete.selected.includes(subject), `delete left ${subject} in the selected list`);
@@ -389,21 +412,39 @@ async function restoreSubject(page, subject) {
       `available form list was not restored: expected ${JSON.stringify(initial.available)},`
         + ` got ${JSON.stringify(afterDelete.available)}`,
     );
-    // The Delete step is itself the rollback; nothing is left for the finally block to undo.
+    assert(
+      formListAsSeen(encounterForms(sql)) === formListAsSeen(formsBefore),
+      'the encounter form list is not as the check found it (the shown forms and their order)',
+    );
+    // The Delete step is itself the rollback of the panel; the finally block puts back the stored numbers.
     subjectRestored = true;
 
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
     assert(consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(consoleIssues, null, 2)}`);
 
-    console.log(`PASS Select Forms panel renders after add, delete, move up, and move down (subject form ${subject})`);
+    passed = true;
   } finally {
-    if (page && subject && !subjectRestored) {
-      await restoreSubject(page, subject);
+    try {
+      if (page && subject && !subjectRestored) {
+        await restoreSubject(page, subject);
+      }
+      if (context) await context.close().catch(() => {});
+      if (browser) await browser.close().catch(() => {});
+      try {
+        if (formsBefore) restoreFormNumbers(sql, formsBefore);
+      } catch (cleanupError) {
+        // A run that already failed keeps its own error; the cleanup failure is reported beside it.
+        if (passed) throw cleanupError;
+        console.error(`cleanup: ${cleanupError.message}`);
+      }
+    } finally {
+      // The credential file exists even when the initial query or browser startup fails.
+      sql.dispose();
     }
-    await context.close().catch(() => {});
-    await browser.close().catch(() => {});
   }
-})().catch((error) => {
+  console.log(`PASS Select Forms panel renders after add, delete, move up, and move down (subject form ${subject})`);
+})(context).catch((error) => {
   console.error(`FAIL Select Forms panel checks: ${error.stack || error.message}`);
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

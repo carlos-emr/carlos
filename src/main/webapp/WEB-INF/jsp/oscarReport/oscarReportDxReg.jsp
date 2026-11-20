@@ -53,9 +53,9 @@
     }
 %>
 
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Dxresearch" %>
-<%@ page import="io.github.carlos_emr.carlos.dxresearch.util.*" %>
+
+
+
 <%@ page import="java.util.*, java.sql.*" %>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -132,7 +132,8 @@
             }
         </style>
 
-    </head>
+    <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
+</head>
     <%
         ProviderPreference providerPreference = (ProviderPreference) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE);
         String curUser_no = (String) session.getAttribute("user");
@@ -170,10 +171,15 @@
                 <div class="row">
                     <input type="hidden" name="action" value="NA"/>
                     <label for="dxQuickListName" class="visually-hidden">Add Dx QuickList</label>
+                    <%-- One-shot Add control: whatever it holds is posted with every Add, a single
+                         code included, so it always renders on the empty placeholder. It reads
+                         dxReportQuickLists, which the action builds for every render; the patient
+                         Disease Registry's session allQuickLists marks a default list and must not
+                         reach this page (#4547). --%>
                     <select name="quickListName" class="sel" id="dxQuickListName">
                         <option value="">Add Dx QuickList</option>
-                        <c:forEach var="quickLists" items="${allQuickLists.dxQuickListBeanVector}">
-                            <option value="${carlos:forHtmlAttribute(quickLists.quickListName)}" ${quickLists.lastUsed}>
+                        <c:forEach var="quickLists" items="${dxReportQuickLists.dxQuickListBeanVector}">
+                            <option value="${carlos:forHtmlAttribute(quickLists.quickListName)}">
                                 ${carlos:forHtml(quickLists.quickListName)}
                             </option>
                         </c:forEach>
@@ -203,11 +209,21 @@
         <form action="<%=formAction%>" method="post" class="d-flex flex-wrap align-items-center gap-2" accept-charset="UTF-8">
 
             <div class="row">
-                <display:table name="codeSearch" id="codeSearch" class="table table-sm table-striped">
-                    <display:column property="type" title="Code System"/>
-                    <display:column property="dxSearchCode" title="Code"/>
-                    <display:column property="description" title="Description"/>
-                </display:table>
+                <c:if test="${not empty codeSearch}">
+                <table class="table table-sm table-striped" id="codeSearch" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
+                    <th scope="col">Code System</th>
+                    <th scope="col">Code</th>
+                    <th scope="col">Description</th>
+                </tr></thead>
+<tbody><c:forEach var="codeSearch" items="${codeSearch}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+                    <td>${carlos:forHtml(codeSearch.type)}</td>
+                    <td>${carlos:forHtml(codeSearch.dxSearchCode)}</td>
+                    <td>${carlos:forHtml(codeSearch.description)}</td>
+                </tr></c:forEach></tbody>
+</table>
+                </c:if>
+<c:if test="${empty codeSearch}">Nothing found to display.</c:if>
             </div>
             <div class="row">
                 <div class="form-check form-check-inline">
@@ -289,23 +305,38 @@
 
             <h3>Results</h3>
             <div class="row">
-                <display:table name="listview" id="listview" class="table table-striped table-hover table-sm">
-                    <display:column property="strFirstName" title="First Name"/>
-                    <display:column property="strLastName" title="Last Name"/>
-                    <display:column property="strSex" title="Sex"/>
-                    <display:column property="strDOB" title="DOB"/>
-                    <display:column property="strPhone" title="Phone"/>
-                    <display:column property="strHIN" title="HIN"/>
-                    <display:column property="strCodeSys" title="Code System"/>
-                    <display:column property="strCode" title="Code"/>
-                    <display:column property="strStartDate" title="Start Date"/>
-                    <display:column property="strUpdateDate" title="Update Date"/>
-                    <display:column property="strStatus" title="Status"/>
-                </display:table>
+                <table class="table table-striped table-hover table-sm" id="listview">
+<thead><tr>
+                    <th scope="col">First Name</th>
+                    <th scope="col">Last Name</th>
+                    <th scope="col">Sex</th>
+                    <th scope="col">DOB</th>
+                    <th scope="col">Phone</th>
+                    <th scope="col">HIN</th>
+                    <th scope="col">Code System</th>
+                    <th scope="col">Code</th>
+                    <th scope="col">Start Date</th>
+                    <th scope="col">Update Date</th>
+                    <th scope="col">Status</th>
+                </tr></thead>
+<tbody><c:forEach var="listview" items="${listview}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+                    <td>${carlos:forHtml(listview.strFirstName)}</td>
+                    <td>${carlos:forHtml(listview.strLastName)}</td>
+                    <td>${carlos:forHtml(listview.strSex)}</td>
+                    <td>${carlos:forHtml(listview.strDOB)}</td>
+                    <td>${carlos:forHtml(listview.strPhone)}</td>
+                    <td>${carlos:forHtml(listview.strHIN)}</td>
+                    <td>${carlos:forHtml(listview.strCodeSys)}</td>
+                    <td>${carlos:forHtml(listview.strCode)}</td>
+                    <td>${carlos:forHtml(listview.strStartDate)}</td>
+                    <td>${carlos:forHtml(listview.strUpdateDate)}</td>
+                    <td>${carlos:forHtml(listview.strStatus)}</td>
+                </tr></c:forEach></tbody>
+</table>
             </div>
 
 
-            <c:if test="${ not empty listview and not empty listview.strCode }">
+            <c:if test="${not empty listview}">
                 <input type="button" class="btn btn-secondary" value="Download Excel"
                        onclick="javascript:this.form.action='${pageContext.servletContext.contextPath}/report/DxresearchReport?method=patientExcelReport';this.form.submit()">
             </c:if>

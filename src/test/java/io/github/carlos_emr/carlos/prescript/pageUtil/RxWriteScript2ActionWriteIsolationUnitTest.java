@@ -106,11 +106,15 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
+        var receipts = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.class);
+        org.mockito.Mockito.when(receipts.start(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+        registerMock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.class, receipts);
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(UserPropertyDAO.class, mockUserPropertyDAO);
         registerMock(PartialDateDao.class, mockPartialDateDao);
         registerMock(DemographicManager.class, mockDemographicManager);
         registerMock(RxManager.class, mockRxManager);
+        registerMock(org.springframework.transaction.PlatformTransactionManager.class, new NoDatabaseTransactions());
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull()))
                 .thenReturn(true);
         // Patient-level Rx access (the shared Rx write check, #3908) is granted unless a test denies it.
@@ -211,6 +215,60 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
 
         assertThat(first.getBrandName()).isEqualTo("First medication");
         assertThat(second.getBrandName()).isEqualTo("Second medication");
+        verify(action).persistStash(mockLoggedInInfo, bean);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "rxComment_,false", "comment_,false", "rxComment_,true", "comment_,true"
+    })
+    @DisplayName("Rx comments preserve clinical text and prefer the namespaced field in either order")
+    void shouldSaveExactComment_whenNewOrLegacyFormIsSubmitted(String firstPrefix, boolean both) throws Exception {
+        bean.clearStash();
+        RxPrescriptionData.Prescription card = draft(1, "comment draft");
+        RxPrescriptionData.Prescription other = draft(12, "another draft");
+        other.setComment("Keep the other card");
+        bean.getStashList().add(card);
+        bean.getStashList().add(other);
+        String clinical = "Patient's wound <?> — ../../images/ecg.png";
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("drugName_1", "Custom medication");
+        submitDraftRevision("1");
+        request.setParameter("drugName_12", "Second medication");
+        submitDraftRevision("12");
+        request.setParameter(firstPrefix + "1", firstPrefix.equals("rxComment_") || !both ? clinical : "Old comment");
+        if (both) {
+            request.setParameter((firstPrefix.equals("rxComment_") ? "comment_" : "rxComment_") + "1",
+                    firstPrefix.equals("rxComment_") ? "Old comment" : clinical);
+        }
+        action = spy(action);
+        doReturn("9001").when(action).persistStash(mockLoggedInInfo, bean);
+
+        assertThat(action.updateSaveAllDrugs()).isEqualTo("refresh");
+
+        assertThat(card.getComment()).isEqualTo(clinical);
+        assertThat(other.getComment()).isEqualTo("Keep the other card");
+        verify(action).persistStash(mockLoggedInInfo, bean);
+    }
+
+    @Test
+    @DisplayName("an intentionally cleared namespaced Rx comment overrides the old field")
+    void shouldClearComment_whenNamespacedValueIsEmpty() throws Exception {
+        bean.clearStash();
+        RxPrescriptionData.Prescription card = draft(1, "comment draft");
+        card.setComment("Before editing");
+        bean.getStashList().add(card);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("drugName_1", "Custom medication");
+        submitDraftRevision("1");
+        request.setParameter("rxComment_1", "");
+        request.setParameter("comment_1", "Old comment");
+        action = spy(action);
+        doReturn("9001").when(action).persistStash(mockLoggedInInfo, bean);
+
+        assertThat(action.updateSaveAllDrugs()).isEqualTo("refresh");
+
+        assertThat(card.getComment()).isEmpty();
         verify(action).persistStash(mockLoggedInInfo, bean);
     }
 
@@ -577,14 +635,14 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should still re-render through the fallback patient for a non-update action")
-    void shouldRefresh_whenNonUpdateActionNamesNoPatient() throws Exception {
+    @DisplayName("should refuse a render that does not name its patient")
+    void shouldRefuseRefresh_whenNonUpdateActionNamesNoPatient() throws Exception {
         action.setAction("refresh");
 
         String result = action.execute();
 
-        assertThat(result).isEqualTo("refresh");
-        assertThat(response.getRedirectedUrl()).isNull();
+        assertThat(result).isNull();
+        assertThat(response.getRedirectedUrl()).isEqualTo("error.html");
         verifyNoInteractions(stagedCard);
     }
 
@@ -667,7 +725,8 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should still allow a GET re-render that is not an update")
-    void shouldAllowGet_forNonUpdateRender() throws Exception {
+    void shouldAllowGet_whenNonUpdateRenderNamesPatient() throws Exception {
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
         request.setMethod("GET");
         action.setAction("edit");
 
@@ -688,7 +747,11 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(RxWriteScript2Action.NONE);
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(bean.getStashList()).containsExactly(stagedCard, second);
-        verifyNoInteractions(stagedCard, second, mockRxManager, mockSignatureStampService);
+        for (Object card : java.util.List.of(stagedCard, second)) {
+            assertThat(org.mockito.Mockito.mockingDetails(card).getInvocations())
+                    .allSatisfy(invocation -> assertThat(invocation.getMethod().getName()).startsWith("get"));
+        }
+        verifyNoInteractions(mockRxManager, mockSignatureStampService);
         logActionMock.verifyNoInteractions();
     }
 
@@ -881,12 +944,31 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
             assertThat(response.getContentAsString()).contains("INCOMPLETE_RX_SAVE");
             assertThat(bean.getStash()).containsExactly(card);
             assertThat(bean.getReRxDrugIdList()).containsExactly("55");
-            assertThat(card.getDraftRevision()).isNotEqualTo(revision);
+            assertThat(card.getDraftRevision()).isEqualTo(revision);
             verifyNoInteractions(mockSignatureStampService);
             response.reset();
             assertThat(action.updateSaveAllDrugs()).isEqualTo(RxWriteScript2Action.NONE);
-            assertThat(response.getStatus()).isEqualTo(409);
-            verify(data.constructed().getFirst()).saveScript(mockLoggedInInfo, bean);
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getContentAsString()).contains("INCOMPLETE_RX_SAVE");
+            assertThat(data.constructed()).hasSize(2);
+            verify(data.constructed().getLast()).saveScript(mockLoggedInInfo, bean);
+        }
+    }
+
+    /** Runs the real Spring completion callbacks for mocked database writes. */
+    private static class NoDatabaseTransactions extends org.springframework.transaction.support.AbstractPlatformTransactionManager {
+        @Override protected Object doGetTransaction() { return new Object(); }
+        @Override
+        protected void doBegin(Object transaction, org.springframework.transaction.TransactionDefinition definition) {
+            // No database: Spring manages synchronization for this fixture.
+        }
+        @Override
+        protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) {
+            // Spring dispatches successful commit callbacks.
+        }
+        @Override
+        protected void doRollback(org.springframework.transaction.support.DefaultTransactionStatus status) {
+            // Spring reports confirmed rollback to synchronization listeners.
         }
     }
 
@@ -1007,14 +1089,15 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
             assertThat(action.updateSaveAllDrugs()).isEqualTo(RxWriteScript2Action.NONE);
             assertThat(response.getStatus()).isEqualTo(500);
             assertThat(response.getContentAsString()).contains("INCOMPLETE_RX_SAVE");
-            assertThat(first.getScript_no()).isEqualTo("9001");
+            assertThat(first.getScript_no()).isNull();
             assertThat(bean.getStash()).containsExactly(first, second);
             assertThat(bean.getReRxDrugIdList()).containsExactly("55", "66");
             verifyNoInteractions(mockRxManager);
             response.reset();
             assertThat(action.updateSaveAllDrugs()).isEqualTo(RxWriteScript2Action.NONE);
-            assertThat(response.getStatus()).isEqualTo(409);
-            verify(data.constructed().getFirst()).saveScript(mockLoggedInInfo, bean);
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(data.constructed()).hasSize(2);
+            verify(data.constructed().getLast()).saveScript(mockLoggedInInfo, bean);
         }
     }
 

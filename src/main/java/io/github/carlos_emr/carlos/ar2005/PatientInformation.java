@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -3371,64 +3369,6 @@ public interface PatientInformation extends XmlObject
          */
         public static PatientInformation parse(final Node node, final XmlOptions options) throws XmlException {
             return (PatientInformation)XmlBeans.getContextTypeLoader().parse(node, PatientInformation.type, options);
-        }
-
-        /**
-         * Parses XML from XMLInputStream to create a PatientInformation instance.
-         *
-         * @deprecated Use alternative parsing methods with modern XML APIs
-         * @param xis XMLInputStream the XML input stream to parse
-         * @return PatientInformation the parsed patient information
-         * @throws XmlException if the XML is invalid or cannot be parsed
-         * @throws XMLStreamException if there is an error in the XML stream
-         */
-        @Deprecated
-        public static PatientInformation parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (PatientInformation)XmlBeans.getContextTypeLoader().parse(xis, PatientInformation.type, (XmlOptions)null);
-        }
-
-        /**
-         * Parses XML from XMLInputStream to create a PatientInformation instance with specified options.
-         *
-         * @deprecated Use alternative parsing methods with modern XML APIs
-         * @param xis XMLInputStream the XML input stream to parse
-         * @param options XmlOptions the XML parsing options
-         * @return PatientInformation the parsed patient information
-         * @throws XmlException if the XML is invalid or cannot be parsed
-         * @throws XMLStreamException if there is an error in the XML stream
-         */
-        @Deprecated
-        public static PatientInformation parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (PatientInformation)XmlBeans.getContextTypeLoader().parse(xis, PatientInformation.type, options);
-        }
-
-        /**
-         * Creates a validating XMLInputStream for patient information XML.
-         *
-         * @deprecated Use alternative validation methods with modern XML APIs
-         * @param xis XMLInputStream the XML input stream to validate
-         * @return XMLInputStream the validating XML input stream
-         * @throws XmlException if the XML is invalid
-         * @throws XMLStreamException if there is an error in the XML stream
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, PatientInformation.type, (XmlOptions)null);
-        }
-
-        /**
-         * Creates a validating XMLInputStream for patient information XML with specified options.
-         *
-         * @deprecated Use alternative validation methods with modern XML APIs
-         * @param xis XMLInputStream the XML input stream to validate
-         * @param options XmlOptions the XML validation options
-         * @return XMLInputStream the validating XML input stream
-         * @throws XmlException if the XML is invalid
-         * @throws XMLStreamException if there is an error in the XML stream
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, PatientInformation.type, options);
         }
 
         /** Private constructor to prevent instantiation. */

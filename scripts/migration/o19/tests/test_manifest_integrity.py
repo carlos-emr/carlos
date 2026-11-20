@@ -12,13 +12,16 @@ Run (from the repository root):
     python3 -m unittest discover -s scripts/migration/o19/tests -t .
 """
 
+import contextlib
 import importlib.util
+import io
 import json
 import re
+import tempfile
 import unittest
 from pathlib import Path
 
-from carlos_ctl import o19etl, o19map_props, o19map_schema
+from carlos_ctl import o19etl, o19manifest, o19map_props, o19map_schema
 
 
 def load_generator():
@@ -59,10 +62,25 @@ class TestPackagedTargetSchemaColumns(unittest.TestCase):
         # The pinned upstream checkout is unavailable in normal CI. The target side
         # is local, so a new common/province migration must never leave the packaged
         # importer's destination-column metadata silently stale.
+        """Check all native columns independently, then the shipped copy inventory."""
         generator = load_generator()
         for province in generator.PROVINCES:
             with self.subTest(province=province):
                 schema = generator.load_schema(generator.carlos_schema_files(province))
+                physical = json.loads((generator.REPO_ROOT / "database/mysql/schema-contract" /
+                                       (province + ".json")).read_text())
+                physical_columns = {}
+                for row in physical["schema"]["columns"]:
+                    physical_columns.setdefault(row[0], set()).add(row[1])
+                discrepancies = {}
+                for table in set(schema.tables) | set(physical_columns):
+                    parsed = set(schema.tables.get(table, {}))
+                    actual = physical_columns.get(table, set())
+                    if parsed != actual:
+                        discrepancies[table] = {"missing": sorted(actual - parsed),
+                                                "unexpected": sorted(parsed - actual)}
+                self.assertFalse(discrepancies,
+                                 "Native schema inventory differs: " + repr(discrepancies))
                 profile = profile_data(province)
                 copied_tables = sorted(table for table, entry in profile["TABLES"].items()
                                        if entry["class"] in ("copy", "merge"))
@@ -106,6 +124,18 @@ class TestSchemaManifest(unittest.TestCase):
         cls.seed_row_counts = data["SEED_ROW_COUNTS"]
         cls.schema_map_version = data["SCHEMA_MAP_VERSION"]
         cls.stock_role_names = data["STOCK_ROLE_NAMES"]
+
+    def test_oauth_access_tokens_remain_live_with_their_original_credentials(self):
+        entry = self.tables["ServiceAccessToken"]
+        self.assertEqual(entry["class"], "copy")
+        for name in ("id", "clientId", "tokenId", "tokenSecret", "issued", "lifetime", "providerNo", "scopes"):
+            self.assertIn(name, entry["cols"])
+        self.assertNotIn("value_exprs", entry)
+        self.assertNotIn("charset_scan", entry)
+        self.assertIn("ServiceAccessToken", o19map_schema.CREDENTIAL_TABLES)
+        self.assertIn("lifetime", self.tables["ServiceClient"]["cols"])
+        for name in ("SecurityToken", "ServiceRequestToken"):
+            self.assertEqual(self.tables[name]["class"], "archive")
 
     def test_every_table_classified_once_with_valid_class(self):
         for table, entry in self.tables.items():
@@ -434,24 +464,36 @@ class TestDroppedPrefixesTrackTheFileRules(unittest.TestCase):
 
 
 class TestPreflightDriftLock(unittest.TestCase):
-    """The data embedded in o19_preflight.py must be exactly derivable from
-    o19map_schema — the two ship together and must never drift."""
+    """Installed preflight rulings must agree with the installed schema.
 
-    def test_embedded_data_matches_schema_manifest(self):
-        from carlos_ctl import o19_preflight as pf
+    The CLI and CARLOS packages version independently. Import mode loads
+    CARLOS's manifest over the CLI release's embedded fallback; standalone
+    export embeds that same installed manifest. Test those public paths
+    without rebinding the preflight module other tests import.
+    """
+
+    def _load_preflight(self, path=None):
+        from carlos_ctl import o19_preflight
+        spec = importlib.util.spec_from_file_location(
+            "preflight_manifest_contract", path or o19_preflight.__file__)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def _assert_schema_rulings(self, pf, schema):
         self.assertEqual(pf.SCHEMA_MAP_VERSION,
-                         o19map_schema.SCHEMA_MAP_VERSION)
+                         schema["SCHEMA_MAP_VERSION"])
         self.assertEqual(sorted(pf.CREDENTIAL_TABLES),
-                         sorted(o19map_schema.CREDENTIAL_TABLES))
+                         sorted(schema["CREDENTIAL_TABLES"]))
         self.assertEqual(
             pf.PATIENT_DATA_TABLES,
-            sorted(t for t, e in o19map_schema.TABLES.items()
+            sorted(t for t, e in schema["TABLES"].items()
                    if e.get("patient_data")))
         self.assertEqual(pf.KNOWN_TABLES,
                          {t: e["class"]
-                          for t, e in o19map_schema.TABLES.items()})
+                          for t, e in schema["TABLES"].items()})
         b3 = {}
-        for t, e in o19map_schema.TABLES.items():
+        for t, e in schema["TABLES"].items():
             for col, d in e.get("dropped", {}).items():
                 if d.get("b3"):
                     b3.setdefault(t, {})[col] = \
@@ -459,11 +501,93 @@ class TestPreflightDriftLock(unittest.TestCase):
         self.assertEqual(pf.B3_FLAGGED_COLUMNS, b3)
         self.assertEqual(
             pf.CHARSET_SCAN,
-            {t: e["charset_scan"] for t, e in o19map_schema.TABLES.items()
+            {t: e["charset_scan"] for t, e in schema["TABLES"].items()
              if e.get("charset_scan")})
-        self.assertEqual(pf.STOCK_ROLE_NAMES, o19map_schema.STOCK_ROLE_NAMES)
+        self.assertEqual(pf.STOCK_ROLE_NAMES, schema["STOCK_ROLE_NAMES"])
         self.assertEqual(pf.LEGACY_PREVENTION_TYPES,
-                         sorted(o19map_schema.PREVENTION_TYPE_MAP))
+                         sorted(schema["PREVENTION_TYPE_MAP"]))
+
+    def _assert_all_profiles(self, pf, schema):
+        default = schema["O19_PROFILE"]
+        # Returning to the default must restore installed ON data after BC,
+        # rather than the older snapshot embedded in the CLI release.
+        for province in [default] + sorted(schema["PROFILES"]) + [default]:
+            with self.subTest(province=province):
+                expected = dict(schema)
+                expected.update(schema["PROFILES"].get(province, {}))
+                self.assertEqual(pf.bind(province), province)
+                self._assert_schema_rulings(pf, expected)
+
+    def test_installed_data_matches_schema_manifest_for_every_profile(self):
+        pf = self._load_preflight()
+        installed = o19manifest.load("o19-preflight")
+        self.assertEqual(pf.load_manifest(installed),
+                         installed["SCHEMA_MAP_VERSION"])
+        self._assert_all_profiles(pf, o19manifest.load("o19map-schema"))
+
+    def test_installed_manifest_replaces_stale_rulings_and_profile_defaults(self):
+        pf = self._load_preflight()
+        installed = o19manifest.load("o19-preflight")
+        stale = json.loads(json.dumps(installed))
+        for profile in [stale] + list(stale["PROFILES"].values()):
+            profile["SCHEMA_MAP_VERSION"] = "o19map-3+older-rules"
+            profile["KNOWN_TABLES"] = {"retired_only_table": "copy"}
+        pf.load_manifest(stale)
+        self.assertEqual(pf.KNOWN_TABLES, {"retired_only_table": "copy"})
+
+        pf.load_manifest(installed)
+        self._assert_all_profiles(pf, o19manifest.load("o19map-schema"))
+
+    def test_standalone_export_embeds_installed_rulings_for_every_profile(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "o19_preflight.py")
+            version = o19manifest.write_standalone_preflight(path)
+            schema = o19manifest.load("o19map-schema")
+            self.assertEqual(version, schema["SCHEMA_MAP_VERSION"])
+            self._assert_all_profiles(self._load_preflight(path), schema)
+
+    def test_previous_program_and_token_policies_cannot_resume_an_import(self):
+        """Reject prior mappings whose program or credential decisions differ."""
+        from carlos_ctl import o19import
+        schema = o19manifest.load("o19map-schema")
+        for profile in [schema] + list(schema["PROFILES"].values()):
+            current = profile["SCHEMA_MAP_VERSION"]
+            with self.subTest(province=profile["O19_PROFILE"]):
+                self.assertEqual(current.split("+", 1)[0], "o19map-8")
+                for previous_base in ("o19map-3", "o19map-4", "o19map-5", "o19map-6", "o19map-7"):
+                    previous = previous_base + "+" + current.split("+", 1)[1]
+                    state = {"inputs": {"schema_map_version": previous},
+                             "phases": {"etl": {"status": "done"}}}
+                    refusal = o19import.manifest_change_refusal(state, current)
+                    self.assertIn(previous, refusal)
+                    self.assertIn(current, refusal)
+                    self.assertIn("reinstall the carlos-emr package version", refusal)
+                    state["inputs"]["schema_map_version"] = current
+                    self.assertIsNone(o19import.manifest_change_refusal(state, current))
+
+                    with tempfile.TemporaryDirectory() as directory:
+                        progress = {"tables": {"program": {"done": True}},
+                                    "dump_sha256": "same-fixture-dump",
+                                    "schema_map_version": previous}
+                        o19etl.save_progress(directory, progress)
+                        ledger = Path(o19etl.progress_path(directory))
+                        before = ledger.read_bytes()
+                        self.assertEqual(o19etl.load_progress(
+                            directory, "same-fixture-dump", previous), progress)
+                        error = io.StringIO()
+                        with contextlib.redirect_stderr(error), \
+                                self.assertRaises(SystemExit) as caught:
+                            o19etl.load_progress(directory, "same-fixture-dump", current)
+                        self.assertEqual(caught.exception.code, 1)
+                        self.assertIn(previous, error.getvalue())
+                        self.assertIn(current, error.getvalue())
+                        self.assertIn("restore the pre-import snapshot", error.getvalue())
+                        self.assertEqual(ledger.read_bytes(), before)
+
+                        progress["schema_map_version"] = current
+                        o19etl.save_progress(directory, progress)
+                        self.assertEqual(o19etl.load_progress(
+                            directory, "same-fixture-dump", current), progress)
 
 
 class TestPropsManifest(unittest.TestCase):
@@ -874,16 +998,16 @@ class TestTheConsentRulingIsInTheOverlay(unittest.TestCase):
         cls.exprs = load_overrides().VALUE_EXPRS.get("Consent", {})
 
     def test_a_null_optout_is_stored_as_an_opt_out(self):
-        self.assertEqual(self.exprs.get("optout"), "IFNULL(s.`optout`, 1)")
+        self.assertEqual(self.exprs.get("optout"), "COALESCE(s.`optout`, 1)")
 
     def test_a_row_the_helper_does_not_know_arrives_retired(self):
-        self.assertTrue(self.exprs["deleted"].startswith("IFNULL((SELECT"))
+        self.assertTrue(self.exprs["deleted"].startswith("COALESCE((SELECT"))
         self.assertTrue(self.exprs["deleted"].endswith(", 1)"))
 
     def test_deleted_is_read_from_the_helper_the_etl_builds(self):
         self.assertEqual(
             self.exprs.get("deleted"),
-            "IFNULL((SELECT r.`deleted` FROM {archive}.`Consent__live` r "
+            "COALESCE((SELECT r.`deleted` FROM {archive}.`Consent__live` r "
             "WHERE r.`id` = s.`id`), 1)")
         self.assertIn(o19etl.ARCHIVE_SLOT, self.exprs["deleted"])
         self.assertIn(o19etl.ident(o19etl.consent_live_table()),
@@ -965,18 +1089,25 @@ class TestTheOntarioProfile(unittest.TestCase):
             self.assertIn(table, self.tables, table)
             self.assertEqual(self.tables[table]["class"], "copy", table)
 
+    def test_retired_worksheet_is_subtracted_from_seed_floor(self):
+        self.assertEqual(self.data["SEED_ROW_COUNTS"]["encounterForm"], 98)
+        self.assertEqual(profile_data("bc")["SEED_ROW_COUNTS"]["encounterForm"], 54)
+
     def test_privilege_seed_floor_reflects_later_deletions(self):
         # 514 baseline tuples + the V1.0.6 INSERT IGNORE row - the carlosdoc
         # denial V1.0.9 deletes + V1.0.67's two _msgSMS grants + V1.0.75's
-        # doctor _portal.invite grant + V1.0.73's 19 _portal.* grants = 536,
+        # doctor _portal.invite grant + V1.0.73's 19 _portal.* grants,
+        # V1.0.60's nine booking-prompt grants and V1.0.80's three
+        # front-desk email grants = 550,
         # and 133 objects + V1.0.67's _msgSMS + V1.0.73's 5 _portal.*
-        # objects = 139, which is what a live target holds. (V1.0.71 and
+        # objects + V1.0.60's booking-prompt object = 140, which is what a
+        # live target holds. (V1.0.71 and
         # V1.0.46 seed with INSERT ... SELECT, which the counter does not
         # see and a P0 floor does not need.)
         self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjPrivilege"],
-                         536)
+                         550)
         self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjectName"],
-                         139)
+                         140)
 
 
 class TestTheBritishColumbiaProfile(unittest.TestCase):
@@ -1011,6 +1142,11 @@ class TestTheBritishColumbiaProfile(unittest.TestCase):
         for table in ("formBCAR", "formBCAR2007"):
             self.assertEqual(self.tables[table]["class"], "copy", table)
             self.assertFalse(self.tables[table].get("patient_data"), table)
+
+    def test_wcb_catalogs_merge_on_codes_after_the_reference_seed_migration(self):
+        for table, key in (("wcb_bp_code", "code"), ("wcb_noi_code", "code"), ("wcb_side", "sidetype")):
+            self.assertEqual(self.tables[table]["class"], "merge")
+            self.assertEqual(self.tables[table]["merge_keys"], [key])
 
     def test_the_uncountable_join_seed_is_tolerated_and_replaced(self):
         """`serviceSpecialists` is seeded by an INSERT ... SELECT.
@@ -1053,11 +1189,12 @@ class TestTheBritishColumbiaProfile(unittest.TestCase):
         # BC seeds two more privilege tuples and one more object than
         # Ontario; a floor carried over from Ontario would refuse every
         # BC host at P0 (both include V1.0.67's _msgSMS rows, V1.0.75's
-        # doctor _portal.invite grant and V1.0.73's _portal.* rows)
+        # doctor _portal.invite grant, V1.0.73's _portal.* rows, V1.0.60's
+        # booking-prompt rows and V1.0.80's front-desk email rows)
         self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjPrivilege"],
-                         538)
+                         552)
         self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjectName"],
-                         140)
+                         141)
 
     def test_no_ontario_only_table_leaks_into_the_bc_profile(self):
         # PROVINCE_SCOPED removals: these are Ontario CARLOS tables, and
@@ -1080,6 +1217,10 @@ for _province in sorted(o19map_schema.PROFILES):
              "__doc__": "{0} against the {1!r} profile."
                         .format(_base.__name__, _province)})
 
+
+# unittest discovers class aliases too, including underscored loop variables.
+# Keep each inherited ON/BC case once instead of rerunning the final base.
+del _base
 
 if __name__ == "__main__":
     unittest.main()

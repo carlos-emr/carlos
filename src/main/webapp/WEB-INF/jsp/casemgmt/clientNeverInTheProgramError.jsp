@@ -35,7 +35,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%
-    String programId_str = (String) request.getSession().getAttribute("case_program_id");
+    String programId_str = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request);
     Integer programId;
     String programName = null;
 

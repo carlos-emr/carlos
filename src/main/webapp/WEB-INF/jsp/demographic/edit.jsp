@@ -13,77 +13,78 @@
 
     @since 2026-04-04
 --%>
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.text.DecimalFormat" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.Gender" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.ISO36612" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.OtherIdManager" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.ContactDao" %>
+
+
+
+
+
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CountryCodeDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicContactDao" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicCustDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtArchiveDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.WaitingListDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Admission" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicArchive" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicExtArchive" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.CountryCode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicCust" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.LookupList" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.LookupListItem" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.WaitingListName" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
+
+
+
+
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicRelationship" %>
+
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.ProvinceNames" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicEditHelper" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+
+
+
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
+
 <%@ page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
-<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve all variables from request attributes (set by DemographicEdit2Action) --%>
@@ -263,8 +264,10 @@
         <script type="text/javascript" src="<%=request.getContextPath()%>/share/calendar/calendar-setup.js"></script>
 
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script defer src="${carlos:forHtmlAttribute(ctx)}/demographic/eligibilityDialog.js"></script>
         <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/check_hin.js"></script>
+        <%@ include file="/WEB-INF/jspf/demographic-field-length-limits.jspf" %>
 
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/popup.js"></script>
 
@@ -726,12 +729,19 @@
             var workPhoneHistory = "";
             var cellPhoneHistory = "";
 
+            // The history values are the patient's own text: the popup shows them as text, not as markup.
+            function historyText(value) {
+                return String(value).replace(/[&<>"']/g, function (c) {
+                    return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+                });
+            }
+
             function generateMarkup(addresses, type, header) {
                 var markup = '<table border="0" cellpadding="2" cellspacing="2" width="200px">';
                 markup += '<tr><th><b>Date Entered</b></th><th><b>' + header + '</b></th></tr>';
                 for (var x = 0; x < addresses.length; x++) {
                     if (addresses[x].type == type) {
-                        markup += '<tr><td>' + addresses[x].dateSeen + '</td><td>' + addresses[x].name + '</td></tr>';
+                        markup += '<tr><td>' + historyText(addresses[x].dateSeen) + '</td><td>' + historyText(addresses[x].name) + '</td></tr>';
                     }
                 }
                 markup += "</table>";
@@ -911,7 +921,7 @@
                         }
                         var defaultCountry = defaultProvince.split('-')[0];
                         jQuery("#country").val(defaultCountry);
-                        updateProvinces(defaultProvince);
+                        updateProvinces(defaultProvince, true);
 
                         // initialize residential province separately to avoid overwriting demo values
                         var defaultResiProvince = '<carlos:encode value='<%= CarlosProperties.getInstance().getProperty("demographic.default_province","") %>' context="javaScriptBlock"/>';
@@ -934,7 +944,7 @@
         </script>
         <% } %>
         <script>
-            function updateProvinces(province) {
+            function updateProvinces(province, initialSelection) {
                 var country = jQuery("#country").val();
                 if(country == '') {
                     console.log('empty country');
@@ -953,6 +963,11 @@
 
                         if (province != null) {
                             jQuery("#province").val(province);
+                            // ISO selectors normalize legacy codes (ON -> CA-ON).
+                            // Remember the rendered starting value only on initialization.
+                            if (initialSelection) {
+                                document.updatedelete.postal.dataset.originalProvince = jQuery("#province").val() || '';
+                            }
                         }
                     },
                     error: function (xhr, status, error) {
@@ -1009,6 +1024,7 @@
 
     <body onLoad="setfocus(); checkONReferralNo(); formatPhoneNum(); checkRosterStatus2();"
           topmargin="0" leftmargin="0" rightmargin="0" id="demographiceditdemographic">
+    <div><source:cdsSourceFields demographicNo="${requestScope.demographic_no}" category="Demographics"/></div>
     <!-- Bootstrap dismissible alert container -->
     <div id="carlos-alert-container" aria-live="polite"
          style="position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:9999;min-width:300px;max-width:600px;"></div>
@@ -1109,6 +1125,10 @@
                                       onSubmit="return checkTypeInEdit();" autocomplete="off">
                                     <input type="hidden" name="demographic_no"
                                            value="<%=demographic.getDemographicNo()%>">
+                                    <%-- The record version this form was rendered from (issue #4225): a save from a
+                                         form opened before another user's save is refused, not applied over it. --%>
+                                    <input type="hidden" name="demographicVersion"
+                                           value="<carlos:encode value='${demographicEditVersion}' context="htmlAttribute"/>">
                                     <table width="100%" class="demographicDetail">
                                         <%
                                             DemographicMerged dmDAO = new DemographicMerged();

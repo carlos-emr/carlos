@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
@@ -90,6 +91,7 @@ class BillingReProcessBill2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
+    private MockedStatic<CarlosProperties> propertiesMock;
     private AutoCloseable mockitoCloseable;
 
     @Mock private SecurityInfoManager mockSecurityInfoManager;
@@ -125,10 +127,16 @@ class BillingReProcessBill2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn(mockLoggedInInfo);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
+
+        CarlosProperties properties = org.mockito.Mockito.mock(CarlosProperties.class);
+        when(properties.getProperty("billregion", "")).thenReturn("BC");
+        propertiesMock = mockStatic(CarlosProperties.class);
+        propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
     }
 
     @AfterEach
     void tearDown() throws Exception {
+        if (propertiesMock != null) propertiesMock.close();
         if (loggedInInfoMock != null) loggedInInfoMock.close();
         if (servletActionContextMock != null) servletActionContextMock.close();
         if (mockitoCloseable != null) mockitoCloseable.close();

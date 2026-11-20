@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.app;
 
 import io.github.carlos_emr.carlos.web.eform.EformViewForPdfGenerationServlet;
 
+import io.github.carlos_emr.carlos.utility.DeferredContentLength;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import org.owasp.csrfguard.CsrfGuard;
@@ -36,6 +37,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
+import jakarta.servlet.ServletResponseWrapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
@@ -97,6 +99,9 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
     private static final Pattern CSRFGUARD_SCRIPT_PATTERN =
             Pattern.compile("<script[^>]*src=[\"'][^\"']*\\/csrfguard[\"']", Pattern.CASE_INSENSITIVE);
     private static final AtomicBoolean HTML_LOOKING_PASSTHROUGH_WARNED = new AtomicBoolean(false);
+    /** Upper bound on response wrapper layers unwrapped by {@link #isInnermostResponseCommitted}. */
+    private static final int MAX_WRAPPER_DEPTH = 32;
+
     /** Servlet path of the loopback server-side eForm PDF renderer route (see web.xml). */
     private static final String RENDERER_ROUTE_SERVLET_PATH = "/EFormViewForPdfGenerationServlet";
 
@@ -280,6 +285,13 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
     /**
      * Writes the final content to the real response.
      *
+     * <p>The body buffer is cleared first with {@code resetBuffer()}, which keeps the status,
+     * headers and cookies set downstream. That reset is only valid while the response is
+     * uncommitted, so it is skipped when either the response or the innermost response beneath
+     * its wrappers is already committed; the content is then written without it and a warning
+     * says why (#3424). A reset that is still rejected is logged the same way, without a stack
+     * trace.</p>
+     *
      * <p>{@code Content-Length} is updated only on the output-stream fallback path, where this
      * method writes the exact byte array. The normal writer path leaves length calculation to the
      * container so response character encoding cannot create a stale byte count.</p>
@@ -294,15 +306,48 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
     private void writeToResponse(HttpServletResponse response, String content, String safeRequestUri)
             throws IOException {
         // Clear only the response body buffer, preserving status code, headers, and cookies
-        // set by downstream components. resetBuffer() is safer than reset() which would
-        // wipe Set-Cookie, security headers, CSP, and non-200 status codes.
-        try {
-            response.resetBuffer();
-        } catch (IllegalStateException e) {
-            LOGGER.warn("writeToResponse: response buffer was already committed before "
-                    + "CSRF-adjusted replay; writing captured content without reset: uri={}, "
-                    + "contentType={}, committed={}",
-                    safeRequestUri, response.getContentType(), response.isCommitted(), e);
+        // set by downstream components. resetBuffer() is invalid after commit, so skip it there
+        // rather than throw. A commit at this point is itself the anomaly: Tomcat suspends a
+        // forwarded response unless the context sets suspendWrappedResponseAfterForward="false"
+        // (#3434), and a suspended response discards what is written next, so the page may
+        // arrive blank. Log what is needed to recognise that case.
+        boolean committed = response.isCommitted();
+        // A capture wrapper can report uncommitted while the response beneath it is committed:
+        // this filter's own CaptureResponseWrapper and ResponseSanitizationFilter's
+        // CapturingResponseWrapper both do in writer-capture mode, and on a nested forward
+        // (#3434) the reset would reach the committed response and be rejected. Ask the
+        // innermost response too.
+        boolean innermostCommitted = committed || isInnermostResponseCommitted(response);
+        if (committed) {
+            LOGGER.warn("writeToResponse: response already committed before CSRF-adjusted replay; "
+                    + "writing captured content without buffer reset, but the container may discard "
+                    + "it (see #3434, suspendWrappedResponseAfterForward): uri={}, status={}, "
+                    + "contentType={}, capturedChars={}",
+                    safeRequestUri, response.getStatus(), LogSafe.sanitize(response.getContentType()),
+                    content.length());
+        } else if (innermostCommitted) {
+            LOGGER.warn("writeToResponse: innermost response already committed beneath a wrapper "
+                    + "that reports uncommitted (e.g. CaptureResponseWrapper or ResponseSanitizationFilter's "
+                    + "CapturingResponseWrapper); writing captured content without buffer reset, but the "
+                    + "replay may not reach the client (see #3434): uri={}, status={}, contentType={}, "
+                    + "capturedChars={}, committed={}, innermostCommitted={}",
+                    safeRequestUri, response.getStatus(), LogSafe.sanitize(response.getContentType()),
+                    content.length(), committed, innermostCommitted);
+        } else {
+            try {
+                response.resetBuffer();
+            } catch (IllegalStateException e) {
+                // The outer and innermost responses both reported uncommitted, so an intermediate
+                // wrapper with committed state of its own, or the container, rejected the reset.
+                // Keep the exception's message, not its stack.
+                LOGGER.warn("writeToResponse: resetBuffer() rejected although the response and the "
+                        + "innermost response reported uncommitted; writing captured content without "
+                        + "buffer reset: uri={}, status={}, contentType={}, committed={}, "
+                        + "innermostCommitted={}, reason={}",
+                        safeRequestUri, response.getStatus(), LogSafe.sanitize(response.getContentType()),
+                        response.isCommitted(), isInnermostResponseCommitted(response),
+                        LogSafe.sanitize(e.getMessage()));
+            }
         }
         String encoding = response.getCharacterEncoding();
         if (encoding == null || encoding.isEmpty()) {
@@ -327,6 +372,33 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         }
     }
 
+    /**
+     * Reports whether the innermost response beneath any {@link ServletResponseWrapper} layers is
+     * committed.
+     *
+     * <p>Every wrapper in the forward chain delegates {@code resetBuffer()} down to that response,
+     * which is the one that rejects a reset after commit, so skipping the reset when it is
+     * committed loses nothing. {@code FormTransportContainer}'s capture wrapper is the exception:
+     * it keeps a buffer of its own and does not delegate. It could only sit beneath this filter on
+     * a forward nested inside its include, and then that forward has already reset its buffer and
+     * this filter captured the page, so the buffer is empty at replay; the skip fires only when the
+     * caller response beneath it is committed, which {@code FormTransportContainer}'s contract
+     * forbids while it renders.</p>
+     *
+     * @param response the response handed to this filter
+     * @return {@code true} if the innermost response is committed; after {@value #MAX_WRAPPER_DEPTH}
+     *         layers the deepest one reached is asked, and the caller's try/catch remains the fallback
+     */
+    static boolean isInnermostResponseCommitted(ServletResponse response) {
+        ServletResponse current = response;
+        // Bounded so that a wrapper which (wrongly) returns itself cannot loop forever.
+        for (int depth = 0; depth < MAX_WRAPPER_DEPTH
+                && current instanceof ServletResponseWrapper wrapper; depth++) {
+            current = wrapper.getResponse();
+        }
+        return current.isCommitted();
+    }
+
     @Override
     public void destroy() {
         // No cleanup required
@@ -347,8 +419,10 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         private boolean usingWriter;
         private boolean writerPassthrough;
         private boolean committed;
-        private Integer deferredContentLength;
-        private Long deferredContentLengthLong;
+        /** The shared defer/publish/retract rules; its two delegate calls are its only access to the response. */
+        private final DeferredContentLength contentLength = new DeferredContentLength(
+                super::setContentLengthLong,
+                () -> super.setHeader(DeferredContentLength.HEADER, null));
         private final String requestUri;
 
         public CaptureResponseWrapper(HttpServletResponse response, String requestUri) {
@@ -389,34 +463,49 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             return writer;
         }
 
+        /**
+         * Discards the uncommitted capture when a nested forward resets its response.
+         *
+         * <p>Every CARLOS wrapper applies one rule to an accepted {@code resetBuffer()}: a length that
+         * predates the reset, pending or published, described the discarded body and is dropped. A
+         * forward always replaces the body, so a pre-forward length is stale by definition. A length
+         * still pending is cleared; one this wrapper already passed through on a stream or
+         * non-HTML writer channel is removed from the delegate, so the wrappers beneath this
+         * FORWARD-only one never see it again. A rejected reset (the delegate throws) leaves the
+         * capture and both kinds of length as they were.</p>
+         */
+        @Override
+        public void resetBuffer() {
+            super.resetBuffer();
+            if (captureWriter != null) {
+                captureWriter.reset();
+            }
+            contentLength.onBufferReset();
+        }
+
+        /** Reset channel/capture state only after the underlying response accepts the full reset. */
+        @Override
+        public void reset() {
+            super.reset();
+            captureWriter = null;
+            writer = null;
+            usingOutputStream = false;
+            usingWriter = false;
+            writerPassthrough = false;
+            committed = false;
+            contentLength.onReset();
+        }
+
         @Override
         public void setContentLength(int len) {
-            if (usingOutputStream) {
-                // Output-stream passthrough: the real response owns the content, so pass through
-                super.setContentLength(len);
-                return;
-            }
-            if (writerPassthrough) {
-                super.setContentLength(len);
-                return;
-            }
-            if (usingWriter) {
-                // Writer-capture path: suppress — final length is recomputed in writeToResponse()
-                return;
-            }
-            // Mode not yet determined — defer until getOutputStream() or getWriter() is called
-            deferredContentLength = len;
+            setContentLengthLong(len);
         }
 
         @Override
         public void setContentLengthLong(long len) {
-            if (usingOutputStream) {
-                // Output-stream passthrough: the real response owns the content, so pass through
-                super.setContentLengthLong(len);
-                return;
-            }
-            if (writerPassthrough) {
-                super.setContentLengthLong(len);
+            if (usingOutputStream || writerPassthrough) {
+                // Passthrough: the real response owns the content, so pass the length through
+                contentLength.publishNow(len);
                 return;
             }
             if (usingWriter) {
@@ -424,12 +513,12 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                 return;
             }
             // Mode not yet determined — defer until getOutputStream() or getWriter() is called
-            deferredContentLengthLong = len;
+            contentLength.defer(len);
         }
 
         @Override
         public void setHeader(String name, String value) {
-            if (isContentLengthHeader(name)) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
                 deferContentLengthHeader(value);
                 return;
             }
@@ -438,7 +527,10 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
         @Override
         public void addHeader(String name, String value) {
-            if (isContentLengthHeader(name)) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
+                if (value == null) {
+                    return;
+                }
                 deferContentLengthHeader(value);
                 return;
             }
@@ -447,7 +539,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
         @Override
         public void setIntHeader(String name, int value) {
-            if (isContentLengthHeader(name)) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
                 setContentLength(value);
                 return;
             }
@@ -456,7 +548,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
         @Override
         public void addIntHeader(String name, int value) {
-            if (isContentLengthHeader(name)) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
                 setContentLength(value);
                 return;
             }
@@ -626,29 +718,21 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
          * Applies Content-Length values deferred while the response mode was still unknown.
          */
         private void applyDeferredContentLength() {
-            if (deferredContentLength != null) {
-                super.setContentLength(deferredContentLength);
-                deferredContentLength = null;
-            }
-            if (deferredContentLengthLong != null) {
-                super.setContentLengthLong(deferredContentLengthLong);
-                deferredContentLengthLong = null;
-            }
+            contentLength.publishPending();
         }
 
         private void deferContentLengthHeader(String value) {
-            try {
-                setContentLengthLong(Long.parseLong(value));
-            } catch (NumberFormatException e) {
-                LOGGER.warn("Ignoring malformed Content-Length header value during CSRF capture: uri={}, value={}",
-                        requestUri, LogSafe.sanitize(value), e);
+            if (value == null) {
+                contentLength.remove();
+                return;
             }
-        }
-
-        // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-        private boolean isContentLengthHeader(String name) {
-            return "Content-Length".equalsIgnoreCase(name);
+            java.util.OptionalLong parsed = DeferredContentLength.parse(value);
+            if (parsed.isPresent()) {
+                setContentLengthLong(parsed.getAsLong());
+            } else if (LOGGER.isWarnEnabled()) {
+                LOGGER.warn("Ignoring malformed Content-Length header value during CSRF capture: uri={}, value={}",
+                        requestUri, LogSafe.sanitize(value));
+            }
         }
 
         /**

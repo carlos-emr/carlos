@@ -34,6 +34,7 @@
  */
 
 const fs = require('node:fs');
+const {isQualifiedCdsMetadataFailure,cdsMetadataQualification} = require('./cds-metadata-transport');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
@@ -110,6 +111,17 @@ function validateBaseUrl(rawBaseUrl, env = process.env) {
   return parsed;
 }
 
+/** Credential-bearing configuration requires TLS beyond loopback. */
+function validateCredentialBaseUrl(rawBaseUrl, env = process.env) {
+  const parsed = validateBaseUrl(rawBaseUrl, env);
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (!['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1'].includes(host)
+      && parsed.protocol !== 'https:') {
+    throw new Error('Non-loopback BASE_URL targets must use https');
+  }
+  return parsed;
+}
+
 /*
  * The fixture-writing checks seed and delete rows through the mysql client. A
  * mistyped MYSQL_HOST must not point that at a shared or production database,
@@ -120,6 +132,7 @@ function validateMysqlHost(rawHost, env = process.env) {
   const host = String(rawHost || '').trim().toLowerCase();
   const normalizedHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
   const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
+  if (!normalizedHost) throw new Error('non-loopback MYSQL_HOST: value must not be empty');
   if (!loopbackHosts.has(normalizedHost) && env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
     throw new Error(`Refusing to seed fixtures into non-loopback MYSQL_HOST ${host}; set ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable test database`);
   }
@@ -165,6 +178,52 @@ function isLocalTlsTarget(baseUrl) {
   return first === 172 && second >= 16 && second <= 31;
 }
 
+/**
+ * The one TLS-verification policy for every browser context in the suite
+ * (issue #3598): certificate errors are ignored only for a local target, or
+ * when the operator names ALLOW_UNVERIFIED_TLS=true.
+ *
+ * ALLOW_NON_LOCAL_BASE_URL is deliberately NOT enough. It is the routing
+ * opt-in ("yes, hit staging"); folding certificate verification into it meant
+ * one flag bought two unrelated concessions while TEST_PASSWORD was being
+ * posted. A staging box with a self-signed certificate needs both variables.
+ *
+ * `baseUrl` may be a URL, a string or omitted, in which case BASE_URL is read
+ * from `env` with the suite's loopback default, which is what every check
+ * resolves its own target from. An unparseable value fails closed.
+ */
+function shouldIgnoreHttpsErrors(baseUrl, env = process.env) {
+  let target = baseUrl === undefined || baseUrl === null
+    ? (env.BASE_URL || 'http://127.0.0.1:8080/carlos')
+    : baseUrl;
+  if (typeof target === 'string') {
+    try {
+      target = new URL(target);
+    } catch (error) {
+      return false;
+    }
+  }
+  return isLocalTlsTarget(target) || env.ALLOW_UNVERIFIED_TLS === 'true';
+}
+
+const CERTIFICATE_ERROR_RE = /net::ERR_CERT_|net::ERR_SSL_|SELF[_ ]SIGNED/i;
+
+/**
+ * Turns a certificate failure against a non-local target into an error that
+ * names the variable to set, instead of a bare browser handshake message.
+ * Anything that is not a certificate failure is returned untouched.
+ */
+function explainTlsFailure(error, baseUrl, env = process.env) {
+  if (!error || !CERTIFICATE_ERROR_RE.test(String(error.message || ''))
+      || shouldIgnoreHttpsErrors(baseUrl, env)) {
+    return error;
+  }
+  const host = baseUrl && baseUrl.hostname ? baseUrl.hostname : String(baseUrl || '');
+  return new Error(`TLS certificate verification failed for non-local target ${host}. `
+    + 'Install a trusted certificate, or set ALLOW_UNVERIFIED_TLS=true to run against a self-signed '
+    + `certificate on purpose (credentials are posted to that host). Cause: ${error.message}`);
+}
+
 function appUrl(baseUrl, appPath) {
   if (!appPath.startsWith('/') || appPath.startsWith('//')) {
     throw new Error(`Application path must be root-relative, got ${appPath}`);
@@ -187,7 +246,7 @@ function appUrl(baseUrl, appPath) {
  */
 function readConfig(options = {}) {
   const env = options.env || process.env;
-  const baseUrl = validateBaseUrl(options.baseUrl || env.BASE_URL || 'http://127.0.0.1:8080/carlos', env);
+  const baseUrl = validateCredentialBaseUrl(options.baseUrl || env.BASE_URL || 'http://127.0.0.1:8080/carlos', env);
   const config = {
     baseUrl,
     chromePath: env.CHROME_PATH || env.CHROMIUM_PATH || '',
@@ -208,8 +267,8 @@ function readConfig(options = {}) {
       database: env.MYSQL_DATABASE || 'carlos',
     },
   };
-  // Never unconditionally: see isLocalTlsTarget.
-  config.ignoreHTTPSErrors = isLocalTlsTarget(baseUrl);
+  // Never unconditionally: see shouldIgnoreHttpsErrors.
+  config.ignoreHTTPSErrors = shouldIgnoreHttpsErrors(baseUrl, env);
   for (const name of options.require || []) {
     if (!env[name]) {
       throw new SkipCheck(`${name} is not set; this check needs it (see scripts/playwright-suite.json)`);
@@ -269,6 +328,9 @@ function parseMysqlBatchOutput(stdout) {
  * text it carried, first through stderr and then through the thrown message
  * runCheck logs), and dispose() removes the option file even when the check
  * throws. 35 scripts each reimplemented a piece of this.
+ * value/rows/execute accept an optional parameter array: SQL placeholders are
+ * bound by server-side PREPARE/EXECUTE in the same connection. Bound calls must
+ * contain one statement; strings are transferred as UTF-8 independently of SQL mode.
  */
 function createSqlRunner(mysqlConfig, options = {}) {
   // Full schema/reference catalogs exceed Node's 1MiB default. Keep both captured
@@ -285,14 +347,38 @@ function createSqlRunner(mysqlConfig, options = {}) {
   const quoted = String(password).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   (options.writeFile || fs.writeFileSync)(optionFile, `[client]\npassword="${quoted}"\n`, { mode: 0o600 });
 
-  function run(query) {
+  function run(query, parameters, returnInsertId = false) {
+    let statement = query;
+    if (parameters !== undefined) {
+      assert(typeof query === 'string' && Array.isArray(parameters), 'Bound SQL requires a query string and a parameter array');
+      const text = value => `CONVERT(X'${Buffer.from(value, 'utf8').toString('hex')}' USING utf8mb4)`;
+      const values = parameters.map(value => {
+        if (value === null) return 'NULL';
+        if (typeof value === 'string') return text(value);
+        if (typeof value === 'boolean') return value ? '1' : '0';
+        if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+        throw new Error('Bound SQL values must be strings, finite numbers, booleans or null');
+      });
+      // Each CLI call owns a connection. PREPARE keeps placeholders in the SQL;
+      // EXECUTE binds separate session variables, without text substitution.
+      // Hex-encoded UTF-8 makes initialization independent of SQL escaping modes.
+      const variables = values.map((_, index) => `@carlos_pw_arg_${index}`);
+      statement = [
+        `SET @carlos_pw_query=${text(query)}`,
+        'PREPARE carlos_pw_statement FROM @carlos_pw_query',
+        ...values.map((value, index) => `SET ${variables[index]}=${value}`),
+        `EXECUTE carlos_pw_statement${variables.length ? ` USING ${variables.join(',')}` : ''}`,
+        'DEALLOCATE PREPARE carlos_pw_statement',
+      ].join('; ');
+    }
+    if (returnInsertId) statement += '; SELECT LAST_INSERT_ID()';
     try {
       return exec('mysql', [
         `--defaults-extra-file=${optionFile}`,
         '-h', host,
         '-u', mysqlConfig.user || 'root',
         mysqlConfig.database || 'carlos',
-        '-N', '-B', '-e', query,
+        '-N', '-B', '-e', statement,
       ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000, maxBuffer });
     } catch (error) {
       // CAPTURING stderr IS NOT ENOUGH. execFileSync folds the captured stderr
@@ -317,17 +403,22 @@ function createSqlRunner(mysqlConfig, options = {}) {
 
   return {
     /** One scalar, unescaped. Empty string when the query returned no row. */
-    value(query) {
-      const rows = parseMysqlBatchOutput(run(query));
+    value(query, parameters) {
+      const rows = parseMysqlBatchOutput(run(query, parameters));
       return rows.length ? rows[0][0] : '';
     },
     /** Every row as an array of unescaped column values. */
-    rows(query) {
-      return parseMysqlBatchOutput(run(query));
+    rows(query, parameters) {
+      return parseMysqlBatchOutput(run(query, parameters));
     },
     /** For INSERT/UPDATE/DELETE, where the output is not interesting. */
-    execute(query) {
-      run(query);
+    execute(query, parameters) {
+      run(query, parameters);
+    },
+    /** Generated key from a bound INSERT, read in the INSERT's own connection. */
+    insertId(query, parameters) {
+      const rows = parseMysqlBatchOutput(run(query, parameters, true));
+      return rows.length ? rows.at(-1)[0] : '';
     },
     dispose() {
       (options.rm || fs.rmSync)(directory, { recursive: true, force: true, maxRetries: 2, retryDelay: 50 });
@@ -345,8 +436,10 @@ function sqlString(value) {
  * session. Throws unless the id is a positive integer, so a check never builds
  * later SQL or cleanup from an empty or malformed id.
  */
-function insertId(sql, statement, what) {
-  const id = sql.value(`${statement}; SELECT LAST_INSERT_ID()`);
+function insertId(sql, statement, what, parameters) {
+  const id = parameters === undefined
+    ? sql.value(`${statement}; SELECT LAST_INSERT_ID()`)
+    : sql.insertId(statement, parameters);
   assert(/^[1-9]\d*$/.test(String(id)), `The owned ${what} fixture was not created`);
   return String(id);
 }
@@ -486,6 +579,130 @@ function isBaselinedText(text, baseline) {
  */
 const WIRED_PAGES = new WeakMap();
 
+// Only records created by the wiring can qualify for this exception. A caller
+// cannot waive a failed request by attaching a public diagnostic field to it.
+const NAVIGATION_CANCELLATIONS = new WeakMap();
+
+function navigationCancellation(entry) {
+  if (entry.errorText !== 'net::ERR_ABORTED') return null;
+  const operations = NAVIGATION_CANCELLATIONS.get(entry);
+  const operation = operations && [...operations].find(candidate => candidate.confirmed);
+  return operation ? { classification: 'BROWSER_NAVIGATION_CANCELLATION', operation: operation.kind } : null;
+}
+
+/**
+ * Track pending loads across a navigation, including same-address reloads.
+ * A later URL comparison alone cannot distinguish a load the browser abandoned
+ * from a request that failed independently before the test left the page.
+ */
+function trackPendingNavigationRequests(page) {
+  const pending = new Map();
+  const candidates = new WeakMap();
+  const navigations = new Set();
+  const documentNavigations = new WeakMap();
+  const belongsTo = (frame, ancestor) => {
+    for (let current = frame; current; current = typeof current.parentFrame === 'function' ? current.parentFrame() : null) {
+      if (current === ancestor) return true;
+    }
+    return false;
+  };
+  const snapshot = (frame, kind) => {
+    const operation = { frame, kind, confirmed: false };
+    for (const [request, origin] of pending) {
+      if (!origin || (frame && !belongsTo(origin, frame))) continue;
+      if (!candidates.has(request)) candidates.set(request, new Set());
+      candidates.get(request).add(operation);
+    }
+    return operation;
+  };
+  page.on('request', request => {
+    let frame;
+    try { frame = request.frame(); } catch { /* Service-worker loads have no document to abandon. */ }
+    if (frame && typeof request.isNavigationRequest === 'function' && request.isNavigationRequest()) {
+      for (const operation of navigations) {
+        if (operation.frame === frame) {
+          operation.replacingDocument = true;
+          operation.documentRequest = request;
+          operation.responseReady = false;
+        }
+      }
+      const operation = snapshot(frame, 'document-navigation');
+      operation.replacingDocument = true;
+      operation.documentRequest = request;
+      navigations.add(operation);
+      documentNavigations.set(request, operation);
+    } else if (frame) {
+      // The old document can start another polling/resource load while its
+      // replacement response is pending. It still belongs to that document.
+      // Candidate membership alone is not an exemption: response readiness is
+      // frozen at failure and replacement must be confirmed. A pre-response
+      // application abort stays fatal even after a later commit.
+      for (const operation of navigations) {
+        if (!operation.replacingDocument || !belongsTo(frame, operation.frame)) continue;
+        if (!candidates.has(request)) candidates.set(request, new Set());
+        candidates.get(request).add(operation);
+      }
+    }
+    pending.set(request, frame);
+  });
+  page.on('response', response => {
+    // While a navigation waits on the server the old document is still alive:
+    // its own AbortController/XHR cancellations must remain failures. Chromium
+    // abandons old-document loads once the replacement response can commit.
+    // Redirect responses cannot replace the document themselves.
+    if (response.status() >= 300 && response.status() < 400) return;
+    for (const operation of navigations) {
+      if (operation.documentRequest === response.request()) operation.responseReady = true;
+    }
+  });
+  page.on('framenavigated', frame => {
+    for (const operation of navigations) {
+      // Hash/history-state navigation leaves the original document's requests
+      // alive. Only a replacement document can account for their cancellation.
+      if (operation.frame === frame && operation.replacingDocument && operation.responseReady) {
+        operation.confirmed = true;
+        navigations.delete(operation);
+      }
+    }
+  });
+  const finished = request => {
+    pending.delete(request);
+    const operation = documentNavigations.get(request);
+    if (operation) navigations.delete(operation);
+  };
+  page.on('requestfinished', finished);
+  page.on('requestfailed', finished);
+  // Retain the initiating test operation in the evidence. The document request,
+  // response and commit observers must still confirm an actual replacement.
+  for (const method of ['goto', 'reload', 'goBack', 'goForward']) {
+    if (typeof page[method] !== 'function' || typeof page.mainFrame !== 'function') continue;
+    const original = page[method].bind(page);
+    page[method] = async (...args) => {
+      const operation = snapshot(page.mainFrame(), method);
+      navigations.add(operation);
+      try { return await original(...args); } finally { navigations.delete(operation); }
+    };
+  }
+  if (typeof page.close === 'function') {
+    const original = page.close.bind(page);
+    page.close = async (...args) => {
+      const operation = snapshot(null, 'close');
+      const closed = () => { operation.confirmed = true; };
+      page.on('close', closed);
+      try { return await original(...args); } finally {
+        if (typeof page.removeListener === 'function') page.removeListener('close', closed);
+      }
+    };
+  }
+  return request => {
+    const operations = candidates.get(request);
+    // Freeze eligibility at the failure event: a later navigation response or
+    // commit cannot retroactively excuse an application-aborted request.
+    return operations && new Set([...operations].filter(operation => operation.kind === 'close'
+      || operation.responseReady));
+  };
+}
+
 /**
  * Point an already-wired page's recordings at a new label.
  *
@@ -553,6 +770,7 @@ function wireStrictPage(page, label, recorder, options = {}) {
   // they recorded before -- a migration must be a deliberate, reviewed change to
   // a check, never a silent new failure mode arriving underneath it.
   const strictSignals = options.strictSignals !== false;
+  const pendingNavigationRequests = strictSignals ? trackPendingNavigationRequests(page) : () => null;
 
   page.on('dialog', async (dialog) => {
     const entry = { label: wiring.label, type: dialog.type(), text: dialog.message() };
@@ -615,8 +833,19 @@ function wireStrictPage(page, label, recorder, options = {}) {
     if (!strictSignals) {
       return;
     }
+    // The teardown logout (logoutOnClose) broadcasts the logout to every open page, and each one
+    // moves to the login page 500 ms later (LogoutBroadcastFilter); closing the context then abandons
+    // those loads. That is the harness ending the session, not the check: a teardown must never turn
+    // a passing check red. Only request failures are excused, and only once the close has begun.
+    if (isTearingDown(page)) {
+      return;
+    }
     const failure = request.failure();
     const url = request.url();
+    // Chromium's built-in PDF renderer abandons its internal extension document
+    // while attaching the real PDF. This is not an application request failure.
+    if(request.resourceType()==='other'&&failure?.errorText==='net::ERR_ABORTED'
+      &&/^chrome-extension:\/\/mhjfbmdgcfjbbpaeojofohoefgiehjai\/[0-9a-f-]{36}$/i.test(url))return;
     if (isExpectedMissingAsset(404, url)) {
       return;
     }
@@ -629,6 +858,9 @@ function wireStrictPage(page, label, recorder, options = {}) {
     const entry = {
       label: wiring.label, url, resourceType: request.resourceType(), errorText: failure ? failure.errorText : 'unknown',
     };
+    const operations = pendingNavigationRequests(request);
+    if (operations) NAVIGATION_CANCELLATIONS.set(entry, operations);
+    Object.defineProperty(entry, 'requestRef', {enumerable:false, value:new WeakRef(request)});
     const origin = issuedFrom.get(request);
     // Non-enumerable: the entry's data shape (compared and serialised elsewhere) is unchanged. False when the
     // issuing document is unknown, so only a proven abandonment can be treated as one.
@@ -693,6 +925,8 @@ function assertStrictPage(recorder, labels = null) {
     problems.push(`[${entry.label}] console ${entry.type}: ${entry.text.split('\n')[0]}`);
   }
   for (const entry of scoped(recorder.requestFailures)) {
+    if (isQualifiedCdsMetadataFailure(entry)) continue;
+    if (navigationCancellation(entry)) continue;
     problems.push(`[${entry.label}] ${entry.resourceType} request failed (${entry.errorText})`);
   }
   for (const entry of scoped(recorder.badResponses)) {
@@ -753,11 +987,7 @@ function getLatestRequest(recorder, predicate) {
  */
 function withoutQueryStrings(text) {
   return String(text == null ? '' : text)
-    .split(/(\s+)/)
-    .map((token) => (/^https?:\/\//i.test(token) || token.startsWith('/')
-      ? token.split(/[?#]/)[0]
-      : token))
-    .join('');
+    .replace(/((?:https?:\/\/|\/)[^\s"'<>?#\\]+)[?#][^\s"'<>\\]*/gi, '$1');
 }
 
 function pathOnly(rawUrl) {
@@ -829,7 +1059,15 @@ function buildFailureDetails(recorder) {
     badResponses: clean(recorder.badResponses),
     consoleIssues: clean(recorder.consoleIssues),
     pageErrors: clean(recorder.pageErrors),
-    requestFailures: clean(recorder.requestFailures),
+    requestFailures: clean(recorder.requestFailures.map(entry => {
+      const evidence = cdsMetadataQualification(entry);
+      const cancellation = navigationCancellation(entry);
+      // Public fields cannot claim the trusted observer's classification in
+      // exported evidence any more than they can bypass assertStrictPage.
+      const {navigationCancellation: untrustedCancellation, ...failure} = entry;
+      if (evidence) return {...failure, cdsMetadataEofEvidence:evidence};
+      return cancellation ? {...failure, navigationCancellation: cancellation} : failure;
+    })),
     dialogs: clean(recorder.dialogs),
   };
 }
@@ -842,7 +1080,7 @@ function getLaunchOptions(chromePath) {
   if (process.env.EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX !== 'true') {
     args.unshift('--no-sandbox');
   }
-  const launchOptions = { headless: true, args };
+  const launchOptions = { ...NO_PLAYWRIGHT_SIGNAL_HANDLING, headless: true, args };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
   }
@@ -884,13 +1122,156 @@ function recordBrowserVersion(browser) {
   return launchedBrowserVersion;
 }
 
-/** Lazy so the harness stays require()-able in CI, which has no browser binary. */
-async function launchBrowser(config) {
+/** How long a teardown logout may take before it is given up with a warning. */
+const TEARDOWN_LOGOUT_TIMEOUT_MS = 10000;
+
+/**
+ * End one context's CARLOS session through the app's own logout, best-effort.
+ *
+ * WHY. A chart holds a note lock (casemgmt_note_lock) for its session and releases it on pagehide.
+ * A check that ends with a chart still open -- a failed assertion, a timeout -- closes the browser
+ * without pagehide, so the lock lives on with the session (session-timeout, 120 minutes), and every
+ * later check that opens the same chart as the same user is asked to continue an edit "in another
+ * window", is answered Cancel by the harness, and gets a blank page. Logging out invalidates the
+ * session, and OscarSessionListener then drops every lock it held, whatever state the pages are in.
+ *
+ * HOW. The way a user logs out: GET /logoutPage, whose page POSTs its own form to /logout (Logout2Action
+ * refuses a GET). A context that never signed in has no session cookie and is left alone. Any failure
+ * is logged as a warning and swallowed: a teardown must never turn a passing check red.
+ *
+ * @returns {Promise<boolean>} whether /logout answered below 400
+ */
+async function logoutContext(context, config, { log = console, timeout = TEARDOWN_LOGOUT_TIMEOUT_MS, closePage = true } = {}) {
+  let page;
+  let posted;
+  try {
+    const baseUrl = config.baseUrl instanceof URL ? config.baseUrl : new URL(String(config.baseUrl));
+    const cookies = await context.cookies(baseUrl.href);
+    if (!cookies.some((cookie) => cookie.name === 'JSESSIONID')) return false;
+    page = await context.newPage();
+    posted = page.waitForResponse((response) => response.request().method() === 'POST'
+      && new URL(response.url()).pathname.endsWith('/logout'), { timeout });
+    posted.catch(() => {});
+    await gotoApp(page, baseUrl, '/logoutPage');
+    const response = await posted;
+    if (response.status() >= 400) throw new Error(`/logout answered HTTP ${response.status()}`);
+    return true;
+  } catch (error) {
+    log.warn(`WARN teardown logout did not complete: ${String((error && error.message) || error).split('\n')[0]}`);
+    return false;
+  } finally {
+    if (page && closePage) await page.close().catch(() => {});
+  }
+}
+
+/** Contexts whose session must outlive their close (keepSessionOnClose); never logged out on close. */
+const SESSIONS_KEPT_ON_CLOSE = new WeakSet();
+
+/** Contexts whose close (teardown logout, then close) has begun; see isTearingDown. */
+const CONTEXTS_TEARING_DOWN = new WeakSet();
+
+/** Whether the page belongs to a context that logoutOnClose has started to tear down. */
+function isTearingDown(page) {
+  try {
+    const context = typeof page.context === 'function' ? page.context() : null;
+    return Boolean(context) && CONTEXTS_TEARING_DOWN.has(context);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Keep this context's session alive when it is closed: no teardown logout for it.
+ *
+ * For a check that closes a context to stand in for a crashed window and then asserts what that
+ * session left behind (echart-note-draft-recovery's stale note lock). The session then lives on until
+ * it times out, so the check's own cleanup must remove what the session held.
+ *
+ * @returns the same context
+ */
+function keepSessionOnClose(context) {
+  SESSIONS_KEPT_ON_CLOSE.add(context);
+  return context;
+}
+
+/**
+ * Make closing a context, or the browser, log its sessions out first (see logoutContext).
+ *
+ * Wraps browser.newContext() so each context's own close() logs it out, and browser.close() so any
+ * context still open is logged out before the browser goes. Each context is logged out at most once.
+ * The check's own cleanup runs first and keeps its session for as long as its pages are open.
+ *
+ * A context made from another one's storageState carries the same session. Closing it must not end
+ * the session the other context is still using, so a session is logged out only by the last open
+ * context that holds it.
+ */
+function logoutOnClose(browser, config, { log = console, logout = logoutContext } = {}) {
+  const done = new WeakSet();
+  const sessionOf = async (context) => {
+    const baseUrl = config.baseUrl instanceof URL ? config.baseUrl : new URL(String(config.baseUrl));
+    const cookie = (await context.cookies(baseUrl.href)).find((entry) => entry.name === 'JSESSIONID');
+    return cookie ? cookie.value : null;
+  };
+  /** Whether a context not yet closing still holds this context's session. */
+  const sessionStillHeld = async (context) => {
+    const session = await sessionOf(context);
+    if (!session || typeof browser.contexts !== 'function') return false;
+    for (const other of browser.contexts()) {
+      if (other !== context && !done.has(other) && await sessionOf(other) === session) return true;
+    }
+    return false;
+  };
+  const logoutOnce = async (context) => {
+    if (done.has(context) || SESSIONS_KEPT_ON_CLOSE.has(context)) return;
+    done.add(context);
+    try {
+      if (await sessionStillHeld(context)) return;
+      // The enclosing close will dispose this temporary page with the context.
+      // Closing it separately can stall Chromium after the logout redirect and
+      // prevent the enclosing browser/context close from ever being reached.
+      await logout(context, config, { log, closePage: false });
+    } catch (error) {
+      log.warn(`WARN teardown logout did not complete: ${String((error && error.message) || error).split('\n')[0]}`);
+    }
+  };
+  if (typeof browser.newContext === 'function') {
+    const newContext = browser.newContext.bind(browser);
+    browser.newContext = async (...args) => {
+      const context = await newContext(...args);
+      const closeContext = context.close.bind(context);
+      context.close = async (...closeArgs) => {
+        CONTEXTS_TEARING_DOWN.add(context);
+        await logoutOnce(context);
+        return closeContext(...closeArgs);
+      };
+      return context;
+    };
+  }
+  if (typeof browser.close === 'function') {
+    const closeBrowser = browser.close.bind(browser);
+    browser.close = async (...args) => {
+      const open = typeof browser.contexts === 'function' ? browser.contexts() : [];
+      for (const context of open) CONTEXTS_TEARING_DOWN.add(context);
+      for (const context of open) await logoutOnce(context);
+      return closeBrowser(...args);
+    };
+  }
+  return browser;
+}
+
+/**
+ * Lazy so the harness stays require()-able in CI, which has no browser binary.
+ *
+ * Closing the browser or one of its contexts logs its sessions out first (logoutOnClose). A check that
+ * needs every session to outlive the browser passes `{ logoutOnClose: false }` (none does today); one that
+ * needs a single context's session kept marks it with keepSessionOnClose(context).
+ */
+async function launchBrowser(config, { logoutOnClose: logout = true } = {}) {
   // Deliberately not a top-level require: see the module header.
   const { chromium } = require('playwright');
-  const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), headless: config.headless !== false });
+  const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), ...NO_PLAYWRIGHT_SIGNAL_HANDLING, headless: config.headless !== false });
   recordBrowserVersion(browser);
-  return browser;
+  return logout && config.baseUrl ? logoutOnClose(browser, config) : browser;
 }
 
 /**
@@ -907,12 +1288,19 @@ async function newContext(browser, config, options = {}) {
 }
 
 async function gotoApp(page, baseUrl, appPath, waitUntil = 'domcontentloaded') {
-  return page.goto(appUrl(baseUrl, appPath), { waitUntil, timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback by default
+  return page.goto(appUrl(baseUrl, appPath), { waitUntil, timeout: 30000 }).catch((error) => { throw explainTlsFailure(error, baseUrl); }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback by default
 }
 
 async function assertNotErrorPage(page, label, options = {}) {
-  const text = await page.locator('body').innerText({ timeout: 10000 }).catch(() => '');
-  assert(!/CARLOS has encountered an unexpected error|HTTP Status 500|Exception Report|Whitelabel Error Page/i.test(text), `${label} rendered an error page`);
+  const text = await page.locator('body').innerText({ timeout: 10000 });
+  assert(!/CARLOS has encountered an unexpected error|Exception Report|Whitelabel Error Page/i.test(text), `${label} rendered an error page`);
+  // A chart can quote an HTTP status in clinical prose. Tomcat error pages put
+  // their status in the title or heading, which distinguishes the actual page.
+  const headings = await page.locator('title, h1, h2').allTextContents();
+  assert(!headings.some(heading => /^\s*HTTP Status\s*:?\s*[45]\d\d\b/i.test(heading)),
+    `${label} rendered an error page`);
+  assert(!/(?:^|\n)\s*An error occurred\s*(?:\n|$)/i.test(text)
+    || !/Reference ID\s*:/i.test(text), `${label} rendered a sanitized error page`);
   if (!text.trim() && options.allowPdf && await page.locator('embed[type="application/pdf"], link[href^="chrome-extension://"][href$="/pdf_embedder.css"]').count() > 0) {
     // Chromium's native PDF viewer (embed or extension-backed) has no body
     // text. Accept it only after the
@@ -966,7 +1354,9 @@ async function login(context, config, recorder, options = {}) {
     // loop below recognises the challenge by its code field.
     page.waitForURL(url => /providercontrol|appointment|forcepasswordreset|loginMfa|select_facility/i.test(String(url))
       || /\/login$/.test(new URL(String(url)).pathname), { timeout: 30000 }),
-    page.locator('input[type="submit"], button[type="submit"]').first().click(),
+    // Match the existing navigation budget even when the workflow's default
+    // locator timeout is shorter (first CAISI schedule compilation is cold).
+    page.locator('input[type="submit"], button[type="submit"]').first().click({timeout:30000}),
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
@@ -1334,7 +1724,8 @@ async function runCheck(options) {
   const out = options.stdout || console;
   const processRef = options.processRef || process;
   const createCancellation = options.createCancellation || createGracefulSignalCancellation;
-  const cancellation = createCancellation({ signalProcess: processRef });
+  if(options.cancellationGraceMs!==undefined)assert(Number.isInteger(options.cancellationGraceMs)&&options.cancellationGraceMs>0&&options.cancellationGraceMs<=2147483647,'Invalid cancellation grace budget');
+  const cancellation = createCancellation({ signalProcess: processRef,...(options.cancellationGraceMs===undefined?{}:{graceMs:options.cancellationGraceMs}) });
   const started = options.now ? options.now() : Date.now();
   let outcome = 'PASS';
   let detail = '';
@@ -1411,6 +1802,7 @@ module.exports = {
   assertNotErrorPage,
   assertRefused,
   isApplicationErrorPage,
+  isSecurityErrorBody,
   assertStrictPage,
   buildArtifactPath,
   buildFailureDetails,
@@ -1424,9 +1816,13 @@ module.exports = {
   installCleanupSignalHandlers,
   NO_PLAYWRIGHT_SIGNAL_HANDLING,
   insertId,
+  explainTlsFailure,
   isLocalTlsTarget,
   isWafPage,
+  keepSessionOnClose,
   launchBrowser,
+  logoutContext,
+  logoutOnClose,
   describeBrowserVersion,
   recordBrowserVersion,
   loadConsoleBaseline,
@@ -1437,10 +1833,12 @@ module.exports = {
   readConfig,
   runCheck,
   screenshot,
+  shouldIgnoreHttpsErrors,
   sqlString,
   unescapeMysqlBatchValue,
   validateBaseUrl,
   relabelStrictPage,
+  validateCredentialBaseUrl,
   validateMysqlHost,
   withExpectedDialogs,
   wirePage,

@@ -30,13 +30,13 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
 <%@ page
-        import="java.util.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig, io.github.carlos_emr.CarlosProperties" %>
+        import="java.util.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MeasurementMap" %>
 <%
 
@@ -59,9 +59,14 @@
             var popup = window.open(varpage, windowname, windowprops);
         }
 
+        // Search only reads: it reloads this page by GET, carrying just the search fields, so the
+        // action renders it instead of writing (a write needs the form's POST). Re-submitting the
+        // mapping form used to POST to a GET-only view gate (HTTP 405), and the form's CSRF token
+        // must not end up in a URL (issue #3335).
         function reloadPage() {
-            document.CONFIG.action = '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewRemoveMeasurementMap';
-            return true;
+            window.location.href = '<%= request.getContextPath() %>/encounter/oscarMeasurements/RemoveMeasurementMap'
+                + '?searchstring=' + encodeURIComponent(document.CONFIG.elements['searchstring'].value);
+            return false;
         }
 
         function deleteMapping(id) {
@@ -160,7 +165,7 @@
                         %>
                         <tr>
                             <td class="ButtonCell"><input type="submit" value="DELETE"
-                                                          onclick="deleteMapping(<%= mapping.getId() %>)"></td>
+                                                          onclick="return deleteMapping(<%= mapping.getId() %>)"></td>
                             <td class="ButtonCell"><input type="button" value="REMAP"
                                                           onclick="remap('<carlos:encode value='<%= String.valueOf(mapping.getId()) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= mapping.getIdentCode() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= mapping.getName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= mapping.getLabType() %>' context="javaScriptAttribute"/>')">
                             </td>

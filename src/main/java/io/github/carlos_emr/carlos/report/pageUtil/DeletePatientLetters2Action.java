@@ -30,57 +30,80 @@
 
 package io.github.carlos_emr.carlos.report.pageUtil;
 
+import java.io.IOException;
+import java.util.regex.Pattern;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.report.data.ManageLetters;
 
-/**
- * @author jay
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Manage Letters' Delete: archives one letter template, so Manage Letters and Generate Letters stop
+ * listing it (the row and its file are kept).
+ *
+ * <p>Archiving changes what every user is offered, so it needs {@code _report} write and a POST;
+ * any other method gets 405 before anything is read. A missing or malformed id (400), an id with
+ * no template (404) or a failed save (500) shows Manage Letters again with the
+ * {@code letterDeleteFailed} message instead of a silent reload.</p>
+ *
+ * @since 2006-11-06
+ */
 public class DeletePatientLetters2Action extends ActionSupport {
+    /** A report_letters id: a positive int, no sign or spaces. */
+    private static final Pattern TEMPLATE_ID = Pattern.compile("[1-9][0-9]{0,8}");
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
-
 
     private static Logger log = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    /**
-     * Creates a new instance of DeletePatientLetters2Action
-     */
-    public DeletePatientLetters2Action() {
-    }
-
     public String execute() {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "w", null)) {
             throw new SecurityException("missing required sec object (_report)");
         }
 
-        if (log.isTraceEnabled()) {
-            log.trace("Start of DeletePatientLetters2Action Action");
+        // Archiving is a mutation: refuse GET/HEAD before reading the id or touching the DAO.
+        if (!"POST".equals(request.getMethod())) {
+            try {
+                response.setHeader("Allow", "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            } catch (IOException e) {
+                log.warn("Unable to send 405 for non-POST letter template delete", e);
+            }
+            return NONE;
         }
 
-        String fileId = request.getParameter("reportID");
+        String reportId = request.getParameter("reportID");
+        if (reportId == null || !TEMPLATE_ID.matcher(reportId).matches()) {
+            return deleteFailure(HttpServletResponse.SC_BAD_REQUEST);
+        }
+        int id = Integer.parseInt(reportId);
         try {
-            ManageLetters manageLetters = new ManageLetters();
-            manageLetters.archiveReport(fileId);
-        } catch (Exception ex) {
-            MiscUtils.getLogger().error("Error", ex);
-        }
-
-        if (log.isTraceEnabled()) {
-            log.trace("End of DeletePatientLetters2Action Action");
+            if (!new ManageLetters().archiveReport(id)) {
+                return deleteFailure(HttpServletResponse.SC_NOT_FOUND);
+            }
+        } catch (RuntimeException e) {
+            log.error("Letter template {} was not archived", LogSafe.sanitize(String.valueOf(id)), e);
+            return deleteFailure(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
         return SUCCESS;
+    }
+
+    private String deleteFailure(int status) {
+        response.setStatus(status);
+        request.setAttribute("letterDeleteFailed", Boolean.TRUE);
+        return INPUT;
     }
 }

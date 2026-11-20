@@ -25,7 +25,7 @@
 
 <%@page import="java.nio.charset.StandardCharsets" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -103,7 +103,7 @@
             // every submit, so this guard never ran and the error was left in the console.
             var providers = document.forms[0].providers;
             if (providers && providers.value == "000000") {
-                alert("Please select a providers!");
+                alert("Please select a provider!");
                 b = false;
             }//else if(document.forms[0].xml_vdate.value==""){
             //alert("Please give a date!");

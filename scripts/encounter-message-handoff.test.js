@@ -32,9 +32,9 @@ test('a new chart without a requested message never inherits the shared bean mes
   assert.equal(h.editor.value, 'draft');
 });
 
-test('legacy layouts without a chart-local handoff retain the legacy fallback', () => {
+test('a layout without a chart-local handoff never inherits a shared message', () => {
   const h = harness(undefined, true); h.render();
-  assert.equal(h.editor.value, 'draft\n\nlegacy message');
+  assert.equal(h.editor.value, 'draft');
 });
 
 test('a temporarily absent editor does not consume the pending message', () => {

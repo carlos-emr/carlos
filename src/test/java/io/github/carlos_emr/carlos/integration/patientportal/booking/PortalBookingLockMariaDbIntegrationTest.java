@@ -25,7 +25,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
@@ -42,9 +41,10 @@ import org.junit.jupiter.api.Test;
 /**
  * Two patients picking the same time at once on real MariaDB (#3850): only one is booked.
  *
- * <p>H2 cannot show this, so it runs only against a throwaway MariaDB schema named in
+ * <p>H2 cannot show this, so it runs only against the throwaway MariaDB server or schema named in
  * {@code CARLOS_TEST_MARIADB_URL} (with {@code CARLOS_TEST_MARIADB_USER} and
- * {@code CARLOS_TEST_MARIADB_PASSWORD}); it creates and drops its own two tables there. It follows
+ * {@code CARLOS_TEST_MARIADB_PASSWORD}). A server URL creates and drops an owned schema; an explicit
+ * {@code carlos_race_} schema creates and drops its own two tables there. It follows
  * the statement order of {@link PortalBookingChoiceService#book}: the provider row lock is the first
  * statement of the transaction, then the overlap check, then the insert. Taking the lock first
  * matters on MariaDB: a consistent read taken earlier would not see the other booking.
@@ -57,7 +57,24 @@ class PortalBookingLockMariaDbIntegrationTest {
     @Test
     void shouldBookOnlyOnce_whenPatientsPickTheSameTimeAtOnce() throws Exception {
         String url = System.getenv("CARLOS_TEST_MARIADB_URL");
+        assumeTrue(url != null, "throwaway MariaDB server not configured");
+        if (url.matches("jdbc:(mysql|mariadb)://[^/]+/")) {
+            String schema = "carlos_race_" + java.util.UUID.randomUUID().toString().replace("-", "");
+            try (Connection admin = connect(url); Statement statement = admin.createStatement()) {
+                statement.execute("CREATE DATABASE `" + schema + "`");
+                try {
+                    exerciseBookingRace(url + schema);
+                } finally {
+                    statement.execute("DROP DATABASE `" + schema + "`");
+                }
+            }
+            return;
+        }
         assumeTrue(url != null && url.contains("carlos_race_"), "throwaway MariaDB schema not configured");
+        exerciseBookingRace(url);
+    }
+
+    private static void exerciseBookingRace(String url) throws Exception {
         try (Connection setup = connect(url); Statement statement = setup.createStatement()) {
             statement.execute("DROP TABLE IF EXISTS appointment");
             statement.execute("DROP TABLE IF EXISTS provider");
@@ -127,7 +144,7 @@ class PortalBookingLockMariaDbIntegrationTest {
     }
 
     private static Connection connect(String url) throws Exception {
-        return DriverManager.getConnection(url, System.getenv("CARLOS_TEST_MARIADB_USER"),
+        return io.github.carlos_emr.carlos.test.base.MariaDbTestConnections.open(url, System.getenv("CARLOS_TEST_MARIADB_USER"),
                 System.getenv("CARLOS_TEST_MARIADB_PASSWORD"));
     }
 }

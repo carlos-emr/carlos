@@ -26,6 +26,8 @@ package io.github.carlos_emr.carlos.commn.model;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.Set;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -109,7 +111,17 @@ public class BillingONItem extends AbstractModel<Integer> implements Serializabl
 
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "timestamp")
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date lastEditDT;
+
+    // Retain the pre-snapshot entity serialization identity after adding compatibility constructors.
+    private static final long serialVersionUID = 4758912463499371165L;
+
+    /** Required by JPA and existing Java callers. */
+    public BillingONItem() { }
+
+    /** Identified detached compatibility view; this does not persist or attach it. */
+    public BillingONItem(Integer id) { this.id = id; }
 
     @Override
     public Integer getId() {

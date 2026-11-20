@@ -46,7 +46,8 @@
 const h = require('./lib/playwright-harness');
 const { randomBytes } = require('node:crypto');
 const { runWorkflow } = require('./lib/workflow-session');
-const { stageCustomDrug, clearOwnedPrescriptionRows } = require('./rx-stash-patient-isolation-playwright-checks');
+const { stageCustomDrug, stageCustomDrugSettled, clearOwnedPrescriptionRows } = require('./rx-stash-patient-isolation-playwright-checks');
+const { waitUntil } = require('./lib/concurrency-support');
 
 /** A provider number no real login owns: the favourites table takes six characters. */
 const FOREIGN_PROVIDER = 'FAKEPW';
@@ -112,7 +113,7 @@ async function workflow(session) {
     h.assert(new URL(await link.getAttribute('href'), config.baseUrl).searchParams.get('demographicNo') === patient,
       'the Edit favourites link does not carry the open patient');
     await Promise.all([
-      rx.waitForURL(/\/rx\/ViewEditFavorites2\?/, { timeout: 30000 }),
+      rx.waitForURL(/\/rx\/ViewEditFavorites2\?/, { timeout: 30000, waitUntil: 'domcontentloaded' }),
       link.click(),
     ]);
     await rx.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
@@ -141,7 +142,7 @@ async function workflow(session) {
     const other = await openRx(session, otherPatient);
     await h.withExpectedDialogs(editor, async () => {
       await Promise.all([
-        editor.waitForURL(/\/rx\/deleteFavorite2/),
+        editor.waitForURL(/\/rx\/deleteFavorite2/, { timeout: 30000, waitUntil: 'domcontentloaded' }),
         editor.locator(`a[href="javascript:deleteRow(${row});"]`).click(),
       ]);
     }, {accept: true});
@@ -149,13 +150,21 @@ async function workflow(session) {
       'the owned favorite was not deleted');
     // Trigger the real provider-selection refresh without copying another provider's data.
     await Promise.all([
-      copy.waitForURL(/\/rx\/copyFavorite2/),
+      copy.waitForURL(/\/rx\/copyFavorite2/, { timeout: 30000, waitUntil: 'domcontentloaded' }),
       copy.locator('select[name="ddl_provider"]').selectOption(''),
     ]);
     for (const page of [editor, copy]) {
       await h.assertNotErrorPage(page, 'favorite postback');
       const back = page.locator('input[value="Back to Search For Drug"]').first();
-      await Promise.all([page.waitForURL(/\/rx\/searchDrug\?/), back.click()]);
+      // The search destination can be committed while secondary page resources
+      // are still loading. Assert the usable Rx controls and patient instead
+      // of waiting for the unrelated window load event.
+      await Promise.all([
+        page.waitForURL(/\/rx\/searchDrug\?/, { timeout: 30000, waitUntil: 'domcontentloaded' }),
+        back.click({ noWaitAfter: true }),
+      ]);
+      await page.locator('#searchString').waitFor({ state: 'visible', timeout: 30000 });
+      await h.assertNotErrorPage(page, 'drug search after favorites');
       h.assert(new URL(page.url()).searchParams.get('demographicNo') === patient,
         'favorite postback switched its Back link to the other tab patient');
       await page.close();
@@ -403,7 +412,9 @@ async function workflow(session) {
       && response.request().method() === 'POST');
     await page.locator('input[onclick="submitForm(\'updateAndPrint\');"]').click();
     const savedResponse = await saved;
-    const submitted = new URLSearchParams(savedResponse.request().postData());
+    // The exact bytes the browser sent: only this body, sent again, is a replay of the save.
+    const savedBody = savedResponse.request().postData();
+    const submitted = new URLSearchParams(savedBody);
     h.assert(JSON.stringify(submitted.getAll('action')) === JSON.stringify(['updateAndPrint']),
       'legacy Print did not submit exactly one updateAndPrint action');
     h.assert(savedResponse.ok(), `the current legacy editor was refused with HTTP ${savedResponse.status()}`);
@@ -427,11 +438,37 @@ async function workflow(session) {
     }
     h.assert(differences.length === 0,
       `legacy Print changed clinical field(s): ${differences.join(', ')}; values withheld`);
-    const duplicate = await postCapturedEditor();
-    h.assert(duplicate.status() === 409 && (await duplicate.json()).error === 'STALE_RX_STASH',
-      'duplicate legacy Print was accepted');
+    // The same request sent again, byte for byte, is the save that already happened: the action finds
+    // its receipt and answers 409 with a page a person can read (reportLegacyRecovery, since #6099),
+    // where it used to answer the stash refusal's JSON. The page says the prescription is saved
+    // and must not be entered again. It is the browser's own body that is repeated: a body rebuilt
+    // from the form (other line endings in the instructions, for one) is not the same request.
+    const writeScript = `${String(config.baseUrl).replace(/\/$/, '')}/rx/writeScript`;
+    const replayHeaders = {'CSRF-TOKEN': payload['CSRF-TOKEN'], 'X-Requested-With': 'XMLHttpRequest'};
+    const duplicate = await session.context.request.post(writeScript, {
+      headers: {...replayHeaders, 'content-type': 'application/x-www-form-urlencoded'}, data: savedBody, maxRedirects: 0,
+    });
+    const duplicateBody = await duplicate.text();
+    h.assert(duplicate.status() === 409, `duplicate legacy Print answered HTTP ${duplicate.status()}; expected the already-saved refusal`);
+    h.assert(/^text\/html\b/i.test(duplicate.headers()['content-type'] || ''), 'the already-saved refusal of a duplicate legacy Print is not an HTML page');
+    h.assert(/<p role="alert">This prescription was already saved\. [^<]*do not enter it again\.<\/p>/.test(duplicateBody),
+      'the refusal of a duplicate legacy Print does not say the prescription was already saved');
     h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
       AND customName=${h.sqlString(legacyName)}`) === '1', 'duplicate legacy Print created another medication');
+    // The same draft sent with a changed field is an edit the save never saw (#5751). Answering it
+    // "already saved" would drop the correction unnoticed, so it is told apart: the earlier version
+    // was saved, the changes were not, and nothing is written.
+    const editedFields = new URLSearchParams(savedBody);
+    editedFields.set('quantity', '38');
+    const edited = await session.context.request.post(writeScript, {
+      headers: {...replayHeaders, 'content-type': 'application/x-www-form-urlencoded'}, data: editedFields.toString(), maxRedirects: 0,
+    });
+    const editedBody = await edited.text();
+    h.assert(edited.status() === 409, `an edited re-save of the saved legacy Print answered HTTP ${edited.status()}; expected a refusal`);
+    h.assert(/<p role="alert">An earlier version of this prescription was already saved\. The changes you entered afterwards were NOT saved\./.test(editedBody),
+      'an edited re-save of a saved legacy Print is not told that its changes were not saved');
+    h.assert(sql.value(`SELECT CONCAT(COUNT(*), ':', MAX(quantity)) FROM drugs WHERE demographic_no=${patient}
+      AND customName=${h.sqlString(legacyName)}`) === '1:37', 'the refused edited re-save changed or added a medication');
     await page.close();
   });
 
@@ -506,7 +543,8 @@ async function workflow(session) {
       // so relying on them to leave one behind masks whether this handoff preserves the draft.
       const page = await openRx(session, patient);
       const priorName = `${name}-pending`;
-      const priorKey = await stageCustomDrug(page, priorName);
+      // Staging's asynchronous requests must finish before the navigation below cancels them.
+      const priorKey = await stageCustomDrugSettled(page, priorName);
       await h.gotoApp(page, config.baseUrl, url);
       await h.assertNotErrorPage(page, `${label} sidebar`);
       let releaseStash;
@@ -517,6 +555,22 @@ async function workflow(session) {
       const isFavorite = request => /\/rx\/useFavorite$/.test(new URL(request.url()).pathname)
         && new URLSearchParams(request.postData() || '').get('favoriteId') === favoriteId;
       page.on('request', request => { if (isFavorite(request)) favoriteRequests += 1; });
+      // Staging a card re-runs the page's drug-interaction check (debounced 100 ms) on its own fetch.
+      // Closing the page while that fetch is in flight aborts it, which the strict harness reports, so
+      // the step waits for the check to settle before closing. networkidle does not cover it: it
+      // resolves at once on a page that was already idle before the favourite was staged.
+      const isInteractionCheck = request => /\/rx\/interactionWarnings$/.test(new URL(request.url()).pathname);
+      let interactionChecks = 0;
+      let interactionChange = Date.now();
+      const interactionStarted = request => {
+        if (isInteractionCheck(request)) { interactionChecks += 1; interactionChange = Date.now(); }
+      };
+      const interactionSettled = request => {
+        if (isInteractionCheck(request)) { interactionChecks -= 1; interactionChange = Date.now(); }
+      };
+      page.on('request', interactionStarted);
+      page.on('requestfinished', interactionSettled);
+      page.on('requestfailed', interactionSettled);
       const routePattern = '**/rx/WriteScript*';
       await page.route(routePattern, async route => {
         const request = route.request();
@@ -528,7 +582,9 @@ async function workflow(session) {
         await route.continue();
       });
       try {
-        await page.locator(`a[title="${name}"]`).click();
+        // The Rx page's own sidebar lists favourites as buttons (SideLinksEditFavorites2.jsp, since #6099);
+        // the other pages' sidebars still list them as links.
+        await page.locator(`:is(a, button)[title="${name}"]`).click();
         await page.waitForURL(/\/rx\/choosePatient\?[^#]*usefav=true/, { timeout: 15000 });
         await Promise.race([stashReceived, page.waitForTimeout(15000).then(() => {
           throw new Error('favorite handoff did not request the initial draft');
@@ -547,10 +603,23 @@ async function workflow(session) {
           'the initial draft response duplicated favorite card identifiers');
         h.assert(cards.some(card => card.id === `drugName_${priorKey}` && card.name === priorName),
           'favorite handoff discarded or changed its previously staged custom drug');
+        await waitUntil(() => interactionChecks === 0 && Date.now() - interactionChange > 400,
+          'the interaction check started by staging to finish');
       } finally {
         releaseStash();
         await page.unroute(routePattern);
         await page.close();
+        // The step navigates this page right after staging (to the sidebar page, then through the
+        // favourite link) and finally closes it. An interaction check still in flight then is
+        // cancelled by the browser because its document went away, which the harness proves
+        // (navigatedAway); drop only those. Any other failure of that request stays a finding.
+        for (let i = session.recorder.requestFailures.length - 1; i >= 0; i--) {
+          const entry = session.recorder.requestFailures[i];
+          if (/\/rx\/interactionWarnings$/.test(new URL(entry.url).pathname) && /ERR_ABORTED/.test(entry.errorText || '')
+            && typeof entry.navigatedAway === 'function' && entry.navigatedAway()) {
+            session.recorder.requestFailures.splice(i, 1);
+          }
+        }
       }
     });
   }

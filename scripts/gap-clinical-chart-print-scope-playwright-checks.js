@@ -22,6 +22,7 @@
  * deletes every note/allergy/prevention row of that patient and asserts them gone.
  * Coverage plan §2.5 chart-print (gap-clinical). Needs pdftotext.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const {runWorkflow} = require('./lib/workflow-session');
 const {requirePoppler} = require('./lib/stored-pdf-documents');
@@ -119,7 +120,10 @@ async function workflow(s) {
     }
     h.assert(await chart.locator('#notes2print').inputValue() === '', 'The note printer icons did not unqueue the notes');
     for (const id of [ids.old, ids.now]) {
-      h.assert((await chart.locator(`#print${id}`).getAttribute('src')).endsWith('/printer.png'),
+      // A note's print control is a button holding the icon (notePrintButton, since #6103), no longer the icon itself.
+      const control = chart.locator(`#print${id}`);
+      h.assert(await control.getAttribute('aria-pressed') === 'false', 'Clear left a note print control pressed');
+      h.assert((await control.locator('img').getAttribute('src')).endsWith('/printer.png'),
         'Clear left a note printer icon selected');
     }
     await print.openPrintDialog(chart);
@@ -239,7 +243,7 @@ async function workflow(s) {
       form: {...fields, method: 'register', name: 'UnconfiguredAlias', bean: 'extPrintMeasurements'},
     });
     h.assert(rejected.status() === 400, 'An arbitrary alias could consume a registry slot');
-    const readOnly = await s.context.request.get(url);
+    const readOnly = await authenticatedProbe(s, url);
     h.assert(readOnly.status() === 405, 'GET could register a print extension');
   });
 

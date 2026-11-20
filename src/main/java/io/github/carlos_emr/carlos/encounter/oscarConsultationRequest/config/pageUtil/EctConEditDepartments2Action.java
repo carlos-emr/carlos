@@ -55,11 +55,10 @@ public class EctConEditDepartments2Action extends ActionSupport {
     @Override
     public String execute() throws ServletException, IOException {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_con", "u", null)) {
-            throw new SecurityException("missing required sec object (_con)");
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_admin,_admin.consult", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.consult)");
         }
-
-        DepartmentDao DepartmentDao = SpringUtils.getBean(DepartmentDao.class);
 
         String id = this.getId();
         String delete = this.getDelete();
@@ -67,19 +66,21 @@ public class EctConEditDepartments2Action extends ActionSupport {
 
         ResourceBundle oscarR = ResourceBundle.getBundle("oscarResources", request.getLocale());
 
-        if (delete.equals(oscarR.getString("encounter.oscarConsultationRequest.config.EditSpecialists.btnDeleteSpecialist"))) {
-            if (!"POST".equals(request.getMethod())) {
-                response.setHeader("Allow", "POST");
-                response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-                return NONE;
-            }
+        boolean deleteRequested = delete.equals(oscarR.getString("encounter.oscarConsultationRequest.config.EditSpecialists.btnDeleteSpecialist"));
+        if (deleteRequested && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
+        DepartmentDao DepartmentDao = SpringUtils.getBean(DepartmentDao.class);
+
+        if (deleteRequested) {
             if (specialists.length > 0) {
                 for (int i = 0; i < specialists.length; i++) {
                     DepartmentDao.remove(Integer.parseInt(specialists[i]));
                 }
             }
-            EctConConstructSpecialistsScriptsFile constructSpecialistsScriptsFile = new EctConConstructSpecialistsScriptsFile();
-            constructSpecialistsScriptsFile.makeString(request.getLocale());
             return "delete";
         }
 
@@ -95,9 +96,6 @@ public class EctConEditDepartments2Action extends ActionSupport {
 
 
         request.setAttribute("upd", Integer.valueOf(updater));
-        EctConConstructSpecialistsScriptsFile constructSpecialistsScriptsFile = new EctConConstructSpecialistsScriptsFile();
-        request.setAttribute("verd", constructSpecialistsScriptsFile.makeFile());
-        constructSpecialistsScriptsFile.makeString(request.getLocale());
         return SUCCESS;
     }
 

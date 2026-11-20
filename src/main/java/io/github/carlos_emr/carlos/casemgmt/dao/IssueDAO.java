@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 
 import io.github.carlos_emr.carlos.model.security.Secrole;
 
-public interface IssueDAO {
+public interface IssueDAO extends io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadDao {
 
     public Issue getIssue(Long id);
 
@@ -46,6 +46,14 @@ public interface IssueDAO {
     public List<Issue> findIssueByCode(String[] codes);
 
     public Issue findIssueByCode(String code);
+
+    /**
+     * Finds at most two catalogue entries so callers can distinguish an exact match from ambiguity.
+     *
+     * @param code exact issue code
+     * @return zero, one or two matching entries, ordered by identifier
+     */
+    List<Issue> findCandidatesByCode(String code);
 
     public Issue findIssueByTypeAndCode(String type, String code);
 

@@ -28,7 +28,7 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -45,7 +45,7 @@
 %>
 
 <%@ page
-        import="io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.CarlosProperties, java.util.Date, io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+        import="io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.CarlosProperties, java.util.Date" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.FrmLabReqPreSetDao, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
@@ -60,7 +60,7 @@
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Laboratory Requisition</title>
+        <title><fmt:message key="form.mentalHealthForm1.title"/></title>
         <%-- S5131: getServerName() returns the Host header — safe when deployed behind a reverse proxy that validates the Host header (required for production) --%>
         <base href="<carlos:encode value='<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>' context="htmlAttribute"/>"> <%-- NOSONAR --%>
         <link rel="stylesheet" type="text/css" media="screen"

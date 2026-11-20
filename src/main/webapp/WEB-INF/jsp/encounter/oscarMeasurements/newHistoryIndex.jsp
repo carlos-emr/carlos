@@ -29,12 +29,12 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.*" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.*" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
-<%@ page import="java.util.Vector" %>
+
+
+
+
 <%
     java.text.SimpleDateFormat sf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 %>
@@ -142,7 +142,7 @@
                                 </c:forEach>
 
                                 <td><a href="#" name='<fmt:message key="encounter.Index.oldMeasurements"/>'
-                                       onClick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory?type=${carlos:forHtml(pair.key)}'); return false;">more...</a></td>
+                                       onClick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory?type=${carlos:forUriComponent(pair.key)}&amp;demographicNo=${carlos:forHtmlAttribute(demographicNo)}'); return false;">more...</a></td>
                             </tr>
                         </c:forEach>
 

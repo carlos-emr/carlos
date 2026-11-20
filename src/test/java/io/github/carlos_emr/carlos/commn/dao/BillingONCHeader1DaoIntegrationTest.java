@@ -1271,4 +1271,77 @@ public class BillingONCHeader1DaoIntegrationTest extends CarlosTestBase {
             assertThat(result).isEmpty();
         }
     }
+
+    /**
+     * The Ontario Billing Report Center's Billed, Unsettled and OB lists read Ontario claims (#5061);
+     * they used to read the retired billing table and never listed one.
+     */
+    @Nested
+    @DisplayName("Report Center claim lists (#5061)")
+    @Tag("query")
+    class ReportCenterClaimLists {
+
+        private static final String OTHER_PROVIDER = "999002";
+
+        @Test
+        void shouldListOpenClaimsNewestFirst_forTheProviderAndRange() {
+            BillingONCHeader1 older = createAndPersist(DEMO_NO, PROVIDER_NO, "O", yesterday);
+            BillingONCHeader1 newer = createAndPersist(DEMO_NO, PROVIDER_NO, "P", today);
+            createAndPersist(DEMO_NO, PROVIDER_NO, "B", today);
+            createAndPersist(DEMO_NO, PROVIDER_NO, "S", today);
+            createAndPersist(DEMO_NO, PROVIDER_NO, "D", today);
+            createAndPersist(DEMO_NO, PROVIDER_NO, "O", nextWeek);
+            createAndPersist(DEMO_NO, OTHER_PROVIDER, "O", today);
+            createAndPersist(0, PROVIDER_NO, "O", today);
+
+            List<BillingONCHeader1> result = billingONCHeader1Dao.findReportCenterOpenClaims(PROVIDER_NO, lastWeek, today);
+
+            assertThat(result).extracting(BillingONCHeader1::getId).containsExactly(newer.getId(), older.getId());
+        }
+
+        @Test
+        void shouldListOnlySubmittedClaims_forTheUnsettledList() {
+            BillingONCHeader1 submitted = createAndPersist(DEMO_NO, PROVIDER_NO, "B", today);
+            createAndPersist(DEMO_NO, PROVIDER_NO, "O", today);
+            createAndPersist(DEMO_NO, PROVIDER_NO, "S", today);
+            createAndPersist(DEMO_NO, OTHER_PROVIDER, "B", today);
+            createAndPersist(DEMO_NO, PROVIDER_NO, "B", nextWeek);
+
+            List<BillingONCHeader1> result = billingONCHeader1Dao.findReportCenterSubmittedClaims(PROVIDER_NO, lastWeek, today);
+
+            assertThat(result).extracting(BillingONCHeader1::getId).containsExactly(submitted.getId());
+        }
+
+        @Test
+        void shouldListEachClaimOnce_whenALiveItemHasOneOfTheCodes() {
+            BillingONCHeader1 obstetric = createAndPersist(DEMO_NO, PROVIDER_NO, "O", today);
+            createAndPersistItem(obstetric.getId(), "P006A", "650", today);
+            createAndPersistItem(obstetric.getId(), "P011A", "650", today);
+            createAndPersistItem(obstetric.getId(), "A007A", "650", today);
+            BillingONCHeader1 settled = createAndPersist(DEMO_NO, PROVIDER_NO, "S", yesterday);
+            createAndPersistItem(settled.getId(), "P006A", "650", yesterday);
+            BillingONCHeader1 otherCode = createAndPersist(DEMO_NO, PROVIDER_NO, "O", today);
+            createAndPersistItem(otherCode.getId(), "A007A", "250", today);
+            BillingONCHeader1 deletedItem = createAndPersist(DEMO_NO, PROVIDER_NO, "O", today);
+            BillingONItem removed = createAndPersistItem(deletedItem.getId(), "P006A", "650", today);
+            removed.setStatus("D");
+            entityManager.flush();
+            BillingONCHeader1 deletedClaim = createAndPersist(DEMO_NO, PROVIDER_NO, "D", today);
+            createAndPersistItem(deletedClaim.getId(), "P006A", "650", today);
+
+            List<BillingONCHeader1> result = billingONCHeader1Dao.findReportCenterClaimsWithServiceCodes(
+                    PROVIDER_NO, lastWeek, today, List.of("P006A", "P011A"));
+
+            assertThat(result).extracting(BillingONCHeader1::getId).containsExactly(obstetric.getId(), settled.getId());
+        }
+
+        @Test
+        void shouldFindNothing_whenNoServiceCodesAreGiven() {
+            BillingONCHeader1 obstetric = createAndPersist(DEMO_NO, PROVIDER_NO, "O", today);
+            createAndPersistItem(obstetric.getId(), "P006A", "650", today);
+
+            assertThat(billingONCHeader1Dao.findReportCenterClaimsWithServiceCodes(PROVIDER_NO, lastWeek, today, List.of()))
+                    .isEmpty();
+        }
+    }
 }
