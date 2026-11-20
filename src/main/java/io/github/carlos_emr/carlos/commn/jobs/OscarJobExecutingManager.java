@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.commn.jobs;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
@@ -35,6 +36,17 @@ import java.util.concurrent.ScheduledFuture;
 public class OscarJobExecutingManager {
 
     private static final Map<Integer, ScheduledFuture<Object>> futures = new ConcurrentHashMap<>();
+
+    private static final Object[] schedulingLocks = new Object[64];
+
+    static {
+        Arrays.setAll(schedulingLocks, index -> new Object());
+    }
+
+    /** The shared lock for stored and in-memory schedule changes for this job. */
+    public static Object schedulingLock(int jobId) {
+        return schedulingLocks[Math.floorMod(jobId, schedulingLocks.length)];
+    }
 
     public static Map<Integer, ScheduledFuture<Object>> getFutures() {
         return futures;

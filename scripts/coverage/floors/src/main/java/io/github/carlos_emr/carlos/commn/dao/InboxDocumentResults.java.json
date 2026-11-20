@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/InboxDocumentResults.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 84.84848484848484,
+    "branches": 75.0,
+    "sourceBlob": "edfdb989eb292fda55b9b6af0bd41b13ff6af5c8"
+  },
+  "evidenceSha256": "5973d6c3b715f946cf529275f3a185a2af995419027e149604f322ea9af23295"
+}
