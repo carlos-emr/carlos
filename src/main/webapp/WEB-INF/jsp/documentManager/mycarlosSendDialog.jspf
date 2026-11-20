@@ -1,0 +1,82 @@
+<%-- SPDX-License-Identifier: GPL-2.0-or-later
+     Copyright (c) 2026 CARLOS Contributors. All Rights Reserved. --%>
+<%--
+    mycarlosSendDialog.jspf
+
+    The "Send to myCarlos" dialog for one document, included by showDocument.jsp outside its forms (a
+    form nested in the acknowledge form would be dropped by the parser), only when the user may send
+    this patient's documents (_mycarlos_delivery w) and delivery is on.
+
+    Page attributes: mycarlosSendDocumentId (the document id) and mycarlosSendPatient (the patient's
+    demographic number). Nothing about the document or its deliveries is rendered here: the dialog
+    reads them from PortalDelivery?method=read each time it opens (mycarlos-send-dialog.js), and
+    every call is authorized again on the server. Without script, the Send button opens the standalone
+    page instead. Ids carry the document id, since the inbox shows several documents on one page.
+    There is no inline script.
+
+    @since 2026-11-06
+--%>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<%-- The same bundle the including page sets (showDocument.jsp); declared here too, as every
+     fragment that uses fmt:message does. --%>
+<fmt:setBundle basename="oscarResources"/>
+<c:set var="mycarlosSendCtx" value="${pageContext.request.contextPath}"/>
+<c:set var="mycarlosSendDoc" value="${pageScope.mycarlosSendDocumentId}"/>
+<%-- A version query that changes with the assets' bytes, so a browser never keeps a previous copy after
+     an upgrade (MyCarlosSendAssets). showDocument.jsp's script tags use it too. --%>
+<c:set var="mycarlosSendVersion" value="<%= io.github.carlos_emr.carlos.integration.patientportal.web.MyCarlosSendAssets.version(application) %>"/>
+<link rel="stylesheet" href="${carlos:forHtmlAttribute(mycarlosSendCtx)}/share/css/mycarlos-send.css?v=${carlos:forUriComponent(mycarlosSendVersion)}">
+<dialog class="mycarlos-send mycarlos-send-dialog" id="mycarlos-send-dialog-${carlos:forHtmlAttribute(mycarlosSendDoc)}"
+        aria-labelledby="mycarlos-send-title-${carlos:forHtmlAttribute(mycarlosSendDoc)}"
+        aria-describedby="mycarlos-send-document-${carlos:forHtmlAttribute(mycarlosSendDoc)}"
+        data-context="${carlos:forHtmlAttribute(mycarlosSendCtx)}"
+        data-patient="${carlos:forHtmlAttribute(pageScope.mycarlosSendPatient)}"
+        data-document="${carlos:forHtmlAttribute(mycarlosSendDoc)}">
+    <header>
+        <h2 id="mycarlos-send-title-${carlos:forHtmlAttribute(mycarlosSendDoc)}"><fmt:message key="mycarlos.delivery.title"/></h2>
+        <%-- Which document is being sent: read out with the dialog's name. --%>
+        <p class="document-title" id="mycarlos-send-document-${carlos:forHtmlAttribute(mycarlosSendDoc)}" data-mycarlos-part="document-title"></p>
+        <p><fmt:message key="mycarlos.delivery.serviceDate"/>: <span data-mycarlos-part="service-date"></span></p>
+    </header>
+    <p><fmt:message key="mycarlos.delivery.description"/></p>
+    <div class="delivery-message" data-mycarlos-part="message" role="status" aria-live="polite"></div>
+    <form data-mycarlos-part="form" method="post" action="${carlos:forHtmlAttribute(mycarlosSendCtx)}/demographic/PortalDelivery">
+        <input type="hidden" name="CSRF-TOKEN" value="">
+        <label for="mycarlos-send-device-${carlos:forHtmlAttribute(mycarlosSendDoc)}"><fmt:message key="mycarlos.delivery.device"/></label>
+        <select id="mycarlos-send-device-${carlos:forHtmlAttribute(mycarlosSendDoc)}" data-mycarlos-part="device" name="deviceKeyId" required disabled></select>
+        <p data-mycarlos-part="no-device" hidden><fmt:message key="mycarlos.delivery.noDevice"/></p>
+        <div class="delivery-actions">
+            <button type="submit" data-mycarlos-part="send" disabled><fmt:message key="mycarlos.delivery.send"/></button>
+            <button type="button" data-mycarlos-part="check"><fmt:message key="mycarlos.delivery.check"/></button>
+            <button type="button" data-mycarlos-part="new" hidden><fmt:message key="mycarlos.delivery.new"/></button>
+        </div>
+    </form>
+    <section aria-labelledby="mycarlos-send-recent-${carlos:forHtmlAttribute(mycarlosSendDoc)}">
+        <h3 id="mycarlos-send-recent-${carlos:forHtmlAttribute(mycarlosSendDoc)}"><fmt:message key="mycarlos.delivery.recent"/></h3>
+        <table>
+            <thead><tr><th scope="col"><fmt:message key="mycarlos.delivery.queued"/></th>
+                <th scope="col"><fmt:message key="mycarlos.delivery.status"/></th></tr></thead>
+            <tbody data-mycarlos-part="history"></tbody>
+        </table>
+        <p data-mycarlos-part="empty"><fmt:message key="mycarlos.delivery.empty"/></p>
+        <button type="button" data-mycarlos-part="more" hidden><fmt:message key="mycarlos.delivery.more"/></button>
+    </section>
+    <div class="delivery-dialog-actions">
+        <button type="button" data-mycarlos-part="close"><fmt:message key="mycarlos.delivery.close"/></button>
+    </div>
+    <div data-mycarlos-part="copy" hidden>
+        <c:forEach items="${['staged','waiting','picked_up','expired','removed','fenced','error']}" var="mycarlosSendStatus">
+            <span data-status="${carlos:forHtmlAttribute(mycarlosSendStatus)}"><fmt:message key="mycarlos.delivery.status.${mycarlosSendStatus}"/></span>
+        </c:forEach>
+        <span data-copy="dateNotRecorded"><fmt:message key="mycarlos.delivery.dateNotRecorded"/></span>
+        <span data-copy="retry"><fmt:message key="mycarlos.delivery.retry"/></span>
+        <span data-copy="retried"><fmt:message key="mycarlos.delivery.retried"/></span>
+        <span data-copy="error"><fmt:message key="mycarlos.delivery.error"/></span>
+        <span data-copy="sync"><fmt:message key="mycarlos.delivery.syncWarning"/></span>
+        <span data-copy="busy"><fmt:message key="mycarlos.delivery.busy"/></span>
+        <span data-copy="sending"><fmt:message key="mycarlos.delivery.sending"/></span>
+        <span data-copy="sent"><fmt:message key="mycarlos.delivery.sent"/></span>
+    </div>
+</dialog>
