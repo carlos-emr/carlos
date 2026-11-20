@@ -35,10 +35,16 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
 import javax.sql.DataSource;
 
+import org.aopalliance.intercept.MethodInterceptor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -482,9 +488,60 @@ class DemographicUpdateDaoTransactionIntegrationTest {
     }
 
     @Test
+    @DisplayName("should retire a replacement that commits while removal is waiting for the list lock")
+    void shouldRetireTheReplacementEntry_whenRemovalWaitsForTheListLock() throws Exception {
+        DemographicTo1 edit = restPayload("Changed");
+        CountDownLatch selectingEntries = new CountDownLatch(1);
+        ProxyFactory removalDao = new ProxyFactory(waitingLists);
+        removalDao.addAdvice((MethodInterceptor) invocation -> {
+            if (invocation.getMethod().getName().equals("findByWaitingListIdForUpdate")) {
+                selectingEntries.countDown();
+            }
+            return invocation.proceed();
+        });
+        WaitingListDao lockingDao = (WaitingListDao) removalDao.getProxy();
+
+        try (var worker = Executors.newSingleThreadExecutor()) {
+            Future<?> removal = new TransactionTemplate(transactions).execute(status -> {
+                put(edit);
+                Future<?> task = worker.submit(() -> {
+                    try (MockedStatic<SpringUtils> beans = mockStatic(SpringUtils.class)) {
+                        beans.when(() -> SpringUtils.getBean(WaitingListDao.class)).thenReturn(lockingDao);
+                        beans.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactions);
+                        WLWaitingListUtil.removeFromWaitingList(Integer.toString(waitingListId), Integer.toString(patientId));
+                    }
+                });
+                try {
+                    assertThat(selectingEntries.await(10, TimeUnit.SECONDS)).isTrue();
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new AssertionError("Waiting-list removal was interrupted", interrupted);
+                }
+                assertThatThrownBy(() -> task.get(250, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+                return task;
+            });
+            removal.get(10, TimeUnit.SECONDS);
+        }
+
+        assertThat(waitingListNotes("N")).isEmpty();
+        assertThat(waitingListNotes("Y")).containsExactly("Original note", "Changed note");
+    }
+
+    @Test
     @DisplayName("should preserve the stored start date and both positions when REST edits a waiting-list note")
     void shouldPreserveStartDateAndPositions_whenRestEditsWaitingListNote() {
-        Timestamp originalStart = Timestamp.valueOf("2020-05-12 12:00:00");
+        assertNoteEditKeepsWaitingListOrder(Timestamp.valueOf("2020-05-12 12:00:00"),
+                Timestamp.valueOf("2021-07-15 12:00:00"));
+    }
+
+    @Test
+    @DisplayName("should preserve the order of waiting-list entries with identical start dates after a note edit")
+    void shouldPreserveWaitingListOrder_whenStartDatesMatch() {
+        Timestamp start = Timestamp.valueOf("2020-05-12 12:00:00");
+        assertNoteEditKeepsWaitingListOrder(start, start);
+    }
+
+    private void assertNoteEditKeepsWaitingListOrder(Timestamp originalStart, Timestamp secondStart) {
         jdbc.update("UPDATE waitingList SET onListSince=? WHERE listID=? AND demographic_no=?",
                 originalStart, waitingListId, patientId);
         int secondPatientId = new TransactionTemplate(transactions).execute(status -> {
@@ -495,7 +552,7 @@ class DemographicUpdateDaoTransactionIntegrationTest {
             entry.setDemographicNo(nextPatient.getDemographicNo());
             entry.setNote("Second patient note");
             entry.setPosition(2);
-            entry.setOnListSince(Timestamp.valueOf("2021-07-15 12:00:00"));
+            entry.setOnListSince(secondStart);
             entry.setHistory(false);
             em.persist(entry);
             return nextPatient.getDemographicNo();

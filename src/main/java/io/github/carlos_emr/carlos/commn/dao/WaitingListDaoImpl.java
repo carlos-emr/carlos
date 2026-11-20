@@ -70,12 +70,21 @@ public class WaitingListDaoImpl extends AbstractDaoImpl<WaitingList> implements 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public List<WaitingList> findByWaitingListIdForUpdate(Integer listId) {
+        // The oldest entry survives note replacements and removals as history. Lock it
+        // before selecting current entries so that selection starts after the previous
+        // writer commits, even if it replaced every current row.
+        entityManager.createQuery("FROM WaitingList w WHERE w.listId = ?1 ORDER BY w.id", WaitingList.class)
+                .setParameter(1, listId)
+                .setMaxResults(1)
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                .getResultList();
         return currentListEntries(listId).setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList();
     }
 
     private TypedQuery<WaitingList> currentListEntries(Integer listId) {
         return entityManager.createQuery(
-                "FROM WaitingList w WHERE w.listId = ?1 AND w.isHistory = 'N' ORDER BY w.onListSince", WaitingList.class)
+                "FROM WaitingList w WHERE w.listId = ?1 AND w.isHistory = 'N' ORDER BY w.onListSince, w.position, w.id",
+                WaitingList.class)
                 .setParameter(1, listId);
     }
 
