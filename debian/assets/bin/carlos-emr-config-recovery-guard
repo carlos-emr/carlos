@@ -1,0 +1,31 @@
+#!/bin/sh
+# carlos-emr-config-recovery-guard: may carlos-emr start on the current carlos.properties?
+#
+# Exit 0: no interrupted in-place rewrite of /etc/carlos-emr/carlos.properties is pending.
+# Exit 1: one is. The postinst rewrites that file in place (the lab-filter and Help link
+#         migrations) and leaves a private record beside it first; a kill or power loss
+#         mid-rewrite can leave the file neither version, and the next `dpkg --configure`
+#         restores it and removes the record. Until then the application must not start on it.
+#
+# carlos-emr.service consults it as ExecCondition=, so the refusal is a clean "condition
+# failed" skip, and the reason below lands in the journal (journalctl -u carlos-emr).
+# Deliberately separate from carlos-emr-o19-guard, which other callers (the postinst, the
+# DrugRef packaging) read as "an OSCAR 19 import is in progress".
+#
+# Usage: carlos-emr-config-recovery-guard [RECORD]   (RECORD defaults to the real path; the
+# argument exists for the tests.) Keep this file `dash -n`-clean: the unit runs it via /bin/sh.
+
+RECORD="${1:-/etc/carlos-emr/carlos.properties.lab-filter-recovery}"
+
+# -L too: a dangling link is still something that was left there.
+if [ ! -e "$RECORD" ] && [ ! -L "$RECORD" ]; then
+    exit 0
+fi
+
+echo "carlos-emr: NOT starting: an upgrade was interrupted while it rewrote ${RECORD%.lab-filter-recovery}," >&2
+echo "carlos-emr: and that file may be half written (record: $RECORD)." >&2
+echo "carlos-emr: Run: sudo dpkg --configure -a   (it restores the file and removes the record)." >&2
+echo "carlos-emr: If that refuses because you edited or restored the file, check it, remove the" >&2
+echo "carlos-emr: record (a private copy of the whole configuration, secrets included), run the" >&2
+echo "carlos-emr: command again, then start carlos-emr." >&2
+exit 1

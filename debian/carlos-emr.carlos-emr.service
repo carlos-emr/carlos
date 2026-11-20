@@ -80,6 +80,13 @@ Environment=LC_ALL=C.UTF-8
 # reads is root-only, and the guard reads one file and runs python3 on it.
 # The postinst consults the same file, so the two cannot drift apart.
 ExecCondition=+/usr/lib/carlos-emr/carlos-emr-o19-guard
+# An interrupted in-place rewrite of carlos.properties (the lab-filter and Help link migrations)
+# leaves a record beside the file, and the file may then be neither version. Do not start on it,
+# at boot or otherwise: this guard skips the start cleanly AND writes the reason and the remedy
+# to the journal (the postinst restores the file and removes the record on the next
+# `dpkg --configure`). Kept apart from the OSCAR 19 guard, which other callers read as
+# "an import is in progress".
+ExecCondition=+/usr/lib/carlos-emr/carlos-emr-config-recovery-guard
 # Reconcile only the root-controlled packaged file, after the import/credential
 # guards. Never take the provisioning flock: a synchronous finish-install owns
 # it while waiting for this start. The launcher verifies the effective

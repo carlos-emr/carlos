@@ -410,15 +410,39 @@ class TestLabFilterWordsMigration(unittest.TestCase):
 
         self.assert_recovery_refused(recovery, "the lab filter recovery file is invalid", kept)
 
-    def test_the_application_does_not_start_on_a_pending_recovery_record(self):
-        # A rewrite killed mid-write can leave carlos.properties neither version; the unit must
-        # not start on it, and the condition must name the file the helper writes.
+    def test_the_unit_refuses_a_start_on_a_pending_recovery_record_and_says_why(self):
+        # A rewrite killed mid-write can leave carlos.properties neither version. The unit's
+        # ExecCondition runs a guard that skips the start AND writes the remedy to the journal;
+        # it must name the record the helper writes, and the package must ship it.
+        guard = ROOT / "debian" / "assets" / "bin" / "carlos-emr-config-recovery-guard"
         unit = (ROOT / "debian" / "carlos-emr.carlos-emr.service").read_text(encoding="utf-8")
         postinst = POSTINST.read_text(encoding="utf-8")
-        self.assertIn("ConditionPathExists=!/etc/carlos-emr/carlos.properties.lab-filter-recovery", unit)
+        rules = (ROOT / "debian" / "rules").read_text(encoding="utf-8")
+        self.assertIn("ExecCondition=+/usr/lib/carlos-emr/carlos-emr-config-recovery-guard", unit)
+        self.assertIn("carlos-emr-config-recovery-guard $(STAGE)/$(LIBDIR)/carlos-emr-config-recovery-guard", rules)
+        self.assertTrue(os.access(guard, os.X_OK))
+        self.assertIn('RECORD="${1:-/etc/carlos-emr/carlos.properties.lab-filter-recovery}"',
+                      guard.read_text(encoding="utf-8"))
         self.assertIn('PROPERTIES="${CONF_DIR}/carlos.properties"', postinst)
         self.assertIn("CONF_DIR=/etc/carlos-emr", postinst)
         self.assertIn('recovery = path + b".lab-filter-recovery"', postinst)
+
+        record = self.properties.with_suffix(".properties.lab-filter-recovery")
+        clear = subprocess.run(["sh", str(guard), str(record)], capture_output=True, text=True)
+        self.assertEqual((clear.returncode, clear.stderr), (0, ""))
+
+        record.write_bytes(b"[]")
+        refused = subprocess.run(["sh", str(guard), str(record)], capture_output=True, text=True)
+        self.assertEqual(refused.returncode, 1)
+        self.assertIn("NOT starting", refused.stderr)
+        self.assertIn("sudo dpkg --configure -a", refused.stderr)
+        self.assertIn(str(record), refused.stderr)
+        self.assertIn("remove the", refused.stderr)
+
+        record.unlink()
+        record.symlink_to("missing-target")
+        dangling = subprocess.run(["sh", str(guard), str(record)], capture_output=True, text=True)
+        self.assertEqual(dangling.returncode, 1, "a dangling link is still something left behind")
 
     def test_removes_the_private_staging_file_from_an_interrupted_journal_write(self):
         self.write_properties(KEY + "^custom$")
