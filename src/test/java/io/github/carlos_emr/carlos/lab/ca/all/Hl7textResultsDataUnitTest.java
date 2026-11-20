@@ -46,6 +46,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
@@ -254,7 +255,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @NullAndEmptySource
     @ValueSource(strings = {"DNR"})
     void shouldLeaveMeasurementsAbsent_whenTheSourceHasNoReportableValue(String result) {
         assertThat(fileResult(result, ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00"))).isNull();
@@ -285,16 +286,37 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         Measurement samePatients = new Measurement();
         samePatients.setDataField("5.1");
         samePatients.setDemographicId(42);
-        when(measurementDao.findByValue("lab_no", "1111")).thenReturn(java.util.List.of(otherPatients));
+        Measurement unknownPatient = new Measurement();
+        unknownPatient.setDataField("8.9");
+        when(measurementDao.findByValue("lab_no", "1111")).thenReturn(List.of(otherPatients, unknownPatient));
         when(measurementDao.findByValue("lab_no", "2222")).thenReturn(java.util.List.of(samePatients));
         try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
             versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("1111,2222,4616");
-            assertThat(fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00")))
-                    .isNotNull();
+            Measurement filed = fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00"));
+            assertThat(filed).isNotNull();
+            assertThat(filed.getDemographicId()).isEqualTo(42);
         }
 
         verify(measurementDao).batchRemoveAtomically(
                 org.mockito.ArgumentMatchers.argThat(removed -> removed.size() == 1 && removed.get(0) == samePatients));
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"0", "-42", "invalid", " 42 ", "2147483648"})
+    void shouldRejectInvalidPatientBeforeArchivingMeasurements(String demographicNo) {
+        MessageHandler handler = mock(MessageHandler.class);
+        try (var factory = mockStatic(Factory.class);
+                var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+            factory.when(() -> Factory.getHandler("4616")).thenReturn(handler);
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("2222,4616");
+
+            assertThatThrownBy(() -> Hl7textResultsData.populateMeasurementsTable("4616", demographicNo))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("A positive patient number is required to file lab measurements");
+        }
+        verifyNoInteractions(measurementDao, mockedBeans.get(MeasurementsDeletedDao.class),
+                mockedBeans.get(MeasurementsExtDao.class));
     }
 
     @ParameterizedTest

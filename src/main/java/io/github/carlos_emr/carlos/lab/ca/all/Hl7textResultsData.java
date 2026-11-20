@@ -122,10 +122,15 @@ public class Hl7textResultsData {
      *
      * @param lab_no the report to file: at upload, the report just received
      * @param demographic_no the patient the report was matched to
+     * @throws IllegalArgumentException if the patient identifier is not a positive integer
      * @throws IllegalStateException if the report cannot be read or is missing from its own chain;
      *                               nothing has been archived when it is thrown
      */
     public static void populateMeasurementsTable(String lab_no, String demographic_no) {
+        Integer patient = ConversionUtils.fromIntString(demographic_no);
+        if (patient <= 0) {
+            throw new IllegalArgumentException("A positive patient number is required to file lab measurements");
+        }
         MessageHandler h = Factory.getHandler(lab_no);
         if (h == null) {
             // Refuse before the previous version's measurements are archived: with nothing
@@ -152,12 +157,11 @@ public class Hl7textResultsData {
         if (!superseded.isEmpty()) {
             // The chain is resolved by accession number alone, so a recycled or colliding accession
             // can put another patient's report in it. Only this patient's values are superseded.
-            Integer patient = patientNumber(demographic_no);
             List<MeasurementsDeleted> measurementsDeletedList = new ArrayList<>();
             List<Measurement> measurementsToRemove = new ArrayList<>();
             for (String previous : superseded) {
                 for (Measurement m : measurementDao.findByValue("lab_no", previous)) {
-                    if (patient != null && m.getDemographicId() != null && !patient.equals(m.getDemographicId())) {
+                    if (!patient.equals(m.getDemographicId())) {
                         continue;
                     }
                     measurementsDeletedList.add(new MeasurementsDeleted(m));
@@ -167,17 +171,7 @@ public class Hl7textResultsData {
             measurementsDeletedDao.batchPersistAtomically(measurementsDeletedList);
             measurementDao.batchRemoveAtomically(measurementsToRemove);
         }
-        fileMeasurements(h, lab_no, demographic_no);
-    }
-
-    /** The matched patient's number, or {@code null} when the caller supplied none that can be compared. */
-    private static Integer patientNumber(String demographicNo) {
-        try {
-            int number = Integer.parseInt(demographicNo == null ? "" : demographicNo.trim());
-            return number > 0 ? number : null;
-        } catch (NumberFormatException notANumber) {
-            return null;
-        }
+        fileMeasurements(h, lab_no, patient);
     }
 
     /**
@@ -187,6 +181,7 @@ public class Hl7textResultsData {
      *
      * @param lab_no any version of the report
      * @param demographic_no the patient the report was matched to
+     * @throws IllegalArgumentException if the patient identifier is not a positive integer
      * @throws IllegalStateException if the report cannot be read; nothing has been archived
      */
     public static void populateCurrentVersionMeasurements(String lab_no, String demographic_no) {
@@ -236,7 +231,7 @@ public class Hl7textResultsData {
     }
 
     /** Files every viewable result of one report as a measurement. */
-    private static void fileMeasurements(MessageHandler h, String lab_no, String demographic_no) {
+    private static void fileMeasurements(MessageHandler h, String lab_no, Integer patient) {
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         Calendar calender = Calendar.getInstance();
         String day = Integer.toString(calender.get(Calendar.DAY_OF_MONTH));
@@ -345,7 +340,7 @@ public class Hl7textResultsData {
                 if (value != null) {
                     Measurement m = new Measurement();
                     m.setType(measType);
-                    m.setDemographicId(Integer.parseInt(demographic_no));
+                    m.setDemographicId(patient);
                     m.setProviderNo("0");
                     m.setDataField(value);
                     m.setMeasuringInstruction(measInst);
