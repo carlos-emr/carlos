@@ -32,15 +32,52 @@ ALLOWS = re.compile(r'PROVISION_LOCK_HELD\}" = 1|PROPERTIES_RECOVERY_PENDING:-0\
 # An earlier branch of the same if/elif chain tested the opposite, so a later branch runs with the lock held.
 EARLIER_DENIES = re.compile(r'PROVISION_LOCK_HELD\}" = 0|PROPERTIES_RECOVERY_PENDING:-0\}" = 1')
 
+# Every way the postinst names the file: braced or bare variable, the literal path, or through CONF_DIR.
+PROP = r'(?:\$\{PROPERTIES\}|\$PROPERTIES\b|/etc/carlos-emr/carlos\.properties|\$\{CONF_DIR\}/carlos\.properties)'
+
 WRITERS = [
-    ("sed -i on carlos.properties", re.compile(r'\bsed -i\b[^\n]*"\$\{PROPERTIES\}"')),
+    ("sed -i on carlos.properties", re.compile(r'\bsed -i\b[^\n]*"?' + PROP)),
+    ("a redirect into carlos.properties", re.compile(r'>>?\s*"?' + PROP)),
+    ("tee, mv, cp or truncate on carlos.properties", re.compile(r'\b(?:tee|mv|cp|truncate)\b[^\n]*"?' + PROP)),
     ("the in-place rewrite helper with a line to change",
-     re.compile(r'migrate_lab_filter "\$\{PROPERTIES\}" "[^"]')),
+     re.compile(r'migrate_lab_filter "?' + PROP + r'"? "[^"]')),
     ("carlos-ctl init-config", re.compile(r'(?:^|\bif !? ?|&& ?!? ?)carlos-ctl init-config\b')),
     ("carlos-ctl db-users", re.compile(r'(?:^|\bif !? ?|&& ?!? ?)carlos-ctl db-users\b')),
     ("carlos-ctl db-apply-settings", re.compile(r'(?:^|\bif !? ?|&& ?!? ?)carlos-ctl db-apply-settings\b')),
     ("the cutover preflight", re.compile(r'config-preflight reconcile')),
 ]
+
+
+def gates(conds, branch):
+    """Whether the branch holding a statement is gated. Its own condition must allow writing and must not be an
+    ``||`` (either side could then run it); an earlier branch's opposite test only counts when it stands alone, no
+    ``&&`` (``HELD = 0 && x`` being false says nothing) and no ``||``."""
+    own = conds[branch]
+    if ALLOWS.search(own) and "||" not in own:
+        return True
+    return any(EARLIER_DENIES.search(c) and "&&" not in c and "||" not in c for c in conds[:branch])
+
+
+def function_calls(stmts):
+    """{function name: [line numbers of its calls]} for the functions whose body names the properties file."""
+    mentions, depth, current, lines = set(), 0, None, {}
+    for number, stmt in stmts:
+        head = re.match(r'^(\w+)\(\)\s*\{', stmt)
+        if current is None and head:
+            current, depth = head.group(1), 1
+            lines.setdefault(current, set()).add(number)
+            if stmt.rstrip().endswith("}"):
+                current = None
+            continue
+        if current:
+            lines[current].add(number)
+            if re.search(PROP, stmt):
+                mentions.add(current)
+            depth += stmt.endswith("{") - stmt.startswith("}")
+            if depth <= 0:
+                current = None
+    # Statements inside such a function are covered by gating its calls, not checked one by one.
+    return mentions, set().union(*(lines[name] for name in mentions)) if mentions else set()
 
 
 def statements(text):
@@ -72,7 +109,12 @@ def statements(text):
 def violations(text):
     """(line, writer label) of every writer that no enclosing branch allows."""
     found, chains = [], []          # a chain: [list of branch conditions, index of the current branch]
-    for number, stmt in statements(text):
+    stmts = statements(text)
+    mentions, definitions = function_calls(stmts)
+    writers = list(WRITERS) + [
+        (f"a call to {name}(), whose body names carlos.properties",
+         re.compile(r'(?:^|\bif !? |[&|;(!]\s*|\$\()\s*' + re.escape(name) + r'\b(?!\()')) for name in sorted(mentions)]
+    for number, stmt in stmts:
         one_line = stmt.startswith("if ") and re.search(r";\s*fi\s*$", stmt) is not None
         if stmt.startswith("if ") and not one_line:
             chains.append([[stmt], 0])
@@ -82,13 +124,11 @@ def violations(text):
         elif stmt == "else" or stmt.startswith("else "):
             chains[-1][0].append("")
             chains[-1][1] += 1
-        for label, pattern in WRITERS:
-            if not pattern.search(stmt):
+        for label, pattern in writers:
+            if number in definitions or not pattern.search(stmt):
                 continue
             scope = chains + ([[[stmt], 0]] if one_line else [])
-            allowed = any(ALLOWS.search(conds[branch]) or any(EARLIER_DENIES.search(c) for c in conds[:branch])
-                          for conds, branch in scope)
-            if not allowed:
+            if not any(gates(conds, branch) for conds, branch in scope):
                 found.append((number, label))
         if stmt == "fi" or stmt.startswith("fi ") or stmt.startswith("fi;"):
             chains.pop()
@@ -164,6 +204,42 @@ class TestTheCheckerItself(unittest.TestCase):
 
     def test_a_writer_in_the_then_branch_of_a_lock_not_held_test_is_rejected(self):
         self.rejected('if [ "${PROVISION_LOCK_HELD}" = 0 ]; then\n    carlos-ctl init-config\nfi\n')
+
+    def test_a_gate_in_an_or_condition_is_rejected(self):
+        self.rejected('if [ "${PROVISION_LOCK_HELD}" = 1 ] || [ -n "${FORCE}" ]; then\n'
+                      "    sed -i 's/a/b/' \"${PROPERTIES}\"\nfi\n")
+        self.rejected('if [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ] || [ -f /x ]; then\n    carlos-ctl init-config\nfi\n')
+
+    def test_an_earlier_opposite_test_only_gates_when_it_stands_alone(self):
+        # "HELD = 0 && something" being false does not mean the lock is held: the later branch is not a gate.
+        self.rejected('if [ "${PROVISION_LOCK_HELD}" = 0 ] && [ -n "${X}" ]; then\n    echo a\n'
+                      'elif [ -n "${Y}" ]; then\n    carlos-ctl db-users\nfi\n')
+        self.rejected('if [ "${PROVISION_LOCK_HELD}" = 0 ] || [ -n "${X}" ]; then\n    echo a\n'
+                      'else\n    carlos-ctl db-users\nfi\n')
+
+    def test_redirects_into_the_properties_are_writers(self):
+        for target in ('"${PROPERTIES}"', "${PROPERTIES}", '"$PROPERTIES"', "$PROPERTIES",
+                       "/etc/carlos-emr/carlos.properties", '"${CONF_DIR}/carlos.properties"'):
+            for operator in (">", ">>"):
+                with self.subTest(target=target, operator=operator):
+                    self.rejected(f"echo x {operator} {target}\n")
+                    self.accepted('if [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ]; then\n'
+                                  f"    echo x {operator} {target}\nfi\n")
+
+    def test_other_ways_of_naming_the_file_are_writers(self):
+        self.rejected("sed -i 's/a/b/' $PROPERTIES\n")
+        self.rejected("sed -i 's/a/b/' /etc/carlos-emr/carlos.properties\n")
+        self.rejected('tee -a "${PROPERTIES}" < /dev/null\n')
+        self.rejected('mv "${tmp}" "${PROPERTIES}"\n')
+        self.rejected('cp "${tmp}" /etc/carlos-emr/carlos.properties\n')
+        self.rejected('migrate_lab_filter $PROPERTIES "old" "new" "k"\n')
+
+    def test_a_call_to_a_function_that_names_the_properties_must_be_gated(self):
+        body = 'rewrite_it() {\n    sed -i "s/a/b/" "${PROPERTIES}"\n}\n'
+        # The definition is not a call; an ungated call is rejected, a gated one accepted.
+        self.rejected(body + "rewrite_it\n")
+        self.rejected(body + "if ! rewrite_it; then\n    exit 1\nfi\n")
+        self.accepted(body + 'if [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ]; then\n    rewrite_it\nfi\n')
 
     def test_a_here_document_body_is_not_code(self):
         self.accepted("cat <<'EOF'\nsed -i 's/a/b/' \"${PROPERTIES}\"\nEOF\n")
