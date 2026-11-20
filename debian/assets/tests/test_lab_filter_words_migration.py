@@ -393,10 +393,37 @@ class TestLabFilterWordsMigration(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("an OSCAR 19 import holds provisioning", result.stderr)
-        self.assertIn("dpkg --configure -a", result.stderr)
+        # The configure ended successfully, so the package is configured: the retry is dpkg-reconfigure.
+        self.assertIn("sudo dpkg-reconfigure carlos-emr", result.stderr)
+        self.assertNotIn("dpkg --configure -a", result.stderr)
         self.assertNotIn("ERROR", result.stderr)
         self.assertEqual(self.properties.read_bytes(), kept)
         self.assertTrue(recovery.exists())
+
+    def test_writes_nothing_to_the_properties_while_a_recovery_is_deferred(self):
+        # Even if the later migrations could take the lock (the import finished in between), none may
+        # touch the possibly torn file: a sed -i would replace its inode and break the later recovery.
+        self.write_properties("consultation_fax_enabled=yes", old_line(), "after=retain-this-setting")
+        failed = self.interrupt_configuration_write()
+        self.assertEqual(failed.returncode, 1, failed.stderr)
+        recovery = self.properties.with_suffix(".properties.lab-filter-recovery")
+        kept = self.properties.read_bytes()
+        inode = self.properties.stat().st_ino
+        block = migration_block(package_retry=True)
+        stub = 'acquire_provision_lock() { [ "${PROVISION_LOCK_HELD}" = 1 ]; }'
+        env = dict(os.environ, PROVISION_LOCK_HELD="1", STATE=str(self.state), SHARE=str(self.share),
+                   PROPERTIES=str(self.properties))
+        # Status 2 for the early recovery only; the words block still sees the lock as held.
+        result = subprocess.run(["sh", "-c", "set -e\n" + block.replace(stub, "acquire_provision_lock() { return 2; }")],
+                                env=env, capture_output=True, text=True, check=False, timeout=10)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.properties.read_bytes(), kept)
+        self.assertEqual(self.properties.stat().st_ino, inode)
+        self.assertTrue(recovery.exists())
+        self.assertFalse((self.state / SENTINEL).exists(), "the migration must run again after the recovery")
+        self.assertEqual(sorted(p.name for p in self.etc.iterdir()),
+                         sorted(["carlos.properties", "carlos.properties.lab-filter-recovery"]))
 
     def test_refuses_to_recover_a_configuration_edited_after_the_interruption(self):
         recovery = self.interrupted_with_recovery_record()
@@ -439,6 +466,13 @@ class TestLabFilterWordsMigration(unittest.TestCase):
         postinst = POSTINST.read_text(encoding="utf-8")
         rules = (ROOT / "debian" / "rules").read_text(encoding="utf-8")
         self.assertIn("ExecCondition=+/usr/lib/carlos-emr/carlos-emr-config-recovery-guard", unit)
+        # Not also a [Unit] condition: systemd checks those BEFORE ExecCondition=, so a record would skip the
+        # start silently and the guard's message would never reach the journal.
+        self.assertNotIn("lab-filter-recovery", "".join(line for line in unit.splitlines(True)
+                                                        if line.startswith("Condition")))
+        self.assertNotIn("ConditionPathExists=!/etc/carlos-emr", unit)
+        # The OSCAR 19 guard answers first.
+        self.assertLess(unit.index("carlos-emr-o19-guard\n"), unit.index("carlos-emr-config-recovery-guard\n"))
         self.assertIn("carlos-emr-config-recovery-guard $(STAGE)/$(LIBDIR)/carlos-emr-config-recovery-guard", rules)
         self.assertTrue(os.access(guard, os.X_OK))
         self.assertIn('RECORD="${1:-/etc/carlos-emr/carlos.properties.lab-filter-recovery}"',
@@ -456,6 +490,8 @@ class TestLabFilterWordsMigration(unittest.TestCase):
         self.assertEqual(refused.returncode, 1)
         self.assertIn("NOT starting", refused.stderr)
         self.assertIn("sudo dpkg --configure -a", refused.stderr)
+        # A deferred recovery leaves the package configured: dpkg --configure -a does nothing then.
+        self.assertIn("sudo dpkg-reconfigure carlos-emr", refused.stderr)
         self.assertIn(str(record), refused.stderr)
         self.assertIn("remove the", refused.stderr)
 

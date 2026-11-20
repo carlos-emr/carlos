@@ -860,6 +860,9 @@ PY
         # Recover a stopped lab-filter write before this configure reads or
         # rewrites the properties through another migration. Take the usual
         # provisioning lock and let the helper lock the configuration inode.
+        # While a recovery is deferred the file may be torn: no migration below may write it (a
+        # sed -i would also replace its inode, which a later recovery and a managed symlink rely on).
+        PROPERTIES_RECOVERY_PENDING=0
         if [ -e "${PROPERTIES}.lab-filter-recovery" ] || [ -L "${PROPERTIES}.lab-filter-recovery" ] \
             || [ -e "${PROPERTIES}.lab-filter-recovery.tmp" ] || [ -L "${PROPERTIES}.lab-filter-recovery.tmp" ]; then
             lab_recovery_rc=0
@@ -872,13 +875,17 @@ PY
             if [ "${lab_recovery_rc}" = 2 ]; then
                 # An OSCAR 19 import holds provisioning (as the main path below, status 2): the
                 # application must not start during one anyway, and the record keeps it stopped
-                # afterwards. Defer, as the import gate does; the next configure retries.
+                # afterwards. Defer, as the import gate does; this configure ends successfully, so
+                # the package counts as configured and the retry is dpkg-reconfigure, as for the
+                # lock message above. No other migration may write the file meanwhile.
+                PROPERTIES_RECOVERY_PENDING=1
                 echo "carlos-emr: WARNING: an OSCAR 19 import holds provisioning, so the pending update of ${PROPERTIES}" >&2
-                echo "carlos-emr: WARNING: was not recovered now. Run sudo dpkg --configure -a again once the import has finished." >&2
+                echo "carlos-emr: WARNING: was not recovered now, and no setting in it is changed by this configure." >&2
+                echo "carlos-emr: WARNING: CARLOS stays stopped until you run, once the import has finished:  sudo dpkg-reconfigure carlos-emr" >&2
             elif [ "${lab_recovery_rc}" != 0 ]; then
                 echo "carlos-emr: ERROR: could not recover the pending lab-filter update in ${PROPERTIES}" >&2
                 echo "carlos-emr: ERROR: an earlier upgrade was interrupted while it rewrote that file, and the reason is printed above." >&2
-                echo "carlos-emr: ERROR: Check ${PROPERTIES} (HL7_LAB_MEASUREMENT_FILTER and the settings after it). When it is as you want it," >&2
+                echo "carlos-emr: ERROR: Check ${PROPERTIES} (the line being migrated, HL7_LAB_MEASUREMENT_FILTER or resource_base_url, and the settings after it). When it is as you want it," >&2
                 echo "carlos-emr: ERROR: remove ${PROPERTIES}.lab-filter-recovery (a private copy of the whole configuration, secrets included)" >&2
                 echo "carlos-emr: ERROR: and run: sudo dpkg --configure -a. CARLOS stays stopped until then." >&2
                 exit 1
@@ -925,7 +932,7 @@ PY
         # exact old-stock line, and silently flip that choice back to true.
         # Only the value REWRITE stays upgrade-only.
         CONSULT_SIG_SENTINEL="${STATE}/.consult-signature-default-migrated"
-        if [ ! -e "${CONSULT_SIG_SENTINEL}" ]; then
+        if [ ! -e "${CONSULT_SIG_SENTINEL}" ] && [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ]; then
             if [ -n "${2:-}" ] && [ -f "${PROPERTIES}" ] \
                 && grep -qx 'consultation_signature_enabled=false' "${PROPERTIES}"; then
                 sed -i 's/^consultation_signature_enabled=false$/consultation_signature_enabled=true/' "${PROPERTIES}"
@@ -944,7 +951,7 @@ PY
         # line, ONLY on upgrade, ONLY once; the sentinel is written on fresh
         # installs too so a false the operator sets later is never flipped back.
         HEALTH_TRACKER_SENTINEL="${STATE}/.health-tracker-default-migrated"
-        if [ ! -e "${HEALTH_TRACKER_SENTINEL}" ]; then
+        if [ ! -e "${HEALTH_TRACKER_SENTINEL}" ] && [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ]; then
             if [ -n "${2:-}" ] && [ -f "${PROPERTIES}" ] \
                 && grep -qx 'health_tracker=false' "${PROPERTIES}"; then
                 sed -i 's/^health_tracker=false$/health_tracker=true/' "${PROPERTIES}"
@@ -967,7 +974,7 @@ PY
         # spelling written later by hand. A persistent false is always preserved:
         # the package cannot distinguish an old stock value from an operator's
         # deliberate choice, so upgrades must not silently enable the feature.
-        if [ -f "${PROPERTIES}" ] && grep -Eqi \
+        if [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ] && [ -f "${PROPERTIES}" ] && grep -Eqi \
             '^[[:space:]]*consultation_fax_enabled[[:space:]]*=[[:space:]]*(yes|no|on|off)[[:space:]]*$' \
             "${PROPERTIES}"; then
             sed -i -E \
@@ -1253,7 +1260,7 @@ except ValueError:
         # lose one side. Without the lock nothing is rewritten and the sentinel
         # is not written, so the next configure retries.
         OSCAR_DEFAULTS_SENTINEL="${STATE}/.oscar-feature-defaults-migrated"
-        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${OSCAR_DEFAULTS_SENTINEL}" ]; then
+        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${OSCAR_DEFAULTS_SENTINEL}" ] && [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ]; then
             # Not gated on an old version ($2): purge KEEPS carlos.properties
             # (it holds the encryption key) but removes this sentinel, so a
             # purge-then-reinstall arrives with no $2 and the old stock lines
@@ -1311,7 +1318,7 @@ OSCAR_DEFAULTS
         # scripts/deb-upgrade-verify.sh and OAUTH_ACCESS_MIGRATIONS in
         # scripts/deb-upgrade-baseline.sh.
         OAUTH_ACCESS_SENTINEL="${STATE}/.oauth-access-defaults-migrated"
-        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${OAUTH_ACCESS_SENTINEL}" ]; then
+        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${OAUTH_ACCESS_SENTINEL}" ] && [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ]; then
             if [ -f "${PROPERTIES}" ]; then
                 while IFS='|' read -r key default_line; do
                     [ -n "${key}" ] || continue
@@ -1356,7 +1363,7 @@ OAUTH_ACCESS_DEFAULTS
         # (LAB_FILTER_OLD_SHA); scripts/deb-upgrade-snapshot.test.js and
         # debian/assets/tests/test_lab_filter_migration.py hold them together.
         LAB_FILTER_SENTINEL="${STATE}/.lab-measurement-filter-migrated"
-        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${LAB_FILTER_SENTINEL}" ]; then
+        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${LAB_FILTER_SENTINEL}" ] && [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ]; then
             LAB_FILTER_OLD='HL7_LAB_MEASUREMENT_FILTER=[0-9]{4}([- /.])(((0[13578]|(10|12))\\1(0[1-9]|[1-2][0-9]|3[0-1]))|(02\\1(0[1-9]|[1-2][0-9]))|((0[469]|11)\\1(0[1-9]|[1-2][0-9]|30)))|[0-9]{4}-(((0[13578]|(10|12))-(0[1-9]|[1-2][0-9]|3[0-1]))|(02-(0[1-9]|[1-2][0-9]))|((0[469]|11)-(0[1-9]|[1-2][0-9]|30)))|^([+-\\?]{1,4})|^\\b(t)\\b|^\\b(tr)\\b|^\\b(cpr\\s{1}[a-z]{1}[0-9]{1})\\b|^\\b(dnr\\s{1}[a-z]{1}[0-9]{1})\\b|^\\b(iud)\\b|^\\b(sent\\s{1}to\\s{1}bccdc)\\b|^\\b(large)\\b|^\\b(small)\\b|^\\b(no\\s{1}lmp)\\b|^\\b(mod)\\b|^\\b(no\\s{1}growth)\\b|^\\b(marked)\\b|^\\b(immune)\\b|^\\b(indeterminate)\\b|^\\b(indeterminant)\\b|^\\b(moderate)\\b|^\\b(trace)\\b|^\\b(undefined)\\b|^\\b(defined)\\b|^\\b(reactive)\\b|^\\b(non[\\s-]?reactive)\\b|^\\b(negative)\\b|^\\b(positive)\\b|^\\b(neg)\\b|^\\b(pos)\\b|^\\b(normal)\\b|^\\b(abnormal)\\b|^\\b(ab)\\b|^\\b(a)\\b|^\\b(yes)\\b|^\\b(no)\\b|^\\b(nill)\\b|^\\b(y)\\b|^\\b(regular)\\b|^\\b(irregular)\\b|^\\b(screen\\s{1}negative)\\b|^\\b(unsatisfactory\\s{1}sample)\\b|^\\b(n)\\b|^\\b(equivocal)\\b|^\\b(unequivocal)\\b|^\\b(post[\\s-]{1}meno)\\b|^\\b(not[\\s]{1}reported)\\b|^\\b(lrg)([+]{1,3})|^\\b(test[\\s]{1}not[\\s]{1}performed)\\b|^[-+<>=]{0,2}\\s?(\\d*[\\./:]?\\d+)[-+=]?'
             LAB_FILTER_NEW=""
             if [ "$(grep -c '^HL7_LAB_MEASUREMENT_FILTER=' "${SHARE}/skel/carlos.properties" 2>/dev/null || true)" = 1 ]; then
@@ -1407,7 +1414,7 @@ OAUTH_ACCESS_DEFAULTS
         # (LAB_FILTER_WORDS_OLD_SHA); scripts/deb-upgrade-snapshot.test.js and
         # debian/assets/tests/test_lab_filter_words_migration.py hold them together.
         LAB_FILTER_WORDS_SENTINEL="${STATE}/.lab-measurement-filter-words-migrated"
-        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${LAB_FILTER_WORDS_SENTINEL}" ]; then
+        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${LAB_FILTER_WORDS_SENTINEL}" ] && [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ]; then
             LAB_FILTER_WORDS_OLD='HL7_LAB_MEASUREMENT_FILTER=[0-9]{4}([- /.])(((0[13578]|(10|12))\\1(0[1-9]|[1-2][0-9]|3[0-1]))|(02\\1(0[1-9]|[1-2][0-9]))|((0[469]|11)\\1(0[1-9]|[1-2][0-9]|30)))|[0-9]{4}-(((0[13578]|(10|12))-(0[1-9]|[1-2][0-9]|3[0-1]))|(02-(0[1-9]|[1-2][0-9]))|((0[469]|11)-(0[1-9]|[1-2][0-9]|30)))|^[-+<>=]{0,2}\\s?[-+,./0-9:;<=>?]+|^\\b(t)\\b|^\\b(tr)\\b|^\\b(cpr\\s{1}[a-z]{1}[0-9]{1})\\b|^\\b(dnr\\s{1}[a-z]{1}[0-9]{1})\\b|^\\b(iud)\\b|^\\b(sent\\s{1}to\\s{1}bccdc)\\b|^\\b(large)\\b|^\\b(small)\\b|^\\b(no\\s{1}lmp)\\b|^\\b(mod)\\b|^\\b(no\\s{1}growth)\\b|^\\b(marked)\\b|^\\b(immune)\\b|^\\b(indeterminate)\\b|^\\b(indeterminant)\\b|^\\b(moderate)\\b|^\\b(trace)\\b|^\\b(undefined)\\b|^\\b(defined)\\b|^\\b(reactive)\\b|^\\b(non[\\s-]?reactive)\\b|^\\b(negative)\\b|^\\b(positive)\\b|^\\b(neg)\\b|^\\b(pos)\\b|^\\b(normal)\\b|^\\b(abnormal)\\b|^\\b(ab)\\b|^\\b(a)\\b|^\\b(yes)\\b|^\\b(no)\\b|^\\b(nill)\\b|^\\b(y)\\b|^\\b(regular)\\b|^\\b(irregular)\\b|^\\b(screen\\s{1}negative)\\b|^\\b(unsatisfactory\\s{1}sample)\\b|^\\b(n)\\b|^\\b(equivocal)\\b|^\\b(unequivocal)\\b|^\\b(post[\\s-]{1}meno)\\b|^\\b(not[\\s]{1}reported)\\b|^\\b(lrg)([+]{1,3})|^\\b(test[\\s]{1}not[\\s]{1}performed)\\b'
             LAB_FILTER_WORDS_NEW=""
             if [ "$(grep -c '^HL7_LAB_MEASUREMENT_FILTER=' "${SHARE}/skel/carlos.properties" 2>/dev/null || true)" = 1 ]; then
@@ -1458,7 +1465,7 @@ OAUTH_ACCESS_DEFAULTS
         # debian/assets/tests/test_help_url_migration.py holds it to this block
         # and to the shipped carlos.properties.
         HELP_URL_SENTINEL="${STATE}/.help-url-default-migrated"
-        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${HELP_URL_SENTINEL}" ]; then
+        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${HELP_URL_SENTINEL}" ] && [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ]; then
             HELP_URL_OLD='resource_base_url=http://oscarmanual.org/14/'
             HELP_URL_NEW=""
             if [ "$(grep -c '^resource_base_url=' "${SHARE}/skel/carlos.properties" 2>/dev/null || true)" = 1 ]; then

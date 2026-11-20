@@ -586,8 +586,11 @@ See [Jasper/OpenPDF migration](jasperreports-openpdf3.md).
     file, the file's owner, mode and ACLs stay as they are. The one-time Help link rewrite
     (`resource_base_url`) does the same. If an upgrade is interrupted mid-rewrite, a private
     record `/etc/carlos-emr/carlos.properties.lab-filter-recovery` is left beside the file and
-    CARLOS does not start until the next `dpkg --configure -a` restores the file and removes it
-    (`systemctl status carlos-emr` shows the start as skipped, and `journalctl -u carlos-emr` says why and what to run).
+    CARLOS does not start until the next `dpkg --configure -a` (or, when an OSCAR 19 import held the
+    provisioning lock and the package shows as configured, `sudo dpkg-reconfigure carlos-emr` once the import has
+    finished) restores the file and removes it. `systemctl status carlos-emr` shows the start as skipped, and
+    `journalctl -u carlos-emr` says why and what to run. While the recovery is deferred, no other setting in the file
+    is changed by that configure.
     If that command refuses (you edited or restored `carlos.properties` meanwhile), check the
     file, remove the record (it is a copy of the whole configuration, secrets included) and run
     `sudo dpkg --configure -a` again.

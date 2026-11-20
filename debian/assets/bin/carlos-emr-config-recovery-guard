@@ -7,6 +7,8 @@
 #         mid-rewrite can leave the file neither version, and the next `dpkg --configure`
 #         restores it and removes the record. Until then the application must not start on it.
 #
+# Exit 1 (not 255) on purpose: systemd then skips the start cleanly, while 255 would mark the unit failed
+# and let any restart policy retry it. carlos-ctl start|restart relay this message to the terminal.
 # carlos-emr.service consults it as ExecCondition=, so the refusal is a clean "condition
 # failed" skip, and the reason below lands in the journal (journalctl -u carlos-emr).
 # Deliberately separate from carlos-emr-o19-guard, which other callers (the postinst, the
@@ -22,10 +24,15 @@ if [ ! -e "$RECORD" ] && [ ! -L "$RECORD" ]; then
     exit 0
 fi
 
-echo "carlos-emr: NOT starting: an upgrade was interrupted while it rewrote ${RECORD%.lab-filter-recovery}," >&2
-echo "carlos-emr: and that file may be half written (record: $RECORD)." >&2
-echo "carlos-emr: Run: sudo dpkg --configure -a   (it restores the file and removes the record)." >&2
-echo "carlos-emr: If that refuses because you edited or restored the file, check it, remove the" >&2
-echo "carlos-emr: record (a private copy of the whole configuration, secrets included), run the" >&2
-echo "carlos-emr: command again, then start carlos-emr." >&2
+# The remedy depends on how the interrupted configure ended: a failed one leaves the package unconfigured
+# (dpkg --configure -a), a deferred one (an OSCAR 19 import held provisioning) leaves it configured
+# (dpkg-reconfigure). Both run the recovery.
+printf '%s\n' \
+    "carlos-emr: NOT starting: an upgrade was interrupted while it rewrote ${RECORD%.lab-filter-recovery}," \
+    "carlos-emr: and that file may be half written (record: $RECORD)." \
+    "carlos-emr: Run: sudo dpkg --configure -a   (the package shows as unconfigured), or, when it shows as" \
+    "carlos-emr: configured, sudo dpkg-reconfigure carlos-emr. Either restores the file and removes the record." \
+    "carlos-emr: If that refuses because you edited or restored the file, check it, remove the" \
+    "carlos-emr: record (a private copy of the whole configuration, secrets included), run the" \
+    "carlos-emr: command again, then start carlos-emr." >&2
 exit 1
