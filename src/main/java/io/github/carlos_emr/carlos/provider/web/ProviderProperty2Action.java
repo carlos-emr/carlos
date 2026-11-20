@@ -543,7 +543,13 @@ public class ProviderProperty2Action extends ActionSupport {
             prop = createsQueue ? service.createDefaultQueue(providerNo, defaultQ)
                     : service.selectDefaultQueue(providerNo, defaultQ);
         } catch (RuntimeException e) {
-            logger.error("Unable to save default document queue ({})", e.getClass().getSimpleName());
+            if (isDuplicateQueueName(e)) {
+                // The provider typed the name of an existing queue: answered "not saved", not a fault (#6333).
+                logger.warn("Default document queue not saved: the queue name is already used");
+            } else {
+                logger.error("Unable to save default document queue{}",
+                        io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(e));
+            }
             return defaultDocQueueNotSaved();
         }
         request.setAttribute("status", "success");
@@ -3333,5 +3339,18 @@ public class ProviderProperty2Action extends ActionSupport {
     @StrutsParameter
     public void setLabMacroJSON(UserProperty labMacroJSON) {
         this.labMacroJSON = labMacroJSON;
+    }
+
+    /** Whether a failed queue creation was the unique queue-name constraint, anywhere in its cause chain. */
+    static boolean isDuplicateQueueName(Throwable failure) {
+        var seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Throwable, Boolean>());
+        for (Throwable cause = failure; cause != null && seen.add(cause); cause = cause.getCause()) {
+            if (cause instanceof java.sql.SQLIntegrityConstraintViolationException
+                    || cause instanceof org.hibernate.exception.ConstraintViolationException
+                    || cause instanceof org.springframework.dao.DataIntegrityViolationException) {
+                return true;
+            }
+        }
+        return false;
     }
 }

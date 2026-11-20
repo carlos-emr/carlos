@@ -205,4 +205,18 @@ class ProviderProperty2ActionDocQueueUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(securityObjects);
     }
 
+
+    /** A taken queue name is the provider's input, not a server fault; anything else stays an ERROR (#6333). */
+    @org.junit.jupiter.api.Test
+    void shouldRecognizeDuplicateQueueName_onlyFromIntegrityViolations() {
+        var duplicate = new org.hibernate.exception.ConstraintViolationException("dup",
+                new java.sql.SQLIntegrityConstraintViolationException("dup", "23000", 1062), "INSERT", "name");
+        org.assertj.core.api.Assertions.assertThat(ProviderProperty2Action.isDuplicateQueueName(
+                new org.springframework.dao.DataIntegrityViolationException("wrapped", duplicate))).isTrue();
+        org.assertj.core.api.Assertions.assertThat(ProviderProperty2Action.isDuplicateQueueName(
+                new RuntimeException(new java.sql.SQLIntegrityConstraintViolationException("dup")))).isTrue();
+        org.assertj.core.api.Assertions.assertThat(ProviderProperty2Action.isDuplicateQueueName(
+                new org.springframework.orm.jpa.JpaSystemException(new RuntimeException(new java.sql.SQLException("x", "45000"))))).isFalse();
+        org.assertj.core.api.Assertions.assertThat(ProviderProperty2Action.isDuplicateQueueName(new IllegalStateException("x"))).isFalse();
+    }
 }
